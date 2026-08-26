@@ -1504,6 +1504,63 @@ button.operator-tree-toggle:hover {
     .so-device.is-hot .so-device-load i { background: #b85c55; }
     .so-device-chip { display: inline-flex; margin: 4px 3px 0 0; padding: 2px 4px; border-radius: 3px; background: #e8f0fa; color: #356fae; font-size: 8px; }
     .so-communication-note { display: flex; align-items: center; gap: 7px; margin: 9px 0 0; padding: 7px 9px; border-left: 3px solid #8f7aa8; background: #f7f4fa; color: var(--foreground-secondary); font-size: 9px; line-height: 1.4; }
+    .so-twin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; padding: 9px 10px; border: 1px solid #d7dde5; border-radius: 7px; background: linear-gradient(180deg,#fbfcfe,#f6f8fb); }
+    .so-twin-layer-context { min-width: 0; }
+    .so-twin-layer-context span { display: block; color: var(--foreground-muted); font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+    .so-twin-layer-context strong { display: block; margin-top: 3px; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-twin-layer-context small { display: block; margin-top: 2px; overflow: hidden; color: var(--foreground-secondary); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-layer-select { width: 176px; min-width: 0; padding: 6px 24px 6px 8px; font-size: 9px; }
+    .so-twin-ingress { display: grid; grid-template-columns: 94px 25px minmax(118px,1fr) 25px minmax(140px,1fr); align-items: stretch; gap: 7px; margin-bottom: 12px; }
+    .so-twin-ingress .so-flow-source, .so-twin-ingress .so-flow-scheduler { display: grid; align-content: center; min-height: 58px; }
+    .so-twin-ingress .so-flow-arrow { align-self: center; }
+    .so-flow-model { position: relative; display: grid; align-content: center; min-width: 0; min-height: 58px; padding: 9px 11px; border: 1px solid color-mix(in srgb,var(--layer-color) 52%,#d7dde5); border-radius: 6px; background: linear-gradient(145deg,#fff 0%,color-mix(in srgb,var(--layer-color) 8%,#fff) 100%); box-shadow: 5px 6px 0 color-mix(in srgb,var(--layer-color) 12%,#e9edf2); }
+    .so-flow-model::before { content: ''; position: absolute; top: -5px; left: 6px; right: -5px; height: 5px; border: 1px solid color-mix(in srgb,var(--layer-color) 40%,#d7dde5); border-bottom: 0; background: color-mix(in srgb,var(--layer-color) 12%,#fff); transform: skewX(-46deg); transform-origin: left bottom; }
+    .so-flow-model::after { content: ''; position: absolute; top: -2px; right: -6px; bottom: -6px; width: 6px; border: 1px solid color-mix(in srgb,var(--layer-color) 44%,#d7dde5); border-left: 0; background: color-mix(in srgb,var(--layer-color) 18%,#edf1f5); transform: skewY(-44deg); transform-origin: left top; }
+    .so-flow-model strong, .so-flow-model span { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-flow-model strong { font-size: 10px; }
+    .so-flow-model span { margin-top: 4px; color: var(--foreground-secondary); font-size: 8px; }
+    .so-twin-layout { display: grid; grid-template-columns: 142px minmax(0,1fr); gap: 14px; align-items: stretch; min-width: 0; }
+    .so-model-stack-panel { min-width: 0; padding: 10px 8px 12px; border: 1px solid #d9dfe6; border-radius: 7px; background: linear-gradient(155deg,#fafbfd,#f1f4f7); }
+    .so-model-stack-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; padding: 0 2px; color: var(--foreground-muted); font-size: 8px; letter-spacing: .05em; text-transform: uppercase; }
+    .so-model-stack-head strong { color: var(--foreground-secondary); font-size: 8px; }
+    .so-model-stack { display: flex; flex-direction: column-reverse; gap: 6px; padding: 5px 8px 5px 2px; }
+    .so-model-layer-slab { --layer-color: #6f8fb7; position: relative; z-index: 1; min-width: 0; min-height: 39px; padding: 7px 8px; border: 1px solid color-mix(in srgb,var(--layer-color) 42%,#d6dce3); border-radius: 5px; background: linear-gradient(145deg,#fff,color-mix(in srgb,var(--layer-color) 8%,#f8fafc)); color: var(--foreground); text-align: left; cursor: pointer; box-shadow: 5px 6px 0 color-mix(in srgb,var(--layer-color) 10%,#e3e8ed); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+    .so-model-layer-slab::before { content: ''; position: absolute; top: -4px; left: 5px; right: -5px; height: 4px; border: 1px solid color-mix(in srgb,var(--layer-color) 35%,#d6dce3); border-bottom: 0; background: color-mix(in srgb,var(--layer-color) 13%,#fff); transform: skewX(-48deg); transform-origin: left bottom; }
+    .so-model-layer-slab::after { content: ''; position: absolute; top: -2px; right: -6px; bottom: -6px; width: 6px; border: 1px solid color-mix(in srgb,var(--layer-color) 40%,#d6dce3); border-left: 0; background: color-mix(in srgb,var(--layer-color) 17%,#e8edf2); transform: skewY(-43deg); transform-origin: left top; }
+    .so-model-layer-slab:hover { transform: translate(-2px,-2px); box-shadow: 7px 8px 0 color-mix(in srgb,var(--layer-color) 13%,#dfe5eb); }
+    .so-model-layer-slab.is-active { z-index: 2; border-color: var(--layer-color); background: linear-gradient(145deg,#fff,color-mix(in srgb,var(--layer-color) 17%,#f8fafc)); box-shadow: 7px 8px 0 color-mix(in srgb,var(--layer-color) 22%,#dfe5eb),0 0 0 2px color-mix(in srgb,var(--layer-color) 18%,transparent); transform: translate(-2px,-2px); }
+    .so-model-layer-slab strong, .so-model-layer-slab span { position: relative; z-index: 1; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-model-layer-slab strong { font-size: 9px; }
+    .so-model-layer-slab span { margin-top: 3px; color: var(--foreground-muted); font-size: 7px; }
+    .so-iso-fabric { position: relative; min-width: 0; padding: 11px 11px 14px; border: 1px solid #d6dde5; border-radius: 7px; background-color: #f6f8fa; background-image: linear-gradient(rgba(111,126,143,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(111,126,143,.07) 1px,transparent 1px); background-size: 16px 16px; box-shadow: inset 0 1px 0 #fff; }
+    .so-fabric-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 11px; padding: 0 2px; }
+    .so-fabric-head strong { display: block; font-size: 10px; }
+    .so-fabric-head span { display: block; margin-top: 3px; color: var(--foreground-muted); font-size: 8px; line-height: 1.35; }
+    .so-fabric-mode { flex: 0 0 auto; padding: 3px 6px; border-radius: 999px; background: #e8eef5; color: #547493; font-size: 7px; font-weight: 650; }
+    .so-fabric-rail { position: relative; display: grid; grid-template-columns: auto minmax(25px,1fr) auto minmax(25px,1fr) auto; align-items: center; gap: 6px; margin: 0 5px 13px; color: var(--foreground-muted); font-size: 7px; }
+    .so-fabric-rail i { height: 2px; background: repeating-linear-gradient(90deg,#8fa8c0 0 6px,transparent 6px 9px); }
+    .so-fabric-rail b { display: grid; width: 7px; height: 7px; place-items: center; border: 2px solid #6f98bf; border-radius: 50%; background: #f7f9fb; }
+    .so-fabric-rail.is-communication { color: #705e88; }
+    .so-fabric-rail.is-communication i { height: 3px; background: repeating-linear-gradient(90deg,#8f7aa8 0 7px,transparent 7px 10px); }
+    .so-fabric-rail.is-communication b { border-color: #8f7aa8; }
+    .so-iso-node-grid { display: grid; gap: 13px; min-width: 0; }
+    .so-iso-node { position: relative; min-width: 0; margin: 5px 7px 9px 0; padding: 10px 9px 11px; border: 1px solid #cdd5de; border-radius: 6px; background: linear-gradient(145deg,#fff,#f5f7f9); box-shadow: 7px 9px 0 #e0e6ec; }
+    .so-iso-node::before { content: ''; position: absolute; top: -6px; left: 7px; right: -7px; height: 6px; border: 1px solid #cdd5de; border-bottom: 0; background: linear-gradient(90deg,#f8fafc,#e9edf2); transform: skewX(-47deg); transform-origin: left bottom; }
+    .so-iso-node::after { content: ''; position: absolute; top: -3px; right: -8px; bottom: -9px; width: 8px; border: 1px solid #c6ced8; border-left: 0; border-radius: 0 4px 4px 0; background: #dfe5eb; transform: skewY(-43deg); transform-origin: left top; }
+    .so-iso-node > * { position: relative; z-index: 1; }
+    .so-iso-node .so-node-head { margin-bottom: 9px; }
+    .so-iso-device-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+    .so-iso-device { --device-face: #fff; position: relative; z-index: 1; min-width: 0; min-height: 84px; margin: 3px 4px 5px 0; padding: 8px 7px 9px; overflow: visible; border: 1px solid #d3dae2; border-radius: 4px; background: var(--device-face); color: var(--foreground); text-align: left; cursor: pointer; box-shadow: 4px 5px 0 #e5eaf0; }
+    .so-iso-device::before { content: ''; position: absolute; top: -4px; left: 5px; right: -5px; height: 4px; border: 1px solid #d3dae2; border-bottom: 0; background: #f6f8fa; transform: skewX(-47deg); transform-origin: left bottom; }
+    .so-iso-device::after { content: ''; position: absolute; top: -2px; right: -5px; bottom: -6px; width: 5px; border: 1px solid #ccd4dd; border-left: 0; background: #dfe5eb; transform: skewY(-43deg); transform-origin: left top; }
+    .so-iso-device > * { position: relative; z-index: 1; }
+    .so-iso-device.is-warm { --device-face: #fffaf2; border-color: #d7b27e; }
+    .so-iso-device.is-hot { --device-face: #fff5f3; border-color: #c77f77; }
+    .so-iso-device.is-selected { z-index: 2; outline: 2px solid var(--primary); outline-offset: 2px; box-shadow: 5px 7px 0 rgba(53,111,174,.18); }
+    .so-iso-device .so-device-value { overflow: hidden; font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+    .so-iso-device .so-device-meta { white-space: nowrap; }
+    .so-model-placement-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 12px; padding: 8px 9px; border-left: 3px solid var(--layer-color); background: color-mix(in srgb,var(--layer-color) 8%,#fff); color: var(--foreground-secondary); font-size: 8px; line-height: 1.45; }
+    .so-model-placement-note strong { flex: 0 0 auto; color: var(--foreground); }
     .so-plan-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 11px; }
     .so-plan-metric { padding: 8px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-2); }
     .so-plan-metric span { display: block; color: var(--foreground-muted); font-size: 8px; }
@@ -1521,7 +1578,7 @@ button.operator-tree-toggle:hover {
     .so-created-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; padding: 12px 14px; border: 1px solid #b8c9bb; border-radius: 8px; background: #f5faf7; }
     .so-created-banner strong { display: block; font-size: 12px; }
     .so-created-banner span { display: block; margin-top: 4px; color: var(--foreground-secondary); font-size: 10px; }
-    @media (prefers-reduced-motion: reduce) { .so-flow-arrow i { animation: none; left: 50%; } }
+    @media (prefers-reduced-motion: reduce) { .so-flow-arrow i { animation: none; left: 50%; } .so-model-layer-slab { transition: none; } }
     @media (max-width: 1180px) {
       .so-scenario-builder { grid-template-columns: 1fr; }
       .so-scenario-preview { position: static; }
@@ -1532,11 +1589,20 @@ button.operator-tree-toggle:hover {
       .so-flow-arrow { width: 2px; height: 24px; margin: 0 auto; }
       .so-flow-arrow::after { right: -3px; top: auto; bottom: -1px; border-top: 6px solid #6f98bf; border-right: 4px solid transparent; border-bottom: 0; border-left: 4px solid transparent; }
       .so-flow-arrow i { display: none; }
+      .so-twin-ingress { grid-template-columns: 1fr 22px 1.3fr 22px 1.2fr; }
+      .so-twin-layout { grid-template-columns: 126px minmax(0,1fr); }
     }
     @media (max-width: 700px) {
       .so-builder-grid, .so-observation-groups, .so-node-grid { grid-template-columns: 1fr; }
       .so-template-grid, .so-traffic-patterns, .so-viz-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-plan-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .so-twin-toolbar { align-items: stretch; flex-direction: column; }
+      .so-layer-select { width: 100%; }
+      .so-twin-ingress { grid-template-columns: 1fr; }
+      .so-twin-ingress .so-flow-arrow { width: 2px; height: 18px; margin: 0 auto; }
+      .so-twin-layout { grid-template-columns: 1fr; }
+      .so-model-stack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding-right: 8px; }
+      .so-iso-node-grid { grid-template-columns: 1fr !important; }
     }
     @media (max-width: 760px) {
       .so-model-card-meta, .so-model-summary { grid-template-columns: 1fr 1fr; }
@@ -1746,6 +1812,10 @@ button.operator-tree-toggle:hover {
         { id: 'mtp', label: 'MTP Layer', short: 'Draft token path', kind: 'mtp', color: '#b58b55', detail: 'Draft token projection and verification', tensor: 'draft_hidden + verify_logits', placement: 'TP shard' },
         { id: 'lm-head', label: 'LM Head', short: 'Logits + sampling', kind: 'head', color: '#6f7c91', detail: 'Vocabulary projection · sampling output', tensor: 'logits [B,V]', placement: 'TP gather' }
       ];
+
+      function selectedModelLayer(draft) {
+        return modelLayerCatalog.find(function (item) { return item.id === draft.modelLayer; }) || modelLayerCatalog[0];
+      }
 
       var validRoutes = ['workspace', 'model', 'scenarios', 'scenario-new', 'observe', 'investigate', 'explore', 'run'];
       function syncFromHash() {
@@ -2101,6 +2171,7 @@ button.operator-tree-toggle:hover {
           ep: template.ep,
           maxSequences: template.maxSequences,
           memoryUtilization: template.memoryUtilization,
+          modelLayer: template.modelLayer,
           observation: template.observation.slice(),
           status: 'editing'
         });
@@ -2125,6 +2196,7 @@ button.operator-tree-toggle:hover {
           ep: Number(config.expertParallel) || 8,
           maxSequences: Number(config.maxSeqs) || 32,
           memoryUtilization: Math.round((Number(config.memoryUtilization) || .9) * 100),
+          modelLayer: scenario.kind === 'batching' ? 'layer-1' : 'layer-32',
           observation: ['slo', 'scheduler', 'trace', 'device', 'cache'],
           status: 'editing'
         });
@@ -2761,27 +2833,39 @@ button.operator-tree-toggle:hover {
         return '<div class="so-traffic-chart"><svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="输入流量规划曲线，当前 ' + current.time + ' 秒为每秒 ' + current.rate + ' 个请求">' + grids + '<polygon class="so-chart-area" points="' + area + '"></polygon><polyline class="so-chart-line" points="' + points + '"></polyline><line class="so-chart-marker" x1="' + x(index) + '" x2="' + x(index) + '" y1="' + top + '" y2="' + (height - bottom) + '"></line><circle class="so-chart-point" cx="' + x(index) + '" cy="' + y(current.rate) + '" r="4"></circle><text class="so-chart-label" x="' + left + '" y="' + (height - 7) + '">0s</text><text class="so-chart-label" text-anchor="middle" x="' + (width / 2) + '" y="' + (height - 7) + '">60s</text><text class="so-chart-label" text-anchor="end" x="' + (width - right) + '" y="' + (height - 7) + '">120s</text><text class="so-chart-label" x="4" y="' + (top + 4) + '">' + max + '</text></svg></div>';
       }
 
-      function plannedDeviceBody(device, draft) {
+      function plannedDeviceBody(device, draft, layer) {
         var mode = draft.visualizationMode;
-        if (mode === 'model') return '<div class="so-device-value">TP ' + (device.tp + 1) + ' / ' + draft.tp + '</div><div class="so-device-meta">DP replica ' + (device.dp + 1) + '</div><span class="so-device-chip">Layer shard ' + (device.tp + 1) + '</span><span class="so-device-chip">EP group ' + (device.ep + 1) + '</span>';
-        if (mode === 'data') return '<div class="so-device-value">KV ' + device.kv + '%</div><div class="so-device-meta">Request group ' + (device.dp + 1) + '</div><span class="so-device-chip">DP ' + (device.dp + 1) + '</span><span class="so-device-chip">Cache owner</span><div class="so-device-load"><i style="width:' + device.kv + '%"></i></div>';
-        if (mode === 'communication') return '<div class="so-device-value">EP ' + (device.ep + 1) + '</div><div class="so-device-meta">TP shard ' + (device.tp + 1) + ' · collective</div><span class="so-device-chip">A2A</span><span class="so-device-chip">AllReduce</span>';
-        return '<div class="so-device-value">' + device.requests + ' req</div><div class="so-device-meta">预计负载 ' + device.utilization + '%</div><div class="so-device-load"><i style="width:' + device.utilization + '%"></i></div>';
+        var moeChips = layer.kind === 'moe' ? '<span class="so-device-chip">EP ' + (device.ep + 1) + '</span>' : '';
+        if (mode === 'model') return '<div class="so-device-value">' + esc(layer.short) + '</div><div class="so-device-meta">TP shard ' + (device.tp + 1) + ' / ' + draft.tp + ' · DP ' + (device.dp + 1) + '</div><span class="so-device-chip">Layer shard</span>' + moeChips;
+        if (mode === 'data') return '<div class="so-device-value">KV ' + device.kv + '%</div><div class="so-device-meta">' + esc(layer.tensor) + '</div><span class="so-device-chip">DP ' + (device.dp + 1) + '</span><span class="so-device-chip">KV owner</span><div class="so-device-load"><i style="width:' + device.kv + '%"></i></div>';
+        if (mode === 'communication') return '<div class="so-device-value">' + (layer.kind === 'moe' ? 'EP ' + (device.ep + 1) : 'TP ' + (device.tp + 1)) + '</div><div class="so-device-meta">TP shard ' + (device.tp + 1) + ' · ' + esc(layer.short) + '</div>' + (layer.kind === 'moe' ? '<span class="so-device-chip">A2A</span>' : '') + '<span class="so-device-chip">AllReduce</span>';
+        return '<div class="so-device-value">' + device.requests + ' req</div><div class="so-device-meta">' + esc(layer.label) + ' · 预计负载 ' + device.utilization + '%</div><span class="so-device-chip">DP ' + (device.dp + 1) + '</span><div class="so-device-load"><i style="width:' + device.utilization + '%"></i></div>';
       }
 
       function renderPlannedTopology(draft, allocation) {
         var nodes = [];
+        var layer = selectedModelLayer(draft);
         var selected = Number(draft.selectedDevice == null ? -1 : draft.selectedDevice);
         for (var n = 0; n < Number(draft.nodes); n += 1) {
           var nodeDevices = allocation.devices.filter(function (item) { return item.node === n; });
           var nodeLoad = Math.round(nodeDevices.reduce(function (sum, item) { return sum + item.utilization; }, 0) / Math.max(1, nodeDevices.length));
-          nodes.push('<section class="so-node"><div class="so-node-head"><strong>Node ' + n + '</strong><span>预计负载 ' + nodeLoad + '%</span></div><div class="so-device-grid">' + nodeDevices.map(function (device) {
+          nodes.push('<section class="so-iso-node"><div class="so-node-head"><strong>Node ' + n + '</strong><span>预计负载 ' + nodeLoad + '% · ' + nodeDevices.length + ' Devices</span></div><div class="so-iso-device-grid">' + nodeDevices.map(function (device) {
             var level = device.utilization >= 90 ? ' is-hot' : device.utilization >= 75 ? ' is-warm' : '';
-            return '<button class="so-device' + level + (selected === device.index ? ' is-selected' : '') + '" data-planned-device="' + device.index + '" aria-label="Node ' + device.node + ' Device ' + device.local + '，预计负载 ' + device.utilization + '%"><div class="so-device-top"><strong>Device ' + device.local + '</strong><span>#' + device.index + '</span></div>' + plannedDeviceBody(device, draft) + '</button>';
+            return '<button class="so-iso-device' + level + (selected === device.index ? ' is-selected' : '') + '" data-planned-device="' + device.index + '" aria-label="Node ' + device.node + ' Device ' + device.local + '，' + esc(layer.label) + '，预计负载 ' + device.utilization + '%"><div class="so-device-top"><strong>Device ' + device.local + '</strong><span>#' + device.index + '</span></div>' + plannedDeviceBody(device, draft, layer) + '</button>';
           }).join('') + '</div></section>');
         }
-        var communication = draft.visualizationMode === 'communication' ? '<div class="so-communication-note"><strong>通信规划</strong><span>TP ' + draft.tp + ' 路集合通信 · EP ' + draft.ep + ' 路 token exchange · ' + (Number(draft.tp) > Number(draft.devicesPerNode) ? '跨 Node 路径' : '优先 Node 内闭合') + '</span></div>' : '';
-        return '<div class="so-routing-flow"><div class="so-flow-source"><strong>' + allocation.current.rate + ' req/s</strong><span>当前输入流量<br>Prefill ' + draft.prefillRatio + '%</span></div><div class="so-flow-arrow"><i></i></div><div class="so-flow-scheduler"><strong>Router / Scheduler</strong><span>' + allocation.inflight + ' 个预计并发<br>max seqs ' + draft.maxSequences + '</span></div><div class="so-flow-arrow"><i></i></div><div class="so-node-grid" style="grid-template-columns:repeat(' + Math.min(2, Number(draft.nodes)) + ',minmax(0,1fr))">' + nodes.join('') + '</div></div>' + communication;
+        var modeLabels = { traffic: '流量分配', model: '模型分片', data: '数据与 KV', communication: '通信路径' };
+        var layerOptions = modelLayerCatalog.map(function (item) { return '<option value="' + item.id + '" ' + (item.id === layer.id ? 'selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
+        var modelStack = modelLayerCatalog.map(function (item) {
+          return '<button class="so-model-layer-slab' + (item.id === layer.id ? ' is-active' : '') + '" style="--layer-color:' + item.color + '" data-model-layer-button="' + item.id + '" aria-pressed="' + (item.id === layer.id) + '" aria-label="切换到 ' + esc(item.label) + '"><strong>' + esc(item.label) + '</strong><span>' + esc(item.short) + '</span></button>';
+        }).join('');
+        var communicationText = layer.kind === 'moe' ? 'TP ' + draft.tp + ' 路集合通信 · EP ' + draft.ep + ' 路 token exchange' : 'TP ' + draft.tp + ' 路集合通信 · 当前层不触发 Expert exchange';
+        var locality = Number(draft.tp) > Number(draft.devicesPerNode) ? '跨 Node 路径' : '优先 Node 内闭合';
+        var railLabel = draft.visualizationMode === 'communication' ? communicationText : (draft.visualizationMode === 'data' ? esc(layer.tensor) : esc(layer.placement) + ' · DP ' + draft.dp + ' / TP ' + draft.tp + (layer.kind === 'moe' ? ' / EP ' + draft.ep : ''));
+        var placementNote = draft.visualizationMode === 'communication' ? communicationText + ' · ' + locality : esc(layer.label) + ' 按 ' + esc(layer.placement) + ' 映射到当前 Device fabric；切层后保留同一流量时间点与并行策略。';
+        return '<div class="so-twin-toolbar"><div class="so-twin-layer-context"><span>Active model layer</span><strong>' + esc(layer.label) + '</strong><small>' + esc(layer.detail) + '</small></div><select class="so-select so-layer-select" data-model-layer aria-label="选择要观察的模型层">' + layerOptions + '</select></div>' +
+          '<div class="so-twin-ingress"><div class="so-flow-source"><strong>' + allocation.current.rate + ' req/s</strong><span>当前输入流量<br>Prefill ' + draft.prefillRatio + '%</span></div><div class="so-flow-arrow"><i></i></div><div class="so-flow-scheduler"><strong>Router / Scheduler</strong><span>' + allocation.inflight + ' 个预计并发<br>max seqs ' + draft.maxSequences + '</span></div><div class="so-flow-arrow"><i></i></div><div class="so-flow-model" style="--layer-color:' + layer.color + '"><strong>' + esc(layer.label) + '</strong><span>' + esc(layer.short) + ' · ' + esc(layer.placement) + '</span></div></div>' +
+          '<div class="so-twin-layout"><section class="so-model-stack-panel"><div class="so-model-stack-head"><span>Model layers</span><strong>DeepSeek V4</strong></div><div class="so-model-stack">' + modelStack + '</div></section><section class="so-iso-fabric"><div class="so-fabric-head"><div><strong>Device placement</strong><span>' + esc(layer.label) + ' · ' + draft.nodes + ' Nodes · ' + (Number(draft.nodes) * Number(draft.devicesPerNode)) + ' Devices</span></div><span class="so-fabric-mode">' + modeLabels[draft.visualizationMode] + '</span></div><div class="so-fabric-rail' + (draft.visualizationMode === 'communication' ? ' is-communication' : '') + '"><b></b><i></i><span>' + railLabel + '</span><i></i><b></b></div><div class="so-iso-node-grid" style="grid-template-columns:repeat(' + Math.min(2, Number(draft.nodes)) + ',minmax(0,1fr))">' + nodes.join('') + '</div><div class="so-model-placement-note" style="--layer-color:' + layer.color + '"><strong>' + (draft.visualizationMode === 'communication' ? '通信规划' : '映射关系') + '</strong><span>' + placementNote + '</span></div></section></div>';
       }
 
       function renderScenarioReadiness(draft, readiness) {
@@ -3452,6 +3536,19 @@ button.operator-tree-toggle:hover {
         });
         document.querySelectorAll('[data-viz-mode]').forEach(function (el) {
           el.addEventListener('click', function () { state.scenarioDraft.visualizationMode = el.getAttribute('data-viz-mode'); render(); });
+        });
+        var modelLayerSelect = document.querySelector('[data-model-layer]');
+        if (modelLayerSelect) modelLayerSelect.addEventListener('change', function () {
+          state.scenarioDraft.modelLayer = modelLayerSelect.value;
+          state.scenarioDraft.status = 'editing';
+          render();
+        });
+        document.querySelectorAll('[data-model-layer-button]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.scenarioDraft.modelLayer = el.getAttribute('data-model-layer-button');
+            state.scenarioDraft.status = 'editing';
+            render();
+          });
         });
         document.querySelectorAll('[data-planned-device]').forEach(function (el) {
           el.addEventListener('click', function () { state.scenarioDraft.selectedDevice = Number(el.getAttribute('data-planned-device')); render(); });
