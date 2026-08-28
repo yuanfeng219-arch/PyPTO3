@@ -96,7 +96,7 @@
         <td><span class="kf-prof-share"><span class="kf-prof-sharetrack"><span class="kf-prof-sharefill" style="width:${r.tps / maxTps * 100}%"></span></span>${int(r.tps)}</span></td>
         <td>${fmt(r.mte2, 1)}%</td>
       </tr>`).join('');
-    const cur = s.find((r) => r.current);
+    const cur = s.find((r) => r.current) || s.find((r) => r.batch === p.meta.batch) || s[0];
     const big = s[s.length - 1];
     return `<section class="kf-prof-card">
       <header><h3>Batch 扫描</h3><span>权重流量恒定 27.99 GB，KV 与激活随 batch 线性增长</span></header>

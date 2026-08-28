@@ -525,10 +525,317 @@
     },
   };
 
+  /* ================= 多机多卡：2 节点 × 8 卡 · TP=8 · PP=2 ================= */
+  /*
+   * 全部由单卡 profile 推导：
+   *   TP=8 把每层工作切成 8 份 → 每 rank 每层 = 355.5 / 8 = 44.44 μs
+   *   PP=2 把 40 层切成两段 → 每 rank 承担 20 层，batch 32 拆成 2 个 microbatch × 16
+   *   每 rank 层内 device time = 355.5/8 × 20 × 2 = 单卡 14.22 ms / 8 = 1.7775 ms
+   *
+   * 关键恒等式：
+   *   1.7775(层) + 0.150(边界) + 0.100(barrier) + 0.3776(AllReduce) + 0.0371(P2P) + 1.1092(气泡) = 3.5514 ms
+   */
+  const DIST = (() => {
+    const TP = 8; const PP = 2; const NODES = 2; const CARDS = 8;
+    const MB_COUNT = 2; const MB_BATCH = 16; const BATCH = MB_COUNT * MB_BATCH;
+    const STAGE_LAYERS = 40 / PP;
+    const HCCS = 400;  // GB/s · 节点内
+    const ROCE = 25;   // GB/s · 跨节点
+
+    const perLayerUs = 355.5 / TP;
+    const compUs = perLayerUs * STAGE_LAYERS;
+    const arPayload = MB_BATCH * 5120 * 2;                       // [16,5120] BF16
+    const arBus = 2 * (TP - 1) / TP * arPayload;                 // ring AllReduce 每卡总线流量
+    const arUs = arBus / (HCCS * 1e9) * 1e6 + 4;                 // + 固定延迟
+    const arPerMb = arUs * 2 * STAGE_LAYERS;                     // 每层 attn / mlp 各一次
+    const p2pUs = arPayload / (ROCE * 1e9) * 1e6 + 12;
+    const barPerMb = 2.5 * STAGE_LAYERS;
+    const edgeIn = 5 / TP;
+    const edgeOut = 600 / TP;
+    const s0Mb = compUs + arPerMb + barPerMb + edgeIn;
+    const s1Mb = compUs + arPerMb + barPerMb + edgeOut;
+
+    // 1F1B 流水：stage1 必须等 stage0 的 microbatch 传过来
+    const schedule = [];
+    let t0 = 0; let t1 = 0;
+    for (let i = 0; i < MB_COUNT; i += 1) {
+      schedule.push({ stage: 0, mb: i, t0, dur: s0Mb, kind: 'compute' });
+      const arrive = t0 + s0Mb + p2pUs;
+      schedule.push({ stage: 0, mb: i, t0: t0 + s0Mb, dur: p2pUs, kind: 'p2p' });
+      const start = Math.max(t1, arrive);
+      if (start > t1) schedule.push({ stage: 1, mb: i, t0: t1, dur: start - t1, kind: 'bubble' });
+      schedule.push({ stage: 1, mb: i, t0: start, dur: s1Mb, kind: 'compute' });
+      t1 = start + s1Mb;
+      t0 += s0Mb;
+    }
+    const tpotUs = t1;
+    if (t0 < tpotUs) schedule.push({ stage: 0, mb: null, t0, dur: tpotUs - t0, kind: 'bubble' });
+
+    const cardTotal = (NODES * CARDS) * tpotUs;
+    const busy0 = CARDS * MB_COUNT * s0Mb;
+    const busy1 = CARDS * MB_COUNT * s1Mb;
+    const arTotal = (NODES * CARDS) * MB_COUNT * arPerMb;
+    const p2pTotal = CARDS * MB_COUNT * p2pUs;
+
+    // 每 rank 负载：TP 组内本应均衡，ragged seq 与链路差异造成小幅倾斜；rank 11 为 straggler
+    let seed = 90210;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const ranks = [];
+    for (let r = 0; r < NODES * CARDS; r += 1) {
+      const stage = Math.floor(r / CARDS);
+      const base = stage === 0 ? s0Mb : s1Mb;
+      const straggler = r === 11;
+      const scale = 1 + (rnd() - 0.5) * 0.05 + (straggler ? 0.082 : 0);
+      const busy = base * MB_COUNT * scale;
+      const comm = arPerMb * MB_COUNT * scale;
+      ranks.push({
+        rank: r, node: Math.floor(r / CARDS), stage, straggler,
+        busyUs: busy, computeUs: busy - comm, commUs: comm,
+        idleUs: Math.max(tpotUs - busy, 0),
+        utilization: busy / tpotUs * 100,
+      });
+    }
+
+    const weightsStage0 = STAGE_LAYERS * 660.7 / TP / 1000;
+    const weightsStage1 = weightsStage0 + 1.556 / TP;
+    const kvPerTokenCard = 1 * 128 * 2 * 2 * STAGE_LAYERS;       // 1 kv head × 20 层
+    const kvPagesPerReq = Math.ceil(1614 / 128);
+    const kvPages = BATCH * kvPagesPerReq;
+    const kvPageMb = 128 * kvPerTokenCard / 1e6;
+    const kvPool = 640 * kvPageMb / 1000;
+    const trafficPerRank = weightsStage1 * MB_COUNT + BATCH * 1614 * kvPerTokenCard / 1e9 + 0.025;
+    const computeMs = (1.7775 + 0.150);
+
+    // 扩展性对照：同为 batch 32
+    const tp8Only = (() => {
+      const w = 27.99 / TP;
+      const kv = BATCH * 1614 * (1 * 128 * 2 * 2 * 40) / 1e9;
+      const ar = (2 * (BATCH * 5120 * 2) * (TP - 1) / TP / (HCCS * 1e9) * 1e6 + 4) * 2 * 40;
+      return ((w + kv + 0.025) / 2.55 * 1000 + ar + 2.5 * 40) / 1000;
+    })();
+    const singleCard = 17.11;
+    const mk = (label, cards, tpot, note, current) => ({
+      label, cards, tpot: Number(tpot.toFixed(3)),
+      tps: Math.round(BATCH / (tpot / 1000)),
+      speedup: Number((singleCard / tpot).toFixed(2)),
+      efficiency: Number((singleCard / tpot / cards * 100).toFixed(1)),
+      note, current: !!current,
+    });
+
+    return {
+      topology: { nodes: NODES, cardsPerNode: CARDS, world: NODES * CARDS, tp: TP, pp: PP, dp: 1, batch: BATCH, microbatches: MB_COUNT, mbBatch: MB_BATCH, stageLayers: STAGE_LAYERS },
+      tpotMs: tpotUs / 1000,
+      tps: Math.round(BATCH / (tpotUs / 1e6)),
+      stages: [
+        { id: 0, node: 0, layers: '0 – 19', perMbUs: s0Mb, utilization: MB_COUNT * s0Mb / tpotUs * 100, weights: weightsStage0, role: '输入边界 + 前 20 层' },
+        { id: 1, node: 1, layers: '20 – 39', perMbUs: s1Mb, utilization: MB_COUNT * s1Mb / tpotUs * 100, weights: weightsStage1, role: '后 20 层 + LM Head' },
+      ],
+      schedule,
+      cardTime: {
+        totalMs: cardTotal / 1000,
+        computePct: (busy0 + busy1 - arTotal) / cardTotal * 100,
+        commPct: arTotal / cardTotal * 100,
+        p2pPct: p2pTotal / cardTotal * 100,
+        bubblePct: (cardTotal - busy0 - busy1) / cardTotal * 100,
+      },
+      collectives: [
+        {
+          op: 'AllReduce', algo: 'Ring', scope: '节点内 TP 组 · 8 rank', link: 'HCCS',
+          calls: 2 * STAGE_LAYERS * MB_COUNT, payloadKb: arPayload / 1024, busKb: arBus / 1024,
+          usPerCall: arUs, totalMs: arPerMb * MB_COUNT / 1000,
+          achievedGbs: arBus / (arUs * 1e-6) / 1e9, peakGbs: HCCS,
+          trigger: '每层 attention out_proj 与 MLP down_proj 之后各一次',
+        },
+        {
+          op: 'Send / Recv', algo: 'P2P', scope: '跨节点 PP 边界', link: 'RoCE',
+          calls: MB_COUNT, payloadKb: arPayload / 1024, busKb: arPayload / 1024,
+          usPerCall: p2pUs, totalMs: p2pUs * MB_COUNT / 1000,
+          achievedGbs: arPayload / (p2pUs * 1e-6) / 1e9, peakGbs: ROCE,
+          trigger: 'stage 0 的 hidden_states 传给 stage 1',
+        },
+      ],
+      links: [
+        { id: 'hccs', label: '节点内 HCCS', peak: HCCS, achieved: arBus / (arUs * 1e-6) / 1e9, scope: `${CARDS} 卡全互联`, carries: 'TP AllReduce' },
+        { id: 'roce', label: '跨节点 RoCE', peak: ROCE, achieved: arPayload / (p2pUs * 1e-6) / 1e9, scope: `${NODES} 节点`, carries: 'PP P2P' },
+      ],
+      ranks,
+      memory: {
+        weightsStage0, weightsStage1,
+        kvPool, kvUsed: kvPages * kvPageMb / 1000, kvPages, kvPagesTotal: 640, kvPageMb,
+        workspace: 0.09, act: 0.01,
+        perCard: weightsStage1 + kvPool + 0.09 + 0.01,
+        capacity: 64,
+      },
+      traffic: { perRank: trafficPerRank, achievedBw: trafficPerRank / computeMs, weightReReads: MB_COUNT },
+      scaling: [
+        mk('单卡', 1, singleCard, '权重 27.99 GB 全在一张卡上'),
+        mk('TP=8 · 单节点', TP, tp8Only, '权重 3.50 GB/卡，AllReduce 全走节点内 HCCS'),
+        mk('TP=8 + PP=2 · 双节点', NODES * CARDS, tpotUs / 1000, '权重 1.85 GB/卡，但引入流水线气泡', true),
+      ],
+      perRankOps: {
+        layerMs: 355.5 / TP * STAGE_LAYERS * MB_COUNT / 1000,
+        edgeMs: edgeOut * MB_COUNT / 1000,
+        barrierMs: barPerMb * MB_COUNT / 1000,
+        allreduceMs: arPerMb * MB_COUNT / 1000,
+        p2pMs: p2pUs * MB_COUNT / 1000,
+        bubbleMs: tpotUs / 1000 - (355.5 / TP * STAGE_LAYERS * MB_COUNT + edgeOut * MB_COUNT + barPerMb * MB_COUNT + arPerMb * MB_COUNT + p2pUs * MB_COUNT) / 1000,
+      },
+    };
+  })();
+
+  /* 由单卡 ops 推导每 rank 的算子表：TP 切 8 份，PP 只承担一半层但跑 2 个 microbatch */
+  function distributedOps(base) {
+    const TP = DIST.topology.tp;
+    const stage1Edge = ['cast-lmhead', 'rms-lm-head'];
+    const stage0Edge = ['copy-hidden', 'x-gamma0'];
+    const out = base.filter((o) => o.group !== 'idle' && !stage0Edge.includes(o.id)).map((o) => {
+      const boundary = stage1Edge.includes(o.id);
+      const div = boundary ? TP / DIST.topology.microbatches : TP;  // 边界算子每 microbatch 各跑一次
+      const totalMs = o.totalMs / div;
+      return {
+        ...o,
+        totalMs: Number(totalMs.toFixed(4)),
+        share: 0,
+        perLayerUs: o.perLayerUs === null ? null : Number((o.perLayerUs / TP).toFixed(3)),
+        perLayer: o.perLayer ? o.perLayer.slice(0, DIST.topology.stageLayers).map((v) => Number((v / TP).toFixed(3))) : null,
+        bytesIn: o.bytesIn / div,
+        bytesOut: o.bytesOut / div,
+        gflop: Number((o.gflop / div).toFixed(3)),
+        achievedTflops: Number((o.gflop / div / (totalMs || 1)).toFixed(2)),
+        scope: `${o.scope} · TP 1/${TP}`,
+        note: `${o.note}\nTP=${TP} 后每 rank 只做 1/${TP} 的工作，权重分片 ${(o.bytesIn / div * 1000).toFixed(0)} MB。`,
+      };
+    });
+
+    const mk = (id, name, scope, group, calls, totalMs, bound, note, units) => ({
+      id, name, scope, group, calls, totalMs: Number(totalMs.toFixed(4)), share: 0,
+      perLayerUs: null, perLayer: null, units, bound, boundLabel: bound === 'comm' ? 'Comm' : 'Idle',
+      efficiency: null, bytesIn: 0, bytesOut: 0, reuse: null,
+      gflop: 0, achievedTflops: 0, achievedBw: 0, ai: null,
+      cores: null, imbalance: null, source: '—', static: [], note,
+    });
+    const commUnits = { cube: 0, vector: 0, mte2: 0, mte3: 0, sync: 100 };
+    out.push(mk('tp-allreduce', 'TP AllReduce', '节点内集合通信', 'comm',
+      DIST.collectives[0].calls, DIST.perRankOps.allreduceMs, 'comm', commUnits
+      && `每层 attention 与 MLP 之后各一次 Ring AllReduce，${DIST.collectives[0].calls} 次/step，单次 ${DIST.collectives[0].usPerCall.toFixed(2)} μs。走节点内 HCCS，未与计算重叠。`, commUnits));
+    out.push(mk('pp-p2p', 'PP Send / Recv', '跨节点点对点', 'comm',
+      DIST.collectives[1].calls, DIST.perRankOps.p2pMs, 'comm',
+      `stage 边界传 hidden_states，${DIST.collectives[1].calls} 次/step，单次 ${DIST.collectives[1].usPerCall.toFixed(2)} μs。载荷小，跨节点带宽不是瓶颈。`, commUnits));
+    out.push(mk('__barrier__', '层内 barrier', '未归属', 'idle',
+      null, DIST.perRankOps.barrierMs, 'idle', '每层 2.5 μs 同步开销。', commUnits));
+    out.push(mk('__bubble__', '流水线气泡', '未归属', 'idle',
+      null, DIST.perRankOps.bubbleMs, 'idle',
+      `PP=${DIST.topology.pp} 只有 ${DIST.topology.microbatches} 个 microbatch，气泡比 = (p−1)/(m+p−1) = ${((DIST.topology.pp - 1) / (DIST.topology.microbatches + DIST.topology.pp - 1) * 100).toFixed(0)}%。stage 1 开头空等 stage 0 的首个 microbatch，stage 0 结尾空等。`, commUnits));
+
+    const total = out.reduce((a, o) => a + o.totalMs, 0);
+    out.forEach((o) => { o.share = Number((o.totalMs / total * 100).toFixed(2)); });
+    return out.sort((a, b) => b.totalMs - a.totalMs);
+  }
+
+  const distOps = distributedOps(ops);
+  const distTotal = distOps.reduce((a, o) => a + o.totalMs, 0);
+  const distGroups = [
+    { id: 'mlp', label: 'MLP', detail: 'gate/up · silu · down（TP 1/8）' },
+    { id: 'attn', label: 'Attention', detail: 'work_build · rope · fa_fused · softmax' },
+    { id: 'proj', label: 'QKV / Out 投影', detail: 'q/k/v_proj · out_proj' },
+    { id: 'norm', label: 'Norm / Carry', detail: 'rms · qk_norm · residual · dcr_xgamma' },
+    { id: 'boundary', label: 'LM Head 与边界', detail: 'cast · rms_lm_head（仅 stage 1）' },
+    { id: 'comm', label: '集合通信', detail: 'TP AllReduce · PP Send/Recv' },
+    { id: 'idle', label: '气泡与同步', detail: '流水线气泡 · 层内 barrier' },
+  ].map((g) => {
+    const ms = distOps.filter((o) => o.group === g.id).reduce((a, o) => a + o.totalMs, 0);
+    return { ...g, ms: Number(ms.toFixed(4)), share: Number((ms / distTotal * 100).toFixed(2)) };
+  }).filter((g) => g.ms > 0);
+
+  profiles['run-0812-mn'] = {
+    id: 'run-0812-mn',
+    title: 'Decode Fused · 2 节点 × 8 卡 · TP8/PP2',
+    token: 'ptok://qwen3-14b/decode-fused-tp8pp2@run-0812-mn',
+    meta: {
+      model: 'Qwen3-14B', params: '14.8 B', dtype: 'BF16',
+      batch: DIST.topology.batch, layers: 40, seqAvg: 1614, page: 128,
+      device: `Ascend 950B × ${DIST.topology.world}`, hbm: 64, peakBw: PEAK_BW, peakFlops: PEAK_FLOPS,
+      env: 'env:8da1bf09', envMatch: true,
+      steps: 512, capturedAt: '2026-08-12 10:07:41', duration: '2.1 s',
+      collector: 'PyPTO DFX · msprof v9.0 · 16 rank 汇聚',
+      distributed: true,
+    },
+    summary: {
+      tpot: { p50: Number(DIST.tpotMs.toFixed(2)), p90: Number((DIST.tpotMs * 1.09).toFixed(2)), p99: Number((DIST.tpotMs * 1.21).toFixed(2)) },
+      tpotDelta: -76.6,
+      tps: DIST.tps, tpsDelta: 755.7,
+      ttft: 61, ttftDelta: -66.8,
+      kvUsed: DIST.memory.kvUsed, kvPool: DIST.memory.kvPool, kvPct: DIST.memory.kvPages / DIST.memory.kvPagesTotal * 100,
+      preempt: 0, batchAvg: DIST.topology.batch * 0.92,
+      sol: [
+        { id: 'cube', label: 'Cube (AIC)', pct: 2.1, detail: '每 rank 只做 1/8 的矩阵计算' },
+        { id: 'vector', label: 'Vector (AIV)', pct: 9.8, detail: 'elementwise + 归约' },
+        { id: 'mte2', label: 'MTE2 · HBM → 片上', pct: 38.6, detail: `${DIST.traffic.perRank.toFixed(2)} GB/rank · ${DIST.traffic.achievedBw.toFixed(2)} TB/s` },
+        { id: 'mte3', label: 'MTE3 · 片上 → HBM', pct: 3.4, detail: '累加器回写' },
+      ],
+      bound: 'bubble',
+      lowerBoundMs: Number((DIST.traffic.perRank / PEAK_BW).toFixed(2)),
+      efficiency: Number((DIST.traffic.perRank / PEAK_BW / DIST.tpotMs * 100).toFixed(1)),
+      traffic: {
+        weights: Number((DIST.memory.weightsStage1 * DIST.topology.microbatches).toFixed(3)),
+        kv: Number((DIST.topology.batch * 1614 * 1 * 128 * 2 * 2 * DIST.topology.stageLayers / 1e9).toFixed(3)),
+        act: 0.025,
+        total: Number(DIST.traffic.perRank.toFixed(3)),
+      },
+      flops: { total: Number((447.5 * 2 / 8).toFixed(1)), achieved: Number((447.5 * 2 / 8 / DIST.tpotMs).toFixed(1)), ai: Number((447.5 * 2 / 8 / DIST.traffic.perRank).toFixed(1)), ridge: 222.2 },
+    },
+    groups: distGroups,
+    ops: distOps,
+    itlBins: itlBins.map(([ms, n]) => [Number((ms / 15.2 * DIST.tpotMs).toFixed(2)), n]),
+    seqLens,
+    memory: {
+      hbm: {
+        capacity: 64,
+        items: [
+          ['weights', '权重分片 · BF16', Number(DIST.memory.weightsStage1.toFixed(3)), `20 层 / 8 分片 + LM Head 1/8（stage 1 卡）`],
+          ['kv', 'KV Cache 页池', Number(DIST.memory.kvPool.toFixed(3)), `${DIST.memory.kvPagesTotal} 页 × ${DIST.memory.kvPageMb.toFixed(2)} MB · 1 个 KV head`],
+          ['workspace', 'Workspace / 累加器', DIST.memory.workspace, '含 AllReduce 收发缓冲'],
+          ['act', '激活与跨层 carry', DIST.memory.act, '每 rank 只持有分片'],
+        ],
+      },
+      onchip: [
+        ['L0A / L0B', 44, null, 'tile 变小，Cube 利用率随之下降'],
+        ['L0C', 31, null, 'FP32 累加器'],
+        ['L1', 38, null, '权重 tile 预取'],
+        ['UB', 41, 58, '远低于预算 — 并行度过高导致每 rank 工作量太小'],
+      ],
+      kv: {
+        pageTokens: 128, pageBytesMb: DIST.memory.kvPageMb,
+        pagesTotal: DIST.memory.kvPagesTotal, pagesUsed: DIST.memory.kvPages,
+        tokensLive: DIST.topology.batch * 1614,
+        tokensAllocated: DIST.memory.kvPages * 128,
+        bytesAllocated: DIST.memory.kvUsed, bytesPool: DIST.memory.kvPool,
+        fragmentation: (DIST.memory.kvPages * 128 - DIST.topology.batch * 1614) / (DIST.memory.kvPages * 128) * 100,
+        utilization: DIST.memory.kvPages / DIST.memory.kvPagesTotal * 100,
+        hitRate: 98.4, preempt: 0, swap: 0,
+        mcb: 16, blocksPadded: 16 * DIST.topology.batch, blocksReal: DIST.memory.kvPages,
+        density: DIST.memory.kvPages / (16 * DIST.topology.batch) * 100,
+        perRequest: Array.from({ length: DIST.topology.batch }, (_, i) => {
+          const seq = seqLens[i % seqLens.length];
+          return { req: `req-${String(i).padStart(2, '0')}`, seq, pages: Math.ceil(seq / 128) };
+        }),
+      },
+      precision: memory.precision,
+    },
+    serving: {
+      ...serving,
+      queue: { ...serving.queue, running: DIST.topology.batch, waiting: 1 },
+      sweep: serving.sweep.map((s) => ({ ...s, current: s.batch === DIST.topology.batch })),
+    },
+    dist: DIST,
+    baseline: { id: 'run-0803-a', token: profiles['run-0803-a'].token, tpot: 15.2, tps: 1053, label: '单卡基线 · 08/03' },
+  };
+
   window.PtoInferenceProfile = {
     profiles,
     current: 'run-0803-a',
     constants: { PEAK_BW, PEAK_FLOPS, TPOT },
+    list: () => Object.values(profiles).map((p) => ({ id: p.id, title: p.title, device: p.meta.device, batch: p.meta.batch, tpot: p.summary.tpot.p50, tps: p.summary.tps, distributed: !!p.meta.distributed })),
     get: (id) => profiles[id || 'run-0803-a'],
   };
 })();

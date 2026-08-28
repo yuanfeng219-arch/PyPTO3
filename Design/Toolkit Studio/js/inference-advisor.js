@@ -105,7 +105,7 @@
     });
 
     /* 规则 E · 无依赖却被串行调度（来自时间线） */
-    const tl = window.PtoInferenceTimeline?.build?.(p);
+    const tl = p.dist ? null : window.PtoInferenceTimeline?.build?.(p);   // 时间线模型只覆盖单卡
     if (tl && tl.stats.parallelUs > 0) {
       const names = Object.keys(window.PtoInferenceTimeline.PARALLELIZABLE).map((id) => byId[id].name);
       out.push({
@@ -120,6 +120,99 @@
         ],
         recover: tl.stats.parallelStepMs,
         action: '把这三个任务与相邻任务重叠即可完全隐藏。见时间线页签的斜纹色块。',
+      });
+    }
+
+    /* ---- 多机多卡专属规则 ---- */
+    if (p.dist) {
+      const d = p.dist;
+      const t = d.topology;
+      const best = d.scaling.reduce((a, b) => (a.tps > b.tps ? a : b));
+      const cur = d.scaling.find((x) => x.current);
+
+      /* D1 · 并行度过高，PP 没有换来容量收益却引入气泡 */
+      if (best.cards < cur.cards && best.tps > cur.tps) {
+        out.push({
+          severity: 'high',
+          opId: null,
+          title: `并行度过高：${best.cards} 卡比当前 ${cur.cards} 卡快 ${fmt((cur.tpot / best.tpot - 1) * 100, 0)}%`,
+          evidence: [
+            ['当前配置', `TP=${t.tp} × PP=${t.pp} = ${t.world} 卡 · ${fmt(cur.tpot, 2)} ms · 扩展效率 ${fmt(cur.efficiency, 1)}%`],
+            ['更优配置', `${best.label} · ${best.cards} 卡 · ${fmt(best.tpot, 2)} ms · 扩展效率 ${fmt(best.efficiency, 1)}%`],
+            ['每卡显存占用', `${fmt(d.memory.perCard, 2)} / ${d.memory.capacity} GB（${fmt(d.memory.perCard / d.memory.capacity * 100, 1)}%）— PP 未带来任何容量收益`],
+            ['代价', `流水线气泡 ${fmt(d.cardTime.bubblePct, 1)}% 卡时`],
+          ],
+          recover: cur.tpot - best.tpot,
+          action: `14B 模型 TP=${t.tp} 分片后每卡权重仅 ${fmt(d.memory.weightsStage1, 2)} GB，单节点完全放得下。去掉 PP 即可；若为更大模型保留 PP，把 microbatch 从 ${t.microbatches} 提到 8 可把气泡压到 ${fmt(1 / (8 + t.pp - 1) * 100, 0)}%。`,
+        });
+      }
+
+      /* D2 · 流水线气泡 */
+      const theoretical = (t.pp - 1) / (t.microbatches + t.pp - 1) * 100;
+      out.push({
+        severity: 'high',
+        opId: null,
+        title: `流水线气泡占 ${fmt(d.cardTime.bubblePct, 1)}% 卡时，microbatch 数不足`,
+        evidence: [
+          ['气泡公式', `(p−1)/(m+p−1)，p=${t.pp}，m=${t.microbatches} → ${fmt(theoretical, 1)}%`],
+          ['实测', `${fmt(d.cardTime.bubblePct, 1)}% · ${fmt(d.cardTime.totalMs * d.cardTime.bubblePct / 100, 1)} card-ms`],
+          ['各 stage 利用率', d.stages.map((s) => `stage ${s.id} ${fmt(s.utilization, 1)}%`).join(' · ')],
+          ['有效计算', `仅 ${fmt(d.cardTime.computePct, 1)}% 卡时`],
+          ['收益归属', '消除气泡的办法就是去掉 PP，收益已在上一条量化，此处不重复计入'],
+        ],
+        // 与 D1「并行度过高」是同一笔收益（去掉 PP 即消除气泡），只在 D1 计入
+        recover: 0,
+        action: 'decode 阶段的 microbatch 会让权重被重复读取，提高 m 的收益要和多读的权重量一起权衡；最优解通常是干脆去掉 PP。',
+      });
+
+      /* D3 · TP AllReduce 未与计算重叠 */
+      const ar = d.collectives[0];
+      out.push({
+        severity: 'med',
+        opId: null,
+        title: `TP AllReduce 占 ${fmt(ar.totalMs / d.tpotMs * 100, 1)}% TPOT，完全暴露在关键路径上`,
+        evidence: [
+          ['调用次数', `${ar.calls} 次/step · 每层 attention 与 MLP 之后各一次`],
+          ['单次耗时', `${fmt(ar.usPerCall, 2)} μs（载荷仅 ${fmt(ar.payloadKb, 0)} KiB）`],
+          ['算法带宽', `${fmt(ar.achievedGbs, 1)} / ${ar.peakGbs} GB/s（${fmt(ar.achievedGbs / ar.peakGbs * 100, 1)}%）`],
+          ['瓶颈', '载荷太小，单次耗时被固定延迟主导 — 是调用次数问题，不是带宽问题'],
+        ],
+        recover: ar.totalMs * 0.5,
+        action: '把 AllReduce 与后续计算重叠（提前发起、分块流水），或合并相邻层的通信以摊薄固定延迟。',
+      });
+
+      /* D4 · straggler */
+      const busy = d.ranks.map((r) => r.busyUs);
+      const mean = busy.reduce((a, b) => a + b, 0) / busy.length;
+      const str = d.ranks.find((r) => r.straggler) || d.ranks.reduce((a, b) => (a.busyUs > b.busyUs ? a : b));
+      if (str.busyUs / mean > 1.05) {
+        out.push({
+          severity: 'med',
+          opId: null,
+          title: `rank ${str.rank} 落后同组均值 ${fmt((str.busyUs / mean - 1) * 100, 1)}%，拖慢整个 TP 组`,
+          evidence: [
+            ['最慢 rank', `rank ${str.rank}（node ${str.node} · stage ${str.stage}）${fmt(str.busyUs, 0)} μs`],
+            ['组内均值', `${fmt(mean, 0)} μs`],
+            ['传导范围', `AllReduce 是同步操作，node ${str.node} 上另外 ${t.cardsPerNode - 1} 张卡一起等`],
+            ['浪费', `${fmt((str.busyUs - mean) * (t.cardsPerNode - 1) / 1000, 3)} ms card-time / step`],
+          ],
+          recover: (str.busyUs - mean) / 1000,
+          action: '排查该卡的频率与温度、HCCS 链路误码率，以及 KV 分片是否恰好落在长序列上。',
+        });
+      }
+
+      /* D5 · 正向：TP 没有跨节点 */
+      out.push({
+        severity: 'good',
+        opId: null,
+        title: 'TP 组限制在节点内，跨节点只走小载荷 P2P',
+        evidence: [
+          ['TP 通信', `${ar.calls} 次 AllReduce 全部走节点内 HCCS ${d.links[0].peak} GB/s`],
+          ['跨节点通信', `仅 ${d.collectives[1].calls} 次 P2P，共 ${fmt(d.collectives[1].totalMs, 3)} ms（${fmt(d.cardTime.p2pPct, 2)}% 卡时）`],
+          ['对比', `若 TP 跨节点，${ar.calls} 次 AllReduce 将全部落到 ${d.links[1].peak} GB/s 的 RoCE 上`],
+        ],
+        recover: 0,
+        action: '保持。并行策略的切分方向是对的，问题只出在并行度大小。',
       });
     }
 

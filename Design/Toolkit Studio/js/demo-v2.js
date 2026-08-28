@@ -3212,8 +3212,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     $('#ideStatusStrip').hidden = isModel;
     $('#modelArchitectureView').hidden = !isModel;
     if (isModel) {
-      $('.kf-command').textContent = 'MODEL · Qwen3 14B 架构可视化';
-      window.PtoQwen3ModelViz?.show();
+      const activeModel = window.PtoModelArchitectureState?.active || 'qwen3';
+      if (activeModel === 'deepseek-v4-flash') {
+        window.PtoDeepSeekV4ModelViz?.show();
+      } else {
+        window.PtoQwen3ModelViz?.show();
+      }
       return;
     }
     $('.kf-main-body').classList.toggle('is-runs', isRuns);
@@ -3241,6 +3245,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       $$('[data-file]').forEach((item) => item.classList.toggle('is-selected', item.dataset.file === state.activeFile));
       setEditorTab(state.editorTab);
     }
+  }
+
+  function closeModelSelector() {
+    const selector = $('[data-model-selector]');
+    const trigger = $('[data-model-selector-trigger]');
+    const menu = $('[data-model-selector-menu]');
+    if (!selector || !trigger || !menu) return;
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
   }
 
   function toggleTreeGroup(name, expanded) {
@@ -3559,12 +3572,29 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   document.addEventListener('click', (event) => {
     if (!event.target.closest('#envControl') && !event.target.closest('#envFingerprintPanel')) setEnvironmentPanel(false);
+    const selector = event.target.closest('[data-model-selector]');
+    if (!selector) closeModelSelector();
+    const selectorTrigger = event.target.closest('[data-model-selector-trigger]');
+    if (selectorTrigger) {
+      const menu = selectorTrigger.closest('[data-model-selector]')?.querySelector('[data-model-selector-menu]');
+      const open = menu && menu.hidden;
+      if (menu) menu.hidden = !open;
+      selectorTrigger.setAttribute('aria-expanded', String(Boolean(open)));
+      return;
+    }
     const recipe = event.target.closest('[data-recipe]');
     if (recipe) { state.selectedRecipe = recipe.dataset.recipe; renderRecipes(); toast(`已选择 ${$('b', recipe).textContent}`); }
     const step = event.target.closest('[data-step]');
     if (step) { setActivityView('workflow'); goTo(Number(step.dataset.step)); }
     if (event.target.closest('[data-open-runs]')) setActivityView('runs');
     if (event.target.closest('[data-back-workflow]')) setActivityView('workflow');
+    const modelOption = event.target.closest('[data-model-id]');
+    if (modelOption) {
+      window.PtoModelArchitectureState = { active: modelOption.dataset.modelId };
+      closeModelSelector();
+      setActivityView('model');
+      return;
+    }
     const treeToggle = event.target.closest('[data-tree-toggle]');
     if (treeToggle) toggleTreeGroup(treeToggle.dataset.treeToggle, treeToggle.getAttribute('aria-expanded') !== 'true');
     const file = event.target.closest('[data-file]');
@@ -3866,6 +3896,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const trusted = runs.find(r => r.verdict === 'trusted');
       toast(`对比 ${getRun().id} ↔ ${trusted ? trusted.id : '可信基线'} · 因果 diff 已就绪`);
     }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeModelSelector();
   });
   document.addEventListener('pointerover', (event) => {
     const line = event.target.closest?.('[data-hardware-line]');

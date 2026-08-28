@@ -1,0 +1,790 @@
+/* 融合算子推荐抽屉 · .kf-fus-* / 模型结构侧栏入口 · .kf-model-fus-entry
+   几何与用色沿用 profiler.css 的 .kf-prof-*，两个抽屉在同一视图里应该看起来是一家的 */
+
+/* ---------- 侧栏入口卡 ---------- */
+.kf-model-fus-entry { margin-top: 10px; }
+.kf-model-fus-entry[hidden] { display: none; }
+.kf-model-fus-entry {
+  border-color: color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 34%, var(--border-subtle));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 11%, var(--surface-2)), var(--surface-2));
+}
+.kf-model-fus-entry:hover, .kf-model-fus-entry:focus-visible {
+  border-color: var(--tone-blue-strong, #4a90d9);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 18%, transparent);
+}
+.kf-model-fus-entry .kf-model-obs-entry__icon {
+  background: color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 20%, var(--surface-4));
+  color: var(--tone-blue-strong, #4a90d9);
+}
+.kf-model-fus-entry em { color: var(--tone-blue-strong, #4a90d9); }
+.kf-model-fus-entry .kf-model-obs-entry__state i {
+  background: var(--tone-blue-strong, #4a90d9);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 16%, transparent);
+}
+
+.kf-model-toolbar__fusion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  margin-left: 8px;
+  padding: 0 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 62%, var(--border-strong));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface-2));
+  color: color-mix(in srgb, var(--primary) 72%, white);
+  font: 600 var(--kf-type-xs)/1 var(--font-sans);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.kf-model-toolbar__fusion[hidden] { display: none; }
+.kf-model-toolbar__fusion:hover, .kf-model-toolbar__fusion:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 84%, white);
+  background: color-mix(in srgb, var(--primary) 25%, var(--surface-2));
+  color: color-mix(in srgb, var(--primary) 58%, white);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- 停靠外壳 ----------
+   面板占用 inspector 那一栏而不是盖住画布：方案和整网结构图必须同屏，
+   否则「看方案在整网中的位置」根本无从谈起。 */
+.kf-model-workspace.is-fusion-docked {
+  grid-template-columns: minmax(210px, 15.5vw) minmax(420px, 1fr) minmax(430px, 33vw);
+}
+.kf-model-workspace.is-fusion-docked > .kf-model-inspector { display: none; }
+
+.kf-fus-root { min-width: 0; min-height: 0; display: grid; }
+.kf-fus-root[hidden] { display: none; }
+.kf-fus-drawer {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  border-left: 1px solid var(--border-default);
+  background: var(--surface-1);
+  animation: kf-fus-slide 200ms cubic-bezier(.22, .68, .36, 1) both;
+}
+@keyframes kf-fus-slide { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kf-fus-drawer { animation: none; } }
+
+.kf-fus-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 18px 13px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--panel-shell-bg);
+}
+.kf-fus-crumb { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-fus-crumb button { border: 0; padding: 0; background: none; color: var(--foreground-muted); font-size: var(--kf-type-2xs); cursor: pointer; }
+.kf-fus-crumb button:hover { color: var(--primary); text-decoration: underline; }
+.kf-fus-crumb b { color: var(--foreground-secondary); font-weight: 600; }
+.kf-fus-head h2 { margin: 0; font-size: var(--kf-type-lg); letter-spacing: -.01em; }
+.kf-fus-head p { margin: 4px 0 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.4 var(--font-mono); }
+.kf-fus-headactions { display: inline-flex; align-items: center; gap: 7px; }
+.kf-fus-btn {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  font: 500 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-fus-btn:hover, .kf-fus-btn:focus-visible { border-color: var(--border-strong); color: var(--foreground); outline: none; }
+.kf-fus-btn.is-primary {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border-subtle));
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.kf-fus-btn.is-primary:hover { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.kf-fus-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  font-size: var(--kf-type-sm);
+  cursor: pointer;
+}
+.kf-fus-close:hover, .kf-fus-close:focus-visible { border-color: var(--danger); color: var(--danger); outline: none; }
+
+/* ---------- Context bar ---------- */
+.kf-fus-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+.kf-fus-scenario { display: inline-flex; padding: 2px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-4); }
+.kf-fus-scenario button {
+  min-width: 62px;
+  height: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground-muted);
+  font: 650 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-fus-scenario button.is-active { color: var(--foreground); background: var(--surface-1); box-shadow: 0 1px 5px rgb(0 0 0 / .22); }
+.kf-fus-ctxitem { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-fus-ctxitem b { color: var(--foreground-secondary); font: 600 var(--kf-type-2xs)/1 var(--font-mono); }
+.kf-fus-ctxsep { width: 1px; height: 16px; background: var(--border-subtle); }
+.kf-fus-spacer { flex: 1 1 auto; }
+
+/* ---------- Tabs ---------- */
+.kf-fus-tabs { display: flex; gap: 2px; padding: 0 14px; border-bottom: 1px solid var(--border-subtle); background: var(--panel-shell-bg); }
+.kf-fus-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 13px;
+  border: 0;
+  background: none;
+  color: var(--foreground-muted);
+  font: 500 var(--kf-type-xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-fus-tabs button:hover, .kf-fus-tabs button:focus-visible { color: var(--foreground); outline: none; }
+.kf-fus-tabs button.is-active { color: var(--foreground); }
+.kf-fus-tabs button.is-active::after {
+  content: '';
+  position: absolute;
+  right: 9px;
+  bottom: -1px;
+  left: 9px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--primary);
+}
+.kf-fus-tabs button em {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--surface-4);
+  color: var(--foreground-muted);
+  font: 600 var(--kf-type-2xs)/1 var(--font-mono);
+  font-style: normal;
+}
+
+.kf-fus-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 26px;
+  background: var(--background);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* ---------- KPI ---------- */
+.kf-fus-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 9px; margin-bottom: 13px; }
+.kf-fus-kpi { display: grid; gap: 5px; padding: 12px 13px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-2); }
+.kf-fus-kpi > span { color: var(--foreground-muted); font: 600 var(--kf-type-2xs)/1 var(--font-sans); letter-spacing: .06em; }
+.kf-fus-kpi > b { font: 700 var(--kf-type-xl, 22px)/1.05 var(--font-mono); letter-spacing: -.02em; }
+.kf-fus-kpi > b.is-strong { color: var(--success); }
+.kf-fus-kpi > b i { color: var(--foreground-muted); font: 500 var(--kf-type-xs)/1 var(--font-mono); font-style: normal; }
+.kf-fus-kpi > small { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.35 var(--font-mono); }
+
+
+/* ---------- 列表 + 详情 ---------- */
+.kf-fus-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 442px); gap: 13px; align-items: start; }
+@media (max-width: 1180px) { .kf-fus-split { grid-template-columns: minmax(0, 1fr); } }
+
+.kf-fus-list { display: grid; gap: 6px; }
+.kf-fus-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 168px 118px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.kf-fus-row:hover { border-color: var(--border-strong); background: var(--surface-3); }
+.kf-fus-row.is-active { border-color: color-mix(in srgb, var(--primary) 52%, transparent); background: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); }
+.kf-fus-row__rank { color: var(--foreground-muted); font: 700 var(--kf-type-xs)/1 var(--font-mono); text-align: center; }
+.kf-fus-row__main { display: grid; gap: 4px; min-width: 0; }
+.kf-fus-row__main b { font-size: var(--kf-type-sm); }
+.kf-fus-row__main small { overflow: hidden; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.35 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-fus-row__tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.kf-fus-row__score { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.kf-fus-row__score em { color: var(--foreground); font: 700 var(--kf-type-sm)/1 var(--font-mono); font-style: normal; }
+.kf-fus-row__gm { display: grid; gap: 2px; text-align: right; }
+.kf-fus-row__gm b { font: 700 var(--kf-type-xs)/1 var(--font-mono); }
+.kf-fus-row__gm small { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.3 var(--font-mono); }
+
+.kf-fus-tag {
+  padding: 2px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: var(--surface-4);
+  color: var(--foreground-muted);
+  font: 600 var(--kf-type-2xs)/1.5 var(--font-mono);
+  font-style: normal;
+}
+.kf-fus-tag.is-shape { border-color: color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 34%, transparent); color: var(--tone-blue-strong, #4a90d9); }
+
+.kf-fus-level {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font: 700 var(--kf-type-2xs)/1 var(--font-sans);
+  font-style: normal;
+  white-space: nowrap;
+}
+.kf-fus-level.is-strong { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.kf-fus-level.is-conditional { background: color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 20%, transparent); color: var(--tone-blue-strong, #4a90d9); }
+.kf-fus-level.is-cautious { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.kf-fus-level.is-reject { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.kf-fus-level.is-unknown, .kf-fus-level.is-na { background: var(--surface-4); color: var(--foreground-muted); }
+
+.kf-fus-bar { position: relative; display: block; height: 6px; border-radius: 999px; background: var(--surface-4); overflow: hidden; }
+.kf-fus-bar i { position: absolute; inset: 0 auto 0 0; width: var(--v, 0%); border-radius: 999px; background: var(--primary); }
+.kf-fus-bar.is-inline { display: inline-block; width: 62px; margin-right: 7px; vertical-align: middle; }
+
+/* ---------- 详情 ---------- */
+.kf-fus-detail { position: sticky; top: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-2); }
+.kf-fus-detail > header { padding: 13px 15px 12px; border-bottom: 1px solid var(--border-subtle); }
+.kf-fus-detailhead { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-bottom: 8px; }
+.kf-fus-detail h3 { margin: 0; font-size: var(--kf-type-md); letter-spacing: -.01em; }
+.kf-fus-detail > header p { margin: 5px 0 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.5 var(--font-mono); }
+.kf-fus-detailactions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.kf-fus-detailbody { max-height: min(70vh, 760px); overflow: auto; padding: 13px 15px 16px; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+.kf-fus-block { margin-bottom: 14px; }
+.kf-fus-block h4 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 7px; color: var(--foreground); font-size: var(--kf-type-xs); }
+.kf-fus-block h4 small { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.3 var(--font-mono); }
+.kf-fus-block.is-good h4 { color: var(--success); }
+.kf-fus-block.is-warn h4 { color: var(--warning); }
+.kf-fus-block.is-unknown { padding: 11px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-3); }
+
+.kf-fus-bullets { margin: 0; padding-left: 17px; color: var(--foreground-secondary); font-size: var(--kf-type-xs); line-height: 1.6; }
+.kf-fus-bullets li { margin-bottom: 4px; }
+.kf-fus-note { margin: 7px 0 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.55 var(--font-mono); }
+.kf-fus-note b { color: var(--foreground-secondary); }
+.kf-fus-note code { color: var(--warning); font-family: var(--font-mono); }
+.kf-fus-fallback {
+  margin: 0;
+  padding: 9px 11px;
+  border-left: 2px solid var(--warning);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: color-mix(in srgb, var(--warning) 7%, transparent);
+  color: var(--foreground-secondary);
+  font-size: var(--kf-type-xs);
+  line-height: 1.55;
+}
+
+.kf-fus-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.kf-fus-chain span {
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-3));
+  color: var(--foreground-secondary);
+  font: 500 var(--kf-type-2xs)/1.35 var(--font-mono);
+}
+.kf-fus-chain em { color: var(--foreground-muted); font-size: var(--kf-type-2xs); font-style: normal; }
+
+.kf-fus-nodes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.kf-fus-node {
+  padding: 3px 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--foreground-muted);
+  font: 600 var(--kf-type-2xs)/1.4 var(--font-mono);
+  cursor: pointer;
+}
+.kf-fus-node:hover, .kf-fus-node:focus-visible { border-color: var(--primary); border-style: solid; color: var(--primary); outline: none; }
+
+/* ---------- 分数拆解 ---------- */
+.kf-fus-score { margin-bottom: 14px; padding: 12px 13px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-3); }
+.kf-fus-scorehead { display: grid; gap: 6px; margin-bottom: 11px; }
+.kf-fus-scorehead > div { display: flex; align-items: baseline; gap: 9px; }
+.kf-fus-scorehead span { color: var(--foreground-muted); font: 600 var(--kf-type-2xs)/1 var(--font-sans); letter-spacing: .06em; }
+.kf-fus-scorehead b { font: 700 var(--kf-type-xl, 22px)/1 var(--font-mono); letter-spacing: -.02em; }
+.kf-fus-scorehead small { color: var(--foreground-secondary); font-size: var(--kf-type-xs); }
+.kf-fus-scorehead p { margin: 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.5 var(--font-mono); }
+.kf-fus-factgroup { margin-top: 9px; }
+.kf-fus-factgroup h4 { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 6px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kf-fus-factgroup h4 em { font: 700 var(--kf-type-xs)/1 var(--font-mono); font-style: normal; }
+.kf-fus-factgroup:first-of-type h4 em { color: var(--success); }
+.kf-fus-factgroup:last-of-type h4 em { color: var(--danger); }
+.kf-fus-fact { display: grid; grid-template-columns: 88px minmax(0, 1fr) 42px 34px; align-items: center; gap: 8px; margin-bottom: 4px; }
+.kf-fus-fact > span:first-child { color: var(--foreground-muted); font: 500 var(--kf-type-2xs)/1.3 var(--font-sans); }
+.kf-fus-facttrack { position: relative; height: 8px; border-radius: 3px; background: var(--surface-4); overflow: hidden; }
+.kf-fus-facttrack i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+.kf-fus-fact[data-side="benefit"] .kf-fus-facttrack i { background: color-mix(in srgb, var(--success) 72%, transparent); }
+.kf-fus-fact[data-side="cost"] .kf-fus-facttrack i { background: color-mix(in srgb, var(--danger) 62%, transparent); }
+.kf-fus-fact em { color: var(--foreground-secondary); font: 600 var(--kf-type-2xs)/1 var(--font-mono); font-style: normal; text-align: right; }
+.kf-fus-fact em small { color: var(--foreground-muted); font-size: 9px; }
+.kf-fus-fact b { font: 700 var(--kf-type-2xs)/1 var(--font-mono); text-align: right; }
+.kf-fus-fact[data-side="benefit"] b { color: var(--success); }
+.kf-fus-fact[data-side="cost"] b { color: var(--danger); }
+
+/* ---------- 表格 ---------- */
+.kf-fus-table { width: 100%; border-collapse: collapse; font-size: var(--kf-type-2xs); }
+.kf-fus-table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--foreground-muted);
+  font: 600 var(--kf-type-2xs)/1.3 var(--font-sans);
+  text-align: left;
+  white-space: nowrap;
+}
+.kf-fus-table td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent); color: var(--foreground-secondary); line-height: 1.5; vertical-align: top; }
+.kf-fus-table td b { color: var(--foreground); font-family: var(--font-mono); }
+.kf-fus-table td small { display: block; margin-top: 2px; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.3 var(--font-mono); }
+.kf-fus-table code { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.4 var(--font-mono); }
+.kf-fus-table tfoot td { border-bottom: 0; border-top: 1px solid var(--border-subtle); color: var(--foreground-muted); }
+.kf-fus-table tfoot td b { color: var(--foreground); }
+.kf-fus-table tr.is-hit td { background: color-mix(in srgb, var(--warning) 6%, transparent); }
+.kf-fus-table.is-coverage td:first-child b { display: block; color: var(--foreground); font-family: var(--font-sans); font-size: var(--kf-type-xs); }
+.kf-fus-hit { color: var(--warning); font: 700 var(--kf-type-2xs)/1 var(--font-sans); font-style: normal; }
+.kf-fus-muted { color: color-mix(in srgb, var(--foreground-muted) 72%, transparent); }
+.kf-fus-count { display: inline-grid; min-width: 20px; height: 20px; place-items: center; padding: 0 5px; border-radius: 6px; background: var(--surface-4); color: var(--foreground); font: 700 var(--kf-type-2xs)/1 var(--font-mono); }
+.kf-fus-count.is-strong { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.kf-fus-count.is-reject { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.kf-fus-prio { padding: 2px 6px; border-radius: 5px; font: 700 var(--kf-type-2xs)/1.5 var(--font-mono); font-style: normal; }
+.kf-fus-prio.is-p0 { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+.kf-fus-prio.is-p1 { background: var(--surface-4); color: var(--foreground-muted); }
+.kf-fus-link { display: block; border: 0; padding: 0; background: none; color: var(--foreground-secondary); font: 500 var(--kf-type-2xs)/1.5 var(--font-sans); text-align: left; cursor: pointer; }
+.kf-fus-link:hover { color: var(--primary); text-decoration: underline; }
+
+/* ---------- 阻断分析 ---------- */
+.kf-fus-pane { display: grid; gap: 16px; }
+.kf-fus-section { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-2); padding: 13px 15px 15px; }
+.kf-fus-section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 11px; padding-bottom: 9px; border-bottom: 1px solid var(--border-subtle); }
+.kf-fus-section > header h3 { margin: 0; font-size: var(--kf-type-sm); }
+.kf-fus-section > header span { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.3 var(--font-mono); }
+
+.kf-fus-blockgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 10px; }
+.kf-fus-blockcard { padding: 12px 13px; border: 1px solid var(--border-subtle); border-left: 2px solid var(--danger); border-radius: var(--radius-md); background: var(--surface-3); }
+.kf-fus-blockcard.is-unknown { border-left-color: var(--foreground-muted); margin-bottom: 9px; }
+.kf-fus-blockcard > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.kf-fus-blockcard > header > div { display: flex; align-items: center; gap: 7px; }
+.kf-fus-blockcard h4 { margin: 0; font-size: var(--kf-type-xs); }
+.kf-fus-blockcard > header span { color: var(--foreground-muted); font: var(--kf-type-2xs)/1 var(--font-mono); }
+.kf-fus-pattern { margin: 0 0 8px; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.45 var(--font-mono); }
+.kf-fus-reason { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 8px; margin: 8px 0; }
+.kf-fus-reason i {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+  font: 700 var(--kf-type-2xs)/1.5 var(--font-mono);
+  font-style: normal;
+}
+.kf-fus-reason > span { align-self: center; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kf-fus-reason p { grid-column: 1 / 3; margin: 2px 0 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.5 var(--font-sans); }
+.kf-fus-unblock { margin: 9px 0 0; padding-top: 8px; border-top: 1px dashed var(--border-subtle); color: var(--foreground-secondary); font: var(--kf-type-2xs)/1.5 var(--font-sans); }
+.kf-fus-unblock b { display: block; margin-bottom: 2px; color: var(--success); font-size: var(--kf-type-2xs); }
+
+/* ---------- 验证计划 ---------- */
+.kf-fus-gates { display: grid; gap: 7px; margin: 0 0 13px; padding: 0; list-style: none; counter-reset: gate; }
+.kf-fus-gates li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-3); }
+.kf-fus-gates i { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 999px; background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); font: 700 var(--kf-type-2xs)/1 var(--font-mono); font-style: normal; }
+.kf-fus-gates b { font-size: var(--kf-type-xs); }
+.kf-fus-gates p { margin: 2px 0 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.45 var(--font-sans); }
+.kf-fus-gates li > span { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.3 var(--font-mono); white-space: nowrap; }
+
+.kf-fus-mvp { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.kf-fus-mvp li { display: grid; grid-template-columns: 18px 132px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px 9px; border-radius: var(--radius-md); background: var(--surface-3); }
+.kf-fus-mvp i { color: var(--foreground-muted); font: 700 var(--kf-type-xs)/1 var(--font-mono); font-style: normal; text-align: center; }
+.kf-fus-mvp li.is-ready i { color: var(--success); }
+.kf-fus-mvp b { font-size: var(--kf-type-xs); }
+.kf-fus-mvp span { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.35 var(--font-mono); }
+
+.kf-fus-empty { padding: 26px; border: 1px dashed var(--border-subtle); border-radius: var(--radius-lg); color: var(--foreground-muted); font-size: var(--kf-type-xs); text-align: center; }
+
+/* ---------- 结构图上的融合边界高亮 ---------- */
+/* 从推荐面板回跳时用；一个候选可能覆盖多个模块，用描边把边界整体标出来 */
+.pto-model-graphviz-node.is-fusion-focus rect,
+.pto-model-graphviz-node.is-fusion-focus .pto-model-graphviz-node__shape {
+  stroke: var(--primary);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--primary) 55%, transparent));
+}
+.pto-model-graphviz-node.is-fusion-focus { animation: kf-fus-pulse 1.4s ease-in-out 2; }
+@keyframes kf-fus-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) {
+  .pto-model-graphviz-node.is-fusion-focus { animation: none; }
+}
+
+/* ---------- 卡片上的融合类型标签 ---------- */
+/* 列表去掉筛选后，类型信息全靠卡片自己讲清楚，所以这两个标签要能一眼分辨 */
+.kf-fus-tag.is-cat {
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
+/* ---------- 未推荐原因 · 谨慎级卡片 ---------- */
+.kf-fus-blockcard.is-cautious { border-left-color: var(--warning); margin-bottom: 9px; }
+.kf-fus-gapbar { display: flex; align-items: center; gap: 8px; margin: 9px 0 4px; }
+.kf-fus-gapbar .kf-fus-bar.is-inline { width: 148px; margin-right: 0; }
+.kf-fus-gapbar .kf-fus-bar i { background: var(--warning); }
+.kf-fus-gapbar em { color: var(--foreground); font: 700 var(--kf-type-sm)/1 var(--font-mono); font-style: normal; }
+.kf-fus-gapbar small { color: var(--foreground-muted); font: var(--kf-type-2xs)/1 var(--font-mono); }
+.kf-fus-blockcard.is-cautious .kf-fus-unblock b { color: var(--warning); }
+
+/* ---------- 停靠后的窄栏排版 ----------
+   面板宽度从 84% 降到 ~33vw，列表和详情改为上下堆叠，行也要压扁 */
+.kf-fus-split { grid-template-columns: minmax(0, 1fr); }
+.kf-fus-detail { position: static; }
+.kf-fus-detailbody { max-height: none; overflow: visible; }
+.kf-fus-kpis { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+.kf-fus-kpi > b { font-size: var(--kf-type-md); }
+
+.kf-fus-row { grid-template-columns: 22px minmax(0, 1fr) minmax(76px, auto) 18px; gap: 4px 9px; padding: 9px 10px; }
+.kf-fus-row__rank { grid-column: 1; }
+.kf-fus-row__main { grid-column: 2; }
+.kf-fus-row__api { grid-column: 3; min-width: 0; overflow-wrap: anywhere; }
+.kf-fus-row__chev { grid-column: 4; }
+.kf-fus-row__score { grid-column: 3; grid-template-columns: auto auto; gap: 6px; }
+.kf-fus-row__score .kf-fus-bar { display: none; }
+.kf-fus-row__gm { grid-column: 2 / 4; flex-direction: row; text-align: left; }
+.kf-fus-row__gm b { display: inline; margin-right: 6px; }
+.kf-fus-row__gm small { display: inline; }
+
+/* 宽表格在窄栏里横向滚动，不撑破布局 */
+.kf-fus-section { overflow-x: auto; }
+.kf-fus-blockgrid { grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- 融合前 / 融合后 切换 ---------- */
+.kf-fus-modeswitch { display: inline-flex; padding: 2px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-4); }
+.kf-fus-modeswitch button {
+  min-width: 58px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground-muted);
+  font: 650 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-fus-modeswitch button.is-active { color: var(--foreground); background: var(--surface-1); box-shadow: 0 1px 5px rgb(0 0 0 / .22); }
+.kf-fus-modeswitch button[data-fusion-mode="after"].is-active { color: var(--primary); }
+
+/* ---------- 模块 L3 算子链（融合边界文字版） ---------- */
+.kf-fus-steps { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.kf-fus-steps li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+}
+.kf-fus-steps li i {
+  color: var(--foreground-muted);
+  font: 700 var(--kf-type-2xs)/1.4 var(--font-mono);
+  font-style: normal;
+  text-align: center;
+}
+.kf-fus-steps li b { font: 600 var(--kf-type-xs)/1.4 var(--font-mono); }
+.kf-fus-steps li small { overflow: hidden; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-fus-steps li.is-covered {
+  border-color: color-mix(in srgb, var(--primary) 42%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-3));
+}
+.kf-fus-steps li.is-covered i, .kf-fus-steps li.is-covered b { color: var(--primary); }
+
+/* ---------- 结构图上的融合叠加 ---------- */
+/* 融合前：被这个方案吃掉的 L3 算子 */
+.pto-model-graphviz-node.is-fusion-covered rect {
+  stroke: var(--primary);
+  stroke-width: 2px;
+  stroke-dasharray: 5 3;
+}
+/* 融合前：这些算子之间的边就是本次融合要消除的依赖 */
+.pto-model-graphviz-edge.is-fusion-inner { stroke: var(--primary); stroke-width: 2.2px; opacity: 1; }
+/* 融合后：合并出来的那一个节点 */
+.pto-model-graphviz-node.is-fusion-node rect {
+  stroke: var(--primary);
+  stroke-width: 2.6px;
+  filter: drop-shadow(0 0 9px color-mix(in srgb, var(--primary) 60%, transparent));
+}
+/* 方案覆盖到的模块级节点（跨模块方案时用） */
+.pto-model-graphviz-node.is-fusion-scope rect { stroke: color-mix(in srgb, var(--primary) 70%, transparent); stroke-width: 1.8px; }
+
+/* ---------- 方案卡：API 名 ---------- */
+.kf-fus-row__api { color: var(--foreground-muted); font: 600 var(--kf-type-2xs)/1.4 var(--font-mono); text-align: right; }
+.kf-fus-tag.is-cross {
+  border-color: color-mix(in srgb, var(--success) 42%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+}
+
+/* 适配状态色：沿用等级 chip 的样式位 */
+.kf-fus-level.is-ready { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.kf-fus-level.is-prep { background: color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 20%, transparent); color: var(--tone-blue-strong, #4a90d9); }
+.kf-fus-level.is-constraint { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.kf-fus-level.is-none { background: var(--surface-4); color: var(--foreground-muted); }
+.kf-fus-level.is-blocked { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+
+/* ---------- 候选算子 chip ---------- */
+.kf-fus-apis { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.kf-fus-api {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--border-subtle));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  color: var(--primary);
+  font: 600 var(--kf-type-2xs)/1.5 var(--font-mono);
+  text-decoration: none;
+}
+.kf-fus-api:hover { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+.kf-fus-api em { font-style: normal; font-size: 9px; opacity: .75; }
+.kf-fus-api em.warn { color: var(--danger); opacity: 1; }
+.kf-fus-api.is-unlisted { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); }
+
+/* ---------- 调用对照 ---------- */
+.kf-fus-diff { display: grid; gap: 9px; }
+.kf-fus-difflabel {
+  display: inline-block;
+  margin-bottom: 5px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font: 700 var(--kf-type-2xs)/1.5 var(--font-sans);
+}
+.kf-fus-difflabel.is-before { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.kf-fus-difflabel.is-after { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.kf-fus-code {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  overflow-x: auto;
+}
+.kf-fus-code.is-before { border-left: 2px solid var(--danger); }
+.kf-fus-code.is-after { border-left: 2px solid var(--success); }
+.kf-fus-codeline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.kf-fus-codeline code { color: var(--foreground-secondary); font: var(--kf-type-2xs)/1.7 var(--font-mono); white-space: pre; }
+.kf-fus-codeline em { flex: none; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.7 var(--font-mono); font-style: normal; opacity: .75; }
+
+/* ---------- 阶段差异 ---------- */
+.kf-fus-stages { display: grid; gap: 7px; }
+.kf-fus-stages > div { padding: 9px 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-3); }
+.kf-fus-stages span { display: flex; align-items: baseline; gap: 7px; margin-bottom: 4px; color: var(--foreground); font: 700 var(--kf-type-2xs)/1 var(--font-sans); }
+.kf-fus-stages span em { color: var(--foreground-muted); font: var(--kf-type-2xs)/1 var(--font-mono); font-style: normal; }
+.kf-fus-stages p { margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.55; }
+
+/* ---------- 待确认约束 ---------- */
+.kf-fus-constraint { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 3px 8px; margin-bottom: 8px; }
+.kf-fus-constraint i {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+  font: 700 var(--kf-type-2xs)/1 var(--font-mono);
+  font-style: normal;
+}
+.kf-fus-constraint b { font: 600 var(--kf-type-xs)/1.45 var(--font-sans); }
+.kf-fus-constraint p { grid-column: 2; margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
+
+/* 未推荐卡按状态着色 */
+.kf-fus-blockcard.is-constraint { border-left-color: var(--warning); margin-bottom: 9px; }
+.kf-fus-blockcard.is-none { border-left-color: var(--foreground-muted); margin-bottom: 9px; }
+.kf-fus-blockcard.is-blocked { border-left-color: var(--danger); margin-bottom: 9px; }
+.kf-fus-blockcard .kf-fus-code { margin-top: 8px; }
+
+/* ---------- 替换前后对比视图 ----------
+   盖住整个模型工作区：左右两张整网图并排，视口实时联动 */
+.kf-cmp-root {
+  position: absolute;
+  z-index: 1500;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--background);
+  animation: kf-cmp-in 180ms ease both;
+}
+.kf-cmp-root[hidden] { display: none; }
+@keyframes kf-cmp-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kf-cmp-root { animation: none; } }
+
+.kf-cmp-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--panel-shell-bg);
+}
+.kf-cmp-title { display: grid; gap: 2px; min-width: 0; }
+.kf-cmp-title b { font-size: var(--kf-type-md); letter-spacing: -.01em; }
+.kf-cmp-title small { color: var(--foreground-muted); font: var(--kf-type-2xs)/1.4 var(--font-mono); }
+.kf-cmp-scope { display: inline-flex; padding: 2px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-4); }
+.kf-cmp-scope button {
+  min-width: 78px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground-muted);
+  font: 650 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-cmp-scope button.is-active { color: var(--foreground); background: var(--surface-1); box-shadow: 0 1px 5px rgb(0 0 0 / .22); }
+.kf-cmp-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.kf-cmp-actions [data-cmp-zoom] { min-width: 46px; color: var(--foreground-muted); font: 600 var(--kf-type-2xs)/1 var(--font-mono); text-align: center; }
+.kf-cmp-actions button {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  font: 500 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-cmp-actions button:hover { border-color: var(--border-strong); color: var(--foreground); }
+.kf-cmp-actions [data-cmp-close] { width: 30px; padding: 0; display: grid; place-items: center; font-size: var(--kf-type-sm); }
+.kf-cmp-actions [data-cmp-close]:hover { border-color: var(--danger); color: var(--danger); }
+
+.kf-cmp-body { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-subtle); }
+.kf-cmp-body > section { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--background); }
+.kf-cmp-body h4 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  font-size: var(--kf-type-xs);
+}
+.kf-cmp-body h4 em { color: var(--foreground-muted); font: 600 var(--kf-type-2xs)/1 var(--font-mono); font-style: normal; }
+.kf-cmp-body > section:first-child h4 { border-left: 2px solid var(--foreground-muted); }
+.kf-cmp-body > section:last-child h4 { border-left: 2px solid var(--primary); color: var(--primary); }
+.kf-cmp-body > section:last-child h4 em { color: var(--primary); }
+.kf-cmp-stage { min-width: 0; min-height: 0; overflow: hidden; }
+
+/* 对比模式下把底层工作区的滚动/交互让出来 */
+.kf-model-workspace.is-comparing > .kf-model-library,
+.kf-model-workspace.is-comparing > .kf-model-canvas,
+.kf-model-workspace.is-comparing > .kf-model-inspector { visibility: hidden; }
+
+.kf-fus-inlinebtn {
+  border: 0;
+  padding: 0 2px;
+  background: none;
+  color: var(--primary);
+  font: 600 inherit/inherit var(--font-sans);
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---------- 对比视图：跨视图连接线 ---------- */
+.kf-cmp-body { position: relative; }
+.kf-cmp-links {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.kf-cmp-link {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.8;
+  stroke-dasharray: 6 4;
+  opacity: .9;
+  animation: kf-cmp-dash 900ms linear infinite;
+}
+.kf-cmp-linkdot { fill: var(--primary); }
+@keyframes kf-cmp-dash { to { stroke-dashoffset: -20; } }
+@media (prefers-reduced-motion: reduce) { .kf-cmp-link { animation: none; } }
+
+/* 融合节点吃掉多个模块时，控制器只能选中一个，其余用这个类标出来 */
+.pto-model-graphviz-node.is-cmp-mate rect {
+  stroke: var(--primary);
+  stroke-width: 2.2px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 45%, transparent));
+}
+
+.kf-cmp-actions [data-cmp-drill] { color: var(--foreground-muted); font: var(--kf-type-2xs)/1 var(--font-mono); }
+
+/* ---------- 方案列表改为手风琴 ----------
+   详情不再挂在整个列表下面，而是就地展开在被点的那一条后面 */
+.kf-fus-list { gap: 7px; }
+.kf-fus-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  overflow: hidden;
+  transition: border-color 120ms ease;
+}
+.kf-fus-item:hover { border-color: var(--border-strong); }
+.kf-fus-item.is-open { border-color: color-mix(in srgb, var(--primary) 52%, transparent); }
+
+/* 行头在手风琴里不再自带边框背景，由外层 item 负责 */
+.kf-fus-item > .kf-fus-row {
+  width: 100%;
+  grid-template-columns: 22px minmax(0, 1fr) auto 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.kf-fus-item > .kf-fus-row:hover { background: color-mix(in srgb, var(--surface-3) 72%, transparent); }
+.kf-fus-item.is-open > .kf-fus-row {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border-subtle));
+}
+.kf-fus-row__chev {
+  grid-row: 1;
+  align-self: center;
+  color: var(--foreground-muted);
+  font: 700 var(--kf-type-sm)/1 var(--font-sans);
+  transition: transform 160ms ease;
+}
+.kf-fus-item.is-open .kf-fus-row__chev { color: var(--primary); transform: rotate(180deg); }
+
+.kf-fus-panel { border-top: 0; animation: kf-fus-open 160ms ease both; }
+@keyframes kf-fus-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .kf-fus-panel { animation: none; } }
+.kf-fus-panelhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 13px 0;
+}
+.kf-fus-panelhead .kf-fus-apis { margin-top: 0; }
+.kf-fus-panelhead .kf-fus-detailactions { margin-top: 0; }
+.kf-fus-panel .kf-fus-detailbody { max-height: none; overflow: visible; padding: 12px 13px 14px; }

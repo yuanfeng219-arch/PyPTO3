@@ -12,12 +12,19 @@
 
   const TABS = [
     { id: 'overview', label: '总览' },
-    { id: 'timeline', label: '时间线' },
+    { id: 'timeline', label: '时间线', singleOnly: true },
     { id: 'ops', label: '算子分析' },
+    { id: 'parallel', label: '并行与通信', distOnly: true },
     { id: 'memory', label: '访存与缓存' },
     { id: 'serving', label: '批处理与调度' },
     { id: 'advisor', label: '诊断建议' },
   ];
+
+  /**
+   * 「并行与通信」只对多机多卡采集出现；
+   * 「时间线」按单卡 40 层串行建模，多机多卡的调度看「并行与通信」的流水线甘特图。
+   */
+  const visibleTabs = (p) => TABS.filter((t) => (!t.distOnly || !!p.dist) && (!t.singleOnly || !p.dist));
 
   const GROUP_COLOR = {
     mlp: 'var(--primary)',
@@ -25,11 +32,14 @@
     proj: 'var(--tone-blue-strong, #4a90d9)',
     norm: 'var(--tone-green-strong, #4caf7d)',
     boundary: 'color-mix(in srgb, var(--foreground) 42%, transparent)',
+    comm: 'var(--tone-blue-strong, #4a90d9)',
     idle: 'color-mix(in srgb, var(--danger) 55%, transparent)',
   };
 
   const state = {
     open: false,
+    runId: 'run-0803-a',
+    runMenu: false,
     tab: 'overview',
     selectedOp: 'fa-fused',
     sortKey: 'totalMs',
@@ -44,7 +54,7 @@
   let root = null;
 
   const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const profile = () => window.PtoInferenceProfile?.get();
+  const profile = () => window.PtoInferenceProfile?.get(state.runId);
   const fmt = (n, d = 2) => (n === null || n === undefined ? '—' : Number(n).toFixed(d));
   const int = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('en-US'));
 
@@ -425,7 +435,7 @@
 
   function shell(p) {
     const m = p.meta;
-    const tabs = TABS.map((t) => `<button type="button" class="${state.tab === t.id ? 'is-active' : ''}" data-prof-tab="${t.id}" role="tab" aria-selected="${state.tab === t.id}">${esc(t.label)}</button>`).join('');
+    const tabs = visibleTabs(p).map((t) => `<button type="button" class="${state.tab === t.id ? 'is-active' : ''}" data-prof-tab="${t.id}" role="tab" aria-selected="${state.tab === t.id}">${esc(t.label)}</button>`).join('');
     return `<button class="kf-prof-scrim" type="button" data-prof-close aria-label="关闭推理性能分析"></button>
       <aside class="kf-prof-drawer" role="dialog" aria-modal="true" aria-label="推理性能分析">
         <header class="kf-prof-head">
@@ -441,7 +451,15 @@
           </div>
         </header>
         <div class="kf-prof-context">
-          <button class="kf-prof-runpill" type="button" title="切换采集（当前仅一份模拟数据）">${esc(p.id)} <span style="opacity:.6">▾</span></button>
+          <span class="kf-prof-runwrap">
+            <button class="kf-prof-runpill" type="button" data-run-toggle aria-haspopup="listbox" aria-expanded="${state.runMenu}">${esc(p.id)} <span style="opacity:.6">▾</span></button>
+            <div class="kf-prof-runmenu" role="listbox" ${state.runMenu ? '' : 'hidden'}>
+              ${(window.PtoInferenceProfile.list() || []).map((r) => `<button type="button" role="option" aria-selected="${r.id === state.runId}" class="${r.id === state.runId ? 'is-active' : ''}" data-run-pick="${esc(r.id)}">
+                <b>${esc(r.id)}</b><em>${fmt(r.tpot, 2)} ms · ${int(r.tps)} tok/s</em>
+                <small>${esc(r.device)} · batch ${r.batch}${r.distributed ? ' · 多机多卡' : ' · 单卡'}</small>
+              </button>`).join('')}
+            </div>
+          </span>
           <span class="kf-prof-ctxitem"><b>${esc(m.model)}</b> · BS ${m.batch} · ${esc(m.dtype)} · ${m.layers} 层</span>
           <span class="kf-prof-ctxsep"></span>
           <span class="kf-prof-ctxitem"><b>${esc(m.device)}</b> · ${m.hbm} GB / ${fmt(m.peakBw, 1)} TB/s</span>
@@ -461,8 +479,9 @@
     const p = profile();
     const body = root?.querySelector('#profBody');
     if (!p || !body) return;
-    const tab = TABS.find((t) => t.id === state.tab);
+    const tab = visibleTabs(p).find((t) => t.id === state.tab) || TABS[0];
     if (tab.id === 'overview') body.innerHTML = renderOverview(p);
+    else if (tab.id === 'parallel') body.innerHTML = window.PtoInferenceParallel.render(p);
     else if (tab.id === 'ops') body.innerHTML = renderOps(p);
     else if (tab.id === 'timeline') body.innerHTML = window.PtoInferenceTimeline.render(p, state.tl);
     else if (tab.id === 'memory') body.innerHTML = window.PtoInferenceMemory.render(p);
@@ -536,6 +555,27 @@
   function onClick(event) {
     const t = event.target;
     if (t.closest('[data-prof-close]')) { close(); return; }
+
+    if (t.closest('[data-run-toggle]')) { state.runMenu = !state.runMenu; renderAll(); return; }
+
+    const pick = t.closest('[data-run-pick]');
+    if (pick) {
+      const next = pick.dataset.runPick;
+      state.runMenu = false;
+      if (next !== state.runId) {
+        state.runId = next;
+        const p = profile();
+        // 切换采集后旧的选中项可能不存在：算子、层号、页签都要回到安全值
+        if (!p.ops.some((o) => o.id === state.selectedOp)) state.selectedOp = p.ops[0].id;
+        if (!visibleTabs(p).some((x) => x.id === state.tab)) state.tab = 'overview';
+        state.groupFilter = null;
+        state.query = '';
+        state.tl = { ...state.tl, layer: Math.min(state.tl.layer, p.meta.layers - 1), selected: null, zoom: 1 };
+      }
+      renderAll();
+      return;
+    }
+    if (state.runMenu && !t.closest('.kf-prof-runmenu')) { state.runMenu = false; renderAll(); return; }
 
     const tab = t.closest('[data-prof-tab]');
     if (tab) { state.tab = tab.dataset.profTab; renderAll(); return; }

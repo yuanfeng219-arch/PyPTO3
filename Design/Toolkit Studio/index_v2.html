@@ -17,7 +17,8 @@
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=20260813-2" />
   <link rel="stylesheet" href="./styles/demo.css?v=20260821-10" />
   <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
-  <link rel="stylesheet" href="./styles/profiler.css?v=20260821-3" />
+  <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
+  <link rel="stylesheet" href="./styles/fusion.css?v=20260828-2" />
 </head>
 <body>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
@@ -93,10 +94,27 @@
       <div class="pto-ide-frame__workarea" id="ideWorkarea">
         <section class="kf-model-workspace pto-model-graphviz-pattern-page" id="modelArchitectureView" aria-label="大模型结构可视化" hidden>
           <aside class="kf-model-library" aria-label="模型列表">
-            <header><span class="kf-eyebrow">MODEL LIBRARY</span><h2>模型结构</h2></header>
-            <button class="kf-model-card is-active" type="button" aria-current="true">
-              <span class="kf-model-card__icon">Q3</span><span><b>Qwen3 14B</b><small>Fused Decode · 源码校准</small></span><em>已加载</em>
-            </button>
+            <header><span class="kf-eyebrow">MODEL ANALYSIS</span><h2>模型整网分析</h2></header>
+            <div class="kf-model-selector" data-model-selector>
+              <button class="kf-model-selector__trigger" type="button" data-model-selector-trigger aria-haspopup="listbox" aria-expanded="false" aria-controls="modelSelectorMenu">
+                <span class="kf-model-selector__current-icon" data-model-selector-icon="qwen3" aria-hidden="true">
+                  <img class="kf-model-icon kf-model-icon--qwen" src="./Qwen_logo.svg.webp" alt="">
+                </span>
+                <span class="kf-model-selector__current-icon" data-model-selector-icon="deepseek-v4-flash" aria-hidden="true" hidden>
+                  <img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt="">
+                </span>
+                <span class="kf-model-selector__label"><b data-model-selector-title>Qwen3 14B</b><small data-model-selector-subtitle>Fused Decode · 源码校准</small></span>
+                <span class="kf-model-selector__chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="kf-model-selector__menu" id="modelSelectorMenu" data-model-selector-menu role="listbox" aria-label="选择模型" hidden>
+                <button class="kf-model-card is-active" type="button" role="option" aria-selected="true" aria-current="true" data-model-id="qwen3">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--qwen" src="./Qwen_logo.svg.webp" alt=""></span><span><b>Qwen3 14B</b><small>Fused Decode · 源码校准</small></span><em>已加载</em>
+                </button>
+                <button class="kf-model-card" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash</b><small>MoE · CSA/HCA · 官方结构</small></span><em>可视化</em>
+                </button>
+              </div>
+            </div>
             <nav class="kf-model-phases" aria-label="执行阶段">
               <span>执行阶段</span>
               <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
@@ -106,16 +124,9 @@
               <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
               <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
             </nav>
-            <button class="kf-model-obs-entry" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">
-              <span class="kf-model-obs-entry__icon" aria-hidden="true">⏱</span>
-              <b>推理性能分析</b><em>↗</em>
-              <small>run-0803-a · 512 steps · 08/03 14:32</small>
-              <span class="kf-model-obs-entry__state"><i></i>已采集 · TPOT <b>15.2 ms</b> · <b>Memory-bound</b></span>
-            </button>
-
-            <div class="kf-model-facts">
+            <div class="kf-model-facts" id="modelFacts">
               <span>模型规格</span>
-              <dl><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
+              <dl id="modelFactsBody"><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
             </div>
             <div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
           </aside>
@@ -128,10 +139,11 @@
                   <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
                 </div>
                 <button class="kf-model-toolbar__profiler" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">⏱ 性能分析 ↗</button>
+                <button class="kf-model-toolbar__fusion" type="button" data-open-fusion aria-haspopup="dialog" aria-controls="fusionAdvisor" hidden>⧉ torch_npu 替换方案 ↗</button>
               </div>
             </header>
             <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
-            <footer class="kf-model-canvas__status"><span><i></i> Qwen3 14B 架构已预加载</span><span>单节点分层下钻 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放</span></footer>
+            <footer class="kf-model-canvas__status"><span><i></i> <b id="modelCanvasStatus">Qwen3 14B 架构已预加载</b></span><span>单节点分层下钻 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放</span></footer>
           </main>
 
           <aside class="kf-model-inspector" aria-live="polite">
@@ -139,14 +151,6 @@
             <div id="modelInspectorBody">
               <div class="kf-model-inspector__hero"><span>CODE ALIGNED</span><b>decode_layer.py 已校准</b><p>阶段与依赖来自实际的 PyPTO 任务：从 BF16 输入边界开始，经三段 Scope，最终进入 RMS LM Head。</p></div>
             </div>
-            <nav class="kf-model-outline" aria-label="结构索引">
-              <span>结构索引</span>
-              <button type="button" data-model-focus="copy-hidden"><i></i>copy_hidden<small>BF16 → FP32 · once</small></button>
-              <button type="button" data-model-focus="qkv-proj"><i></i>q/k/v_proj<small>Split-K atomic accumulate</small></button>
-              <button type="button" data-model-focus="fa-fused"><i></i>fa_fused<small>QK → Softmax → SV</small></button>
-              <button type="button" data-model-focus="dcr-xgamma"><i></i>dcr_xgamma<small>out + next normed</small></button>
-              <button type="button" data-model-focus="rms-lm-head"><i></i>rms_lm_head<small>Final norm + vocabulary</small></button>
-            </nav>
           </aside>
         </section>
 
@@ -573,13 +577,17 @@
   <script src="./js/passes-dump-source.js?v=20260810-1"></script>
   <script src="./js/examples-source.js?v=20260812-1"></script>
   <script src="./js/passes-graph.js?v=20260811-8"></script>
-  <script src="./js/qwen3-model-viz.js?v=20260821-11"></script>
-  <script src="./js/inference-profile-data.js?v=20260821-3"></script>
+  <script src="./js/qwen3-model-viz.js?v=20260828-1"></script>
+  <script src="./js/deepseek-v4-model-viz.js?v=20260828-1"></script>
+  <script src="./js/inference-profile-data.js?v=20260821-4"></script>
   <script src="./js/inference-timeline.js?v=20260821-1"></script>
+  <script src="./js/inference-parallel.js?v=20260821-1"></script>
   <script src="./js/inference-memory.js?v=20260821-1"></script>
   <script src="./js/inference-serving.js?v=20260821-1"></script>
-  <script src="./js/inference-advisor.js?v=20260821-1"></script>
-  <script src="./js/inference-profiler.js?v=20260821-3"></script>
+  <script src="./js/inference-advisor.js?v=20260821-2"></script>
+  <script src="./js/inference-profiler.js?v=20260821-4"></script>
+  <script src="./js/fusion-rules-data.js?v=20260827-1"></script>
+  <script src="./js/fusion-advisor.js?v=20260827-1"></script>
   <script src="./js/demo-v2.js?v=20260821-8"></script>
 </body>
 </html>

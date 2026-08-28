@@ -1,6 +1,9 @@
 (function registerQwen3ModelViz() {
   'use strict';
 
+  const MODEL_ID = 'qwen3';
+  window.PtoModelArchitectureState = window.PtoModelArchitectureState || { active: MODEL_ID };
+
   const baseGraph = {
     width: 1180,
     height: 2050,
@@ -278,6 +281,29 @@
   let activeDrill = null;
   let currentGraph = buildExpandedGraph(null);
 
+  function setChrome() {
+    const activeItem = document.querySelector('[data-model-id="' + MODEL_ID + '"]');
+    document.querySelectorAll('[data-model-id]').forEach((item) => {
+      const active = item.dataset.modelId === MODEL_ID;
+      item.classList.toggle('is-active', active);
+      item.setAttribute('aria-current', String(active));
+      item.setAttribute('aria-selected', String(active));
+      const status = item.querySelector('em');
+      if (status) status.textContent = active ? '已加载' : '可视化';
+    });
+    const selectorTitle = document.querySelector('[data-model-selector-title]');
+    const selectorSubtitle = document.querySelector('[data-model-selector-subtitle]');
+    if (selectorTitle) selectorTitle.textContent = activeItem?.querySelector('b')?.textContent || 'Qwen3 14B';
+    if (selectorSubtitle) selectorSubtitle.textContent = activeItem?.querySelector('small')?.textContent || 'Fused Decode · 源码校准';
+    document.querySelectorAll('[data-model-selector-icon]').forEach((icon) => { icon.hidden = icon.dataset.modelSelectorIcon !== MODEL_ID; });
+    const factsBody = document.getElementById('modelFactsBody');
+    if (factsBody) factsBody.innerHTML = '<div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div>';
+    const status = document.getElementById('modelCanvasStatus');
+    if (status) status.textContent = 'Qwen3 14B 架构已预加载';
+    const command = document.querySelector('.kf-command');
+    if (command) command.textContent = 'MODEL · Qwen3 14B 架构可视化';
+  }
+
   function renderInspector(title, badge, description, rows) {
     document.getElementById('modelInspectorTitle').textContent = title;
     document.getElementById('modelInspectorBody').innerHTML = `<div class="kf-model-inspector__hero"><span>${badge}</span><b>${title}</b><p>${description}</p></div>${rows?.length ? `<dl class="kf-model-node-detail">${rows.map((row) => `<div><dt>${row[0]}</dt><dd>${row[1]}</dd></div>`).join('')}</dl>` : ''}`;
@@ -292,7 +318,6 @@
     }
     const data = details[nodeId] || [node?.label || nodeId, node?.typeLabel || 'PyPTO execution task', ['阶段', node?.phase || 'shared']];
     renderInspector(data[0], node?.phase?.toUpperCase() || 'CODE NODE', data[1], data.slice(2));
-    document.querySelectorAll('[data-model-focus]').forEach((button) => button.classList.toggle('is-active', button.dataset.modelFocus === nodeId));
   }
 
   function applyNodeFocus(nodeId) {
@@ -308,7 +333,6 @@
     stage?.classList.remove('has-node-focus');
     if (stage) delete stage.dataset.focusedNode;
     controller?.clearSelection();
-    document.querySelectorAll('[data-model-focus]').forEach((button) => button.classList.remove('is-active'));
   }
 
   function focusPhaseViewport(phase) {
@@ -370,6 +394,7 @@
   function renderGraph() {
     const stage = document.getElementById('qwen3ModelGraph');
     if (!stage || !window.PtoModelGraphvizPattern) return;
+    const savedTransform = controller?.getTransform?.();
     stage.classList.remove('has-node-focus');
     delete stage.dataset.focusedNode;
     controller?.destroy();
@@ -383,6 +408,11 @@
     });
     requestAnimationFrame(() => {
       applyPhase(activePhase);
+      if (savedTransform) {
+        controller.setTransform({ ...savedTransform });
+        document.getElementById('modelZoomReadout').textContent = `${Math.round(savedTransform.zoom * 100)}%`;
+        return;
+      }
       if (!activeDrill) return;
       const spec = drillSpecs[activeDrill];
       const owner = baseGraph.nodes.find((node) => node.id === activeDrill);
@@ -392,6 +422,7 @@
   }
 
   function handleDrillToggle(event) {
+    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
     const toggle = event.target.closest('.pto-model-graphviz-toggle, .pto-model-graphviz-toggle-icon');
     if (!toggle) return;
     const nodeGroup = toggle.closest('.pto-model-graphviz-node');
@@ -415,11 +446,13 @@
   }
 
   function handleCanvasSelectionClear(event) {
+    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
     if (event.target.closest('.pto-model-graphviz-node, .pto-model-graphviz-edge, .pto-model-graphviz-edge-tag')) return;
     clearNodeFocus();
   }
 
   function selectPhase(phase) {
+    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
     activePhase = phase;
     if (activeDrill) {
       activeDrill = null;
@@ -444,16 +477,28 @@
     stage.addEventListener('click', handleDrillToggle, true);
     stage.addEventListener('pointerdown', handleCanvasSelectionClear, true);
     document.querySelectorAll('[data-model-phase]').forEach((button) => button.addEventListener('click', () => selectPhase(button.dataset.modelPhase)));
-    document.querySelectorAll('[data-model-focus]').forEach((button) => button.addEventListener('click', () => controller?.selectNode(button.dataset.modelFocus, { source: 'outline' })));
-    document.querySelector('[data-model-fit]')?.addEventListener('click', () => { controller?.fit(); document.getElementById('modelZoomReadout').textContent = '适应'; });
-    document.querySelector('[data-model-zoom="in"]')?.addEventListener('click', () => updateZoom(1.18));
-    document.querySelector('[data-model-zoom="out"]')?.addEventListener('click', () => updateZoom(1 / 1.18));
+    document.querySelector('[data-model-fit]')?.addEventListener('click', () => {
+      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      controller?.fit();
+      document.getElementById('modelZoomReadout').textContent = '适应';
+    });
+    document.querySelector('[data-model-zoom="in"]')?.addEventListener('click', () => {
+      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      updateZoom(1.18);
+    });
+    document.querySelector('[data-model-zoom="out"]')?.addEventListener('click', () => {
+      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      updateZoom(1 / 1.18);
+    });
     initialized = true;
     renderGraph();
   }
 
   function show() {
+    window.PtoModelArchitectureState = { active: MODEL_ID };
     init();
+    setChrome();
+    renderGraph();
     requestAnimationFrame(() => {
       applyPhase(activePhase);
       if (activeDrill) focusDrillViewport(activeDrill);
