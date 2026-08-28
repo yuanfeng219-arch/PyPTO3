@@ -24,7 +24,7 @@
   const state = {
     open: false,
     tab: 'plans',
-    selected: 'mod-mla-prolog',
+    selected: 'mod-rmsnorm',
     fusionMode: 'before',
     lastFocus: null,
   };
@@ -55,6 +55,17 @@
     const item = selectedItem();
     if (item) pushPlanToGraph(item);
     else clearPlanFromGraph();
+  }
+
+  /**
+   * 可落地 + 在整网图上有拓扑变化的方案。
+   * 一键替换和对比视图的右图用的是同一份口径：只有跨模块方案会改变模块级拓扑。
+   */
+  function topologyPlans(model) {
+    const data = model || view();
+    return data.items
+      .filter((x) => rules().changesTopology(x) && rules().isActionable(x))
+      .map((x) => ({ id: x.id, kind: x.kind, label: (x.apis && x.apis[0]) || x.title, sub: x.nodes.length + ' 个模块合并为 1 个', nodes: x.nodes }));
   }
 
   function pushPlanToGraph(item) {
@@ -102,9 +113,7 @@
       <div class="kf-fus-kpi"><span>可落地方案</span><b>${s.actionable}</b><small>可直接替换 ${s.byStatus.ready} · 需前置改造 ${s.byStatus.prep}</small></div>
       <div class="kf-fus-kpi"><span>跨模块超级融合</span><b class="is-strong">${s.cross}</b><small>结构图上可见合并</small></div>
       <div class="kf-fus-kpi"><span>模块内融合</span><b>${s.intra}</b><small>看代码级调用对照</small></div>
-      <div class="kf-fus-kpi"><span>候选算子</span><b>${s.apiCount}</b><small>${s.riskyApis} 个命名存疑，须先核对</small></div>
       <div class="kf-fus-kpi"><span>无现成算子</span><b>${s.handoff}</b><small>转新增融合算子需求</small></div>
-      <div class="kf-fus-kpi"><span>未推荐</span><b>${s.byStatus.constraint + s.byStatus.blocked + s.byStatus.none}</b><small>约束待确认 / 不适配 / 无算子</small></div>
     </div>`;
   }
 
@@ -367,11 +376,11 @@
     return `<aside class="kf-fus-drawer" role="region" aria-label="融合算子推荐">
       <header class="kf-fus-head">
         <div>
-          <div class="kf-fus-crumb"><button type="button" data-fus-close>模型结构</button><span>/</span><button type="button" data-fus-close>DeepSeek V4 Flash</button><span>/</span><b>融合算子推荐</b></div>
           <h2>torch_npu 替换方案</h2>
           <p>skill: model-infer-fusion · 源码 ${esc(rules().SOURCE)}</p>
         </div>
         <div class="kf-fus-headactions">
+          <button class="kf-fus-btn is-accent" type="button" data-onekey title="把全部可落地的跨模块方案一次性应用到整网，打开 torch_npu 部署态模型">⚡ 一键替换</button>
           <button class="kf-fus-btn is-primary" type="button" data-compare aria-haspopup="dialog" aria-controls="modelCompare">替换前后对比 ↗</button>
           <button class="kf-fus-close" type="button" data-fus-close aria-label="关闭">✕</button>
         </div>
@@ -466,14 +475,23 @@
       return;
     }
 
+    // 一键替换：把全部跨模块方案叠加成一个新模型，注册到左侧模型列表并切过去。
+    // 替换后模型是一个独立模型，不再挂替换方案面板，所以这里先把面板关掉。
+    if (t.closest('[data-onekey]')) {
+      const v = viz();
+      if (!v || !v.showNpu) return;
+      // 部署态模型是模型列表里的独立选项，不挂替换方案面板，切过去之前先关掉
+      close();
+      v.showNpu();
+      return;
+    }
+
     const cmp = t.closest('[data-compare]');
     if (cmp) {
       const data = view();
       // 只有跨模块方案在整网图上有拓扑变化；默认叠加全部这类方案，
       // 也就是「全部替换完之后整网长什么样」
-      const crossPlans = data.items
-        .filter((x) => rules().changesTopology(x) && rules().isActionable(x))
-        .map((x) => ({ id: x.id, kind: x.kind, label: (x.apis && x.apis[0]) || x.title, sub: x.nodes.length + ' 个模块合并为 1 个', nodes: x.nodes }));
+      const crossPlans = topologyPlans(data);
       const current = currentItem(data);
       if (viz() && viz().openCompare) {
         viz().openCompare({
@@ -551,6 +569,7 @@
 
   function syncEntry() {
     const active = (window.PtoModelArchitectureState || {}).active || 'qwen3';
+    // 只有官方结构挂替换方案面板；一键替换产出的模型是一个独立模型，不带面板
     const supported = active === MODEL_ID && !!rules();
     document.querySelectorAll('[data-open-fusion]').forEach((el) => { el.hidden = !supported; });
     if (!supported) { if (state.open) close(); return; }

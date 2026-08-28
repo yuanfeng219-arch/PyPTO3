@@ -3213,7 +3213,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     $('#modelArchitectureView').hidden = !isModel;
     if (isModel) {
       const activeModel = window.PtoModelArchitectureState?.active || 'qwen3';
-      if (activeModel === 'deepseek-v4-flash') {
+      if (activeModel.startsWith('deepseek-v4-flash')) {
         window.PtoDeepSeekV4ModelViz?.show();
       } else {
         window.PtoQwen3ModelViz?.show();

@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
   <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
   <link rel="stylesheet" href="./styles/fusion.css?v=20260828-2" />
+  <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
 </head>
 <body>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
@@ -113,6 +114,9 @@
                 <button class="kf-model-card" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash">
                   <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash</b><small>MoE · CSA/HCA · 官方结构</small></span><em>可视化</em>
                 </button>
+                <button class="kf-model-card is-npu" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash-npu">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash · torch_npu</b><small>融合替换后 · Ascend 部署态</small></span><em>可视化</em>
+                </button>
               </div>
             </div>
             <nav class="kf-model-phases" aria-label="执行阶段">
@@ -140,6 +144,7 @@
                 </div>
                 <button class="kf-model-toolbar__profiler" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">⏱ 性能分析 ↗</button>
                 <button class="kf-model-toolbar__fusion" type="button" data-open-fusion aria-haspopup="dialog" aria-controls="fusionAdvisor" hidden>⧉ torch_npu 替换方案 ↗</button>
+                <button class="kf-model-toolbar__catalog" type="button" data-open-catalog aria-haspopup="dialog" aria-controls="fusionCatalog" hidden>◈ 整网融合推荐 ↗</button>
               </div>
             </header>
             <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
@@ -588,6 +593,8 @@
   <script src="./js/inference-profiler.js?v=20260821-4"></script>
   <script src="./js/fusion-rules-data.js?v=20260827-1"></script>
   <script src="./js/fusion-advisor.js?v=20260827-1"></script>
+  <script src="./js/fusion-catalog-data.js?v=20260828-1"></script>
+  <script src="./js/fusion-catalog-advisor.js?v=20260828-1"></script>
   <script src="./js/demo-v2.js?v=20260821-8"></script>
 </body>
 </html>

@@ -130,12 +130,52 @@
   let activeDrill = null;
   let currentGraph = graph;
 
+  /* ---------------- torch_npu 部署态模型 ----------------
+   * 左侧模型列表里的第三个选项，和官方结构并列的一个独立模型。
+   * 它的整网不是手写的，而是由 fusion-rules-data 里全部「可落地 + 跨模块」的
+   * 替换方案叠加到官方结构上推导出来的 —— 规则改了它就跟着变，不会失配。
+   * 结构、规格卡、融合算子的 L3 展开都挂在下面这个 npu 对象上，
+   * 后续针对部署态模型做功能叠加就往这里加。
+   */
+  const NPU_MODEL_ID = MODEL_ID + '-npu';
+  const NPU_NODE_PREFIX = '__npu_';
+  const npuNodeId = (planId) => NPU_NODE_PREFIX + planId + '__';
+
+  const npu = {
+    id: NPU_MODEL_ID,
+    title: 'DeepSeek V4 Flash · torch_npu',
+    subtitle: '融合替换后 · Ascend 部署态',
+    graph: null,       // 懒构建的整网
+    meta: null,        // { plans, planCount, nodesBefore/After, edgesBefore/After }
+    drillSpecs: {},    // 融合算子的 L3 展开，key 是 npuNodeId(planId)
+  };
+
+  const activeModelId = () => window.PtoModelArchitectureState?.active;
+  const isMine = () => activeModelId() === MODEL_ID || activeModelId() === NPU_MODEL_ID;
+  const isNpuView = () => activeModelId() === NPU_MODEL_ID && !!npu.graph;
+  /** 当前这条视图的「原图」：官方结构是 graph，部署态模型是 npu.graph */
+  const baseGraph = () => (isNpuView() ? npu.graph : graph);
+  /** 下钻规格：部署态模型多出融合算子那几个 */
+  const drillSpecFor = (id) => (isNpuView() && npu.drillSpecs[id] ? npu.drillSpecs[id] : drillSpecs[id]);
+
   function qs(selector) {
     return document.querySelector(selector);
   }
 
+  /** 部署态模型的规格卡：模型规格照旧，末尾补三行替换结果 */
+  function chromeFacts() {
+    if (!isNpuView()) return facts;
+    const m = npu.meta || {};
+    return facts.concat([
+      ['融合算子', (m.planCount || 0) + ' 个已替换'],
+      ['整网模块', m.nodesBefore + ' → ' + m.nodesAfter],
+      ['依赖边', m.edgesBefore + ' → ' + m.edgesAfter],
+    ]);
+  }
+
   function setChrome() {
-    const card = qs('[data-model-id="' + MODEL_ID + '"]');
+    const modelId = isNpuView() ? NPU_MODEL_ID : MODEL_ID;
+    const card = qs('[data-model-id="' + modelId + '"]');
     document.querySelectorAll('[data-model-id]').forEach((item) => {
       const active = item === card;
       item.classList.toggle('is-active', active);
@@ -150,15 +190,22 @@
     if (selectorSubtitle) selectorSubtitle.textContent = card?.querySelector('small')?.textContent || 'MoE · CSA/HCA · 官方结构';
     document.querySelectorAll('[data-model-selector-icon]').forEach((icon) => { icon.hidden = icon.dataset.modelSelectorIcon !== MODEL_ID; });
     const factsBody = qs('#modelFactsBody');
-    if (factsBody) factsBody.innerHTML = facts.map((row) => '<div><dt>' + row[0] + '</dt><dd>' + row[1] + '</dd></div>').join('');
+    if (factsBody) factsBody.innerHTML = chromeFacts().map((row) => '<div><dt>' + row[0] + '</dt><dd>' + row[1] + '</dd></div>').join('');
+    const isNpu = isNpuView();
+    const name = isNpu ? npu.title : 'DeepSeek V4 Flash';
     const title = qs('.kf-model-toolbar h1');
     if (title) title.textContent = phaseMeta.all[0];
     const status = qs('#modelCanvasStatus');
-    if (status) status.textContent = 'DeepSeek V4 Flash 官方结构已加载';
+    if (status) {
+      status.textContent = isNpu
+        ? 'torch_npu 部署态整网 · ' + (npu.meta?.planCount || 0) + ' 个融合算子 · 模块 ' + npu.meta?.nodesBefore + ' → ' + npu.meta?.nodesAfter
+        : 'DeepSeek V4 Flash 官方结构已加载';
+    }
     const command = qs('.kf-command');
-    if (command) command.textContent = 'MODEL · DeepSeek V4 Flash 架构可视化';
+    if (command) command.textContent = 'MODEL · ' + name + ' 架构可视化';
     const inspectorTitle = qs('#modelInspectorTitle');
-    if (inspectorTitle) inspectorTitle.textContent = 'DeepSeek V4 Flash';
+    if (inspectorTitle) inspectorTitle.textContent = name;
+    document.getElementById('modelArchitectureView')?.classList.toggle('is-npu-model', isNpu);
   }
 
   async function loadOfficialConfig() {
@@ -166,7 +213,7 @@
       const response = await fetch(CONFIG_URL, { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const config = await response.json();
-      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      if (!isMine()) return;
       const layer = graph.nodes.find((node) => node.id === 'layer-input');
       const attention = graph.nodes.find((node) => node.id === 'qkv-proj');
       const sparse = graph.nodes.find((node) => node.id === 'sparse-attn');
@@ -239,6 +286,8 @@
       phase: merged[0].phase,
       parent: merged[0].parent,
       fusionNode: true,
+      planId: plan.id || null,
+      planNodes: merged.map((n) => n.id),
     };
     const kept = base.nodes.filter((n) => !ids.has(n.id));
     // 融合节点落在被合并节点的几何中心，但那里未必空着（例如 MoE 合并后会压到
@@ -263,8 +312,8 @@
   }
 
   /** 依次叠加多个方案（跨模块方案彼此不相交，顺序应用即可） */
-  function mergePlans(base, plans) {
-    return (plans || []).reduce((g, plan, i) => mergeOnePlan(g, plan, '__fusion_' + i + '__'), base);
+  function mergePlans(base, plans, idOf) {
+    return (plans || []).reduce((g, plan, i) => mergeOnePlan(g, plan, idOf ? idOf(plan, i) : '__fusion_' + i + '__'), base);
   }
 
   function buildMergedGraph(base) {
@@ -272,9 +321,9 @@
     return mergeOnePlan(base, fusionPlan, FUSED_ID);
   }
 
-  function buildDrillDefinition(nodeId) {
-    const spec = drillSpecs[nodeId];
-    const target = graph.nodes.find((node) => node.id === nodeId);
+  function buildDrillDefinition(nodeId, baseOverride) {
+    const spec = drillSpecFor(nodeId);
+    const target = (baseOverride || baseGraph()).nodes.find((node) => node.id === nodeId);
     if (!spec || !target) return null;
     const stepGap = STEP_GAP;
     const height = 74 + spec.steps.length * stepGap;
@@ -437,8 +486,9 @@
     return { ...graphData, edges };
   }
 
-  function buildExpandedGraph(nodeId) {
-    const drill = buildDrillDefinition(nodeId);
+  function buildExpandedGraph(nodeId, baseOverride) {
+    const graph = baseOverride || baseGraph();
+    const drill = buildDrillDefinition(nodeId, graph);
     if (!drill) return {
       ...graph,
       nodes: graph.nodes.map((node) => ({ ...node })),
@@ -527,7 +577,7 @@
     if (!node) return;
     const body = qs('#modelInspectorBody');
     if (body) {
-      const owner = node.drillOwner ? graph.nodes.find((item) => item.id === node.drillOwner) : null;
+      const owner = node.drillOwner ? baseGraph().nodes.find((item) => item.id === node.drillOwner) : null;
       const source = node.drillOwner ? 'model.py · ' + (owner?.label || node.drillOwner) : 'model.py / inference-config.json';
       body.innerHTML = '<div class="kf-model-inspector__hero"><span>' + (node.drillOwner ? 'L3 OPERATOR' : 'OFFICIAL STRUCTURE') + '</span><b>' + node.label + '</b><p>' + node.typeLabel + '</p></div><dl class="kf-model-node-detail"><div><dt>阶段</dt><dd>' + (phaseMeta[node.phase]?.[2] || node.phase) + '</dd></div><div><dt>父模块</dt><dd>' + (owner?.label || 'DeepSeek-V4 Flash') + '</dd></div><div><dt>来源</dt><dd>' + source + '</dd></div></dl>';
     }
@@ -582,7 +632,7 @@
       if (readout && fittedTransform) readout.textContent = Math.round(fittedTransform.zoom * 100) + '%';
       if (activeDrill) {
         const drill = buildDrillDefinition(activeDrill);
-        const owner = graph.nodes.find((node) => node.id === activeDrill);
+        const owner = baseGraph().nodes.find((node) => node.id === activeDrill);
         const body = qs('#modelInspectorBody');
         if (body && drill) body.innerHTML = '<div class="kf-model-inspector__hero"><span>L3 EXPANDED</span><b>' + (owner?.label || activeDrill) + '</b><p>' + drill.spec.description + '</p></div><dl class="kf-model-node-detail"><div><dt>层级</dt><dd>Module → logical operators</dd></div><div><dt>操作</dt><dd>点击容器右上角 − 收起</dd></div><div><dt>来源</dt><dd>model.py · inference-config.json</dd></div></dl>';
         focusDrillViewport(activeDrill);
@@ -591,18 +641,18 @@
   }
 
   function handleDrillToggle(event) {
-    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+    if (!isMine()) return;
     const toggle = event.target.closest('.pto-model-graphviz-toggle, .pto-model-graphviz-toggle-icon');
     if (!toggle) return;
     const nodeGroup = toggle.closest('.pto-model-graphviz-node');
     const clusterGroup = toggle.closest('.pto-model-graphviz-cluster');
     const nodeId = nodeGroup?.dataset.nodeId;
     const clusterId = clusterGroup?.dataset.clusterId;
-    if (nodeId && drillSpecs[nodeId]) {
+    if (nodeId && drillSpecFor(nodeId)) {
       event.preventDefault();
       event.stopImmediatePropagation();
       activeDrill = nodeId;
-      activePhase = graph.nodes.find((node) => node.id === nodeId)?.phase || activePhase;
+      activePhase = baseGraph().nodes.find((node) => node.id === nodeId)?.phase || activePhase;
       render();
       return;
     }
@@ -615,13 +665,13 @@
   }
 
   function handleCanvasSelectionClear(event) {
-    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+    if (!isMine()) return;
     if (event.target.closest('.pto-model-graphviz-node, .pto-model-graphviz-edge, .pto-model-graphviz-edge-tag')) return;
     document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => element.classList.remove('is-model-selected', 'is-fusion-focus'));
   }
 
   function selectPhase(phase) {
-    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+    if (!isMine()) return;
     activePhase = phase;
     if (activeDrill) {
       activeDrill = null;
@@ -645,13 +695,13 @@
     stage.addEventListener('pointerdown', handleCanvasSelectionClear, true);
     document.querySelectorAll('[data-model-phase]').forEach((button, index) => button.addEventListener('click', () => selectPhase(phaseOrder[index] || 'all')));
     document.querySelector('[data-model-fit]')?.addEventListener('click', () => {
-      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      if (!isMine()) return;
       controller?.fit();
       const readout = qs('#modelZoomReadout');
       if (readout) readout.textContent = '适应';
     });
     document.querySelector('[data-model-zoom="in"]')?.addEventListener('click', () => {
-      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      if (!isMine()) return;
       const current = controller?.getTransform?.();
       if (current) {
         const zoom = Math.min(2.6, current.zoom * 1.18);
@@ -661,7 +711,7 @@
       }
     });
     document.querySelector('[data-model-zoom="out"]')?.addEventListener('click', () => {
-      if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+      if (!isMine()) return;
       const current = controller?.getTransform?.();
       if (current) {
         const zoom = Math.max(.18, current.zoom / 1.18);
@@ -677,7 +727,7 @@
   // 融合推荐面板回跳用：一个候选可能横跨多个模块（例如 mHC → layer-output → pre-norm），
   // 所以除了选中首个节点，其余节点也要标出来，否则开发者看不出融合边界覆盖了哪几块。
   function highlightNodes(nodeIds) {
-    const ids = new Set(nodeIds.filter((id) => graph.nodes.some((node) => node.id === id)));
+    const ids = new Set(nodeIds.filter((id) => currentGraph.nodes.some((node) => node.id === id)));
     document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => {
       element.classList.toggle('is-fusion-focus', ids.has(element.dataset.nodeId));
     });
@@ -733,7 +783,7 @@
     fusionPlan = plan || null;
     activeDrill = null;
     show();
-    const first = fusionPlan && (fusionPlan.nodes || []).map((id) => graph.nodes.find((n) => n.id === id)).find(Boolean);
+    const first = fusionPlan && (fusionPlan.nodes || []).map((id) => baseGraph().nodes.find((n) => n.id === id)).find(Boolean);
     if (first && first.phase) activePhase = first.phase;
     render();
     const apply = () => {
@@ -928,8 +978,8 @@
     // 下钻：被合并吃掉的模块在右图里已经不存在，那一侧就不展开，只保留合并结果
     const drill = compare.drill;
     const drillMerged = !!drill && plans.some((p) => (p.nodes || []).includes(drill));
-    const beforeGraph = drill ? buildExpandedGraph(drill) : clone();
-    const afterGraph = mergePlans(drillMerged || !drill ? clone() : buildExpandedGraph(drill), plans);
+    const beforeGraph = drill ? buildExpandedGraph(drill, graph) : clone();
+    const afterGraph = mergePlans(drillMerged || !drill ? clone() : buildExpandedGraph(drill, graph), plans);
 
     compare.before?.destroy?.();
     compare.after?.destroy?.();
@@ -1102,7 +1152,7 @@
 
   function focusNodes(nodeIds) {
     const ids = (Array.isArray(nodeIds) ? nodeIds : [nodeIds]).filter(Boolean);
-    const target = graph.nodes.find((node) => ids.includes(node.id));
+    const target = baseGraph().nodes.find((node) => ids.includes(node.id));
     if (!target) return false;
     // 有下钻展开时先收起，否则融合边界里的节点可能被 L3 展开替换掉
     if (activeDrill) activeDrill = null;
@@ -1121,8 +1171,138 @@
     return true;
   }
 
+  /* ---------------- 部署态模型的构建 ----------------
+   * 官方结构 + 全部「可落地 + 跨模块」替换方案 = torch_npu 部署态整网。
+   * 第一次进入这个模型时构建一次；融合规则是它唯一的数据源。
+   */
+
+  /** 把融合规则里的一条方案翻译成 mergeOnePlan 认识的描述 */
+  function planDescriptor(item) {
+    return {
+      id: item.id,
+      label: (item.apis && item.apis[0]) || item.title,
+      sub: item.title,
+      nodes: item.nodes,
+    };
+  }
+
+  /** 融合算子的 L3 展开：它吃掉的子链路就是它内部的步骤 */
+  function npuDrillSpec(item) {
+    const api = (item.apis && item.apis[0]) || 'torch_npu';
+    const covers = (item.covers && item.covers.length ? item.covers : item.nodes);
+    return {
+      description: item.title + '：' + item.module + '。原本的 ' + item.nodes.length
+        + ' 个模块由 ' + (item.apis || []).join(' + ') + ' 一次调用完成。',
+      steps: covers.map((text, index) => [
+        text,
+        api,
+        index === covers.length - 1 ? 'io:output' : 'sem:gate',
+      ]),
+    };
+  }
+
+  function buildNpuGraph() {
+    const rules = window.PtoFusionRules;
+    if (!rules) return null;
+    const data = rules.evaluate();
+    const items = data.items.filter((x) => rules.changesTopology(x) && rules.isActionable(x));
+    if (!items.length) return null;
+
+    const plans = items.map(planDescriptor);
+    const clone = {
+      ...graph,
+      nodes: graph.nodes.map((n) => ({ ...n })),
+      edges: graph.edges.map((e) => ({ ...e })),
+      clusters: graph.clusters.map((c) => ({ ...c })),
+    };
+    const merged = mergePlans(clone, plans, (plan) => npuNodeId(plan.id));
+
+    npu.drillSpecs = {};
+    items.forEach((item) => { npu.drillSpecs[npuNodeId(item.id)] = npuDrillSpec(item); });
+    // 融合算子默认收起，和官方结构里的模块节点一样可以点 ＋ 展开
+    merged.nodes.forEach((node) => { if (npu.drillSpecs[node.id]) node.collapsed = true; });
+
+    npu.graph = merged;
+    npu.meta = {
+      plans: items.map((x) => ({ id: x.id, title: x.title, apis: x.apis, nodes: x.nodes, nodeId: npuNodeId(x.id) })),
+      planCount: items.length,
+      nodesBefore: graph.nodes.length,
+      nodesAfter: merged.nodes.length,
+      edgesBefore: graph.edges.length,
+      edgesAfter: merged.edges.length,
+    };
+    return npu.graph;
+  }
+
+  const ensureNpuGraph = () => npu.graph || buildNpuGraph();
+
+  /** 从别处（例如替换方案面板）直接切到部署态模型 */
+  function showNpu() {
+    if (!ensureNpuGraph()) return false;
+    window.PtoModelArchitectureState = { active: NPU_MODEL_ID };
+    show();
+    return true;
+  }
+
+  let shownModel = null;
+
+  /**
+   * 整网融合推荐器的候选定位。
+   * 文档的规则匹配的是算子级模式，所以候选落在 L3：先把所在模块下钻展开，
+   * 再高亮它覆盖的那几个步骤。没有 steps 时退化为模块级高亮。
+   * @param {{module: string, steps: number[]}} site
+   */
+  function focusCandidate(site) {
+    if (!site || !site.module) { clearFusionHighlight(); return false; }
+    const target = baseGraph().nodes.find((node) => node.id === site.module);
+    if (!target) return false;
+    const spec = drillSpecFor(site.module);
+    const steps = Array.isArray(site.steps) ? site.steps : [];
+    fusionPlan = null;
+    fusionMode = 'before';
+    activePhase = target.phase || activePhase;
+    if (spec && steps.length) {
+      activeDrill = site.module;
+      render();
+      const ids = steps.map((i) => site.module + '__' + i);
+      const apply = () => { applyPhase(activePhase); highlightNodes(ids); };
+      apply();
+      setTimeout(apply, 0);
+    } else {
+      activeDrill = null;
+      render();
+      const apply = () => {
+        applyPhase(activePhase);
+        controller?.selectNode?.(target.id, { source: 'catalog' });
+        selectNode(target.id);
+        highlightNodes([target.id]);
+      };
+      apply();
+      setTimeout(apply, 0);
+    }
+    return true;
+  }
+
+  /** 收起下钻，回到部署态整网全景 */
+  function clearCandidate() {
+    activeDrill = null;
+    render();
+    setTimeout(() => { applyPhase(activePhase); clearFusionHighlight(); }, 0);
+  }
+
   function show() {
-    window.PtoModelArchitectureState = { active: MODEL_ID };
+    // 官方结构和部署态模型是本模块的两张视图，active 指向哪张就渲染哪张
+    const wanted = activeModelId();
+    const useNpu = wanted === NPU_MODEL_ID && !!ensureNpuGraph();
+    const target = useNpu ? NPU_MODEL_ID : MODEL_ID;
+    window.PtoModelArchitectureState = { active: target };
+    // 两张图的节点集合不同，换模型时下钻与融合叠加状态一律清掉
+    if (shownModel && shownModel !== target) {
+      activeDrill = null;
+      fusionPlan = null;
+      fusionMode = 'before';
+    }
+    shownModel = target;
     const wasInitialized = initialized;
     init();
     setChrome();
@@ -1132,6 +1312,7 @@
     if (!configLoaded) loadOfficialConfig();
     // active 在函数开头就已切到本模型，入口卡可以直接同步，不必等下一帧
     window.PtoFusionAdvisor?.syncEntry?.();
+    window.PtoFusionCatalogAdvisor?.syncEntry?.();
     requestAnimationFrame(() => applyPhase(activePhase));
   }
 
@@ -1149,6 +1330,13 @@
     closeCompare,
     isComparing: () => !!compare && !compare.root.hidden,
     getFusionMode: () => fusionMode,
+    showNpu,
+    focusCandidate,
+    clearCandidate,
+    isNpuModelActive: isNpuView,
+    getNpuMeta: () => (ensureNpuGraph() ? npu.meta : null),
+    npuGraph: () => ensureNpuGraph(),
+    NPU_MODEL_ID,
     graph,
     drillSpecs,
   };

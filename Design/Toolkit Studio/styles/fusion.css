@@ -788,3 +788,25 @@
 .kf-fus-panelhead .kf-fus-apis { margin-top: 0; }
 .kf-fus-panelhead .kf-fus-detailactions { margin-top: 0; }
 .kf-fus-panel .kf-fus-detailbody { max-height: none; overflow: visible; padding: 12px 13px 14px; }
+
+/* ---------------- 一键替换 ---------------- */
+
+.kf-fus-btn.is-accent {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: color-mix(in srgb, var(--warning) 82%, var(--foreground));
+  font-weight: 600;
+}
+.kf-fus-btn.is-accent:hover,
+.kf-fus-btn.is-accent:focus-visible {
+  background: color-mix(in srgb, var(--warning) 26%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 70%, transparent);
+}
+
+/* 部署态模型卡：在模型列表里跟官方结构区分开 */
+.kf-model-card.is-npu {
+  border-left: 2px solid color-mix(in srgb, var(--warning) 62%, transparent);
+}
+.kf-model-card.is-npu em {
+  color: color-mix(in srgb, var(--warning) 82%, var(--foreground));
+}
