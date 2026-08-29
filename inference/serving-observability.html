@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -185,72 +185,96 @@
 
     /* Serving Observability extends the original inference workbench visual language. */
     :root {
-      --app-background: #f5f6f8;
+      --app-background: #fafafa;
       --surface-1: #fff;
-      --surface-2: #f8f9fb;
-      --surface-3: #eef1f4;
-      --foreground: #20252b;
-      --foreground-secondary: #626a73;
-      --foreground-muted: #8b929a;
-      --border-subtle: #e4e7eb;
-      --border-default: #d6dbe1;
-      --border-strong: #aeb6c0;
-      --primary: #356fae;
-      --primary-hover: #285d96;
-      --state-selected: #e8f0fa;
-      --state-hover: #f0f2f5;
-      --success: #2f7a5a;
-      --warning: #a66a22;
-      --danger: #a34d4d;
+      --surface-2: #fafafa;
+      --surface-3: #f4f4f5;
+      --surface-4: #e4e4e7;
+      --foreground: #18181b;
+      --foreground-secondary: #52525b;
+      --foreground-muted: #71717a;
+      --border-subtle: #e4e4e7;
+      --border-default: #d4d4d8;
+      --border-strong: #a1a1aa;
+      --primary: #18181b;
+      --primary-hover: #27272a;
+      --state-selected: #f4f4f5;
+      --state-hover: #f4f4f5;
+      --success: #15803d;
+      --warning: #a16207;
+      --danger: #b91c1c;
+      --accent: #64748b;
       --so-muted: var(--foreground-muted);
-      --so-accent: #356fae;
-      --so-accent-strong: #2f7a5a;
-      --so-warm: #a66a22;
-      --so-danger: #a34d4d;
+      --so-accent: #18181b;
+      --so-accent-strong: #15803d;
+      --so-warm: #a16207;
+      --so-danger: #b91c1c;
       --so-panel: #fff;
-      --so-panel-strong: #f8f9fb;
+      --so-panel-strong: #fafafa;
+      --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-weight-medium: 500;
+      --font-weight-semibold: 600;
+      --font-weight-bold: 700;
+      --letter-spacing-label: .06em;
+      --text-label: 500 11px / 1.2 var(--font-sans);
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --radius-xl: 12px;
+      --radius-pill: 999px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 6px 18px rgba(0,0,0,.08);
+      --type-body-sm: 400 12px / 1.5 var(--font-sans);
+      --duration-fast: 100ms;
+      --easing-default: ease;
     }
     html, body, .app-shell { width: 100%; max-width: none; }
-    body { min-width: 320px; background: var(--app-background); color: var(--foreground); font-family: Inter, "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    body { min-width: 320px; margin: 0; background: var(--app-background); color: var(--foreground); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
     button, select, input { font: inherit; }
     button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
     .app-shell { min-height: 100vh; background: var(--app-background); }
-    .app-header { position: sticky; top: 0; z-index: 10; display: flex; height: 56px; align-items: center; justify-content: space-between; gap: 18px; padding: 0 20px; border-bottom: 1px solid var(--border-subtle); background: #fff; }
-    .app-brand { display: flex; align-items: center; min-width: 250px; color: var(--foreground); font-size: 15px; font-weight: 700; }
-    .brand-mark { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; margin-right: 9px; border-radius: 6px; background: #2f6ea9; color: #fff; font-size: 11px; font-weight: 800; }
+    .app-header { position: sticky; top: 0; z-index: 10; display: flex; height: 58px; align-items: center; justify-content: space-between; gap: 18px; padding: 0 24px; border-bottom: 1px solid var(--border-subtle); background: rgba(255,255,255,.96); backdrop-filter: blur(10px); }
+    .app-brand { display: flex; align-items: center; min-width: 216px; color: var(--foreground); font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+    .brand-mark { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; margin-right: 9px; border-radius: 7px; background: var(--foreground); color: #fff; font-size: 10px; font-weight: 750; }
     .header-actions { display: flex; gap: 6px; }
     .top-context { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .top-readout { display: flex; gap: 7px; min-width: 0; }
-    .top-readout span { display: block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 7px 9px; border-radius: 6px; background: var(--surface-3); color: var(--foreground-secondary); font-size: 11px; }
-    .app-body { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 56px); }
-    .app-sidebar { position: sticky; top: 56px; height: calc(100vh - 56px); overflow: auto; border-right: 1px solid var(--border-subtle); background: #fff; }
-    .sidebar-head { display: flex; align-items: center; justify-content: space-between; height: 42px; padding: 0 16px; border-bottom: 1px solid var(--border-subtle); color: var(--foreground-secondary); font-size: 12px; font-weight: 600; }
+    .top-readout span { display: block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 6px 9px; border: 1px solid var(--border-subtle); border-radius: 7px; background: #fff; color: var(--foreground-secondary); font-size: 11px; }
+    .app-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: calc(100vh - 58px); }
+    .app-sidebar { position: sticky; top: 58px; height: calc(100vh - 58px); overflow: auto; border-right: 1px solid var(--border-subtle); background: #fff; }
+    .sidebar-head { display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 18px; border-bottom: 1px solid var(--border-subtle); color: var(--foreground-secondary); font-size: 12px; font-weight: 550; }
     .app-nav { display: grid; gap: 4px; padding: 12px; }
     .so-nav-group { display: grid; gap: 4px; margin: 0 0 10px; }
     .so-nav-group-title { padding: 6px 10px 4px; color: var(--foreground-muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-    .so-nav-item, .so-nav-child { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; border: 0; border-radius: 8px; padding: 9px 10px; background: transparent; color: var(--foreground-secondary); cursor: pointer; text-align: left; font-size: 12px; }
+    .so-nav-item, .so-nav-child { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; border: 0; border-radius: 7px; padding: 8px 10px; background: transparent; color: var(--foreground-secondary); cursor: pointer; text-align: left; font-size: 12px; }
     .so-nav-item:hover, .so-nav-child:hover { background: var(--state-hover); color: var(--foreground); }
-    .so-nav-item.is-active, .so-nav-child.is-active { background: var(--state-selected); color: var(--foreground); font-weight: 650; }
+    .so-nav-item.is-active, .so-nav-child.is-active { background: var(--state-selected); color: var(--foreground); font-weight: 600; }
     .so-nav-count { color: var(--foreground-muted); font-size: 10px; }
     .so-nav-child { padding-left: 26px; }
     .so-context-card { display: none; }
     .explorer-context { margin: 8px 12px; padding: 10px; border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); font-size: 11px; line-height: 1.45; }
     .explorer-context strong { display: block; margin-top: 4px; color: var(--foreground); font-size: 12px; }
     .app-content { min-width: 0; }
-    .content-bar { display: flex; height: 42px; align-items: center; justify-content: space-between; gap: 14px; padding: 0 24px; border-bottom: 1px solid var(--border-subtle); background: #fff; color: var(--foreground-secondary); font-size: 12px; }
+    .content-bar { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 24px; border-bottom: 1px solid var(--border-subtle); background: #fff; color: var(--foreground-secondary); font-size: 12px; }
     .content-bar strong { margin-right: 8px; color: var(--foreground); font-weight: 650; }
     .so-workarea { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 326px); align-items: start; }
     .so-workarea.is-scenarios { grid-template-columns: minmax(0, 1fr); }
     .so-workarea.is-scenarios .so-side-inspector { display: none; }
     .app-main { min-width: 0; padding: 22px 26px 48px; }
     .so-side-inspector { position: sticky; top: 98px; min-height: calc(100vh - 98px); overflow: auto; padding: 18px 16px 28px; border-left: 1px solid var(--border-subtle); background: #fff; }
-    .app-statusbar { display: flex; position: fixed; right: 0; bottom: 0; left: 232px; z-index: 5; height: 26px; align-items: center; justify-content: flex-end; gap: 18px; padding: 0 18px; border-top: 1px solid var(--border-subtle); background: #fff; color: var(--foreground-muted); font-size: 10px; }
     .so-eyebrow { color: var(--foreground-muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
     .so-content-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
     .so-content-header h1 { margin: 0 0 8px; color: var(--foreground); font-size: 24px; line-height: 1.25; letter-spacing: -.02em; }
     .so-content-header p { max-width: 850px; margin: 0; color: var(--foreground-secondary); font-size: 13px; line-height: 1.55; }
     .so-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    .btn, .so-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border-default); border-radius: 6px; padding: 0 12px; background: var(--surface-1); color: var(--foreground); cursor: pointer; font-size: 12px; white-space: nowrap; }
+    .btn, .so-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border-default); border-radius: 7px; padding: 0 12px; background: var(--surface-1); color: var(--foreground); cursor: pointer; font-size: 12px; font-weight: 500; white-space: nowrap; box-shadow: var(--shadow-sm); }
     .btn:hover, .so-button:hover { border-color: var(--border-strong); background: var(--surface-3); }
     .btn-solid, .so-button.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
     .btn-solid:hover, .so-button.primary:hover { background: var(--primary-hover); }
@@ -259,7 +283,7 @@
     .so-tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 13px; background: transparent; color: var(--foreground-secondary); cursor: pointer; font-size: 12px; }
     .so-tab:hover { background: var(--state-hover); color: var(--foreground); }
     .so-tab.is-active { border-bottom-color: var(--primary); background: var(--state-selected); color: var(--foreground); font-weight: 650; }
-    .so-card, .so-finding, .so-compare-side { border-color: var(--border-subtle); border-radius: 8px; background: var(--surface-1); box-shadow: none; }
+    .so-card, .so-finding, .so-compare-side { border-color: var(--border-subtle); border-radius: 10px; background: var(--surface-1); box-shadow: var(--shadow-sm); }
     .so-card-head { padding: 14px 15px 10px; }
     .so-card-head h3, .so-section-title h2 { color: var(--foreground); }
     .so-card-body { padding: 0 15px 15px; }
@@ -280,6 +304,37 @@
     .so-finding { padding: 12px; background: var(--surface-1); }
     .so-finding:hover { border-color: var(--border-strong); background: var(--surface-2); }
     .so-link { color: var(--primary); }
+    .so-findings-section-title { align-items: flex-end; margin-top: 24px; }
+    .so-findings-section-title h2 { display: flex; align-items: center; gap: 8px; }
+    .so-findings-count { display: inline-flex; min-width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 999px; background: var(--foreground); color: #fff; font-size: 10px; font-weight: 700; }
+    .so-findings-overview { gap: 10px; }
+    .so-findings-overview .so-finding { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 15px 16px 14px 18px; border-left: 4px solid var(--border-default); background: linear-gradient(135deg, #fff 0%, #fbfcfd 100%); box-shadow: 0 2px 6px rgba(32,37,43,.04); transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+    .so-findings-overview .so-finding::before { position: absolute; top: 0; bottom: 0; left: 0; width: 4px; content: ''; background: var(--border-default); }
+    .so-findings-overview .so-finding.is-high { border-left-color: var(--danger); background: linear-gradient(135deg, #fffafa 0%, #fff 64%); }
+    .so-findings-overview .so-finding.is-high::before { background: var(--danger); }
+    .so-findings-overview .so-finding.is-medium { border-left-color: var(--warning); background: linear-gradient(135deg, #fffdf8 0%, #fff 64%); }
+    .so-findings-overview .so-finding.is-medium::before { background: var(--warning); }
+    .so-findings-overview .so-finding:hover { border-color: var(--border-strong); box-shadow: 0 8px 18px rgba(32,37,43,.08); transform: translateY(-1px); }
+    .so-findings-overview .so-finding.is-high:hover { border-left-color: var(--danger); }
+    .so-findings-overview .so-finding.is-medium:hover { border-left-color: var(--warning); }
+    .so-finding-copy { min-width: 0; }
+    .so-finding-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+    .so-finding-code { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; font-weight: 650; letter-spacing: .04em; }
+    .so-finding-severity { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .so-finding-severity::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ''; }
+    .so-finding-severity.is-high { color: var(--danger); }
+    .so-finding-severity.is-medium { color: var(--warning); }
+    .so-findings-overview .so-finding-title { font-size: 13px; line-height: 1.4; }
+    .so-findings-overview .so-finding-summary { max-width: 820px; margin-top: 6px; line-height: 1.55; }
+    .so-findings-overview .so-finding-foot { align-items: center; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border-subtle); }
+    .so-finding-evidence { min-width: 0; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; overflow-wrap: anywhere; }
+    .so-finding-action { min-width: 132px; min-height: 36px; padding: 0 13px; border-color: var(--primary); box-shadow: 0 3px 8px rgba(24,24,27,.12); font-weight: 650; }
+    .so-finding-action:hover { border-color: var(--primary-hover); background: var(--primary-hover); box-shadow: 0 5px 12px rgba(24,24,27,.16); transform: translateY(-1px); }
+    .so-finding-action span:last-child { font-size: 15px; line-height: 1; }
+    @media (max-width: 760px) {
+      .so-findings-overview .so-finding { grid-template-columns: 1fr; gap: 12px; }
+      .so-findings-overview .so-finding-action { width: 100%; }
+    }
     .so-table-wrap, .so-trace { border-color: var(--border-subtle); background: var(--surface-1); }
     .so-table th { background: var(--surface-2); color: var(--foreground-muted); }
     .so-table td { border-color: var(--border-subtle); color: var(--foreground); }
@@ -500,7 +555,7 @@
     .so-model-summary-intro p { margin: 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.5; }
     .so-model-summary .so-card-body { min-height: 84px; }
     .so-model-summary .so-metric-value { font-size: 20px; }
-    [data-ide-pane="architecture"] { min-width: 0; }
+    .so-model-architecture-section { min-width: 0; }
     .so-architecture-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
     .so-architecture-toolbar h3 { margin: 0 0 4px; color: var(--foreground); font-size: 14px; }
     .so-architecture-toolbar p { margin: 0; color: var(--foreground-muted); font-size: 11px; }
@@ -587,6 +642,11 @@
       --model-graphviz-node-label: #20252b;
       --model-graphviz-node-type: #626a73;
       --model-graphviz-cluster-label: #20252b;
+      --model-graphviz-node-shadow: 0 1px 2px rgba(0,0,0,.08);
+      --model-graphviz-parent-shadow: 0 3px 10px rgba(0,0,0,.06);
+      --model-graphviz-report-p0: #b91c1c;
+      --model-graphviz-report-p1: #a16207;
+      --model-graphviz-report-p2: #2563eb;
       --model-graphviz-toggle-bg: #e8f0fa;
       --model-graphviz-toggle-border: #aeb6c0;
       --model-graphviz-toggle-icon: #20252b;
@@ -1532,6 +1592,8 @@ button.operator-tree-toggle:hover {
     .so-model-layer-slab strong, .so-model-layer-slab span { position: relative; z-index: 1; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .so-model-layer-slab strong { font-size: 9px; }
     .so-model-layer-slab span { margin-top: 3px; color: var(--foreground-muted); font-size: 7px; }
+    .so-layer-bridge { position: absolute !important; z-index: 4 !important; top: 50%; right: -30px; width: 25px; height: 2px; overflow: visible !important; background: repeating-linear-gradient(90deg,var(--layer-color) 0 5px,transparent 5px 8px); transform: translateY(-50%); }
+    .so-layer-bridge::after { content: ''; position: absolute; top: -3px; right: -1px; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--layer-color); }
     .so-iso-fabric { position: relative; min-width: 0; padding: 11px 11px 14px; border: 1px solid #d6dde5; border-radius: 7px; background-color: #f6f8fa; background-image: linear-gradient(rgba(111,126,143,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(111,126,143,.07) 1px,transparent 1px); background-size: 16px 16px; box-shadow: inset 0 1px 0 #fff; }
     .so-fabric-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 11px; padding: 0 2px; }
     .so-fabric-head strong { display: block; font-size: 10px; }
@@ -1602,6 +1664,7 @@ button.operator-tree-toggle:hover {
       .so-twin-ingress .so-flow-arrow { width: 2px; height: 18px; margin: 0 auto; }
       .so-twin-layout { grid-template-columns: 1fr; }
       .so-model-stack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding-right: 8px; }
+      .so-layer-bridge { display: none !important; }
       .so-iso-node-grid { grid-template-columns: 1fr !important; }
     }
     @media (max-width: 760px) {
@@ -1619,16 +1682,351 @@ button.operator-tree-toggle:hover {
     @media (max-width: 1180px) {
       .so-workarea { grid-template-columns: minmax(0, 1fr); }
       .so-side-inspector { position: static; min-height: 0; border-top: 1px solid var(--border-subtle); border-left: 0; }
-      .app-statusbar { left: 0; }
+    }
+
+    /* Scenario design-space exploration extends the current light workbench. */
+    .so-dse-layout { display: grid; grid-template-columns: 252px minmax(720px, 1fr); gap: 14px; align-items: start; }
+    .so-dse-intent { position: sticky; top: 68px; display: grid; gap: 12px; min-width: 0; }
+    .so-dse-panel,
+    .so-dse-section { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 9px; background: #fff; }
+    .so-dse-panel-head,
+    .so-dse-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 14px 11px; border-bottom: 1px solid var(--border-subtle); }
+    .so-dse-panel-head h2,
+    .so-dse-section-head h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+    .so-dse-panel-head p,
+    .so-dse-section-head p { margin: 5px 0 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
+    .so-dse-intent-body { padding: 12px; }
+    .so-dse-intent-text { min-height: 118px; resize: vertical; line-height: 1.55; }
+    .so-dse-intent-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; }
+    .so-dse-parse-state { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-size: 11px; }
+    .so-dse-parse-state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .so-dse-knobs { display: grid; gap: 7px; padding: 9px; }
+    .so-dse-knob { border: 1px solid transparent; border-radius: 7px; background: var(--surface-2); }
+    .so-dse-knob.is-editing { border-color: rgba(53,111,174,.34); background: #f7faff; }
+    .so-dse-knob-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 9px 10px; }
+    .so-dse-knob-summary span { display: block; color: var(--foreground-muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+    .so-dse-knob-summary strong { display: block; margin-top: 4px; overflow: hidden; font-size: 12px; line-height: 1.4; text-overflow: ellipsis; }
+    .so-dse-edit { min-height: 28px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--primary); cursor: pointer; font-size: 11px; }
+    .so-dse-edit:hover { background: var(--state-selected); }
+    .so-dse-knob-form { display: grid; gap: 9px; padding: 2px 10px 10px; }
+    .so-dse-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .so-dse-field-grid .full { grid-column: 1 / -1; }
+    .so-dse-field label { display: block; margin-bottom: 5px; color: var(--foreground-muted); font-size: 11px; }
+    .so-dse-field .so-input,
+    .so-dse-field .so-select { min-height: 34px; padding: 7px 8px; font-size: 12px; }
+    .so-dse-field .so-input { min-height: 34px; padding: 7px 8px; font-size: 12px; }
+    .so-dse-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .so-dse-mode button { min-height: 35px; border: 1px solid var(--border-default); border-radius: 6px; background: #fff; color: var(--foreground-secondary); cursor: pointer; font-size: 11px; }
+    .so-dse-mode button.is-active { border-color: var(--primary); background: var(--state-selected); color: var(--primary-hover); font-weight: 650; }
+    .so-dse-update { padding: 11px 12px 12px; border-top: 1px solid var(--border-subtle); background: var(--surface-2); }
+    .so-dse-search-mode { padding: 12px; border-top: 1px solid var(--border-subtle); }
+    .so-dse-search-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .so-dse-search-head h3 { margin: 0; color: var(--foreground-secondary); font-size: 13px; font-weight: 650; }
+    .so-dse-search-recommendation { color: var(--foreground-muted); font-size: 11px; }
+    .so-dse-search-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+    .so-dse-search-tab { position: relative; display: grid; gap: 3px; min-height: 61px; padding: 8px 7px; border: 1px solid var(--border-subtle); border-radius: 7px; background: var(--surface-2); color: var(--foreground-secondary); cursor: pointer; text-align: left; }
+    .so-dse-search-tab:hover { border-color: var(--border-strong); background: #fff; }
+    .so-dse-search-tab b { color: var(--foreground); font-size: 13px; font-weight: 650; }
+    .so-dse-search-tab small { color: var(--foreground-muted); font-size: 10px; line-height: 1.3; }
+    .so-dse-search-tab i { position: absolute; top: 5px; right: 5px; color: var(--warning); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; font-style: normal; }
+    .so-dse-search-tab.is-active { border-color: #53bfe5; background: #edf9fd; box-shadow: inset 3px 0 #53bfe5; }
+    .so-dse-search-tab.is-active b { color: #175b76; }
+    .so-dse-brute-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+    .so-dse-brute-mode { min-height: 28px; padding: 5px 6px; border: 1px solid var(--border-subtle); border-radius: 5px; background: #fff; color: var(--foreground-muted); cursor: pointer; font-size: 10px; }
+    .so-dse-brute-mode.is-active { border-color: var(--primary); background: var(--state-selected); color: var(--primary-hover); font-weight: 650; }
+    .so-dse-search-copy { min-height: 72px; margin-top: 9px; padding: 9px 10px; border-left: 2px solid var(--primary); border-radius: 6px; background: #f1f5fb; }
+    .so-dse-search-copy strong { color: var(--foreground); font-size: 12px; }
+    .so-dse-search-copy p { margin: 5px 0 0; color: var(--foreground-secondary); font-size: 10px; line-height: 1.55; }
+    .so-dse-search-copy code { color: #1785ae; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+    .so-dse-search-copy .alpha { display: block; margin-top: 5px; color: var(--warning); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+    .so-dse-search-budget { display: grid; gap: 6px; margin-top: 9px; padding: 9px 10px; border-radius: 6px; background: var(--surface-2); }
+    .so-dse-search-budget-head { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
+    .so-dse-search-budget-head span { color: var(--foreground-muted); font-size: 10px; }
+    .so-dse-search-budget-head strong { color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 600; }
+    .so-dse-search-budget input[type="range"] { width: 100%; margin: 1px 0 0; accent-color: #456fe8; }
+    .so-dse-search-budget small { color: var(--foreground-muted); font-size: 10px; line-height: 1.4; }
+    .so-dse-search-complexity { margin-top: 11px; }
+    .so-dse-search-complexity-label, .so-dse-search-complexity-modes { display: flex; justify-content: space-between; color: var(--foreground-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+    .so-dse-search-complexity-track { position: relative; height: 4px; margin: 7px 0 5px; border-radius: 999px; background: linear-gradient(90deg, #9178bd, #53bfe5); }
+    .so-dse-search-complexity-track::before { content: ''; position: absolute; inset: -4px 0; border: 1px solid var(--border-subtle); border-radius: 999px; }
+    .so-dse-search-complexity-track b { position: absolute; top: -4px; width: 12px; height: 12px; margin-left: -6px; border: 3px solid #53bfe5; border-radius: 50%; background: #fff; transition: left .2s ease; }
+    .so-dse-change-state { min-height: 16px; margin-bottom: 7px; color: var(--foreground-muted); font-size: 10px; }
+    .so-dse-change-state.is-dirty { color: var(--warning); }
+    .so-dse-update .so-button { width: 100%; }
+    .so-dse-exploration { display: grid; gap: 14px; min-width: 0; }
+    .so-dse-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .so-dse-lineage { min-height: 258px; overflow: hidden; background: var(--surface-2); --trace-chart-height: 258px; }
+    .so-dse-candidates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 12px; }
+    .so-dse-candidate { position: relative; min-width: 0; min-height: 0; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-2); color: var(--foreground); cursor: pointer; text-align: left; }
+    .so-dse-candidate:hover { border-color: var(--border-strong); background: #fff; }
+    .so-dse-candidate.is-active { border-color: var(--primary); background: #f7faff; box-shadow: 0 0 0 2px rgba(53,111,174,.1); }
+    .so-dse-candidate-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; }
+    .so-dse-candidate h3 { margin: 0; font-size: 13px; }
+    .so-dse-candidate p { min-height: 0; margin: 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.45; }
+    .so-dse-candidate-summary { display: flex; align-items: flex-start; gap: 7px; margin-top: 8px; }
+    .so-dse-candidate-config { overflow: hidden; color: var(--foreground-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-candidate-policy { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
+    .so-dse-candidate-policy span { max-width: 100%; padding: 4px 6px; overflow: hidden; border-radius: 4px; background: #fff; color: var(--foreground-muted); font-size: 10px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-candidate.is-active .so-dse-candidate-policy span { background: var(--surface-2); }
+    .so-dse-candidate-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .so-dse-candidate-metrics span { display: block; color: var(--foreground-muted); font-size: 10px; }
+    .so-dse-candidate-metrics strong { display: block; margin-top: 3px; font-size: 13px; }
+    .so-dse-candidate-foot { display: none; }
+    .so-dse-sla { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border-default)); border-radius: 999px; color: var(--success); font-size: 9px; font-weight: 700; letter-spacing: .02em; line-height: 1; white-space: nowrap; }
+    .so-dse-sla.is-tight { border-color: color-mix(in srgb, var(--warning) 38%, var(--border-default)); color: var(--warning); }
+    .so-dse-deployment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px; border-bottom: 1px solid var(--border-subtle); }
+    .so-dse-deployment-head h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+    .so-dse-deployment-head p { margin: 5px 0 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
+    .so-dse-deployment-actions { display: flex; align-items: center; gap: 8px; }
+    .so-dse-deployment-body { padding: 12px; }
+    .so-dse-canvas { min-width: 0; }
+    .so-placement-canvas { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-2); isolation: isolate; }
+    .so-placement-toolbar { grid-column: 1 / -1; display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 3px 2px; }
+    .so-placement-toolbar-copy { min-width: 0; }
+    .so-placement-toolbar-copy strong { display: block; color: var(--foreground); font-size: 13px; }
+    .so-placement-toolbar-copy span { display: block; margin-top: 3px; overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-placement-toolbar-hint { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; white-space: nowrap; }
+    .so-placement-toolbar-hint::before { width: 6px; height: 6px; border-radius: 50%; background: #44a57b; content: ''; }
+    .so-placement-region { position: relative; z-index: 2; min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 9px; background: #fff; box-shadow: var(--shadow-sm); }
+    .so-placement-region-head { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: #fbfbfc; }
+    .so-placement-region-head h3 { margin: 0; color: var(--foreground); font-size: 12px; font-weight: 650; }
+    .so-placement-region-head > span { overflow: hidden; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-placement-region-body { min-width: 0; padding: 12px; }
+    .so-placement-stage-list { display: grid; gap: 7px; }
+    .so-placement-stage-row { display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 8px; }
+    .so-placement-stage-role { display: grid; gap: 2px; }
+    .so-placement-stage-role strong { color: var(--foreground); font-size: 10px; }
+    .so-placement-stage-role span { color: var(--foreground-muted); font-size: 9px; }
+    .so-placement-stages { display: grid; grid-template-columns: repeat(var(--stage-count), minmax(0, 1fr)); gap: 5px; }
+    .so-placement-stage { position: relative; min-width: 0; display: grid; gap: 2px; padding: 7px 8px 7px 10px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-2); color: var(--foreground-secondary); }
+    .so-placement-stage::before { position: absolute; inset: -1px auto -1px -1px; width: 3px; border-radius: 6px 0 0 6px; background: var(--stage-color); content: ''; }
+    .so-placement-stage.is-active { border-color: var(--stage-color); background: color-mix(in srgb, var(--stage-color) 7%, #fff); }
+    .so-placement-stage b { overflow: hidden; font-family: var(--font-mono); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-placement-stage small { overflow: hidden; color: var(--foreground-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-placement-model-track { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px; align-items: center; gap: 7px; margin-top: 12px; }
+    .so-placement-endpoint { display: grid; justify-items: center; gap: 4px; color: var(--foreground-muted); font-size: 8px; }
+    .so-placement-endpoint i { width: 13px; height: 40px; border: 1px solid var(--border-default); border-radius: 4px; background: var(--surface-3); }
+    .so-placement-layers { position: relative; height: 74px; display: grid; grid-template-columns: repeat(43, minmax(1px, 1fr)); align-items: end; gap: 2px; padding: 8px 5px; overflow: hidden; border-radius: 6px; background: linear-gradient(90deg, rgba(70,111,232,.045) 0 51.16%, rgba(82,183,157,.065) 51.16% 100%); }
+    .so-placement-layer { min-width: 1px; height: calc(28px + var(--layer-rise)); border-radius: 2px 2px 0 0; background: #8090a4; opacity: .62; }
+    .so-placement-layer:nth-child(4n + 1) { --layer-rise: 8px; }
+    .so-placement-layer:nth-child(4n + 2) { --layer-rise: 14px; }
+    .so-placement-layer:nth-child(4n + 3) { --layer-rise: 10px; }
+    .so-placement-layer:nth-child(4n) { --layer-rise: 18px; }
+    .so-placement-layer.is-active { background: #356fae; opacity: .95; }
+    .so-placement-layer.is-muted { opacity: .14; }
+    .so-placement-layer-labels { display: flex; justify-content: space-between; margin-top: 4px; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 8px; }
+    .so-placement-mode-tabs { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-2); }
+    .so-placement-mode-tab { min-height: 23px; border: 0; border-radius: 4px; padding: 0 7px; background: transparent; color: var(--foreground-muted); cursor: pointer; font-size: 9px; }
+    .so-placement-mode-tab.is-active { background: #fff; color: var(--foreground); box-shadow: var(--shadow-sm); font-weight: 650; }
+    .so-placement-layer-visual { display: grid; gap: 8px; }
+    .so-placement-norm { display: flex; align-items: center; justify-content: space-between; min-height: 28px; padding: 0 9px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-2); color: var(--foreground-secondary); font-size: 9px; }
+    .so-placement-parallel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .so-placement-parallel-card { min-width: 0; padding: 8px; border: 1px solid var(--border-subtle); border-radius: 7px; background: #fff; }
+    .so-placement-parallel-card-head { display: flex; align-items: center; justify-content: space-between; gap: 5px; color: var(--foreground-secondary); font-size: 9px; }
+    .so-placement-parallel-card-head b { font-family: var(--font-mono); }
+    .so-placement-shards { display: grid; grid-template-columns: repeat(var(--shard-count), minmax(0, 1fr)); gap: 4px; margin-top: 7px; }
+    .so-placement-shard { min-width: 0; height: 31px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--shard-color) 36%, var(--border-default)); border-radius: 5px; background: color-mix(in srgb, var(--shard-color) 8%, #fff); color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 8px; }
+    .so-placement-shard.is-active { border-color: var(--shard-color); box-shadow: inset 0 0 0 1px var(--shard-color); color: var(--foreground); }
+    .so-placement-experts { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; margin-top: 7px; }
+    .so-placement-experts i { aspect-ratio: 1; border-radius: 2px; background: #dce3eb; }
+    .so-placement-experts i:nth-child(4n + 1) { background: #9ecbb8; }
+    .so-placement-shared { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; background: #eef7f3; color: #316b55; font-size: 9px; }
+    .so-placement-layer-region { border-color: var(--border-subtle); background: #fff; }
+    .so-original-layer-host { width: 100%; min-height: 400px; display: block; background: #fff; }
+    .so-placement-rank-region { grid-column: 1 / -1; }
+    .so-placement-memory-legend { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .so-placement-memory-legend span { display: inline-flex; align-items: center; gap: 4px; color: var(--foreground-muted); font-size: 8px; }
+    .so-placement-memory-legend i { width: 6px; height: 6px; border-radius: 2px; background: var(--memory-color); }
+    .so-placement-node { min-width: 0; overflow: hidden; padding: 8px; border: 1px solid var(--border-default); border-radius: 9px; background: var(--surface-2); box-shadow: inset 0 2px 0 var(--border-subtle); }
+    .so-placement-node-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 1px 3px 8px; border-bottom: 1px solid var(--border-subtle); }
+    .so-placement-node-head strong { color: var(--foreground); font-size: 10px; }
+    .so-placement-node-head span { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 8px; }
+    .so-placement-node-body { padding-top: 8px; }
+    .so-placement-pools { display: grid; grid-template-columns: repeat(var(--pool-count), minmax(0, 1fr)); gap: 8px; }
+    .so-placement-pool { min-width: 0; padding: 8px; border: 1px solid var(--border-subtle); border-left: 3px solid var(--pool-color); border-radius: 7px; background: #fff; }
+    .so-placement-pool-head { display: flex; align-items: center; justify-content: space-between; gap: 7px; padding-bottom: 7px; border-bottom: 1px solid var(--border-subtle); }
+    .so-placement-pool-head strong { color: var(--foreground-secondary); font-size: 10px; }
+    .so-placement-pool-head span { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 8px; white-space: nowrap; }
+    .so-placement-ranks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 7px; }
+    .so-placement-rank { min-width: 0; display: grid; gap: 6px; padding: 7px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-2); color: var(--foreground-secondary); cursor: pointer; text-align: left; }
+    .so-placement-rank:hover, .so-placement-rank.is-active { border-color: var(--pool-color); background: color-mix(in srgb, var(--pool-color) 5%, #fff); outline: none; }
+    .so-placement-rank-head { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+    .so-placement-rank-head strong { color: var(--foreground); font-size: 9px; }
+    .so-placement-rank-head span { overflow: hidden; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-placement-rank-payload { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+    .so-placement-rank-payload span { min-width: 0; overflow: hidden; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-placement-hbm-head { display: flex; justify-content: space-between; gap: 5px; color: var(--foreground-muted); font-size: 8px; }
+    .so-placement-hbm { display: flex; height: 5px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+    .so-placement-hbm i { display: block; height: 100%; background: var(--memory-color); }
+    .so-placement-connection-layer { position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    .so-placement-connection { fill: none; stroke: var(--line-color); stroke-width: 1.5; stroke-linecap: round; opacity: .72; vector-effect: non-scaling-stroke; }
+    .so-placement-connection-dot { fill: var(--line-color); }
+    @media (max-width: 1420px) {
+      .so-placement-ranks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      .so-placement-canvas { grid-template-columns: 1fr; }
+      .so-placement-toolbar, .so-placement-rank-region { grid-column: auto; }
+      .so-placement-pools { grid-template-columns: 1fr; }
+    }
+    .so-dse-config-section { margin-top: 11px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+    .so-dse-config-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+    .so-dse-config-head strong { display: block; font-size: 13px; }
+    .so-dse-config-head span { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 10px; }
+    .so-dse-capacity-limits { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; margin: 0 0 9px; overflow: hidden; border-radius: 7px; background: var(--border-subtle); }
+    .so-dse-capacity-limit { min-width: 0; padding: 9px 10px; background: var(--surface-2); }
+    .so-dse-capacity-limit dt { overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-capacity-limit dd { margin: 4px 0 0; overflow: hidden; color: var(--foreground); font-family: var(--font-mono); font-size: 11px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-config-grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 9px; }
+    .so-dse-config-card { min-width: 0; padding: 11px; border: 1px solid var(--border-subtle); border-radius: 8px; background: #fff; }
+    .so-dse-config-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 9px; border-bottom: 1px solid var(--border-subtle); }
+    .so-dse-config-card-head strong { display: block; font-size: 12px; }
+    .so-dse-config-card-head span { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 10px; line-height: 1.45; }
+    .so-dse-config-card-head .so-pill { margin-top: 0; }
+    .so-dse-pool-configs { display: grid; gap: 7px; margin-top: 9px; }
+    .so-dse-pool-config { padding: 8px; border-radius: 6px; background: var(--surface-2); }
+    .so-dse-pool-config-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .so-dse-pool-config-top strong { font-size: 11px; }
+    .so-dse-pool-config-top span { color: var(--foreground-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+    .so-dse-pool-config-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 7px; }
+    .so-dse-pool-config-meta div { min-width: 0; }
+    .so-dse-pool-config-meta span,
+    .so-dse-policy-list dt { display: block; color: var(--foreground-muted); font-size: 10px; }
+    .so-dse-pool-config-meta strong,
+    .so-dse-policy-list dd { display: block; margin: 3px 0 0; overflow: hidden; color: var(--foreground); font-size: 10px; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; }
+    .so-dse-policy-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 9px; margin: 10px 0 0; }
+    .so-dse-memory-bar { display: flex; height: 9px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+    .so-dse-memory-bar i { display: block; height: 100%; background: var(--memory-color); }
+    .so-dse-memory-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; margin-top: 8px; color: var(--foreground-muted); font-size: 10px; }
+    .so-dse-memory-legend span { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+    .so-dse-memory-legend i { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 2px; background: var(--memory-color); }
+    .so-dse-memory-legend strong { margin-left: auto; color: var(--foreground-secondary); font-size: 10px; }
+    .so-dse-benchmarks { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 1px; margin-top: 11px; overflow: hidden; border-radius: 7px; background: var(--border-subtle); }
+    .so-dse-benchmark { min-width: 0; padding: 9px; background: #fff; }
+    .so-dse-benchmark span { display: block; overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-benchmark strong { display: block; margin-top: 5px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-benchmark small { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 10px; }
+    @media (max-width: 1420px) {
+      .so-dse-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .so-dse-capacity-limits { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .so-dse-config-grid { grid-template-columns: 1fr 1fr; }
+      .so-dse-config-card:first-child { grid-column: 1 / -1; }
+      .so-dse-benchmarks { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    @media (max-width: 1120px) {
+      .so-dse-layout { grid-template-columns: 1fr; }
+      .so-dse-intent { position: static; }
+      .so-dse-lineage { overflow-x: auto; }
+    }
+    @media (max-width: 760px) {
+      .so-dse-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .so-dse-capacity-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .so-dse-config-grid { grid-template-columns: 1fr; }
+      .so-dse-config-card:first-child { grid-column: auto; }
+      .so-dse-benchmarks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    /* Model catalog and optimization planning share the same web-app shell. */
+    .so-model-catalog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .so-model-catalog-meta { color: var(--foreground-secondary); font: var(--type-body-sm); }
+    .so-model-catalog { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+    .so-model-catalog .so-model-card { min-height: 188px; border: 0; border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-sm); }
+    .so-model-catalog .so-model-card:hover,
+    .so-model-catalog .so-model-card:focus-visible { border: 0; background: var(--state-hover); box-shadow: var(--shadow-md); }
+    .so-model-card.is-unavailable { cursor: default; opacity: .62; box-shadow: none; }
+    .so-model-card.is-unavailable:hover { background: var(--surface-1); transform: none; }
+    .so-model-card-tags { display: flex; gap: var(--space-2); flex-wrap: wrap; padding: 0 var(--space-5) var(--space-3); }
+    .so-model-card-meta { border: 0; background: transparent; }
+    .so-model-card-meta div { background: var(--surface-2); }
+    .so-model-detail-nav { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+    .so-model-readiness { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(0, 2.2fr); gap: var(--space-3); margin-bottom: var(--space-5); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-sm); }
+    .so-readiness-score { display: flex; flex-direction: column; justify-content: space-between; min-height: 148px; padding: var(--space-4); border-radius: var(--radius-md); background: var(--surface-2); }
+    .so-readiness-score strong { display: block; margin: var(--space-2) 0; font-size: 34px; letter-spacing: -.05em; }
+    .so-readiness-score p { margin: 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.5; }
+    .so-readiness-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+    .so-readiness-item { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); }
+    .so-readiness-icon { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--foreground-secondary); font-size: 12px; font-weight: 700; }
+    .so-readiness-item.is-complete .so-readiness-icon { color: var(--success); }
+    .so-readiness-item.needs-action .so-readiness-icon { color: var(--warning); }
+    .so-readiness-copy { min-width: 0; flex: 1; }
+    .so-readiness-copy strong { display: block; font-size: 12px; }
+    .so-readiness-copy span { display: block; margin-top: 3px; color: var(--foreground-secondary); font-size: 10px; line-height: 1.45; }
+    .so-readiness-copy .btn { margin-top: var(--space-2); }
+    .so-model-section { margin-top: var(--space-5); scroll-margin-top: 72px; }
+    .so-model-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3); }
+    .so-model-section-head h2 { margin: 0; font-size: 16px; }
+    .so-model-section-head p { margin: 4px 0 0; color: var(--foreground-secondary); font-size: 11px; }
+    .so-profile-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: var(--space-3); }
+    .so-model-surface { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-sm); }
+    .so-model-surface h3 { margin: 0 0 var(--space-3); font-size: 13px; }
+    .so-attribute-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; border-radius: var(--radius-md); background: var(--border-subtle); }
+    .so-attribute { padding: var(--space-3); background: var(--surface-2); }
+    .so-attribute span { display: block; color: var(--foreground-muted); font-size: 10px; }
+    .so-attribute strong { display: block; margin-top: var(--space-1); font-size: 12px; font-weight: 650; }
+    .so-param-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 64px; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font-size: 11px; }
+    .so-param-row:first-of-type { margin-top: 0; }
+    .so-param-row > span:last-child { color: var(--foreground-secondary); text-align: right; font-family: var(--font-mono); }
+    .so-param-track { height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-3); }
+    .so-param-track i { display: block; height: 100%; border-radius: inherit; background: var(--primary); opacity: .76; }
+    .so-shard-dimensions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-4); }
+    .so-recommendation-grid,
+    .so-scenario-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+    .so-recommendation,
+    .so-scenario-card { display: flex; min-height: 190px; flex-direction: column; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-sm); }
+    .so-recommendation-top,
+    .so-scenario-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+    .so-recommendation h3,
+    .so-scenario-card h3 { margin: 0; font-size: 13px; }
+    .so-recommendation p,
+    .so-scenario-card p { margin: var(--space-2) 0 var(--space-3); color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
+    .so-recommendation .btn,
+    .so-scenario-card .btn { align-self: flex-start; margin-top: auto; }
+    .so-resource-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(340px, .8fr); gap: var(--space-3); }
+    .so-memory-total { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .so-memory-total strong { font-size: 24px; letter-spacing: -.03em; }
+    .so-memory-stack { display: flex; height: 20px; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-3); }
+    .so-memory-stack i { display: block; height: 100%; }
+    .so-memory-stack .weights { width: 83%; background: var(--primary); }
+    .so-memory-stack .kv { width: 10%; background: var(--success); }
+    .so-memory-stack .workspace { width: 5%; background: var(--warning); }
+    .so-memory-stack .runtime { width: 2%; background: var(--foreground-muted); }
+    .so-memory-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+    .so-memory-legend div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-sm); background: var(--surface-2); font-size: 11px; }
+    .so-utilization-list { display: grid; gap: var(--space-3); }
+    .so-utilization-row { display: grid; grid-template-columns: 116px minmax(0, 1fr) 44px; align-items: center; gap: var(--space-2); font-size: 11px; }
+    .so-utilization-row strong { text-align: right; font-family: var(--font-mono); font-size: 11px; }
+    .so-utilization-row .so-bar { height: 8px; background: var(--surface-3); }
+    .so-utilization-row .so-bar span { background: var(--primary); }
+    .so-utilization-row.warn .so-bar span { background: var(--warning); }
+    .so-scenario-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin: 0 0 var(--space-3); }
+    .so-scenario-kpis div { padding: var(--space-2); border-radius: var(--radius-sm); background: var(--surface-2); }
+    .so-scenario-kpis span { display: block; color: var(--foreground-muted); font-size: 9px; }
+    .so-scenario-kpis strong { display: block; margin-top: 3px; font-size: 11px; }
+    .so-source-model.so-model-architecture-section { border: 0; box-shadow: var(--shadow-sm); }
+    @media (max-width: 1440px) {
+      .so-model-catalog,
+      .so-recommendation-grid,
+      .so-scenario-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .so-profile-grid,
+      .so-resource-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      .so-model-catalog,
+      .so-recommendation-grid,
+      .so-scenario-card-grid,
+      .so-readiness-items { grid-template-columns: 1fr; }
+      .so-model-readiness { grid-template-columns: 1fr; }
+      .so-attribute-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
   <link rel="stylesheet" href="../Design/Toolkit%20Studio/styles/profiler.css?v=20260821-3">
   <link rel="stylesheet" href="serving-profiler.css?v=20260825-1">
+  <link rel="stylesheet" href="../components/candidate-population-lineage/pattern.css?v=20260829-1">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div class="app-brand"><span class="brand-mark">PTO</span>Serving Observability</div>
+      <div class="app-brand"><span class="brand-mark">PTO</span>推理优化工作台</div>
       <div class="top-context"><span class="top-readout"><span>DeepSeek V4 Flash Decode</span><span>RUN-042 · Completed</span></span></div>
       <div class="header-actions">
         <button class="btn" data-action="import-config">导入 CLI</button>
@@ -1649,12 +2047,6 @@ button.operator-tree-toggle:hover {
         </div>
       </div>
     </div>
-    <footer class="app-statusbar">
-      <span>Scenario SC-042 r1</span>
-      <span>Run RUN-042 · Completed</span>
-      <span>Evidence 12 linked</span>
-      <span>Trace window 282.62 μs</span>
-    </footer>
   </div>
   <div id="modal-root"></div>
 
@@ -1664,6 +2056,7 @@ button.operator-tree-toggle:hover {
   <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260821-1"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260821-1"></script>
   <script src="serving-profiler.js?v=20260825-1"></script>
+  <script src="../components/candidate-population-lineage/pattern.js?v=20260829-1"></script>
   <script>
     (function () {
       'use strict';
@@ -1697,6 +2090,8 @@ button.operator-tree-toggle:hover {
         runStatus: 'Completed',
         runProgress: 100,
         traceZoom: 1,
+        modelPage: 'list',
+        modelHardware: null,
         modelView: 'architecture',
         selectedModelOperator: 'mla_prolog',
         scenarioCreatedNotice: null,
@@ -1723,6 +2118,30 @@ button.operator-tree-toggle:hover {
           observation: ['slo', 'scheduler', 'trace', 'device'],
           status: 'editing'
         },
+        scenarioExplore: {
+          intent: '为 DeepSeek V4 的混合在线流量规划部署。硬件上限为 16 张 Ascend A2 64 GB；在 P95 TTFT 不超过 1000 ms、P95 TPOT 不超过 25 ms 的前提下，最大化 sustained throughput，并为 KV Cache 保留容量余量。首先使用 Fast estimate 探索。',
+          parsed: true,
+          editingGroup: null,
+          dirty: false,
+          revision: 1,
+          selectedCandidate: 'balanced',
+          model: 'DeepSeek V4',
+          precision: 'W8A8',
+          requestRate: 42,
+          promptP95: 8192,
+          outputP50: 512,
+          concurrency: 192,
+          ttftSla: 1000,
+          tpotSla: 25,
+          deviceType: 'Ascend A2 64 GB',
+          maxDevices: 16,
+          hbmReserve: 12,
+          evaluationMode: 'fast',
+          searchStrategy: 'quick',
+          searchBruteMode: 'automatic',
+          searchIterations: 8,
+          searchBudget: 18
+        },
         profiler: {
           query: '',
           sortKey: 'totalMs',
@@ -1736,6 +2155,7 @@ button.operator-tree-toggle:hover {
       };
       var traceHoverController = null;
       var moeHoverController = null;
+      var dseLineageController = null;
 
       var observeTabsConfig = [
         ['overview', 'Overview'],
@@ -1825,7 +2245,8 @@ button.operator-tree-toggle:hover {
         var route = parts[0];
         var query = new URLSearchParams(parts[1] || '');
         if (validRoutes.indexOf(route) >= 0) state.route = route;
-        if (route === 'scenario-new' && query.get('template') && scenarioTemplates[query.get('template')] && query.get('template') !== state.scenarioDraft.template) applyScenarioTemplate(query.get('template'));
+        if (route === 'model') state.modelPage = query.get('model') === 'deepseek-v4' ? 'detail' : 'list';
+        if (route === 'scenario-new' && (query.get('mode') === 'fast' || query.get('mode') === 'hardware')) state.scenarioExplore.evaluationMode = query.get('mode');
         if (query.get('scenario') && scenarios && scenarios.some(function (item) { return item.id === query.get('scenario'); })) {
           if (route === 'scenarios') state.scenarioViewId = query.get('scenario');
           else { state.scenarioId = query.get('scenario'); state.scenarioViewId = query.get('scenario'); }
@@ -1838,13 +2259,14 @@ button.operator-tree-toggle:hover {
       function writeHash() {
         var query = new URLSearchParams();
         if (state.route === 'scenario-new') {
-          query.set('template', state.scenarioDraft.template);
-          var scenarioDraftHash = '#/scenario-new?' + query.toString();
-          if (window.location.hash !== scenarioDraftHash) window.history.replaceState(null, '', scenarioDraftHash);
+          query.set('mode', state.scenarioExplore.evaluationMode);
+          var scenarioExploreHash = '#/scenario-new?' + query.toString();
+          if (window.location.hash !== scenarioExploreHash) window.history.replaceState(null, '', scenarioExploreHash);
           return;
         }
         query.set('scenario', state.route === 'scenarios' ? state.scenarioViewId : state.scenarioId);
         query.set('run', 'RUN-042');
+        if (state.route === 'model' && state.modelPage === 'detail') query.set('model', 'deepseek-v4');
         if (state.route === 'observe') {
           query.set('tab', state.observeTab);
           query.set('group', state.compareGroup);
@@ -2105,7 +2527,7 @@ button.operator-tree-toggle:hover {
       }
       function scenarioConfig(item) {
         var isBatching = item.kind === 'batching';
-        return {
+        var config = {
           model: isBatching ? '/data/models/dsv4-flash-w8a8' : '/data/models/dsv4-flash-w8a8',
           servedModelName: 'dsv4-flash-w8a8',
           backend: 'npu',
@@ -2143,6 +2565,29 @@ button.operator-tree-toggle:hover {
           port: '8000',
           showStartupLogs: '关闭'
         };
+        if (item.planning && item.planning.deploymentConfig) {
+          var spec = item.planning.scenarioSpec;
+          var deployment = item.planning.deploymentConfig;
+          var evidence = item.planning.evaluationEvidence || {};
+          var deviceCount = deployment.pools.reduce(function (sum, pool) { return sum + Number(pool.devices || 0); }, 0);
+          var prefillPool = deployment.pools.find(function (pool) { return pool.id === 'prefill'; });
+          var batchTokenMatch = prefillPool && prefillPool.batch.match(/(\d+)K tokens/i);
+          var chunkMatch = prefillPool && prefillPool.execution.match(/(\d+)K chunk/i);
+          config.devices = Array.from({ length: deviceCount }, function (_, index) { return index; }).join(',');
+          config.dataParallel = String(deployment.parallelism.dp);
+          config.tensorParallel = String(deployment.parallelism.tp);
+          config.expertParallel = String(deployment.parallelism.ep);
+          config.kvCacheDtype = deployment.memoryPolicy.kvDtype.toLowerCase();
+          config.blockSize = deployment.memoryPolicy.blockSize.replace(/\D/g, '');
+          config.memoryUtilization = evidence.hbmUtilizationPercent ? (Number(evidence.hbmUtilizationPercent) / 100).toFixed(2) : config.memoryUtilization;
+          config.maxSeqs = String(evidence.concurrencyCapacity || spec.workload.concurrency);
+          if (batchTokenMatch) config.maxBatchedTokens = String(Number(batchTokenMatch[1]) * 1024);
+          if (chunkMatch) config.longPrefillThreshold = String(Number(chunkMatch[1]) * 1024);
+          config.maxModelLen = String(Number(spec.workload.promptP95) + Number(spec.workload.outputP50));
+          config.prompt = spec.workload.requestRate + ' req/s · prompt P95 ' + spec.workload.promptP95 + ' · output P50 ' + spec.workload.outputP50;
+          config.maxNewTokens = String(spec.workload.outputP50);
+        }
+        return config;
       }
       function configField(label, valueText, note, full) {
         return '<div class="so-field' + (full ? ' full' : '') + '"><label>' + esc(label) + '</label><input class="so-input" value="' + esc(valueText) + '"><small>' + esc(note || '') + '</small></div>';
@@ -2532,7 +2977,6 @@ button.operator-tree-toggle:hover {
         html += '<button class="so-nav-item ' + (state.route === 'workspace' ? 'is-active' : '') + '" data-route="workspace"><span>⌂ Workspace</span><span class="so-nav-count">1</span></button>';
         html += '<button class="so-nav-item ' + (state.route === 'model' ? 'is-active' : '') + '" data-route="model"><span>◈ Model</span><span class="so-nav-count">V4</span></button>';
         html += '<button class="so-nav-item ' + (state.route === 'scenarios' || state.route === 'scenario-new' ? 'is-active' : '') + '" data-route="scenarios"><span>◇ Scenarios</span><span class="so-nav-count">' + scenarios.length + '</span></button>';
-        if (state.route === 'scenario-new') html += '<button class="so-nav-child is-active" data-route="scenario-new"><span>创建 Scenario</span></button>';
         html += '<button class="so-nav-item ' + (state.route === 'observe' ? 'is-active' : '') + '" data-route="observe"><span>◉ Observe</span><span class="so-nav-count">RUN-042</span></button>';
         observeTabsConfig.forEach(function (item) {
           var tab = item[0];
@@ -2594,14 +3038,16 @@ button.operator-tree-toggle:hover {
         html += '<section class="so-card"><div class="so-card-head"><h3>Evidence scope</h3>' + status(run) + '</div><div class="so-card-body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">RUN-042</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision) + '</dd><dt>Current Candidate</dt><dd>' + esc(evidence.label) + '</dd><dt>Hierarchy</dt><dd>' + (evidence.group === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge</dd><dt>Core execution</dt><dd>AIC ' + (evidence.aicoreCount || 0) + ' · AICPU ' + (evidence.aicpuCount || 0) + '</dd></dl></div></section>';
         html += '<section class="so-card"><div class="so-card-head"><h3>Evidence coverage</h3><span class="so-pill accent">DFX linked</span></div><div class="so-card-body"><dl class="so-kv"><dt>Timeline</dt><dd>' + evidence.eventCount + ' complete events</dd><dt>Dependency graph</dt><dd>' + evidenceEdgeCount(evidence) + ' creator / explicit / tensormap edges</dd><dt>Tensor metadata</dt><dd>identity · version · shape · dtype · stride · offset · storage</dd><dt>Memory report</dt><dd>' + (evidence.memorySections || []).length + ' kernel sections · ' + esc(evidence.memory) + '</dd><dt>Perf hints</dt><dd>' + (evidence.hintGroups || []).length + ' grouped problems · ' + (evidence.hints || []).length + ' occurrences</dd><dt>PMU</dt><dd><span class="so-status neutral">未采集</span></dd></dl></div></section>';
         html += '</div>';
-        html += '<div class="so-section-title"><h2>Findings</h2><p>从现象进入 Investigation，再把建议变更保存为 Scenario revision</p></div>';
-        html += '<div class="so-findings">' + findings.map(findingCard).join('') + '</div>';
+        html += '<div class="so-section-title so-findings-section-title"><div><h2>Findings <span class="so-findings-count">' + findings.length + '</span></h2><p>按影响优先级排列；从现象进入 Investigation，再把建议变更保存为 Scenario revision</p></div><span class="so-finding-evidence">' + findings.filter(function (item) { return item.severity === 'High'; }).length + ' high priority</span></div>';
+        html += '<div class="so-findings so-findings-overview">' + findings.map(findingCard).join('') + '</div>';
         if (window.PtoServingProfiler) html += window.PtoServingProfiler.render('overview');
         return html;
       }
 
       function findingCard(item) {
-        return '<article class="so-finding"><div class="so-finding-title">' + esc(item.title) + '</div><div class="so-finding-summary">' + esc(item.summary) + '</div><div class="so-finding-foot"><span class="so-pill ' + (item.severity === 'High' ? 'warm' : '') + '">' + esc(item.severity) + '</span><span class="so-pill">' + esc(item.candidate ? candidateLabel(item.candidate) : '') + '</span><span class="so-pill">' + esc(item.evidence) + '</span><button class="so-link" data-finding="' + item.id + '" data-event="' + esc(item.event || '') + '">' + esc(item.action) + ' →</button></div></article>';
+        var severityClass = item.severity === 'High' ? 'is-high' : 'is-medium';
+        var candidateMeta = item.candidate ? '<span class="so-pill">' + esc(candidateLabel(item.candidate)) + '</span>' : '';
+        return '<article class="so-finding ' + severityClass + '"><div class="so-finding-copy"><div class="so-finding-head"><span class="so-finding-code">' + esc(item.id) + '</span><span class="so-finding-severity ' + severityClass + '">' + esc(item.severity) + '</span></div><div class="so-finding-title">' + esc(item.title) + '</div><div class="so-finding-summary">' + esc(item.summary) + '</div><div class="so-finding-foot"><span class="so-pill ' + (item.severity === 'High' ? 'warm' : '') + '">' + esc(item.severity === 'High' ? 'High impact' : 'Perf guidance') + '</span>' + candidateMeta + '<span class="so-finding-evidence">' + esc(item.evidence) + '</span></div></div><button class="so-button primary so-finding-action" data-finding="' + esc(item.id) + '" data-event="' + esc(item.event || '') + '"><span>' + esc(item.action) + '</span><span aria-hidden="true">→</span></button></article>';
       }
 
       function filteredTraceEvents(evidence) {
@@ -2857,7 +3303,7 @@ button.operator-tree-toggle:hover {
         var modeLabels = { traffic: '流量分配', model: '模型分片', data: '数据与 KV', communication: '通信路径' };
         var layerOptions = modelLayerCatalog.map(function (item) { return '<option value="' + item.id + '" ' + (item.id === layer.id ? 'selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
         var modelStack = modelLayerCatalog.map(function (item) {
-          return '<button class="so-model-layer-slab' + (item.id === layer.id ? ' is-active' : '') + '" style="--layer-color:' + item.color + '" data-model-layer-button="' + item.id + '" aria-pressed="' + (item.id === layer.id) + '" aria-label="切换到 ' + esc(item.label) + '"><strong>' + esc(item.label) + '</strong><span>' + esc(item.short) + '</span></button>';
+          return '<button class="so-model-layer-slab' + (item.id === layer.id ? ' is-active' : '') + '" style="--layer-color:' + item.color + '" data-model-layer-button="' + item.id + '" aria-pressed="' + (item.id === layer.id) + '" aria-label="切换到 ' + esc(item.label) + '"><strong>' + esc(item.label) + '</strong><span>' + esc(item.short) + '</span>' + (item.id === layer.id ? '<i class="so-layer-bridge" aria-hidden="true"></i>' : '') + '</button>';
         }).join('');
         var communicationText = layer.kind === 'moe' ? 'TP ' + draft.tp + ' 路集合通信 · EP ' + draft.ep + ' 路 token exchange' : 'TP ' + draft.tp + ' 路集合通信 · 当前层不触发 Expert exchange';
         var locality = Number(draft.tp) > Number(draft.devicesPerNode) ? '跨 Node 路径' : '优先 Node 内闭合';
@@ -2874,7 +3320,7 @@ button.operator-tree-toggle:hover {
         return '<section class="so-readiness' + (readiness.ready ? '' : ' has-errors') + '"><div class="so-readiness-icon">' + (readiness.ready ? '✓' : '!') + '</div><div><h3>' + (readiness.ready ? '创建就绪' : '需要调整') + '</h3><p>' + (readiness.ready ? (warnings.length ? warnings.length + ' 项规划风险不阻止创建，可在 Controlled Run 中验证。' : '当前规划通过硬约束检查，可以创建 Scenario revision。') : readiness.errors.length + ' 项硬约束错误阻止创建。') + '</p></div><div class="so-risk-list">' + items.map(function (item) { return '<div class="so-risk ' + (item.type === 'error' ? 'error' : '') + '"><i></i><span>' + esc(item.text) + '</span></div>'; }).join('') + '</div></section>';
       }
 
-      function renderScenarioNew() {
+      function renderScenarioLegacy() {
         var draft = state.scenarioDraft;
         var template = scenarioTemplates[draft.template] || scenarioTemplates.latency;
         var allocation = plannedAllocation(draft);
@@ -2901,9 +3347,614 @@ button.operator-tree-toggle:hover {
         return html;
       }
 
+      function resetScenarioExplorer() {
+        state.scenarioExplore = Object.assign({}, state.scenarioExplore, {
+          intent: '为 DeepSeek V4 的混合在线流量规划部署。硬件上限为 16 张 Ascend A2 64 GB；在 P95 TTFT 不超过 1000 ms、P95 TPOT 不超过 25 ms 的前提下，最大化 sustained throughput，并为 KV Cache 保留容量余量。首先使用 Fast estimate 探索。',
+          parsed: true,
+          editingGroup: null,
+          dirty: false,
+          revision: 1,
+          selectedCandidate: 'balanced',
+          model: 'DeepSeek V4',
+          precision: 'W8A8',
+          requestRate: 42,
+          promptP95: 8192,
+          outputP50: 512,
+          concurrency: 192,
+          ttftSla: 1000,
+          tpotSla: 25,
+          deviceType: 'Ascend A2 64 GB',
+          maxDevices: 16,
+          hbmReserve: 12,
+          evaluationMode: 'fast',
+          searchStrategy: 'quick',
+          searchBruteMode: 'automatic',
+          searchIterations: 8,
+          searchBudget: 18
+        });
+      }
+
+      function dseCandidateCatalog(explore) {
+        var deviceFactor = Math.max(.5, Math.min(1.25, Number(explore.maxDevices || 16) / 16));
+        var devices = Math.max(8, Math.round(Number(explore.maxDevices || 16)));
+        var balancedPrefillDevices = Math.min(4, devices - 4);
+        var balancedDecodeDevices = devices - balancedPrefillDevices;
+        var latencyPrefillDevices = devices >= 16 ? 8 : 4;
+        var latencyDecodeDevices = devices - latencyPrefillDevices;
+        var efficientDevices = Math.min(8, devices);
+        return [
+          {
+            id: 'balanced', name: 'Balanced', badge: 'Recommended', description: '满足 SLA 后的最高稳定吞吐，同时保留 KV 余量。', split: true,
+            config: 'P/D split · PP 2 · TP 2 · EP 4 · DP 2', devices: devices,
+            throughput: (19.4 * deviceFactor).toFixed(1) + 'k', ttft: 742, tpot: 21.6, hbm: 84, kv: 18, concurrency: Math.round(224 * deviceFactor), communication: 17, confidence: 89,
+            parallelism: { pp: 2, tp: 2, ep: 4, dp: 2 },
+            poolPlan: [
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (balancedPrefillDevices - 1), devices: balancedPrefillDevices, parallelism: 'TP 4 · EP 4', topology: { pp: 1, tp: 4, ep: 4, dp: 1 }, replicas: '1 replica', batch: '8 seq · 32K tokens', execution: 'Chunked prefill · 4K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: balancedPrefillDevices + '–' + (devices - 1), devices: balancedDecodeDevices, parallelism: 'TP 2 · EP ' + Math.max(2, Math.min(6, Math.floor(balancedDecodeDevices / 2))) + ' · DP 2', topology: { pp: 2, tp: 2, ep: Math.max(2, Math.min(6, Math.floor(balancedDecodeDevices / 2))), dp: 2 }, replicas: '2 replicas', batch: '32 seq / replica', execution: 'Step batching · MTP verify' }
+            ],
+            schedulerPolicy: { name: 'Disaggregated continuous batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 224 inflight hard cap', batching: 'Prefill 32K tok · Decode 32 seq', preemption: 'Recompute · protect active Decode', kvHandoff: 'Direct P→D transfer · 2-copy buffer' },
+            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '32K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
+            memoryPolicy: { name: 'Paged KV cache · balanced reserve', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 88% HBM', allocations: [{ label: 'Weights', value: 54, color: '#6d8fcb' }, { label: 'KV cache', value: 22, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 16, color: '#cfd5dc' }] }
+          },
+          {
+            id: 'latency', name: 'Lowest latency', badge: 'Latency', description: '扩大 TP 并减少队列等待，交互式请求延迟最低。', split: true,
+            config: 'P/D split · PP 2 · TP 4 · EP 2 · DP 1', devices: devices,
+            throughput: (16.8 * deviceFactor).toFixed(1) + 'k', ttft: 518, tpot: 17.9, hbm: 88, kv: 12, concurrency: Math.round(176 * deviceFactor), communication: 23, confidence: 92,
+            parallelism: { pp: 2, tp: 4, ep: 2, dp: 1 },
+            poolPlan: [
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (latencyPrefillDevices - 1), devices: latencyPrefillDevices, parallelism: 'TP 4 · EP 2', topology: { pp: 1, tp: 4, ep: 2, dp: latencyPrefillDevices >= 8 ? 2 : 1 }, replicas: (latencyPrefillDevices >= 8 ? '2 replicas' : '1 replica'), batch: '4 seq · 16K tokens', execution: 'Chunked prefill · 2K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: latencyPrefillDevices + '–' + (devices - 1), devices: latencyDecodeDevices, parallelism: 'TP 4 · EP 2 · DP 1', topology: { pp: 2, tp: 4, ep: 2, dp: 1 }, replicas: '1 replica', batch: '16 seq / replica', execution: 'Priority step batching' }
+            ],
+            schedulerPolicy: { name: 'Latency-first phase scheduler', routing: 'Shortest queue · prefix affinity', admission: 'TTFT guard · 176 inflight hard cap', batching: 'Prefill 16K tok · Decode 16 seq', preemption: 'Decode priority · preempt Prefill', kvHandoff: 'Direct P→D transfer · eager copy' },
+            runtimeLimits: { maxConcurrency: '12 req / worker', tokenBudget: '16K tokens / batch', maxContext: '64K tokens / req', queueCapacity: '32 req / replica', prefillChunk: '2K tokens', requestTimeout: '30 s' },
+            memoryPolicy: { name: 'Paged KV cache · latency reserve', kvDtype: 'INT8', blockSize: '64 tokens', prefixCache: 'Enabled · recency weighted', pressure: 'Preempt Prefill at 88% HBM', allocations: [{ label: 'Weights', value: 58, color: '#6d8fcb' }, { label: 'KV cache', value: 20, color: '#47a77d' }, { label: 'Workspace', value: 10, color: '#d19a4a' }, { label: 'Reserve', value: 12, color: '#cfd5dc' }] }
+          },
+          {
+            id: 'throughput', name: 'Highest throughput', badge: 'Throughput', description: '更大 EP world 与连续批处理，以更小 SLA 余量换取吞吐。', split: true,
+            config: 'P/D split · PP 2 · TP 2 · EP 8 · DP 2', devices: devices,
+            throughput: (21.7 * deviceFactor).toFixed(1) + 'k', ttft: 928, tpot: 24.8, hbm: 88, kv: 8, concurrency: Math.round(256 * deviceFactor), communication: 28, confidence: 82,
+            parallelism: { pp: 2, tp: 2, ep: 8, dp: 2 },
+            poolPlan: [
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (balancedPrefillDevices - 1), devices: balancedPrefillDevices, parallelism: 'TP 4 · EP 4', topology: { pp: 1, tp: 4, ep: 4, dp: 1 }, replicas: '1 replica', batch: '12 seq · 48K tokens', execution: 'Chunked prefill · 8K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: balancedPrefillDevices + '–' + (devices - 1), devices: balancedDecodeDevices, parallelism: 'TP 2 · EP ' + Math.min(8, balancedDecodeDevices) + ' · DP 2', topology: { pp: 2, tp: 2, ep: Math.min(8, balancedDecodeDevices), dp: 2 }, replicas: '2 replicas', batch: '48 seq / replica', execution: 'Deep step batching · MTP verify' }
+            ],
+            schedulerPolicy: { name: 'Throughput-first continuous batching', routing: 'Token budget → least-loaded replica', admission: 'Queue stable · 256 inflight hard cap', batching: 'Prefill 48K tok · Decode 48 seq', preemption: 'No preemption inside Decode step', kvHandoff: 'Batched P→D transfer · 3-copy buffer' },
+            runtimeLimits: { maxConcurrency: '24 req / worker', tokenBudget: '48K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '96 req / replica', prefillChunk: '8K tokens', requestTimeout: '90 s' },
+            memoryPolicy: { name: 'Paged KV cache · high occupancy', kvDtype: 'INT8', blockSize: '256 tokens', prefixCache: 'Enabled · frequency weighted', pressure: 'Throttle admission at 88% HBM', allocations: [{ label: 'Weights', value: 52, color: '#6d8fcb' }, { label: 'KV cache', value: 28, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 12, color: '#cfd5dc' }] }
+          },
+          {
+            id: 'efficient', name: 'Resource efficient', badge: 'Efficiency', description: '统一 Serving 使用更少的 Device，保持较低通信开销。', split: false,
+            config: 'Unified · PP 2 · TP 2 · EP 4 · DP 1', devices: efficientDevices,
+            throughput: (12.9 * Math.min(1, deviceFactor * 2)).toFixed(1) + 'k', ttft: 884, tpot: 24.1, hbm: 86, kv: 13, concurrency: 128, communication: 14, confidence: 87,
+            parallelism: { pp: 2, tp: 2, ep: 4, dp: 1 },
+            poolPlan: [
+              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–' + (efficientDevices - 1), devices: efficientDevices, parallelism: 'PP 2 · TP 2 · EP 4', topology: { pp: 2, tp: 2, ep: 4, dp: 1 }, replicas: '1 replica', batch: '24 mixed seq', execution: 'Phase-aware continuous batch' }
+            ],
+            schedulerPolicy: { name: 'Unified phase-aware batching', routing: 'Single pool · prefix affinity', admission: 'Capacity guard · 128 inflight hard cap', batching: '24 mixed seq · 24K tok budget', preemption: 'Recompute long Prefill', kvHandoff: 'In-place KV · no pool transfer' },
+            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '24K tokens / batch', maxContext: '64K tokens / req', queueCapacity: '48 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
+            memoryPolicy: { name: 'Paged KV cache · compact footprint', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 86% HBM', allocations: [{ label: 'Weights', value: 58, color: '#6d8fcb' }, { label: 'KV cache', value: 18, color: '#47a77d' }, { label: 'Workspace', value: 10, color: '#d19a4a' }, { label: 'Reserve', value: 14, color: '#cfd5dc' }] }
+          }
+        ];
+      }
+
+      function currentDseCandidate() {
+        var candidates = dseCandidateCatalog(state.scenarioExplore);
+        return candidates.find(function (item) { return item.id === state.scenarioExplore.selectedCandidate; }) || candidates[0];
+      }
+
+      function dseField(label, field, value, options) {
+        options = options || {};
+        var control;
+        if (options.values) {
+          control = '<select class="so-select" data-dse-field="' + field + '">' + options.values.map(function (item) { return '<option value="' + esc(item.value) + '" ' + (String(item.value) === String(value) ? 'selected' : '') + '>' + esc(item.label) + '</option>'; }).join('') + '</select>';
+        } else {
+          control = '<input class="so-input" type="' + (options.type || 'text') + '" value="' + esc(value) + '" data-dse-field="' + field + '">';
+        }
+        return '<div class="so-dse-field' + (options.full ? ' full' : '') + '"><label>' + esc(label) + '</label>' + control + '</div>';
+      }
+
+      function renderDseKnob(explore, id, label, summary, form) {
+        var editing = explore.editingGroup === id;
+        return '<section class="so-dse-knob' + (editing ? ' is-editing' : '') + '"><div class="so-dse-knob-summary"><div><span>' + esc(label) + '</span><strong>' + esc(summary) + '</strong></div><button class="so-dse-edit" type="button" data-dse-edit="' + id + '">' + (editing ? '收起' : '修改') + '</button></div>' + (editing ? '<div class="so-dse-knob-form">' + form + '</div>' : '') + '</section>';
+      }
+
+      function renderDseSearchMode(explore) {
+        var mode = explore.searchStrategy || 'quick';
+        var bruteMode = explore.searchBruteMode || 'automatic';
+        var strategies = [
+          { id: 'quick', label: 'Quick', sub: '快速收敛', badge: 'Recommended', marker: 68, title: '快速找较优区域', copy: '从当前 baseline 向邻域迭代，重点搜索 <code>PP / EP / TP / DP</code> 与 P/D、hybrid parallelism。' },
+          { id: 'brute', label: 'Brute', sub: '枚举组合', badge: 'Coverage', marker: bruteMode === 'manual' ? 8 : 34, title: bruteMode === 'manual' ? '按范围展开策略组合' : '穷举核心策略组合', copy: bruteMode === 'manual' ? '按指定参数范围执行 sweep，控制力最强，适合验证明确的并行策略假设。' : '覆盖稳定、结果透明，但搜索成本较高；可切换 Manual Brute 自行定义范围。' },
+          { id: 'optuna', label: 'Optuna', sub: '智能采样', badge: 'Alpha', marker: 93, title: '根据 trial 结果智能采样', copy: '用历史结果选择下一组参数，通常更快收敛，但搜索过程可解释性较弱。', alpha: true }
+        ];
+        var current = strategies.find(function (item) { return item.id === mode; }) || strategies[0];
+        var budget = mode === 'quick' ? Number(explore.searchIterations || 8) : Number(explore.searchBudget || 18);
+        var candidateText = mode === 'quick' ? budget + ' iterations · ' + (budget + 10) + ' candidates' : mode === 'optuna' ? budget + ' trials' : (bruteMode === 'manual' ? budget + ' combinations' : budget + ' candidates');
+        var range = mode === 'quick' ? 'min="4" max="16" step="1"' : mode === 'optuna' ? 'min="8" max="48" step="4"' : 'min="8" max="64" step="8"';
+        var note = mode === 'quick' ? '从 baseline 向局部邻域迭代，保持快速反馈。' : mode === 'optuna' ? '采样 → 评估 → 更新搜索区域 · 已完成 ' + Math.max(0, budget - 4) + ' trials' : bruteMode === 'manual' ? '参数范围与步长决定候选数量，适合复现明确假设。' : '自动枚举核心组合 · API / 内存 / 调度逐层过滤。';
+        var tabs = strategies.map(function (item) {
+          return '<button class="so-dse-search-tab' + (item.id === mode ? ' is-active' : '') + '" type="button" data-dse-search-strategy="' + item.id + '" role="tab" aria-selected="' + (item.id === mode) + '"><b>' + item.label + '</b><small>' + item.sub + '</small>' + (item.alpha ? '<i>Alpha</i>' : '') + '</button>';
+        }).join('');
+        var bruteModes = mode === 'brute' ? '<div class="so-dse-brute-modes" role="tablist" aria-label="Brute 模式"><button class="so-dse-brute-mode' + (bruteMode === 'automatic' ? ' is-active' : '') + '" type="button" data-dse-brute-mode="automatic" aria-selected="' + (bruteMode === 'automatic') + '">Automatic Brute</button><button class="so-dse-brute-mode' + (bruteMode === 'manual' ? ' is-active' : '') + '" type="button" data-dse-brute-mode="manual" aria-selected="' + (bruteMode === 'manual') + '">Manual Brute</button></div>' : '';
+        return '<div class="so-dse-search-mode"><div class="so-dse-search-head"><h3>搜索策略</h3><span class="so-dse-search-recommendation">' + current.badge + '</span></div><div class="so-dse-search-tabs" role="tablist" aria-label="搜索策略">' + tabs + '</div>' + bruteModes + '<div class="so-dse-search-copy"><strong>' + current.title + '</strong><p>' + current.copy + '</p>' + (current.alpha ? '<span class="alpha">Alpha · 适合探索性搜索</span>' : '') + '</div><div class="so-dse-search-budget"><div class="so-dse-search-budget-head"><span>搜索预算</span><strong data-dse-search-budget-label>' + candidateText + '</strong></div><input type="range" ' + range + ' value="' + budget + '" data-dse-search-budget aria-label="搜索预算"><small>' + note + '</small></div><div class="so-dse-search-complexity"><div class="so-dse-search-complexity-label"><span>枚举</span><span>智能搜索</span></div><div class="so-dse-search-complexity-track"><b style="left: ' + current.marker + '%"></b></div><div class="so-dse-search-complexity-modes"><span>Manual</span><span>Automatic</span><span>Quick</span><span>Optuna</span></div></div></div>';
+      }
+
+      function renderDseIntentPanel(explore) {
+        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>用服务目标描述本次探索，系统将其转换为可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? '已解析 5 组条件' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
+        html += '<section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Tuning knobs</h2><p>修改后统一更新右侧设计空间。</p></div>' + (explore.dirty ? '<span class="so-pill warm">Changed</span>' : '<span class="so-pill">已同步</span>') + '</div><div class="so-dse-knobs">';
+        html += renderDseKnob(explore, 'model', 'Model', explore.model + ' · ' + explore.precision, '<div class="so-dse-field-grid">' + dseField('Model', 'model', explore.model, { full: true, values: [{ value: 'DeepSeek V4', label: 'DeepSeek V4' }, { value: 'Qwen3 235B-A22B', label: 'Qwen3 235B-A22B' }] }) + dseField('Precision', 'precision', explore.precision, { full: true, values: [{ value: 'W8A8', label: 'W8A8' }, { value: 'BF16', label: 'BF16' }] }) + '</div>');
+        html += renderDseKnob(explore, 'workload', 'Workload', explore.requestRate + ' req/s · P95 ' + Number(explore.promptP95).toLocaleString() + ' prompt', '<div class="so-dse-field-grid">' + dseField('Peak request rate', 'requestRate', explore.requestRate, { type: 'number' }) + dseField('Concurrency', 'concurrency', explore.concurrency, { type: 'number' }) + dseField('Prompt P95', 'promptP95', explore.promptP95, { type: 'number' }) + dseField('Output P50', 'outputP50', explore.outputP50, { type: 'number' }) + '</div>');
+        html += renderDseKnob(explore, 'sla', 'SLA', 'TTFT ≤ ' + explore.ttftSla + ' ms · TPOT ≤ ' + explore.tpotSla + ' ms', '<div class="so-dse-field-grid">' + dseField('P95 TTFT · ms', 'ttftSla', explore.ttftSla, { type: 'number' }) + dseField('P95 TPOT · ms', 'tpotSla', explore.tpotSla, { type: 'number' }) + '</div>');
+        html += renderDseKnob(explore, 'hardware', 'Hardware budget', explore.deviceType + ' × ' + explore.maxDevices, '<div class="so-dse-field-grid">' + dseField('Accelerator', 'deviceType', explore.deviceType, { full: true, values: [{ value: 'Ascend A2 64 GB', label: 'Ascend A2 · 64 GB' }, { value: 'Ascend A3 96 GB', label: 'Ascend A3 · 96 GB' }] }) + dseField('Max devices', 'maxDevices', explore.maxDevices, { type: 'number' }) + dseField('HBM reserve · %', 'hbmReserve', explore.hbmReserve, { type: 'number' }) + '</div>');
+        html += renderDseKnob(explore, 'evaluation', 'Evaluation mode', explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark', '<div class="so-dse-mode"><button type="button" class="' + (explore.evaluationMode === 'fast' ? 'is-active' : '') + '" data-dse-mode="fast">Fast estimate</button><button type="button" class="' + (explore.evaluationMode === 'hardware' ? 'is-active' : '') + '" data-dse-mode="hardware">Hardware benchmark</button></div>');
+        html += '</div>' + renderDseSearchMode(explore) + '<div class="so-dse-update"><div class="so-dse-change-state' + (explore.dirty ? ' is-dirty' : '') + '">' + (explore.dirty ? '条件已变更，右侧仍为上一轮结果' : '当前结果基于已显示的条件') + '</div><button class="so-button primary" type="button" data-action="update-design-space" ' + (explore.dirty ? '' : 'disabled') + '>更新设计空间</button></div></section></aside>';
+        return html;
+      }
+
+      function renderDseLineage(explore) {
+        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>从并行策略组合到可部署 Pareto 方案的收敛路径。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div></section>';
+      }
+
+      function dseLineageData(explore) {
+        var designCount = Number(explore.maxDevices) <= 8 ? 6144 : 12288;
+        var prunedCount = Math.round(designCount * .0664);
+        var evaluationCount = explore.evaluationMode === 'hardware' ? 28 : 72;
+        var constraintRejectCount = designCount - prunedCount;
+        var hardwareCapacityRejectCount = Math.round(constraintRejectCount * .42);
+        var kvAllocationRejectCount = Math.round(constraintRejectCount * .28);
+        var concurrencyCapacityRejectCount = Math.round(constraintRejectCount * .18);
+        var otherConstraintRejectCount = constraintRejectCount - hardwareCapacityRejectCount - kvAllocationRejectCount - concurrencyCapacityRejectCount;
+        var evaluationRejectCount = prunedCount - evaluationCount;
+        var slaRejectCount = Math.round(evaluationRejectCount * .45);
+        var schedulerRejectCount = Math.round(evaluationRejectCount * .35);
+        var communicationRejectCount = evaluationRejectCount - slaRejectCount - schedulerRejectCount;
+        var paretoCount = 4;
+        var dominatedCount = evaluationCount - paretoCount;
+        return {
+          title: 'Candidate population lineage',
+          stages: [
+            {
+              id: 'design-space', label: 'Design space', kind: 'parallelism combinations', count: designCount,
+              summary: '自动搜索 PP、EP、TP、DP、是否 P/D 分离以及是否使用 hybrid parallelism',
+              next: {
+                id: 'constraint-pruning', type: 'converge', label: 'PRUNE −' + constraintRejectCount.toLocaleString(),
+                rejected: [
+                  { label: 'Hardware capacity · ' + hardwareCapacityRejectCount.toLocaleString(), count: hardwareCapacityRejectCount, tone: 2 },
+                  { label: 'KV allocation · ' + kvAllocationRejectCount.toLocaleString(), count: kvAllocationRejectCount, tone: 1 },
+                  { label: 'Concurrency · ' + concurrencyCapacityRejectCount.toLocaleString(), count: concurrencyCapacityRejectCount, tone: 4 },
+                  { label: 'Other constraints · ' + otherConstraintRejectCount.toLocaleString(), count: otherConstraintRejectCount, tone: 6 }
+                ]
+              }
+            },
+            {
+              id: 'feasible', label: 'Constraints pruning', kind: 'feasible plans', count: prunedCount,
+              summary: '根据 hardware capacity、KV allocation capacity、concurrency capacity 与其他约束收敛方案',
+              next: {
+                id: 'candidate-evaluation', type: 'converge', label: 'RUN −' + evaluationRejectCount.toLocaleString(),
+                rejected: [
+                  { label: 'SLA · ' + slaRejectCount.toLocaleString(), count: slaRejectCount, tone: 1 },
+                  { label: 'Scheduler · ' + schedulerRejectCount.toLocaleString(), count: schedulerRejectCount, tone: 2 },
+                  { label: 'Communication · ' + communicationRejectCount.toLocaleString(), count: communicationRejectCount, tone: 4 }
+                ]
+              }
+            },
+            {
+              id: 'evaluated', label: '方案运行',
+              kind: explore.evaluationMode === 'fast' ? '仿真模拟结果' : '真实硬件运行结果', count: evaluationCount,
+              summary: explore.evaluationMode === 'fast' ? '根据用户意图执行快速仿真模拟计算' : '根据用户意图在所选 Ascend 硬件上真实运行',
+              next: {
+                id: 'pareto-filter', type: 'converge', label: 'RANK −' + dominatedCount,
+                rejected: [{ label: 'Dominated · ' + dominatedCount, count: dominatedCount, tone: 6 }]
+              }
+            },
+            { id: 'pareto', label: 'Pareto frontier', kind: 'non-dominated candidates', count: paretoCount, summary: '给出 latency、throughput 与 resource trade-offs 的 Pareto frontier' }
+          ]
+        };
+      }
+
+      function mountDseLineage(explore) {
+        var host = document.getElementById('dse-candidate-lineage');
+        if (!host) return;
+        if (!window.PtoCandidatePopulationLineage) {
+          host.innerHTML = '<div class="so-empty">候选收敛图加载失败，请检查组件资源。</div>';
+          return;
+        }
+        try {
+          dseLineageController = window.PtoCandidatePopulationLineage.render(host, {
+            data: dseLineageData(explore),
+            initialSelection: 'pareto',
+            maxVisibleCandidates: 240
+          });
+        } catch (error) {
+          console.error(error);
+          host.innerHTML = '<div class="so-empty">候选数据不满足数量守恒，请检查本轮探索结果。</div>';
+        }
+      }
+
+      function renderDseCandidates(explore) {
+        var candidates = dseCandidateCatalog(explore);
+        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Pareto frontier candidates</h2><p>所有候选均满足硬约束；选择一个方案查看 rank placement 与 Deployment config。</p></div><span class="so-pill accent">4 non-dominated</span></div><div class="so-dse-candidates">' + candidates.map(function (item) {
+          var active = item.id === explore.selectedCandidate;
+          var tight = item.ttft > Number(explore.ttftSla) * .85 || item.tpot > Number(explore.tpotSla) * .9;
+          return '<button class="so-dse-candidate' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + item.id + '" aria-pressed="' + active + '"><div class="so-dse-candidate-top"><h3>' + esc(item.name) + '</h3><span class="so-pill' + (item.id === 'balanced' ? ' accent' : '') + '">' + esc(item.badge) + '</span></div><div class="so-dse-candidate-summary"><span class="so-dse-sla' + (tight ? ' is-tight' : '') + '">' + (tight ? 'SLA TIGHT' : 'SLA PASS') + '</span><p>' + esc(item.description) + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + item.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + item.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + item.tpot + ' ms</strong></div></div></button>';
+        }).join('') + '</div></section>';
+      }
+
+      function renderOriginalTransformerLayer() {
+        return `<template data-placement-layer-template>
+          <style>
+            :host {
+              --bg: #fff;
+              --panel: #f7f8fa;
+              --panel2: #eef1f4;
+              --line: #dfe3e8;
+              --text: #18181b;
+              --muted: #71717a;
+              --stage-prefill: #c97822;
+              --stage-decode: #356fae;
+              --tp0: #3f7fc4;
+              --tp0-soft: color-mix(in srgb, #3f7fc4 13%, transparent);
+              --tp1: #6a96c7;
+              --tp1-soft: color-mix(in srgb, #6a96c7 11%, transparent);
+              --ep0: #47a77d;
+              --ep1: #70b596;
+              --shared: #2f8f69;
+              display: block;
+              min-height: 400px;
+              background: var(--bg);
+              color: var(--text);
+              font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            }
+            * { box-sizing: border-box; }
+            [hidden] { display: none !important; }
+            .canvas {
+              width: min(800px, 100%);
+              min-height: 400px;
+              padding: 18px 20px 16px;
+              margin: 0 auto;
+              background: radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--tp0) 6%, transparent), transparent 38%), var(--bg);
+            }
+            .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+            .title { font-size: 20px; line-height: 1; font-weight: 700; letter-spacing: .01em; }
+            .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px 14px; color: var(--muted); font-size: 11px; }
+            .legend span { display: flex; align-items: center; gap: 6px; }
+            .dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; }
+            .dot.tp { background: var(--tp0); }
+            .dot.ep { background: var(--ep0); }
+            .dot.shared { background: var(--shared); }
+            .mode-tabs { display: inline-flex; align-items: center; gap: 14px; }
+            .mode-tab { position: relative; height: 22px; padding: 0 0 5px; border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; color: var(--muted); font: 600 11px/1 Inter, ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+            .mode-tab:hover { color: var(--text); }
+            .mode-tab[aria-selected="true"] { border-bottom-color: currentColor; }
+            .mode-tab[data-mode="prefill"][aria-selected="true"] { color: var(--stage-prefill); }
+            .mode-tab[data-mode="decode"][aria-selected="true"] { color: var(--stage-decode); }
+            .mode-tab:focus-visible { outline: 2px solid var(--tp0); outline-offset: 3px; }
+            .layer-shell { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(180deg, #fff 0%, #fafbfc 100%); box-shadow: 0 1px 2px rgba(24,24,27,.04); }
+            .layer-tag { position: absolute; z-index: 5; top: 10px; left: 12px; padding: 5px 9px; border: 1px solid #d4d9df; border-radius: 999px; background: #fff; color: #52525b; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+            .section { position: relative; padding: 34px 14px 12px; }
+            .section + .section { border-top: 1px solid var(--line); }
+            .section-name { position: absolute; top: 12px; right: 14px; color: var(--muted); font-size: 11px; letter-spacing: .05em; }
+            .expert-section { padding-top: 39px; }
+            .expert-section-header { position: absolute; top: 9px; right: 14px; left: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+            .expert-section-header .section-name { position: static; min-width: 0; white-space: nowrap; }
+            .weights { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: 92px; overflow: hidden; border: 1px solid #d7dde4; border-radius: 12px; background: #f8fafc; }
+            .tp-shard { position: relative; min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 13px; padding: 14px 14px 12px; }
+            .tp-shard + .tp-shard { border-left: 1px solid #d7dde4; }
+            .tp0 { background: linear-gradient(90deg, var(--tp0-soft), color-mix(in srgb, var(--tp0) 7%, transparent)); }
+            .tp1 { background: linear-gradient(90deg, color-mix(in srgb, var(--tp1) 7%, transparent), var(--tp1-soft)); }
+            .tp-badge { font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: nowrap; }
+            .tp0 .tp-badge { color: #356fae; }
+            .tp1 .tp-badge { color: #587fa9; }
+            .matrix { height: 58px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; align-content: center; }
+            .matrix i { height: 5px; border-radius: 2px; background: currentColor; opacity: .85; }
+            .tp0 .matrix { color: var(--tp0); }
+            .tp1 .matrix { color: var(--tp1); }
+            .cut-mark { position: absolute; top: 22px; left: 50%; width: 1px; height: 62px; transform: translateX(-.5px); background: linear-gradient(transparent, #7fa5d0 18%, #7fa5d0 82%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--tp0) 18%, transparent); pointer-events: none; }
+            .cut-label { position: absolute; top: 2px; left: 50%; padding: 2px 6px; transform: translateX(-50%); background: #fff; color: #71717a; font: 500 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+            .moe-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .moe-row.prefill { grid-template-columns: 1fr; }
+            .ep-group { min-width: 0; padding: 10px 12px 12px; border: 1px solid #d9e1dc; border-radius: 12px; background: #fbfcfb; }
+            .ep-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+            .ep-title { font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+            .ep-meta { color: var(--muted); font-size: 10px; }
+            .experts { display: grid; grid-template-columns: repeat(16, 1fr); gap: 5px 4px; }
+            .ep-full .experts { grid-template-columns: repeat(32, 1fr); }
+            .experts i { width: 7px; height: 7px; justify-self: center; border-radius: 50%; background: var(--ep0); }
+            .ep1 .experts i { background: var(--ep1); }
+            .shared-row { height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 0 11px; border: 1px solid #cfe3da; border-radius: 9px; background: #eef7f3; color: #316b55; font-size: 11px; }
+            .shared-left { display: flex; align-items: center; gap: 8px; }
+            .shared-chip { width: 8px; height: 8px; border-radius: 50%; background: var(--shared); box-shadow: 0 0 8px rgba(47,143,105,.22); }
+            .shared-right { color: #5d7f71; font: 500 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+            .axis { position: absolute; top: 50%; left: 7px; transform: translate(-50%, -50%) rotate(-90deg); color: #929aa5; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+            .footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 10px; color: #71717a; font-size: 10px; }
+            .logic { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+            .pill { padding: 4px 7px; border: 1px solid #dfe3e8; border-radius: 999px; background: #f7f8fa; color: #52525b; }
+            .arrow { color: #a1a1aa; }
+            @media (max-width: 560px) {
+              .canvas { padding: 14px; }
+              .topbar { align-items: flex-start; flex-direction: column; }
+              .legend { justify-content: flex-start; }
+              .weights { height: auto; }
+              .tp-shard { grid-template-columns: 1fr; gap: 8px; }
+              .matrix { height: 44px; }
+              .moe-row { grid-template-columns: 1fr; }
+              .experts, .ep-full .experts { grid-template-columns: repeat(16, minmax(5px, 1fr)); }
+              .footer { align-items: flex-start; flex-direction: column; }
+            }
+          </style>
+          <main class="canvas" aria-label="Transformer Layer TP2 with Prefill and Decode expert placement">
+            <div class="topbar">
+              <div class="title">Transformer Layer L0</div>
+              <div class="legend" aria-label="Legend"><span><i class="dot tp"></i>TP · weight shard</span><span><i class="dot ep"></i>EP · routed expert</span><span><i class="dot shared"></i>shared expert</span></div>
+            </div>
+            <section class="layer-shell">
+              <div class="layer-tag">ONE MODEL LAYER</div>
+              <div class="section">
+                <div class="section-name">ATTN / DENSE WEIGHTS · TP = 2</div>
+                <div class="axis">weight axis</div>
+                <div class="weights">
+                  <div class="tp-shard tp0" data-original-layer-source="tp" data-original-layer-value="0"><div><div class="tp-badge">TP0</div><div style="margin-top:5px;color:#71717a;font-size:10px">W[:, 0 : 2048]</div></div><div class="matrix" aria-label="TP0 weight shard">${'<i></i>'.repeat(40)}</div></div>
+                  <div class="tp-shard tp1" data-original-layer-source="tp" data-original-layer-value="1"><div><div class="tp-badge">TP1</div><div style="margin-top:5px;color:#71717a;font-size:10px">W[:, 2048 : 4096]</div></div><div class="matrix" aria-label="TP1 weight shard">${'<i></i>'.repeat(40)}</div></div>
+                  <div class="cut-mark"></div><div class="cut-label">TP CUT</div>
+                </div>
+              </div>
+              <div class="section expert-section">
+                <div class="expert-section-header"><div class="mode-tabs" role="tablist" aria-label="Inference phase"><button class="mode-tab" type="button" role="tab" aria-selected="true" data-mode="prefill">Prefill</button><button class="mode-tab" type="button" role="tab" aria-selected="false" data-mode="decode" tabindex="-1">Decode</button></div><div class="section-name" data-original-expert-section-name>MOE ROUTED EXPERTS · EP = 1</div></div>
+                <div class="axis">expert axis</div>
+                <div class="moe-row prefill" data-original-mode-panel="prefill"><div class="ep-group ep0 ep-full" data-original-layer-source="ep" data-original-layer-value="0"><div class="ep-head"><div class="ep-title">Full Expert Pool · E0–E255</div><div class="ep-meta">256 experts · no EP split</div></div><div class="experts" data-expert-count="256" aria-label="Prefill full expert pool"></div></div></div>
+                <div class="moe-row" data-original-mode-panel="decode" hidden><div class="ep-group ep0" data-original-layer-source="ep" data-original-layer-value="0"><div class="ep-head"><div class="ep-title">EP0 · E0–E127</div><div class="ep-meta">128 experts</div></div><div class="experts" data-expert-count="128" aria-label="Decode EP0 experts"></div></div><div class="ep-group ep1" data-original-layer-source="ep" data-original-layer-value="1"><div class="ep-head"><div class="ep-title">EP1 · E128–E255</div><div class="ep-meta">128 experts</div></div><div class="experts" data-expert-count="128" aria-label="Decode EP1 experts"></div></div></div>
+                <div class="shared-row"><div class="shared-left"><i class="shared-chip"></i><span>Shared Expert</span></div><div class="shared-right" data-original-shared-meta>one shared copy with full expert pool</div></div>
+              </div>
+            </section>
+            <div class="footer"><div class="logic"><span class="pill">Layer</span><span class="arrow">→</span><span class="pill">Weight split by TP</span><span class="arrow">+</span><span class="pill" data-original-expert-logic>Experts kept together · EP1</span></div><div data-original-mode-note>Prefill · 256 routed experts in one group</div></div>
+          </main>
+        </template><div class="so-original-layer-host" data-placement-layer-host></div>`;
+      }
+
+      function renderDseTopology(candidate) {
+        function rangeFor(pool) {
+          var parts = String(pool.ranks).split(/[–-]/);
+          return { start: Number(parts[0]), end: Number(parts[1] || parts[0]) };
+        }
+        function poolName(pool) {
+          return pool.id === 'prefill' ? 'Prefill' : pool.id === 'decode' ? 'Decode' : 'Unified';
+        }
+        function poolColor(pool) {
+          return pool.id === 'prefill' ? '#6d8fcb' : pool.id === 'decode' ? '#47a77d' : '#9178bd';
+        }
+        function renderStages(pool) {
+          var topology = pool.topology || candidate.parallelism;
+          var stageCount = Math.max(1, topology.pp);
+          var stages = [];
+          for (var stage = 0; stage < stageCount; stage += 1) {
+            var firstLayer = Math.floor(43 * stage / stageCount);
+            var lastLayer = Math.floor(43 * (stage + 1) / stageCount) - 1;
+            stages.push('<div class="so-placement-stage" style="--stage-color:' + poolColor(pool) + '" data-placement-source="pp" data-placement-pool="' + esc(pool.id) + '" data-placement-value="' + stage + '"><b>PP' + stage + '</b><small>L' + firstLayer + '–' + lastLayer + ' · ' + (lastLayer - firstLayer + 1) + ' layers</small></div>');
+          }
+          return '<div class="so-placement-stage-row"><div class="so-placement-stage-role"><strong>' + poolName(pool) + '</strong><span>' + esc(pool.role) + '</span></div><div class="so-placement-stages" style="--stage-count:' + stageCount + '">' + stages.join('') + '</div></div>';
+        }
+        function renderLayers() {
+          var layers = [];
+          for (var layer = 0; layer < 43; layer += 1) layers.push('<i class="so-placement-layer" data-placement-layer="' + layer + '"></i>');
+          return layers.join('');
+        }
+        function renderShards(axis, count, color) {
+          var shards = [];
+          var visibleCount = Math.max(1, Math.min(count, 8));
+          for (var shard = 0; shard < visibleCount; shard += 1) {
+            shards.push('<span class="so-placement-shard" style="--shard-color:' + color + '" data-placement-source="' + axis + '" data-placement-value="' + shard + '">' + axis.toUpperCase() + shard + '</span>');
+          }
+          return '<div class="so-placement-shards" style="--shard-count:' + visibleCount + '">' + shards.join('') + '</div>';
+        }
+        function renderExperts() {
+          var dots = [];
+          for (var dot = 0; dot < 64; dot += 1) dots.push('<i></i>');
+          return dots.join('');
+        }
+        function renderRank(pool, rank) {
+          var topology = pool.topology || candidate.parallelism;
+          var poolRange = rangeFor(pool);
+          var localRank = rank - poolRange.start;
+          var pp = Math.floor(localRank / Math.max(1, topology.tp)) % Math.max(1, topology.pp);
+          var tp = localRank % Math.max(1, topology.tp);
+          var ep = localRank % Math.max(1, topology.ep);
+          var dp = Math.floor(localRank / Math.max(1, topology.tp * topology.pp)) % Math.max(1, topology.dp);
+          var firstLayer = Math.floor(43 * pp / Math.max(1, topology.pp));
+          var lastLayer = Math.floor(43 * (pp + 1) / Math.max(1, topology.pp)) - 1;
+          var memoryScale = Math.max(.72, Math.min(.96, (candidate.hbm + ((rank % 4) - 1.5) * 1.4) / 100));
+          var usedGb = 64 * memoryScale;
+          var allocations = candidate.memoryPolicy.allocations;
+          var memoryBars = allocations.map(function (item) {
+            return '<i style="width:' + (item.value * memoryScale).toFixed(2) + '%;--memory-color:' + item.color + '" title="' + esc(item.label) + ' ' + item.value + '%"></i>';
+          }).join('') + '<i style="width:' + ((1 - memoryScale) * 100).toFixed(2) + '%;--memory-color:#e4e7eb" title="Free ' + ((1 - memoryScale) * 100).toFixed(1) + '%"></i>';
+          return '<button class="so-placement-rank" type="button" style="--pool-color:' + poolColor(pool) + '" data-placement-rank="' + rank + '" data-placement-pool="' + esc(pool.id) + '" data-placement-role="' + poolName(pool) + '" data-placement-pp="' + pp + '" data-placement-tp="' + tp + '" data-placement-ep="' + ep + '" data-placement-dp="' + dp + '" data-placement-layers="L' + firstLayer + '–' + lastLayer + '"><span class="so-placement-rank-head"><strong>Rank ' + rank + '</strong><span>P' + pp + ' · T' + tp + ' · E' + ep + '</span></span><span class="so-placement-rank-payload"><span>L ' + firstLayer + '–' + lastLayer + '</span><span>W ' + tp + '/' + topology.tp + '</span><span>E ' + ep + '/' + topology.ep + '</span></span><span><span class="so-placement-hbm-head"><span>NPU ' + rank + '</span><span>' + usedGb.toFixed(1) + ' / 64 GB</span></span><span class="so-placement-hbm">' + memoryBars + '</span></span></button>';
+        }
+        function renderPool(pool) {
+          var poolRange = rangeFor(pool);
+          var ranks = [];
+          for (var rank = poolRange.start; rank <= poolRange.end; rank += 1) ranks.push(renderRank(pool, rank));
+          return '<section class="so-placement-pool" style="--pool-color:' + poolColor(pool) + '"><div class="so-placement-pool-head"><strong>Pool · ' + poolName(pool) + '</strong><span>Ranks ' + poolRange.start + '–' + poolRange.end + '</span></div><div class="so-placement-ranks">' + ranks.join('') + '</div></section>';
+        }
+        var memoryLegend = candidate.memoryPolicy.allocations.map(function (item) { return '<span><i style="--memory-color:' + item.color + '"></i>' + esc(item.label) + '</span>'; }).join('') + '<span><i style="--memory-color:#e4e7eb"></i>Free</span>';
+        return '<section class="so-placement-canvas" data-placement-canvas>' +
+          '<div class="so-placement-toolbar"><div class="so-placement-toolbar-copy"><strong>Placement Canvas</strong><span data-placement-summary>Select a Rank to trace Model → PP / TP / EP → Device placement</span></div><div class="so-placement-toolbar-hint">' + candidate.devices + ' Ascend A2 · Click a Rank card</div></div>' +
+          '<svg class="so-placement-connection-layer" data-placement-connections aria-hidden="true"></svg>' +
+          '<section class="so-placement-region"><div class="so-placement-region-head"><h3>Model / Pipeline</h3><span>DeepSeek V4 · 43 Layers</span></div><div class="so-placement-region-body"><div class="so-placement-stage-list">' + candidate.poolPlan.map(renderStages).join('') + '</div><div class="so-placement-model-track"><span class="so-placement-endpoint"><span>Token</span><i></i></span><span><span class="so-placement-layers">' + renderLayers() + '</span><span class="so-placement-layer-labels"><span>L0</span><span>L10</span><span>L21</span><span>L32</span><span>L42</span></span></span><span class="so-placement-endpoint"><span>Logits</span><i></i></span></div></div></section>' +
+          '<section class="so-placement-region so-placement-layer-region">' + renderOriginalTransformerLayer() + '</section>' +
+          '<section class="so-placement-region so-placement-rank-region"><div class="so-placement-region-head"><h3>Rank Placement</h3><span class="so-placement-memory-legend">' + memoryLegend + '</span></div><div class="so-placement-region-body"><section class="so-placement-node"><div class="so-placement-node-head"><strong>Node 0</strong><span>Devices 0–' + (candidate.devices - 1) + '</span></div><div class="so-placement-node-body"><div class="so-placement-pools" style="--pool-count:' + candidate.poolPlan.length + '">' + candidate.poolPlan.map(renderPool).join('') + '</div></div></section></div></section>' +
+          '</section>';
+      }
+
+      function mountDsePlacement(candidate) {
+        var canvas = document.querySelector('[data-placement-canvas]');
+        if (!canvas) return;
+        var connectionLayer = canvas.querySelector('[data-placement-connections]');
+        var summary = canvas.querySelector('[data-placement-summary]');
+        var layerHost = canvas.querySelector('[data-placement-layer-host]');
+        var layerTemplate = canvas.querySelector('[data-placement-layer-template]');
+        var layerRoot = layerHost.attachShadow({ mode: 'open' });
+        layerRoot.appendChild(layerTemplate.content.cloneNode(true));
+        var selectedRank = null;
+        var activePoolId = candidate.poolPlan[0].id;
+
+        layerRoot.querySelectorAll('.experts').forEach(function (grid) {
+          var count = Number(grid.getAttribute('data-expert-count'));
+          for (var index = 0; index < count; index += 1) grid.appendChild(document.createElement('i'));
+        });
+
+        function phaseForPool(poolId) { return poolId === 'decode' ? 'decode' : 'prefill'; }
+        function setLayerMode(mode) {
+          layerRoot.querySelectorAll('[data-mode]').forEach(function (tab) {
+            var active = tab.getAttribute('data-mode') === mode;
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+          });
+          layerRoot.querySelectorAll('[data-original-mode-panel]').forEach(function (panel) {
+            panel.hidden = panel.getAttribute('data-original-mode-panel') !== mode;
+          });
+          var prefill = mode === 'prefill';
+          layerRoot.querySelector('[data-original-expert-section-name]').textContent = 'MOE ROUTED EXPERTS · EP = ' + (prefill ? '1' : '2');
+          layerRoot.querySelector('[data-original-shared-meta]').textContent = prefill ? 'one shared copy with full expert pool' : 'replicated across EP0 / EP1';
+          layerRoot.querySelector('[data-original-expert-logic]').textContent = prefill ? 'Experts kept together · EP1' : 'Experts partitioned · EP2';
+          layerRoot.querySelector('[data-original-mode-note]').textContent = prefill ? 'Prefill · 256 routed experts in one group' : 'Decode · 128 routed experts per EP group';
+        }
+        function setMode(poolId, clearSelection) {
+          activePoolId = poolId;
+          if (clearSelection) selectedRank = null;
+          setLayerMode(phaseForPool(activePoolId));
+          updateFocus();
+        }
+        function selectedCard() {
+          return selectedRank === null ? null : canvas.querySelector('[data-placement-rank="' + selectedRank + '"]');
+        }
+        function updateFocus() {
+          var card = selectedCard();
+          canvas.querySelectorAll('[data-placement-rank]').forEach(function (rankCard) {
+            rankCard.classList.toggle('is-active', rankCard === card);
+          });
+          canvas.querySelectorAll('[data-placement-source="pp"]').forEach(function (stage) {
+            var active = card && stage.getAttribute('data-placement-pool') === card.getAttribute('data-placement-pool') && stage.getAttribute('data-placement-value') === card.getAttribute('data-placement-pp');
+            stage.classList.toggle('is-active', Boolean(active));
+          });
+          canvas.querySelectorAll('[data-placement-layer]').forEach(function (layer) {
+            if (!card) {
+              layer.classList.remove('is-active', 'is-muted');
+              return;
+            }
+            var range = card.getAttribute('data-placement-layers').slice(1).split('–');
+            var layerNumber = Number(layer.getAttribute('data-placement-layer'));
+            var active = layerNumber >= Number(range[0]) && layerNumber <= Number(range[1]);
+            layer.classList.toggle('is-active', active);
+            layer.classList.toggle('is-muted', !active);
+          });
+          if (card) {
+            summary.textContent = 'Rank ' + selectedRank + ' ← ' + card.getAttribute('data-placement-role') + ' · PP' + card.getAttribute('data-placement-pp') + ' · TP shard ' + card.getAttribute('data-placement-tp') + ' · EP group ' + card.getAttribute('data-placement-ep') + ' · DP' + card.getAttribute('data-placement-dp');
+          } else {
+            summary.textContent = 'Select a Rank to trace Model → PP / TP / EP → Device placement';
+          }
+          window.requestAnimationFrame(drawConnections);
+        }
+        function pointFor(element, edge) {
+          var canvasRect = canvas.getBoundingClientRect();
+          var rect = element.getBoundingClientRect();
+          return { x: rect.left - canvasRect.left + rect.width / 2, y: (edge === 'top' ? rect.top : rect.bottom) - canvasRect.top };
+        }
+        function drawConnections() {
+          var card = selectedCard();
+          connectionLayer.setAttribute('viewBox', '0 0 ' + canvas.clientWidth + ' ' + canvas.clientHeight);
+          connectionLayer.innerHTML = '';
+          if (!card) return;
+          var sources = [
+            { axis: 'pp', color: '#356fae', element: canvas.querySelector('[data-placement-source="pp"][data-placement-pool="' + card.getAttribute('data-placement-pool') + '"][data-placement-value="' + card.getAttribute('data-placement-pp') + '"]') },
+            { axis: 'tp', color: '#04d793', element: layerRoot.querySelector('[data-original-layer-source="tp"][data-original-layer-value="' + (Number(card.getAttribute('data-placement-tp')) % 2) + '"]') },
+            { axis: 'ep', color: '#7be8c5', element: layerRoot.querySelector('[data-original-mode-panel="' + phaseForPool(card.getAttribute('data-placement-pool')) + '"] [data-original-layer-source="ep"][data-original-layer-value="' + (phaseForPool(card.getAttribute('data-placement-pool')) === 'prefill' ? 0 : Number(card.getAttribute('data-placement-ep')) % 2) + '"]') }
+          ];
+          var endBase = pointFor(card, 'top');
+          sources.forEach(function (source, index) {
+            if (!source.element) return;
+            var start = pointFor(source.element, 'bottom');
+            var end = { x: endBase.x + (index - 1) * 11, y: endBase.y };
+            var span = Math.max(40, end.y - start.y);
+            var bend = Math.min(128, span * .38);
+            var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'M ' + start.x.toFixed(1) + ' ' + start.y.toFixed(1) + ' C ' + start.x.toFixed(1) + ' ' + (start.y + bend).toFixed(1) + ', ' + end.x.toFixed(1) + ' ' + (end.y - bend).toFixed(1) + ', ' + end.x.toFixed(1) + ' ' + end.y.toFixed(1));
+            path.setAttribute('class', 'so-placement-connection');
+            path.style.setProperty('--line-color', source.color);
+            connectionLayer.appendChild(path);
+            var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('cx', end.x);
+            dot.setAttribute('cy', end.y);
+            dot.setAttribute('r', '2.7');
+            dot.setAttribute('class', 'so-placement-connection-dot');
+            dot.style.setProperty('--line-color', source.color);
+            connectionLayer.appendChild(dot);
+          });
+        }
+        layerRoot.querySelectorAll('[data-mode]').forEach(function (tab) {
+          tab.addEventListener('click', function () {
+            var mode = tab.getAttribute('data-mode');
+            setLayerMode(mode);
+            var card = selectedCard();
+            if (card && phaseForPool(card.getAttribute('data-placement-pool')) !== mode) selectedRank = null;
+            updateFocus();
+          });
+        });
+        canvas.addEventListener('click', function (event) {
+          var rankCard = event.target.closest('[data-placement-rank]');
+          if (!rankCard) return;
+          selectedRank = Number(rankCard.getAttribute('data-placement-rank'));
+          setMode(rankCard.getAttribute('data-placement-pool'), false);
+        });
+        setMode(activePoolId, false);
+        if (window.ResizeObserver) new ResizeObserver(function () { window.requestAnimationFrame(drawConnections); }).observe(canvas);
+      }
+
+      function renderDseDeploymentConfig(candidate, revisionLabel) {
+        var pools = candidate.poolPlan.map(function (pool) {
+          return '<div class="so-dse-pool-config"><div class="so-dse-pool-config-top"><strong>' + esc(pool.label) + '</strong><span>Ranks ' + esc(pool.ranks) + ' · ' + pool.devices + ' devices</span></div><div class="so-dse-pool-config-meta"><div><span>Role / replicas</span><strong>' + esc(pool.role) + ' · ' + esc(pool.replicas) + '</strong></div><div><span>Parallelism</span><strong>' + esc(pool.parallelism) + '</strong></div><div><span>Batch budget</span><strong>' + esc(pool.batch) + '</strong></div><div><span>Execution</span><strong>' + esc(pool.execution) + '</strong></div></div></div>';
+        }).join('');
+        var scheduler = candidate.schedulerPolicy;
+        var runtimeLimits = candidate.runtimeLimits;
+        var memory = candidate.memoryPolicy;
+        var runtimeLimitRows = [['Max concurrency', runtimeLimits.maxConcurrency], ['Token budget', runtimeLimits.tokenBudget], ['Max context', runtimeLimits.maxContext], ['Queue capacity', runtimeLimits.queueCapacity], ['Prefill chunk', runtimeLimits.prefillChunk], ['Request timeout', runtimeLimits.requestTimeout]];
+        var schedulerRows = [['Routing', scheduler.routing], ['Admission', scheduler.admission], ['Batching', scheduler.batching], ['Preemption', scheduler.preemption], ['KV handoff', scheduler.kvHandoff]];
+        var memoryRows = [['KV dtype', memory.kvDtype], ['Block size', memory.blockSize], ['Prefix cache', memory.prefixCache], ['Pressure action', memory.pressure]];
+        var memoryBar = memory.allocations.map(function (item) { return '<i style="width:' + item.value + '%;--memory-color:' + item.color + '" title="' + esc(item.label) + ' ' + item.value + '%"></i>'; }).join('');
+        var memoryLegend = memory.allocations.map(function (item) { return '<span><i style="--memory-color:' + item.color + '"></i>' + esc(item.label) + '<strong>' + item.value + '%</strong></span>'; }).join('');
+        return '<div class="so-dse-config-section"><div class="so-dse-config-head"><div><strong>Deployment config</strong><span>采用方案后冻结为当前 Scenario revision 的运行配置。</span></div><span class="so-pill">Config revision · ' + esc(revisionLabel || ('C' + String(state.scenarioExplore.revision).padStart(2, '0'))) + '</span></div><dl class="so-dse-capacity-limits" aria-label="Capacity limits">' + runtimeLimitRows.map(function (row) { return '<div class="so-dse-capacity-limit"><dt>' + esc(row[0]) + '</dt><dd title="' + esc(row[1]) + '">' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl><div class="so-dse-config-grid">' +
+          '<section class="so-dse-config-card"><div class="so-dse-config-card-head"><div><strong>Serving pools</strong><span>Prefill / Decode 的资源边界与执行预算</span></div><span class="so-pill">' + (candidate.split ? 'Disaggregated' : 'Unified') + '</span></div><div class="so-dse-pool-configs">' + pools + '</div></section>' +
+          '<section class="so-dse-config-card"><div class="so-dse-config-card-head"><div><strong>Scheduler policy</strong><span>' + esc(scheduler.name) + '</span></div><span class="so-pill">Active</span></div><dl class="so-dse-policy-list">' + schedulerRows.map(function (row) { return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl></section>' +
+          '<section class="so-dse-config-card"><div class="so-dse-config-card-head"><div><strong>Memory policy</strong><span>' + esc(memory.name) + '</span></div><span class="so-pill">HBM ' + candidate.hbm + '%</span></div><div class="so-dse-memory-bar" aria-label="HBM allocation">' + memoryBar + '</div><div class="so-dse-memory-legend">' + memoryLegend + '</div><dl class="so-dse-policy-list">' + memoryRows.map(function (row) { return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl></section>' +
+          '</div></div>';
+      }
+
+      function renderDseDeployment(explore) {
+        var candidate = currentDseCandidate();
+        var metrics = [
+          ['Throughput', candidate.throughput + ' tok/s', '+8.4% vs next'],
+          ['P95 TTFT', candidate.ttft + ' ms', (Number(explore.ttftSla) - candidate.ttft) + ' ms headroom'],
+          ['P95 TPOT', candidate.tpot + ' ms', (Number(explore.tpotSla) - candidate.tpot).toFixed(1) + ' ms headroom'],
+          ['HBM / device', candidate.hbm + '%', (100 - candidate.hbm) + '% free'],
+          ['KV capacity', candidate.kv + '%', 'headroom'],
+          ['System inflight', candidate.concurrency + ' req', explore.concurrency + ' requested'],
+          ['Communication', candidate.communication + '%', 'step time'],
+          ['Confidence', candidate.confidence + '%', explore.evaluationMode === 'fast' ? 'modeled' : 'measured']
+        ];
+        return '<section class="so-dse-section"><div class="so-dse-deployment-head"><div><h2>' + esc(candidate.name) + ' · Deployment canvas</h2><p>' + esc(candidate.config) + ' · ' + (candidate.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</p></div><div class="so-dse-deployment-actions"><span class="so-pill' + (candidate.id === 'balanced' ? ' accent' : '') + '">' + esc(candidate.badge) + '</span><button class="so-button primary" type="button" data-action="adopt-dse-candidate">采用此方案</button></div></div><div class="so-dse-deployment-body"><div class="so-dse-canvas">' + renderDseTopology(candidate) + '</div>' + renderDseDeploymentConfig(candidate) + '<div class="so-dse-benchmarks">' + metrics.map(function (metric) { return '<div class="so-dse-benchmark"><span>' + esc(metric[0]) + '</span><strong>' + esc(metric[1]) + '</strong><small>' + esc(metric[2]) + '</small></div>'; }).join('') + '</div></div></section>';
+      }
+
+      function renderScenarioNew() {
+        var explore = state.scenarioExplore;
+        var html = header('Design space exploration', '将 Serving intent 转换为模型、Workload、SLA 与硬件预算，并从候选方案的收敛过程中选择可部署方案。', '<button class="so-button" data-route="scenarios">返回 Scenarios</button>');
+        html += '<div class="so-dse-layout">' + renderDseIntentPanel(explore) + '<div class="so-dse-exploration">' + renderDseLineage(explore) + renderDseCandidates(explore) + renderDseDeployment(explore) + '</div></div>';
+        return html;
+      }
+
       function renderScenarios() {
         var html = header('Scenarios', '管理 Scenario、revision 与关联 Run；选择 Scenario 不会改变 Observe 当前上下文。', '<button class="so-button primary" data-action="new-scenario">创建 Scenario revision</button>');
-        if (state.scenarioCreatedNotice) html += '<div class="so-created-banner"><div><strong>' + esc(state.scenarioCreatedNotice.revision + ' · ' + state.scenarioCreatedNotice.name) + ' 已创建</strong><span>规划配置与观测计划已冻结，可以发起 Controlled Run。</span></div><div class="so-card-actions"><button class="so-button" data-scenario-detail="' + esc(state.scenarioCreatedNotice.id) + '">查看配置</button><button class="so-button primary" data-action="run-created-scenario">进入 Controlled Run</button></div></div>';
+        if (state.scenarioCreatedNotice) {
+          var createdFromEstimate = state.scenarioCreatedNotice.evaluationMode === 'fast';
+          html += '<div class="so-created-banner"><div><strong>' + esc(state.scenarioCreatedNotice.revision + ' · ' + state.scenarioCreatedNotice.name) + ' 已创建</strong><span>' + esc(state.scenarioCreatedNotice.candidate || '候选方案') + ' 的 intent、tuning knobs、benchmark 与部署拓扑已冻结。</span></div><div class="so-card-actions"><button class="so-button" data-scenario-detail="' + esc(state.scenarioCreatedNotice.id) + '">查看配置</button><button class="so-button primary" data-action="run-created-scenario">' + (createdFromEstimate ? '在硬件上验证' : '查看运行证据') + '</button></div></div>';
+        }
         html += '<div class="so-grid two scenario-registry">' + scenarios.map(function (item) {
           var groups = item.evidenceGroups.map(function (group) { return evidenceGroupLabel(group, item); }).join(' · ');
           return '<article class="so-card"><div class="so-card-head"><div><h3>' + esc(item.name) + '</h3><div class="so-finding-summary">' + esc(item.subtitle) + '</div></div><span class="so-pill accent">' + esc(item.revision) + '</span></div><div class="so-card-body"><dl class="so-kv"><dt>Model / Variant</dt><dd>' + esc(item.model + ' / Flash Decode') + '</dd><dt>Workload</dt><dd>' + esc(item.workload) + '</dd><dt>Hardware</dt><dd>' + esc(item.hardware) + '</dd><dt>Goal</dt><dd>' + esc(item.goal) + '</dd><dt>Evidence groups</dt><dd>' + esc(groups) + '</dd></dl><div class="so-divider"></div><div class="so-card-actions"><button class="so-button" data-scenario-detail="' + item.id + '">查看配置</button><button class="so-button primary" data-open-observe="' + item.id + '">在 Observe 中打开</button></div></div></article>';
@@ -2911,6 +3962,18 @@ button.operator-tree-toggle:hover {
         var detail = scenarioDetail();
         var config = scenarioConfig(detail);
         html += '<div class="so-section-title"><h2>Scenario detail · ' + esc(detail.revision) + '</h2><p>' + esc(detail.name + ' · ' + detail.subtitle) + '</p></div><div class="so-card"><div class="so-card-body" style="padding-top:14px"><dl class="so-kv"><dt>Model / Variant</dt><dd>' + esc(detail.model + ' / Flash Decode') + '</dd><dt>Workload</dt><dd>' + esc(detail.workload) + '</dd><dt>Hardware</dt><dd>' + esc(detail.hardware) + '</dd><dt>Evidence groups</dt><dd>' + esc(detail.evidenceGroups.map(function (group) { return evidenceGroupLabel(group, detail); }).join(' · ')) + '</dd><dt>关联 Run</dt><dd>RUN-042 · ' + esc(state.runStatus) + '</dd></dl></div></div>';
+        if (detail.planning && detail.planning.deploymentConfig) {
+          var storedDeployment = detail.planning.deploymentConfig;
+          var storedEvidence = detail.planning.evaluationEvidence || {};
+          var storedCandidate = {
+            split: storedDeployment.mode === 'prefill-decode-disaggregated',
+            poolPlan: storedDeployment.pools,
+            schedulerPolicy: storedDeployment.schedulerPolicy,
+            memoryPolicy: storedDeployment.memoryPolicy,
+            hbm: storedEvidence.hbmUtilizationPercent || '—'
+          };
+          html += '<div class="so-section-title"><h2>Exploration output</h2><p>Pool、Scheduler 与 Memory policy 已冻结到 ' + esc(detail.revision) + '</p></div><div class="so-card"><div class="so-card-body" style="padding-top:2px">' + renderDseDeploymentConfig(storedCandidate, detail.revision) + '</div></div>';
+        }
         html += '<div class="so-section-title"><h2>常用配置</h2><p>字段名称与 pypto-serving CLI 对齐</p></div><div class="so-card"><div class="so-card-body"><div class="so-form-grid">';
         html += configField('Model · --model', config.model, '模型目录');
         html += configField('Served model name · --served-model-name', config.servedModelName, 'API 中使用的模型名称');
@@ -3000,15 +4063,107 @@ button.operator-tree-toggle:hover {
 
 
 
-      function renderModelPage() {
-        var html = header('DeepSeek V4', '模型架构、算子热点与推理执行之间的统一入口。', '<button class="so-button" data-route="observe">查看 Observe</button>');
-        html += '<div class="so-model-summary"><div class="so-model-summary-intro"><div class="so-eyebrow">MODEL PROFILE</div><h2>DeepSeek V4 · Flash Decode</h2><p>当前模型已关联 SC-042 r1 与 RUN-042，可从结构层直接进入算子和运行证据。</p></div>';
-        html += '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-metric-label">Layers</div><div class="so-metric-value">61</div><div class="so-metric-delta">3 dense · 58 routed MoE</div></div></div>';
-        html += '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-metric-label">Hidden size</div><div class="so-metric-value">7,168</div><div class="so-metric-delta muted">BF16 · decode</div></div></div>';
-        html += '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-metric-label">Runtime evidence</div><div class="so-metric-value">12</div><div class="so-metric-delta">linked findings</div></div></div></div>';
-        html += '<section class="so-card so-source-model" data-ide-pane="architecture"><div class="so-card-head"><div class="so-architecture-toolbar"><div><h3>模型架构与算子</h3><p>Architecture graph · operator evidence · runtime mapping</p></div></div><div class="so-view-toggle" role="tablist" aria-label="模型视图"><button type="button" class="' + (state.modelView === 'architecture' ? 'is-active' : '') + '" data-architecture-view="architecture" aria-selected="' + (state.modelView === 'architecture') + '">模型架构</button><button type="button" class="' + (state.modelView === 'operators' ? 'is-active' : '') + '" data-architecture-view="operators" aria-selected="' + (state.modelView === 'operators') + '">算子列表</button></div></div>';
-        html += '<div class="so-architecture-body"><div class="so-architecture-panel" data-architecture-panel="architecture" ' + (state.modelView === 'architecture' ? '' : 'hidden') + '><div class="so-architecture-canvas">' + modelArchitectureSvg() + '</div></div><div class="so-architecture-panel" data-architecture-panel="operators" ' + (state.modelView === 'operators' ? '' : 'hidden') + '>' + renderModelOperatorList() + '</div></div></section>';
+      function modelTag(label, tone) {
+        var style = tone === 'status-success' ? 'accent' : tone === 'status-warning' ? 'warm' : '';
+        return '<span class="so-pill ' + style + '">' + esc(label) + '</span>';
+      }
+
+      function renderModelCatalogCard(model) {
+        var available = model.id === 'deepseek-v4';
+        var attrs = available ? ' data-model-id="deepseek-v4" aria-label="打开 DeepSeek V4 模型详情"' : ' disabled aria-disabled="true"';
+        return '<button class="so-model-card ' + (available ? '' : 'is-unavailable') + '" type="button"' + attrs + '>' +
+          '<div class="so-model-card-head"><div><h2>' + esc(model.name) + '</h2><p>' + esc(model.description) + '</p></div><span class="so-model-card-action">' + (available ? '查看详情 →' : '待建立架构映射') + '</span></div>' +
+          '<div class="so-model-card-tags">' + model.tags.map(function (tag) { return modelTag(tag); }).join('') + '</div>' +
+          '<div class="so-model-card-meta"><div><span>分析状态</span><strong>' + esc(model.status) + '</strong></div><div><span>架构</span><strong>' + esc(model.architecture) + '</strong></div><div><span>Checkpoint</span><strong>' + esc(model.checkpoint) + '</strong></div><div><span>Scenarios</span><strong>' + esc(model.scenarios) + '</strong></div></div></button>';
+      }
+
+      function renderModelCatalog() {
+        var models = [
+          { id: 'deepseek-v4', name: 'DeepSeek V4', description: 'MoE · MLA · MTP · Flash Decode', tags: ['W8A8', '61 layers', 'Long context'], status: '架构已分析', architecture: 'MoE', checkpoint: 'Validated', scenarios: '0 configured' },
+          { id: 'qwen3-235b', name: 'Qwen3 235B-A22B', description: 'MoE · GQA · Hybrid reasoning', tags: ['BF16', '128 experts', 'Long context'], status: '待分析', architecture: 'MoE', checkpoint: '未校验', scenarios: '0 configured' },
+          { id: 'llama4-maverick', name: 'Llama 4 Maverick', description: 'MoE · Multimodal · Long context', tags: ['BF16', 'Multimodal', 'MoE'], status: '待分析', architecture: 'MoE', checkpoint: '未校验', scenarios: '0 configured' }
+        ];
+        var html = header('模型目录', '选择模型，查看架构、Checkpoint、切分约束与推理优化准备情况。', '');
+        html += '<div class="so-model-catalog-toolbar"><div class="so-model-catalog-meta">3 个模型 · 1 个可进入优化分析</div><div class="so-header-actions">' + modelTag('架构已分析 1', 'status-success') + modelTag('待分析 2') + '</div></div>';
+        html += '<div class="so-model-catalog">' + models.map(renderModelCatalogCard).join('') + '</div>';
         return html;
+      }
+
+      function readinessItem(complete, title, detail, action, attrs) {
+        return '<div class="so-readiness-item ' + (complete ? 'is-complete' : 'needs-action') + '"><span class="so-readiness-icon">' + (complete ? '✓' : '!') + '</span><div class="so-readiness-copy"><strong>' + esc(title) + '</strong><span>' + esc(detail) + '</span>' + (action ? '<button class="btn btn-ghost btn-sm" type="button" ' + attrs + '>' + esc(action) + '</button>' : '') + '</div></div>';
+      }
+
+      function renderModelProfileSection() {
+        var attrs = [
+          ['架构', 'Decoder-only MoE'], ['总参数', '671B'], ['每 Token 激活', '37B'],
+          ['Decoder layers', '61'], ['Hidden size', '7,168'], ['Attention', 'MLA'],
+          ['Routed experts', '256 / layer'], ['Active experts', '8 / token'], ['Context target', '128K'],
+          ['Weight format', 'W8A8'], ['Checkpoint shards', '160'], ['Tokenizer', '128K vocab']
+        ];
+        var html = '<section class="so-model-section" id="model-profile"><div class="so-model-section-head"><div><h2>模型画像</h2><p>架构属性、参数分布、可切分维度与权重体量</p></div>' + modelTag('Checkpoint validated', 'status-success') + '</div>';
+        html += '<div class="so-profile-grid"><div class="so-model-surface"><h3>核心属性</h3><div class="so-attribute-grid">' + attrs.map(function (item) { return '<div class="so-attribute"><span>' + item[0] + '</span><strong>' + item[1] + '</strong></div>'; }).join('') + '</div><div class="so-shard-dimensions">' + modelTag('TP · Attention heads / hidden') + modelTag('EP · Routed experts') + modelTag('PP · Decoder layers') + modelTag('DP · Request replicas') + '</div></div>';
+        html += '<div class="so-model-surface"><h3>参数与权重分布</h3>' +
+          '<div class="so-param-row"><span>Routed experts</span><div class="so-param-track"><i style="width:82%"></i></div><span>552B</span></div>' +
+          '<div class="so-param-row"><span>Shared experts</span><div class="so-param-track"><i style="width:10%"></i></div><span>67B</span></div>' +
+          '<div class="so-param-row"><span>MLA / projection</span><div class="so-param-track"><i style="width:6%"></i></div><span>40B</span></div>' +
+          '<div class="so-param-row"><span>Embedding / head</span><div class="so-param-track"><i style="width:2%"></i></div><span>12B</span></div>' +
+          '<div class="so-divider"></div><dl class="so-kv"><dt>BF16 权重</dt><dd>1.31 TB</dd><dt>W8A8 权重</dt><dd>684 GB</dd><dt>路由与量化元数据</dt><dd>18 GB</dd><dt>加载峰值</dt><dd>742 GB</dd></dl></div></div></section>';
+        return html;
+      }
+
+      function renderRecommendationSection() {
+        var items = [
+          { title: '先确定 Expert Parallel 边界', tone: 'P0', body: 'Routed experts 占据 82% 权重。先用 EP8 / EP16 校验专家分布与 all-to-all 开销，再固定 TP。', action: '配置吞吐 Scenario', template: 'throughput' },
+          { title: '长上下文需要独立容量基线', tone: 'P0', body: '128K 上下文的 KV Cache 会改变最大并发与 HBM 余量。建议拆分 prefill 与 decode 目标。', action: '配置长文 Scenario', template: 'long-context' },
+          { title: '权重加载需要至少 12% 余量', tone: 'P1', body: 'W8A8 加载峰值约 742 GB，还需为 runtime、workspace 和 KV block 预留 HBM。', action: '查看资源承载', jump: 'resource-fit' }
+        ];
+        return '<section class="so-model-section"><div class="so-model-section-head"><div><h2>模型优化建议</h2><p>按当前架构、Checkpoint 与容量约束生成</p></div>' + modelTag('3 recommendations', 'status-warning') + '</div><div class="so-recommendation-grid">' + items.map(function (item) {
+          var attrs = item.template ? 'data-model-scenario-template="' + item.template + '"' : 'data-model-jump="' + item.jump + '"';
+          return '<article class="so-recommendation"><div class="so-recommendation-top"><h3>' + item.title + '</h3>' + modelTag(item.tone, item.tone === 'P0' ? 'status-warning' : '') + '</div><p>' + item.body + '</p><button class="btn btn-ghost btn-sm" type="button" ' + attrs + '>' + item.action + '</button></article>';
+        }).join('') + '</div></section>';
+      }
+
+      function renderResourceFitSection() {
+        var selected = !!state.modelHardware;
+        var hardwareLabel = selected ? 'Ascend A2 64 GB × 16' : '未选择目标硬件';
+        var weightUtil = selected ? 67 : 0;
+        return '<section class="so-model-section" id="resource-fit"><div class="so-model-section-head"><div><h2>资源承载评估</h2><p>将模型常驻量、动态容量与目标硬件静态资源对齐</p></div>' + modelTag(selected ? hardwareLabel : '需要选择目标硬件', selected ? 'status-success' : 'status-warning') + '</div><div class="so-resource-layout">' +
+          '<div class="so-model-surface"><div class="so-memory-total"><div><div class="so-metric-label">单实例预估 HBM</div><strong>824 GB</strong></div><span class="so-pill">128K context · 32 sequences</span></div><div class="so-memory-stack" aria-label="模型内存构成"><i class="weights"></i><i class="kv"></i><i class="workspace"></i><i class="runtime"></i></div><div class="so-memory-legend"><div><span>Weights + metadata</span><strong>702 GB</strong></div><div><span>KV Cache</span><strong>82 GB</strong></div><div><span>Workspace / activations</span><strong>28 GB</strong></div><div><span>Runtime reserve</span><strong>12 GB</strong></div></div><div class="so-divider"></div><dl class="so-kv"><dt>KV / token</dt><dd>0.62 MB · all layers</dd><dt>KV / 8K sequence</dt><dd>5.0 GB</dd><dt>KV / 128K sequence</dt><dd>79.4 GB</dd><dt>Expert hotset</dt><dd>96–144 GB / EP group</dd></dl></div>' +
+          '<div class="so-model-surface"><div class="so-memory-total"><div><div class="so-metric-label">目标硬件</div><strong style="font-size:18px">' + hardwareLabel + '</strong></div>' + (selected ? '<button class="btn btn-ghost btn-sm" data-model-hardware="clear">更换</button>' : '') + '</div>' +
+          (selected ? '<div class="so-utilization-list"><div class="so-utilization-row"><span>Weight resident</span><div class="so-bar"><span style="width:' + weightUtil + '%"></span></div><strong>' + weightUtil + '%</strong></div><div class="so-utilization-row"><span>KV budget</span><div class="so-bar"><span style="width:8%"></span></div><strong>8%</strong></div><div class="so-utilization-row"><span>Workspace</span><div class="so-bar"><span style="width:3%"></span></div><strong>3%</strong></div><div class="so-utilization-row warn"><span>Peak total</span><div class="so-bar"><span style="width:80%"></span></div><strong>80%</strong></div></div><div class="so-callout" style="margin-top:14px">剩余约 200 GB HBM，可用于提高 max sequences，但需再校验 EP 通信与单卡 expert hotset。</div>' : '<div class="so-empty">选择目标硬件后，这里将计算静态 HBM 利用率、权重分片与 KV 容量上限。</div><button class="btn btn-solid" type="button" style="margin-top:12px" data-model-hardware="ascend-a2-16">使用 Ascend A2 64 GB × 16 评估</button>') + '</div></div></section>';
+      }
+
+      function renderModelScenariosSection() {
+        var scenarios = [
+          { name: '交互式低延迟', type: 'latency', body: '用突发请求验证 TTFT / TPOT，优先观测 decode 长尾与 scheduler wait。', kpi1: 'P95 TTFT', value1: '≤ 80 ms', kpi2: 'P95 TPOT', value2: '≤ 12 ms' },
+          { name: '离线批量吞吐', type: 'throughput', body: '扩大 batch 并观测 expert 路由、EP all-to-all 与 HBM 余量。', kpi1: 'Throughput', value1: '≥ 8.5K tok/s', kpi2: 'HBM peak', value2: '≤ 88%' },
+          { name: '128K 长上下文', type: 'long-context', body: '将 prefill 和 decode 拆分建模，验证 KV Cache 容量、迁移和注意力路径。', kpi1: 'Context', value1: '128K', kpi2: 'Concurrent seqs', value2: '8' }
+        ];
+        return '<section class="so-model-section"><div class="so-model-section-head"><div><h2>推理 Scenarios</h2><p>建议先建立三类基线，再进入 Controlled Run 和对比分析</p></div>' + modelTag('0 / 3 configured', 'status-warning') + '</div><div class="so-scenario-card-grid">' + scenarios.map(function (item) {
+          return '<article class="so-scenario-card"><div class="so-scenario-card-top"><h3>' + item.name + '</h3>' + modelTag('建议') + '</div><p>' + item.body + '</p><div class="so-scenario-kpis"><div><span>' + item.kpi1 + '</span><strong>' + item.value1 + '</strong></div><div><span>' + item.kpi2 + '</span><strong>' + item.value2 + '</strong></div></div><button class="btn btn-ghost btn-sm" type="button" data-model-scenario-template="' + item.type + '">创建 Scenario</button></article>';
+        }).join('') + '</div></section>';
+      }
+
+      function renderModelDetail() {
+        var hardwareReady = !!state.modelHardware;
+        var readinessScore = hardwareReady ? 82 : 64;
+        var html = '<div class="so-model-detail-nav"><button class="btn btn-ghost btn-sm" type="button" data-model-back>← 模型列表</button><span class="so-breadcrumb">DeepSeek V4 / Optimization profile</span></div>';
+        html += header('DeepSeek V4', 'MoE 模型的架构、切分、容量与推理优化工作台。', '<button class="btn" data-route="observe">查看 Observe</button><button class="btn btn-solid" data-model-scenario-template="latency">创建 Scenario</button>');
+        html += '<section class="so-model-readiness" aria-label="优化准备度"><div class="so-readiness-score"><div><div class="so-eyebrow">OPTIMIZATION READINESS</div><strong>' + readinessScore + '%</strong><p>' + (hardwareReady ? '已完成架构、Checkpoint 与硬件承载校验；仍需建立推理 Scenarios。' : '已完成模型解析与 Checkpoint 校验；推理 Scenarios 与目标硬件待补全。') + '</p></div><div class="so-bar"><span style="width:' + readinessScore + '%"></span></div></div><div class="so-readiness-items">' +
+          readinessItem(true, '模型架构分析完成', '61 层、MoE / MLA / MTP 结构与可切分维度已识别。', '查看模型画像', 'data-model-jump="model-profile"') +
+          readinessItem(true, 'Checkpoint validated', '160 个 shard 完整；量化元数据与 tokenizer 一致。', '查看校验结果', 'data-model-jump="model-profile"') +
+          readinessItem(false, 'Inference scenarios missing', '尚未建立延迟、吞吐或长上下文基线。', '创建建议 Scenario', 'data-model-scenario-template="latency"') +
+          readinessItem(hardwareReady, hardwareReady ? '目标硬件已选择' : '目标硬件未选择', hardwareReady ? 'Ascend A2 64 GB × 16 · 预估峰值 80% HBM。' : '无法确认权重分片、KV 容量与静态利用率。', hardwareReady ? '查看承载结果' : '选择目标硬件', 'data-model-jump="resource-fit"') + '</div></section>';
+        html += renderModelProfileSection();
+        html += renderRecommendationSection();
+        html += renderResourceFitSection();
+        html += renderModelScenariosSection();
+        html += '<section class="so-model-section" id="model-architecture"><div class="so-model-section-head"><div><h2>模型架构与算子</h2><p>Architecture graph · operator evidence · runtime mapping</p></div></div><div class="so-card so-source-model so-model-architecture-section"><div class="so-card-head"><div class="so-architecture-toolbar"><div><h3>DeepSeek V4 execution structure</h3><p>从架构节点进入算子热点和运行证据</p></div></div><div class="so-view-toggle" role="tablist" aria-label="模型视图"><button type="button" class="' + (state.modelView === 'architecture' ? 'is-active' : '') + '" data-architecture-view="architecture" aria-selected="' + (state.modelView === 'architecture') + '">模型架构</button><button type="button" class="' + (state.modelView === 'operators' ? 'is-active' : '') + '" data-architecture-view="operators" aria-selected="' + (state.modelView === 'operators') + '">算子列表</button></div></div><div class="so-architecture-body"><div class="so-architecture-panel" data-architecture-panel="architecture" ' + (state.modelView === 'architecture' ? '' : 'hidden') + '><div class="so-architecture-canvas">' + modelArchitectureSvg() + '</div></div><div class="so-architecture-panel" data-architecture-panel="operators" ' + (state.modelView === 'operators' ? '' : 'hidden') + '>' + renderModelOperatorList() + '</div></div></div></section>';
+        return html;
+      }
+
+      function renderModelPage() {
+        return state.modelPage === 'detail' ? renderModelDetail() : renderModelCatalog();
       }
 
       function renderSimple(route) {
@@ -3064,6 +4219,10 @@ button.operator-tree-toggle:hover {
           moeHoverController.destroy();
           moeHoverController = null;
         }
+        if (dseLineageController) {
+          dseLineageController.destroy();
+          dseLineageController = null;
+        }
         syncScenarioCandidates();
         writeHash();
         var main = document.getElementById('main-content');
@@ -3089,14 +4248,16 @@ button.operator-tree-toggle:hover {
         document.querySelector('.so-workarea').classList.toggle('is-model', state.route === 'model');
         var contentBarTitle = document.querySelector('.content-bar strong');
         if (contentBarTitle) contentBarTitle.textContent = state.route === 'model' ? 'Model' : state.route === 'scenario-new' || state.route === 'scenarios' ? 'Scenarios' : 'Observe';
+        var contentBarReadouts = document.querySelectorAll('.content-bar .top-readout span');
+        if (contentBarReadouts[0]) contentBarReadouts[0].textContent = state.route === 'model' ? (state.modelHardware ? 'Target hardware · Ascend A2 × 16' : 'Target hardware · 未选择') : state.route === 'scenario-new' ? 'Budget · A2 × ' + state.scenarioExplore.maxDevices : 'Hardware · Ascend A2 × 8';
+        if (contentBarReadouts[1]) contentBarReadouts[1].textContent = state.route === 'model' ? 'Checkpoint · Validated' : state.route === 'scenario-new' ? 'Mode · ' + (state.scenarioExplore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') : 'Runtime · pypto-serving 0.4.2';
         renderExplorer();
         document.getElementById('inspector-content').innerHTML = state.route === 'scenario-new' ? '' : renderInspector();
-        var statusItems = document.querySelectorAll('.app-statusbar span');
-        if (statusItems[0]) statusItems[0].textContent = state.route === 'scenario-new' ? 'Scenario draft · ' + state.scenarioDraft.template : 'Scenario ' + currentScenario().revision;
-        if (statusItems[1]) statusItems[1].textContent = 'Run RUN-042 · ' + state.runStatus;
-        if (statusItems[2]) statusItems[2].textContent = state.dfxStatus === 'ready' ? 'DFX real artifacts linked' : state.dfxStatus === 'error' ? 'DFX artifact load failed: ' + (state.dfxError || 'unknown') : 'Loading DFX artifacts…';
-        if (statusItems[3]) statusItems[3].textContent = 'Trace window ' + currentEvidence().window + ' μs';
         bind();
+        if (state.route === 'scenario-new') {
+          mountDseLineage(state.scenarioExplore);
+          mountDsePlacement(currentDseCandidate());
+        }
         if (state.route === 'observe' && state.observeTab === 'trace') window.requestAnimationFrame(drawTrace);
         if (state.modal) renderModal();
       }
@@ -3304,7 +4465,44 @@ button.operator-tree-toggle:hover {
 
       function bind() {
         document.querySelectorAll('[data-route]').forEach(function (el) {
-          el.addEventListener('click', function () { state.route = el.getAttribute('data-route'); if (state.route !== 'observe') state.selectedEvent = null; render(); });
+          el.addEventListener('click', function () {
+            state.route = el.getAttribute('data-route');
+            if (state.route === 'model') state.modelPage = 'list';
+            if (state.route !== 'observe') state.selectedEvent = null;
+            render();
+          });
+        });
+        document.querySelectorAll('[data-model-id]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            if (el.getAttribute('data-model-id') !== 'deepseek-v4') return;
+            state.route = 'model';
+            state.modelPage = 'detail';
+            render();
+          });
+        });
+        document.querySelectorAll('[data-model-back]').forEach(function (el) {
+          el.addEventListener('click', function () { state.modelPage = 'list'; render(); });
+        });
+        document.querySelectorAll('[data-model-jump]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var target = document.getElementById(el.getAttribute('data-model-jump'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+        document.querySelectorAll('[data-model-hardware]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.modelHardware = el.getAttribute('data-model-hardware') === 'clear' ? null : el.getAttribute('data-model-hardware');
+            render();
+            var target = document.getElementById('resource-fit');
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+        document.querySelectorAll('[data-model-scenario-template]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            resetScenarioExplorer();
+            state.route = 'scenario-new';
+            render();
+          });
         });
         document.querySelectorAll('[data-observe-tab]').forEach(function (el) {
           el.addEventListener('click', function () { state.route = 'observe'; state.observeTab = el.getAttribute('data-observe-tab'); render(); });
@@ -3553,6 +4751,80 @@ button.operator-tree-toggle:hover {
         document.querySelectorAll('[data-planned-device]').forEach(function (el) {
           el.addEventListener('click', function () { state.scenarioDraft.selectedDevice = Number(el.getAttribute('data-planned-device')); render(); });
         });
+        var dseIntent = document.querySelector('[data-dse-intent]');
+        if (dseIntent) dseIntent.addEventListener('input', function () {
+          state.scenarioExplore.intent = dseIntent.value;
+          state.scenarioExplore.parsed = false;
+        });
+        document.querySelectorAll('[data-dse-edit]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var group = el.getAttribute('data-dse-edit');
+            state.scenarioExplore.editingGroup = state.scenarioExplore.editingGroup === group ? null : group;
+            render();
+          });
+        });
+        document.querySelectorAll('[data-dse-field]').forEach(function (el) {
+          function syncDseField() {
+            var field = el.getAttribute('data-dse-field');
+            var numericFields = ['requestRate', 'concurrency', 'promptP95', 'outputP50', 'ttftSla', 'tpotSla', 'maxDevices', 'hbmReserve'];
+            state.scenarioExplore[field] = numericFields.indexOf(field) >= 0 ? Number(el.value) : el.value;
+            state.scenarioExplore.dirty = true;
+          }
+          el.addEventListener('input', function () {
+            syncDseField();
+            var update = document.querySelector('[data-action="update-design-space"]');
+            var changeState = document.querySelector('.so-dse-change-state');
+            if (update) update.disabled = false;
+            if (changeState) { changeState.classList.add('is-dirty'); changeState.textContent = '条件已变更，右侧仍为上一轮结果'; }
+          });
+          el.addEventListener('change', function () {
+            syncDseField();
+            render();
+          });
+        });
+        document.querySelectorAll('[data-dse-mode]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.scenarioExplore.evaluationMode = el.getAttribute('data-dse-mode');
+            state.scenarioExplore.dirty = true;
+            render();
+          });
+        });
+        document.querySelectorAll('[data-dse-search-strategy]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.scenarioExplore.searchStrategy = el.getAttribute('data-dse-search-strategy');
+            state.scenarioExplore.dirty = true;
+            render();
+          });
+        });
+        document.querySelectorAll('[data-dse-brute-mode]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.scenarioExplore.searchBruteMode = el.getAttribute('data-dse-brute-mode');
+            state.scenarioExplore.dirty = true;
+            render();
+          });
+        });
+        var dseSearchBudget = document.querySelector('[data-dse-search-budget]');
+        if (dseSearchBudget) dseSearchBudget.addEventListener('input', function () {
+          var explore = state.scenarioExplore;
+          var mode = explore.searchStrategy || 'quick';
+          var value = Number(dseSearchBudget.value);
+          if (mode === 'quick') explore.searchIterations = value;
+          else explore.searchBudget = value;
+          explore.dirty = true;
+          var label = document.querySelector('[data-dse-search-budget-label]');
+          var bruteMode = explore.searchBruteMode || 'automatic';
+          if (label) label.textContent = mode === 'quick' ? value + ' iterations · ' + (value + 10) + ' candidates' : mode === 'optuna' ? value + ' trials' : (bruteMode === 'manual' ? value + ' combinations' : value + ' candidates');
+          var update = document.querySelector('[data-action="update-design-space"]');
+          var changeState = document.querySelector('.so-dse-change-state');
+          if (update) update.disabled = false;
+          if (changeState) { changeState.classList.add('is-dirty'); changeState.textContent = '条件已变更，右侧仍为上一轮结果'; }
+        });
+        document.querySelectorAll('[data-dse-candidate]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.scenarioExplore.selectedCandidate = el.getAttribute('data-dse-candidate');
+            render();
+          });
+        });
         document.querySelectorAll('[data-action]').forEach(function (el) {
           el.addEventListener('click', function () {
             var action = el.getAttribute('data-action');
@@ -3561,10 +4833,13 @@ button.operator-tree-toggle:hover {
             if (action === 'trace-zoom-in') { state.traceZoom = Math.min(2, +(state.traceZoom + .25).toFixed(2)); render(); }
             if (action === 'trace-zoom-out') { state.traceZoom = Math.max(.5, +(state.traceZoom - .25).toFixed(2)); render(); }
             if (action === 'show-more-lanes') { state.laneLimit += 18; render(); }
-            if (action === 'new-scenario') { applyScenarioTemplate('latency'); state.route = 'scenario-new'; state.scenarioCreatedNotice = null; render(); }
+            if (action === 'new-scenario') { resetScenarioExplorer(); state.route = 'scenario-new'; state.scenarioCreatedNotice = null; render(); }
             if (action === 'copy-scenario') { copyCurrentScenarioToDraft(); render(); }
             if (action === 'save-scenario-draft') { state.scenarioDraft.status = 'saved'; render(); }
             if (action === 'create-scenario') createScenarioFromDraft();
+            if (action === 'parse-scenario-intent') parseScenarioIntent();
+            if (action === 'update-design-space') { state.scenarioExplore.dirty = false; state.scenarioExplore.revision += 1; state.scenarioExplore.selectedCandidate = 'balanced'; render(); }
+            if (action === 'adopt-dse-candidate') createScenarioFromExplorer();
             if (action === 'run-created-scenario') { state.route = 'run'; startRun(); }
             if (action === 'rerun') startRun();
           });
@@ -3617,6 +4892,85 @@ button.operator-tree-toggle:hover {
           state.crossRankRelationsEnabled = false;
           render();
         });
+      }
+
+      function parseScenarioIntent() {
+        var explore = state.scenarioExplore;
+        var intent = String(explore.intent || '');
+        var requestRate = intent.match(/(\d+)\s*(?:req\/?s|requests?\/?s|请求\/?秒)/i);
+        var ttft = intent.match(/TTFT[^\d]*(\d+(?:\.\d+)?)\s*ms/i);
+        var tpot = intent.match(/TPOT[^\d]*(\d+(?:\.\d+)?)\s*ms/i);
+        var devices = intent.match(/(\d+)\s*(?:张|卡|devices?)/i);
+        if (requestRate) explore.requestRate = Number(requestRate[1]);
+        if (ttft) explore.ttftSla = Number(ttft[1]);
+        if (tpot) explore.tpotSla = Number(tpot[1]);
+        if (devices) explore.maxDevices = Number(devices[1]);
+        if (/A3/i.test(intent)) explore.deviceType = 'Ascend A3 96 GB';
+        else if (/A2/i.test(intent)) explore.deviceType = 'Ascend A2 64 GB';
+        if (/hardware benchmark|硬件实测|真实运行/i.test(intent)) explore.evaluationMode = 'hardware';
+        else if (/fast estimate|快速估算|快速模式/i.test(intent)) explore.evaluationMode = 'fast';
+        explore.parsed = true;
+        explore.dirty = true;
+        explore.editingGroup = null;
+        render();
+      }
+
+      function createScenarioFromExplorer() {
+        var explore = state.scenarioExplore;
+        var candidate = currentDseCandidate();
+        var serial = 43 + scenarios.length;
+        var id = 'scenario-' + serial;
+        var revision = 'SC-' + String(serial).padStart(3, '0') + ' r1';
+        var item = {
+          id: id,
+          name: explore.model + ' · ' + candidate.name + ' Serving',
+          subtitle: candidate.name + ' · Design space exploration',
+          revision: revision,
+          model: explore.model,
+          workload: explore.requestRate + ' req/s · prompt P95 ' + explore.promptP95 + ' · output P50 ' + explore.outputP50,
+          hardware: explore.deviceType + ' / ' + candidate.devices + ' devices',
+          goal: 'P95 TTFT ≤ ' + explore.ttftSla + ' ms · P95 TPOT ≤ ' + explore.tpotSla + ' ms · maximize sustained throughput',
+          kind: 'deepseek',
+          evidenceGroups: ['attention', 'moe'],
+          planning: {
+            intent: explore.intent,
+            scenarioSpec: {
+              model: { name: explore.model, precision: explore.precision },
+              workload: { requestRate: explore.requestRate, promptP95: explore.promptP95, outputP50: explore.outputP50, concurrency: explore.concurrency },
+              sla: { p95TtftMs: explore.ttftSla, p95TpotMs: explore.tpotSla, objective: 'maximize sustained throughput' },
+              hardwareBudget: { deviceType: explore.deviceType, maxDevices: explore.maxDevices, hbmReservePercent: explore.hbmReserve },
+              evaluationMode: explore.evaluationMode
+            },
+            deploymentConfig: {
+              candidateId: candidate.id,
+              mode: candidate.split ? 'prefill-decode-disaggregated' : 'unified-serving',
+              parallelism: JSON.parse(JSON.stringify(candidate.parallelism)),
+              pools: JSON.parse(JSON.stringify(candidate.poolPlan)),
+              schedulerPolicy: JSON.parse(JSON.stringify(candidate.schedulerPolicy)),
+              memoryPolicy: JSON.parse(JSON.stringify(candidate.memoryPolicy))
+            },
+            evaluationEvidence: {
+              throughputTokensPerSecond: candidate.throughput,
+              p95TtftMs: candidate.ttft,
+              p95TpotMs: candidate.tpot,
+              hbmUtilizationPercent: candidate.hbm,
+              kvHeadroomPercent: candidate.kv,
+              concurrencyCapacity: candidate.concurrency,
+              communicationPercent: candidate.communication,
+              confidencePercent: candidate.confidence
+            }
+          }
+        };
+        scenarios.push(item);
+        state.scenarioId = item.id;
+        state.scenarioViewId = item.id;
+        state.scenarioCreatedNotice = { id: item.id, name: item.name, revision: item.revision, candidate: candidate.name, evaluationMode: explore.evaluationMode };
+        state.currentCandidate = null;
+        state.compareCandidate = null;
+        state.compareGroup = 'attention';
+        syncScenarioCandidates();
+        state.route = 'scenarios';
+        render();
       }
 
       function createScenarioFromDraft() {

@@ -1,0 +1,226 @@
+.pto-candidate-lineage {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-2) 66%, transparent);
+  color: var(--foreground);
+}
+
+.pto-candidate-lineage__scroll {
+  min-height: 0;
+  flex: 0 0 auto;
+  overflow: auto hidden;
+}
+
+.pto-candidate-lineage__svg {
+  width: 100%;
+  min-width: 720px;
+  height: var(--trace-chart-height, 320px);
+  min-height: 0;
+  display: block;
+}
+
+.pto-candidate-lineage__svg .chart-guide {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-candidate-lineage__svg .stage-plane {
+  fill: color-mix(in srgb, var(--surface-3) 62%, transparent);
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+  transition:
+    fill var(--duration-fast) var(--easing-default),
+    stroke var(--duration-fast) var(--easing-default),
+    filter var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .stage-label-plate {
+  fill: transparent;
+  transition:
+    fill var(--duration-fast) var(--easing-default),
+    filter var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .stage-state-dot {
+  fill: var(--primary-hover);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .stage-label {
+  fill: var(--foreground-secondary);
+  font: var(--text-label);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-label);
+  transition: fill var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .stage-count {
+  fill: var(--foreground);
+  font: 700 14px / 1 var(--font-mono);
+}
+
+.pto-candidate-lineage__svg .candidate-dot {
+  fill: color-mix(in srgb, var(--foreground) 78%, var(--primary));
+  opacity: .86;
+  transition: opacity var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .candidate-dot.is-final {
+  fill: var(--success);
+  opacity: 1;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--success) 55%, transparent));
+}
+
+.pto-candidate-lineage__svg .candidate-name {
+  fill: var(--foreground);
+  font: 700 10px / 1 var(--font-mono);
+}
+
+.pto-candidate-lineage__svg .lineage-transition-value,
+.pto-candidate-lineage__svg .lineage-branch-label,
+.pto-candidate-lineage__svg .lineage-reject-label,
+.pto-candidate-lineage__svg .lineage-aggregate-label {
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+
+.pto-candidate-lineage__svg .lineage-ribbon {
+  stroke: color-mix(in srgb, var(--foreground) 18%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition:
+    opacity var(--duration-fast) var(--easing-default),
+    filter var(--duration-fast) var(--easing-default),
+    stroke var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject {
+  opacity: .82;
+  stroke: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+.pto-candidate-lineage__svg .lineage-ribbon.tone-1,
+.pto-candidate-lineage__svg .candidate-dot.tone-1 { fill: color-mix(in srgb, var(--primary-hover) 64%, var(--foreground)); }
+.pto-candidate-lineage__svg .lineage-ribbon.tone-2,
+.pto-candidate-lineage__svg .candidate-dot.tone-2 { fill: color-mix(in srgb, var(--accent) 72%, var(--foreground)); }
+.pto-candidate-lineage__svg .lineage-ribbon.tone-3,
+.pto-candidate-lineage__svg .candidate-dot.tone-3 { fill: color-mix(in srgb, var(--success) 62%, var(--foreground)); }
+
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-1 { fill: var(--danger); color: var(--danger); }
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-2 { fill: var(--warning); color: var(--warning); }
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-3 { fill: var(--primary-hover); color: var(--primary-hover); }
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-4 { fill: var(--accent); color: var(--accent); }
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-5 { fill: var(--success); color: var(--success); }
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-6 { fill: var(--foreground-muted); color: var(--foreground-muted); }
+
+.pto-candidate-lineage__svg .lineage-edge-group,
+.pto-candidate-lineage__svg .lineage-stage-group {
+  cursor: pointer;
+  outline: none;
+}
+
+.pto-candidate-lineage__svg .lineage-stage-group:hover .stage-plane,
+.pto-candidate-lineage__svg .lineage-stage-group.is-selected .stage-plane {
+  fill: color-mix(in srgb, var(--primary) 12%, var(--surface-3));
+  stroke: var(--primary-hover);
+}
+
+.pto-candidate-lineage__svg .lineage-stage-group:hover .stage-label-plate {
+  fill: color-mix(in srgb, var(--surface-4) 72%, transparent);
+}
+
+.pto-candidate-lineage__svg .lineage-stage-group.is-selected .stage-label-plate {
+  fill: color-mix(in srgb, var(--primary) 18%, var(--surface-4));
+  filter: drop-shadow(0 5px 9px color-mix(in srgb, var(--primary) 24%, transparent));
+}
+
+.pto-candidate-lineage__svg .lineage-stage-group.is-selected .stage-state-dot {
+  opacity: 1;
+}
+
+.pto-candidate-lineage__svg .lineage-stage-group:hover .candidate-dot {
+  opacity: 1;
+}
+
+.pto-candidate-lineage__svg .lineage-stage-group:hover .stage-label,
+.pto-candidate-lineage__svg .lineage-stage-group.is-selected .stage-label {
+  fill: var(--foreground);
+}
+
+.pto-candidate-lineage__svg .lineage-edge-group:hover .lineage-ribbon,
+.pto-candidate-lineage__svg .lineage-edge-group.is-selected .lineage-ribbon {
+  opacity: 1;
+  stroke: color-mix(in srgb, var(--primary-hover) 64%, var(--foreground));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary-hover) 46%, transparent));
+}
+
+.pto-candidate-lineage__svg .lineage-edge-group:focus-visible .lineage-ribbon,
+.pto-candidate-lineage__svg .lineage-edge-group:focus-visible .lineage-transition-orb,
+.pto-candidate-lineage__svg .lineage-stage-group:focus-visible .stage-plane {
+  stroke: var(--primary-hover);
+  stroke-width: 2;
+}
+
+.pto-candidate-lineage__svg .lineage-transition-orb {
+  fill: var(--surface-3);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition:
+    fill var(--duration-fast) var(--easing-default),
+    stroke var(--duration-fast) var(--easing-default),
+    filter var(--duration-fast) var(--easing-default);
+}
+
+.pto-candidate-lineage__svg .lineage-transition-orb.is-diverge { stroke: var(--primary-hover); }
+.pto-candidate-lineage__svg .lineage-transition-orb.is-converge { stroke: var(--danger); }
+
+.pto-candidate-lineage__svg .lineage-transition-value {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+}
+
+.pto-candidate-lineage__svg .lineage-transition-value.is-diverge { fill: var(--primary-hover); }
+.pto-candidate-lineage__svg .lineage-transition-value.is-converge { fill: var(--danger); }
+
+.pto-candidate-lineage__svg .lineage-edge-group:hover .lineage-transition-orb,
+.pto-candidate-lineage__svg .lineage-edge-group.is-selected .lineage-transition-orb {
+  fill: color-mix(in srgb, var(--primary) 20%, var(--surface-3));
+  stroke: var(--primary-hover);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary-hover) 34%, transparent));
+}
+
+.pto-candidate-lineage__svg .lineage-edge-group:hover .lineage-transition-value,
+.pto-candidate-lineage__svg .lineage-edge-group.is-selected .lineage-transition-value { fill: var(--foreground); }
+
+.pto-candidate-lineage__svg .lineage-branch-label,
+.pto-candidate-lineage__svg .lineage-reject-label {
+  fill: var(--foreground-secondary);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+}
+
+.pto-candidate-lineage__svg .lineage-aggregate-label {
+  fill: var(--foreground-muted);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pto-candidate-lineage__svg .stage-plane,
+  .pto-candidate-lineage__svg .stage-label-plate,
+  .pto-candidate-lineage__svg .stage-state-dot,
+  .pto-candidate-lineage__svg .stage-label,
+  .pto-candidate-lineage__svg .candidate-dot,
+  .pto-candidate-lineage__svg .lineage-ribbon,
+  .pto-candidate-lineage__svg .lineage-transition-orb {
+    transition: none;
+  }
+}

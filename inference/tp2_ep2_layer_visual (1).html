@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TP=2 · Prefill / Decode Transformer Layer Cutaway</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#15181d;
+    --panel2:#1b1f25;
+    --line:#303640;
+    --text:#edf1f7;
+    --muted:#9aa3af;
+
+    --stage-prefill:var(--ark-orange-500,#ffaa3b);
+    --stage-decode:var(--ark-blue-500,#4369ef);
+
+    --tp0:var(--ark-green-500,#04d793);
+    --tp0-soft:color-mix(in srgb,var(--tp0) 16%,transparent);
+    --tp1:color-mix(in srgb,var(--tp0) 68%,white);
+    --tp1-soft:color-mix(in srgb,var(--tp0) 12%,transparent);
+
+    --ep0:color-mix(in srgb,var(--tp0) 86%,white);
+    --ep0-soft:color-mix(in srgb,var(--tp0) 14%,transparent);
+    --ep1:color-mix(in srgb,var(--tp0) 66%,white);
+    --ep1-soft:color-mix(in srgb,var(--tp0) 10%,transparent);
+
+    --shared:var(--tp0);
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+
+  .canvas{
+    width:min(800px,100vw);
+    min-height:400px;
+    padding:18px 20px 16px;
+    margin:0 auto;
+    background:
+      radial-gradient(circle at 50% -20%, color-mix(in srgb,var(--tp0) 8%,transparent), transparent 38%),
+      var(--bg);
+  }
+
+  .topbar{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:14px;
+  }
+  .title{
+    font-size:20px;
+    line-height:1;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  .sub{
+    margin-top:7px;
+    color:var(--muted);
+    font-size:12px;
+  }
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:10px 14px;
+    color:var(--muted);
+    font-size:11px;
+  }
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .dot.tp{background:var(--tp0)}
+  .dot.ep{background:var(--ep0)}
+  .dot.shared{background:var(--shared)}
+
+  .mode-tabs{
+    display:inline-flex;
+    align-items:center;
+    gap:14px;
+  }
+  .mode-tab{
+    position:relative;
+    height:22px;
+    padding:0 0 5px;
+    border:0;
+    border-bottom:1px solid transparent;
+    border-radius:0;
+    background:transparent;
+    color:var(--muted);
+    font:600 11px/1 Inter,ui-sans-serif,system-ui,sans-serif;
+    cursor:pointer;
+  }
+  .mode-tab:hover{color:var(--text)}
+  .mode-tab[aria-selected="true"]{
+    border-bottom-color:currentColor;
+  }
+  .mode-tab[data-mode="prefill"][aria-selected="true"]{color:var(--stage-prefill)}
+  .mode-tab[data-mode="decode"][aria-selected="true"]{color:var(--stage-decode)}
+  .mode-tab:focus-visible{
+    outline:2px solid var(--tp0);
+    outline-offset:3px;
+  }
+
+  .layer-shell{
+    position:relative;
+    border:1px solid var(--line);
+    border-radius:18px;
+    overflow:hidden;
+    background:linear-gradient(180deg,#171a20 0%,#13161a 100%);
+  }
+
+  .layer-tag{
+    position:absolute;
+    top:10px;
+    left:12px;
+    z-index:5;
+    padding:5px 9px;
+    border:1px solid #363d48;
+    background:#171a20;
+    border-radius:999px;
+    font-size:10px;
+    color:#c7ced8;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+
+  .section{
+    position:relative;
+    padding:34px 14px 12px;
+  }
+  .section + .section{
+    border-top:1px solid var(--line);
+  }
+  .section-name{
+    position:absolute;
+    top:12px;
+    right:14px;
+    color:var(--muted);
+    font-size:11px;
+    letter-spacing:.05em;
+  }
+  .expert-section{
+    padding-top:39px;
+  }
+  .expert-section-header{
+    position:absolute;
+    top:9px;
+    left:14px;
+    right:14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+  .expert-section-header .section-name{
+    position:static;
+    min-width:0;
+    white-space:nowrap;
+  }
+
+  /* Weight / TP */
+  .weights{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    height:92px;
+    border:1px solid #353b45;
+    border-radius:12px;
+    overflow:hidden;
+    background:#101318;
+  }
+  .tp-shard{
+    position:relative;
+    min-width:0;
+    padding:14px 14px 12px;
+    display:grid;
+    grid-template-columns:auto 1fr;
+    align-items:center;
+    gap:13px;
+  }
+  .tp-shard + .tp-shard{border-left:1px solid #4a5362}
+  .tp0{background:linear-gradient(90deg,var(--tp0-soft),color-mix(in srgb,var(--tp0) 7%,transparent))}
+  .tp1{background:linear-gradient(90deg,color-mix(in srgb,var(--tp1) 7%,transparent),var(--tp1-soft))}
+  .tp-badge{
+    font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    white-space:nowrap;
+  }
+  .tp0 .tp-badge{color:#92a7ff}
+  .tp1 .tp-badge{color:#b3c0ff}
+  .matrix{
+    height:58px;
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    gap:4px;
+    align-content:center;
+  }
+  .matrix i{
+    height:5px;
+    border-radius:2px;
+    background:currentColor;
+    opacity:.85;
+  }
+  .tp0 .matrix{color:var(--tp0)}
+  .tp1 .matrix{color:var(--tp1)}
+  .cut-mark{
+    position:absolute;
+    left:50%;
+    top:22px;
+    height:62px;
+    width:1px;
+    transform:translateX(-.5px);
+    background:linear-gradient(transparent,#a9b8ff 18%,#a9b8ff 82%,transparent);
+    box-shadow:0 0 12px color-mix(in srgb,var(--tp0) 25%,transparent);
+    pointer-events:none;
+  }
+  .cut-label{
+    position:absolute;
+    left:50%;
+    top:2px;
+    transform:translateX(-50%);
+    font:500 10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:#8994a3;
+    padding:2px 6px;
+    background:#171a20;
+  }
+
+  /* Experts / EP */
+  .moe-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .moe-row.prefill{grid-template-columns:1fr}
+  .ep-group{
+    min-width:0;
+    border:1px solid #3a3b38;
+    border-radius:12px;
+    padding:10px 12px 12px;
+    background:#171717;
+  }
+  .ep-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:9px;
+  }
+  .ep-title{
+    font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .ep-meta{
+    color:var(--muted);
+    font-size:10px;
+  }
+  .experts{
+    display:grid;
+    grid-template-columns:repeat(16,1fr);
+    gap:5px 4px;
+  }
+  .ep-full .experts{grid-template-columns:repeat(32,1fr)}
+  .experts i{
+    width:7px;
+    height:7px;
+    justify-self:center;
+    border-radius:50%;
+    background:var(--ep0);
+  }
+  .ep1 .experts i{background:var(--ep1)}
+  .shared-row{
+    margin-top:10px;
+    height:32px;
+    border:1px solid #34413e;
+    background:rgba(45,212,168,.06);
+    border-radius:9px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 11px;
+    gap:12px;
+    font-size:11px;
+  }
+  .shared-left{display:flex;align-items:center;gap:8px}
+  .shared-chip{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--shared);
+    box-shadow:0 0 8px rgba(45,212,168,.35);
+  }
+  .shared-right{
+    color:#91a19e;
+    font:500 10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+
+  .axis{
+    position:absolute;
+    left:7px;
+    top:50%;
+    transform:translate(-50%,-50%) rotate(-90deg);
+    font-size:9px;
+    color:#6f7885;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+  }
+
+  .footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-top:10px;
+    color:#7f8996;
+    font-size:10px;
+  }
+  .logic{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .pill{
+    border:1px solid #303640;
+    background:#15181d;
+    border-radius:999px;
+    padding:4px 7px;
+    color:#aeb6c1;
+  }
+  .arrow{color:#606a77}
+
+  @media (max-width:560px){
+    .canvas{padding:14px}
+    .topbar{align-items:flex-start;flex-direction:column}
+    .legend{justify-content:flex-start}
+    .weights{height:auto}
+    .tp-shard{grid-template-columns:1fr;gap:8px}
+    .matrix{height:44px}
+    .moe-row{grid-template-columns:1fr}
+    .experts{grid-template-columns:repeat(16,minmax(5px,1fr))}
+    .ep-full .experts{grid-template-columns:repeat(16,minmax(5px,1fr))}
+    .footer{align-items:flex-start;flex-direction:column}
+  }
+</style>
+</head>
+
+<body>
+  <main class="canvas" aria-label="Transformer Layer TP2 with Prefill and Decode expert placement">
+    <div class="topbar">
+      <div>
+        <div class="title">Transformer Layer L0</div>
+      </div>
+      <div class="legend" aria-label="Legend">
+        <span><i class="dot tp"></i>TP · weight shard</span>
+        <span><i class="dot ep"></i>EP · routed expert</span>
+        <span><i class="dot shared"></i>shared expert</span>
+      </div>
+    </div>
+
+    <section class="layer-shell">
+      <div class="layer-tag">ONE MODEL LAYER</div>
+
+      <div class="section">
+        <div class="section-name">ATTN / DENSE WEIGHTS · TP = 2</div>
+        <div class="axis">weight axis</div>
+
+        <div class="weights">
+          <div class="tp-shard tp0">
+            <div>
+              <div class="tp-badge">TP0</div>
+              <div style="margin-top:5px;color:#7f8996;font-size:10px;">W[:, 0 : 2048]</div>
+            </div>
+            <div class="matrix" aria-label="TP0 weight shard">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+
+          <div class="tp-shard tp1">
+            <div>
+              <div class="tp-badge">TP1</div>
+              <div style="margin-top:5px;color:#7f8996;font-size:10px;">W[:, 2048 : 4096]</div>
+            </div>
+            <div class="matrix" aria-label="TP1 weight shard">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+
+          <div class="cut-mark"></div>
+          <div class="cut-label">TP CUT</div>
+        </div>
+      </div>
+
+      <div class="section expert-section">
+        <div class="expert-section-header">
+          <div class="mode-tabs" role="tablist" aria-label="Inference phase">
+            <button class="mode-tab" type="button" role="tab" id="prefillTab" aria-selected="true" aria-controls="prefillPanel" data-mode="prefill">Prefill</button>
+            <button class="mode-tab" type="button" role="tab" id="decodeTab" aria-selected="false" aria-controls="decodePanel" data-mode="decode" tabindex="-1">Decode</button>
+          </div>
+          <div class="section-name" id="expertSectionName">MOE ROUTED EXPERTS · EP = 1</div>
+        </div>
+        <div class="axis">expert axis</div>
+
+        <div class="moe-row prefill" id="prefillPanel" role="tabpanel" aria-labelledby="prefillTab">
+          <div class="ep-group ep0 ep-full">
+            <div class="ep-head">
+              <div class="ep-title">Full Expert Pool · E0–E255</div>
+              <div class="ep-meta">256 experts · no EP split</div>
+            </div>
+            <div class="experts" data-expert-start="0" data-expert-count="256" aria-label="Prefill full expert pool"></div>
+          </div>
+        </div>
+
+        <div class="moe-row" id="decodePanel" role="tabpanel" aria-labelledby="decodeTab" hidden>
+          <div class="ep-group ep0">
+            <div class="ep-head">
+              <div class="ep-title">EP0 · E0–E127</div>
+              <div class="ep-meta">128 experts</div>
+            </div>
+            <div class="experts" data-expert-start="0" data-expert-count="128" aria-label="Decode EP0 experts"></div>
+          </div>
+
+          <div class="ep-group ep1">
+            <div class="ep-head">
+              <div class="ep-title">EP1 · E128–E255</div>
+              <div class="ep-meta">128 experts</div>
+            </div>
+            <div class="experts" data-expert-start="128" data-expert-count="128" aria-label="Decode EP1 experts"></div>
+          </div>
+        </div>
+
+        <div class="shared-row">
+          <div class="shared-left">
+            <i class="shared-chip"></i>
+            <span>Shared Expert</span>
+          </div>
+          <div class="shared-right" id="sharedMeta">one shared copy with full expert pool</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      <div class="logic">
+        <span class="pill">Layer</span><span class="arrow">→</span>
+        <span class="pill">Weight split by TP</span><span class="arrow">+</span>
+        <span class="pill" id="expertLogic">Experts kept together · EP1</span>
+      </div>
+      <div id="modeNote">Prefill · 256 routed experts in one group</div>
+    </div>
+  </main>
+
+<script>
+(() => {
+  document.querySelectorAll('.experts').forEach((grid) => {
+    const start = Number(grid.dataset.expertStart);
+    const count = Number(grid.dataset.expertCount);
+    for (let i = 0; i < count; i++) {
+      const dot = document.createElement('i');
+      dot.setAttribute('aria-hidden','true');
+      dot.title = `Expert E${start + i}`;
+      grid.appendChild(dot);
+    }
+  });
+
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const panels = {
+    prefill: document.getElementById('prefillPanel'),
+    decode: document.getElementById('decodePanel')
+  };
+  const expertSectionName = document.getElementById('expertSectionName');
+  const sharedMeta = document.getElementById('sharedMeta');
+  const expertLogic = document.getElementById('expertLogic');
+  const modeNote = document.getElementById('modeNote');
+
+  const setMode = (mode) => {
+    tabs.forEach((tab) => {
+      const active = tab.dataset.mode === mode;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+    Object.entries(panels).forEach(([panelMode, panel]) => {
+      panel.hidden = panelMode !== mode;
+    });
+
+    const prefill = mode === 'prefill';
+    expertSectionName.textContent = `MOE ROUTED EXPERTS · EP = ${prefill ? 1 : 2}`;
+    sharedMeta.textContent = prefill ? 'one shared copy with full expert pool' : 'replicated across EP0 / EP1';
+    expertLogic.textContent = prefill ? 'Experts kept together · EP1' : 'Experts partitioned · EP2';
+    modeNote.textContent = prefill
+      ? 'Prefill · 256 routed experts in one group'
+      : 'Decode · 128 routed experts per EP group';
+  };
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => setMode(tab.dataset.mode));
+    tab.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const offset = event.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(index + offset + tabs.length) % tabs.length];
+      setMode(next.dataset.mode);
+      next.focus();
+    });
+  });
+
+  setMode('prefill');
+})();
+</script>
+</body>
+</html>
