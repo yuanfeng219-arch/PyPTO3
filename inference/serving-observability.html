@@ -2021,7 +2021,7 @@ button.operator-tree-toggle:hover {
   </style>
   <link rel="stylesheet" href="../Design/Toolkit%20Studio/styles/profiler.css?v=20260821-3">
   <link rel="stylesheet" href="serving-profiler.css?v=20260825-1">
-  <link rel="stylesheet" href="candidate-population-lineage/pattern.css?v=20260829-1">
+  <link rel="stylesheet" href="candidate-population-lineage/pattern.css?v=20260829-2">
 </head>
 <body>
   <div class="app-shell">
@@ -2056,7 +2056,7 @@ button.operator-tree-toggle:hover {
   <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260821-1"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260821-1"></script>
   <script src="serving-profiler.js?v=20260825-1"></script>
-  <script src="candidate-population-lineage/pattern.js?v=20260829-1"></script>
+  <script src="candidate-population-lineage/pattern.js?v=20260829-2"></script>
   <script>
     (function () {
       'use strict';
@@ -2156,6 +2156,7 @@ button.operator-tree-toggle:hover {
       var traceHoverController = null;
       var moeHoverController = null;
       var dseLineageController = null;
+      var dseLineageRetryStarted = false;
 
       var observeTabsConfig = [
         ['overview', 'Overview'],
@@ -3555,7 +3556,25 @@ button.operator-tree-toggle:hover {
         var host = document.getElementById('dse-candidate-lineage');
         if (!host) return;
         if (!window.PtoCandidatePopulationLineage) {
-          host.innerHTML = '<div class="so-empty">候选收敛图加载失败，请检查组件资源。</div>';
+          host.innerHTML = '<div class="so-empty">正在加载候选收敛图…</div>';
+          if (!dseLineageRetryStarted) {
+            dseLineageRetryStarted = true;
+            var retryScript = document.createElement('script');
+            retryScript.src = 'candidate-population-lineage/pattern.js?v=20260829-2&retry=' + Date.now();
+            retryScript.onload = function () {
+              if (window.PtoCandidatePopulationLineage && document.getElementById('dse-candidate-lineage')) {
+                mountDseLineage(state.scenarioExplore);
+                return;
+              }
+              var currentHost = document.getElementById('dse-candidate-lineage');
+              if (currentHost) currentHost.innerHTML = '<div class="so-empty">候选收敛图加载失败，请刷新页面后重试。</div>';
+            };
+            retryScript.onerror = function () {
+              var currentHost = document.getElementById('dse-candidate-lineage');
+              if (currentHost) currentHost.innerHTML = '<div class="so-empty">候选收敛图加载失败，请刷新页面后重试。</div>';
+            };
+            document.head.appendChild(retryScript);
+          }
           return;
         }
         try {
