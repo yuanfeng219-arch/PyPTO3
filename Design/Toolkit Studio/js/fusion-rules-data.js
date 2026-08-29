@@ -121,8 +121,8 @@
       reference: 'cann-recipes-infer/models/deepseek-v3.2-exp（MLA + Indexer 链路）',
       layers: c.n_layers,
       status: 'prep',
-      covers: ['attn_norm（RMSNorm）', 'wq_a / wq_b 低秩 Q 投影', 'wkv latent KV 投影 + kv_norm', 'Q/K RoPE', 'KV Cache 写入'],
-      uncovered: ['indexer 打分（另有 npu_lightning_indexer）', 'sparse_attn 本体', 'wo_a / wo_b 输出投影'],
+      covers: [['attn_norm（RMSNorm）', 'norm'], ['wq_a / wq_b 低秩 Q 投影', 'linear'], ['wkv latent KV 投影 + kv_norm', 'linear'], ['Q/K RoPE', 'rope'], ['KV Cache 写入', 'state']],
+      uncovered: [['indexer 打分（另有 npu_lightning_indexer）', 'attn'], ['sparse_attn 本体', 'attn'], ['wo_a / wo_b 输出投影', 'linear']],
       before: [
         ['x = self.attn_norm(x)', 'model.py:691'],
         ['qr = q = self.q_norm(self.wq_a(x))', 'model.py:496'],
@@ -168,8 +168,8 @@
       reference: 'skill MoE 判断树 · framework_moe_parallel.md（本次 zip 未包含该文件）',
       layers: c.n_layers,
       status: 'prep',
-      covers: ['token → 专家的 routing 重排', '每专家 GEMM（w1/w3/w2）', '加权合并回 hidden'],
-      uncovered: ['shared_expert 分支（可与 routed 并行）', 'gate 打分本身（见 MoE Gate 方案）'],
+      covers: [['token → 专家的 routing 重排', 'gate'], ['每专家 GEMM（w1/w3/w2）', 'linear'], ['加权合并回 hidden', 'act']],
+      uncovered: [['shared_expert 分支（可与 routed 并行）', 'linear'], ['gate 打分本身（见 MoE Gate 方案）', 'gate']],
       before: [
         ['counts = torch.bincount(indices.flatten(), minlength=n_routed_experts).tolist()', 'model.py:634'],
         ['for i in range(experts_start_idx, experts_end_idx):', 'model.py:635'],
@@ -214,8 +214,8 @@
       reference: 'deepseek_r1 的 KV RMSNorm+RoPE+Cache 三合一写法',
       layers: CONFIG.compressLayers,
       status: 'prep',
-      covers: ['压缩 KV 的 RMSNorm', '压缩 KV 的 RoPE', '压缩 cache 写入'],
-      uncovered: ['前面的 gated pooling 压缩（无现成算子，见「压缩池化」）'],
+      covers: [['压缩 KV 的 RMSNorm', 'norm'], ['压缩 KV 的 RoPE', 'rope'], ['压缩 cache 写入', 'state']],
+      uncovered: [['前面的 gated pooling 压缩（无现成算子，见「压缩池化」）', 'act']],
       before: [
         ['kv = self.norm(kv.to(dtype))', 'model.py:361'],
         ['apply_rotary_emb(kv[..., -rd:], freqs_cis)', 'model.py:367'],
@@ -252,7 +252,7 @@
       reference: '所有参考链路通用',
       layers: c.n_layers,
       status: 'ready',
-      covers: ['float 上转', '平方 + 均值归约', 'rsqrt(var + eps)', '乘 weight 并回落 dtype'],
+      covers: [['float 上转', 'quant'], ['平方 + 均值归约', 'norm'], ['rsqrt(var + eps)', 'norm'], ['乘 weight 并回落 dtype', 'norm']],
       uncovered: [],
       before: [
         ['x = x.float()', 'model.py:193'],
@@ -282,8 +282,8 @@
       reference: 'deepseek-v3.2-exp 的 Indexer 链路',
       layers: CONFIG.indexerLayers,
       status: 'constraint',
-      covers: ['indexer q 投影', 'RoPE + Hadamard', '激活量化', 'einsum 打分 + top-k'],
-      uncovered: ['indexer 自带的 compressor 调用（model.py:417）'],
+      covers: [['indexer q 投影', 'linear'], ['RoPE + Hadamard', 'rope'], ['激活量化', 'quant'], ['einsum 打分 + top-k', 'gate']],
+      uncovered: [['indexer 自带的 compressor 调用（model.py:417）', 'act']],
       before: [
         ['q = ...wq_b projection', 'model.py:406-410'],
         ['apply_rotary_emb + rotate_activation', 'model.py:411-413'],
@@ -318,8 +318,8 @@
       reference: 'deepseek-v3.2-exp：layout_query TND / layout_kv PA_BSND / sparse_mode 3',
       layers: c.n_layers,
       status: 'prep',
-      covers: ['稀疏 top-k KV 选择下的注意力计算'],
-      uncovered: ['V absorb（后接 matmul）', '输出 RoPE 反旋转（model.py:535）'],
+      covers: [['稀疏 top-k KV 选择下的注意力计算', 'attn']],
+      uncovered: [['V absorb（后接 matmul）', 'linear'], ['输出 RoPE 反旋转（model.py:535）', 'rope']],
       before: [
         ['o = sparse_attn(q, self.kv_cache[:bsz], self.attn_sink, topk_idxs, self.softmax_scale)', 'model.py:533'],
       ],
@@ -352,8 +352,8 @@
       reference: 'skill 未匹配模块提示：Dense / Gated FFN 检查 activation 类融合算子',
       layers: c.n_layers,
       status: 'constraint',
-      covers: ['SiLU(gate) × up'],
-      uncovered: ['clamp(swiglu_limit) 上下界', 'w1 / w3 / w2 投影本身'],
+      covers: [['SiLU(gate) × up', 'act']],
+      uncovered: [['clamp(swiglu_limit) 上下界', 'act'], ['w1 / w3 / w2 投影本身', 'linear']],
       before: [
         ['gate = self.w1(x).float()', 'model.py:598'],
         ['up = self.w3(x).float()', 'model.py:599'],
@@ -386,8 +386,8 @@
       reference: 'MLA absorb 链路用它做 V absorb',
       layers: c.n_layers,
       status: 'constraint',
-      covers: ['分组矩阵乘'],
-      uncovered: ['wo_b 的 RowParallelLinear + all_reduce'],
+      covers: [['分组矩阵乘', 'linear']],
+      uncovered: [['wo_b 的 RowParallelLinear + all_reduce', 'comm']],
       before: [
         ['o = o.view(bsz, seqlen, self.n_local_groups, -1)', 'model.py:538'],
         ['o = torch.einsum("bsgd,grd->bsgr", o, wo_a)', 'model.py:542'],
@@ -415,8 +415,8 @@
       reference: 'skill 未匹配模块提示：LM Head 在算子总表中搜索',
       layers: 1,
       status: 'ready',
-      covers: ['final RMSNorm', '（可选）采样'],
-      uncovered: ['hc_head 的 sigmoid 混合链', '词表投影 + all_gather'],
+      covers: [['final RMSNorm', 'norm'], ['（可选）采样', 'misc']],
+      uncovered: [['hc_head 的 sigmoid 混合链', 'act'], ['词表投影 + all_gather', 'comm']],
       before: [
         ['rsqrt = torch.rsqrt(x.square().mean(-1, keepdim=True) + eps)', 'model.py:731'],
         ['mixes = F.linear(x, hc_fn) * rsqrt', 'model.py:732'],
@@ -449,7 +449,7 @@
       layers: CONFIG.compressLayers,
       status: 'none',
       covers: [],
-      uncovered: ['wkv / wgate 双投影', '窗口 reshape + overlap_transform', 'softmax 加权池化'],
+      uncovered: [['wkv / wgate 双投影', 'linear'], ['窗口 reshape + overlap_transform', 'act'], ['softmax 加权池化', 'norm']],
       before: [
         ['kv = self.wkv(x); score = self.wgate(x)', 'model.py:322-323'],
         ['kv = kv.unflatten(1, (-1, ratio)); score = score.unflatten(1, (-1, ratio)) + self.ape', 'model.py:337-338'],
@@ -482,7 +482,7 @@
       layers: c.n_layers,
       status: 'none',
       covers: [],
-      uncovered: ['hc_split_sinkhorn 迭代归一化', 'pre / post / comb 三路加权'],
+      uncovered: [['hc_split_sinkhorn 迭代归一化', 'norm'], ['pre / post / comb 三路加权', 'act']],
       before: [
         ['x, post, comb = self.hc_pre(x, hc_attn_fn, hc_attn_scale, hc_attn_base)', 'model.py:690'],
         ['pre, post, comb = hc_split_sinkhorn(mixes, hc_scale, hc_base, hc_mult, hc_sinkhorn_iters, hc_eps)', 'model.py:679'],
@@ -513,7 +513,7 @@
       layers: c.n_layers - c.n_hash_layers,
       status: 'blocked',
       covers: [],
-      uncovered: ['sqrtsoftplus 打分', 'top-k 选择', '路由权重归一化'],
+      uncovered: [['sqrtsoftplus 打分', 'act'], ['top-k 选择', 'gate'], ['路由权重归一化', 'norm']],
       before: [
         ['scores = linear(x.float(), self.weight.float())', 'model.py:565'],
         ['scores = F.softplus(scores).sqrt()   # score_func = "sqrtsoftplus"', 'model.py:571'],
@@ -543,7 +543,7 @@
       layers: c.n_layers,
       status: 'blocked',
       covers: [],
-      uncovered: ['combine + 残差 + 归一化'],
+      uncovered: [['combine + 残差 + 归一化', 'norm']],
       before: [
         ['x = self.hc_post(x, residual, post, comb)   # mHC 加权残差合并', 'model.py:700'],
         ['# 而不是标准的 residual + x 后接 RMSNorm', ''],
@@ -570,8 +570,8 @@
       reference: '无匹配参考链路',
       layers: 1,
       status: 'constraint',
-      covers: ['稀疏索引 gather'],
-      uncovered: ['分片掩码 + all_reduce'],
+      covers: [['稀疏索引 gather', 'gate']],
+      uncovered: [['分片掩码 + all_reduce', 'comm']],
       before: [
         ['mask = (x < self.vocab_start_idx) | (x >= self.vocab_end_idx)', 'model.py:96-100'],
         ['y = F.embedding(x, self.weight)', 'model.py:101'],
@@ -599,6 +599,37 @@
     return item.kind === 'cross' && item.nodes.length > 1;
   }
 
+  /* ---------------- 子链路的语义角色 ----------------
+   * 颜色取自 model-graphviz 的 SEMANTIC_COLOR_DEFAULTS：
+   * 面板里的子链路和结构图上的节点用同一套配色说同一件事。
+   */
+  const ROLES = {
+    norm: { label: '归一化', color: '#0EA5E9', unit: 'vector' },
+    linear: { label: '投影 / GEMM', color: '#4F46E5', unit: 'cube' },
+    rope: { label: '位置编码', color: '#A855F7', unit: 'vector' },
+    act: { label: '激活 / 逐元素', color: '#8B5CF6', unit: 'vector' },
+    attn: { label: '注意力', color: '#3B82F6', unit: 'cube' },
+    gate: { label: '路由 / 选择', color: '#F59E0B', unit: 'vector' },
+    quant: { label: '量化 / 精度', color: '#EA580C', unit: 'vector' },
+    // 状态写入与通信本身就要跨 GM，融合只能把它收敛成首尾各一次
+    state: { label: 'Cache / 状态', color: '#14B8A6', unit: 'vector', io: true },
+    comm: { label: '通信', color: '#06B6D4', unit: 'vector', io: true },
+    misc: { label: '其他', color: '#9CA3AF', unit: 'vector' },
+  };
+
+  /** 执行单元：Cube 走矩阵路径，Vector 走逐元素/归约路径 */
+  const UNITS = {
+    cube: { id: 'cube', label: 'Cube', core: 'AIC', desc: '矩阵乘与累加（AIC）' },
+    vector: { id: 'vector', label: 'Vector', core: 'AIV', desc: '逐元素、归约与搬运（AIV）' },
+  };
+
+  /** covers/uncovered 支持 '文案' 与 ['文案', 角色] 两种写法 */
+  const coverEntry = (x) => {
+    const text = Array.isArray(x) ? x[0] : String(x);
+    const role = (Array.isArray(x) && x[1]) || 'misc';
+    return { text, role, roleMeta: ROLES[role] || ROLES.misc };
+  };
+
   function decorate(item) {
     const status = STATUS[item.status] || STATUS.constraint;
     const apis = (item.apis || []).map((name) => ({
@@ -606,11 +637,17 @@
       ...(APIS[name] || { listed: false, note: '未登记' }),
       doc: apiDoc(name),
     }));
+    const covered = (item.covers || []).map(coverEntry);
+    const uncovered = (item.uncovered || []).map(coverEntry);
     return {
       ...item,
       statusMeta: status,
       kindMeta: KIND[item.kind],
       apiList: apis,
+      // 面板画融合边界示意图用带角色的结构；导出 JSON 仍用纯文案数组
+      coverage: { covered, uncovered, total: covered.length + uncovered.length },
+      covers: covered.map((x) => x.text),
+      uncovered: uncovered.map((x) => x.text),
       // skill 第四步要求每个候选 API 都查过官方文档；这里没有 torch_npu 环境，
       // 一律记为未核对，由「算子核对」页签显式暴露，而不是假装已经确认过
       unchecked: (item.constraints || []).filter((x) => !x.checked).length,
@@ -670,6 +707,8 @@
     modules: MODULES,
     isActionable,
     changesTopology,
+    ROLES,
+    UNITS,
     evaluate,
     apiChecklist,
     apiDoc,

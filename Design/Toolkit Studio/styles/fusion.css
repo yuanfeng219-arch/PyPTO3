@@ -810,3 +810,222 @@
 .kf-model-card.is-npu em {
   color: color-mix(in srgb, var(--warning) 82%, var(--foreground));
 }
+
+/* ---------------- 覆盖的子链路 · 融合边界示意 ----------------
+   角色配色 --role 由 JS 内联注入，取自 model-graphviz 的语义色板 */
+
+.kf-fus-cov__meter { display: grid; gap: 5px; margin-bottom: 11px; }
+.kf-fus-cov__bar { display: flex; gap: 3px; height: 20px; }
+.kf-fus-cov__bar span {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  border-radius: var(--radius-sm, 5px);
+  font: 600 10px/1 var(--font-mono, monospace);
+}
+.kf-fus-cov__bar .is-in {
+  background: color-mix(in srgb, var(--success) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 46%, transparent);
+  color: var(--success);
+}
+.kf-fus-cov__bar .is-out {
+  background: repeating-linear-gradient(-45deg,
+    color-mix(in srgb, var(--foreground-muted) 16%, transparent) 0 4px,
+    transparent 4px 8px);
+  border: 1px dashed var(--border-strong);
+  color: var(--foreground-muted);
+}
+.kf-fus-cov__legend {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font: 400 var(--kf-type-2xs)/1.3 var(--font-sans);
+  color: var(--foreground-secondary);
+}
+.kf-fus-cov__legend b { font: 600 var(--kf-type-xs)/1 var(--font-sans); color: var(--foreground); }
+.kf-fus-cov__legend em {
+  margin-left: auto;
+  font: 600 10px/1.4 var(--font-mono, monospace);
+  font-style: normal;
+  color: var(--success);
+}
+
+/* 竖向链路：输入 → 融合边界 → 输出 */
+.kf-fus-cov__diagram { display: grid; gap: 0; }
+.kf-fus-cov__port {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 15px;
+  font: 500 10px/1.4 var(--font-mono, monospace);
+  color: var(--foreground-muted);
+}
+.kf-fus-cov__port i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground-muted) 12%, transparent);
+}
+.kf-fus-cov__port.is-in { padding-bottom: 9px; }
+.kf-fus-cov__port.is-out { padding-top: 9px; }
+.kf-fus-cov__box {
+  position: relative;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--success) 44%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--success) 6%, var(--surface-1));
+}
+.kf-fus-cov__box::before,
+.kf-fus-cov__box::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  width: 1px;
+  height: 7px;
+  background: var(--border-strong);
+}
+.kf-fus-cov__box::before { top: -8px; }
+.kf-fus-cov__box::after { bottom: -8px; }
+
+.kf-fus-cov__api {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--success) 34%, transparent);
+}
+.kf-fus-cov__api b {
+  font: 600 var(--kf-type-2xs)/1.3 var(--font-mono, monospace);
+  color: var(--success);
+  word-break: break-all;
+}
+.kf-fus-cov__api em {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  font: 600 10px/1.5 var(--font-sans);
+  font-style: normal;
+  color: var(--success);
+}
+
+.kf-fus-cov__chain { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.kf-fus-cov__chain li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 6px;
+  border-radius: var(--radius-sm, 5px);
+  background: color-mix(in srgb, var(--role) 9%, var(--surface-2));
+  border-left: 2px solid var(--role);
+}
+/* 相邻步骤之间的连接线，表示它们在同一个 kernel 里顺序执行 */
+.kf-fus-cov__chain li + li::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: -4px;
+  width: 1px;
+  height: 4px;
+  background: var(--border-strong);
+}
+.kf-fus-cov__idx {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--role);
+  color: #fff;
+  font: 700 9px/1 var(--font-mono, monospace);
+  font-style: normal;
+}
+.kf-fus-cov__text {
+  min-width: 0;
+  font: 400 var(--kf-type-2xs)/1.4 var(--font-sans);
+  color: var(--foreground);
+  word-break: break-word;
+}
+.kf-fus-cov__role {
+  flex-shrink: 0;
+  font: 500 10px/1.4 var(--font-sans);
+  font-style: normal;
+  color: color-mix(in srgb, var(--role) 74%, var(--foreground));
+}
+.kf-fus-cov__none {
+  margin: 0;
+  font: 400 var(--kf-type-2xs)/1.5 var(--font-sans);
+  color: var(--foreground-muted);
+}
+
+/* 边界外 */
+.kf-fus-cov__outside { margin-top: 10px; }
+.kf-fus-cov__outhead {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 5px;
+  font: 600 10px/1.4 var(--font-sans);
+  color: var(--foreground-secondary);
+}
+.kf-fus-cov__outhead em {
+  font: 400 10px/1.4 var(--font-sans);
+  font-style: normal;
+  color: var(--foreground-muted);
+}
+.kf-fus-cov__outlist { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.kf-fus-cov__outlist li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 5px);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  font: 400 var(--kf-type-2xs)/1.4 var(--font-sans);
+  color: var(--foreground-secondary);
+}
+.kf-fus-cov__cut { color: var(--role); font-style: normal; font-size: 11px; text-align: center; }
+.kf-fus-cov__outlist em {
+  flex-shrink: 0;
+  font: 500 10px/1.4 var(--font-sans);
+  font-style: normal;
+  color: var(--foreground-muted);
+}
+.kf-fus-cov__all {
+  margin: 10px 0 0;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm, 5px);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  font: 400 var(--kf-type-2xs)/1.5 var(--font-sans);
+  color: color-mix(in srgb, var(--success) 84%, var(--foreground));
+}
+
+/* 角色图例 */
+.kf-fus-cov__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.kf-fus-cov__roles span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 400 10px/1.4 var(--font-sans);
+  color: var(--foreground-muted);
+}
+.kf-fus-cov__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--role);
+}

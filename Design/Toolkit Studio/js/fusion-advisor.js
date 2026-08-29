@@ -163,6 +163,76 @@
     </div>`;
   }
 
+  /* ---------------- 覆盖的子链路 ----------------
+   * 一段替换方案的价值就是「这个 API 一次吃掉了哪几段计算」。
+   * 纯列表说不清边界在哪，所以画成一张融合边界示意图：
+   * 边界内的子链路串成一条竖链，边界外的挂在旁边，比例条给总览。
+   */
+
+  const roleDot = (entry) => `<i class="kf-fus-cov__dot" style="--role:${entry.roleMeta.color}"></i>`;
+
+  function renderCoverage(item) {
+    const cov = item.coverage;
+    if (!cov || !cov.total) return '';
+    const inN = cov.covered.length;
+    const outN = cov.uncovered.length;
+    const pct = Math.round((inN / cov.total) * 100);
+    const api = (item.apis && item.apis[0]) || '候选算子';
+    const more = item.apis && item.apis.length > 1 ? ` +${item.apis.length - 1}` : '';
+
+    // 出现过的角色做一条图例，颜色与结构图的节点配色一致
+    const roles = [];
+    cov.covered.concat(cov.uncovered).forEach((e) => {
+      if (!roles.some((r) => r.role === e.role)) roles.push(e);
+    });
+
+    const chain = inN
+      ? `<ol class="kf-fus-cov__chain">${cov.covered.map((e, i) => `<li style="--role:${e.roleMeta.color}">
+          <i class="kf-fus-cov__idx">${i + 1}</i>
+          <span class="kf-fus-cov__text">${esc(e.text)}</span>
+          <em class="kf-fus-cov__role">${esc(e.roleMeta.label)}</em>
+        </li>`).join('')}</ol>`
+      : '<p class="kf-fus-cov__none">这个方案没有可直接覆盖的子链路 —— 见下方「未覆盖」。</p>';
+
+    const outside = outN
+      ? `<div class="kf-fus-cov__outside">
+          <span class="kf-fus-cov__outhead">边界外 · ${outN} 段<em>需另找算子或保持原实现</em></span>
+          <ul class="kf-fus-cov__outlist">${cov.uncovered.map((e) => `<li style="--role:${e.roleMeta.color}">
+            <i class="kf-fus-cov__cut" aria-hidden="true">⊘</i>
+            <span>${esc(e.text)}</span>
+            <em>${esc(e.roleMeta.label)}</em>
+          </li>`).join('')}</ul>
+        </div>`
+      : '<p class="kf-fus-cov__all">这一段计算被完整吃掉，没有留在边界外的子链路。</p>';
+
+    return `<div class="kf-fus-block kf-fus-cov">
+      <h4>覆盖的子链路<small>融合边界示意</small></h4>
+
+      <div class="kf-fus-cov__meter">
+        <div class="kf-fus-cov__bar">
+          ${inN ? `<span class="is-in" style="flex:${inN}">${inN}</span>` : ''}
+          ${outN ? `<span class="is-out" style="flex:${outN}">${outN}</span>` : ''}
+        </div>
+        <div class="kf-fus-cov__legend">
+          <b>${inN}</b> / ${cov.total} 段进入融合边界<em>${pct}%</em>
+        </div>
+      </div>
+
+      <div class="kf-fus-cov__diagram">
+        <div class="kf-fus-cov__port is-in"><i></i>输入</div>
+        <div class="kf-fus-cov__box">
+          <div class="kf-fus-cov__api"><b>${esc(api)}${esc(more)}</b><em>一次调用</em></div>
+          ${chain}
+        </div>
+        <div class="kf-fus-cov__port is-out"><i></i>输出</div>
+      </div>
+
+      ${outside}
+
+      <div class="kf-fus-cov__roles">${roles.map((e) => `<span style="--role:${e.roleMeta.color}">${roleDot(e)}${esc(e.roleMeta.label)}</span>`).join('')}</div>
+    </div>`;
+  }
+
   function renderCodeDiff(item) {
     if (!item.before || !item.before.length) return '';
     const after = item.after && item.after.length
@@ -217,6 +287,7 @@
       <div class="kf-fus-panelhead">
         <div class="kf-fus-apis">${apiChips(item)}</div>
         <div class="kf-fus-detailactions">
+          ${item.coverage && item.coverage.covered.length ? `<button class="kf-fus-btn is-hw" type="button" data-plan-hardware="${esc(item.id)}" title="看这次融合让数据在昇腾硬件上少跑了哪些路">◱ 硬件数据流 ↗</button>` : ''}
           <button class="kf-fus-btn" type="button" data-plan-verify="${esc(item.id)}">验证计划</button>
           <button class="kf-fus-btn" type="button" data-export="${esc(item.id)}">导出 JSON</button>
         </div>
@@ -224,8 +295,7 @@
       <div class="kf-fus-detailbody">
         ${renderGraphLink(item)}
         ${renderCodeDiff(item)}
-        ${listBlock('覆盖的子链路', item.covers, 'good')}
-        ${listBlock('未覆盖', item.uncovered, null, '需另找算子或保持原实现')}
+        ${renderCoverage(item)}
         ${listBlock('前置改造', item.prep, 'warn')}
         ${renderStages(item)}
         ${renderConstraints(item)}
@@ -501,6 +571,13 @@
           scope: 'all',
         });
       }
+      return;
+    }
+
+    const hw = t.closest('[data-plan-hardware]');
+    if (hw) {
+      const item = view().items.find((x) => x.id === hw.dataset.planHardware);
+      if (item) window.PtoFusionHardwareView?.open?.(item);
       return;
     }
 
