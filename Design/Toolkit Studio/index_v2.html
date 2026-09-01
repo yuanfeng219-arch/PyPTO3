@@ -21,6 +21,63 @@
   <link rel="stylesheet" href="./styles/fusion.css?v=20260829-1" />
   <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
   <link rel="stylesheet" href="./styles/fusion-hardware.css?v=20260829-2" />
+  <link rel="stylesheet" href="./styles/ir-pipeline.css?v=20260901-1" />
+  <style>
+    .kf-env-panel { width: 438px; }
+    .kf-env-panel > header { align-items: center; padding: 13px 16px 10px; }
+    .kf-env-panel h2 { margin: 0; color: var(--foreground-muted); font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+    .kf-env-panel__intro { display: none; }
+    .kf-env-panel .kf-state-chip.warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+    .kf-env i.is-warn, .kf-env-panel footer i.is-warn { background: var(--warning); box-shadow: 0 0 9px color-mix(in srgb, var(--warning) 70%, transparent); }
+    .kf-env-progress { height: 3px; margin: 0 16px 6px; overflow: hidden; border-radius: 99px; background: var(--surface-3); }
+    .kf-env-progress span { display: block; height: 100%; border-radius: inherit; background: var(--warning); transition: width 180ms ease; }
+    .kf-env-summary { display: grid; grid-template-columns: 1.25fr 1fr; gap: 10px; margin: 0 14px 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--success) 20%, var(--border-subtle)); border-radius: var(--radius-lg); background: linear-gradient(135deg, color-mix(in srgb, var(--success) 12%, var(--surface-2)), var(--surface-2)); }
+    .kf-env-score { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .kf-env-score-ring { display: grid; flex: 0 0 68px; width: 68px; height: 68px; place-content: center; border-radius: 50%; background: conic-gradient(var(--success) 100%, color-mix(in srgb, var(--success) 14%, var(--surface-3)) 0); box-shadow: inset 0 0 0 6px var(--surface-2), 0 0 20px color-mix(in srgb, var(--success) 18%, transparent); text-align: center; }
+    .kf-env-score-ring b, .kf-env-score-ring small { display: block; }
+    .kf-env-score-ring b { color: var(--foreground); font: 700 17px/1 var(--font-mono); }
+    .kf-env-score-ring small { margin-top: 4px; color: var(--success); font: 600 8px/1 var(--font-mono); letter-spacing: .12em; }
+    .kf-env-score strong { display: block; color: var(--foreground); font-size: 14px; }
+    .kf-env-score p { margin: 3px 0 0; color: var(--success); font: 600 10px var(--font-mono); }
+    .kf-env-summary-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-items: center; }
+    .kf-env-summary-facts span { padding-left: 8px; border-left: 1px solid var(--border-subtle); }
+    .kf-env-summary-facts b, .kf-env-summary-facts small { display: block; white-space: nowrap; }
+    .kf-env-summary-facts b { color: var(--foreground-secondary); font: 600 11px var(--font-mono); }
+    .kf-env-summary-facts small { margin-top: 4px; color: var(--foreground-muted); font-size: 9px; }
+    .kf-env-gates { display: grid; gap: 2px; margin: 0; padding: 4px 10px 8px; list-style: none; }
+    .kf-env-gates li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 50px; padding: 6px 8px; border-radius: var(--radius-md); }
+    .kf-env-gates li.is-ready { background: color-mix(in srgb, var(--success) 5%, transparent); }
+    .kf-env-gates li.is-blocked { background: color-mix(in srgb, var(--warning) 7%, transparent); }
+    .kf-env-gate-index { color: color-mix(in srgb, var(--foreground-muted) 72%, transparent); font: 600 10px var(--font-mono); }
+    .kf-env-gates b, .kf-env-gates small { display: block; }
+    .kf-env-gates b { color: var(--foreground-muted); font-size: 10px; font-weight: 500; letter-spacing: .01em; }
+    .kf-env-gates small { margin-top: 3px; overflow: hidden; color: var(--foreground); font: 600 13px/1.35 var(--font-sans); text-overflow: ellipsis; white-space: nowrap; }
+    .kf-env-gates em { display: inline-flex; align-items: center; gap: 4px; color: var(--success); font-size: 10px; font-weight: 600; font-style: normal; white-space: nowrap; }
+    .kf-env-gates em::before { content: '✓'; display: grid; width: 16px; height: 16px; place-items: center; border-radius: 50%; color: var(--surface-1); background: var(--success); font: 700 10px var(--font-mono); }
+    .kf-env-gates .is-blocked em { color: var(--warning); }
+    .kf-env-gates li.is-checking { outline: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+    .kf-env-gates li.is-checking em { color: var(--primary); }
+    .kf-env-gates li.is-checking em::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 4px; border: 1px solid currentColor; border-top-color: transparent; border-radius: 50%; vertical-align: -1px; animation: kf-env-spin 700ms linear infinite; }
+    @keyframes kf-env-spin { to { transform: rotate(360deg); } }
+    .kf-env-evidence { display: flex; gap: 8px; margin: 0 14px 9px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warning) 7%, var(--surface-2)); }
+    .kf-env-evidence-icon { display: grid; flex: 0 0 17px; width: 17px; height: 17px; place-items: center; border-radius: 50%; color: var(--surface-1); background: var(--warning); font: 700 var(--kf-type-2xs) var(--font-mono); }
+    .kf-env-evidence b, .kf-env-evidence small { display: block; }
+    .kf-env-evidence b { color: var(--warning); font-size: var(--kf-type-2xs); }
+    .kf-env-evidence small { margin-top: 3px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.35; }
+    .kf-env-evidence-metric { align-self: center; color: var(--success); font: 700 14px var(--font-mono); white-space: nowrap; }
+    .kf-env-evidence.is-healthy { border-color: color-mix(in srgb, var(--success) 24%, var(--border-subtle)); background: color-mix(in srgb, var(--success) 7%, var(--surface-2)); }
+    .kf-env-evidence.is-healthy .kf-env-evidence-icon { background: var(--success); }
+    .kf-env-evidence.is-healthy b { color: var(--success); }
+    .kf-env-fingerprint { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 0 14px 10px; padding: 8px 9px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+    .kf-env-fingerprint code { display: block; margin-top: 4px; color: var(--foreground-secondary); font: var(--kf-type-xs) var(--font-mono); }
+    .kf-env-fingerprint button, .kf-env-panel > footer button { border: 0; color: var(--foreground-secondary); background: transparent; cursor: pointer; font-size: var(--kf-type-2xs); white-space: nowrap; }
+    .kf-env-fingerprint button:hover, .kf-env-panel > footer button:hover { color: var(--foreground); }
+    .kf-env-panel > footer { gap: 9px; }
+    .kf-env-panel > footer span { flex: 1; }
+    .kf-env-panel > footer time { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); white-space: nowrap; }
+    .kf-env-panel > footer button:last-child { padding: 5px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--foreground); background: var(--surface-2); }
+    @media (max-width: 760px) { .kf-env-panel { right: -48px; width: min(356px, calc(100vw - 24px)); } }
+  </style>
 </head>
 <body>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
@@ -55,20 +112,24 @@
       <div class="pto-ide-frame__topbar-right">
         <div class="kf-env-wrap">
           <button class="kf-env" id="envControl" type="button" aria-haspopup="dialog" aria-controls="envFingerprintPanel" aria-expanded="false">
-            <span class="kf-env-label">全局环境</span><i></i><span>Ascend 950B</span><small>PyPTO 3.0.0-dev</small><b aria-hidden="true">⌄</b>
+            <span class="kf-env-label">环境检查</span><i></i><span>4 / 4 已通过</span><b aria-hidden="true">⌄</b>
           </button>
           <section class="kf-env-panel" id="envFingerprintPanel" role="dialog" aria-label="环境指纹" hidden>
-            <header><div><span class="kf-eyebrow">RUNTIME CONTEXT</span><h2>环境指纹</h2></div><span class="kf-state-chip good">环境已锁定</span></header>
-            <div class="kf-fingerprint-id"><span>FINGERPRINT</span><code>env:8da1bf09</code><button type="button" id="copyFingerprint">复制</button></div>
-            <dl>
-              <div><dt>Device</dt><dd><b>Ascend 950B</b><small>Firmware 7.6.0.3</small></dd></div>
-              <div><dt>Runtime</dt><dd><b>CANN 9.0.RC1</b><small>Driver 24.1.0</small></dd></div>
-              <div><dt>Compiler</dt><dd><b>PyPTO 3.0.0-dev</b><small>commit e10c4a</small></dd></div>
-              <div><dt>ISA</dt><dd><b>PTOAS 0.8.4</b><small>A2-compat</small></dd></div>
-              <div><dt>Precision</dt><dd><b>BF16 · rtol 1e-3</b><small>balanced profile</small></dd></div>
-              <div><dt>Shape hash</dt><dd><b>sha256:4c89…d2f1</b><small>12 tensor contracts</small></dd></div>
-            </dl>
-            <footer><span><i></i> 与当前可信基线一致</span><time datetime="2026-08-03T14:32:08+08:00">采集于 14:32:08</time></footer>
+            <header><div><h2>环境</h2></div><span class="kf-state-chip good" id="envStateChip">健康</span></header>
+            <div class="kf-env-summary">
+              <div class="kf-env-score"><span class="kf-env-score-ring"><b id="envPassedScore">4/4</b><small>PASS</small></span><div><strong>环境健康</strong><p>Mock snapshot</p></div></div>
+              <div class="kf-env-summary-facts"><span><b>950B</b><small>目标硬件</small></span><span><b>SIMULATOR</b><small>执行模式</small></span><span><b>9.0.RC1</b><small>CANN</small></span></div>
+            </div>
+            <div class="kf-env-progress" aria-label="环境检查进度"><span style="width: 100%; background: var(--success)"></span></div>
+            <ol class="kf-env-gates" id="envGates">
+              <li class="is-ready" data-env-gate="target"><span class="kf-env-gate-index">01</span><div><b>目标已配置</b><small>Ascend 950B · Simulator · 无需设备分配</small></div><em>已验证</em></li>
+              <li class="is-ready" data-env-gate="imports"><span class="kf-env-gate-index">02</span><div><b>框架与 harness 可导入</b><small>PyPTO 3.0.0-dev · torch · golden harness</small></div><em>已验证</em></li>
+              <li class="is-ready" data-env-gate="pins"><span class="kf-env-gate-index">03</span><div><b>工具链 pin 已对齐</b><small>PTOAS 0.8.4 · CANN 9.0.RC1 · Tile-ISA 8f31c2a</small></div><em>已验证</em></li>
+              <li class="is-ready" data-env-gate="smoke"><span class="kf-env-gate-index">04</span><div><b>Smoke run 已验证</b><small>compile · input · golden · runtime · validation 全部通过</small></div><em>已通过</em></li>
+            </ol>
+            <div class="kf-env-evidence is-healthy"><span class="kf-env-evidence-icon">✓</span><div><b>Validated run</b><small>pin 对齐 · compile / runtime / validation</small></div><span class="kf-env-evidence-metric">5 / 5 PASS</span></div>
+            <div class="kf-env-fingerprint"><span><span class="kf-eyebrow">CONFIG SNAPSHOT</span><code>env:8da1bf09</code></span><button type="button" id="copyFingerprint">复制快照 ID</button></div>
+            <footer><time id="envCheckedAt">最近检查 14:32:08</time><button type="button" id="recheckEnvironment">重新检查</button><button type="button" id="openRunAdmission">打开工作流</button></footer>
           </section>
         </div>
         <div class="pto-ide-frame__window-actions" data-ide-slot="window-controls" aria-label="Window controls">
@@ -598,5 +659,7 @@
   <script src="./js/fusion-catalog-data.js?v=20260828-1"></script>
   <script src="./js/fusion-catalog-advisor.js?v=20260828-1"></script>
   <script src="./js/demo-v2.js?v=20260821-8"></script>
+  <script src="./js/ir-pipeline-data.js?v=20260901-1"></script>
+  <script src="./js/ir-pipeline.js?v=20260901-1"></script>
 </body>
 </html>

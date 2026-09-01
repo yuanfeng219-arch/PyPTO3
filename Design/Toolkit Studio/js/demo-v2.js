@@ -4026,7 +4026,74 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     setEnvironmentPanel(open);
   });
   $('#envFingerprintPanel').addEventListener('click', (event) => event.stopPropagation());
-  $('#copyFingerprint').addEventListener('click', () => { navigator.clipboard?.writeText('env:8da1bf09'); toast('环境指纹已复制'); });
+  $('#copyFingerprint')?.addEventListener('click', () => { navigator.clipboard?.writeText('env:8da1bf09'); toast('配置快照 ID 已复制'); });
+  $('#recheckEnvironment')?.addEventListener('click', () => {
+    const button = $('#recheckEnvironment');
+    const control = $('#envControl');
+    const stateChip = $('#envStateChip');
+    const progress = $('.kf-env-progress span');
+    const evidence = $('.kf-env-evidence small');
+    const checkedAt = $('#envCheckedAt');
+    const gates = ['target', 'imports', 'pins', 'smoke'].map(key => document.querySelector(`[data-env-gate="${key}"]`));
+    const mockResults = {
+      target: { className: 'is-ready', title: '目标已配置', detail: 'Ascend 950B · Simulator · 无需设备分配', label: '已验证' },
+      imports: { className: 'is-ready', title: '框架与 harness 可导入', detail: 'PyPTO 3.0.0-dev · torch · golden harness', label: '已验证' },
+      pins: { className: 'is-ready', title: '工具链 pin 已对齐', detail: 'PTOAS 0.8.4 · CANN 9.0.RC1 · Tile-ISA 8f31c2a', label: '已验证' },
+      smoke: { className: 'is-ready', title: 'Smoke run 已验证', detail: 'compile · input · golden · runtime · validation 全部通过', label: '已通过' },
+    };
+    const updateGate = (gate, key, result) => {
+      const copy = gate?.querySelector('div');
+      if (!gate || !copy) return;
+      gate.className = result.className;
+      copy.querySelector('b').textContent = result.title;
+      copy.querySelector('small').textContent = result.detail;
+      gate.querySelector('em').textContent = result.label;
+      gate.dataset.envState = key;
+    };
+    button.disabled = true;
+    button.textContent = '检查中…';
+    if (control) control.querySelector('small').textContent = '正在读取…';
+    if (stateChip) { stateChip.className = 'kf-state-chip neutral'; stateChip.textContent = '检查中…'; }
+    if (evidence) evidence.textContent = '正在读取 Python、framework、assembler 和 smoke run 证据…';
+    gates.forEach(gate => gate?.classList.add('is-checking'));
+    toast('正在模拟 setup-and-run：读取环境并逐项验证 gate');
+    gates.forEach((gate, index) => setTimeout(() => {
+      const key = gate?.dataset.envGate;
+      if (!key) return;
+      const result = mockResults[key];
+      gate.classList.remove('is-checking');
+      updateGate(gate, key, result);
+      const passed = index + 1 <= 2;
+      if (progress) progress.style.width = `${Math.round(((index + 1) / gates.length) * 50 + (passed ? 0 : 0))}%`;
+      if (index === gates.length - 1) {
+        const now = new Date();
+        const time = now.toLocaleTimeString('zh-CN', { hour12: false });
+        const passedCount = 4;
+        button.disabled = false;
+        button.textContent = '重新检查';
+        if (control) { control.querySelector('i').classList.remove('is-warn'); control.querySelector('span:nth-of-type(2)').textContent = `${passedCount} / 4 已通过`; }
+        if (stateChip) { stateChip.className = 'kf-state-chip good'; stateChip.textContent = '4 / 4 已通过'; }
+        if (progress) { progress.style.width = '100%'; progress.style.background = 'var(--success)'; }
+        if (checkedAt) checkedAt.textContent = `最近检查 ${time}`;
+        if (evidence) {
+          const evidenceCard = evidence.closest('.kf-env-evidence');
+          evidence.textContent = 'Mock 结果：版本 pin 一致，且 smoke run 的五个阶段均通过。';
+          evidenceCard?.classList.add('is-healthy');
+          const evidenceIcon = evidenceCard?.querySelector('.kf-env-evidence-icon');
+          const evidenceTitle = evidenceCard?.querySelector('b');
+          if (evidenceIcon) evidenceIcon.textContent = '✓';
+          if (evidenceTitle) evidenceTitle.textContent = 'Validated run';
+        }
+        toast('检查完成：4 项 gate 全部通过，可进入模型阶梯');
+      }
+    }, 450 * (index + 1)));
+  });
+  $('#openRunAdmission')?.addEventListener('click', () => {
+    setEnvironmentPanel(false);
+    setActivityView('workflow');
+    goTo(0);
+    toast('已打开工作流');
+  });
   $('#runCompile').addEventListener('click', runCompile);
   $('#toLab').addEventListener('click', () => goTo(3));
   $('#fixAndRerun').addEventListener('click', verifyAndFinish);
