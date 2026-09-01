@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pass Decision Studio · 编译决策可视化</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="./styles/demo.css">
+</head>
+<body class="pto-ide-frame-preview-page pypto-demo-page">
+
+  <main class="pto-ide-frame pypto-demo-frame" data-ide-frame data-host="standalone" data-surface="solid"
+        aria-label="Pass Decision Studio 编译决策工作台">
+
+    <!-- ============ 顶栏 ============ -->
+    <header class="ide-topbar" aria-label="IDE 顶栏">
+      <div class="ide-topbar__left">
+        <span class="ide-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="ide-brand">Pass Decision Studio <em class="ide-brand__version">Decisions</em></span>
+        <div class="ide-mode-tabs" role="tablist" aria-label="视图切换">
+          <button type="button" class="demo-mode-btn ide-mode-tab is-selected" data-mode="decisions" role="tab" aria-selected="true">编译决策</button>
+          <button type="button" class="demo-mode-btn ide-mode-tab" data-mode="source" role="tab" aria-selected="false">源码 / IR</button>
+        </div>
+      </div>
+
+      <div class="ide-crumb" aria-label="当前编译会话">
+        <span class="ide-crumb__task" id="session-id">C-4417</span>
+        <span class="ide-crumb__sep">›</span>
+        <span class="ide-crumb__title" id="session-title"></span>
+      </div>
+
+      <div class="ide-topbar__right">
+        <span class="demo-env-chip" id="env-chip" title="编译环境指纹"></span>
+        <span class="ide-wincontrols" role="group" aria-label="面板开关">
+          <button type="button" id="wc-left" class="ide-wbtn is-on" title="左侧面板（决策脊）" aria-pressed="true" aria-label="左侧面板">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><rect class="p-fill" x="4" y="4" width="4.5" height="16" rx="1"/></svg>
+          </button>
+          <button type="button" id="wc-right" class="ide-wbtn is-on" title="右侧面板（决策卡）" aria-pressed="true" aria-label="右侧面板">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/><rect class="p-fill" x="15.5" y="4" width="4.5" height="16" rx="1"/></svg>
+          </button>
+        </span>
+        <button type="button" id="reset-btn" class="btn demo-reset-btn" title="回到第一步">重置回放</button>
+      </div>
+    </header>
+
+    <!-- ============ 视图区 ============ -->
+    <div class="demo-views">
+
+      <!-- ---- 编译决策视图 ---- -->
+      <section class="demo-view" id="decisions-view" data-view="decisions" aria-label="编译决策视图">
+        <div class="ide-layout">
+
+          <!-- 左：决策脊（纵向 Pass 流水线） -->
+          <aside class="ide-pane ide-pane--tree" aria-label="决策脊">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">PASS PIPELINE · 决策脊</span>
+              <span class="ide-pane__meta" id="spine-meta"></span>
+            </header>
+            <div class="spine-legend" id="spine-legend"></div>
+            <div class="ide-pane__body ide-pane__body--flush" id="spine-rail"></div>
+            <footer class="spine-foot" id="spine-foot"></footer>
+          </aside>
+
+          <!-- 中：主可视化 -->
+          <section class="ide-pane ide-pane--editor" aria-label="决策可视化">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title" id="stage-title">决策脊 · 全景</span>
+              <span class="ide-pane__meta" id="stage-meta"></span>
+            </header>
+
+            <div class="alert-slot" id="alert-slot" hidden></div>
+
+            <div class="stage-tabs" id="stage-tabs" role="tablist" aria-label="可视化切换"></div>
+
+            <div class="stage" id="stage" role="tabpanel"></div>
+
+            <footer class="ide-statusstrip" id="stage-status" aria-label="视图状态">
+              <span class="ide-statusstrip__item"><i class="ide-statusstrip__dot"></i>decisions.json 已加载</span>
+              <span class="ide-statusstrip__item" id="status-count"></span>
+              <span class="ide-statusstrip__spacer"></span>
+              <span class="ide-statusstrip__item" id="status-focus">未选中决策</span>
+            </footer>
+          </section>
+
+          <!-- 右：决策卡 -->
+          <aside class="ide-pane ide-pane--tools" aria-label="决策卡">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">DECISION CARD</span>
+              <span class="ide-pane__meta" id="card-meta"></span>
+            </header>
+            <div class="ide-tools__body" id="card-body"></div>
+          </aside>
+
+        </div>
+      </section>
+
+      <!-- ---- 源码 / IR 视图 ---- -->
+      <section class="demo-view" id="source-view" data-view="source" aria-label="源码与 IR 视图" hidden>
+        <div class="ide-layout">
+
+          <aside class="ide-pane ide-pane--tree" aria-label="产物树">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">BUILD OUTPUT</span>
+              <span class="ide-pane__meta">decode_layer</span>
+            </header>
+            <div class="ide-pane__body ide-pane__body--flush" id="file-tree"></div>
+          </aside>
+
+          <section class="ide-pane ide-pane--editor" aria-label="源码与 IR">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title" id="src-title">decode_layer.py</span>
+              <span class="ide-pane__meta" id="src-meta"></span>
+            </header>
+            <div class="ide-editor" id="src-editor"></div>
+          </section>
+
+          <aside class="ide-pane ide-pane--tools" aria-label="行内决策">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">INLINE DECISIONS</span>
+              <span class="ide-pane__meta">挂在改动行上</span>
+            </header>
+            <div class="ide-tools__body" id="inline-body"></div>
+          </aside>
+
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ 回放轨道 ============ -->
+    <footer class="demo-transport" aria-label="回放轨道">
+      <div class="demo-transport__flow">
+        <div class="demo-transport__stepper" id="stepper" role="tablist" aria-label="回放步骤"></div>
+      </div>
+      <div class="demo-transport__ctrl">
+        <span class="demo-transport__gate" id="transport-level"></span>
+        <div class="demo-playback" aria-label="播放控制">
+          <button type="button" id="step-prev" class="btn btn-icon" aria-label="上一步" title="上一步（←）">
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M12 5l-7 7 7 7"/></svg>
+          </button>
+          <button type="button" id="step-play" class="btn btn-icon btn-solid" aria-label="自动播放" title="自动播放（空格）">
+            <svg class="ui-icon ui-icon--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
+            <svg class="ui-icon ui-icon--pause" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M7 4.5v15M17 4.5v15"/></svg>
+          </button>
+          <button type="button" id="step-next" class="btn btn-icon" aria-label="下一步" title="下一步（→）">
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M12 5l7 7-7 7"/></svg>
+          </button>
+          <span class="demo-playback__counter" id="counter"></span>
+        </div>
+      </div>
+      <div class="demo-transport__meta" id="readout"></div>
+    </footer>
+
+    <div class="demo-toast" id="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="./js/data.js"></script>
+  <script src="./js/demo.js"></script>
+</body>
+</html>
