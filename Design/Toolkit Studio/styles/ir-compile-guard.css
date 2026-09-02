@@ -1,0 +1,351 @@
+/* Compile guard — kernel-centric view (stage 2) */
+
+.kf-kg {
+  --kg-ok:   var(--success);
+  --kg-warn: var(--warning);
+  --kg-bad:  var(--danger);
+
+  /* IR stratum ramp (abstract → physical), used by the pass drill-down strip.
+     Ranges come from the pass property contracts in pass_properties.h. */
+  --irp-s0: #4E7C90;
+  --irp-s1: #57808C;
+  --irp-s2: #6E8288;
+  --irp-s3: #A2814F;
+  --irp-s4: #BC7440;
+  --irp-s5: #C4612F;
+  --irp-s6: #CE5622;
+
+  display: grid;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+/* The legacy pass strip, the static "Pass IR" stage and the stage heading
+   ("PASS-BY-PASS PROOF / 每一步编译都有证据") are hidden — the guard's own
+   summary and operator trace now lead the stage. They stay in the DOM so
+   demo-v2.js can keep writing to #compileStatus / #guardSummary.
+   #guardGrid is deliberately left visible.
+   Delete this rule block to restore the old visuals. */
+#passStrip, #irGraph, #irPipeline, .kf-ir-stage,
+.kf-stage[data-stage="2"] > .kf-stage-heading { display: none; }
+
+/* the guard is now the first thing in the stage */
+.kf-stage[data-stage="2"] .kf-kg { margin-top: 2px; }
+
+/* ---------- toolbar ---------- */
+.kf-kg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.kf-kg-seg { display: flex; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.kf-kg-seg button {
+  padding: 5px 9px; border: 0; border-right: 1px solid var(--border-subtle);
+  color: var(--foreground-muted); background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  cursor: pointer; font-size: var(--kf-type-xs); line-height: 1.6;
+}
+.kf-kg-seg button:last-child { border-right: 0; }
+.kf-kg-seg button:hover { color: var(--foreground-secondary); background: var(--surface-2); }
+.kf-kg-seg button[aria-pressed="true"] {
+  color: var(--foreground); background: color-mix(in srgb, var(--primary) 18%, var(--surface-2));
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+.kf-kg-toggle {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  color: var(--foreground-muted); background: transparent; cursor: pointer; font-size: var(--kf-type-xs);
+}
+.kf-kg-toggle i { width: 11px; height: 11px; border: 1px solid var(--border-strong); border-radius: 3px; font-style: normal; }
+.kf-kg-toggle[aria-pressed="true"] { color: var(--foreground-secondary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border-subtle)); }
+.kf-kg-toggle[aria-pressed="true"] i { border-color: var(--primary); background: var(--primary); }
+.kf-kg-spacer { flex: 1; }
+.kf-kg-target { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); }
+.kf-kg-hint { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.45; }
+
+/* ---------- summary cards ---------- */
+.kf-kg-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 1px;
+  overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
+.kf-kg-card { padding: 6px 8px 7px; background: var(--surface-1); }
+.kf-kg-card dt { color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+.kf-kg-card dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 14px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.kf-kg-card small { display: block; margin-top: 3px; overflow: hidden; color: var(--foreground-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.kf-kg-card.is-ok dd { color: var(--kg-ok); }
+.kf-kg-card.is-warn dd { color: var(--kg-warn); }
+.kf-kg-card.is-bad dd { color: var(--kg-bad); }
+
+/* ---------- kernel list (rows expand in place) ---------- */
+.kf-kg-list {
+  max-height: 560px; overflow: auto;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+}
+.kf-kg-item { border-bottom: 1px solid var(--border-subtle); }
+.kf-kg-item:last-child { border-bottom: 0; }
+.kf-kg-item.is-open { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.kf-kg-row {
+  display: grid; width: 100%; align-items: center; gap: 6px;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  grid-template-areas: "type name badges metric" "type gauge gauge pctv";
+  padding: 6px 9px 7px; border: 0;
+  background: transparent; cursor: pointer; text-align: left;
+}
+.kf-kg-row::before {
+  grid-area: type; align-self: start; justify-self: start;
+  margin: -3px 0 0 -6px; color: var(--foreground-muted);
+  content: "›"; font: 11px/1 var(--font-mono); transition: transform .12s ease;
+}
+.kf-kg-item.is-open .kf-kg-row::before { color: var(--primary); transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .kf-kg-row::before { transition: none; } }
+.kf-kg-row:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.kf-kg-row.is-sel { background: color-mix(in srgb, var(--primary) 13%, transparent); box-shadow: inset 2px 0 0 var(--primary); }
+.kf-kg-row.is-checking { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.kf-kg-row.is-checked .kf-kg-type::after {
+  position: absolute; top: -2px; right: -3px; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--kg-ok); content: "";
+}
+.kf-kg-type {
+  position: relative; grid-area: type; display: grid; width: 29px; height: 17px; place-items: center;
+  border-radius: var(--radius-sm); color: #fff; background: var(--kg-c);
+  font: 600 8px var(--font-mono); letter-spacing: .04em;
+}
+.kf-kg-name { grid-area: name; overflow: hidden; color: var(--foreground-secondary); font: 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-kg-badges { grid-area: badges; display: flex; gap: 3px; }
+.kf-kg-badge { padding: 0 4px; border-radius: 3px; font: 600 8.5px/14px var(--font-mono); }
+.kf-kg-badge.is-error { color: var(--surface-1); background: var(--kg-bad); }
+.kf-kg-badge.is-warn { color: var(--surface-1); background: var(--kg-warn); }
+.kf-kg-badge.is-perf { color: var(--foreground-secondary); background: var(--surface-3); }
+.kf-kg-metric { grid-area: metric; color: var(--foreground-muted); font: 9.5px var(--font-mono); white-space: nowrap; }
+.kf-kg-gauge {
+  position: relative; grid-area: gauge; height: 5px; margin-top: 4px; overflow: hidden;
+  border-radius: 99px; background: var(--surface-3);
+}
+.kf-kg-gauge i { display: block; height: 100%; border-radius: inherit; background: var(--kg-ok); }
+.kf-kg-gauge.is-warn i { background: var(--kg-warn); }
+.kf-kg-gauge.is-bad i { background: var(--kg-bad); }
+.kf-kg-gauge b { position: absolute; top: -2px; width: 1px; height: 9px; background: transparent; }
+.kf-kg-pctv { grid-area: pctv; margin-top: 4px; color: var(--foreground-muted); font: 9px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ---------- inline detail panel ---------- */
+.kf-kg-panel {
+  margin: 0 9px 9px 36px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 65%, transparent);
+}
+
+.kf-kg-sec { padding: 9px 11px 11px; border-bottom: 1px solid var(--border-subtle); }
+.kf-kg-sec:last-child { border-bottom: 0; }
+.kf-kg-sec h4 { margin: 0 0 7px; color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.kf-kg-none { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
+.kf-kg-empty { margin: 0; padding: 20px 12px; color: var(--foreground-muted); font-size: var(--kf-type-xs); text-align: center; }
+
+/* ① memory */
+.kf-kg-mem { display: grid; align-items: center; gap: 7px; grid-template-columns: 74px minmax(0, 1fr) auto; margin-bottom: 5px; }
+.kf-kg-mem:last-child { margin-bottom: 0; }
+.kf-kg-mem-l { color: var(--foreground-muted); font: 9.5px var(--font-mono); }
+.kf-kg-mem-bar { position: relative; height: 8px; overflow: hidden; border-radius: 2px; background: var(--surface-3); }
+.kf-kg-mem-bar i { display: block; height: 100%; background: var(--kg-ok); }
+.kf-kg-mem.is-warn .kf-kg-mem-bar i { background: var(--kg-warn); }
+.kf-kg-mem.is-bad .kf-kg-mem-bar i { background: var(--kg-bad); }
+.kf-kg-mem-v { color: var(--foreground-muted); font: 9px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kf-kg-mem-v em { margin-left: 5px; color: var(--foreground-secondary); font-style: normal; font-weight: 600; }
+.kf-kg-mem.is-warn .kf-kg-mem-v em { color: var(--kg-warn); }
+.kf-kg-mem.is-bad .kf-kg-mem-v em { color: var(--kg-bad); }
+
+/* ② intent */
+.kf-kg-intent { padding: 6px 8px; margin-bottom: 5px; border-left: 2px solid var(--kg-ok); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: color-mix(in srgb, var(--success) 6%, transparent); }
+.kf-kg-intent.is-warn { border-left-color: var(--kg-warn); background: color-mix(in srgb, var(--warning) 8%, transparent); }
+.kf-kg-intent:last-child { margin-bottom: 0; }
+.kf-kg-intent b { display: block; color: var(--foreground-secondary); font: 600 11px var(--font-mono); }
+.kf-kg-intent small { display: block; margin-top: 3px; color: var(--foreground-muted); font-size: 10px; line-height: 1.45; }
+
+/* ③ diagnostics */
+.kf-kg-diag { display: flex; gap: 7px; padding: 6px 8px; margin-bottom: 5px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.kf-kg-diag:last-child { margin-bottom: 0; }
+.kf-kg-diag-i { display: grid; flex: 0 0 15px; width: 15px; height: 15px; place-items: center; border-radius: 50%; color: var(--surface-1); font: 700 9px var(--font-mono); }
+.kf-kg-diag.is-error { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.kf-kg-diag.is-error .kf-kg-diag-i { background: var(--kg-bad); }
+.kf-kg-diag.is-warn .kf-kg-diag-i { background: var(--kg-warn); }
+.kf-kg-diag.is-perf .kf-kg-diag-i { color: var(--foreground-secondary); background: var(--surface-3); }
+.kf-kg-diag b { display: block; color: var(--foreground-secondary); font: 600 10px var(--font-mono); }
+.kf-kg-diag small { display: block; margin-top: 3px; color: var(--foreground-muted); font-size: 10px; line-height: 1.45; }
+.kf-kg-mock { margin-left: 5px; padding: 0 4px; border: 1px dashed var(--border-strong); border-radius: 3px; color: var(--foreground-muted); font: 7.5px/12px var(--font-mono); font-style: normal; letter-spacing: .06em; }
+
+/* ④ gain */
+.kf-kg-gain { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--border-subtle); margin-bottom: 6px; }
+.kf-kg-gain > div { padding: 5px 7px 6px; background: var(--surface-1); }
+.kf-kg-gain dt { color: var(--foreground-muted); font: 8px/1 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.kf-kg-gain dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 11px/1 var(--font-mono); }
+.kf-kg-gain .is-ok dd { color: var(--kg-ok); }
+.kf-kg-gain .is-warn dd { color: var(--kg-warn); }
+
+/* ---------- compile trace (event timeline for the selected kernel) ----------
+   Slots are typed events, not magnitudes: colour = event class, uniform height.
+   Line count is deliberately NOT encoded — it measures how much the compiler
+   moved, not what it did to this kernel. */
+.kf-kg-trace {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kf-kg-thead {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 8px 11px 7px;
+}
+.kf-kg-thead h4 { margin: 0; color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.kf-kg-thead h4 b { color: var(--foreground); font-size: 11px; letter-spacing: 0; text-transform: none; }
+.kf-kg-tmeta { margin-left: auto; color: var(--foreground-muted); font: 9px var(--font-mono); }
+
+.kf-kg-track { overflow: hidden; margin: 0 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.kf-kg-strata { display: flex; height: 13px; }
+.kf-kg-strata span {
+  display: grid; overflow: hidden; place-items: center;
+  color: color-mix(in srgb, #fff 88%, transparent); background: var(--kg-c);
+  font: 8px/1 var(--font-mono); letter-spacing: .06em; white-space: nowrap;
+}
+.kf-kg-slots { display: flex; background: color-mix(in srgb, var(--background) 70%, transparent); }
+.kf-kg-slot {
+  position: relative; display: grid; flex: 1 1 0; min-width: 0;
+  grid-template-rows: 22px auto; align-items: center; justify-items: center;
+  padding: 0 0 3px; border: 0; background: none; cursor: pointer;
+}
+.kf-kg-slot em {
+  color: var(--foreground-muted); font: 7.5px/1.4 var(--font-mono);
+  font-style: normal; font-variant-numeric: tabular-nums;
+}
+.kf-kg-slot:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.kf-kg-slot:hover em { color: var(--foreground-secondary); }
+.kf-kg-slot.is-sel { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.kf-kg-slot.is-sel em { color: var(--foreground); font-weight: 600; }
+.kf-kg-slot i { display: block; width: 100%; height: 6px; background: var(--border-strong); font-style: normal; }
+.kf-kg-slot.is-absent i { height: 1px; background: color-mix(in srgb, var(--border-strong) 40%, transparent); }
+.kf-kg-slot.is-same i { height: 1px; }
+.kf-kg-slot.is-touch i { height: 6px; background: color-mix(in srgb, var(--kg-c) 45%, transparent); }
+.kf-kg-slot.is-milestone i { height: 14px; border-radius: 2px; background: var(--kg-c); }
+.kf-kg-slot.is-birth i { box-shadow: inset 0 0 0 1.5px var(--foreground); }
+.kf-kg-slot.is-mem i { background: var(--primary); }
+.kf-kg-slot.is-intent i { background: var(--kg-ok); }
+.kf-kg-slot.is-bad i { background: var(--kg-warn); }
+.kf-kg-slot.is-rt i { background: var(--foreground-muted); }
+.kf-kg-slot:hover i { filter: brightness(1.4); }
+/* legend — rendered from the kinds actually present in this kernel's trace */
+.kf-kg-legend { display: flex; flex-wrap: wrap; gap: 4px 11px; margin: 6px 11px 0; }
+.kf-kg-legend span { display: inline-flex; align-items: center; gap: 4px; color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-kg-legend i { display: block; width: 8px; height: 3px; background: var(--border-strong); font-style: normal; }
+.kf-kg-legend i.is-milestone { height: 9px; border-radius: 2px; background: var(--kg-c); }
+.kf-kg-legend i.is-birth { box-shadow: inset 0 0 0 1.5px var(--foreground); }
+.kf-kg-legend i.is-mem { background: var(--primary); }
+.kf-kg-legend i.is-intent { background: var(--kg-ok); }
+.kf-kg-legend i.is-bad { background: var(--kg-warn); }
+.kf-kg-legend i.is-rt { background: var(--foreground-muted); }
+.kf-kg-legend i.is-touch { height: 4px; background: color-mix(in srgb, var(--kg-c) 45%, transparent); }
+.kf-kg-legend i.is-same { height: 1px; }
+.kf-kg-legend i.is-absent { height: 1px; background: color-mix(in srgb, var(--border-strong) 40%, transparent); }
+
+/* ---------- selected pass, operator level ---------- */
+.kf-kg-pdetail { margin: 8px 11px 11px; border-top: 1px solid var(--border-subtle); padding-top: 9px; }
+.kf-kg-pdhead { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 5px; }
+.kf-kg-pdi { padding: 1px 5px; border-radius: var(--radius-sm); color: #fff; font: 600 9px var(--font-mono); }
+.kf-kg-pdhead b { color: var(--foreground); font: 650 12px var(--font-mono); }
+.kf-kg-pdk { margin-left: auto; color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-kg-pdesc { margin: 0 0 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
+.kf-kg-pstats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 1px;
+  overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); background: var(--border-subtle);
+}
+.kf-kg-pstats > div { padding: 5px 7px 6px; background: var(--surface-1); }
+.kf-kg-pstats dt { color: var(--foreground-muted); font: 8px/1 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.kf-kg-pstats dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.kf-kg-pstats dd em { margin-left: 5px; color: var(--foreground-muted); font: 400 9px var(--font-mono); font-style: normal; }
+.kf-kg-props { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+.kf-kg-prop { padding: 1px 5px; border: 1px solid var(--kg-ok); border-radius: 3px; color: var(--kg-ok); font: 9px var(--font-mono); }
+.kf-kg-prop.is-lost { border-style: dashed; border-color: var(--kg-bad); color: var(--kg-bad); }
+.kf-kg-prop.is-none { border-style: dotted; border-color: var(--border-strong); color: var(--foreground-muted); }
+
+/* per-kernel strip inside an expanded row */
+.kf-kg-track.is-mini { margin: 0 0 7px; }
+.kf-kg-track.is-mini .kf-kg-strata { height: 9px; font-size: 0; }
+.kf-kg-track.is-mini .kf-kg-slots { --mini: 1; }
+.kf-kg-track.is-mini .kf-kg-slot { grid-template-rows: 15px auto; }
+.kf-kg-track.is-mini .kf-kg-slot.is-milestone i { height: 10px; }
+.kf-kg-track.is-mini .kf-kg-slot em { font-size: 6.5px; }
+
+/* Tooltip now carries the milestone description, so it wraps rather than
+   forcing one long line. */
+.kf-kg-tip {
+  position: fixed; z-index: 60; max-width: 268px; padding: 6px 9px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-1); box-shadow: 0 8px 22px rgb(0 0 0 / .42);
+  color: var(--foreground-muted); font: 10px/1.5 var(--font-mono);
+  opacity: 0; pointer-events: none; transition: opacity 90ms ease; white-space: normal;
+}
+.kf-kg-tip b { display: block; margin-bottom: 3px; color: var(--foreground); }
+@media (prefers-reduced-motion: reduce) { .kf-kg-tip { transition: none; } }
+
+.kf-kg-hunk { margin: 0 11px 11px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.kf-kg-hunk-h { padding: 4px 8px; border-bottom: 1px solid var(--border-subtle); color: var(--foreground-muted); background: color-mix(in srgb, var(--surface-2) 55%, transparent); font: 9px var(--font-mono); }
+.kf-kg-hunk pre { margin: 0; padding: 5px 8px; overflow-x: auto; font: 10px/1.6 var(--font-mono); white-space: pre; }
+.kf-kg-hunk pre.is-before { color: color-mix(in srgb, var(--warning) 78%, var(--foreground-muted)); background: color-mix(in srgb, var(--warning) 5%, transparent); }
+.kf-kg-hunk pre.is-after { color: color-mix(in srgb, var(--success) 72%, var(--foreground-secondary)); background: color-mix(in srgb, var(--success) 5%, transparent); border-top: 1px solid var(--border-subtle); }
+
+/* ---------- pass visuals ---------- */
+.kf-kg-visbox {
+  margin: 0 0 8px; padding: 8px 9px 6px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background) 60%, transparent);
+}
+.kf-kg-vis { display: block; width: 100%; height: auto; overflow: visible; }
+.kf-kg-visbox figcaption {
+  margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border-subtle);
+  color: var(--foreground-muted); font: 9px/1.45 var(--font-mono);
+}
+.kf-kg-raw > summary {
+  padding: 4px 0; color: var(--foreground-muted); cursor: pointer;
+  font: 9px var(--font-mono); list-style: none;
+}
+.kf-kg-raw > summary::-webkit-details-marker { display: none; }
+.kf-kg-raw > summary::before { content: "▸ "; }
+.kf-kg-raw[open] > summary::before { content: "▾ "; }
+.kf-kg-raw > summary:hover { color: var(--foreground-secondary); }
+.kf-kg-raw .kf-kg-hunk { margin: 0 0 4px; }
+
+/* ---------- data-driven pass facts ---------- */
+.kf-kg-facts { display: grid; gap: 3px; }
+.kf-kg-fact-h {
+  margin: 2px 0 3px; color: var(--foreground-muted);
+  font: 8.5px/1.4 var(--font-mono); letter-spacing: .04em;
+}
+.kf-kg-fact-h code { color: var(--foreground-secondary); font-size: 9.5px; }
+.kf-kg-fact {
+  display: grid; align-items: center; gap: 8px; width: 100%;
+  grid-template-columns: 132px 74px minmax(60px, 1fr) auto;
+  padding: 4px 6px; border: 0; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  cursor: pointer; text-align: left;
+}
+.kf-kg-fact:hover { background: color-mix(in srgb, var(--surface-2) 85%, transparent); }
+.kf-kg-fact.is-sel { background: color-mix(in srgb, var(--primary) 15%, transparent); box-shadow: inset 2px 0 0 var(--primary); }
+.kf-kg-fact code { overflow: hidden; color: var(--foreground-secondary); font: 9.5px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-kg-fact-t { color: var(--primary); font: 9px var(--font-mono); }
+.kf-kg-fact-b { display: flex; gap: 1px; height: 11px; }
+.kf-kg-fact-b i { min-width: 1px; border-radius: 1px; background: var(--irp-s2); }
+.kf-kg-fact.is-sel .kf-kg-fact-b i { background: var(--primary); }
+.kf-kg-fact-n { color: var(--foreground-muted); font: 9px var(--font-mono); white-space: nowrap; }
+.kf-kg-fact-n b { color: var(--foreground-secondary); font-weight: 600; }
+
+.kf-kg-fact-sub {
+  margin-top: 6px; padding: 6px 7px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--background) 55%, transparent);
+}
+.kf-kg-fact-line {
+  display: grid; gap: 8px; grid-template-columns: 78px minmax(0, 1fr);
+  padding: 2px 0; border-left: 2px solid transparent; padding-left: 5px;
+}
+.kf-kg-fact-line > span { color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-kg-fact-line > code {
+  overflow-x: auto; color: var(--foreground-secondary);
+  font: 9.5px/1.5 var(--font-mono); white-space: pre;
+}
+.kf-kg-fact-line.is-before { border-left-color: var(--kg-warn); }
+.kf-kg-fact-line.is-before > span, .kf-kg-fact-line.is-before > code { color: color-mix(in srgb, var(--warning) 76%, var(--foreground-muted)); }
+.kf-kg-fact-line.is-after { border-left-color: var(--kg-ok); }
+.kf-kg-fact-line.is-after > code { color: color-mix(in srgb, var(--success) 68%, var(--foreground-secondary)); }
+.kf-kg-fact-more, .kf-kg-fact-none { padding-left: 5px; color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-kg-fact-note { margin: 5px 0 0; color: var(--foreground-muted); font: 8.5px/1.5 var(--font-mono); }
