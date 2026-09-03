@@ -1,0 +1,224 @@
+#include "pto/pto-inst.hpp"
+using namespace pto;
+
+template <typename Tensor>
+static AICORE inline auto PTOAS__GLOBAL_TENSOR_DATA(Tensor &tensor)
+    -> decltype(tensor.data()) {
+  return tensor.data();
+}
+
+
+enum class PTOAutoSyncTailMode : int {
+  kBarrierAll = 0,
+  kSetWaitMte3ToSEvent0 = 1,
+};
+
+static AICORE inline void ptoas_auto_sync_tail(
+    PTOAutoSyncTailMode mode = PTOAutoSyncTailMode::kBarrierAll) {
+  switch (mode) {
+  case PTOAutoSyncTailMode::kSetWaitMte3ToSEvent0:
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    break;
+  case PTOAutoSyncTailMode::kBarrierAll:
+  default:
+    pipe_barrier(PIPE_ALL);
+    break;
+  }
+}
+
+template <typename Ptr>
+static AICORE inline void PTOAS__DCCI_SINGLE_CACHE_LINE(Ptr ptr) {
+  dcci((__gm__ void*)ptr, cache_line_t::SINGLE_CACHE_LINE);
+}
+
+AICORE void qr_hadamard_quant(__gm__ float* v1, __gm__ float* v2, __gm__ int8_t* v3, int64_t v4, int32_t v5, int32_t v6) {
+  RoundMode v7 = RoundMode::CAST_TRUNC;
+  RoundMode v8 = RoundMode::CAST_ROUND;
+  SaturationMode v9 = SaturationMode::OFF;
+  RoundMode v10 = RoundMode::CAST_RINT;
+  const float v11 = 127.0f;
+  const float v12 = 9.99999974E-5f;
+  const int64_t v13 = 64;
+  const int64_t v14 = 1;
+  const int64_t v15 = 128;
+  const int64_t v16 = 49408;
+  const int64_t v17 = 256;
+  const int64_t v18 = 16640;
+  const int64_t v19 = 0;
+  using T = float;
+
+  #if defined(__DAV_VEC__)
+  set_mask_norm();
+  set_vector_mask(-1, -1);
+  // pto: %idx_inline2227__ssa_v1, %4
+  int64_t v20 = (int64_t) ((uint64_t) ((int64_t) v5) * (uint64_t) v13);
+  // pto: %qh_amax_inline2278__tile
+  Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v21 = Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v14, v13);
+  // pto: %qh_amax_inline2278__tile
+  uint64_t v22 = (uint64_t) v19;
+  TASSIGN(v21, v22);
+  set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+  set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+  TEXPANDS(v21, v12);
+  for (int64_t i23 = v19; i23 < v15; i23 += v13) {
+    // pto: %qh_a_f32_inline2175__tile
+    Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v24 = Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_a_f32_inline2175__tile
+    uint64_t v25 = (uint64_t) v18;
+    TASSIGN(v24, v25);
+    // pto: %qh_acc_gm_inline2179__ssa_v1_pview
+    pto::Shape<1, 1, 1, 64, 64> v26 = pto::Shape<1, 1, 1, 64, 64>();
+    // pto: %qh_acc_gm_inline2179__ssa_v1_pview
+    pto::Stride<8192, 8192, 8192, 128, 1> v27 = pto::Stride<8192, 8192, 8192, 128, 1>();
+    // pto: %5, %qh_acc_gm_inline2179__ssa_v1_pview, %6
+    GlobalTensor<float, pto::Shape<1, 1, 1, 64, 64>, pto::Stride<8192, 8192, 8192, 128, 1>, pto::Layout::ND> v28 = GlobalTensor<float, pto::Shape<1, 1, 1, 64, 64>, pto::Stride<8192, 8192, 8192, 128, 1>, pto::Layout::ND>(v1 + ((v19 + (v20 < v19 ? v19 : v20) * v15) + (i23 < v19 ? v19 : i23)), v26, v27);
+    wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    TLOAD(v24, v28);
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    // pto: %t__tile
+    Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v29 = Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %t__tile
+    uint64_t v30 = (uint64_t) v17;
+    TASSIGN(v29, v30);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    TNEG(v29, v24);
+    // pto: %qh_a_abs_inline2196__tile
+    Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v31 = Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_a_abs_inline2196__tile
+    uint64_t v32 = (uint64_t) v17;
+    TASSIGN(v31, v32);
+    pipe_barrier(PIPE_V);
+    TMAX(v31, v24, v29);
+    // pto: %tmp_tile
+    Tile<TileType::Vec, float, 64, 128, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v33 = Tile<TileType::Vec, float, 64, 128, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v15);
+    // pto: %tmp_tile
+    uint64_t v34 = (uint64_t) v18;
+    TASSIGN(v33, v34);
+    // pto: %0
+    Tile<TileType::Vec, float, 64, 1, BLayout::ColMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v35 = Tile<TileType::Vec, float, 64, 1, BLayout::ColMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v14);
+    // pto: %0
+    uint64_t v36 = (uint64_t) v16;
+    TASSIGN(v35, v36);
+    pipe_barrier(PIPE_V);
+    TROWMAX(v35, v31, v33);
+    set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    // pto: %qh_a_max_inline2211__tile
+    Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v37 = Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v14, v13);
+    // pto: %qh_a_max_inline2211__tile
+    uint64_t v38 = (uint64_t) v16;
+    TASSIGN(v37, v38);
+    // pto: %1
+    Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v39 = Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v14, v13);
+    // pto: %1
+    uint64_t v40 = (uint64_t) v19;
+    TASSIGN(v39, v40);
+    pipe_barrier(PIPE_V);
+    TMAX(v39, v21, v37);
+  }
+  // pto: %2
+  Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v41 = Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v14, v13);
+  // pto: %2
+  uint64_t v42 = (uint64_t) v18;
+  TASSIGN(v41, v42);
+  TEXPANDS(v41, v11);
+  // pto: %qh_scale_quant_row_inline2183__tile
+  Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v43 = Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v14, v13);
+  // pto: %qh_scale_quant_row_inline2183__tile
+  uint64_t v44 = (uint64_t) v17;
+  TASSIGN(v43, v44);
+  pipe_barrier(PIPE_V);
+  TDIV(v43, v41, v21);
+  // pto: %3
+  Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v45 = Tile<TileType::Vec, float, 1, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v14, v13);
+  // pto: %3
+  uint64_t v46 = (uint64_t) v18;
+  TASSIGN(v45, v46);
+  pipe_barrier(PIPE_V);
+  TRECIP(v45, v43);
+  set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+  // pto: %qh_scale_dq_inline2176__tile
+  Tile<TileType::Vec, float, 64, 1, BLayout::ColMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v47 = Tile<TileType::Vec, float, 64, 1, BLayout::ColMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v14);
+  // pto: %qh_scale_dq_inline2176__tile
+  uint64_t v48 = (uint64_t) v18;
+  TASSIGN(v47, v48);
+  // pto: %7
+  int64_t v49 = v20 < v19 ? v19 : v20;
+  // pto: %qr_hadamard_scale_dq_inline2234__ssa_v0_pview
+  pto::Shape<1, 1, 1, 64, 1> v50 = pto::Shape<1, 1, 1, 64, 1>();
+  // pto: %qr_hadamard_scale_dq_inline2234__ssa_v0_pview
+  pto::Stride<64, 64, 64, 1, 16384> v51 = pto::Stride<64, 64, 64, 1, 16384>();
+  // pto: %qr_hadamard_scale_dq_inline2234__ssa_v0_pview
+  GlobalTensor<float, pto::Shape<1, 1, 1, 64, 1>, pto::Stride<64, 64, 64, 1, 16384>, pto::Layout::DN> v52 = GlobalTensor<float, pto::Shape<1, 1, 1, 64, 1>, pto::Stride<64, 64, 64, 1, 16384>, pto::Layout::DN>(v2 + (v19 + v49), v50, v51);
+  wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+  TSTORE(v52, v47);
+  set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+  // pto: %qh_scale_quant_inline2202__tile
+  Tile<TileType::Vec, float, 64, 1, BLayout::ColMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v53 = Tile<TileType::Vec, float, 64, 1, BLayout::ColMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v14);
+  // pto: %qh_scale_quant_inline2202__tile
+  uint64_t v54 = (uint64_t) v17;
+  TASSIGN(v53, v54);
+  wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+  for (int64_t i55 = v19; i55 < v15; i55 += v13) {
+    // pto: %qh_q_f32_inline2226__tile
+    Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v56 = Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_q_f32_inline2226__tile
+    uint64_t v57 = (uint64_t) v18;
+    TASSIGN(v56, v57);
+    // pto: %9
+    int64_t v58 = i55 < v19 ? v19 : i55;
+    // pto: %10
+    pto::Shape<1, 1, 1, 64, 64> v59 = pto::Shape<1, 1, 1, 64, 64>();
+    // pto: %10
+    pto::Stride<8192, 8192, 8192, 128, 1> v60 = pto::Stride<8192, 8192, 8192, 128, 1>();
+    // pto: %10
+    GlobalTensor<float, pto::Shape<1, 1, 1, 64, 64>, pto::Stride<8192, 8192, 8192, 128, 1>, pto::Layout::ND> v61 = GlobalTensor<float, pto::Shape<1, 1, 1, 64, 64>, pto::Stride<8192, 8192, 8192, 128, 1>, pto::Layout::ND>(v1 + ((v19 + v49 * v15) + v58), v59, v60);
+    wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+    TLOAD(v56, v61);
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+    // pto: %qh_q_scaled_inline2191__tile
+    Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v62 = Tile<TileType::Vec, float, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_q_scaled_inline2191__tile
+    uint64_t v63 = (uint64_t) v18;
+    TASSIGN(v62, v63);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+    TROWEXPANDMUL(v62, v56, v53);
+    // pto: %qh_q_i32_inline2199__tile
+    Tile<TileType::Vec, int32_t, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v64 = Tile<TileType::Vec, int32_t, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_q_i32_inline2199__tile
+    uint64_t v65 = (uint64_t) v18;
+    TASSIGN(v64, v65);
+    pipe_barrier(PIPE_V);
+    TCVT(v64, v62, v10, v9);
+    // pto: %qh_q_half_inline2290__tile
+    Tile<TileType::Vec, half, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v66 = Tile<TileType::Vec, half, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_q_half_inline2290__tile
+    uint64_t v67 = (uint64_t) v18;
+    TASSIGN(v66, v67);
+    pipe_barrier(PIPE_V);
+    TCVT(v66, v64, v8, v9);
+    // pto: %qh_i8_inline2233__tile
+    Tile<TileType::Vec, int8_t, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v68 = Tile<TileType::Vec, int8_t, 64, 64, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v13, v13);
+    // pto: %qh_i8_inline2233__tile
+    uint64_t v69 = (uint64_t) v18;
+    TASSIGN(v68, v69);
+    pipe_barrier(PIPE_V);
+    TCVT(v68, v66, v7, v9);
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID1);
+    // pto: %qr_hadamard_i8_inline2177__iter_v1_pview
+    pto::Shape<1, 1, 1, 64, 64> v70 = pto::Shape<1, 1, 1, 64, 64>();
+    // pto: %qr_hadamard_i8_inline2177__iter_v1_pview
+    pto::Stride<8192, 8192, 8192, 128, 1> v71 = pto::Stride<8192, 8192, 8192, 128, 1>();
+    // pto: %qr_hadamard_i8_inline2177__iter_v1_pview
+    GlobalTensor<int8_t, pto::Shape<1, 1, 1, 64, 64>, pto::Stride<8192, 8192, 8192, 128, 1>, pto::Layout::ND> v72 = GlobalTensor<int8_t, pto::Shape<1, 1, 1, 64, 64>, pto::Stride<8192, 8192, 8192, 128, 1>, pto::Layout::ND>(v3 + ((v19 + v49 * v15) + v58), v70, v71);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID1);
+    TSTORE(v72, v68);
+    set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+  }
+  wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+  wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+  #endif // __DAV_VEC__
+
+  ptoas_auto_sync_tail(PTOAutoSyncTailMode::kBarrierAll);
+  return;
+}

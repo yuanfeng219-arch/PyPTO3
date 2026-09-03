@@ -1,0 +1,29 @@
+module attributes {pto.target_arch = "a2a3"} {
+  func.func @o_group_a2a_gather(%arg0: !pto.ptr<bf16>, %arg1: !pto.ptr<bf16>, %arg2: !pto.ptr<i64>, %__pypto_spmd_block_idx: i32, %__pypto_spmd_block_num: i32) attributes {pto.kernel_kind = #pto.kernel_kind<vector>} {
+  %c0_i64 = arith.constant 0 : i64
+  %c2048_index = arith.constant 2048 : index
+  %c4096_index = arith.constant 4096 : index
+  %c1_index = arith.constant 1 : index
+  %c0_index = arith.constant 0 : index
+  %c4_index = arith.constant 4 : index
+  %c512_index = arith.constant 512 : index
+  %c48_index = arith.constant 48 : index
+  %attention_local_flat_inline1292__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%c2048_index, %c4096_index], strides = [%c4096_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":287:5)
+  %attention_window__ssa_v0_view = pto.make_tensor_view %arg1, shape = [%c2048_index, %c4096_index], strides = [%c4096_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":287:5)
+  %worker_inline2433__ssa_v0 = arith.index_cast %__pypto_spmd_block_idx : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":288:9)
+  scf.for %local_group_inline2435__idx_v0 = %c0_index to %c4_index step %c1_index {
+    %0 = arith.muli %local_group_inline2435__idx_v0, %c512_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":290:13)
+    scf.for %group_row_inline2432__idx_v0 = %worker_inline2433__ssa_v0 to %c512_index step %c48_index {
+      %1 = arith.addi %0, %group_row_inline2432__idx_v0 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":292:17)
+      %t__tile = pto.alloc_tile addr = %c0_i64 valid_row = %c1_index valid_col = %c4096_index : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+      %2 = arith.maxsi %1, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+      %attention_window__ssa_v0_pview = pto.partition_view %attention_window__ssa_v0_view, offsets = [%2, %c0_index], sizes = [%c1_index, %c4096_index] : !pto.tensor_view<?x?xbf16> -> !pto.partition_tensor_view<1x4096xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+      pto.tload ins(%attention_window__ssa_v0_pview : !pto.partition_tensor_view<1x4096xbf16>) outs(%t__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+      %3 = arith.maxsi %1, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+      %attention_local_flat_inline1292__iter_v3_pview = pto.partition_view %attention_local_flat_inline1292__ssa_v0_view, offsets = [%3, %c0_index], sizes = [%c1_index, %c4096_index] : !pto.tensor_view<?x?xbf16> -> !pto.partition_tensor_view<1x4096xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+      pto.tstore ins(%t__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%attention_local_flat_inline1292__iter_v3_pview : !pto.partition_tensor_view<1x4096xbf16>) loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":293:17)
+    }
+  }
+  return
+  }
+}

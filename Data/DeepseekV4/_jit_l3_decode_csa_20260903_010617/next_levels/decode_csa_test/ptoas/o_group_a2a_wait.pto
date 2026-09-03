@@ -1,0 +1,21 @@
+module attributes {pto.target_arch = "a2a3"} {
+  func.func @o_group_a2a_wait(%arg0: !pto.ptr<i32>, %arg1: i32, %arg2: !pto.ptr<i64>) attributes {pto.kernel_kind = #pto.kernel_kind<vector>} {
+  %c2_index = arith.constant 2 : index
+  %c1_index = arith.constant 1 : index
+  %c48_index = arith.constant 48 : index
+  %c0_index = arith.constant 0 : index
+  %attention_signal__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%c2_index, %c1_index], strides = [%c1_index, %c2_index] {layout = #pto.layout<dn>} : !pto.tensor_view<?x?xi32> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":280:5)
+  %0 = arith.index_cast %c48_index : index to i32 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":281:9)
+  scf.for %source_tp_inline2427__idx_v0 = %c0_index to %c2_index step %c1_index {
+    %1 = arith.index_cast %arg1 : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":283:13)
+    %2 = arith.cmpi ne, %source_tp_inline2427__idx_v0, %1 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":283:13)
+    scf.if %2 {
+      %3 = arith.maxsi %source_tp_inline2427__idx_v0, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":284:17)
+      %attention_signal__ssa_v0_local_pview = pto.partition_view %attention_signal__ssa_v0_view, offsets = [%3, %c0_index], sizes = [%c1_index, %c1_index] : !pto.tensor_view<?x?xi32> -> !pto.partition_tensor_view<1x1xi32> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":284:17)
+      pto.comm.twait(%attention_signal__ssa_v0_local_pview, %0 : !pto.partition_tensor_view<1x1xi32>, i32) {cmp = #pto<wait_cmp ge>} loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":284:17)
+    }
+  }
+  pto.cmo.cacheinvalid all #pto.address_space<gm> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_o_proj.py":282:9)
+  return
+  }
+}

@@ -1,0 +1,73 @@
+#include "pto/pto-inst.hpp"
+using namespace pto;
+
+template <typename Tensor>
+static AICORE inline auto PTOAS__GLOBAL_TENSOR_DATA(Tensor &tensor)
+    -> decltype(tensor.data()) {
+  return tensor.data();
+}
+
+
+enum class PTOAutoSyncTailMode : int {
+  kBarrierAll = 0,
+  kSetWaitMte3ToSEvent0 = 1,
+};
+
+static AICORE inline void ptoas_auto_sync_tail(
+    PTOAutoSyncTailMode mode = PTOAutoSyncTailMode::kBarrierAll) {
+  switch (mode) {
+  case PTOAutoSyncTailMode::kSetWaitMte3ToSEvent0:
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    break;
+  case PTOAutoSyncTailMode::kBarrierAll:
+  default:
+    pipe_barrier(PIPE_ALL);
+    break;
+  }
+}
+
+template <typename Ptr>
+static AICORE inline void PTOAS__DCCI_SINGLE_CACHE_LINE(Ptr ptr) {
+  dcci((__gm__ void*)ptr, cache_line_t::SINGLE_CACHE_LINE);
+}
+
+AICORE void kv_proj_seed(__gm__ float* v1, int64_t v2, int64_t v3) {
+  const float v4 = 0.0f;
+  const int64_t v5 = 128;
+  const int64_t v6 = 16;
+  const int64_t v7 = 512;
+  const int64_t v8 = 0;
+  using T = float;
+
+  #if defined(__DAV_VEC__)
+  set_mask_norm();
+  set_vector_mask(-1, -1);
+  set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+  for (int64_t i9 = v8; i9 < v3; i9 += v6) {
+    for (int64_t j10 = v8; j10 < v7; j10 += v5) {
+      // pto: %kv_seed_inline1926__tile
+      Tile<TileType::Vec, float, 16, 128, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v11 = Tile<TileType::Vec, float, 16, 128, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v6, v5);
+      // pto: %kv_seed_inline1926__tile
+      uint64_t v12 = (uint64_t) v8;
+      TASSIGN(v11, v12);
+      wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+      TEXPANDS(v11, v4);
+      set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+      // pto: %kv_fp32_inline1920__iter_v3_pview
+      pto::Shape<1, 1, 1, 16, 128> v13 = pto::Shape<1, 1, 1, 16, 128>();
+      // pto: %kv_fp32_inline1920__iter_v3_pview
+      pto::Stride<8192, 8192, 8192, 512, 1> v14 = pto::Stride<8192, 8192, 8192, 512, 1>();
+      // pto: %0, %kv_fp32_inline1920__iter_v3_pview, %1
+      GlobalTensor<float, pto::Shape<1, 1, 1, 16, 128>, pto::Stride<8192, 8192, 8192, 512, 1>, pto::Layout::ND> v15 = GlobalTensor<float, pto::Shape<1, 1, 1, 16, 128>, pto::Stride<8192, 8192, 8192, 512, 1>, pto::Layout::ND>(v1 + ((v8 + (i9 < v8 ? v8 : i9) * v7) + (j10 < v8 ? v8 : j10)), v13, v14);
+      wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+      TSTORE(v15, v11);
+      set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+    }
+  }
+  wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+  #endif // __DAV_VEC__
+
+  ptoas_auto_sync_tail(PTOAutoSyncTailMode::kBarrierAll);
+  return;
+}
