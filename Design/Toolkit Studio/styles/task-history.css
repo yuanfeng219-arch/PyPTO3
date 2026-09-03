@@ -152,3 +152,268 @@
 .kf-th-note { margin: 0 7px 8px; padding: 6px 8px; border-left: 2px solid var(--border-strong);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: color-mix(in srgb, var(--surface-2) 40%, transparent);
   color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
+
+/* ---------- run detail (main area, top of stage 0) ---------- */
+.kf-rd { display: grid; gap: 10px; margin-bottom: 18px; }
+.kf-rd-empty { margin: 0; padding: 26px 12px; color: var(--foreground-muted); font-size: var(--kf-type-xs); text-align: center; }
+
+.kf-rd-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle);
+}
+.kf-rd-id h2 { margin: 0; color: var(--foreground); font-size: var(--kf-type-lg); letter-spacing: -.01em; }
+.kf-rd-id code { display: block; margin-top: 5px; color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); }
+.kf-rd-run { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.kf-rd-run code { color: var(--foreground-secondary); font: 600 12px var(--font-mono); }
+.kf-rd-run small { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); }
+.kf-rd-verdict { padding: 2px 8px; border-radius: var(--radius-pill); font: 600 var(--kf-type-2xs) var(--font-mono); }
+.kf-rd-verdict.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
+.kf-rd-verdict.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+.kf-rd-verdict.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.kf-rd-verdict.is-idle { color: var(--foreground-muted); background: var(--surface-3); }
+
+.kf-rd-h {
+  color: var(--foreground-muted); font: 9px/1 var(--font-mono);
+  font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+}
+.kf-rd-h code { margin-left: 6px; color: var(--foreground-secondary); font-size: 10px; letter-spacing: 0; text-transform: none; }
+
+.kf-rd-signals { display: flex; flex-wrap: wrap; gap: 6px; }
+.kf-rd-signals span {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
+  color: var(--foreground-secondary); font-size: var(--kf-type-2xs);
+}
+.kf-rd-signals i { width: 6px; height: 6px; border-radius: 50%; background: var(--foreground-muted); }
+.kf-rd-signals .is-ok i { background: var(--success); }
+.kf-rd-signals .is-warn i { background: var(--warning); }
+.kf-rd-signals .is-bad i { background: var(--danger); }
+.kf-rd-signals .is-ok { border-color: color-mix(in srgb, var(--success) 28%, var(--border-subtle)); }
+.kf-rd-signals .is-warn { border-color: color-mix(in srgb, var(--warning) 28%, var(--border-subtle)); }
+.kf-rd-signals .is-bad { border-color: color-mix(in srgb, var(--danger) 28%, var(--border-subtle)); }
+
+.kf-rd-arts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.kf-rd-art {
+  display: grid; gap: 6px; padding: 11px 12px 10px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 60%, transparent);
+}
+.kf-rd-art:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border-subtle)); background: var(--surface-2); }
+.kf-rd-art.is-sel { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); }
+.kf-rd-art-top { display: flex; align-items: center; gap: 7px; }
+.kf-rd-art-top i { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
+.kf-rd-art.is-ok .kf-rd-art-top i { background: var(--success); }
+.kf-rd-art.is-warn .kf-rd-art-top i { background: var(--warning); }
+.kf-rd-art.is-bad .kf-rd-art-top i { background: var(--danger); }
+.kf-rd-art-top b { flex: 1; color: var(--foreground); font-size: var(--kf-type-sm); font-weight: 650; }
+.kf-rd-art-top em {
+  padding: 1px 5px; border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+  border-radius: 3px; color: var(--primary); font: 8px/13px var(--font-mono); font-style: normal;
+}
+.kf-rd-art-meta { color: var(--foreground-muted); font: 10px/1.5 var(--font-mono); }
+.kf-rd-art-go { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); opacity: 0; transition: opacity .12s; }
+.kf-rd-art:hover .kf-rd-art-go, .kf-rd-art.is-sel .kf-rd-art-go { color: var(--primary); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .kf-rd-art-go { transition: none; } }
+
+.kf-rd-note {
+  margin: 0; padding: 10px 12px; border-left: 3px solid var(--border-strong);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  color: var(--foreground-secondary); font-size: var(--kf-type-xs); line-height: 1.55;
+}
+.kf-rd-note.is-dim { color: var(--foreground-muted); border-left-color: var(--border-subtle); }
+
+/* Stage 0 is the run detail page now, so the old "定义目标" wizard block below
+   it — heading, recipe picker, shape/contract form, callout — is dead weight.
+   Hidden rather than deleted because demo-v2.js still writes into #recipeGrid
+   (renderRecipes) and reads #batchSelect / #headDimSelect / #dtypeSelect /
+   #precisionSelect; removing the markup would throw. To restore, delete this
+   block. */
+.kf-stage[data-stage="0"] > .kf-stage-heading,
+.kf-stage[data-stage="0"] > .kf-recipe-grid,
+.kf-stage[data-stage="0"] > .kf-contract-grid,
+.kf-stage[data-stage="0"] > .kf-callout { display: none; }
+
+/* ---------- artifact groups ---------- */
+.kf-rd-dir { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-rd-dir code { margin-left: 6px; color: var(--foreground-secondary); font-size: 10px; }
+.kf-rd-grp { display: grid; gap: 7px; }
+.kf-rd-h small {
+  margin-left: 8px; color: var(--foreground-muted); font: 9px var(--font-mono);
+  font-weight: 400; letter-spacing: 0; text-transform: none;
+}
+.kf-rd-art-path { color: var(--foreground-muted); font: 8.5px var(--font-mono); opacity: .72; }
+.kf-rd-art.is-static { cursor: default; }
+.kf-rd-art.is-static:hover { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 60%, transparent); }
+.kf-rd-art.is-primary { border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle)); }
+.kf-rd-art-go.is-off { color: var(--foreground-muted); opacity: .55; }
+.kf-rd-art:hover .kf-rd-art-go.is-off { color: var(--foreground-muted); opacity: .55; }
+
+/* ---------- run detail v2: measured sections, not card entrances ----------
+   The stage pane header ("定义目标 / recipe · decode_layer") is dead chrome on
+   this page — the detail carries its own identity header. Restore it by
+   deleting the .kf-rd-nohdr rule and hideStageHeaderOnDetail() in
+   js/task-history.js. */
+.pto-ide-frame__pane-header.kf-rd-nohdr { display: none !important; }
+
+.kf-rd { gap: 14px; }
+.kf-rd-sec { display: grid; gap: 8px; }
+
+/* KPI strip */
+.kf-rd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+.kf-rd-kpi {
+  display: grid; gap: 2px; padding: 10px 11px 9px;
+  border: 1px solid var(--border-subtle); border-top: 2px solid var(--border-strong);
+  border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 62%, transparent);
+}
+.kf-rd-kpi b { color: var(--foreground); font: 650 24px/1 var(--font-mono); letter-spacing: -.02em; }
+.kf-rd-kpi b i { margin-left: 1px; font: 600 12px var(--font-mono); font-style: normal; opacity: .6; }
+.kf-rd-kpi span { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kf-rd-kpi small { color: var(--foreground-muted); font: 9px/1.45 var(--font-mono); }
+.kf-rd-kpi.is-ok { border-top-color: var(--success); }
+.kf-rd-kpi.is-mid { border-top-color: var(--primary); }
+.kf-rd-kpi.is-warn { border-top-color: var(--warning); }
+.kf-rd-kpi.is-bad { border-top-color: var(--danger); }
+.kf-rd-kpi.is-bad b, .kf-rd-kpi.is-warn b { color: var(--foreground); }
+
+/* per-space rollup chips */
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 9px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+
+/* memory water-level rows */
+  display: grid; grid-template-columns: minmax(96px, 168px) 62px 1fr 42px minmax(120px, 158px);
+  align-items: center; gap: 8px; padding: 3px 8px; border-radius: var(--radius-sm);
+}
+  justify-self: start; padding: 1px 5px; border-radius: var(--radius-sm);
+  background: var(--surface-3); color: var(--foreground-muted);
+  font: 8.5px var(--font-mono); font-style: normal;
+}
+  justify-self: start; padding: 4px 10px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill); background: transparent;
+  color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); cursor: pointer;
+}
+
+/* perf-hint table */
+.kf-rd-tblwrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.kf-rd-tbl { width: 100%; border-collapse: collapse; font: 10px var(--font-mono); }
+.kf-rd-tbl th {
+  padding: 6px 10px; border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  color: var(--foreground-muted); font-size: 9px; font-weight: 600;
+  letter-spacing: .06em; text-align: left; white-space: nowrap;
+}
+.kf-rd-tbl td { padding: 5px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 55%, transparent); color: var(--foreground-secondary); white-space: nowrap; }
+.kf-rd-tbl tr:last-child td { border-bottom: 0; }
+.kf-rd-tbl tbody tr:hover td { background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+.kf-rd-tbl td code { color: var(--foreground); font-size: 10px; }
+.kf-rd-tbl td.is-bad { color: var(--danger); font-weight: 650; }
+
+/* intent + reuse */
+.kf-rd-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.kf-rd-col { display: grid; align-content: start; gap: 5px; }
+.kf-rd-line {
+  display: flex; align-items: baseline; gap: 8px; padding: 5px 9px;
+  border-left: 2px solid var(--border-strong); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.5;
+}
+.kf-rd-line code { color: var(--foreground); font: 650 10px var(--font-mono); }
+.kf-rd-line.is-ok { border-left-color: var(--success); }
+.kf-rd-line.is-warn { border-left-color: var(--warning); }
+.kf-rd-line.is-dim { border-left-color: var(--border-subtle); color: var(--foreground-muted); }
+.kf-rd-reuse { display: grid; gap: 6px; padding: 9px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.kf-rd-rbar { display: grid; grid-template-columns: 46px 1fr; align-items: center; gap: 8px; }
+.kf-rd-rbar span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-rd-rbar i { display: block; height: 14px; border-radius: 3px; background: var(--surface-3); }
+.kf-rd-rbar i.is-before { background: color-mix(in srgb, var(--foreground-muted) 42%, transparent); }
+.kf-rd-rbar i.is-after { background: var(--success); }
+.kf-rd-rbar b { grid-column: 2; color: var(--foreground-muted); font: 9px var(--font-mono); }
+
+/* artifact rows — one line each, not hero cards */
+.kf-rd-glabel { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); font-weight: 600; }
+.kf-rd-glabel small { margin-left: 8px; color: var(--foreground-muted); font-weight: 400; font-size: 9px; }
+.kf-rd-sec .kf-rd-arts { grid-template-columns: repeat(auto-fit, minmax(228px, 1fr)); gap: 6px; }
+.kf-rd-sec .kf-rd-art {
+  display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+  gap: 2px 8px; padding: 7px 10px;
+}
+.kf-rd-sec .kf-rd-art > b { color: var(--foreground); font-size: var(--kf-type-2xs); font-weight: 650; }
+.kf-rd-sec .kf-rd-art > .kf-rd-art-meta { grid-column: 1 / -1; font-size: 9px; }
+.kf-rd-sec .kf-rd-art > code { grid-column: 1 / -1; color: var(--foreground-muted); font: 8.5px var(--font-mono); opacity: .7; }
+.kf-rd-sec .kf-rd-art > .kf-rd-art-go { grid-column: 2; grid-row: 1; opacity: 1; }
+
+/* ---------- memory heatmap (memBlock in js/task-history.js) ----------
+   One square per kernel, filled by utilisation, grouped by the space that is
+   tightest for it. Five bins rather than a continuous ramp so the legend can
+   state exactly what each shade means. Fills are color-mix'd against the
+   surface, so they hold up in both themes. */
+.kf-rd-hleg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.kf-rd-hleg > span { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-rd-hleg i { width: 11px; height: 11px; border: 1px solid var(--border-subtle); border-radius: 2px; }
+.kf-rd-hleg em { color: var(--foreground-secondary); font: 600 9px var(--font-mono); font-style: normal; }
+.kf-rd-hlegn { margin-left: auto; opacity: .75; }
+
+.kf-rd-hgrp { margin-top: 10px; }
+.kf-rd-hh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.kf-rd-hh b { color: var(--foreground-secondary); font: 650 var(--kf-type-2xs) var(--font-mono); }
+.kf-rd-hh span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-rd-hh em { color: var(--danger); font-style: normal; font-weight: 600; }
+
+.kf-rd-heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 4px; }
+.kf-rd-cell {
+  display: grid; align-content: start; gap: 1px; padding: 6px 7px 5px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: var(--surface-2); cursor: pointer; text-align: left; overflow: hidden;
+}
+.kf-rd-cell b {
+  overflow: hidden; color: var(--foreground-secondary);
+  font: 8.5px var(--font-mono); font-weight: 400; text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-rd-cell i { color: var(--foreground); font: 650 15px/1.15 var(--font-mono); font-style: normal; }
+.kf-rd-cell i u { font-size: 8px; font-weight: 400; text-decoration: none; opacity: .6; }
+.kf-rd-cell small { color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-rd-cell:hover { border-color: var(--foreground-secondary); }
+
+/* five utilisation bands, cool → hot */
+.kf-rd-cell.is-b1, .kf-rd-hleg i.is-b1 { background: color-mix(in srgb, var(--success) 12%, var(--surface-2)); }
+.kf-rd-cell.is-b2, .kf-rd-hleg i.is-b2 { background: color-mix(in srgb, var(--success) 30%, var(--surface-2)); }
+.kf-rd-cell.is-b3, .kf-rd-hleg i.is-b3 { background: color-mix(in srgb, var(--warning) 34%, var(--surface-2)); }
+.kf-rd-cell.is-b4, .kf-rd-hleg i.is-b4 { background: color-mix(in srgb, var(--warning) 58%, var(--surface-2)); }
+.kf-rd-cell.is-b5, .kf-rd-hleg i.is-b5 { background: color-mix(in srgb, var(--danger) 60%, var(--surface-2)); }
+.kf-rd-cell.is-b5 { border-color: var(--danger); }
+.kf-rd-cell.is-b5 i { color: var(--foreground); }
+
+/* functions that never allocate on chip — present, but not part of the scale */
+.kf-rd-hgrp.is-none .kf-rd-heat { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+.kf-rd-cell.is-none {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  padding: 4px 7px; background: transparent; border-style: dashed; cursor: default;
+}
+.kf-rd-cell.is-none:hover { border-color: var(--border-subtle); }
+.kf-rd-cell.is-none small { flex: none; }
+
+/* ---------- header, slimmed ----------
+   Identity that the left pane already shows (kind, model, verdict, run time)
+   was removed; what stays is branch / target / run id plus a findings line. */
+.kf-rd-head { align-items: baseline; }
+.kf-rd-run { align-self: baseline; }
+.kf-rd-verdictline {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0;
+  padding: 6px 10px; border-left: 2px solid var(--border-strong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kf-rd-verdictline b { color: var(--foreground); font-size: var(--kf-type-2xs); font-weight: 650; }
+.kf-rd-verdictline span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
+.kf-rd-verdictline.is-ok { border-left-color: var(--success); }
+.kf-rd-verdictline.is-ok b { color: var(--success); }
+.kf-rd-verdictline.is-warn { border-left-color: var(--warning); }
+.kf-rd-verdictline.is-warn b { color: var(--warning); }
+.kf-rd-verdictline.is-bad { border-left-color: var(--danger); }
+.kf-rd-verdictline.is-bad b { color: var(--danger); }
+.kf-rd-verdictline.is-idle { border-left-color: var(--border-subtle); }
+
+/* the µs unit rides at the same size as the % so tiles stay aligned */
+.kf-rd-kpi b i { white-space: nowrap; }

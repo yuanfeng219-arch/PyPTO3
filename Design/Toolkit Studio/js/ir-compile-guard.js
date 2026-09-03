@@ -91,6 +91,7 @@
     // whole-operator numbers above it.
     root.innerHTML =
       '<div class="kf-kg-summary" id="kgSummary"></div>' +
+      '<div class="kf-kg-lineage" id="kgLineage"></div>' +
       '<div class="kf-kg-trace" id="kgTrace"></div>' +
       '<div class="kf-kg-bar">' +
         '<div class="kf-kg-seg" id="kgDims" role="group" aria-label="关注维度">' +
@@ -114,7 +115,8 @@
     els = {
       root, tip, list: $('#kgList', root), trace: $('#kgTrace', root),
       dims: $('#kgDims', root), issues: $('#kgIssues', root),
-      summary: $('#kgSummary', root), hint: $('#kgHint', root)
+      summary: $('#kgSummary', root), hint: $('#kgHint', root),
+      lineage: $('#kgLineage', root)
     };
     return true;
   }
@@ -391,6 +393,103 @@
     }).join('') + '</div>';
   }
 
+  /* ---------- kernel lineage ----------------------------------------------
+     "Where did these 45 functions come from" is a cross-pass question: no
+     single pass visual can answer it. Only 5 of the 42 passes change the
+     function inventory; everything else rewrites bodies. Two curves, sharing
+     the operator trace's 42-column geometry so the two read as one instrument:
+       函数      how many functions exist        2 → 1 → 39 → 43 → 45
+       待外提作用域  named scopes not yet outlined   27 → 38 → 4 → 0
+     Both come from K.lineage, diffed off the real dumps. */
+  const LIN = K.lineage || [];
+  const scopesOf = (l) => (l.at || 0) + (l.spmd || 0);
+  const LIN_EVENTS = LIN.filter((l, i) => {
+    if (!i) return true;
+    const p = LIN[i - 1];
+    return l.born.length || l.gone.length || scopesOf(l) !== scopesOf(p);
+  });
+  const LIN_WHY = {
+    0:  '源码里 23 处 pl.at + 4 处 pl.spmd，每处一个 name_hint',
+    1:  '_decode_layer 被内联进 decode_fwd_layers，函数数反而先减少',
+    2:  'pl.unroll 展平循环，同一个 name_hint 被复制成多份实例',
+    11: '每个 pl.at 作用域外提成独立函数，签名由编译器推导',
+    12: '每处 pl.spmd 再生成一个 launcher 包装函数',
+    22: 'pl.split(UP_DOWN) 把混合核拆成 Cube / Vector 两个 kernel'
+  };
+
+  function renderLineage() {
+    if (!els.lineage || !LIN.length) return;
+    const maxF = Math.max(...LIN.map(l => l.n));
+    const maxS = Math.max(...LIN.map(scopesOf));
+    const evIdx = new Set(LIN_EVENTS.map(l => l.i));
+
+    const bars = (pick, max, cls) => LIN.map(l => {
+      const v = pick(l);
+      return '<i class="' + cls + (evIdx.has(l.i) ? ' is-ev' : '') + '"' +
+        ' style="height:' + (max ? Math.max(v ? 8 : 0, v / max * 100) : 0) + '%"' +
+        ' data-kg-lin="' + l.i + '"' +
+        ' title="' + esc(String(l.i).padStart(2, '0') + ' ' + PASSNAMES[l.i] + ' · ' + v) + '"></i>';
+    }).join('');
+
+    const chips = LIN_EVENTS.map(l => {
+      const prev = l.i ? LIN[l.i - 1] : null;
+      const dF = prev ? l.n - prev.n : l.n;
+      const dS = prev ? scopesOf(l) - scopesOf(prev) : scopesOf(l);
+      const delta = [
+        dF ? (dF > 0 ? '+' : '') + dF + ' 函数' : '',
+        dS ? (dS > 0 ? '+' : '') + dS + ' 作用域' : ''
+      ].filter(Boolean).join(' · ');
+      return '<button type="button" class="kf-kg-linchip' + (st.pass === l.i ? ' is-sel' : '') + '"' +
+        ' data-kg-lin="' + l.i + '">' +
+        '<em>' + String(l.i).padStart(2, '0') + '</em>' +
+        '<b>' + esc(PASSNAMES[l.i]) + '</b>' +
+        '<span>' + esc(delta || '—') + '</span>' +
+      '</button>';
+    }).join('');
+
+    // detail for whichever event pass is currently selected in the trace
+    const cur = LIN_EVENTS.find(l => l.i === st.pass);
+    let detail = '';
+    if (cur) {
+      const prev = cur.i ? LIN[cur.i - 1] : null;
+      const names = (arr, label, cls) => arr.length
+        ? '<div class="kf-kg-linlist"><h6 class="' + cls + '">' + label + ' · ' + arr.length + '</h6>' +
+          '<div>' + arr.map(n => '<code>' + esc(n) + '</code>').join('') + '</div></div>'
+        : '';
+      detail =
+        '<div class="kf-kg-lindet">' +
+          '<p>' + esc(LIN_WHY[cur.i] || '') + '</p>' +
+          '<div class="kf-kg-linnum">' +
+            '<span>函数 <b>' + (prev ? prev.n + ' → ' : '') + cur.n + '</b></span>' +
+            '<span>待外提作用域 <b>' +
+              (prev ? scopesOf(prev) + ' → ' : '') + scopesOf(cur) + '</b></span>' +
+          '</div>' +
+          names(cur.born, '新诞生', 'is-born') +
+          names(cur.gone, '消失', 'is-gone') +
+        '</div>';
+    }
+
+    els.lineage.innerHTML =
+      '<div class="kf-kg-thead">' +
+        '<h4>KERNEL 诞生谱系 · <b>' + scopesOf(LIN[0]) + ' 个命名作用域 → ' +
+          LIN[LIN.length - 1].n + ' 个函数</b></h4>' +
+        '<span class="kf-kg-tmeta">00 是起点，其后 ' + (LIN_EVENTS.length - 1) +
+          ' 步动过函数构成，其余 ' + (LIN.length - LIN_EVENTS.length) +
+          ' 个 pass 只改写函数体</span>' +
+      '</div>' +
+      '<div class="kf-kg-linlegend">' +
+        '<span><i class="is-fn"></i>函数数 · 峰值 ' + maxF + '</span>' +
+        '<span><i class="is-sc"></i>待外提作用域 · 峰值 ' + maxS + '</span>' +
+        '<span class="kf-kg-linnote">柱子与下方 pass 轨迹逐列对齐</span>' +
+      '</div>' +
+      '<div class="kf-kg-lintrack">' +
+        '<div class="kf-kg-linrow">' + bars(l => l.n, maxF, 'is-fn') + '</div>' +
+        '<div class="kf-kg-linrow">' + bars(scopesOf, maxS, 'is-sc') + '</div>' +
+      '</div>' +
+      '<div class="kf-kg-linchips">' + chips + '</div>' +
+      detail;
+  }
+
   function renderTrace() {
     const ev = opEvents();
     const miles = ev.filter(e => e.milestone);
@@ -545,20 +644,30 @@
       const name = b.dataset.kgK;
       st.sel = (st.sel === name) ? null : name;   // click again to collapse
       st.pass = null; st.kpass = null;
-      renderList(); renderTrace(); syncHead();
+      renderList(); renderTrace(); renderLineage(); syncHead();
       if (st.sel) {
         const row = els.list.querySelector('.kf-kg-item.is-open');
         if (row) row.scrollIntoView({ block: 'nearest' });
       }
     });
+    // the lineage strip drives the same selection as the trace below it, so
+    // clicking an event there opens that pass's detail in one place
+    els.lineage.addEventListener('click', e => {
+      const b = e.target.closest('[data-kg-lin]'); if (!b) return;
+      st.pass = +b.dataset.kgLin; st.fact = 0;
+      renderTrace(); renderLineage();
+      const d = els.trace.querySelector('.kf-kg-pdetail');
+      if (d) d.scrollIntoView({ block: 'nearest' });
+    });
+
     els.trace.addEventListener('click', e => {
       const fb = e.target.closest('[data-kg-fact]');
-      if (fb) { st.fact = +fb.dataset.kgFact; renderTrace(); return; }
+      if (fb) { st.fact = +fb.dataset.kgFact; renderTrace(); renderLineage(); return; }
       const b = e.target.closest('[data-kg-p]'); if (!b) return;
       const f = e.target.closest('[data-kg-fact]');
-      if (f) { st.fact = +f.dataset.kgFact; renderTrace(); return; }
+      if (f) { st.fact = +f.dataset.kgFact; renderTrace(); renderLineage(); return; }
       st.pass = +b.dataset.kgP; st.fact = 0;
-      renderTrace();
+      renderTrace(); renderLineage();
     });
 
     els.trace.addEventListener('mousemove', e => {
@@ -642,8 +751,22 @@
     // open on the worst offender — the developer's actual entry point
     const worst = K.kernels.slice().sort((a, b) => worstPct(b).p - worstPct(a).p)[0];
     if (worst) { st.sel = worst.name; renderList(); }
-    renderTrace(); syncHead();
+    renderTrace(); renderLineage(); syncHead();
   }
+
+  // Let other panels drill into one kernel here (the run detail heatmap does).
+  window.PTO_GUARD = {
+    select(name) {
+      if (!els || !K.kernels.some(k => k.name === name)) return false;
+      st.sel = name; st.pass = null; st.kpass = null;
+      st.onlyIssues = false;                 // never hide the row we were asked for
+      els.issues.setAttribute('aria-pressed', 'false');
+      renderList(); renderTrace(); renderLineage(); syncHead();
+      const row = els.list.querySelector('.kf-kg-item.is-open');
+      if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return true;
+    }
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

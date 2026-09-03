@@ -349,3 +349,52 @@
 .kf-kg-fact-line.is-after > code { color: color-mix(in srgb, var(--success) 68%, var(--foreground-secondary)); }
 .kf-kg-fact-more, .kf-kg-fact-none { padding-left: 5px; color: var(--foreground-muted); font: 8.5px var(--font-mono); }
 .kf-kg-fact-note { margin: 5px 0 0; color: var(--foreground-muted); font: 8.5px/1.5 var(--font-mono); }
+
+/* ---------- kernel lineage (renderLineage in js/ir-compile-guard.js) --------
+   Sits above the operator trace and shares its 42-column flex geometry and
+   its 11px side margin, so the bars line up with the pass slots below.
+   Remove the .kf-kg-lineage host in mount() to take it out. */
+.kf-kg-lineage { display: grid; gap: 6px; padding-bottom: 4px; }
+.kf-kg-linlegend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 11px; }
+.kf-kg-linlegend span { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-kg-linlegend i { width: 9px; height: 8px; border-radius: 1px; }
+.kf-kg-linlegend i.is-fn { background: var(--primary); }
+.kf-kg-linlegend i.is-sc { background: var(--warning); }
+.kf-kg-linnote { margin-left: auto; opacity: .7; }
+
+.kf-kg-lintrack { display: grid; gap: 2px; margin: 0 11px; padding: 5px 0;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--background) 70%, transparent); }
+.kf-kg-linrow { display: flex; align-items: flex-end; height: 26px; }
+.kf-kg-linrow i { flex: 1 1 0; min-width: 0; margin: 0 .5px; border-radius: 1px 1px 0 0;
+  opacity: .42; transition: opacity 120ms; }
+.kf-kg-linrow i.is-fn { background: var(--primary); }
+.kf-kg-linrow i.is-sc { background: var(--warning); }
+.kf-kg-linrow i.is-ev { opacity: 1; }
+.kf-kg-linrow i:hover { opacity: 1; outline: 1px solid var(--foreground); }
+@media (prefers-reduced-motion: reduce) { .kf-kg-linrow i { transition: none; } }
+
+.kf-kg-linchips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 11px; }
+.kf-kg-linchip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 8px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: transparent; cursor: pointer; }
+.kf-kg-linchip:hover { border-color: var(--border-strong); }
+.kf-kg-linchip.is-sel { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.kf-kg-linchip em { color: var(--foreground-muted); font: 8px var(--font-mono); font-style: normal; }
+.kf-kg-linchip b { color: var(--foreground-secondary); font: 600 9.5px var(--font-mono); }
+.kf-kg-linchip.is-sel b { color: var(--foreground); }
+.kf-kg-linchip span { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+
+.kf-kg-lindet { margin: 0 11px; padding: 8px 10px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-1) 55%, transparent); }
+.kf-kg-lindet > p { margin: 0 0 7px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
+.kf-kg-linnum { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; }
+.kf-kg-linnum span { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-kg-linnum b { margin-left: 4px; color: var(--foreground); font: 650 10px var(--font-mono); }
+.kf-kg-linlist { margin-top: 7px; }
+.kf-kg-linlist h6 { margin: 0 0 4px; font: 8.5px var(--font-mono); font-weight: 600; letter-spacing: .05em; }
+.kf-kg-linlist h6.is-born { color: var(--success); }
+.kf-kg-linlist h6.is-gone { color: var(--foreground-muted); }
+.kf-kg-linlist div { display: flex; flex-wrap: wrap; gap: 3px; }
+.kf-kg-linlist code { padding: 1px 5px; border: 1px solid var(--border-subtle); border-radius: 2px;
+  color: var(--foreground-secondary); font: 8.5px var(--font-mono); }
