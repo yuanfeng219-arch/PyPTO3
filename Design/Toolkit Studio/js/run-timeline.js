@@ -16,7 +16,7 @@
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const st = { sel: null, tab: 'sum', track: 'both', host: null,
-               scroll: { tasks: 0, cores: 0 }, reveal: false };
+               scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true };
 
   const us = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : v.toFixed(2) + ' µs';
   const kbytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB'
@@ -154,13 +154,13 @@
             const j = pick(e), o = D.tasks[j];
             return '<button type="button" data-tl-task="' + j + '">' +
               '<code>' + esc(o ? o.kn : '?') + '</code>' +
-              '<em>' + (e[2] ? '数据' : '显式') + '</em>' +
+              '<em class="is-' + EKIND[e[2]].k + '">' + EKIND[e[2]].label + '</em>' +
               '<small>' + (o ? us(o.s) : '') + '</small></button>';
           }).join('') + (arr.length > 24 ? '<span class="kf-tl-more">…另有 ' + (arr.length - 24) + ' 条</span>' : '') + '</div>'
         : '<p class="kf-tl-none">无</p>';
       body = '<div class="kf-tl-dsec"><h5>前驱 · ' + pre.length + '</h5>' + list(pre, e => e[0]) + '</div>' +
              '<div class="kf-tl-dsec"><h5>后继 · ' + suc.length + '</h5>' + list(suc, e => e[1]) + '</div>' +
-             '<p class="kf-tl-note">「数据」= 由张量产出关系推出；「显式」= 源码里写死的顺序。</p>';
+             '<p class="kf-tl-note">' + EKIND.map(x => x.label + ' = ' + x.hint).join('；') + '。</p>';
     } else {
       const groups = t.ks.map(x => [x.kn, (D.kernels[x.k] || {}).files || []])
         .filter(g => g[1].length);
@@ -182,6 +182,83 @@
       '<div class="kf-tl-tabs">' + tabs + '</div>' +
       '<div class="kf-tl-ibody">' + body + '</div>' +
     '</div>';
+  }
+
+  /* ---------- dependency edges ------------------------------------------
+     1369 edges over 428 tasks is a hairball if drawn all at once, so only the
+     selected task's own edges are drawn: predecessors coming in, successors
+     going out. Geometry is measured off the real block elements after render
+     rather than recomputed from times, so the curves stay glued to the bars
+     no matter how the track is scrolled or resized. */
+  const EKIND = [
+    { k: 'ex', label: '显式顺序', hint: '源码里写死的 deps' },
+    { k: 'cr', label: '数据产出', hint: '由谁分配了这块张量推出' },
+    { k: 'tm', label: '张量映射', hint: 'tensormap 推出' }
+  ];
+  const EDGE_CAP = 80;                    // beyond this the picture stops helping
+
+  function edgesFor(sel) {
+    const D = data();
+    if (!D || sel == null) return [];
+    const out = [];
+    D.edges.forEach(e => {
+      if (e[1] === sel) out.push({ from: e[0], to: sel, k: e[2], dir: 'in' });
+      else if (e[0] === sel) out.push({ from: sel, to: e[1], k: e[2], dir: 'out' });
+    });
+    return out;
+  }
+
+  function drawEdges() {
+    if (!st.host) return;
+    const box = $('.kf-tl-tasks', st.host);
+    if (!box) return;
+    const old = $('.kf-tl-edges', box);
+    if (old) old.remove();
+    if (!st.edges || st.sel == null) return;
+
+    const all = edgesFor(st.sel);
+    if (!all.length) return;
+    const shown = all.slice(0, EDGE_CAP);
+
+    const bb = box.getBoundingClientRect();
+    const at = (i) => {
+      const el = box.querySelector('[data-tl-task="' + i + '"]');
+      if (!el) return null;                 // orchestration tasks have no kernel row
+      const r = el.getBoundingClientRect();
+      return { l: r.left - bb.left + box.scrollLeft, r: r.right - bb.left + box.scrollLeft,
+               y: r.top - bb.top + box.scrollTop + r.height / 2 };
+    };
+
+    let paths = '', drawn = 0;
+    shown.forEach(e => {
+      const a = at(e.from), b = at(e.to);
+      if (!a || !b) return;
+      const x1 = a.r, y1 = a.y, x2 = b.l, y2 = b.y;
+      const dx = Math.max(10, Math.abs(x2 - x1) * 0.45);
+      paths += '<path class="kf-tl-edge is-' + EKIND[e.k].k + ' is-' + e.dir + '"' +
+        ' d="M' + x1 + ' ' + y1 + ' C' + (x1 + dx) + ' ' + y1 + ',' +
+            (x2 - dx) + ' ' + y2 + ',' + x2 + ' ' + y2 + '"' +
+        ' marker-end="url(#kfTlArrow)"/>';
+      drawn += 1;
+    });
+    if (!drawn) return;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'kf-tl-edges');
+    svg.setAttribute('width', box.scrollWidth);
+    svg.setAttribute('height', box.scrollHeight);
+    svg.innerHTML =
+      '<defs><marker id="kfTlArrow" viewBox="0 0 6 6" refX="5" refY="3"' +
+      ' markerWidth="5" markerHeight="5" orient="auto-start-reverse">' +
+      '<path d="M0 0 L6 3 L0 6 z" fill="currentColor"/></marker></defs>' + paths;
+    box.appendChild(svg);
+
+    const note = $('.kf-tl-edgenote', st.host);
+    if (note) {
+      const hidden = all.length - drawn;
+      note.textContent = drawn + ' 条依赖' +
+        (hidden > 0 ? '（另有 ' + hidden + ' 条未画：超出上限或对端不在轨道上）' : '');
+    }
   }
 
   /* Both tracks are short scroll boxes over long lists (39 kernel rows, 73
@@ -241,6 +318,9 @@
         '<div class="kf-tl-hint">' +
           '<span><i class="is-aic"></i>AIC（Cube）</span>' +
           '<span><i class="is-aiv"></i>AIV（Vector）</span>' +
+          '<button type="button" class="kf-tl-etog' + (st.edges ? ' is-on' : '') + '"' +
+            ' data-tl-edges aria-pressed="' + st.edges + '">依赖连线</button>' +
+          '<span class="kf-tl-edgenote"></span>' +
           '<span class="kf-tl-fact">最宽任务 <code>' + esc(W ? W.kn : '') + '</code> ' +
             (W ? us(W.e - W.s) : '') + ' 墙上时间 / ' + (W ? W.c : 0) + ' 核并发 / 累计忙碌 ' +
             (W ? us(W.b) : '') + '</span>' +
@@ -259,12 +339,17 @@
 
     restoreScroll();
     if (st.reveal) { st.reveal = false; revealSelection(); }
+    // Measured off the rendered blocks. Called synchronously on purpose:
+    // getBoundingClientRect forces the layout we need, and rAF does not fire
+    // at all while the page is in a hidden tab, which silently lost the edges.
+    drawEdges();
   }
 
   function rerender() { if (st.host) mount(st.host); }
 
   document.addEventListener('click', (e) => {
     if (!st.host || !st.host.contains(e.target)) return;
+    if (e.target.closest('[data-tl-edges]')) { st.edges = !st.edges; rerender(); return; }
     if (e.target.closest('[data-tl-close]')) { st.sel = null; rerender(); return; }
     const tab = e.target.closest('[data-tl-tab]');
     if (tab) { st.tab = tab.dataset.tlTab; rerender(); return; }

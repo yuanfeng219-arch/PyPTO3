@@ -38,7 +38,7 @@
 .kf-tl-thead b { color: var(--foreground-secondary); }
 
 .kf-tl-scroll { overflow-y: auto; overscroll-behavior: contain; }
-.kf-tl-tasks { max-height: 250px; }
+.kf-tl-tasks { position: relative; max-height: 250px; }
 .kf-tl-cores { max-height: 186px; border-top: 0; }
 
 /* rows */
@@ -136,3 +136,27 @@
   background: var(--warning);
 }
 .kf-tl-row { position: relative; }
+
+/* ---------- dependency edges ----------
+   An SVG laid over the logical-task track's scroll CONTENT (hence
+   .kf-tl-tasks{position:relative}), so the curves scroll with the bars.
+   Drawn only for the selected task — see drawEdges() in js/run-timeline.js. */
+.kf-tl-edges { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1; overflow: visible; }
+.kf-tl-edge { fill: none; stroke-width: 1; opacity: .85; }
+.kf-tl-edge.is-ex { stroke: var(--foreground-secondary); color: var(--foreground-secondary); }
+.kf-tl-edge.is-cr { stroke: var(--primary); color: var(--primary); }
+.kf-tl-edge.is-tm { stroke: var(--warning); color: var(--warning); }
+/* incoming edges read as context, outgoing as consequence */
+.kf-tl-edge.is-in { stroke-dasharray: 2 2; opacity: .5; }
+.kf-tl-edge.is-out { stroke-width: 1.4; opacity: 1; }
+
+.kf-tl-etog {
+  padding: 2px 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
+  background: transparent; color: var(--foreground-muted); font: 9px var(--font-mono); cursor: pointer;
+}
+.kf-tl-etog:hover { border-color: var(--border-strong); color: var(--foreground-secondary); }
+.kf-tl-etog.is-on { border-color: var(--primary); color: var(--primary); }
+.kf-tl-edgenote { color: var(--foreground-muted); font: 8.5px var(--font-mono); opacity: .8; }
+
+.kf-tl-deps em.is-cr { color: var(--primary); }
+.kf-tl-deps em.is-tm { color: var(--warning); }
