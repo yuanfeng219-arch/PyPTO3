@@ -1,0 +1,254 @@
+/* Demo-level readability and responsive behavior.
+   This file is loaded last so the safeguards stay local to index_v2.html. */
+
+html,
+body {
+  min-width: 0;
+}
+
+.pto-ide-frame {
+  --kf-font-micro: 12px;
+  --kf-font-xs: 12px;
+  --kf-font-sm: 13px;
+  --kf-font-md: 14px;
+  --kf-type-2xs: 12px;
+  --kf-type-xs: 12px;
+  --kf-type-sm: 13px;
+  --kf-type-md: 14px;
+  --ide-frame-meta-font: 500 12px / 1.4 var(--font-mono);
+}
+
+/* Keep the three-pane desktop layout, then progressively prioritize the
+   active workspace as horizontal room becomes scarce. */
+@media (max-width: 1180px) {
+  #ideMainSplit > [data-ide-pane="editor-preview"] {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  #ideMainSplit > [data-ide-pane="inspector"],
+  #ideMainSplit > [data-ide-pane="editor-preview"] + .pto-workbench-shell__split-gutter {
+    display: none !important;
+  }
+
+  #ideMainSplit > [data-ide-pane="explorer"] {
+    flex: 0 0 clamp(220px, 27vw, 286px) !important;
+    min-width: 0 !important;
+  }
+
+  .kf-solo-agent {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .kf-solo-tools,
+  .kf-solo-agent + .pto-workbench-shell__split-gutter {
+    display: none !important;
+  }
+
+  .kf-solo-plan {
+    flex: 0 0 clamp(240px, 28vw, 320px) !important;
+    min-width: 0 !important;
+  }
+
+  .kf-model-workspace {
+    grid-template-columns: 210px minmax(0, 1fr) !important;
+  }
+
+  .kf-model-inspector {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .pto-ide-frame__topbar-center {
+    display: none;
+  }
+
+  .pto-ide-frame__topbar-left,
+  .pto-ide-frame__topbar-right {
+    flex-basis: auto;
+  }
+
+  .kf-env-panel {
+    right: 0;
+    width: min(438px, calc(100vw - 24px));
+  }
+
+  .kf-model-toolbar {
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 8px 14px;
+    min-height: 88px;
+  }
+}
+
+@media (max-width: 760px) {
+  .pto-ide-frame__topbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .pto-ide-frame__host-chip {
+    padding-inline: 6px;
+  }
+
+  .kf-env > span:not(.kf-env-label) {
+    display: none;
+  }
+
+  .kf-env-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  #ideMainSplit {
+    position: relative;
+    padding-left: 8px;
+  }
+
+  #ideMainSplit > [data-ide-pane="explorer"] {
+    position: absolute;
+    z-index: 60;
+    inset: 0 auto 0 8px;
+    display: flex;
+    width: min(286px, calc(100% - 16px)) !important;
+    min-width: 0 !important;
+    box-shadow: 16px 0 40px rgb(0 0 0 / .42);
+  }
+
+  #ideMainSplit > [data-ide-pane="explorer"] + .pto-workbench-shell__split-gutter {
+    display: none !important;
+  }
+
+  .kf-solo-plan,
+  .kf-solo-plan + .pto-workbench-shell__split-gutter {
+    display: none !important;
+  }
+
+  .kf-solo-feed {
+    padding-inline: 16px;
+  }
+
+  .kf-solo-team-surface .kf-solo-team-head {
+    min-height: 58px;
+    padding-inline: 10px;
+  }
+
+  .kf-solo-member-icons,
+  .kf-solo-agent-actions button:first-child {
+    display: none;
+  }
+
+  .kf-model-workspace {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .kf-model-library {
+    display: none;
+  }
+
+  .kf-model-toolbar {
+    padding-inline: 12px;
+  }
+
+  .kf-model-toolbar p {
+    display: none;
+  }
+
+  .pto-ide-frame__status-strip > span:first-child,
+  .pto-ide-frame__status-strip > span:last-child {
+    display: none;
+  }
+
+  .pto-ide-frame__status-strip > span:nth-child(2) {
+    margin-inline: auto;
+  }
+
+  .kf-stage {
+    padding-inline: 16px;
+  }
+
+  .kf-recipe-grid,
+  .kf-contract-grid,
+  .kf-oracles,
+  .kf-proof-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kf-pass-strip,
+  .kf-guard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kf-callout,
+  .kf-root-cause,
+  .kf-repro {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .pto-ide-frame__topbar-left {
+    gap: 6px;
+  }
+
+  .kf-brand,
+  .kf-version-chip {
+    display: none;
+  }
+
+  .pto-ide-frame__activity-rail {
+    width: 42px;
+    flex-basis: 42px;
+  }
+
+  .pto-ide-frame__split {
+    padding-right: 5px;
+  }
+
+  #ideMainSplit {
+    padding-left: 5px;
+  }
+
+  .kf-stage {
+    padding: 16px 12px 22px;
+  }
+
+  .kf-stage-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .kf-pass-strip,
+  .kf-guard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kf-solo-agent-title .kf-solo-avatar,
+  .kf-solo-run-status-text {
+    display: none;
+  }
+
+  .kf-solo-composer {
+    margin-inline: 10px;
+  }
+
+  .kf-agent-team-grid {
+    grid-template-columns: repeat(2, minmax(82px, 1fr));
+  }
+
+  .kf-model-toolbar__right {
+    width: 100%;
+    overflow-x: auto;
+  }
+}

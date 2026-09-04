@@ -201,7 +201,7 @@
   const latest = (t) => t.runs[0];
   const FILTERS = [['all', '全部'], ['op', '算子'], ['model', '模型'], ['live', '产物在库']];
 
-  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', filter: 'all' };
+  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', filter: 'all', tab: 'sum' };
   let els = null;
 
   function matches(t) {
@@ -244,6 +244,84 @@
     return true;
   }
 
+  /* ---------- content tabs -------------------------------------------------
+     What the run concluded, what it is made of, and how the compiler got
+     there. They sit inside the run detail, under the KPI strip, so the run's
+     identity, verdict and headline numbers stay on screen no matter which tab
+     is open — and so the tabs never appear outside 任务与运行.
+
+     The IR tab shows stage 2, which cannot move: demo-v2's renderStage() maps
+     state.step onto .kf-stage by DOM index. So the section stays put and this
+     borrows its CHILDREN into the panel, returning them the moment stage 0
+     stops being the active stage. Nothing is duplicated, and every listener
+     inside that stage survives the move. */
+  const PANELS = [
+    { k: 'sum', label: '总览', sub: '运行态结论与结果' },
+    { k: 'slice', label: '运行切片', sub: '这次运行由什么组成' },
+    { k: 'ir', label: 'IR Pass 快照', sub: '编译态过程', from: '.kf-stage[data-stage="2"]' }
+  ];
+  let borrowed = null;
+
+  function releaseBorrowed() {
+    if (!borrowed) return;
+    const home = $(borrowed.from);
+    if (home) borrowed.nodes.forEach(n => home.appendChild(n));
+    borrowed = null;
+  }
+
+  function borrowInto(from, panel) {
+    const src = $(from);
+    if (!src) return;
+    const nodes = $$(':scope > *', src);
+    nodes.forEach(n => panel.appendChild(n));
+    borrowed = { from, nodes };
+  }
+
+  /* Called whenever the active stage changes: stage 2 must have its content
+     back before demo-v2 shows it for any reason other than the IR tab. */
+  function syncPanel() {
+    const stage0 = $('.kf-stage[data-stage="0"]');
+    const panel = $('#runTabPanel');
+    const p = PANELS.find(x => x.k === st.tab);
+    if (!panel || !p || !p.from || !stage0 || !stage0.classList.contains('is-active')) {
+      releaseBorrowed();
+      return;
+    }
+    if (borrowed && borrowed.from === p.from && panel.contains(borrowed.nodes[0])) return;
+    releaseBorrowed();
+    panel.innerHTML = '';        // after the release, only our own leftovers remain
+    borrowInto(p.from, panel);
+  }
+
+  /* The composition fan owns its own tab. Its kernel leaves hand off to the
+     compile guard, which lives on the IR tab, so selecting one switches there
+     with that kernel already open. */
+  function renderSlice(panel) {
+    if (!window.PTO_FAN) {
+      panel.innerHTML = '<p class="kf-rd-note is-dim">运行切片需要 passes_dump 与 dfx_outputs。</p>';
+      return;
+    }
+    const fan = document.createElement('section');
+    fan.className = 'kf-rd-sec kf-fan-host';
+    fan.id = 'runFan';
+    panel.appendChild(fan);
+    window.PTO_FAN.mount(fan, {
+      onKernel(name) {
+        toTab('ir');
+        setTimeout(() => { if (window.PTO_GUARD) window.PTO_GUARD.select(name); }, 80);
+      }
+    });
+  }
+
+  function tabStrip() {
+    return '<nav class="kf-rt" id="runTabs" role="tablist" aria-label="运行内容">' +
+      PANELS.map(p =>
+        '<button type="button" role="tab" data-th-tab="' + p.k + '"' +
+          ' aria-selected="' + (p.k === st.tab) + '">' +
+          '<b>' + p.label + '</b><small>' + p.sub + '</small></button>').join('') +
+    '</nav>';
+  }
+
   /* ---------- render ---------- */
   function runRow(t, r) {
     const v = VERDICT[r.verdict] || VERDICT.purged;
@@ -269,9 +347,11 @@
     ['runtime', '运行时证据', '上设备之后采集到的'],
     ['repro',   '复现', '把这次运行原样跑回来']
   ];
-  const OPEN = {                       // artifacts that have a viewer wired up
-    step2: { step: 2, k: 'compile' },
-    explorer: { explorer: true, k: 'source' }
+  // artifacts that have a viewer wired up — both are tabs of this page now, so
+  // opening one stays inside the run detail instead of navigating away
+  const OPEN = {
+    step2: { tab: 'ir', k: 'compile' },
+    explorer: { explorer: true, k: 'source' }     // source has no tab; the workspace owns it
   };
   // dfx_outputs/ is what the execution timeline on this page is built from, so
   // those three artifacts scroll to it rather than claiming to have no viewer.
@@ -284,21 +364,25 @@
   /* ---------- header ------------------------------------------------------
      The left pane already carries identity (title, kind, model, verdict, run id
      and time) on both the task row and the run row, so repeating it here is
-     pure noise. The header keeps only what the left pane cannot show — branch,
-     target, and the run's own findings — and leads with the numbers a kernel
-     developer acts on: how long it took on device, how busy the cores were,
-     how much of the wall time is an unavoidable dependency chain, and what is
-     at risk. Scale counts (42 passes, 45 functions) and the compiler's own
-     wins (58% reuse) are stated by the sections that own them further down. */
+     pure noise. The header keeps a compact run identity — status, run id and
+     timestamp — then leads with the two metrics a kernel developer acts on.
+     Scale counts and the compiler's own findings are stated by the sections
+     that own them further down. */
   function headline(t, r, L) {
-    const bits = [t.op, t.branch, r.target].filter(Boolean);
-    return '<div class="kf-rd-head">' +
-      '<div class="kf-rd-id">' +
-        '<h2>' + esc(t.title) + '</h2>' +
-        '<code>' + bits.map(esc).join(' · ') + '</code>' +
+    const v = VERDICT[r.verdict] || VERDICT.purged;
+    return '<section class="kf-rd-summary">' +
+      '<div class="kf-rd-head">' +
+        '<div class="kf-rd-id">' +
+          '<div class="kf-rd-eyebrow"><span><i></i>RUN SNAPSHOT</span>' +
+            (r.live ? '<em>产物在库</em>' : '<em class="is-archive">历史记录</em>') + '</div>' +
+          '<div class="kf-rd-titleline"><h2>' + esc(t.title) + '</h2>' +
+            '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + v[0] + '</span></div>' +
+          '<p>' + esc(t.kind) + '任务的本次执行快照与关键诊断</p>' +
+        '</div>' +
+        '<div class="kf-rd-run"><span>RUN ID</span><code>' + esc(r.id) + '</code>' +
+          '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
       '</div>' +
-      '<div class="kf-rd-run"><code>' + esc(r.id) + '</code></div>' +
-    '</div>';
+    '</section>';
   }
 
   /* one line saying what, if anything, needs attention */
@@ -322,6 +406,61 @@
 
   const usFmt = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : Math.round(v) + ' µs';
 
+  /* ---------- AI 洞察 ------------------------------------------------------
+     The sections below each report one measurement well, but none of them says
+     which measurement to act on first. That ranking is the only thing here:
+     every number is read off the same data the sections use, and the order is
+     computed (biggest single wait, then zero headroom, then the one class of
+     hint that is actually fixable), not written down. */
+  function aiBlock(L, P) {
+    const items = [];
+
+    if (P && P.chain.wait > 0) {
+      const w = P.chain.steps.slice().sort((a, b) => b.wait - a.wait)[0];
+      const share = Math.round(w.wait / P.chain.wait * 100);
+      items.push(['等待压过了计算',
+        Math.round(P.span) + ' µs 里有 ' + usFmt(P.chain.wait) + ' 在等核，只有 ' +
+        usFmt(P.chain.work) + ' 在算。单看一处：<code>' + esc(w.kn) + '</code> 之前等了 ' +
+        usFmt(w.wait) + '，占全部等待的 ' + share +
+        '%。解开这条依赖，比把任何单个 kernel 调快都更值钱。']);
+    }
+    if (P && P.top) {
+      items.push(['算力集中在一个 kernel 上',
+        '<code>' + esc(P.top.kn) + '</code> 累计忙碌 ' + usFmt(P.top.busy) + '，占全芯片忙碌时间的 ' +
+        P.top.pct.toFixed(1) + '%，铺在 ' + P.top.cores + ' 个核上。AIC ' +
+        P.occ.AIC.pct.toFixed(0) + '% 对 AIV ' + P.occ.AIV.pct.toFixed(0) +
+        '%，负载并不均衡，Vector 侧还有空间接活。']);
+    }
+    if (L.over) {
+      items.push(['内存已经溢出',
+        L.over + ' 个 kernel 超出了 ' + spLabel(L.kmem[0].sp) + ' 上限，必须先缩小分块。']);
+    } else if (L.atLimit) {
+      const c = L.kmem.find(k => k.u === k.lim);
+      items.push([spLabel(c.sp) + ' 已经零余量',
+        L.atLimit + ' 个 kernel 正好填满 ' + kb(c.lim) +
+        '，分块已经放到最大。功能上没问题，但 shape 一改就溢出 —— 这是个脆点，不是缺陷。']);
+    }
+    if (L.hints.length) {
+      items.push(['能改的搬运只有一类',
+        L.hints.length + ' 条性能提示里，真正可改的是 ' + L.actionable +
+        ' 处（RoPE 半维被拆成两次搬运）；另 ' + L.byCause.row + ' 处被分页 KV 布局锁死，' +
+        L.byCause.scalar + ' 处是单元素读写，加宽没有意义。别按条数排优先级。']);
+    }
+    if (!items.length) return '';
+
+    return '<section class="kf-rd-ai">' +
+      '<header><span class="kf-rd-aitag">AI 洞察</span>' +
+        '<b>按可动手的顺序排</b>' +
+        '<small>全部读自本次运行的 passes_dump / report / dfx_outputs</small></header>' +
+      '<ol class="kf-rd-ailist">' + items.map((x, i) =>
+        '<li><i>' + (i + 1) + '</i><div><b>' + esc(x[0]) + '</b><span>' + x[1] + '</span></div></li>').join('') +
+      '</ol>' +
+      '<footer>还缺数值一侧：这次运行没有产出 oracle 输出，正确性尚未验证 —— 上面的优化都建立在“功能本来就对”的假设上。</footer>' +
+    '</section>';
+  }
+
+  const band = (t, s) => '<div class="kf-rd-band"><b>' + t + '</b><small>' + s + '</small></div>';
+
   function kpis(r, L) {
     const P = (window.PTO_RUN_TRACE || {}).perf;
     const tiles = [];
@@ -329,37 +468,26 @@
     if (P) {
       const aic = P.occ.AIC || { pct: 0, n: 0 }, aiv = P.occ.AIV || { pct: 0, n: 0 };
       const gap = Math.round(aic.pct - aiv.pct);
+      const work = Math.round(P.chain.workPct);
       tiles.push(
-        { v: Math.round(P.span), u: ' µs', l: '设备执行时间', t: 'ok',
-          s: '实测 · ' + P.chain.n + ' 步关键链' },
-        { v: Math.round(aic.pct), u: '%', l: 'AIC 核占用', t: aic.pct >= 60 ? 'warn' : 'ok',
-          s: aiv ? 'AIV 仅 ' + Math.round(aiv.pct) + '% · 相差 ' + gap + ' 个百分点' : '' },
-        { v: Math.round(P.chain.workPct), u: '%', l: '关键链执行占比', t: P.chain.workPct < 50 ? 'warn' : 'ok',
-          s: usFmt(P.chain.work) + ' 在算 · ' + usFmt(P.chain.wait) + ' 在等核' }
-      );
-    }
-    if (L) {
-      tiles.push(
-        { v: L.over || L.atLimit, u: '', l: L.over ? '内存溢出的 kernel' : '片上缓冲已填满',
-          t: L.over ? 'bad' : L.atLimit ? 'warn' : 'ok',
-          s: L.over ? '超出上限，必须缩小分块'
-             : L.atLimit ? spLabel(L.kmem[0].sp) + ' 分块已放到最大 · 零余量'
-             : '各空间均有余量' },
-        { v: L.actionable, u: '', l: '可优化的搬运提示', t: L.actionable ? 'warn' : 'ok',
-          s: L.actionable ? '同一个根因 · 另 ' + L.byCause.row + ' 条受分页布局限制、'
-                            + L.byCause.scalar + ' 条无法加宽'
-             : '无可优化项' },
-        { v: L.demotedK.length, u: '', l: '流水被降级', t: L.demotedK.length ? 'warn' : 'ok',
-          s: L.demotedK.length ? L.demotedK.map(k => k.n).join(' · ') : '声明的流水全部保留' }
+        { k: 'efficiency', v: Math.round(P.span), u: 'µs', l: '运行效率', t: work < 50 ? 'warn' : 'ok', tag: 'TIME + CHAIN',
+          s: work + '% 关键链有效执行 · ' + usFmt(P.chain.work) + ' 在算 / ' + usFmt(P.chain.wait) + ' 在等核',
+          viz: '<div class="kf-rd-kpi-eff" aria-hidden="true">' +
+            '<div class="kf-rd-kpi-split" style="--p:' + work + '"><i></i><b></b></div>' +
+            '<span><b>' + work + '%</b><em>CHAIN</em></span></div>' },
+        { k: 'occupancy', v: Math.round(aic.pct), u: '%', l: '核占用',
+          t: aic.pct >= 60 ? 'warn' : 'ok', tag: 'AIC / AIV',
+          s: 'AIV ' + Math.round(aiv.pct) + '% · 差 ' + gap + ' 个百分点',
+          viz: '<div class="kf-rd-kpi-ring" style="--p:' + Math.round(aic.pct) + '" aria-hidden="true"><i>' + Math.round(aiv.pct) + '</i></div>' },
       );
     }
     if (!tiles.length) return '';
     return '<div class="kf-rd-kpis">' + tiles.map(t =>
-      '<div class="kf-rd-kpi is-' + t.t + '">' +
-        '<b>' + t.v + '<i>' + t.u + '</i></b>' +
-        '<span>' + esc(t.l) + '</span>' +
+      '<article class="kf-rd-kpi is-' + t.t + ' is-' + t.k + '">' +
+        '<header><span>' + esc(t.l) + '</span><em>' + esc(t.tag || '') + '</em></header>' +
+        '<div class="kf-rd-kpi-main"><b>' + t.v + '<i>' + t.u + '</i></b>' + t.viz + '</div>' +
         '<small>' + esc(t.s) + '</small>' +
-      '</div>').join('') + '</div>';
+      '</article>').join('') + '</div>';
   }
 
   /* memory water level — one square per kernel, filled by utilisation.
@@ -493,7 +621,7 @@
     r.hints.forEach(h => { (by[h.cause] = by[h.cause] || []).push(h); });
     const scalar = by.scalar || [];
     const want = r.hints[0].want, sp = r.hints[0].mem;
-    const nfind = FINDINGS.filter(f => (by[f.k] || []).length).length + (scalar.length ? 1 : 0);
+    const nfind = FINDINGS.filter(f => (by[f.k] || []).length).length;
 
     const cards = FINDINGS.map(f => {
       const g = (by[f.k] || []).slice().sort((a, b) => b.mult - a.mult || a.line - b.line);
@@ -533,23 +661,19 @@
       '</article>';
     }).join('');
 
-    /* The scalar class is not a to-do list, so it gets a conclusion and no rows:
-       a per-row 1/rms or a pl.read of one value has an innermost dim of exactly
-       one element by construction. Counted so the total still reconciles with
-       report/perf_hints.log. */
-    const tail = scalar.length
-      ? '<p class="kf-rd-note is-dim"><b>其余 ' + scalar.length + ' 条不用管</b>' +
-        '单元素读写 —— 归约输出（每行一个 1/rms、running max/sum）和 pl.read 取单个标量，' +
-        '最内维天生就是 1 个元素，加宽没有意义。分布在 ' +
-        esc([...new Set(scalar.map(h => h.scopeName).filter(Boolean))].join(' · ')) + '。</p>'
-      : '';
-
+    /* The scalar class is dropped rather than shown: a per-row 1/rms or a
+       pl.read of one value has an innermost dim of exactly one element by
+       construction, so there is nothing to act on. The header counts only what
+       is shown, and says how many were excluded so the total still reconciles
+       with report/perf_hints.log. */
     return '<section class="kf-rd-sec">' +
-      '<div class="kf-rd-h">性能提示 · ' + r.hints.length + ' 条归为 ' + nfind + ' 类根因' +
+      '<div class="kf-rd-h">性能提示 · ' + (r.hints.length - scalar.length) +
+        ' 条归为 ' + nfind + ' 类根因' +
         '<small>TileInnermostDimGranularity · ' + esc(spLabel(sp)) +
         ' · 目标最内维 ≥ ' + want + ' B（= L2 行宽，窄于此则行内剩余部分被浪费）' +
-        ' · report/perf_hints.log</small></div>' +
-      cards + tail +
+        ' · report/perf_hints.log 共 ' + r.hints.length + ' 条，已排除 ' + scalar.length +
+        ' 条单元素读写</small></div>' +
+      cards +
     '</section>';
   }
 
@@ -637,7 +761,7 @@
             const tl = !o && TL_ARTS[i.k] && window.PTO_RUN_TRACE;
             const attr = o
               ? (o.explorer ? ' data-th-view="explorer" data-th-art="source"'
-                            : ' data-step="' + o.step + '" data-th-art="' + o.k + '"')
+                            : ' data-th-tab="' + o.tab + '" data-th-art="' + o.k + '"')
               : tl ? ' data-th-scroll="timeline"' : '';
             const tag = o ? '<i>打开 &rarr;</i>' : tl ? '<i>看时间线 &uarr;</i>'
                                                      : '<i class="is-off">在库</i>';
@@ -832,12 +956,18 @@
     if (!host || typeof MutationObserver !== 'function') return;
     host.addEventListener('click', e => { if ($('#kfRunInspector', host)) onRunClick(e); });
 
-    const retake = () => { if (!$('#kfRunInspector', host)) renderInspector(); };
+    const retake = () => {
+      // stage 2 must have its borrowed content back before demo-v2 shows it
+      // for any reason other than the IR tab
+      syncPanel();
+      if (!$('#kfRunInspector', host)) renderInspector();
+    };
     const watch = (el, opts) => { if (el) new MutationObserver(retake).observe(el, opts); };
     watch(host, { childList: true });
     watch($('#inspectorTitle'), { childList: true, characterData: true, subtree: true });
-    watch($('.kf-stage[data-stage="0"]'), { attributes: true, attributeFilter: ['class'] });
     watch($('[data-side-view="workflow"]'), { attributes: true, attributeFilter: ['hidden'] });
+    // every stage's class, so a switch away from stage 0 returns the loan
+    $$('.kf-stage').forEach(s => watch(s, { attributes: true, attributeFilter: ['class'] }));
     renderInspector();
   }
 
@@ -846,6 +976,8 @@
 
   function renderDetailBody() {
     if (!els.detail) return;
+    // never innerHTML over nodes on loan from another stage
+    releaseBorrowed();
     const t = TASKS.find(x => x.id === st.task);
     const r = t && t.runs.find(x => x.id === st.run);
     if (!t || !r) {
@@ -866,13 +998,30 @@
 
     const L = LX;
     if (L) {
-      // the artifact inventory lives in the right rail now (riArts)
-      const gap = '<p class="kf-rd-note is-dim">正确性比对：这次运行没有产出 oracle 输出，需要单独跑验证。</p>';
-      els.detail.innerHTML = head + verdictLine(r, L) + kpis(r, L) +
-        '<div id="runTimeline"></div>' +
-        memBlock(L) + hintBlock(L) + intentBlock(L) + gap;
-      // run-timeline.js owns its own state, so it re-renders from scratch here
-      if (window.PTO_TIMELINE) window.PTO_TIMELINE.mount($('#runTimeline', els.detail));
+      /* Identity, verdict and the headline numbers stay above the tabs — they
+         are true of the run, not of one view of it. Everything below switches. */
+      const P = (window.PTO_RUN_TRACE || {}).perf;
+      els.detail.innerHTML = head + kpis(r, L) + tabStrip() +
+        '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
+      const panel = $('#runTabPanel', els.detail);
+
+      if (st.tab === 'sum') {
+        /* Reads top-down as: what happened, what to do about it, then the two
+           measurements that back the ranking. The artifact inventory is in the
+           right rail, so the main column can stay focused on diagnosis. */
+        const gap = '<p class="kf-rd-note is-dim">正确性比对：这次运行没有产出 oracle 输出，需要单独跑验证。</p>';
+        panel.innerHTML = aiBlock(L, P) +
+          band('性能分析', '搬运宽度的根因，以及 428 个任务在 73 个核上的实际排布') +
+          hintBlock(L) + '<div id="runTimeline"></div>' +
+          band('内存分析', '每个 kernel 的片上水位，以及声明的调度有没有活到最后') +
+          memBlock(L) + intentBlock(L) + gap;
+        // run-timeline.js owns its own state, so it re-renders from scratch here
+        if (window.PTO_TIMELINE) window.PTO_TIMELINE.mount($('#runTimeline', panel));
+      } else if (st.tab === 'slice') {
+        renderSlice(panel);
+      } else {
+        syncPanel();
+      }
       return;
     }
 
@@ -882,7 +1031,7 @@
           '<span class="is-' + s[0] + '"><i></i>' + esc(s[1]) + '</span>').join('') + '</div>'
       : '';
     // its recorded artifact list is in the right rail too (riArchivedArts)
-    els.detail.innerHTML = head + verdictLine(r, null) + sig;
+    els.detail.innerHTML = head + sig;
   }
 
   function render() {
@@ -920,23 +1069,44 @@
   /* Both the main column and the right rail live outside the side pane and
      carry the same three affordances, so they share one handler. data-step is
      still left to demo-v2's document-level delegation. */
+  function toTab(k) {
+    if (st.tab === k) return;
+    st.tab = k;
+    renderDetailBody();
+  }
+
   function onRunClick(e) {
-    // a hot cell in the memory heatmap drills into that kernel in the
-    // compile guard, which is where the buffer detail actually lives
+    // a hot cell in the memory heatmap drills into that kernel in the compile
+    // guard, which is where the buffer detail lives — now one tab over
     const kc = e.target.closest('[data-th-kernel]');
     if (kc) {
-      const b = $('#stepNav [data-step="2"]'); if (b) b.click();
+      toTab('ir');
       const name = kc.dataset.thKernel;
       setTimeout(() => { if (window.PTO_GUARD) window.PTO_GUARD.select(name); }, 60);
       return;
     }
+    const tb = e.target.closest('[data-th-tab]');
+    if (tb) {
+      const art = tb.dataset.thArt;
+      if (art) st.artifact = art;
+      toTab(tb.dataset.thTab);
+      if (art) render();
+      // the timeline artifacts scroll rather than switch, so only tabs return here
+      els.detail.scrollIntoView({ block: 'start' });
+      return;
+    }
     const sc = e.target.closest('[data-th-scroll]');
-    if (sc) { const el = els.detail && $('#runTimeline', els.detail);
-      if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+    if (sc) {
+      toTab('sum');
+      const el = els.detail && $('#runTimeline', els.detail);
+      if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return;
+    }
     const art = e.target.closest('[data-th-art]');
     if (!art) return;
     st.artifact = art.dataset.thArt;
     render(); renderDetail();
+    // archived runs have no tab panel to open into, so they keep the old route
     if (art.dataset.thView === 'explorer') { const b = $('#activityExplorer'); if (b) b.click(); }
   }
 
@@ -1011,9 +1181,9 @@
     fix();
   }
 
-  // Stage 0 is now the run detail page and carries its own identity header,
-  // so the generic pane header ('定义目标 / recipe · decode_layer') is dead
-  // chrome there. Hidden by class so demo-v2 keeps owning the .hidden flag.
+  // Stage 0 is the run detail page and carries its own identity header, so the
+  // generic pane header ('定义目标 / recipe · decode_layer') is dead chrome
+  // there. Hidden by class so demo-v2 keeps owning the .hidden flag.
   function hideStageHeaderOnDetail() {
     const hdr = $('#stageTitle') && $('#stageTitle').closest('.pto-ide-frame__pane-header');
     const stage0 = $('.kf-stage[data-stage="0"]');
