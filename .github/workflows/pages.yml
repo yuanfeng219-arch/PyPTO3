@@ -10,6 +10,7 @@ on:
       - "Insight/**"
       - "Data/DeepSeek-V4-Flash-Official/**"
       - "Data/DeepseekV4/deepseek_v4_flash_dspark/**"
+      - "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/**/merged_swimlane_*.json"
       - "vendor/pto-design-system/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -48,6 +49,10 @@ jobs:
           mkdir -p _site/Data/DeepseekV4
           cp -R Data/DeepSeek-V4-Flash-Official _site/Data/DeepSeek-V4-Flash-Official
           cp -R Data/DeepseekV4/deepseek_v4_flash_dspark _site/Data/DeepseekV4/deepseek_v4_flash_dspark
+          mkdir -p _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0
+          mkdir -p _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0
+          cp Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/merged_swimlane_20260903_010746.json _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/
+          cp Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/merged_swimlane_20260903_010747.json _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/
           cp -R vendor/pto-design-system _site/vendor/pto-design-system
           touch _site/.nojekyll
 
