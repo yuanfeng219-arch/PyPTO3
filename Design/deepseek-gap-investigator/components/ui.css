@@ -1,0 +1,69 @@
+/* shadcn/ui Table/Dialog/Field adaptation. Visual values resolve to PTO tokens.
+ * https://ui.shadcn.com/docs/components/base/table
+ * https://ui.shadcn.com/docs/components/base/dialog */
+.ui-icon { width: var(--space-4); height: var(--space-4); flex-shrink: 0; vertical-align: middle; }
+.ui-badge { font: var(--type-micro); gap: var(--space-1); }
+.ui-badge.success, .success { color: var(--success); }
+.ui-badge.warning, .warning { color: var(--warning); }
+.ui-badge.info, .info { color: var(--primary-hover); }
+.ui-badge.danger, .danger { color: var(--danger); }
+.ui-badge.neutral { color: var(--foreground-secondary); }
+.ui-card { width: 100%; min-width: 0; }
+.ui-card h3 { font: var(--type-title-3); }
+.ui-table-wrap { width: 100%; overflow-x: auto; }
+.ui-table { width: 100%; border-collapse: collapse; font: var(--type-body-sm); text-align: left; }
+.ui-table caption { color: var(--foreground-muted); text-align: left; caption-side: bottom; padding-top: var(--space-3); }
+.ui-table th { height: var(--table-header-height); padding: var(--space-2) var(--space-3); color: var(--foreground-muted); font-weight: var(--font-weight-medium); white-space: nowrap; }
+.ui-table td { padding: var(--space-3); vertical-align: middle; border-top: 1px solid var(--table-border); }
+.ui-table tbody tr:hover { background: var(--state-hover); }
+.ui-table td code { overflow-wrap: anywhere; }
+.ui-dialog { margin: auto; padding: 0; width: min(880px, calc(100vw - 2 * var(--space-6))); max-height: 86vh; color: var(--foreground); overflow: auto; }
+.ui-dialog::backdrop { background: color-mix(in srgb, var(--background) 75%, transparent); backdrop-filter: blur(4px); }
+.ui-dialog h2 { font: var(--type-title-2); }
+.ui-dialog .panel-shell-body { display: grid; gap: var(--space-4); padding: var(--space-5); }
+.ui-dialog .panel-shell-header { position: sticky; top: 0; background: var(--background-elevated); z-index: var(--z-raised); }
+.ui-field { display: flex; flex-direction: column; gap: var(--space-2); font: var(--type-body-sm); }
+.ui-input { width: 100%; min-height: var(--input-height-md); padding: var(--space-2) var(--space-3); background: var(--input-bg); color: var(--foreground); border: 1px solid var(--input-border); border-radius: var(--input-radius); font: var(--type-body-sm); }
+.ui-input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.ui-empty { display: grid; justify-items: center; gap: var(--space-3); padding: calc(2 * var(--space-6)) var(--space-6); text-align: center; color: var(--foreground-muted); border: 1px dashed var(--border-default); border-radius: var(--card-radius); }
+.ui-empty > .ui-icon { width: calc(2 * var(--space-4)); height: calc(2 * var(--space-4)); }
+.ui-empty h3 { color: var(--foreground-secondary); }
+.ui-empty p { max-width: 480px; font: var(--type-body-sm); }
+.ui-notice { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--card-radius); background: var(--card-bg); font: var(--type-body-sm); }
+.ui-notice > div { flex: 1; min-width: 0; }
+.ui-notice p { margin-top: var(--space-1); color: var(--foreground-secondary); }
+.ui-toast { position: fixed; bottom: var(--space-6); left: 50%; transform: translateX(-50%); z-index: var(--z-toast); padding: var(--space-3) var(--space-5); font: var(--type-body-sm); max-width: calc(100vw - 2 * var(--space-6)); }
+.code-view { overflow: auto; max-height: 460px; background: var(--background); border-radius: var(--radius-md); padding-block: var(--space-3); }
+.code-row { display: flex; gap: var(--space-4); min-width: max-content; padding: var(--space-1) var(--space-3); font: var(--type-mono); }
+.code-row > span { width: 42px; flex: 0 0 42px; text-align: right; color: var(--foreground-muted); user-select: none; }
+.code-row code { white-space: pre; }
+.code-row.is-highlighted { background: var(--state-selected); }
+/* v0.2 gap adapters: shadcn Sheet, Command, Field, Collapsible and Kbd.
+ * https://ui.shadcn.com/docs/components/base/sheet
+ * https://ui.shadcn.com/docs/components/base/command
+ * https://ui.shadcn.com/docs/components/base/field
+ * Native dialog/details/input supply interaction; all visual roles map to PTO. */
+.ui-sheet { margin:0 0 0 auto; width:min(100%,480px); max-width:100%; height:100dvh; max-height:100dvh; padding:0; border:0; background:var(--background-elevated); color:var(--foreground); box-shadow:var(--shadow-lg); }
+.ui-sheet::backdrop { background:color-mix(in srgb,var(--background) 70%,transparent); }
+.ui-command-list { max-height:48vh; overflow:auto; display:grid; gap:var(--space-1); }
+.ui-command-list .btn { display:block; text-align:left; white-space:normal; height:auto; }
+.ui-command-list small { display:block; color:var(--foreground-secondary); font:var(--type-body-sm); }
+details > summary { cursor:pointer; font:var(--type-body); color:var(--foreground-secondary); }
+details[open] > summary { margin-bottom:var(--space-3); }
+kbd { font:var(--type-mono); padding:var(--space-1) var(--space-2); border-radius:var(--radius-sm); background:var(--surface-2); color:var(--foreground-secondary); }
+.ui-notice,.ui-empty { border:0; } .ui-empty p,.ui-notice,.ui-dialog p,.inspector-soft-card p { font:var(--type-body); }
+.ui-dialog:focus-visible { outline:2px solid var(--focus-ring); }
+/* The bundled PTO docs name Inspector primitives but css/style.css contains no
+ * implementation. Fill that documented gap with shadcn Item/Separator/Alert
+ * structure. The native PTO pane still owns the outer surface.
+ * https://ui.shadcn.com/docs/components/base/item
+ * https://ui.shadcn.com/docs/components/base/separator
+ * https://ui.shadcn.com/docs/components/base/alert */
+.inspector-section { padding:var(--space-4); border-top:1px solid var(--border-subtle); }
+.inspector-section-head { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); }
+.inspector-section-title { font:var(--type-title-3); }
+.inspector-soft-card { padding:var(--space-4); background:var(--inspector-soft-card-bg,var(--surface-2)); border-radius:var(--radius-md); font:var(--type-body); }
+.inspector-soft-card.is-warning { background:var(--tone-warning-bg); }
+.inspector-soft-card.is-info { background:var(--tone-info-bg,var(--surface-2)); }
+.inspector-soft-card.is-danger { background:var(--tone-danger-bg,var(--surface-2)); }
+.inspector-soft-card.is-success { background:var(--tone-success-bg,var(--surface-2)); }

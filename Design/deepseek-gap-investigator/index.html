@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="完整 DeepSeek V4 Trace 工作台：从泳道选区进入六步调查，与 PyPTO 工程实验衔接。">
+<title>Trace Investigator · 真实证据 | DeepSeek V4</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=2">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.css">
+<link rel="stylesheet" href="components/ui.css?v=16"><link rel="stylesheet" href="styles.css?v=19"><link rel="stylesheet" href="investigation/report.css?v=28">
+</head>
+<body id="frame" class="pto-ide-frame trace-app" data-ide-frame data-host="standalone" data-surface="solid" data-inspector-collapsed="true">
+ <header class="pto-ide-frame__topbar">
+  <div class="pto-ide-frame__topbar-left"><a class="btn btn-ghost" href="../../launch.html">PTO</a><span class="pto-ide-frame__pane-title">Trace Investigator</span><button id="traceMeta" class="btn btn-ghost btn-sm" data-action="load-menu">打开 Trace…</button></div>
+  <div class="pto-ide-frame__topbar-center"><button id="searchTrigger" class="btn btn-ghost search-trigger" data-action="search">搜索 Task、Lane、ID <kbd>/</kbd></button></div>
+  <div class="pto-ide-frame__topbar-right">
+   <button class="btn btn-ghost btn-icon" id="inspectorToggle" data-ide-toggle="inspector" data-collapsed-sizes="100,0" aria-controls="inspector" aria-label="切换事件详情" title="事件详情" data-icon="panel"></button>
+   <button class="btn btn-ghost btn-icon" data-action="theme" aria-label="切换主题" title="切换主题">◐</button>
+  </div>
+ </header>
+ <div class="pto-ide-frame__body">
+  <div class="pto-ide-frame__workarea">
+     <div id="mainSplit" class="pto-ide-frame__split" data-ide-split="standalone-main" data-sizes="75,25" data-pixel-sizes="0,360" data-min-size="220,360" data-storage-key="gap-v4-main">
+      <section id="tracePane" class="pto-ide-frame__pane" data-ide-pane="preview">
+       <header class="pto-ide-frame__pane-header trace-toolbar">
+        <label class="compact-field"><span>Rank</span><select id="rankSelect" class="ui-input compact-input" aria-label="Rank"><option value="0">0</option><option value="1">1</option></select></label>
+        <label class="compact-field"><span>泳道</span><select id="laneScopeSelect" class="ui-input compact-input" aria-label="泳道范围"><option value="worker|all">Worker · 全部</option><option value="worker|AIC">Worker · AIC</option><option value="worker|AIV">Worker · AIV</option><option value="all|all">所有进程</option><option value="custom" hidden>自定义</option></select></label>
+        <button id="investigationToggle" class="btn btn-sm diagnosis-mode-toggle is-selected" data-action="investigations" aria-pressed="true" title="显示或隐藏 Trace 上的异常区间">诊断模式</button><button id="brushButton" class="btn btn-ghost btn-sm" data-action="brush" aria-pressed="false">框选调查</button>
+        <div class="trace-view-actions"><button class="btn btn-ghost btn-sm" data-action="lanes">显示…</button><div class="toolbar-control"><button class="btn btn-ghost btn-icon" data-action="zoom-out" aria-label="缩小">−</button><button class="btn btn-ghost btn-sm" data-action="fit">Fit</button><button class="btn btn-ghost btn-icon" data-action="zoom-in" aria-label="放大">+</button></div></div>
+       </header>
+       <nav id="workTabs" class="tab-control" aria-label="主工作区" hidden></nav>
+       <div id="traceSurface" class="trace-surface"><canvas id="traceCanvas" tabindex="0" aria-label="完整运行泳道；方向键平移，+ / − 缩放，Enter 选择任务；框选调查模式下拖动创建选区"></canvas><div id="traceState" class="trace-state" role="status"><div class="empty-card"><h2 class="empty-title">正在加载完整 Trace</h2><p class="empty-sub">读取原始事件并建立泳道索引</p><progress aria-label="Trace 加载进度"></progress></div></div><div id="taskHit" class="task-hit" tabindex="-1" hidden></div>
+        <div id="markerActions" class="marker-actions" aria-label="Trace 区间调查"></div>
+        <div id="selectionAction" class="selection-action panel-shell" hidden></div>
+        <section id="mainEvidence" class="main-evidence" aria-label="主工作区证据" hidden></section>
+        <div id="investigationOverlay" class="investigation-overlay" hidden>
+         <div id="investigationClearance" aria-hidden="true"></div>
+         <section id="investigationDrawer" class="pto-ide-frame__pane" role="region" aria-label="异常调查" tabindex="-1">
+          <header class="pto-ide-frame__pane-header"><h2 id="investigationTitle" class="pto-ide-frame__pane-title">异常调查</h2><button class="btn btn-ghost btn-icon" data-action="close-investigation" aria-label="收起异常调查">×</button></header>
+          <div class="investigation-layout"><nav id="caseList" class="case-list" aria-label="当前 Rank 调查点"></nav><div class="investigation-main">
+           <div id="investigationContent" class="pto-ide-frame__pane-body inspector-rail"></div><footer id="investigationFooter" class="drawer-footer" hidden></footer>
+           <section id="bottomDock" class="evidence-detail" hidden><header class="pto-ide-frame__pane-header"><button class="btn btn-ghost btn-sm" data-action="close-bottom">← 返回调查</button><h3 id="bottomTitle" class="pto-ide-frame__pane-title">证据</h3></header><div id="bottomContent" class="pto-ide-frame__pane-body bottom-content"></div></section>
+          </div></div>
+         </section>
+        </div>
+       </div>
+      </section>
+      <aside id="inspector" class="pto-ide-frame__pane" data-ide-pane="inspector" aria-label="事件详情">
+       <header class="pto-ide-frame__pane-header"><h2 id="inspectorTitle" class="pto-ide-frame__pane-title">事件详情</h2><button class="btn btn-ghost btn-icon" data-action="close-inspector" aria-label="关闭事件详情">×</button></header>
+       <div id="inspectorContent" class="pto-ide-frame__pane-body inspector-rail"></div><footer id="inspectorFooter" class="drawer-footer"></footer>
+      </aside>
+     </div>
+   <footer class="pto-ide-frame__status-strip"><span id="status" aria-live="polite">加载中</span></footer>
+  </div>
+ </div>
+<dialog class="ui-dialog panel-shell" id="detailDialog" aria-labelledby="dialogTitle"><header class="panel-shell-header"><h2 id="dialogTitle"></h2><button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="关闭弹窗">×</button></header><div class="panel-shell-body" id="dialogBody"></div></dialog>
+<dialog id="mobileSheet" class="ui-sheet" aria-label="事件详情"></dialog>
+<div id="toast" class="ui-toast panel-shell" role="status" hidden></div>
+<input id="traceImport" type="file" accept="application/json,.json" hidden><input id="folderImport" type="file" webkitdirectory multiple hidden><input id="resultImport" type="file" accept="application/json,.json" hidden><input id="projectImport" type="file" webkitdirectory multiple hidden><input id="candidateImport" type="file" accept="application/json,.json" hidden>
+<script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js?v=2"></script>
+<script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.js"></script>
+<script src="data.js"></script><script src="components/ui.js?v=16"></script>
+<script src="adapters/trace.js"></script><script src="render/trace.js?v=16"></script><script src="vendor/pass-ir-layout.js?v=21"></script><script src="render/workarea.js?v=28"></script><script src="investigation/project.js?v=16"></script><script src="investigation/report.js?v=21"></script><script src="investigation/workflow.js?v=22"></script><script src="investigation/experiments.js?v=16"></script><script src="investigation/simulation.js?v=27"></script><script src="app.js?v=22"></script>
+</body></html>
