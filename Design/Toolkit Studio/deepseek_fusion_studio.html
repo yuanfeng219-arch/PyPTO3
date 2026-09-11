@@ -1,0 +1,2534 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DeepSeek Fusion Studio · 模型分析与融合推荐</title><meta name="description" content="DeepSeek V4 Flash 模型结构、torch_npu 替换方案及带数据流、Buffer 生命周期、调度同步解释的融合推荐。">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css">
+<link rel="stylesheet" href="./styles/demo.css">
+<link rel="stylesheet" href="./styles/fusion.css">
+<style>:root {color-scheme:dark; --df-blue:#80aaff;--df-good:#78d5b2;--df-warn:#edbd73;--df-bg:#121417;--df-panel:#1b1e23;--df-border:#343941;--df-muted:#a3abb8;--df-text:#edf0f5;}
+*{box-sizing:border-box} [hidden]{display:none!important}
+html{min-width:0!important;width:100%;overflow-x:hidden}body.df-app{display:block;width:100%;max-width:100vw}.df-workspace{min-width:0}.df-rec-head>div:first-child{min-width:0}.df-rec-head p{overflow-wrap:anywhere}.df-time-track{min-width:0}
+body.df-app{margin:0;min-width:360px;background:var(--df-bg);color:var(--df-text);font:14px/1.55 var(--font-sans,system-ui);overflow:hidden}
+.df-app button,.df-app select,.df-app input{font:inherit} .df-app button{cursor:pointer} .df-app button:focus-visible,.df-app select:focus-visible,.df-app a:focus-visible,.df-app input:focus-visible{outline:2px solid var(--df-blue);outline-offset:3px}
+.df-app a{color:var(--df-blue)} .df-app button:disabled{opacity:.5;cursor:not-allowed}
+.df-frame.pto-ide-frame{display:flex;flex-direction:column;width:100%;height:100dvh;min-height:0;border:0;border-radius:0;--kf-type-2xs:12px;--kf-type-xs:13px;--kf-type-sm:14px;--kf-type-md:15px;--kf-type-lg:18px}
+.df-top{display:flex;align-items:center;gap:28px;min-height:64px;padding:10px 22px;border-bottom:1px solid var(--df-border);background:#191c20;flex-wrap:wrap}
+.df-brand{display:flex;align-items:center;gap:10px;color:var(--df-text)!important;text-decoration:none;white-space:nowrap}.df-brand img{width:32px;height:26px;object-fit:contain}.df-brand span{font-size:16px}.df-brand b{font-weight:450;color:var(--df-muted)}
+.df-top nav{display:flex;gap:5px;flex:1}.df-top nav button{border:1px solid transparent;padding:8px 13px;background:transparent;color:var(--df-muted);border-radius:6px}.df-top nav button.active{color:var(--df-blue);background:#253249;border-color:#425d86}.df-top nav button:hover{color:white;background:#292e36}.df-version{color:var(--df-muted);font-size:12px}
+.df-workspace{flex:1;min-height:0;position:relative}.df-footer{min-height:30px;display:flex;align-items:center;gap:20px;padding:4px 16px;background:#191c20;border-top:1px solid var(--df-border);font-size:12px;color:var(--df-muted)}.df-footer span:first-child{flex:1}.df-footer a{white-space:nowrap}
+.df-app .kf-model-workspace{position:relative;height:100%;display:block}.df-app .kf-model-split{display:grid;grid-template-columns:230px minmax(0,1fr) 280px;height:100%}.df-app .pto-ide-frame__pane{min-height:0;min-width:0;display:flex;flex-direction:column}.df-app .pto-ide-frame__pane-body{min-height:0;overflow:auto;flex:1}.df-app .kf-model-canvas__body{display:flex;flex-direction:column;overflow:hidden}.df-app .kf-model-graph-area{flex:1;min-height:0;position:relative}.df-app .kf-model-stage{height:100%;min-height:0}.df-app .kf-model-toolbar{flex-wrap:wrap;align-items:flex-start;gap:8px}.df-app .kf-model-toolbar h1{font-size:17px;white-space:normal}.df-app .kf-model-toolbar__right{flex-wrap:wrap;gap:8px}.df-app .kf-model-toolbar__actions{height:32px}.df-app .kf-model-toolbar__fusion,.df-app .kf-model-toolbar__catalog{margin:0;font-size:13px}.df-app .kf-model-toolbar__catalog{padding:7px 12px;border:1px solid #5372a7;border-radius:5px;color:var(--df-blue);background:#253249}.df-model-note{font-size:12px;color:var(--df-muted);padding:12px;border:1px solid var(--df-border);border-radius:6px;margin-top:16px;line-height:1.7}
+.df-app .kf-model-workspace.is-fusion-docked .kf-model-split{grid-template-columns:200px minmax(0,1fr) minmax(420px,42%)}.df-app .kf-model-workspace.is-fusion-docked #modelInspectorPane{visibility:hidden}.df-app .kf-fus-root{position:absolute;right:0;top:0;bottom:0;width:max(420px,42%);z-index:8}.df-app .kf-fus-head{flex-wrap:wrap;gap:10px}.df-app .kf-fus-headactions{flex-wrap:wrap}.df-app .kf-fus-head p{font-size:12px;overflow-wrap:anywhere}.df-app .kf-fus-drawer{height:100%}.df-app .kf-fus-panel{font-size:13px}.df-app .kf-cmp-root{position:absolute;inset:0;z-index:20;background:var(--df-bg)}.df-app .kf-model-workspace.is-comparing .kf-model-split{visibility:hidden}.df-app .kf-model-workspace.is-comparing .kf-fus-root{visibility:hidden}
+#fusionWorkspace{height:100%;display:flex;flex-direction:column;min-height:0;background:var(--df-bg)}
+.df-workspace.is-recommend-docked{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(460px,.92fr);min-height:0}
+.df-workspace.is-recommend-docked #modelArchitectureView{display:block!important;min-width:0;min-height:0}
+.df-workspace.is-recommend-docked #fusionWorkspace{display:flex!important;min-width:0;min-height:0;border-left:1px solid var(--df-border)}
+.df-workspace.is-recommend-docked .kf-model-split{grid-template-columns:190px minmax(0,1fr) 0!important}
+.df-workspace.is-recommend-docked #modelInspectorPane{display:none}
+.df-workspace.is-recommend-docked .kf-model-toolbar__catalog{display:none!important}
+.df-workspace.is-recommend-docked #fusionWorkspace .df-rec-body{grid-template-columns:180px minmax(0,1fr)}
+.df-rec-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 24px 12px;border-bottom:1px solid var(--df-border)}.df-rec-head h1{margin:0;font-size:22px;font-weight:600}.df-rec-head p{margin:5px 0 0;color:var(--df-muted);font-size:13px}.df-head-actions{display:flex;gap:8px;flex-shrink:0}.df-btn{border:1px solid var(--df-border);background:#252a31;color:var(--df-text);border-radius:5px;padding:7px 12px;line-height:1.4}.df-btn:hover{background:#323944;border-color:#647186}.df-btn.primary{color:var(--df-blue);border-color:#4a6797;background:#243149}
+.df-context{display:flex;gap:14px;padding:12px 24px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--df-border);background:#181b20}.df-context label{display:grid;gap:4px;color:var(--df-muted);font-size:12px}.df-context select,.df-context input{border:1px solid var(--df-border);background:#23272e;color:var(--df-text);padding:6px 8px;border-radius:4px;height:34px;max-width:270px}.df-context input{width:88px}.df-context .df-context-note{flex:1;min-width:160px;font-size:12px;color:var(--df-muted);padding-bottom:4px}.df-context label.df-scope{min-width:190px}
+.df-rec-body{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:0;flex:1}.df-candidates{padding:18px 12px;overflow:auto;border-right:1px solid var(--df-border);background:#171a1f}.df-list-head{display:flex;align-items:center;justify-content:space-between;padding:0 8px 10px;font-size:13px;color:var(--df-muted)}.df-candidate{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:7px;background:transparent;padding:14px 12px;color:var(--df-text);margin:3px 0}.df-candidate:hover{background:#252a32}.df-candidate.active{border-color:#4e6c9d;background:#233048;box-shadow:inset 3px 0 var(--df-blue)}.df-candidate strong{display:block;font-size:14px;font-weight:550;line-height:1.6;margin:5px 0}.df-candidate small{display:block;color:var(--df-muted);font-size:12px}.df-label{display:inline-block;padding:2px 7px;border:1px solid #4d4435;border-radius:4px;font-size:12px;line-height:1.5;color:var(--df-warn);background:#302a21}.df-label.info{color:var(--df-blue);border-color:#425d86;background:#222f46}.df-label.muted{color:#bdc5d0;border-color:#49515d;background:#292e35}.df-label.block{color:#f2a2a5;border-color:#76424a;background:#37272d}.df-divider{margin:20px 8px 6px;color:var(--df-muted);font-size:12px}
+.df-detail{min-width:0;min-height:0;display:flex;flex-direction:column}.df-detail-head{padding:20px 26px 0}.df-detail-meta{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--df-muted)}.df-detail-head h2{font-size:21px;margin:10px 0 6px}.df-pattern{font-family:var(--font-mono,monospace);color:#b2c4e4;font-size:13px;overflow-wrap:anywhere}.df-detail-actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}.df-tabs{display:flex;gap:20px;border-bottom:1px solid var(--df-border);margin-top:18px;overflow-x:auto}.df-tabs button{white-space:nowrap;border:0;border-bottom:2px solid transparent;padding:10px 0;background:transparent;color:var(--df-muted)}.df-tabs button.active{border-color:var(--df-blue);color:var(--df-blue)}.df-detail-content{overflow:auto;padding:22px 26px 40px;min-height:0;flex:1}.df-detail-content h3{font-size:15px;margin:24px 0 10px}.df-detail-content h3:first-child{margin-top:0}.df-detail-content p{margin:7px 0;line-height:1.8;color:#cbd1dc}.df-detail-content ul{padding-left:21px;color:#cbd1dc;line-height:1.9}.df-detail-content code{font-size:13px;color:#b7cef3}.df-note{border-left:3px solid #567db7;background:#202a3a;padding:12px 16px;font-size:13px;line-height:1.8;color:#c8d6ec}.df-note.warn{border-color:#ba975f;background:#2b2720;color:#e4cda8}.df-note.block{border-color:#bd6a72;background:#302329;color:#ecc1c4}.df-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.df-metric{border:1px solid var(--df-border);border-radius:6px;padding:14px;background:#1b1f25}.df-metric small{display:block;color:var(--df-muted);font-size:12px}.df-metric b{display:block;font-size:21px;font-weight:550;margin:5px 0;color:var(--df-text)}.df-metric p{font-size:12px;margin:0;line-height:1.6}
+.df-table-wrap{overflow:auto}.df-table{width:100%;border-collapse:collapse;font-size:13px}.df-table th{text-align:left;color:var(--df-muted);font-weight:500;background:#21252c}.df-table th,.df-table td{padding:11px 12px;border-bottom:1px solid var(--df-border);vertical-align:top;line-height:1.8}.df-table td:first-child{color:var(--df-text);min-width:110px}.df-table td{color:#c5ccd8}.df-table .good{color:var(--df-good)}
+.df-flow-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}.df-flow{padding:16px;border:1px solid var(--df-border);border-radius:7px;background:#191d23}.df-flow h4{margin:0 0 14px;font-size:14px;color:var(--df-muted)}.df-flow-node{padding:10px 12px;border:1px solid #465977;border-radius:5px;background:#253149;color:#d2e1fa;font-size:13px;line-height:1.65}.df-flow-node.gm{border-style:dashed;background:#2a2825;border-color:#72624b;color:#ead7b4}.df-flow-node.state{border-color:#3d7067;background:#213732;color:#b7e0d4}.df-flow-arrow{text-align:center;color:#8696ad;line-height:25px;font-size:12px}.df-flow-node small{display:block;opacity:.8;font-size:12px}
+.df-timeline{border:1px solid var(--df-border);border-radius:6px;background:#191d23;padding:16px;margin:12px 0}.df-timeline-axis{display:grid;grid-template-columns:130px repeat(6,1fr);font-size:12px;color:var(--df-muted);gap:4px}.df-time-row{display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:4px;margin-top:12px;font-size:12px}.df-time-track{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(16.666% - 1px),#30363f calc(16.666% - 1px),#30363f 16.666%);min-height:30px}.df-time-bar{display:flex;align-items:center;justify-content:center;min-width:0;background:#324d76;border:1px solid #597aad;border-radius:4px;color:#d8e8ff;padding:4px 3px;font-size:12px}.df-time-bar.gm{background:#53462f;border-color:#85704a;color:#f0ddbe}.df-time-bar.state{background:#2b5549;border-color:#4e8b79;color:#bfe5d6}.df-time-bar.wait{border:1px dashed #9279aa;background:#3b3047;color:#dac7eb}.df-time-caption{font-size:12px;color:var(--df-muted);line-height:1.7;margin-top:12px}
+.df-source{font-size:12px;color:var(--df-muted);margin-top:20px;border-top:1px solid var(--df-border);padding-top:12px;line-height:1.8}.df-source a{margin-right:12px}.df-empty{padding:40px 20px;text-align:center;color:var(--df-muted)}
+#boundaryDialog{max-width:720px;width:calc(100vw - 40px);max-height:85dvh;overflow:auto;border:1px solid #586274;border-radius:9px;background:#1b2028;color:var(--df-text);padding:24px}#boundaryDialog::backdrop{background:#000a}#boundaryDialog h2{font-size:20px;margin-top:0}#boundaryDialog p,#boundaryDialog li{line-height:1.8}#dfToast{position:fixed;bottom:46px;left:50%;transform:translateX(-50%);max-width:90vw;padding:12px 18px;background:#273a57;color:#e0edff;border:1px solid #6082b5;border-radius:6px;z-index:80}
+@media(min-width:1600px){.df-rec-body{grid-template-columns:320px 1fr}.df-detail-content{padding-right:6vw}.df-metrics{max-width:1150px}}
+@media(max-width:1100px){.df-version{display:none}.df-top{gap:12px;padding:10px 14px}.df-top nav button{font-size:13px;padding:8px}.df-app .kf-model-split{grid-template-columns:200px minmax(0,1fr)}.df-app #modelInspectorPane{display:none}.df-app .kf-model-workspace.is-fusion-docked .kf-model-split{grid-template-columns:170px minmax(0,1fr)}.df-app .kf-fus-root{width:52%;min-width:380px}.df-rec-head{padding:15px 18px}.df-rec-body{grid-template-columns:250px 1fr}.df-context{gap:10px;padding:10px 18px}.df-detail-head{padding:18px 20px 0}.df-detail-content{padding:20px}.df-metrics{grid-template-columns:1fr}.df-flow-grid{grid-template-columns:1fr}}
+@media(max-width:720px){.df-top{gap:8px}.df-brand span{font-size:14px}.df-brand img{width:26px}.df-top nav{width:100%;flex-basis:100%;gap:3px}.df-top nav button{flex:1;font-size:12px;padding:7px 3px}.df-footer span:nth-child(2){display:none}.df-footer{font-size:11px;gap:6px}.df-rec-head{align-items:flex-start;gap:10px;flex-wrap:wrap}.df-rec-head h1{font-size:18px}.df-rec-head p{font-size:12px}.df-rec-body{grid-template-columns:1fr;overflow:auto;display:block}.df-candidates{display:flex;gap:7px;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--df-border)}.df-candidate{flex:0 0 220px;margin:0}.df-list-head,.df-divider{display:none}.df-detail{overflow:visible}.df-detail-content{overflow:visible;padding:18px 14px}.df-detail-head{padding:16px 14px 0}.df-context{padding:10px;gap:8px}.df-context select{max-width:210px}.df-context .df-context-note{display:none}.df-context label{font-size:12px}.df-detail-head h2{font-size:18px}.df-tabs{gap:16px;font-size:13px}.df-app .kf-model-split{grid-template-columns:1fr}.df-app .kf-model-library{display:none}.df-app .kf-model-phase-nav{display:none}.df-app .kf-model-toolbar{padding:12px}.df-app .kf-model-toolbar h1{font-size:15px}.df-app .kf-model-workspace.is-fusion-docked .kf-model-split{grid-template-columns:1fr}.df-app .kf-fus-root{width:100%;min-width:0}.df-app .kf-fus-head{padding:12px}.df-app .kf-cmp-body{grid-template-columns:1fr}.df-app .kf-cmp-body>section:last-of-type{border-left:0}.df-app .kf-cmp-head{flex-wrap:wrap;gap:8px}.df-time-row{grid-template-columns:95px 1fr}.df-timeline-axis{grid-template-columns:95px repeat(6,1fr)}.df-time-bar{font-size:10px}.df-timeline{padding:10px}.df-head-actions .df-btn{font-size:12px}}
+@media(max-width:1100px) and (min-width:721px){.df-workspace.is-recommend-docked{grid-template-columns:minmax(0,1fr) minmax(380px,.92fr)}}
+@media(max-width:1100px) and (min-width:721px){.df-workspace.is-recommend-docked #fusionWorkspace .df-rec-body{grid-template-columns:170px minmax(0,1fr)}.df-workspace.is-recommend-docked .df-visual-compare{grid-template-columns:1fr}}
+@media(max-width:720px){.df-workspace.is-recommend-docked{display:flex;flex-direction:column;overflow:auto}.df-workspace.is-recommend-docked #modelArchitectureView{height:520px;min-height:520px;flex:0 0 520px}.df-workspace.is-recommend-docked #fusionWorkspace{height:auto;min-height:760px;flex:0 0 auto;border-left:0;border-top:1px solid var(--df-border)}}
+
+.df-visual-block{margin:18px 0 24px;padding:16px;border:1px solid #3a4659;border-radius:9px;background:linear-gradient(145deg,#1b2431,#191d24 65%);box-shadow:0 10px 24px #080b101f}.df-visual-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.df-visual-eyebrow{display:block;color:#8faee0;font:11px/1.4 var(--font-mono,monospace);letter-spacing:.05em;text-transform:uppercase}.df-visual-head h3{margin:4px 0 0!important;color:#edf3ff;font-size:15px!important}.df-visual-status{padding:3px 7px;border:1px solid #806a47;border-radius:4px;background:#302b22;color:#f0ce94;font-size:11px;white-space:nowrap}.df-visual-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0}.df-visual-stats>div{padding:9px 10px;border:1px solid #303c4e;border-radius:6px;background:#202733}.df-visual-stats b{display:block;color:#e7efff;font:600 18px/1.1 var(--font-mono,monospace)}.df-visual-stats small{display:block;margin-top:5px;color:#becbe0;font-size:12px}.df-visual-stats span{display:block;margin-top:2px;color:#8896aa;font-size:11px;line-height:1.45}.df-visual-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}.df-visual-card{min-width:0;padding:11px;border:1px solid #3a414c;border-radius:7px;background:#181c22}.df-visual-card.is-after{border-color:#396a63;background:#182522}.df-visual-cardhead{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:10px}.df-visual-cardhead b{font-size:12px;color:#dce4f1}.df-visual-cardhead small{color:#8490a0;font-size:10px;text-align:right}.df-pipeline{display:flex;align-items:center;gap:4px;min-width:0}.df-pipe-node{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1;min-height:49px;padding:6px 5px;border:1px solid #526783;border-radius:5px;background:#26344a;color:#dbe9ff;text-align:center;font-size:11px;line-height:1.3}.df-pipe-node em{display:block;margin-top:3px;color:#9cabc1;font-size:9px;font-style:normal;line-height:1.2}.df-pipe-node.gm{border-style:dashed;background:#312d26;border-color:#796a50;color:#ecd8b4}.df-pipe-node.gm em{color:#bda987}.df-pipe-node.gm.warn{border-color:#9a6960;background:#352927}.df-pipe-node.ub{background:#28374b}.df-pipe-node.fused{flex:1.7;border-color:#559b83;background:#214039;color:#c8f0dd;box-shadow:0 0 0 1px #559b8338 inset}.df-pipe-node.fused em{color:#a7d5c1}.df-pipe-node.cast{border-color:#7f709c;background:#2c293c;color:#e5d9f7}.df-pipe-arrow{flex:0 0 auto;color:#73839a;font-style:normal;font-size:12px}.df-pipe-foot{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:8px;color:#7f8d9e;font-size:10px}.df-transfer{padding:2px 5px;border:1px solid #796a50;border-radius:3px;color:#dfc18b;background:#342f26}.df-fused-mark{padding:2px 7px;border:1px solid #417d6d;border-radius:3px;color:#acd9c4;background:#203a33}.df-visual-boundary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:12px 0 0;padding:10px;border:1px solid #324153;border-radius:6px;background:#1c2531;color:#aebbd0;font-size:11px}.df-visual-boundary b{padding:3px 6px;border-radius:4px;background:#303b4e;color:#dce8f8;font:600 11px var(--font-mono,monospace)}.df-visual-boundary strong{padding:4px 8px;border:1px solid #498b75;border-radius:4px;background:#213c34;color:#c4eedb;font-size:11px}.df-visual-boundary i{color:#7e91ab;font-style:normal}.df-boundary-note{flex-basis:100%;color:#8491a3;font-size:10px}.df-mini-life{margin-top:12px;padding:11px;border:1px solid #303b4b;border-radius:6px;background:#171c23}.df-mini-life-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:9px}.df-mini-life-head b{font-size:12px;color:#dae4f4}.df-mini-life-head span{color:#8290a2;font-size:10px}.df-mini-axis,.df-mini-row{display:grid;grid-template-columns:92px repeat(5,minmax(0,1fr));align-items:center;gap:3px}.df-mini-axis{color:#77869a;font-size:9px;text-align:center}.df-mini-row{margin-top:5px;min-height:22px}.df-mini-row>b{color:#aebbd0;font-size:10px;font-weight:500}.df-mini-bar{display:flex;align-items:center;justify-content:center;min-width:0;padding:4px 3px;border:1px solid #5475a4;border-radius:3px;background:#273c5a;color:#d4e4ff;font-size:9px;line-height:1.2}.df-mini-bar.temp{border-color:#8a7250;background:#423726;color:#f0d6a6}.df-mini-bar.out{border-color:#4d8977;background:#24473d;color:#c7ebd9}.df-visual-footnote{margin-top:9px;color:#7f8c9c;font-size:10px;line-height:1.5}.df-detail-content .df-visual-block h3{margin:0}
+@media(max-width:720px){.df-visual-block{padding:12px;margin-top:14px}.df-visual-compare{grid-template-columns:1fr}.df-visual-stats{gap:5px}.df-visual-stats>div{padding:8px 7px}.df-visual-stats b{font-size:16px}.df-pipe-node{font-size:10px}.df-pipe-node em{font-size:8px}.df-mini-axis,.df-mini-row{grid-template-columns:74px repeat(5,minmax(0,1fr))}}
+.df-mock-banner{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid #4b3f2a;background:#252219;color:#c4b08c;font-size:11px;line-height:1.5}.df-mock-banner b{margin-left:auto;color:#efc980;font-weight:500}.df-mock-chip{display:inline-block;padding:3px 7px;border:1px solid #7c6843;border-radius:4px;background:#332c21;color:#e9c785;font:10px/1.3 var(--font-mono,monospace);white-space:nowrap}.df-mock-panel{margin:16px 0;padding:13px;border:1px solid #3b4657;border-radius:8px;background:#1b222c}.df-mock-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}.df-mock-panel-head b{display:block;margin-top:3px;color:#e1e9f6;font-size:13px}.df-mock-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.df-mock-grid>div{min-width:0;padding:9px;border:1px solid #303c4c;border-radius:5px;background:#202936}.df-mock-grid small{display:block;color:#8e9caf;font-size:10px}.df-mock-grid b{display:block;margin:5px 0 2px;color:#e9f0fb;font:600 14px/1.2 var(--font-mono,monospace);overflow-wrap:anywhere}.df-mock-grid span{display:block;color:#8795a9;font-size:10px;line-height:1.4}.df-mock-panel .df-table{font-size:11px}.df-mock-panel .df-table th,.df-mock-panel .df-table td{padding:8px 9px;line-height:1.5}.df-mock-panel .df-table th{background:#25303d;color:#b5c2d4}.df-mock-panel .df-table td:first-child{color:#e1e9f4}.df-mock-panel .df-table td{color:#acb8c8}.df-mock-panel .df-table td:last-child{color:#9bcbb9}.df-mock-summary{background:linear-gradient(145deg,#1c2734,#1b222b)}
+@media(max-width:1100px){.df-mock-banner{padding:8px 18px}.df-mock-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.df-mock-banner b{margin-left:0;flex-basis:100%}}
+@media(max-width:720px){.df-mock-banner{padding:8px 10px;gap:5px;font-size:10px}.df-mock-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.df-mock-panel{padding:10px;margin:12px 0}.df-mock-grid b{font-size:12px}.df-mock-panel .df-table th,.df-mock-panel .df-table td{padding:7px 6px}}
+.df-operator-contract{margin:14px 0 18px;padding:13px;border:1px solid #536b91;border-radius:8px;background:#1a2230}.df-operator-contract-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:11px}.df-operator-contract-head b{display:block;margin-top:3px;color:#e8f0ff;font-size:14px}.df-contract-grid{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:7px}.df-contract-card{min-width:0;padding:10px;border:1px solid #3a4658;border-radius:6px;background:#202936}.df-contract-card.is-include{border-color:#5577a9}.df-contract-card.is-product{border-color:#4f907b;background:#20362f}.df-contract-card.is-exclude{border-color:#775b5e;background:#30262a}.df-contract-label{display:block;margin-bottom:8px;color:#a9b9cf;font:10px/1.3 var(--font-mono,monospace);letter-spacing:.04em}.df-contract-card.is-include .df-contract-label{color:#a8c7f1}.df-contract-card.is-product .df-contract-label{color:#a9e0c8}.df-contract-card.is-exclude .df-contract-label{color:#e3b5b8}.df-contract-card ol,.df-contract-card ul{margin:0;padding-left:18px;color:#c5d0df;font-size:11px;line-height:1.7}.df-contract-card li::marker{color:#7899c7}.df-contract-card.is-exclude li::marker{color:#c27c82}.df-contract-card code{color:#d9e7fa;font:10px/1.4 var(--font-mono,monospace);overflow-wrap:anywhere}.df-contract-kernel{display:block;padding:7px;border:1px solid #4b806f;border-radius:4px;background:#1b2d28;color:#c5f0dc!important}.df-contract-formula{margin-top:9px;color:#e3f3e9;font:11px/1.5 var(--font-mono,monospace);overflow-wrap:anywhere}.df-contract-card small{display:block;margin-top:8px;color:#91bca9;font-size:10px;line-height:1.5}.df-contract-result{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px;padding:9px 10px;border-top:1px dashed #536b91;color:#98a9be;font-size:10px}.df-contract-result b{color:#d2deef;font-size:11px}.df-contract-result strong{padding:3px 6px;border-radius:4px;background:#2b5a4b;color:#cdf2df;font-size:11px}.df-contract-result i{color:#7895b7;font-style:normal}
+@media(max-width:1100px){.df-contract-grid{grid-template-columns:1fr}.df-contract-result{align-items:flex-start;flex-direction:column;gap:4px}.df-contract-result i{display:none}}
+.df-reason-map{margin:14px 0 18px;padding:13px;border:1px solid #475872;border-radius:8px;background:linear-gradient(145deg,#1d2634,#1a2029)}.df-reason-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}.df-reason-head b{display:block;margin-top:3px;color:#e7effd;font-size:14px}.df-reason-steps{display:flex;align-items:stretch;gap:4px}.df-reason-step{display:grid;grid-template-columns:22px minmax(0,1fr);position:relative;flex:1;min-width:0;padding:9px 8px 8px;border:1px solid #476386;border-radius:6px;background:#202d40}.df-reason-step.cond{border-color:#8a724b;background:#302b22}.df-reason-step.block{border-color:#825159;background:#30252a}.df-reason-step.covered{border-color:#537267;background:#23332f}.df-reason-num{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#38567f;color:#cde0ff;font:10px var(--font-mono,monospace)}.df-reason-step.cond .df-reason-num{background:#725b35;color:#f2d7a2}.df-reason-step.block .df-reason-num{background:#724048;color:#f0c1c4}.df-reason-step.covered .df-reason-num{background:#3b6a5b;color:#c7ebdc}.df-reason-step b{display:block;color:#dbe7f7;font-size:11px;line-height:1.3}.df-reason-step small{display:block;margin-top:4px;color:#9eacbf;font-size:10px;line-height:1.45}.df-reason-step em{grid-column:1 / 3;margin-top:8px;color:#9bc8b9;font:10px var(--font-mono,monospace);font-style:normal}.df-reason-step.cond em{color:#edc982}.df-reason-step.block em{color:#e2a9af}.df-reason-step.covered em{color:#a9d5c2}.df-reason-arrow{align-self:center;color:#7389a9;font-style:normal;font-size:14px}.df-reason-evidence{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.df-reason-evidence>div{padding:9px;border-top:1px solid #384a62;background:#1b2531}.df-reason-evidence span{display:block;color:#8494aa;font-size:10px}.df-reason-evidence b{display:block;margin:4px 0;color:#d5e2f3;font-size:11px;line-height:1.4}.df-reason-evidence small{display:block;color:#8fa0b4;font-size:10px;line-height:1.4}.df-reason-map+.df-note{margin-top:2px}
+@media(max-width:1100px){.df-reason-steps{display:grid;grid-template-columns:1fr 1fr;gap:6px}.df-reason-arrow{display:none}.df-reason-evidence{grid-template-columns:1fr}.df-reason-evidence>div{border-left:2px solid #3d587d;border-top:0}.df-reason-evidence>div:nth-child(2){border-left-color:#4f8b77}.df-reason-evidence>div:nth-child(3){border-left-color:#8a724b}}
+@media(max-width:720px){.df-reason-map{padding:10px}.df-reason-steps{grid-template-columns:1fr}.df-reason-step{grid-template-columns:24px minmax(0,1fr)}.df-reason-step em{grid-column:2;margin-top:5px}.df-reason-head b{font-size:13px}}
+
+@media(min-width:721px) and (max-width:1100px){.df-metrics{grid-template-columns:repeat(3,1fr)}.df-metric{padding:12px}.df-metric b{font-size:18px}.df-flow-grid{grid-template-columns:1fr 1fr}}</style></head><body class="df-app"><div class="pto-ide-frame df-frame" data-host="standalone">
+<header class="df-top"><a class="df-brand" href="../../launch.html"><img src="./deepseek-logo-TrLl386065.webp" alt=""><span>DeepSeek <b>Fusion Studio</b></span></a><nav aria-label="分析流程"><button data-route="original" class="active">01 模型整网</button><button data-route="npu">02 torch_npu 替换模型</button><button data-route="recommend">03 融合推荐</button></nav><span class="df-version">规则修订 2026.09.11 · 演示</span></header>
+<div class="df-workspace">        <section class="kf-model-workspace pto-model-graphviz-pattern-page" id="modelArchitectureView" aria-label="DeepSeek 模型整网分析">
+          <div class="pto-ide-frame__split kf-model-split">
+          <aside class="pto-ide-frame__pane kf-model-library" data-ide-pane="model-library" aria-label="模型列表">
+            <header class="pto-ide-frame__pane-header kf-model-library__header">
+              <div class="kf-pane-title-stack"><span class="kf-pane-kicker">MODEL ANALYSIS</span><span class="pto-ide-frame__pane-title">模型整网分析</span></div>
+              <span class="pto-ide-frame__pane-meta">MODEL</span>
+            </header>
+            <div class="pto-ide-frame__pane-body kf-model-library__body">
+              <div class="kf-model-selector" data-model-selector>
+              <button class="kf-model-selector__trigger" type="button" data-model-selector-trigger aria-haspopup="listbox" aria-expanded="false" aria-controls="modelSelectorMenu">
+                <span class="kf-model-selector__current-icon" data-model-selector-icon="deepseek-v4-flash" aria-hidden="true" hidden>
+                  <img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt="">
+                </span>
+                <span class="kf-model-selector__label"><b data-model-selector-title>DeepSeek V4 Flash</b><small data-model-selector-subtitle>模型结构 · 源码摘要</small></span>
+                <span class="kf-model-selector__chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="kf-model-selector__menu" id="modelSelectorMenu" data-model-selector-menu role="listbox" aria-label="选择模型" hidden>
+                <button class="kf-model-card" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash</b><small>MoE · CSA/HCA · 官方结构</small></span><em>可视化</em>
+                </button>
+                <button class="kf-model-card is-npu" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash-npu">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash · torch_npu</b><small>替换方案模型 · 待验证</small></span><em>可视化</em>
+                </button>
+              </div>
+              </div>
+              <div class="kf-model-facts" id="modelFacts">
+              <span>模型规格</span>
+              <dl id="modelFactsBody"><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
+              </div>
+              <div class="df-model-note">结构与代码摘要，不是编译后的 Kernel 图。替换生成方案模型，API 支持与性能仍需验证。</div><div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
+            </div>
+          </aside>
+
+          <main class="pto-ide-frame__pane kf-model-canvas" data-ide-pane="model-canvas">
+            <header class="pto-ide-frame__pane-header kf-model-toolbar">
+              <div><h1>DeepSeek V4 Flash · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
+              <div class="kf-model-toolbar__right">
+                <div class="kf-model-toolbar__actions" role="group" aria-label="画布控制">
+                  <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
+                </div>
+                <button class="kf-model-toolbar__fusion" type="button" data-open-fusion aria-haspopup="dialog" aria-controls="fusionAdvisor" hidden>⧉ torch_npu 替换方案 ↗</button>
+                <button class="kf-model-toolbar__catalog" type="button" data-open-catalog aria-haspopup="dialog" aria-controls="fusionCatalog" hidden>融合推荐与解释 ↗</button>
+              </div>
+            </header>
+            <div class="pto-ide-frame__pane-body kf-model-canvas__body">
+              <div class="kf-model-graph-area">
+              <nav class="kf-model-phases kf-model-phase-nav" id="modelPhaseNav" data-model-phase-nav aria-label="执行阶段">
+                <div class="kf-model-phase-nav__head"><span>执行阶段</span><button type="button" data-model-phase-nav-toggle aria-expanded="true" aria-controls="modelPhaseNav" aria-label="收起执行阶段" title="收起执行阶段">‹</button></div>
+                <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
+                <button type="button" data-model-phase="boundary-in"><i>01</i><span><b>输入边界</b><small>copy_hidden · x_gamma0</small></span></button>
+                <button type="button" data-model-phase="scope-1"><i>02</i><span><b>Scope 1</b><small>RMS · QKV · QK Norm</small></span></button>
+                <button type="button" data-model-phase="scope-2"><i>03</i><span><b>Scope 2</b><small>Paged Flash Attention</small></span></button>
+                <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
+                <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
+              </nav>
+              <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="DeepSeek V4 Flash 模型架构图"></div>
+              </div>
+
+            </div>
+          </main>
+
+          <aside class="pto-ide-frame__pane kf-model-inspector" data-ide-pane="inspector" id="modelInspectorPane" aria-live="polite">
+            <header class="pto-ide-frame__pane-header kf-model-inspector__header"><div class="kf-pane-title-stack"><span class="kf-pane-kicker">MODEL INSPECTOR</span><span class="pto-ide-frame__pane-title" id="modelInspectorTitle">DeepSeek V4 Flash</span></div><span class="pto-ide-frame__pane-meta">MODEL</span></header>
+            <div class="pto-ide-frame__pane-body kf-model-inspector__body" id="modelInspectorBody">
+              <div class="kf-model-inspector__hero"><span>CODE ALIGNED</span><b>decode_layer.py 已校准</b><p>阶段与依赖来自实际的 PyPTO 任务：从 BF16 输入边界开始，经三段 Scope，最终进入 RMS LM Head。</p></div>
+            </div>
+          </aside>
+          </div>
+        </section>
+
+<section id="fusionWorkspace" hidden aria-label="融合推荐与方案解释"></section></div>
+<footer class="df-footer"><span id="modelCanvasStatus" role="status">正在加载模型结构…</span><span>静态分析 · 无硬件实测</span><a href="./index_v2.html">原版 Toolkit Studio ↗</a></footer>
+</div><dialog id="boundaryDialog" aria-label="替换边界与硬件条件"><div id="boundaryContent"></div><button class="df-btn" data-close-dialog>关闭</button></dialog><div id="dfToast" role="status" hidden></div>
+<script src="../../vendor/pto-design-system/patterns/model-graphviz/pattern.js"></script>
+<script src="./js/fusion-rules-data.js"></script>
+<script>/* This page owns its rule corrections. Shared source assets and index_v2 stay unchanged. */
+(() => {
+  const rules = window.PtoFusionRules;
+  rules.STATUS.ready.label = '参考替换';
+  rules.STATUS.prep.label = '需适配';
+  const by = id => rules.modules.find(x => x.id === id);
+  by('mod-rmsnorm').note = '按源码登记的参考替换；实际 Kernel 数由目标版本和编译模式决定，尚未采集。层内重复调用与 final Norm 分开统计。';
+  rules.KIND.cross.label = '跨模块编排';
+  rules.KIND.cross.desc = '多个 API 与保留步骤组成的模块编排，不代表单 Kernel';
+  const mla = by('mod-mla-prolog');
+  mla.status = 'constraint';
+  mla.kind = 'intra';
+  mla.nodes = ['qkv-proj'];
+  mla.title = 'MLA Prolog：保留输入 Norm 边界';
+  mla.covers = mla.covers.filter(x => !String(x[0]).includes('attn_norm'));
+  mla.uncovered.push(['共享输入 attn_norm（indexer / compressor 也消费）','norm'], ['Q 的逐头归一化与量化兼容性待核实','norm']);
+  mla.note = '本页不将此候选应用到方案模型。输入 Norm 有多个消费者，不能因合并而删除共享结果；Q 逐头归一化是当前语义门禁。';
+  const moe = by('mod-moe-grouped');
+  moe.title = 'MoE 多 API 编排替换';
+  moe.uncovered.push(['保留 gate 上界 / up 双侧 clamp 与 SiLU','act'],['保留 w2 前的路由权重乘法与 cast','quant']);
+  moe.after = [
+    ['# 适配伪代码；不是可直接执行的 API 签名',''],
+    ['x_sorted, row_map, counts = routing_adapter(x, indices)',''],
+    ['gate, up = grouped_w1_w3_adapter(x_sorted, weights)',''],
+    ['z = silu(clamp(gate.float(), max=10)) * clamp(up.float(), -10, 10)',''],
+    ['z = sorted_route_weights * z  # 保持权重在 w2 前',''],
+    ['expert_y = grouped_w2_adapter(z.to(input_dtype))',''],
+    ['y = scatter_sum_adapter(expert_y, row_map)  # 不重复加权',''],
+    ['y = optional_all_reduce(y) + shared_expert(x)','']
+  ];
+  moe.note = '图上合并表示编排范围；多个 API 不等于单 Kernel。原源码为 TP 专家分片；EP/MC2 是待验证的替代路径，不由 Prefill/Decode 自动决定。';
+  moe.stages = {prefill:'按实际 TP/EP 配置选择路由；长序列评估重排与 GEMM 吞吐',decode:'保持同一并行配置；评估小 batch、空专家和通信尾延迟'};
+  moe.constraints = moe.constraints.filter(x => !x.item.includes('≤ 24'));
+  const tail = by('mod-compress-tail');
+  tail.uncovered.push(['量化 scale / FP8 舍入 / indexer Hadamard 分支需单独核对','quant']);
+  tail.note = '方案模型假设完成 Norm/RoPE/Cache 适配；不能声称 FP8/FP4 量化与 Hadamard 已覆盖。未完成适配时回退原实现。';
+  const head = by('mod-lm-head');
+  head.status = 'constraint';
+  head.note = 'final Norm 已由 RMSNorm 方案登记，避免重复替换；采样不属于模型 get_logits 的必经链路。';
+})();
+</script>
+<script>(function registerDeepSeekV4ModelViz() {
+  'use strict';
+
+  const MODEL_ID = 'deepseek-v4-flash';
+  const stageId = 'qwen3ModelGraph';
+  const CONFIG_URL = '../../Data/DeepSeek-V4-Flash-Official/inference-config.json';
+
+  const graph = {
+    width: 1240,
+    height: 2140,
+    clusters: [
+      { id: 'embedding', label: 'Embedding · Input', x: 270, y: 50, width: 700, height: 180 },
+      { id: 'decoder-stack', label: 'DeepSeek-V4 Flash Decoder × 43', x: 150, y: 280, width: 940, height: 1550, repeat: 43 },
+      { id: 'hybrid-attention', label: 'Hybrid Attention · CSA / HCA', x: 200, y: 480, width: 840, height: 420, parent: 'decoder-stack' },
+      { id: 'moe-block', label: 'DeepSeekMoE · 256 routed experts', x: 200, y: 1020, width: 840, height: 500, parent: 'decoder-stack' },
+      { id: 'mhc-block', label: 'mHC Residual Connection', x: 200, y: 1590, width: 840, height: 180, parent: 'decoder-stack' },
+      { id: 'output', label: 'Output · MTP / LM Head', x: 270, y: 1900, width: 700, height: 170 },
+    ],
+    nodes: [
+      { id: 'tokens', label: 'input_ids', typeLabel: 'Input · [batch, seq] · INT64', kind: 'tensor', x: 620, y: 88, width: 260, height: 54, colorKey: 'io:input', phase: 'embedding', parent: 'embedding' },
+      { id: 'embedding-op', label: 'token_embedding', typeLabel: 'Vocab 129,280 · Hidden 4,096', kind: 'op', x: 620, y: 178, width: 300, height: 58, colorKey: 'sem:linear', phase: 'embedding', parent: 'embedding' },
+      { id: 'layer-input', label: 'hidden_states', typeLabel: 'BF16 · [batch, seq, 4096]', kind: 'tensor', x: 620, y: 340, width: 300, height: 54, colorKey: 'io:activation', phase: 'layer' },
+      { id: 'pre-norm', label: 'input_rmsnorm', typeLabel: 'RMSNorm · eps 1e-6', kind: 'op', x: 620, y: 420, width: 270, height: 56, colorKey: 'sem:norm', phase: 'layer', parent: 'decoder-stack' },
+      // Attention 拆成三个 L2 节点，边界对齐 torch_npu 的算子边界：
+      // qkv-proj ↔ npu_mla_prolog_v3 · sparse-attn ↔ npu_sparse_flash_attention · out-proj ↔ 输出投影
+      { id: 'qkv-proj', label: 'mla_prolog', typeLabel: 'Q/KV 投影 + RMSNorm + RoPE + Cache 写入', kind: 'op', x: 620, y: 540, width: 380, height: 62, colorKey: 'sem:linear', phase: 'attention', parent: 'hybrid-attention' },
+      { id: 'indexer', label: 'indexer', typeLabel: '64 heads · top-k 512 · compress_ratio 4 的层', kind: 'op', x: 360, y: 640, width: 280, height: 58, colorKey: 'sem:attention', phase: 'attention', parent: 'hybrid-attention' },
+      { id: 'compressor', label: 'compressor', typeLabel: 'Gated pooling 压缩 K/V · CSA/HCA', kind: 'op', x: 870, y: 640, width: 280, height: 58, colorKey: 'sem:attention', phase: 'attention', parent: 'hybrid-attention' },
+      { id: 'sparse-attn', label: 'sparse_attn', typeLabel: '稀疏注意力 · top-k KV block', kind: 'op', x: 600, y: 745, width: 300, height: 58, colorKey: 'sem:attention', phase: 'attention', parent: 'hybrid-attention' },
+      { id: 'rope-cache', label: 'KV cache', typeLabel: 'Window 128 · paged / ring buffer', kind: 'state', x: 895, y: 745, width: 230, height: 54, colorKey: 'io:state', phase: 'attention', parent: 'hybrid-attention' },
+      { id: 'out-proj', label: 'out_projection', typeLabel: 'wo_a 分组 einsum → wo_b · 8 组 × rank 1,024', kind: 'op', x: 620, y: 845, width: 320, height: 58, colorKey: 'sem:linear', phase: 'attention', parent: 'hybrid-attention' },
+      { id: 'attn-output', label: 'attention_output', typeLabel: 'BF16 · compressed attention output', kind: 'tensor', x: 620, y: 925, width: 330, height: 54, colorKey: 'io:activation', phase: 'attention' },
+      { id: 'router', label: 'moe_router', typeLabel: 'sqrtsoftplus · top-k = 6 · scale 1.5', kind: 'op', x: 420, y: 1090, width: 330, height: 58, colorKey: 'sem:gate', phase: 'moe', parent: 'moe-block' },
+      { id: 'expert-select', label: 'expert_dispatch', typeLabel: '256 routed + 1 shared expert', kind: 'op', x: 820, y: 1090, width: 330, height: 58, colorKey: 'sem:comm', phase: 'moe', parent: 'moe-block' },
+      { id: 'shared-expert', label: 'shared_expert', typeLabel: 'SwiGLU · intermediate 2,048', kind: 'op', x: 390, y: 1230, width: 300, height: 58, colorKey: 'sem:mlp', phase: 'moe', parent: 'moe-block' },
+      { id: 'routed-experts', label: 'routed_experts', typeLabel: '6 active experts / token · FP4 experts', kind: 'op', x: 850, y: 1230, width: 330, height: 58, colorKey: 'sem:mlp', phase: 'moe', parent: 'moe-block' },
+      { id: 'expert-swiglu', label: 'SwiGLU + grouped GEMM', typeLabel: 'gate/up → SiLU → multiply → down', kind: 'op', x: 620, y: 1370, width: 360, height: 62, colorKey: 'sem:mlp', phase: 'moe', parent: 'moe-block' },
+      { id: 'combine', label: 'weighted_combine', typeLabel: 'Route weights → hidden output', kind: 'op', x: 620, y: 1480, width: 320, height: 58, colorKey: 'sem:gate', phase: 'moe', parent: 'moe-block' },
+      { id: 'mhc', label: 'mHC', typeLabel: 'Manifold-constrained hyper-connection', kind: 'op', x: 620, y: 1660, width: 360, height: 62, colorKey: 'sem:norm', phase: 'mhc', parent: 'mhc-block' },
+      { id: 'layer-output', label: 'next_hidden_states', typeLabel: 'BF16 · repeated for 43 layers', kind: 'tensor', x: 620, y: 1810, width: 330, height: 54, colorKey: 'io:activation', phase: 'mhc' },
+      { id: 'final-norm', label: 'final_rmsnorm', typeLabel: 'RMSNorm · hidden 4,096', kind: 'op', x: 620, y: 1940, width: 300, height: 58, colorKey: 'sem:norm', phase: 'output', parent: 'output' },
+      { id: 'lm-head', label: 'lm_head', typeLabel: 'Hidden 4,096 → Vocab 129,280', kind: 'op', x: 620, y: 2030, width: 330, height: 58, colorKey: 'sem:head', phase: 'output', parent: 'output' },
+      { id: 'logits', label: 'logits', typeLabel: 'Output · [batch, seq, 129280]', kind: 'tensor', x: 620, y: 2120, width: 280, height: 54, colorKey: 'io:output', phase: 'output' },
+    ],
+    edges: [
+      { source: 'tokens', target: 'embedding-op', tag: 'token ids' },
+      { source: 'embedding-op', target: 'layer-input', tag: 'BF16 hidden' },
+      { source: 'layer-input', target: 'pre-norm' },
+      { source: 'pre-norm', target: 'indexer', tag: 'normalized input' },
+      { source: 'pre-norm', target: 'compressor', tag: 'normalized input' },
+      { source: 'pre-norm', target: 'qkv-proj', tag: 'normalized input' },
+      { source: 'qkv-proj', target: 'indexer', tag: 'qr', dashed: true },
+      { source: 'qkv-proj', target: 'rope-cache', tag: 'KV 写入' },
+      { source: 'qkv-proj', target: 'sparse-attn', tag: 'Q' },
+      { source: 'indexer', target: 'sparse-attn', tag: 'top-k index', dashed: true },
+      // 压缩 KV 和 window KV 共用同一块 buffer：compressor.kv_cache = kv_cache[:, win:]（model.py:491）
+      { source: 'compressor', target: 'rope-cache', tag: '压缩块写入', dashed: true },
+      { source: 'compressor', target: 'sparse-attn', tag: 'compressed K/V', dashed: true },
+      { source: 'rope-cache', target: 'sparse-attn', tag: 'cache 读取', dashed: true },
+      { source: 'sparse-attn', target: 'out-proj', tag: 'attention 输出' },
+      { source: 'out-proj', target: 'attn-output', tag: 'CSA / HCA output' },
+      { source: 'attn-output', target: 'router', tag: 'attention output' },
+      { source: 'router', target: 'expert-select', tag: 'indices + weights' },
+      { source: 'router', target: 'shared-expert', tag: 'shared path', dashed: true },
+      { source: 'expert-select', target: 'routed-experts', tag: '6 experts/token' },
+      { source: 'shared-expert', target: 'expert-swiglu', tag: 'shared output' },
+      { source: 'routed-experts', target: 'expert-swiglu', tag: 'grouped GEMM' },
+      { source: 'expert-swiglu', target: 'combine', tag: 'expert outputs' },
+      { source: 'router', target: 'combine', tag: 'route weights', dashed: true },
+      { source: 'combine', target: 'mhc', tag: 'MoE output' },
+      { source: 'layer-input', target: 'mhc', tag: 'residual', dashed: true },
+      { source: 'mhc', target: 'layer-output', tag: 'next layer' },
+      { source: 'layer-output', target: 'pre-norm', tag: '×43', dashed: true },
+      { source: 'layer-output', target: 'final-norm', tag: 'after layer 43' },
+      { source: 'final-norm', target: 'lm-head', tag: 'normalized hidden' },
+      { source: 'lm-head', target: 'logits', tag: 'vocabulary logits' },
+    ],
+  };
+
+  const phaseMeta = {
+    all: ['DeepSeek-V4 Flash · Full Network', '43 × Decoder Layer · Hybrid Attention · DeepSeekMoE · mHC', '完整链路', '模型模块摘要视图；重复的 mHC / Norm 边界请以 model.py 为准，不按图节点数推断 Kernel 数。'],
+    embedding: ['Embedding · Input', 'Vocab 129,280 → Hidden 4,096', '输入边界', '输入 token 经 embedding 后进入 43 层 Decoder。'],
+    layer: ['Decoder Layer · Pre-Norm', 'RMSNorm → Hybrid Attention → MoE → mHC', '层结构', '每层共享主结构，部分 attention 压缩比例由 compress_ratios 指定。'],
+    attention: ['Hybrid Attention · CSA / HCA', 'Indexer top-k 512 → compressed attention → RoPE/KV cache', '混合注意力', 'DeepSeek-V4 Flash 使用压缩注意力路径，需结合 prefill/decode 分别评估。'],
+    moe: ['DeepSeekMoE · Router + Experts', '256 routed experts · 1 shared expert · 6 active/token', 'MoE 子图', 'Router 产生 expert indices/weights，随后执行 shared 与 routed expert 路径并合并。'],
+    mhc: ['mHC · Residual Connection', 'Manifold-constrained hyper-connection · 43-layer carry', '跨层连接', 'mHC 是 V4 相对传统残差连接的结构变化，需作为独立模块观察。'],
+    output: ['Output · Final Norm + LM Head', 'Hidden 4,096 → Vocabulary 129,280', '输出边界', '最终 RMSNorm 与词表投影产生 logits。'],
+  };
+
+  const phaseOrder = ['all', 'embedding', 'attention', 'moe', 'mhc', 'output'];
+  const facts = [
+    ['Decoder', '43 层'],
+    ['Total / Active', '284B / 13B'],
+    ['Hidden', '4,096'],
+    ['Attention', '64 Q / 1 KV'],
+    ['MoE', '256 routed + 1 shared'],
+    ['Top-k', '6 experts/token'],
+    ['Context', '1,048,576'],
+    ['Precision', 'FP4 expert / FP8 mixed'],
+  ];
+
+  const drillSpecs = {
+    'embedding-op': { description: '并行词表切片 Embedding；多卡场景下先屏蔽非本 rank 的 token，再通过 AllReduce 合并。', steps: [['mask token ids', 'Shard range check · INT64', 'sem:act'], ['F.embedding', '[batch, seq] → [batch, seq, 4096]', 'sem:linear'], ['zero out remote rows', 'Tensor mask · distributed', 'sem:act'], ['all_reduce embedding', 'TP combine · optional', 'sem:comm']] },
+    'pre-norm': { description: 'Decoder 层输入归一化；模型主干使用 FP32 归约后回到激活 dtype。', steps: [['cast FP32', 'Precision boundary', 'sem:linear'], ['square + mean', 'Last-dim reduction', 'sem:act'], ['rsqrt(var + eps)', 'RMS reciprocal · eps 1e-6', 'sem:norm'], ['multiply gamma', 'Elementwise scale · BF16/FP8', 'sem:norm']] },
+    indexer: { description: 'CSA 的 lightning indexer：对压缩 KV 做加权打分并选择 top-k 压缩块。', steps: [['wq_b projection', 'Q low-rank → 64 × 128', 'sem:linear'], ['RoPE + Hadamard', 'Position rotate · FP4 path', 'sem:rope'], ['fp4_act_quant', 'FP4 simulation · block 32', 'sem:quant'], ['einsum q · k', 'Indexer score · FP32', 'sem:attention'], ['relu × weights', 'Weighted score reduction', 'sem:act'], ['topk + causal mask', 'top-k 512 · index offset', 'sem:gate']] },
+    compressor: { description: 'CSA/HCA 共用的压缩器：学习 gated pooling，将连续 KV 压缩后写入压缩缓存。', steps: [['wkv projection', 'FP32 · value candidate', 'sem:linear'], ['wgate projection', 'FP32 · learned gate', 'sem:linear'], ['window reshape', 'ratio 4 / 128 · overlap aware', 'sem:act'], ['softmax gated pooling', 'Token window reduction', 'sem:norm'], ['RMSNorm + RoPE', 'Compressed KV normalization', 'sem:rope'], ['quant + cache write', 'FP8/FP4 · KV cache update', 'sem:comm']] },
+    'qkv-proj': { description: 'MLA 前处理：Q 低秩投影与归一化、latent KV 投影、RoPE 与 KV Cache 写入。对应 npu_mla_prolog_v3 的覆盖范围（model.py:496-506、530）。', steps: [['wq_a + q_norm', 'Q low-rank → rank 1,024', 'sem:linear'], ['wq_b + q reshape', '64 heads × head_dim 512', 'sem:linear'], ['q per-head rsqrt', '无权重归一化 · model.py:498', 'sem:norm'], ['apply_rotary_emb(q)', 'rope_head_dim 64 · YaRN', 'sem:rope'], ['wkv + kv_norm', 'Latent KV · 1 KV head', 'sem:linear'], ['RoPE + act_quant(kv)', 'FP8 non-rope · scale ue8m0', 'sem:quant'], ['KV cache write', 'window 128 · ring / paged', 'io:state']] },
+    'sparse-attn': { description: '稀疏注意力主体：先拼出 window 与压缩块的 top-k 索引，再在选中的 KV block 上做注意力。对应 npu_sparse_flash_attention（model.py:507-535）。', steps: [['window topk indices', 'Sliding window 128', 'sem:gate'], ['compress topk idxs', 'indexer 或 静态索引', 'sem:gate'], ['cache read', 'Window + 压缩块 KV', 'io:state'], ['sparse_attn', 'attn_sink · softmax_scale', 'sem:attention'], ['apply RoPE inverse', 'Attention 输出反旋转', 'sem:rope']] },
+    'out-proj': { description: '分组输出投影：先按 o_groups 分组做 einsum，再经 wo_b 回到 hidden（model.py:538-543）。', steps: [['reshape to groups', '8 组 × head 输出', 'sem:act'], ['wo_a einsum', 'bsgd,grd→bsgr · rank 1,024', 'sem:linear'], ['wo_b projection', 'Grouped output → hidden 4,096', 'sem:linear']] },
+    'rope-cache': { description: '滑窗 KV Cache 状态：由 mla_prolog 写入、sparse_attn 读取。Prefill 整段写入，Decode 单槽环形写入。', steps: [['paged KV write', 'kv_cache[:, start_pos % 128]', 'io:state'], ['compressed cache read', 'CSA/HCA 压缩块', 'io:state']] },
+    router: { description: 'DeepSeekMoE 路由器：计算 256 个专家分数，选择每 token 的 6 个 routed experts。', steps: [['router linear', 'Hidden 4096 → 256 scores', 'sem:linear'], ['sqrtsoftplus', 'sqrt(softplus(score))', 'sem:act'], ['add correction bias', 'Non-hash layers · FP32', 'sem:gate'], ['topk / hash lookup', '6 experts/token', 'sem:gate'], ['gather + normalize', 'Route weights × scale 1.5', 'sem:norm']] },
+    'expert-select': { description: '按照 token-to-expert 路由结果组织输入；分布式 Expert Parallel 时承担跨 rank dispatch。', steps: [['flatten route map', 'Token × top-k indices', 'sem:act'], ['bincount experts', 'Load count · 256 experts', 'sem:gate'], ['where matching ids', 'Per-expert token index', 'sem:comm'], ['gather expert inputs', 'Routed token tiles', 'io:activation'], ['dispatch / all_reduce', 'EP communication · optional', 'sem:comm']] },
+    'shared-expert': { description: '每个 token 必经的共享 SwiGLU Expert，与 routed experts 并行计算。', steps: [['w1 linear', 'Hidden 4096 → intermediate 2048', 'sem:linear'], ['w3 linear', 'Up projection · FP4/FP8', 'sem:linear'], ['clamp + SiLU', 'swiglu_limit 10', 'sem:act'], ['gate × up', 'SwiGLU elementwise', 'sem:mlp'], ['w2 linear', 'Intermediate → hidden 4096', 'sem:linear']] },
+    'routed-experts': { description: '激活专家的 grouped execution；逻辑上每 token 选择 6/256 个专家，实际实现可进一步融合为 Grouped GEMM。', steps: [['select local experts', 'TP/EP shard filter', 'sem:comm'], ['gather routed tokens', 'Variable tokens per expert', 'io:activation'], ['w1 + w3 grouped GEMM', 'FP4 expert weights', 'sem:linear'], ['clamp + SiLU × up', 'SwiGLU activation', 'sem:mlp'], ['w2 grouped GEMM', 'Expert output projection', 'sem:linear'], ['scatter weighted outputs', 'Route weight × token combine', 'sem:comm']] },
+    'expert-swiglu': { description: '共享与 routed Expert 共用的细粒度 SwiGLU 计算链。', steps: [['load gate / up', 'FP32 accumulation', 'io:input'], ['clamp activation', 'Limit 10.0', 'sem:act'], ['SiLU gate', 'Sigmoid × gate', 'sem:act'], ['multiply up', 'SwiGLU product', 'sem:mlp'], ['apply route weight', 'Optional expert weight', 'sem:gate'], ['down projection', 'Intermediate 2048 → hidden 4096', 'sem:linear']] },
+    combine: { description: '合并 6 个 routed expert 输出与 1 个 shared expert 输出，恢复为层级 hidden state。', steps: [['weighted routed sum', 'Top-k route weights', 'sem:gate'], ['shared path add', 'Always-on shared expert', 'sem:act'], ['TP all_reduce', 'Distributed expert output', 'sem:comm'], ['cast to input dtype', 'FP32 → BF16/FP8', 'sem:linear'], ['reshape hidden', '[batch, seq, hc, 4096]', 'io:output']] },
+    mhc: { description: 'mHC 残差连接：通过 Sinkhorn 约束的 pre/post/comb 权重混合多份 hidden state。', steps: [['flatten HC copies', 'hc_mult × hidden', 'sem:act'], ['rsqrt + F.linear', 'Mixing logits · FP32', 'sem:linear'], ['hc_split_sinkhorn', '20 Sinkhorn iterations', 'sem:norm'], ['pre weighted sum', 'HC → single hidden', 'sem:act'], ['post + residual combine', 'Single hidden → HC copies', 'sem:act'], ['cast output', 'Next-layer hidden state', 'io:output']] },
+    'final-norm': { description: '最终 Decoder 输出的 RMSNorm，为词表投影准备归一化 hidden。', steps: [['cast final hidden', 'Input precision normalize', 'sem:linear'], ['square + mean', 'Last-dim reduction', 'sem:act'], ['rsqrt + eps', 'Final RMS reciprocal', 'sem:norm'], ['multiply final gamma', 'Normalized hidden 4096', 'sem:norm']] },
+    'lm-head': { description: 'mHC Head 与词表投影；多卡场景下对词表分片 logits 做 AllGather。', steps: [['hc_head mix', 'Sigmoid mixing weights', 'sem:norm'], ['final RMSNorm', 'Head input normalization', 'sem:norm'], ['vocab linear', 'Hidden 4096 → 129280', 'sem:head'], ['all_gather logits', 'Vocab shard combine · optional', 'sem:comm']] },
+  };
+
+  graph.nodes.forEach((node) => {
+    if (drillSpecs[node.id]) node.collapsed = true;
+  });
+
+  let controller = null;
+  let initialized = false;
+  let activePhase = 'all';
+  let configLoaded = false;
+  let activeDrill = null;
+  let currentGraph = graph;
+
+  /* ---------------- torch_npu 部署态模型 ----------------
+   * 左侧模型列表里的第三个选项，和官方结构并列的一个独立模型。
+   * 它的整网不是手写的，而是由 fusion-rules-data 里全部「可落地 + 跨模块」的
+   * 替换方案叠加到官方结构上推导出来的 —— 规则改了它就跟着变，不会失配。
+   * 结构、规格卡、融合算子的 L3 展开都挂在下面这个 npu 对象上，
+   * 后续针对部署态模型做功能叠加就往这里加。
+   */
+  const NPU_MODEL_ID = MODEL_ID + '-npu';
+  const NPU_NODE_PREFIX = '__npu_';
+  const npuNodeId = (planId) => NPU_NODE_PREFIX + planId + '__';
+
+  const npu = {
+    id: NPU_MODEL_ID,
+    title: 'DeepSeek V4 Flash · torch_npu',
+    subtitle: '替换方案模型 · 待验证',
+    graph: null,       // 懒构建的整网
+    meta: null,        // { plans, planCount, nodesBefore/After, edgesBefore/After }
+    drillSpecs: {},    // 融合算子的 L3 展开，key 是 npuNodeId(planId)
+  };
+
+  const activeModelId = () => window.PtoModelArchitectureState?.active;
+  const isMine = () => activeModelId() === MODEL_ID || activeModelId() === NPU_MODEL_ID;
+  const isNpuView = () => activeModelId() === NPU_MODEL_ID && !!npu.graph;
+  /** 当前这条视图的「原图」：官方结构是 graph，部署态模型是 npu.graph */
+  const baseGraph = () => (isNpuView() ? npu.graph : graph);
+  /** 下钻规格：部署态模型多出融合算子那几个 */
+  const drillSpecFor = (id) => (isNpuView() && npu.drillSpecs[id] ? npu.drillSpecs[id] : drillSpecs[id]);
+
+  function qs(selector) {
+    return document.querySelector(selector);
+  }
+
+  /** 部署态模型的规格卡：模型规格照旧，末尾补三行替换结果 */
+  function chromeFacts() {
+    if (!isNpuView()) return facts;
+    const m = npu.meta || {};
+    return facts.concat([
+      ['候选替换', (m.planCount || 0) + ' 个方案'],
+      ['整网模块', m.nodesBefore + ' → ' + m.nodesAfter],
+      ['依赖边', m.edgesBefore + ' → ' + m.edgesAfter],
+    ]);
+  }
+
+  function setChrome() {
+    const modelId = isNpuView() ? NPU_MODEL_ID : MODEL_ID;
+    const card = qs('[data-model-id="' + modelId + '"]');
+    document.querySelectorAll('[data-model-id]').forEach((item) => {
+      const active = item === card;
+      item.classList.toggle('is-active', active);
+      item.setAttribute('aria-current', String(active));
+      item.setAttribute('aria-selected', String(active));
+      const status = item.querySelector('em');
+      if (status) status.textContent = active ? '已加载' : '可视化';
+    });
+    const selectorTitle = qs('[data-model-selector-title]');
+    const selectorSubtitle = qs('[data-model-selector-subtitle]');
+    if (selectorTitle) selectorTitle.textContent = card?.querySelector('b')?.textContent || 'DeepSeek V4 Flash';
+    if (selectorSubtitle) selectorSubtitle.textContent = card?.querySelector('small')?.textContent || 'MoE · CSA/HCA · 官方结构';
+    document.querySelectorAll('[data-model-selector-icon]').forEach((icon) => { icon.hidden = icon.dataset.modelSelectorIcon !== MODEL_ID; });
+    const factsBody = qs('#modelFactsBody');
+    if (factsBody) factsBody.innerHTML = chromeFacts().map((row) => '<div><dt>' + row[0] + '</dt><dd>' + row[1] + '</dd></div>').join('');
+    const isNpu = isNpuView();
+    const name = isNpu ? npu.title : 'DeepSeek V4 Flash';
+    const title = qs('.kf-model-toolbar h1');
+    if (title) title.textContent = phaseMeta.all[0];
+    const status = qs('#modelCanvasStatus');
+    if (status) {
+      status.textContent = isNpu
+        ? 'torch_npu 方案模型 · ' + (npu.meta?.planCount || 0) + ' 个替换方案 · 图节点 ' + npu.meta?.nodesBefore + ' → ' + npu.meta?.nodesAfter
+        : 'DeepSeek V4 Flash 官方结构已加载';
+    }
+    const command = qs('.kf-command');
+    if (command) command.textContent = 'MODEL · ' + name + ' 架构可视化';
+    const inspectorTitle = qs('#modelInspectorTitle');
+    if (inspectorTitle) inspectorTitle.textContent = name;
+    document.getElementById('modelArchitectureView')?.classList.toggle('is-npu-model', isNpu);
+  }
+
+  async function loadOfficialConfig() {
+    try {
+      const response = await fetch(CONFIG_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const config = await response.json();
+      if (!isMine()) return;
+      const layer = graph.nodes.find((node) => node.id === 'layer-input');
+      const attention = graph.nodes.find((node) => node.id === 'qkv-proj');
+      const sparse = graph.nodes.find((node) => node.id === 'sparse-attn');
+      const outProj = graph.nodes.find((node) => node.id === 'out-proj');
+      const cache = graph.nodes.find((node) => node.id === 'rope-cache');
+      const router = graph.nodes.find((node) => node.id === 'router');
+      const experts = graph.nodes.find((node) => node.id === 'routed-experts');
+      if (layer) layer.typeLabel = 'BF16 · [batch, seq, ' + config.dim + ']';
+      if (attention) attention.typeLabel = 'Q/KV 投影 + RMSNorm + RoPE + Cache · ' + config.n_heads + ' Q / 1 KV';
+      if (sparse) sparse.typeLabel = '稀疏注意力 · top-k ' + config.index_topk + ' KV block';
+      if (outProj) outProj.typeLabel = 'wo_a 分组 einsum → wo_b · ' + config.o_groups + ' 组 × rank ' + config.o_lora_rank;
+      if (cache) cache.typeLabel = 'Window ' + config.window_size + ' · paged / ring buffer';
+      if (router) router.typeLabel = config.score_func + ' · top-k = ' + config.n_activated_experts + ' · scale ' + config.route_scale;
+      if (experts) experts.typeLabel = config.n_activated_experts + ' active experts / token · ' + String(config.expert_dtype || config.dtype).toUpperCase() + ' experts';
+      facts[0][1] = config.n_layers + ' 层';
+      facts[1][1] = '284B / 13B';
+      facts[2][1] = String(config.dim);
+      facts[3][1] = config.n_heads + ' Q / 1 KV';
+      facts[4][1] = config.n_routed_experts + ' routed + ' + config.n_shared_experts + ' shared';
+      facts[5][1] = config.n_activated_experts + ' experts/token';
+      facts[6][1] = '1,048,576';
+      facts[7][1] = String(config.expert_dtype || config.dtype).toUpperCase() + ' expert / ' + String(config.dtype).toUpperCase() + ' mixed';
+      configLoaded = true;
+      setChrome();
+      render();
+    } catch (error) {
+      const status = qs('#modelCanvasStatus');
+      if (status) status.textContent = 'DeepSeek V4 Flash 结构已加载 · 配置文件读取失败，使用内置摘要';
+      console.warn('DeepSeek V4 Flash config unavailable:', error);
+    }
+  }
+
+
+  /* ---------------- 融合方案叠加 ----------------
+   * 这张图是模块级的：L2 节点本身就已经是「一个融合算子该长的样子」。
+   * 所以只有跨模块方案（一个 torch_npu API 吃掉多个 L2 节点）在图上才有真实
+   * 拓扑变化；模块内方案在这张图上永远是同一个节点，强行画 before/after
+   * 等于把模块展开再合回去，是循环论证。模块内的关系变化交给面板的代码对照。
+   */
+
+  let fusionPlan = null;     // { id, kind: 'cross'|'intra', label, sub, nodes: [] }
+  let fusionMode = 'before'; // 'before' | 'after'，只对 cross 生效
+
+  const STEP_GAP = 66;
+  const FUSED_ID = '__fusion__';
+
+  const planIsCross = () => !!fusionPlan && fusionPlan.kind === 'cross' && (fusionPlan.nodes || []).length > 1;
+
+  const overlapsBox = (a, b) => (
+    Math.min(a.x + a.width / 2, b.x + b.width / 2) - Math.max(a.x - a.width / 2, b.x - b.width / 2) > 0
+    && Math.min(a.y + a.height / 2, b.y + b.height / 2) - Math.max(a.y - a.height / 2, b.y - b.height / 2) > 0
+  );
+
+  /** 把一个跨模块方案覆盖的多个 L2 节点合并成一个融合算子节点，边重新接 */
+  function mergeOnePlan(base, plan, fusedId) {
+    const ids = new Set((plan.nodes || []).filter((id) => base.nodes.some((n) => n.id === id)));
+    if (ids.size < 2) return base;
+    const merged = base.nodes.filter((n) => ids.has(n.id));
+    const avg = (key) => merged.reduce((s, n) => s + n[key], 0) / merged.length;
+    const fused = {
+      id: fusedId,
+      label: plan.label || '融合算子',
+      typeLabel: plan.sub || (merged.length + ' 个模块合并为 1 个'),
+      kind: 'op',
+      x: avg('x'),
+      y: avg('y'),
+      width: 400,
+      height: 70,
+      colorKey: 'sem:gate',
+      phase: merged[0].phase,
+      parent: merged[0].parent,
+      fusionNode: true,
+      planId: plan.id || null,
+      planNodes: merged.map((n) => n.id),
+    };
+    const kept = base.nodes.filter((n) => !ids.has(n.id));
+    // 融合节点落在被合并节点的几何中心，但那里未必空着（例如 MoE 合并后会压到
+    // 没被合并的 shared_expert 上）。撞上就往下让，直到腾出空位。
+    for (let guard = 0; guard < 40; guard += 1) {
+      const clash = kept.find((n) => overlapsBox(fused, n));
+      if (!clash) break;
+      fused.y = clash.y + clash.height / 2 + fused.height / 2 + 16;
+    }
+    const seen = new Set();
+    const edges = [];
+    base.edges.forEach((edge) => {
+      const source = ids.has(edge.source) ? fusedId : edge.source;
+      const target = ids.has(edge.target) ? fusedId : edge.target;
+      if (source === target) return;            // 模块之间的内部依赖被融合吃掉
+      const key = source + '>' + target;
+      if (seen.has(key)) return;                // 合并后重复的外部边去重
+      seen.add(key);
+      edges.push({ ...edge, source, target, originalKey: edge.source + '->' + edge.target });
+    });
+    return { ...base, nodes: kept.concat(fused), edges };
+  }
+
+  /** 依次叠加多个方案（跨模块方案彼此不相交，顺序应用即可） */
+  function mergePlans(base, plans, idOf) {
+    return (plans || []).reduce((g, plan, i) => mergeOnePlan(g, plan, idOf ? idOf(plan, i) : '__fusion_' + i + '__'), base);
+  }
+
+  function buildMergedGraph(base) {
+    if (!planIsCross() || fusionMode !== 'after') return base;
+    return mergeOnePlan(base, fusionPlan, FUSED_ID);
+  }
+
+  function buildDrillDefinition(nodeId, baseOverride) {
+    const spec = drillSpecFor(nodeId);
+    const target = (baseOverride || baseGraph()).nodes.find((node) => node.id === nodeId);
+    if (!spec || !target) return null;
+    const stepGap = STEP_GAP;
+    const height = 74 + spec.steps.length * stepGap;
+    const top = target.y - target.height / 2;
+    const nodes = spec.steps.map((step, index) => ({
+      id: nodeId + '__' + index,
+      label: step[0],
+      typeLabel: step[1],
+      kind: step[2].startsWith('io:') ? 'tensor' : 'op',
+      x: target.x,
+      y: top + 58 + index * stepGap,
+      width: index === 0 || index === spec.steps.length - 1 ? 300 : 340,
+      height: 50,
+      colorKey: step[2],
+      parent: 'drill-' + nodeId,
+      phase: target.phase,
+      drillOwner: nodeId,
+    }));
+    const base = {
+      target,
+      spec,
+      height,
+      delta: height - target.height + 34,
+      cluster: { id: 'drill-' + nodeId, label: target.label + ' · L3 operators', x: target.x - 230, y: top, width: 460, height, parent: target.parent, drillOwner: nodeId },
+      nodes,
+      entry: nodes[0].id,
+      exit: nodes[nodes.length - 1].id,
+      edges: nodes.slice(0, -1).map((node, index) => ({ source: node.id, target: nodes[index + 1].id })),
+    };
+    return base;
+  }
+
+  // The default graph renderer routes edges by their bounding boxes. That is
+  // fine for a simple spine, but the V4 graph has residual and auxiliary
+  // paths that jump over several modules. Give those paths dedicated lanes so
+  // dashed control/residual edges remain visually separate from solid data
+  // edges.
+  const routeHints = {
+    'pre-norm->compressor': { side: 'right', lane: 1010 },
+    'qkv-proj->indexer': { axis: 'vertical', sourceSide: 'bottom', targetSide: 'top', sourceDx: -110, targetDx: 0 },
+    'qkv-proj->rope-cache': { side: 'right', lane: 1015 },
+    'indexer->sparse-attn': { axis: 'vertical', sourceSide: 'bottom', targetSide: 'top', sourceDx: 0, targetDx: -100 },
+    'compressor->sparse-attn': { axis: 'vertical', sourceSide: 'bottom', targetSide: 'top', sourceDx: 0, targetDx: 100 },
+    'rope-cache->sparse-attn': { axis: 'horizontal' },
+    'router->shared-expert': { side: 'left', lane: 165 },
+    'router->combine': { side: 'right', lane: 1190 },
+    'layer-input->mhc': { side: 'left', lane: 105 },
+    'layer-output->pre-norm': { axis: 'outer-top', sourceSide: 'left', targetSide: 'top', lane: 52, targetDx: -72, turnY: 360 },
+  };
+
+  function routeGraph(graphData) {
+    const nodeById = new Map(graphData.nodes.map((node) => [node.id, node]));
+    const outgoing = new Map();
+    const incoming = new Map();
+    graphData.edges.forEach((edge) => {
+      if (!outgoing.has(edge.source)) outgoing.set(edge.source, []);
+      if (!incoming.has(edge.target)) incoming.set(edge.target, []);
+      outgoing.get(edge.source).push(edge);
+      incoming.get(edge.target).push(edge);
+    });
+    outgoing.forEach((edges) => edges.sort((a, b) => (nodeById.get(a.target)?.x || 0) - (nodeById.get(b.target)?.x || 0)));
+    incoming.forEach((edges) => edges.sort((a, b) => (nodeById.get(a.source)?.x || 0) - (nodeById.get(b.source)?.x || 0)));
+
+    function portOffset(edge, collection, node, axis) {
+      const list = collection.get(axis === 'source' ? edge.source : edge.target) || [];
+      if (list.length < 2) return 0;
+      const index = list.indexOf(edge);
+      const raw = (index - (list.length - 1) / 2) * 24;
+      return Math.max(-(node.width / 2 - 24), Math.min(node.width / 2 - 24, raw));
+    }
+
+    const edges = graphData.edges.map((edge) => {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) return { ...edge };
+      const key = edge.routeKey || edge.originalKey || `${edge.source}->${edge.target}`;
+      const hint = routeHints[key];
+      const routed = { ...edge, waypoints: undefined, curve: undefined, route: 'rounded', cornerRadius: 14 };
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+
+      if (hint) {
+        const sourceSide = hint.sourceSide || hint.side;
+        const targetSide = hint.targetSide || hint.side;
+        const sourceDx = Number(hint.sourceDx) || 0;
+        const targetDx = Number(hint.targetDx) || 0;
+        routed.sourceAnchor = hint.sourceSide ? { side: sourceSide, dx: sourceDx } : { side: sourceSide, dy: 0 };
+        routed.targetAnchor = hint.targetSide ? { side: targetSide, dx: targetDx } : { side: targetSide, dy: 0 };
+        if (hint.axis === 'outer-top') {
+          const startY = source.y;
+          const endX = target.x + targetDx;
+          const endY = target.y - target.height / 2;
+          const turnY = Number.isFinite(Number(hint.turnY)) ? Number(hint.turnY) : endY - 32;
+          routed.waypoints = [
+            { x: hint.lane, y: startY },
+            { x: hint.lane, y: turnY },
+            { x: endX, y: turnY },
+          ];
+          routed.routeClass = 'outer-return-lane';
+        } else if (hint.axis === 'vertical') {
+          const startY = source.y + (sourceSide === 'bottom' ? source.height / 2 : sourceSide === 'top' ? -source.height / 2 : 0);
+          const endY = target.y + (targetSide === 'top' ? -target.height / 2 : targetSide === 'bottom' ? target.height / 2 : 0);
+          const startX = source.x + sourceDx;
+          const endX = target.x + targetDx;
+          const midY = (startY + endY) / 2;
+          routed.waypoints = [{ x: startX, y: midY }, { x: endX, y: midY }];
+          routed.routeClass = 'vertical-branch-lane';
+        } else {
+          routed.waypoints = [{ x: hint.lane, y: source.y }, { x: hint.lane, y: target.y }];
+          routed.routeClass = 'side-lane';
+        }
+        return routed;
+      }
+
+      // Keep reverse and very long links on the outer sides of the graph.
+      if (dy < -40 || Math.abs(dy) > 360) {
+        const useLeft = (source.x + target.x) / 2 < graphData.width / 2;
+        const lane = useLeft ? 185 : graphData.width - 105;
+        const side = useLeft ? 'left' : 'right';
+        routed.sourceAnchor = side;
+        routed.targetAnchor = side;
+        routed.waypoints = [{ x: lane, y: source.y }, { x: lane, y: target.y }];
+        routed.routeClass = 'side-lane';
+        return routed;
+      }
+
+      // Branches that are almost level should leave from the side of a node;
+      // this prevents a horizontal path from cutting through the vertical
+      // spine or an adjacent dashed branch.
+      if (Math.abs(dy) <= 54 && Math.abs(dx) > 40) {
+        const sourceSide = dx > 0 ? 'right' : 'left';
+        const targetSide = dx > 0 ? 'left' : 'right';
+        routed.sourceAnchor = sourceSide;
+        routed.targetAnchor = targetSide;
+        if (Math.abs(dy) > 4) {
+          const midX = (source.x + target.x) / 2;
+          routed.waypoints = [{ x: midX, y: source.y }, { x: midX, y: target.y }];
+        } else {
+          routed.curve = 'straight';
+          routed.route = undefined;
+        }
+        routed.routeClass = 'horizontal-lane';
+        return routed;
+      }
+
+      const sourceDx = portOffset(edge, outgoing, source, 'source');
+      const targetDx = portOffset(edge, incoming, target, 'target');
+      routed.sourceAnchor = { side: dy >= 0 ? 'bottom' : 'top', dx: sourceDx };
+      routed.targetAnchor = { side: dy >= 0 ? 'top' : 'bottom', dx: targetDx };
+      const startY = source.y + (dy >= 0 ? source.height / 2 : -source.height / 2);
+      const endY = target.y + (dy >= 0 ? -target.height / 2 : target.height / 2);
+      const midY = (startY + endY) / 2;
+      routed.waypoints = [
+        { x: source.x + sourceDx, y: midY },
+        { x: target.x + targetDx, y: midY },
+      ];
+      routed.routeClass = Math.abs(dx) < 32 ? 'spine-lane' : 'branch-lane';
+      return routed;
+    });
+    return { ...graphData, edges };
+  }
+
+  function buildExpandedGraph(nodeId, baseOverride) {
+    const graph = baseOverride || baseGraph();
+    const drill = buildDrillDefinition(nodeId, graph);
+    if (!drill) return {
+      ...graph,
+      nodes: graph.nodes.map((node) => ({ ...node })),
+      edges: graph.edges.map((edge) => ({ ...edge })),
+      clusters: graph.clusters.map((cluster) => ({ ...cluster })),
+    };
+    const threshold = drill.target.y;
+    const shouldShift = (node) => node.y > threshold || (node.y === threshold && Math.abs(node.x - drill.target.x) < (drill.cluster.width + node.width) / 2);
+    const nodes = graph.nodes.filter((node) => node.id !== nodeId).map((node) => ({ ...node, y: shouldShift(node) ? node.y + drill.delta : node.y }));
+    const clusters = graph.clusters.map((cluster) => {
+      const containsTarget = cluster.y <= threshold && cluster.y + cluster.height >= threshold;
+      return {
+        ...cluster,
+        y: cluster.y > threshold ? cluster.y + drill.delta : cluster.y,
+        height: containsTarget ? cluster.height + drill.delta : cluster.height,
+      };
+    });
+    clusters.push(drill.cluster);
+    const edges = graph.edges.map((edge) => ({
+      ...edge,
+      routeKey: `${edge.source}->${edge.target}`,
+      source: edge.source === nodeId ? drill.exit : edge.source,
+      target: edge.target === nodeId ? drill.entry : edge.target,
+    }));
+    return {
+      ...graph,
+      height: graph.height + drill.delta,
+      nodes: [...nodes, ...drill.nodes],
+      clusters,
+      edges: [...edges, ...drill.edges],
+      activeDrill: nodeId,
+    };
+  }
+
+  function focusDrillViewport(nodeId) {
+    const drill = buildDrillDefinition(nodeId);
+    if (!controller || !drill) return;
+    const stage = qs('#' + stageId);
+    const rect = stage.getBoundingClientRect();
+    const padding = 34;
+    const zoom = Math.max(.18, Math.min(1.05, (rect.width - padding * 2) / drill.cluster.width, (rect.height - padding * 2) / drill.cluster.height));
+    controller.setTransform({
+      zoom,
+      tx: (rect.width - drill.cluster.width * zoom) / 2 - drill.cluster.x * zoom + phaseNavOffset(),
+      ty: (rect.height - drill.cluster.height * zoom) / 2 - drill.cluster.y * zoom,
+    });
+    const readout = qs('#modelZoomReadout');
+    if (readout) readout.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  function phaseNavOffset() {
+    const nav = qs('#modelPhaseNav');
+    const body = nav?.closest('.kf-model-canvas__body');
+    if (!nav || !body || body.closest('[hidden]')) return 0;
+    return Math.min(150, (nav.getBoundingClientRect().width + 24) / 2);
+  }
+
+  function fitModelViewport() {
+    if (!controller) return;
+    controller.fit();
+    const transform = controller.getTransform();
+    controller.setTransform({ tx: transform.tx + phaseNavOffset() });
+  }
+
+  function applyPhase(phase) {
+    activePhase = phase;
+    const meta = phaseMeta[phase] || phaseMeta.all;
+    const title = qs('.kf-model-toolbar h1');
+    const summary = qs('#modelPhaseSummary');
+    if (title) title.textContent = (isNpuView() ? 'torch_npu · ' : '') + meta[0];
+    if (summary) summary.textContent = meta[1];
+    document.querySelectorAll('[data-model-phase]').forEach((button, index) => {
+      const key = phaseOrder[index] || 'all';
+      const item = phaseMeta[key];
+      const b = button.querySelector('b');
+      const small = button.querySelector('small');
+      button.classList.toggle('is-active', key === phase);
+      if (b && item) b.textContent = item[2];
+      if (small && item) small.textContent = item[1];
+    });
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => {
+      const node = currentGraph.nodes.find((item) => item.id === element.dataset.nodeId);
+      const visible = phase === 'all' || node?.phase === phase || (phase === 'layer' && node?.phase === 'layer');
+      element.classList.toggle('is-phase-muted', !visible);
+      element.classList.toggle('is-phase-active', phase !== 'all' && visible);
+    });
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-edge, #' + stageId + ' .pto-model-graphviz-edge-tag').forEach((element) => {
+      const source = currentGraph.nodes.find((node) => node.id === element.dataset.source);
+      const target = currentGraph.nodes.find((node) => node.id === element.dataset.target);
+      const visible = phase === 'all' || source?.phase === phase || target?.phase === phase || (phase === 'layer' && (source?.phase === 'layer' || target?.phase === 'layer'));
+      element.classList.toggle('is-phase-muted', !visible);
+      element.classList.toggle('is-phase-active', phase !== 'all' && visible);
+    });
+    const body = qs('#modelInspectorBody');
+    if (body) body.innerHTML = '<div class="kf-model-inspector__hero"><span>' + meta[2] + '</span><b>' + meta[0] + '</b><p>' + meta[3] + '</p></div><dl class="kf-model-node-detail"><div><dt>来源</dt><dd>Data/DeepSeek-V4-Flash-Official</dd></div><div><dt>结构文件</dt><dd>model.py · inference-config.json</dd></div></dl>';
+  }
+
+  function selectNode(nodeId) {
+    const node = currentGraph.nodes.find((item) => item.id === nodeId);
+    if (!node) return;
+    const body = qs('#modelInspectorBody');
+    if (body) {
+      const owner = node.drillOwner ? baseGraph().nodes.find((item) => item.id === node.drillOwner) : null;
+      const source = node.drillOwner ? 'model.py · ' + (owner?.label || node.drillOwner) : 'model.py / inference-config.json';
+      body.innerHTML = '<div class="kf-model-inspector__hero"><span>' + (node.drillOwner ? 'L3 OPERATOR' : 'OFFICIAL STRUCTURE') + '</span><b>' + node.label + '</b><p>' + node.typeLabel + '</p></div><dl class="kf-model-node-detail"><div><dt>阶段</dt><dd>' + (phaseMeta[node.phase]?.[2] || node.phase) + '</dd></div><div><dt>父模块</dt><dd>' + (owner?.label || 'DeepSeek-V4 Flash') + '</dd></div><div><dt>来源</dt><dd>' + source + '</dd></div></dl>';
+    }
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => element.classList.toggle('is-model-selected', element.dataset.nodeId === nodeId));
+  }
+
+  function isPristineTransform(transform) {
+    return !transform || (
+      Math.abs(Number(transform.tx) || 0) < 0.01
+      && Math.abs(Number(transform.ty) || 0) < 0.01
+      && Math.abs((Number(transform.zoom) || 1) - 1) < 0.001
+    );
+  }
+
+  function render() {
+    const stage = qs('#' + stageId);
+    const pattern = window.PtoModelGraphvizPattern;
+    if (!stage || !pattern) return;
+    const savedTransform = controller?.getTransform?.();
+    // createController schedules its first fit in requestAnimationFrame. A
+    // second synchronous render can therefore observe the temporary default
+    // transform (0, 0, 1); do not mistake that pristine value for a user's
+    // viewport and accidentally disable the initial fit.
+    const preserveTransform = savedTransform && !isPristineTransform(savedTransform);
+    controller?.destroy?.();
+    currentGraph = routeGraph(buildMergedGraph(buildExpandedGraph(activeDrill)));
+    controller = pattern.renderController(stage, currentGraph, {
+      ariaLabel: 'DeepSeek V4 Flash official model architecture',
+      colormap: pattern.modelArchitectureColormap(currentGraph),
+      fitMode: 'full',
+      viewportPadding: 36,
+      autoFit: !preserveTransform,
+      interaction: { panZoom: true, selectableClusters: false },
+      overlays: { edgeTags: true },
+      onSelect: ({ nodeId }) => selectNode(nodeId),
+    });
+    // renderController 同步建好 DOM，融合叠加就在这里补类：不能只放进下面的 rAF。
+    // 配置文件加载完成会再触发一次 render，页面在后台时 rAF 被暂停，
+    // 那次重建就会把融合视图静默清掉。
+    applyFusionClasses();
+    requestAnimationFrame(() => {
+      applyPhase(activePhase);
+      applyFusionClasses();
+      if (preserveTransform) {
+        controller.setTransform({ ...savedTransform });
+        const readout = qs('#modelZoomReadout');
+        if (readout) readout.textContent = Math.round(savedTransform.zoom * 100) + '%';
+        return;
+      }
+      fitModelViewport();
+      const fittedTransform = controller.getTransform?.();
+      const readout = qs('#modelZoomReadout');
+      if (readout && fittedTransform) readout.textContent = Math.round(fittedTransform.zoom * 100) + '%';
+      if (activeDrill) {
+        const drill = buildDrillDefinition(activeDrill);
+        const owner = baseGraph().nodes.find((node) => node.id === activeDrill);
+        const body = qs('#modelInspectorBody');
+        if (body && drill) body.innerHTML = '<div class="kf-model-inspector__hero"><span>L3 EXPANDED</span><b>' + (owner?.label || activeDrill) + '</b><p>' + drill.spec.description + '</p></div><dl class="kf-model-node-detail"><div><dt>层级</dt><dd>Module → logical operators</dd></div><div><dt>操作</dt><dd>点击容器右上角 − 收起</dd></div><div><dt>来源</dt><dd>model.py · inference-config.json</dd></div></dl>';
+        focusDrillViewport(activeDrill);
+      }
+    });
+  }
+
+  function handleDrillToggle(event) {
+    if (!isMine()) return;
+    const toggle = event.target.closest('.pto-model-graphviz-toggle, .pto-model-graphviz-toggle-icon');
+    if (!toggle) return;
+    const nodeGroup = toggle.closest('.pto-model-graphviz-node');
+    const clusterGroup = toggle.closest('.pto-model-graphviz-cluster');
+    const nodeId = nodeGroup?.dataset.nodeId;
+    const clusterId = clusterGroup?.dataset.clusterId;
+    if (nodeId && drillSpecFor(nodeId)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      activeDrill = nodeId;
+      activePhase = baseGraph().nodes.find((node) => node.id === nodeId)?.phase || activePhase;
+      render();
+      return;
+    }
+    if (clusterId?.startsWith('drill-')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      activeDrill = null;
+      render();
+    }
+  }
+
+  function handleCanvasSelectionClear(event) {
+    if (!isMine()) return;
+    if (event.target.closest('.pto-model-graphviz-node, .pto-model-graphviz-edge, .pto-model-graphviz-edge-tag')) return;
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => element.classList.remove('is-model-selected', 'is-fusion-focus'));
+  }
+
+  function selectPhase(phase) {
+    if (!isMine()) return;
+    activePhase = phase;
+    if (activeDrill) {
+      activeDrill = null;
+      render();
+      return;
+    }
+    applyPhase(phase);
+  }
+
+  function init() {
+    if (initialized) return;
+    const stage = qs('#' + stageId);
+    if (!stage || !window.PtoModelGraphvizPattern) return;
+    setChrome();
+    stage.addEventListener('click', handleDrillToggle, true);
+    stage.addEventListener('pointerdown', (event) => {
+      if (!event.target.closest('.pto-model-graphviz-node, .pto-model-graphviz-edge, .pto-model-graphviz-edge-tag')) {
+        document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => element.classList.remove('is-model-selected'));
+      }
+    });
+    stage.addEventListener('pointerdown', handleCanvasSelectionClear, true);
+    document.querySelectorAll('[data-model-phase]').forEach((button, index) => button.addEventListener('click', () => selectPhase(phaseOrder[index] || 'all')));
+    document.querySelector('[data-model-fit]')?.addEventListener('click', () => {
+      if (!isMine()) return;
+      fitModelViewport();
+      const readout = qs('#modelZoomReadout');
+      if (readout) readout.textContent = '适应';
+    });
+    document.querySelector('[data-model-zoom="in"]')?.addEventListener('click', () => {
+      if (!isMine()) return;
+      const current = controller?.getTransform?.();
+      if (current) {
+        const zoom = Math.min(2.6, current.zoom * 1.18);
+        controller.setTransform({ zoom });
+        const readout = qs('#modelZoomReadout');
+        if (readout) readout.textContent = Math.round(zoom * 100) + '%';
+      }
+    });
+    document.querySelector('[data-model-zoom="out"]')?.addEventListener('click', () => {
+      if (!isMine()) return;
+      const current = controller?.getTransform?.();
+      if (current) {
+        const zoom = Math.max(.18, current.zoom / 1.18);
+        controller.setTransform({ zoom });
+        const readout = qs('#modelZoomReadout');
+        if (readout) readout.textContent = Math.round(zoom * 100) + '%';
+      }
+    });
+    initialized = true;
+    render();
+  }
+
+  // 融合推荐面板回跳用：一个候选可能横跨多个模块（例如 mHC → layer-output → pre-norm），
+  // 所以除了选中首个节点，其余节点也要标出来，否则开发者看不出融合边界覆盖了哪几块。
+  function highlightNodes(nodeIds) {
+    const ids = new Set(nodeIds.filter((id) => currentGraph.nodes.some((node) => node.id === id)));
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => {
+      element.classList.toggle('is-fusion-focus', ids.has(element.dataset.nodeId));
+    });
+  }
+
+  /** 渲染器不认识自定义字段，融合相关的类在渲染完成后按 nodeId 补上 */
+  function applyFusionClasses() {
+    const fused = new Set(currentGraph.nodes.filter((n) => n.fusionNode).map((n) => n.id));
+    const scope = fusionPlan ? new Set(fusionPlan.nodes || []) : new Set();
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-node').forEach((element) => {
+      const id = element.dataset.nodeId;
+      element.classList.toggle('is-fusion-node', fused.has(id));
+      element.classList.toggle('is-fusion-scope', scope.has(id));
+    });
+    // 融合前：被方案覆盖的模块之间的边，就是这个 API 会吃掉的依赖
+    document.querySelectorAll('#' + stageId + ' .pto-model-graphviz-edge').forEach((element) => {
+      const inside = scope.has(element.dataset.source) && scope.has(element.dataset.target);
+      element.classList.toggle('is-fusion-inner', inside);
+    });
+  }
+
+  /** 把视口框到方案覆盖的那几个模块上 */
+  function focusPlanViewport() {
+    if (!controller || !fusionPlan) return;
+    const ids = new Set(fusionPlan.nodes || []);
+    const targets = currentGraph.nodes.filter((n) => ids.has(n.id) || (n.fusionNode && fusionMode === 'after'));
+    if (!targets.length) return;
+    const minX = Math.min(...targets.map((n) => n.x - n.width / 2));
+    const maxX = Math.max(...targets.map((n) => n.x + n.width / 2));
+    const minY = Math.min(...targets.map((n) => n.y - n.height / 2));
+    const maxY = Math.max(...targets.map((n) => n.y + n.height / 2));
+    const pad = 120;
+    const boxW = maxX - minX + pad * 2;
+    const boxH = maxY - minY + pad * 2;
+    const stage = qs('#' + stageId);
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    const zoom = Math.max(.18, Math.min(1.1, rect.width / boxW, rect.height / boxH));
+    controller.setTransform({
+      zoom,
+      tx: rect.width / 2 - ((minX + maxX) / 2) * zoom,
+      ty: rect.height / 2 - ((minY + maxY) / 2) * zoom,
+    });
+    const readout = qs('#modelZoomReadout');
+    if (readout) readout.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  /**
+   * 供推荐面板调用。模块内方案不再下钻——那只会把模块展开再合回去，
+   * 图上看不出任何真实变化；它只标位置，关系变化由面板的代码对照负责。
+   */
+  function setFusionPlan(plan) {
+    fusionPlan = plan || null;
+    activeDrill = null;
+    show();
+    const first = fusionPlan && (fusionPlan.nodes || []).map((id) => baseGraph().nodes.find((n) => n.id === id)).find(Boolean);
+    if (first && first.phase) activePhase = first.phase;
+    render();
+    const apply = () => {
+      applyPhase(activePhase);
+      applyFusionClasses();
+      if (fusionPlan) highlightNodes(fusionPlan.nodes || []);
+      focusPlanViewport();
+    };
+    apply();
+    setTimeout(apply, 0);
+    return planIsCross();
+  }
+
+  function setFusionMode(mode) {
+    fusionMode = mode === 'after' ? 'after' : 'before';
+    if (!planIsCross()) return fusionMode;
+    render();
+    const apply = () => {
+      applyPhase(activePhase);
+      applyFusionClasses();
+      focusPlanViewport();
+    };
+    apply();
+    setTimeout(apply, 0);
+    return fusionMode;
+  }
+
+  /* ---------------- 替换前后对比视图 ----------------
+   * 左右两张整网图：左边替换前、右边替换后（默认叠加全部候选替换）。
+   * 三件事要联动：视口、选中、下钻。图形控制器没有 transform 回调，
+   * 视口只能靠「交互后读取 + 定时兜底」；选中走 onSelect 回调互相镜像；
+   * 下钻由这里持有状态、两边一起重建。全程不用 rAF——页面在后台时会被暂停。
+   */
+
+  let compare = null;
+
+  const FUSED_PREFIX = '__fusion_';
+
+  function comparePlans() {
+    if (!compare) return [];
+    return compare.scope === 'all'
+      ? compare.plans
+      : compare.plans.filter((p) => p.id === compare.activeId);
+  }
+
+  /** 融合节点 ↔ 它吃掉的原始模块，选中互映和连线都靠这张表 */
+  function buildFusedMap(plans) {
+    const map = new Map();
+    plans.forEach((plan, i) => map.set(FUSED_PREFIX + i + '__', plan.nodes || []));
+    return map;
+  }
+
+  /** 左图节点 → 右图对应节点（被吃掉的映射到融合节点） */
+  function mapBeforeToAfter(id) {
+    for (const [fusedId, originals] of compare.fusedMap) {
+      if (originals.includes(id)) return fusedId;
+    }
+    return id;
+  }
+
+  /** 右图节点 → 左图对应节点集合（融合节点展开成它吃掉的那几个） */
+  function mapAfterToBefore(id) {
+    if (compare.fusedMap.has(id)) return compare.fusedMap.get(id);
+    return [id];
+  }
+
+  function compareStage(side) {
+    return compare.root.querySelector('[data-cmp-stage="' + side + '"]');
+  }
+
+  /** 选中互映：source 标成 sync，避免两边来回触发 */
+  function syncSelection(side, nodeId) {
+    if (!compare || compare.syncingSel) return;
+    compare.syncingSel = true;
+    try {
+      if (side === 'before') {
+        const mate = nodeId ? mapBeforeToAfter(nodeId) : null;
+        // 点中的模块如果被合并掉了，同组的其它模块也一起标出来——
+        // 它们在右图是同一个融合节点，连线也是连向同一个点
+        compare.selectedBefore = mate && compare.fusedMap.has(mate)
+          ? compare.fusedMap.get(mate).slice()
+          : (nodeId ? [nodeId] : []);
+        compare.selectedAfter = mate ? [mate] : [];
+        compare.after?.selectNode?.(mate, { source: 'sync' });
+      } else {
+        compare.selectedAfter = nodeId ? [nodeId] : [];
+        const mates = nodeId ? mapAfterToBefore(nodeId) : [];
+        compare.selectedBefore = mates;
+        compare.before?.selectNode?.(mates[0] || null, { source: 'sync' });
+      }
+    } finally {
+      compare.syncingSel = false;
+    }
+    // 融合节点对应多个原始模块，控制器只能选中一个，其余用附加类标出来
+    const beforeHost = compareStage('before');
+    beforeHost.querySelectorAll('.pto-model-graphviz-node').forEach((el) => {
+      el.classList.toggle('is-cmp-mate', compare.selectedBefore.includes(el.dataset.nodeId));
+    });
+    drawCompareLinks();
+  }
+
+  /** 两个视图之间的虚线连接：把选中的算子在左右图里连起来 */
+  function drawCompareLinks() {
+    if (!compare) return;
+    const svg = compare.root.querySelector('[data-cmp-links]');
+    if (!svg) return;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const pairs = [];
+    (compare.selectedAfter || []).forEach((afterId) => {
+      mapAfterToBefore(afterId).forEach((beforeId) => pairs.push([beforeId, afterId]));
+    });
+    if (!pairs.length) return;
+
+    const box = compare.root.querySelector('.kf-cmp-body').getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    const beforeHost = compareStage('before');
+    const afterHost = compareStage('after');
+    const beforeRect = beforeHost.getBoundingClientRect();
+    const afterRect = afterHost.getBoundingClientRect();
+
+    pairs.forEach(([beforeId, afterId]) => {
+      const a = beforeHost.querySelector(`[data-node-id="${CSS.escape(beforeId)}"]`);
+      const b = afterHost.querySelector(`[data-node-id="${CSS.escape(afterId)}"]`);
+      if (!a || !b) return;
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      // 节点可能被画布裁掉，端点夹到各自画布边界上，线不会飞出去
+      const ay = Math.min(Math.max(ra.top + ra.height / 2, beforeRect.top + 4), beforeRect.bottom - 4);
+      const by = Math.min(Math.max(rb.top + rb.height / 2, afterRect.top + 4), afterRect.bottom - 4);
+      const ax = Math.min(ra.right, beforeRect.right);
+      const bx = Math.max(rb.left, afterRect.left);
+      const x1 = ax - box.left;
+      const y1 = ay - box.top;
+      const x2 = bx - box.left;
+      const y2 = by - box.top;
+      const mid = (x1 + x2) / 2;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`);
+      path.setAttribute('class', 'kf-cmp-link');
+      svg.appendChild(path);
+      [[x1, y1], [x2, y2]].forEach(([cx, cy]) => {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', cx);
+        dot.setAttribute('cy', cy);
+        dot.setAttribute('r', '3.5');
+        dot.setAttribute('class', 'kf-cmp-linkdot');
+        svg.appendChild(dot);
+      });
+    });
+  }
+
+  function renderCompareStage(host, graphData, ariaLabel, side) {
+    const pattern = window.PtoModelGraphvizPattern;
+    return pattern.renderController(host, routeGraph(graphData), {
+      ariaLabel,
+      colormap: pattern.modelArchitectureColormap(graphData),
+      fitMode: 'full',
+      viewportPadding: 28,
+      autoFit: true,
+      interaction: { panZoom: true, selectableClusters: false },
+      overlays: { edgeTags: true },
+      onSelect: ({ nodeId, source }) => {
+        if (source === 'sync') return;
+        syncSelection(side, nodeId);
+      },
+    });
+  }
+
+  function syncViewport(source, target) {
+    if (!compare || compare.syncing || !source || !target) return;
+    const t = source.getTransform && source.getTransform();
+    if (!t) return;
+    const cur = target.getTransform && target.getTransform();
+    const same = cur && Math.abs(cur.tx - t.tx) < 0.5 && Math.abs(cur.ty - t.ty) < 0.5
+      && Math.abs(cur.zoom - t.zoom) < 0.001;
+    if (!same) {
+      compare.syncing = true;
+      target.setTransform({ ...t });
+      compare.syncing = false;
+      const readout = compare.root.querySelector('[data-cmp-zoom]');
+      if (readout) readout.textContent = Math.round(t.zoom * 100) + '%';
+    }
+    drawCompareLinks();
+  }
+
+  function renderCompare() {
+    if (!compare) return;
+    const plans = comparePlans();
+    compare.fusedMap = buildFusedMap(plans);
+    const clone = () => ({ ...graph, nodes: graph.nodes.map((n) => ({ ...n })), edges: graph.edges.map((e) => ({ ...e })) });
+
+    // 下钻：被合并吃掉的模块在右图里已经不存在，那一侧就不展开，只保留合并结果
+    const drill = compare.drill;
+    const drillMerged = !!drill && plans.some((p) => (p.nodes || []).includes(drill));
+    const beforeGraph = drill ? buildExpandedGraph(drill, graph) : clone();
+    const afterGraph = decorateReplacementGraph(mergePlans(drillMerged || !drill ? clone() : buildExpandedGraph(drill, graph), plans), window.PtoFusionRules.evaluate().actionable);
+
+    compare.before?.destroy?.();
+    compare.after?.destroy?.();
+    const beforeHost = compareStage('before');
+    const afterHost = compareStage('after');
+    compare.before = renderCompareStage(beforeHost, beforeGraph, '替换前整网结构', 'before');
+    compare.after = renderCompareStage(afterHost, afterGraph, '替换后整网结构', 'after');
+
+    afterHost.querySelectorAll('.pto-model-graphviz-node').forEach((el) => {
+      el.classList.toggle('is-fusion-node', String(el.dataset.nodeId || '').startsWith(FUSED_PREFIX));
+    });
+    const scope = new Set(plans.flatMap((p) => p.nodes || []));
+    beforeHost.querySelectorAll('.pto-model-graphviz-node').forEach((el) => {
+      el.classList.toggle('is-fusion-scope', scope.has(el.dataset.nodeId));
+    });
+    beforeHost.querySelectorAll('.pto-model-graphviz-edge').forEach((el) => {
+      el.classList.toggle('is-fusion-inner', scope.has(el.dataset.source) && scope.has(el.dataset.target));
+    });
+
+    const stat = (id, text) => {
+      const el = compare.root.querySelector('[data-cmp-' + id + ']');
+      if (el) el.textContent = text;
+    };
+    stat('before-count', beforeGraph.nodes.length + ' 个模块');
+    stat('after-count', afterGraph.nodes.length + ' 个模块');
+    const removed = beforeGraph.edges.length - afterGraph.edges.length;
+    stat('summary', plans.length
+      ? `${plans.length} 个方案 · 模块 ${beforeGraph.nodes.length} → ${afterGraph.nodes.length} · 图边变化 ${removed} 条（不代表同步减少）`
+      : '当前方案不改变整网拓扑（模块内融合）');
+    stat('drill', drill ? `已下钻 ${drill}${drillMerged ? ' · 右图该模块已被合并，不展开' : ''}` : '');
+    compare.root.querySelectorAll('[data-cmp-scope]').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.cmpScope === compare.scope);
+    });
+    const title = compare.root.querySelector('[data-cmp-title]');
+    if (title) {
+      const active = compare.plans.find((p) => p.id === compare.activeId);
+      title.textContent = compare.scope === 'all' ? '全部候选替换' : (active ? active.label : '当前方案');
+    }
+
+    // 重建后把选中恢复回去
+    if ((compare.selectedAfter || []).length) {
+      syncSelection('after', compare.selectedAfter[0]);
+    } else if ((compare.selectedBefore || []).length) {
+      syncSelection('before', compare.selectedBefore[0]);
+    }
+    syncViewport(compare.before, compare.after);
+  }
+
+  /** 下钻按钮在两边都能点，状态由这里持有，点完两个图一起重建 */
+  function handleCompareDrill(event, side) {
+    const toggle = event.target.closest('.pto-model-graphviz-toggle, .pto-model-graphviz-toggle-icon');
+    if (!toggle) return;
+    const nodeId = toggle.closest('.pto-model-graphviz-node')?.dataset.nodeId;
+    const clusterId = toggle.closest('.pto-model-graphviz-cluster')?.dataset.clusterId;
+    if (nodeId && drillSpecs[nodeId]) {
+      event.preventDefault();
+      event.stopPropagation();
+      compare.drill = nodeId;
+      renderCompare();
+      return;
+    }
+    if (clusterId && clusterId.startsWith('drill-')) {
+      event.preventDefault();
+      event.stopPropagation();
+      compare.drill = null;
+      renderCompare();
+    }
+  }
+
+  function openCompare(options) {
+    const host = document.getElementById('modelArchitectureView');
+    if (!host || !window.PtoModelGraphvizPattern) return false;
+    const opts = options || {};
+    if (!compare) {
+      const root = document.createElement('div');
+      root.className = 'kf-cmp-root';
+      root.id = 'modelCompare';
+      root.innerHTML = `
+        <header class="kf-cmp-head">
+          <div class="kf-cmp-title">
+            <span class="kf-eyebrow">替换前后对比</span>
+            <b data-cmp-title></b>
+            <small data-cmp-summary></small>
+          </div>
+          <div class="kf-cmp-scope" role="group" aria-label="对比范围">
+            <button type="button" data-cmp-scope="all">全部方案</button>
+            <button type="button" data-cmp-scope="plan">单个方案</button>
+          </div>
+          <div class="kf-cmp-actions">
+            <small data-cmp-drill></small>
+            <span data-cmp-zoom>100%</span>
+            <button type="button" data-cmp-fit>适应画布</button>
+            <button type="button" data-cmp-close aria-label="关闭对比视图">✕</button>
+          </div>
+        </header>
+        <div class="kf-cmp-body">
+          <section><h4>替换前<em data-cmp-before-count></em></h4><div class="kf-cmp-stage pto-model-graphviz-stage" data-cmp-stage="before"></div></section>
+          <section><h4>替换后<em data-cmp-after-count></em></h4><div class="kf-cmp-stage pto-model-graphviz-stage" data-cmp-stage="after"></div></section>
+          <svg class="kf-cmp-links" data-cmp-links aria-hidden="true"></svg>
+        </div>`;
+      host.appendChild(root);
+      compare = {
+        root, before: null, after: null, plans: [], activeId: null, scope: 'all',
+        drill: null, selectedBefore: [], selectedAfter: [], fusedMap: new Map(),
+        timer: null, syncing: false, syncingSel: false,
+      };
+
+      root.addEventListener('click', (event) => {
+        if (event.target.closest('[data-cmp-close]')) { closeCompare(); return; }
+        if (event.target.closest('[data-cmp-fit]')) {
+          compare.before?.fit();
+          syncViewport(compare.before, compare.after);
+          return;
+        }
+        const sc = event.target.closest('[data-cmp-scope]');
+        if (sc) { compare.scope = sc.dataset.cmpScope; renderCompare(); }
+      });
+
+      // 下钻要抢在图形库自己的点击处理之前
+      compareStage('before').addEventListener('click', (e) => handleCompareDrill(e, 'before'), true);
+      compareStage('after').addEventListener('click', (e) => handleCompareDrill(e, 'after'), true);
+
+      // 视口：这些监听器建在控制器之前，同一次派发里排在图形库前面，
+      // 直接读 transform 会读到旧值，用 setTimeout 挪到派发之后
+      const later = (from, to) => () => setTimeout(() => syncViewport(from(), to()), 0);
+      ['wheel', 'pointermove', 'pointerup', 'dblclick'].forEach((type) => {
+        compareStage('before').addEventListener(type, later(() => compare.before, () => compare.after), { passive: true });
+        compareStage('after').addEventListener(type, later(() => compare.after, () => compare.before), { passive: true });
+      });
+    }
+    compare.plans = opts.plans || [];
+    compare.activeId = opts.activeId || (compare.plans[0] && compare.plans[0].id) || null;
+    compare.scope = opts.scope || 'all';
+    compare.drill = null;
+    compare.selectedBefore = [];
+    compare.selectedAfter = [];
+    compare.root.hidden = false;
+    host.classList.add('is-comparing');
+    renderCompare();
+    clearInterval(compare.timer);
+    compare.timer = setInterval(() => syncViewport(compare.before, compare.after), 140);
+    return true;
+  }
+
+  function closeCompare() {
+    if (!compare) return;
+    clearInterval(compare.timer);
+    compare.timer = null;
+    compare.before?.destroy?.();
+    compare.after?.destroy?.();
+    compare.before = null;
+    compare.after = null;
+    compare.root.hidden = true;
+    document.getElementById('modelArchitectureView')?.classList.remove('is-comparing');
+    window.PtoFusionAdvisor?.onCompareClosed?.();
+  }
+
+  function clearFusionPlan() {
+    if (!fusionPlan) return;
+    fusionPlan = null;
+    fusionMode = 'before';
+    activeDrill = null;
+    render();
+    setTimeout(() => { applyPhase(activePhase); applyFusionClasses(); clearFusionHighlight(); }, 0);
+  }
+
+  function clearFusionHighlight() {
+    document.querySelectorAll('#' + stageId + ' .is-fusion-focus').forEach((element) => element.classList.remove('is-fusion-focus'));
+  }
+
+  function focusNodes(nodeIds) {
+    const ids = (Array.isArray(nodeIds) ? nodeIds : [nodeIds]).filter(Boolean);
+    const target = baseGraph().nodes.find((node) => ids.includes(node.id));
+    if (!target) return false;
+    // 有下钻展开时先收起，否则融合边界里的节点可能被 L3 展开替换掉
+    if (activeDrill) activeDrill = null;
+    show();
+    const apply = () => {
+      applyPhase(target.phase || activePhase);
+      controller?.selectNode?.(target.id, { source: 'fusion' });
+      selectNode(target.id);
+      highlightNodes(ids);
+    };
+    // render() 是同步重建 DOM 的，这里直接标记即可；再补一次延后执行，
+    // 是为了盖过 render 自己排在下一帧的 applyPhase。不依赖 rAF：
+    // 页面在后台时 rAF 会被暂停，定位就会静默失败。
+    apply();
+    setTimeout(apply, 0);
+    return true;
+  }
+
+  /* ---------------- 部署态模型的构建 ----------------
+   * 官方结构 + 全部「可落地 + 跨模块」替换方案 = torch_npu 方案模型。
+   * 第一次进入这个模型时构建一次；融合规则是它唯一的数据源。
+   */
+
+  /** 把融合规则里的一条方案翻译成 mergeOnePlan 认识的描述 */
+  function planDescriptor(item) {
+    return {
+      id: item.id,
+      label: (item.apis && item.apis[0]) || item.title,
+      sub: item.title,
+      nodes: item.nodes,
+    };
+  }
+
+  /** 融合算子的 L3 展开：它吃掉的子链路就是它内部的步骤 */
+  function npuDrillSpec(item) {
+    const api = (item.apis && item.apis[0]) || 'torch_npu';
+    const covers = (item.covers && item.covers.length ? item.covers : item.nodes);
+    return {
+      description: item.title + '：' + item.module + '。原本的 ' + item.nodes.length
+        + ' 个模块由 ' + (item.apis || []).join(' + ') + ' 一次调用完成。',
+      steps: covers.map((text, index) => [
+        text,
+        api,
+        index === covers.length - 1 ? 'io:output' : 'sem:gate',
+      ]),
+    };
+  }
+
+
+  function decorateReplacementGraph(target, items) {
+    const intra = items.filter(x => !window.PtoFusionRules.changesTopology(x));
+    intra.forEach(item => item.nodes.forEach(id => {
+      const node = target.nodes.find(n => n.id === id);
+      if (!node) return;
+      node.label = item.id === 'mod-compress-tail' ? 'compressor · torch_npu 尾链' : (item.apis[0] || node.label);
+      node.typeLabel = '候选 API 替换 · 保留未覆盖步骤 · Kernel 数待验证';
+    }));
+    return target;
+  }
+  function buildNpuGraph() {
+    const rules = window.PtoFusionRules;
+    if (!rules) return null;
+    const all = rules.evaluate().actionable;
+    const items = all.filter(x => rules.changesTopology(x));
+    const clone = { ...graph, nodes: graph.nodes.map(n => ({...n})), edges: graph.edges.map(e => ({...e})), clusters: graph.clusters.map(c => ({...c})) };
+    const merged = decorateReplacementGraph(mergePlans(clone, items.map(planDescriptor), p => npuNodeId(p.id)), all);
+    npu.drillSpecs = {};
+    items.forEach(item => {
+      npu.drillSpecs[npuNodeId(item.id)] = {
+        description: '多个 API 与保留步骤的编排示意，不能据此认定为单 Kernel；FP4、分布式与数值等价待验证。',
+        steps: [['routing 重排','保留 indices / row map','sem:comm'],['w1 / w3 grouped GEMM','API 支持待核实','sem:linear'],['clamp → SiLU × up','gate 仅上界 10；up ±10','sem:act'],['route weight × product','权重位于 w2 前，保持舍入点','sem:gate'],['cast → w2 grouped GEMM','保持原始 dtype 边界','sem:linear'],['scatter / 通信 / shared add','不能再次乘 route weight','sem:comm']]
+      };
+      const node = merged.nodes.find(n => n.id === npuNodeId(item.id));
+      if(node) { node.label = 'MoE · torch_npu 编排'; node.typeLabel = '多 API + 保留激活链 · 待验证'; }
+    });
+    all.filter(x => !rules.changesTopology(x)).forEach(item => item.nodes.forEach(id => {
+      if (drillSpecs[id]) npu.drillSpecs[id] = {...drillSpecs[id], description: '方案模型：' + item.apis.join(' / ') + ' 覆盖部分步骤；未覆盖步骤仍保留。' + drillSpecs[id].description};
+    }));
+    merged.nodes.forEach(n => { if(npu.drillSpecs[n.id]) n.collapsed = true; });
+    npu.graph = merged;
+    npu.meta = { plans: all.map(x => ({id:x.id,title:x.title,apis:x.apis,nodes:x.nodes,nodeId:rules.changesTopology(x)?npuNodeId(x.id):x.nodes[0]})), planCount:all.length,nodesBefore:graph.nodes.length,nodesAfter:merged.nodes.length,edgesBefore:graph.edges.length,edgesAfter:merged.edges.length };
+    return npu.graph;
+  }
+
+  const ensureNpuGraph = () => npu.graph || buildNpuGraph();
+
+  /** 从别处（例如替换方案面板）直接切到部署态模型 */
+  function showNpu() {
+    if (!ensureNpuGraph()) return false;
+    window.PtoModelArchitectureState = { active: NPU_MODEL_ID };
+    show();
+    return true;
+  }
+
+  let shownModel = null;
+
+  /**
+   * 整网融合推荐器的候选定位。
+   * 文档的规则匹配的是算子级模式，所以候选落在 L3：先把所在模块下钻展开，
+   * 再高亮它覆盖的那几个步骤。没有 steps 时退化为模块级高亮。
+   * @param {{module: string, steps: number[]}} site
+   */
+  function focusCandidate(site) {
+    if (!site || !site.module) { clearFusionHighlight(); return false; }
+    const target = baseGraph().nodes.find((node) => node.id === site.module);
+    if (!target) return false;
+    const spec = drillSpecFor(site.module);
+    const steps = Array.isArray(site.steps) ? site.steps : [];
+    fusionPlan = null;
+    fusionMode = 'before';
+    activePhase = target.phase || activePhase;
+    if (spec && steps.length) {
+      activeDrill = site.module;
+      render();
+      const ids = steps.map((i) => site.module + '__' + i);
+      const apply = () => { applyPhase(activePhase); highlightNodes(ids); };
+      apply();
+      setTimeout(apply, 0);
+    } else {
+      activeDrill = null;
+      render();
+      const apply = () => {
+        applyPhase(activePhase);
+        controller?.selectNode?.(target.id, { source: 'catalog' });
+        selectNode(target.id);
+        highlightNodes([target.id]);
+      };
+      apply();
+      setTimeout(apply, 0);
+    }
+    return true;
+  }
+
+  /** 收起下钻，回到部署态整网全景 */
+  function clearCandidate() {
+    activeDrill = null;
+    render();
+    setTimeout(() => { applyPhase(activePhase); clearFusionHighlight(); }, 0);
+  }
+
+  function show() {
+    window.PtoQwen3PerformanceSwimlane?.hide?.();
+    // 官方结构和部署态模型是本模块的两张视图，active 指向哪张就渲染哪张
+    const wanted = activeModelId();
+    const useNpu = wanted === NPU_MODEL_ID && !!ensureNpuGraph();
+    const target = useNpu ? NPU_MODEL_ID : MODEL_ID;
+    window.PtoModelArchitectureState = { active: target };
+    // 两张图的节点集合不同，换模型时下钻与融合叠加状态一律清掉
+    if (shownModel && shownModel !== target) {
+      activeDrill = null;
+      fusionPlan = null;
+      fusionMode = 'before';
+    }
+    shownModel = target;
+    const wasInitialized = initialized;
+    init();
+    setChrome();
+    // init() already rendered the first view. Avoid an immediate second
+    // render before the renderer's first auto-fit frame has run.
+    if (wasInitialized) render();
+    if (!configLoaded) loadOfficialConfig();
+    // active 在函数开头就已切到本模型，入口卡可以直接同步，不必等下一帧
+    window.PtoFusionAdvisor?.syncEntry?.();
+    window.PtoFusionCatalogAdvisor?.syncEntry?.();
+    requestAnimationFrame(() => applyPhase(activePhase));
+  }
+
+  window.PtoDeepSeekV4ModelViz = {
+    show,
+    fit: () => controller?.fit(),
+    setPhase: (phase) => applyPhase(phase),
+    focusNode: (nodeId) => focusNodes([nodeId]),
+    focusNodes,
+    clearFusionHighlight,
+    setFusionPlan,
+    setFusionMode,
+    clearFusionPlan,
+    openCompare,
+    closeCompare,
+    isComparing: () => !!compare && !compare.root.hidden,
+    getFusionMode: () => fusionMode,
+    showNpu,
+    focusCandidate,
+    clearCandidate,
+    isNpuModelActive: isNpuView,
+    getNpuMeta: () => (ensureNpuGraph() ? npu.meta : null),
+    npuGraph: () => ensureNpuGraph(),
+    NPU_MODEL_ID,
+    graph,
+    drillSpecs,
+  };
+})();
+</script>
+<script>/**
+ * 融合算子推荐 · 停靠在模型结构视图右侧
+ *
+ * 四个页签：替换方案 / 未推荐原因 / 算子核对 / 验证计划
+ * 数据全部来自 fusion-rules-data.js（model-infer-fusion skill 口径），
+ * 本文件只负责渲染与交互。
+ *
+ * 方向 C 的两条表达线：
+ *   cross 方案 —— 结构图上真实合并多个 L2 模块，面板给「融合前/融合后」开关
+ *   intra 方案 —— 结构图只标位置，关系变化用「当前调用 → 替换后调用」代码对照
+ */
+(function registerFusionAdvisor() {
+  'use strict';
+
+  const MODEL_ID = 'deepseek-v4-flash';
+
+  const TABS = [
+    { id: 'plans', label: '替换方案' },
+    { id: 'blocked', label: '未推荐原因' },
+    { id: 'apis', label: '算子核对' },
+    { id: 'validation', label: '验证计划' },
+  ];
+
+  const state = {
+    open: false,
+    tab: 'plans',
+    selected: 'mod-rmsnorm',
+    fusionMode: 'before',
+    lastFocus: null,
+  };
+
+  let root = null;
+
+  const rules = () => window.PtoFusionRules;
+  const viz = () => window.PtoDeepSeekV4ModelViz;
+  const esc = (v) => String(v).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const int = (n) => (n === null || n === undefined ? '—' : Math.round(Number(n)).toLocaleString('en-US'));
+
+  const view = () => rules().evaluate();
+
+  /** 手风琴当前展开的方案；全部收起时为 null */
+  function selectedItem(model) {
+    const data = model || view();
+    return state.selected ? (data.items.find((x) => x.id === state.selected) || null) : null;
+  }
+
+  /** 需要「一个当前方案」但允许回退的地方（验证计划、对比视图） */
+  function currentItem(model) {
+    const data = model || view();
+    return selectedItem(data) || data.actionable[0] || data.items[0] || null;
+  }
+
+  /** 展开哪条就把哪条投到结构图上；全部收起时把图恢复原样 */
+  function syncGraphToSelection() {
+    const item = selectedItem();
+    if (item) pushPlanToGraph(item);
+    else clearPlanFromGraph();
+  }
+
+  /**
+   * 候选替换 + 在整网图上有拓扑变化的方案。
+   * 生成替换模型和对比视图的右图用的是同一份口径：只有跨模块方案会改变模块级拓扑。
+   */
+  function topologyPlans(model) {
+    const data = model || view();
+    return data.items
+      .filter((x) => rules().changesTopology(x) && rules().isActionable(x))
+      .map((x) => ({ id: x.id, kind: x.kind, label: (x.apis && x.apis[0]) || x.title, sub: x.nodes.length + ' 个模块合并为 1 个', nodes: x.nodes }));
+  }
+
+  function pushPlanToGraph(item) {
+    if (!item || !viz() || !viz().setFusionPlan) return;
+    viz().setFusionPlan({
+      id: item.id,
+      kind: item.kind,
+      label: (item.apis && item.apis[0]) || item.title,
+      sub: item.kind === 'cross' ? item.nodes.length + ' 个模块合并为 1 个' : item.title,
+      nodes: item.nodes,
+    });
+    if (viz().setFusionMode) viz().setFusionMode(state.fusionMode);
+  }
+
+  function clearPlanFromGraph() {
+    if (viz() && viz().clearFusionPlan) viz().clearFusionPlan();
+  }
+
+  /* ---------------- 通用片段 ---------------- */
+
+  const statusChip = (meta) => `<i class="kf-fus-level is-${meta.id}" title="${esc(meta.desc)}">${esc(meta.label)}</i>`;
+
+  const kindChip = (item) => (item.kind === 'cross'
+    ? `<i class="kf-fus-tag is-cross" title="${esc(rules().KIND.cross.desc)}">跨模块 · ${item.nodes.length} 模块</i>`
+    : `<i class="kf-fus-tag is-cat" title="${esc(rules().KIND.intra.desc)}">模块内</i>`);
+
+  const nodeChips = (nodes) => nodes
+    .map((id) => `<button class="kf-fus-node" type="button" data-goto-node="${esc(id)}" title="在结构图中定位 ${esc(id)}">${esc(id)}</button>`)
+    .join('');
+
+  const apiChips = (item) => (item.apiList || [])
+    .map((a) => `<a class="kf-fus-api ${a.listed ? '' : 'is-unlisted'}" href="${esc(a.doc)}" target="_blank" rel="noreferrer" title="${esc(a.note)}${a.listed ? '' : ' · 不在算子总表内'}">${esc(a.name)}${a.beta ? '<em>beta</em>' : ''}${a.listed ? '' : '<em class="warn">未登记</em>'}</a>`)
+    .join('');
+
+  const codeBlock = (lines, tone) => (lines && lines.length
+    ? `<pre class="kf-fus-code ${tone ? 'is-' + tone : ''}">${lines.map((l) => `<span class="kf-fus-codeline"><code>${esc(l[0])}</code>${l[1] ? `<em>${esc(l[1])}</em>` : ''}</span>`).join('')}</pre>`
+    : '');
+
+  /* ---------------- 替换方案 ---------------- */
+
+  function renderKpis(data) {
+    const s = data.summary;
+    const c = rules().CONFIG;
+    return `<div class="kf-fus-kpis">
+      <div class="kf-fus-kpi"><span>候选替换方案</span><b>${s.actionable}</b><small>参考替换 ${s.byStatus.ready} · 需前置改造 ${s.byStatus.prep}</small></div>
+      <div class="kf-fus-kpi"><span>跨模块编排</span><b class="is-strong">${s.cross}</b><small>结构图上可见合并</small></div>
+      <div class="kf-fus-kpi"><span>模块内融合</span><b>${s.intra}</b><small>看代码级调用对照</small></div>
+      <div class="kf-fus-kpi"><span>无现成算子</span><b>${s.handoff}</b><small>转新增融合算子需求</small></div>
+    </div>`;
+  }
+
+  function renderList(data) {
+    if (!data.actionable.length) return '<div class="kf-fus-empty">当前没有候选替换的替换方案。</div>';
+    const openId = state.selected;
+    const rows = data.actionable.map((item, index) => {
+      const open = item.id === openId;
+      return `<div class="kf-fus-item ${open ? 'is-open' : ''}">
+        <button type="button" class="kf-fus-row" data-plan-pick="${esc(item.id)}" aria-expanded="${open}">
+          <span class="kf-fus-row__rank">${index + 1}</span>
+          <span class="kf-fus-row__main">
+            <b>${esc(item.title)}</b>
+            <small>${esc(item.module)}</small>
+            <span class="kf-fus-row__tags">
+              ${kindChip(item)}
+              ${statusChip(item.statusMeta)}
+              <i class="kf-fus-tag">${item.layers} 层生效</i>
+            </span>
+          </span>
+          <span class="kf-fus-row__api">${esc((item.apis && item.apis[0]) || '—')}${item.apis && item.apis.length > 1 ? ` +${item.apis.length - 1}` : ''}</span>
+          <span class="kf-fus-row__chev" aria-hidden="true">⌄</span>
+        </button>
+        ${open ? renderDetail(item) : ''}
+      </div>`;
+    }).join('');
+    return `<div class="kf-fus-list">${rows}</div>`;
+  }
+
+  /** cross：图上真有变化，给开关；intra：图上没变化，说清楚为什么 */
+  function renderGraphLink(item) {
+    if (item.kind === 'cross' && item.nodes.length > 1) {
+      return `<div class="kf-fus-block">
+        <h4>结构图上的变化<small>左侧画布联动</small></h4>
+        <div class="kf-fus-modeswitch" role="group" aria-label="结构图视图">
+          <button type="button" data-fusion-mode="before" class="${state.fusionMode === 'before' ? 'is-active' : ''}">融合前 · ${item.nodes.length} 个模块</button>
+          <button type="button" data-fusion-mode="after" class="${state.fusionMode === 'after' ? 'is-active' : ''}">融合后 · 1 个算子</button>
+        </div>
+        <div class="kf-fus-nodes">${nodeChips(item.nodes)}</div>
+        <p class="kf-fus-note">切到「融合后」，左侧整网图会把这 ${item.nodes.length} 个模块合并成一个节点，模块之间的依赖被这个 API 吃掉，外部边重新接到融合节点上。要左右并排看，用右上角的「替换前后对比」。</p>
+      </div>`;
+    }
+    return `<div class="kf-fus-block">
+      <h4>结构图上的位置<small>模块内融合</small></h4>
+      <div class="kf-fus-nodes">${nodeChips(item.nodes)}</div>
+      <p class="kf-fus-note">这类融合发生在模块内部，整网结构图是模块级的，<b>拓扑不会变化</b>——图上只标位置。关系变化看下面的调用对照。</p>
+    </div>`;
+  }
+
+  /* ---------------- 覆盖的子链路 ----------------
+   * 一段替换方案的价值就是「这个 API 一次吃掉了哪几段计算」。
+   * 纯列表说不清边界在哪，所以画成一张融合边界示意图：
+   * 边界内的子链路串成一条竖链，边界外的挂在旁边，比例条给总览。
+   */
+
+  const roleDot = (entry) => `<i class="kf-fus-cov__dot" style="--role:${entry.roleMeta.color}"></i>`;
+
+  function renderCoverage(item) {
+    const cov = item.coverage;
+    if (!cov || !cov.total) return '';
+    const inN = cov.covered.length;
+    const outN = cov.uncovered.length;
+    const pct = Math.round((inN / cov.total) * 100);
+    const api = (item.apis && item.apis[0]) || '候选算子';
+    const more = item.apis && item.apis.length > 1 ? ` +${item.apis.length - 1}` : '';
+
+    // 出现过的角色做一条图例，颜色与结构图的节点配色一致
+    const roles = [];
+    cov.covered.concat(cov.uncovered).forEach((e) => {
+      if (!roles.some((r) => r.role === e.role)) roles.push(e);
+    });
+
+    const chain = inN
+      ? `<ol class="kf-fus-cov__chain">${cov.covered.map((e, i) => `<li style="--role:${e.roleMeta.color}">
+          <i class="kf-fus-cov__idx">${i + 1}</i>
+          <span class="kf-fus-cov__text">${esc(e.text)}</span>
+          <em class="kf-fus-cov__role">${esc(e.roleMeta.label)}</em>
+        </li>`).join('')}</ol>`
+      : '<p class="kf-fus-cov__none">这个方案没有可直接覆盖的子链路 —— 见下方「未覆盖」。</p>';
+
+    const outside = outN
+      ? `<div class="kf-fus-cov__outside">
+          <span class="kf-fus-cov__outhead">边界外 · ${outN} 段<em>需另找算子或保持原实现</em></span>
+          <ul class="kf-fus-cov__outlist">${cov.uncovered.map((e) => `<li style="--role:${e.roleMeta.color}">
+            <i class="kf-fus-cov__cut" aria-hidden="true">⊘</i>
+            <span>${esc(e.text)}</span>
+            <em>${esc(e.roleMeta.label)}</em>
+          </li>`).join('')}</ul>
+        </div>`
+      : '<p class="kf-fus-cov__all">这一段计算被完整吃掉，没有留在边界外的子链路。</p>';
+
+    return `<div class="kf-fus-block kf-fus-cov">
+      <h4>覆盖的子链路<small>融合边界示意</small></h4>
+
+      <div class="kf-fus-cov__meter">
+        <div class="kf-fus-cov__bar">
+          ${inN ? `<span class="is-in" style="flex:${inN}">${inN}</span>` : ''}
+          ${outN ? `<span class="is-out" style="flex:${outN}">${outN}</span>` : ''}
+        </div>
+        <div class="kf-fus-cov__legend">
+          <b>${inN}</b> / ${cov.total} 段进入融合边界<em>${pct}%</em>
+        </div>
+      </div>
+
+      <div class="kf-fus-cov__diagram">
+        <div class="kf-fus-cov__port is-in"><i></i>输入</div>
+        <div class="kf-fus-cov__box">
+          <div class="kf-fus-cov__api"><b>${esc(api)}${esc(more)}</b><em>API 覆盖示意</em></div>
+          ${chain}
+        </div>
+        <div class="kf-fus-cov__port is-out"><i></i>输出</div>
+      </div>
+
+      ${outside}
+
+      <div class="kf-fus-cov__roles">${roles.map((e) => `<span style="--role:${e.roleMeta.color}">${roleDot(e)}${esc(e.roleMeta.label)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  function renderCodeDiff(item) {
+    if (!item.before || !item.before.length) return '';
+    const after = item.after && item.after.length
+      ? codeBlock(item.after, 'after')
+      : '<p class="kf-fus-note">无对应 torch_npu 调用，见「未推荐原因」。</p>';
+    return `<div class="kf-fus-block">
+      <h4>调用对照<small>${esc(rules().SOURCE)}</small></h4>
+      <div class="kf-fus-diff">
+        <div><span class="kf-fus-difflabel is-before">当前实现</span>${codeBlock(item.before, 'before')}</div>
+        <div><span class="kf-fus-difflabel is-after">替换后</span>${after}</div>
+      </div>
+    </div>`;
+  }
+
+  function listBlock(title, items, tone, sub) {
+    if (!items || !items.length) return '';
+    return `<div class="kf-fus-block${tone ? ` is-${tone}` : ''}">
+      <h4>${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}</h4>
+      <ul class="kf-fus-bullets">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  function renderStages(item) {
+    if (!item.stages) return '';
+    const w = rules().WORKLOAD;
+    return `<div class="kf-fus-block">
+      <h4>Prefill / Decode 差异<small>同一模块两阶段可能走不同算子路径</small></h4>
+      <div class="kf-fus-stages">
+        <div><span>${esc(w.prefill.label)}<em>${esc(w.prefill.note)}</em></span><p>${esc(item.stages.prefill)}</p></div>
+        <div><span>${esc(w.decode.label)}<em>${esc(w.decode.note)}</em></span><p>${esc(item.stages.decode)}</p></div>
+      </div>
+    </div>`;
+  }
+
+  function renderConstraints(item) {
+    if (!item.constraints || !item.constraints.length) return '';
+    return `<div class="kf-fus-block is-warn">
+      <h4>待确认约束<small>${item.unchecked} 项未核对</small></h4>
+      ${item.constraints.map((x) => `<div class="kf-fus-constraint">
+        <i>${x.checked ? '✓' : '?'}</i>
+        <b>${esc(x.item)}</b>
+        <p>${esc(x.why)}</p>
+      </div>`).join('')}
+      <p class="kf-fus-note">当前演示未连接 torch_npu 编译或执行环境，API 支持范围与约束均标记为<b>未核对</b>，需在有环境的机器上用 <code>torch_npu_query.py show</code> 补齐。</p>
+    </div>`;
+  }
+
+  function renderDetail(item) {
+    if (!item) return '';
+    // 手风琴展开体：标题、状态、类型已经在行头上了，这里不再重复
+    return `<div class="kf-fus-panel">
+      <div class="kf-fus-panelhead">
+        <div class="kf-fus-apis">${apiChips(item)}</div>
+        <div class="kf-fus-detailactions">
+          ${item.coverage && item.coverage.covered.length ? `<button class="kf-fus-btn is-hw" type="button" data-plan-hardware="${esc(item.id)}" title="看这次融合让数据在昇腾硬件上少跑了哪些路">边界与硬件条件 ↗</button>` : ''}
+          <button class="kf-fus-btn" type="button" data-plan-verify="${esc(item.id)}">验证计划</button>
+          <button class="kf-fus-btn" type="button" data-export="${esc(item.id)}">导出 JSON</button>
+        </div>
+      </div>
+      <div class="kf-fus-detailbody">
+        ${renderGraphLink(item)}
+        ${renderCodeDiff(item)}
+        ${renderCoverage(item)}
+        ${listBlock('前置改造', item.prep, 'warn')}
+        ${renderStages(item)}
+        ${renderConstraints(item)}
+        <div class="kf-fus-block">
+          <h4>最小验证切口</h4>
+          <p class="kf-fus-fallback">${esc(item.verify)}</p>
+        </div>
+        <div class="kf-fus-block">
+          <h4>回退方案</h4>
+          <p class="kf-fus-note">${esc(item.fallback)}</p>
+        </div>
+        ${item.note ? `<p class="kf-fus-note">${esc(item.note)}</p>` : ''}
+        <p class="kf-fus-note">参考链路：${esc(item.reference)}</p>
+      </div>
+    </div>`;
+  }
+
+  function renderPlans(data) {
+    return `${renderKpis(data)}${renderList(data)}`;
+  }
+
+  /* ---------------- 未推荐原因 ---------------- */
+
+  function renderBlocked(data) {
+    const group = (status) => data.deferred.filter((x) => x.status === status);
+    const card = (x, body) => `<article class="kf-fus-blockcard is-${x.status}">
+      <header>
+        <div>${statusChip(x.statusMeta)}<h4>${esc(x.title)}</h4></div>
+        <span>${esc((x.apis && x.apis[0]) || '无候选算子')}</span>
+      </header>
+      <p class="kf-fus-pattern">${esc(x.module)}</p>
+      <div class="kf-fus-nodes">${nodeChips(x.nodes)}</div>
+      ${body}
+    </article>`;
+
+    const blockedCards = group('blocked').map((x) => card(x, `
+      ${(x.blockers || []).map((b) => `<div class="kf-fus-reason"><i>${esc(b.code)}</i><p>${esc(b.note)}</p></div>`).join('')}
+      ${codeBlock(x.before, 'before')}
+      <p class="kf-fus-unblock"><b>回退</b>${esc(x.fallback)}</p>
+      ${x.note ? `<p class="kf-fus-note">${esc(x.note)}</p>` : ''}
+    `)).join('');
+
+    const noneCards = group('none').map((x) => card(x, `
+      <p class="kf-fus-note"><b>为什么没有算子</b>${esc(x.handoff.why)}</p>
+      <p class="kf-fus-note"><b>移交内容</b>${esc(x.handoff.payload)}</p>
+      <p class="kf-fus-unblock"><b>下一步</b>${esc(x.handoff.next)}</p>
+    `)).join('');
+
+    const constraintCards = group('constraint').map((x) => card(x, `
+      ${(x.constraints || []).map((cst) => `<div class="kf-fus-constraint"><i>?</i><b>${esc(cst.item)}</b><p>${esc(cst.why)}</p></div>`).join('')}
+      <p class="kf-fus-unblock"><b>解除条件</b>查 ${esc((x.apis || []).join(' / ') || '相关算子')} 的官方详情文档，确认上述约束后可升为候选替换方案</p>
+    `)).join('');
+
+    return `<div class="kf-fus-pane">
+      ${constraintCards ? `<section class="kf-fus-section"><header><h3>约束待确认</h3><span>${group('constraint').length} 条 · 查文档后才能定</span></header>${constraintCards}</section>` : ''}
+      ${blockedCards ? `<section class="kf-fus-section"><header><h3>不适配</h3><span>${group('blocked').length} 条 · 附硬约束证据</span></header>${blockedCards}</section>` : ''}
+      ${noneCards ? `<section class="kf-fus-section"><header><h3>无现成算子 · 转新增融合算子需求</h3><span>${group('none').length} 条</span></header>${noneCards}</section>` : ''}
+      <section class="kf-fus-section">
+        <header><h3>为什么 V4 的 Residual + Norm 类融合普遍不成立</h3><span>结构性原因</span></header>
+        <p class="kf-fus-note">参考链路里高频使用的 <code>npu_add_rms_norm</code>、<code>npu_moe_distribute_combine_add_rms_norm</code> 都假设 <code>x = norm(residual + x)</code>。DeepSeek V4 Flash 用 mHC 取代了普通残差：残差在 <code>hc_post</code> 里按 Sinkhorn 出来的 post/comb 权重合并（${esc(rules().SOURCE)}:683-686、700），且每层出现两次（attn 前后、ffn 前后）。这不是参数不匹配，是结构不同。</p>
+      </section>
+    </div>`;
+  }
+
+  /* ---------------- 算子核对 ---------------- */
+
+  function renderApis() {
+    const list = rules().apiChecklist();
+    const unlisted = list.filter((x) => !x.listed);
+    const rows = list.map((a) => `<tr class="${a.listed ? '' : 'is-hit'}">
+      <td><code>${esc(a.name)}</code>${a.beta ? ' <i class="kf-fus-tag">beta</i>' : ''}</td>
+      <td>${a.listed ? '<span class="kf-fus-muted">在总表</span>' : '<i class="kf-fus-hit">不在总表</i>'}</td>
+      <td>${esc(a.note)}${a.alias ? `<small>别名：${esc(a.alias)}</small>` : ''}</td>
+      <td>${a.modules.map((m) => esc(m)).join('、')}</td>
+      <td><a class="kf-fus-link" href="${esc(a.doc)}" target="_blank" rel="noreferrer">文档 ↗</a></td>
+    </tr>`).join('');
+
+    return `<div class="kf-fus-pane">
+      <section class="kf-fus-section">
+        <header><h3>候选算子核对清单</h3><span>${list.length} 个 · ${unlisted.length} 个不在总表内</span></header>
+        <table class="kf-fus-table">
+          <thead><tr><th>算子</th><th>总表</th><th>说明</th><th>用在哪</th><th>文档</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="kf-fus-note">算子总表是 skill 附带的版本快照（144 个），它自己声明「只作为候选目录，进入候选清单后必须用本地 docstring 或在线文档核对当前 torch_npu 版本是否存在、签名是否一致」。下面这几处参考链路与总表命名不一致，是必须先核实的：</p>
+        <ul class="kf-fus-bullets">
+          <li><code>npu_add_rms_norm</code> — 三份 attention 参考链路都在用，但不在总表内（总表只有 <code>npu_rms_norm</code>）</li>
+          <li><code>npu_lightning_indexer_quant</code>（参考文档）↔ <code>npu_quant_lightning_indexer</code>（总表）</li>
+          <li><code>npu_sparse_flash_attention_antiquant</code>（参考文档）↔ <code>npu_kv_quant_sparse_flash_attention</code>（总表）</li>
+          <li><code>npu_kv_rmsnorm_rope_cache_v2</code>（参考文档）↔ <code>npu_kv_rmsnorm_rope_cache</code>（总表无 v2）</li>
+        </ul>
+      </section>
+      <section class="kf-fus-section">
+        <header><h3>怎么核对</h3><span>skill 第三步</span></header>
+        <pre class="kf-fus-code"><span class="kf-fus-codeline"><code>python3 scripts/torch_npu_query.py show &lt;api_name&gt;</code><em>单 API 详情</em></span><span class="kf-fus-codeline"><code>python3 scripts/torch_npu_query.py search "&lt;keyword&gt;"</code><em>反向搜索</em></span><span class="kf-fus-codeline"><code>python3 scripts/torch_npu_query.py list --prefix npu_</code><em>枚举算子名</em></span></pre>
+        <p class="kf-fus-note">数据源是 torch_npu 安装包内的 <code>_op_plugin_docs.py</code>，与安装版本严格绑定。<b>没有 torch_npu 环境时脚本会降级到内嵌的 12 条兜底集</b>，覆盖面很小——本面板里所有约束因此都标为未核对。</p>
+      </section>
+    </div>`;
+  }
+
+  /* ---------------- 验证计划 ---------------- */
+
+  function renderValidation(data) {
+    const item = currentItem(data);
+    const steps = [
+      ['完成前置改造', item && item.prep && item.prep.length ? item.prep.join('；') : '本方案无前置改造'],
+      ['替换该模块的算子代码', item ? ((item.apis || []).join(' / ') || '—') : '—'],
+      ['精度对比', '融合前后输出逐元素对齐'],
+      ['性能对比', '确认有收益，而不是只看理论 launch 数'],
+      ['通过则保留，继续下一个模块', '每次只落一个可独立验证的链路'],
+      ['失败则回退并记录', '记录报错、尝试过的参数、不适配证据；确认无现成 API 且有明确收益时转新增算子需求'],
+    ];
+    return `<div class="kf-fus-pane">
+      <section class="kf-fus-section">
+        <header><h3>替换流程 · skill 第五步</h3><span>当前方案：${item ? esc(item.title) : '—'}</span></header>
+        <ol class="kf-fus-gates">${steps.map((s, i) => `<li><i>${i + 1}</i><div><b>${esc(s[0])}</b><p>${esc(s[1])}</p></div></li>`).join('')}</ol>
+        ${item ? `<div class="kf-fus-block"><h4>最小验证切口</h4><p class="kf-fus-fallback">${esc(item.verify)}</p></div>` : ''}
+      </section>
+      <section class="kf-fus-section">
+        <header><h3>待处理队列</h3><span>${data.actionable.length} 个候选替换方案</span></header>
+        <table class="kf-fus-table">
+          <thead><tr><th>方案</th><th>状态</th><th>类型</th><th>前置改造</th><th>未核约束</th></tr></thead>
+          <tbody>${data.actionable.map((x) => `<tr>
+            <td><button class="kf-fus-link" type="button" data-plan-jump="${esc(x.id)}">${esc(x.title)}</button></td>
+            <td>${statusChip(x.statusMeta)}</td>
+            <td>${x.kind === 'cross' ? '跨模块' : '模块内'}</td>
+            <td>${x.prep && x.prep.length ? x.prep.length + ' 项' : '<span class="kf-fus-muted">无</span>'}</td>
+            <td>${x.unchecked ? `<i class="kf-fus-hit">${x.unchecked}</i>` : '<span class="kf-fus-muted">—</span>'}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <p class="kf-fus-note">skill 第五步要求：每次优先落一个可独立验证的候选链路，完成精度对齐与性能观察后再继续下一个；不得跳过任何已进入候选清单的模块，无法实施的也必须记录失败证据与阻塞原因。</p>
+      </section>
+    </div>`;
+  }
+
+  /* ---------------- 外壳 ---------------- */
+
+  function shell(data) {
+    const c = rules().CONFIG;
+    const s = data.summary;
+    const tabs = TABS.map((t) => {
+      const badge = t.id === 'plans' ? s.actionable
+        : t.id === 'blocked' ? data.deferred.length
+          : t.id === 'apis' ? s.apiCount : '';
+      return `<button type="button" class="${state.tab === t.id ? 'is-active' : ''}" data-fus-tab="${t.id}" role="tab" aria-selected="${state.tab === t.id}">${esc(t.label)}${badge ? `<em>${badge}</em>` : ''}</button>`;
+    }).join('');
+
+    return `<aside class="kf-fus-drawer" role="region" aria-label="融合算子推荐">
+      <header class="kf-fus-head">
+        <div>
+          <h2>torch_npu 替换方案</h2>
+          <p>替换演示 · API / 数值 / 性能待验证 · 源码 ${esc(rules().SOURCE)}</p>
+        </div>
+        <div class="kf-fus-headactions">
+          <button class="kf-fus-btn is-accent" type="button" data-onekey title="根据跨模块与模块内方案生成 torch_npu 方案模型，待适配与验证">⚡ 生成替换模型</button>
+          <button class="kf-fus-btn is-primary" type="button" data-compare aria-haspopup="dialog" aria-controls="modelCompare">替换前后对比 ↗</button>
+          <button class="kf-fus-close" type="button" data-fus-close aria-label="关闭">✕</button>
+        </div>
+      </header>
+      <div class="kf-fus-context">
+        <span class="kf-fus-ctxitem">Hidden <b>${int(c.dim)}</b> · <b>${c.n_layers}</b> 层</span>
+        <span class="kf-fus-ctxsep"></span>
+        <span class="kf-fus-ctxitem">MLA + Indexer · 压缩层 <b>${c.compressLayers}</b> / indexer <b>${c.indexerLayers}</b></span>
+        <span class="kf-fus-ctxsep"></span>
+        <span class="kf-fus-ctxitem">MoE <b>${c.n_routed_experts}+${c.n_shared_experts}</b> · top-k <b>${c.n_activated_experts}</b></span>
+        <span class="kf-fus-ctxsep"></span>
+        <span class="kf-fus-ctxitem">精度 <b>${esc(c.expert_dtype.toUpperCase())}</b> / <b>${esc(c.dtype.toUpperCase())}</b></span>
+      </div>
+      <nav class="kf-fus-tabs" role="tablist">${tabs}</nav>
+      <div class="kf-fus-body" id="fusBody"></div>
+    </aside>`;
+  }
+
+  function renderBody() {
+    const body = root && root.querySelector('#fusBody');
+    if (!body) return;
+    const data = view();
+    if (state.tab === 'plans') body.innerHTML = renderPlans(data);
+    else if (state.tab === 'blocked') body.innerHTML = renderBlocked(data);
+    else if (state.tab === 'apis') body.innerHTML = renderApis();
+    else body.innerHTML = renderValidation(data);
+    body.scrollTop = 0;
+  }
+
+  function renderAll() {
+    if (!root) return;
+    root.innerHTML = shell(view());
+    renderBody();
+  }
+
+  /* ---------------- 交互 ---------------- */
+
+  function download(name, text) {
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function onClick(event) {
+    const t = event.target;
+    if (t.closest('[data-fus-close]')) { close(); return; }
+
+    const tab = t.closest('[data-fus-tab]');
+    if (tab) {
+      state.tab = tab.dataset.fusTab;
+      renderAll();
+      if (state.tab === 'plans') syncGraphToSelection();
+      return;
+    }
+
+    const mode = t.closest('[data-fusion-mode]');
+    if (mode) {
+      state.fusionMode = mode.dataset.fusionMode;
+      if (viz() && viz().setFusionMode) viz().setFusionMode(state.fusionMode);
+      renderBody();
+      return;
+    }
+
+    const pick = t.closest('[data-plan-pick]');
+    if (pick) {
+      const id = pick.dataset.planPick;
+      // 再点已展开的那条就收起；点别的就切过去（单开手风琴）
+      state.selected = state.selected === id ? null : id;
+      state.fusionMode = 'before';
+      renderBody();
+      syncGraphToSelection();
+      // 展开后把这条滚进可视区，避免展开体把行头顶出屏幕
+      if (state.selected) {
+        const el = root.querySelector(`[data-plan-pick="${CSS.escape(id)}"]`);
+        if (el) el.scrollIntoView({ block: 'nearest' });
+      }
+      return;
+    }
+
+    const jump = t.closest('[data-plan-jump]');
+    if (jump) {
+      state.selected = jump.dataset.planJump;
+      state.tab = 'plans';
+      renderAll();
+      syncGraphToSelection();
+      return;
+    }
+
+    // 生成替换模型：把全部跨模块方案叠加成一个新模型，注册到左侧模型列表并切过去。
+    // 替换后模型是一个独立模型，不再挂替换方案面板，所以这里先把面板关掉。
+    if (t.closest('[data-onekey]')) {
+      const v = viz();
+      if (!v || !v.showNpu) return;
+      // 方案模型是模型列表里的独立选项，不挂替换方案面板，切过去之前先关掉
+      close();
+      v.showNpu();
+      return;
+    }
+
+    const cmp = t.closest('[data-compare]');
+    if (cmp) {
+      const data = view();
+      // 只有跨模块方案在整网图上有拓扑变化；默认叠加全部这类方案，
+      // 也就是「全部替换完之后整网长什么样」
+      const crossPlans = topologyPlans(data);
+      const current = currentItem(data);
+      if (viz() && viz().openCompare) {
+        viz().openCompare({
+          plans: crossPlans,
+          // 切到「单个方案」时用当前选中的（若它本身就是跨模块方案）
+          activeId: current && rules().changesTopology(current) ? current.id : (crossPlans[0] && crossPlans[0].id),
+          scope: 'all',
+        });
+      }
+      return;
+    }
+
+    const hw = t.closest('[data-plan-hardware]');
+    if (hw) {
+      const item = view().items.find((x) => x.id === hw.dataset.planHardware);
+      if (item) window.PtoFusionHardwareView?.open?.(item);
+      return;
+    }
+
+    const verify = t.closest('[data-plan-verify]');
+    if (verify) { state.selected = verify.dataset.planVerify; state.tab = 'validation'; renderAll(); return; }
+
+    const one = t.closest('[data-export]');
+    if (one) {
+      const item = view().items.find((x) => x.id === one.dataset.export);
+      if (item) {
+        download(`${item.id}.json`, JSON.stringify({
+          module_id: item.id,
+          module: item.title,
+          kind: item.kind,
+          graph_nodes: item.nodes,
+          candidate_apis: item.apis,
+          status: item.status,
+          covers: item.covers,
+          uncovered: item.uncovered,
+          prep: item.prep,
+          constraints: item.constraints,
+          stages: item.stages,
+          minimal_verification: item.verify,
+          fallback: item.fallback,
+          handoff: item.handoff || null,
+          blockers: item.blockers || [],
+          source: rules().SOURCE,
+        }, null, 2));
+      }
+      return;
+    }
+
+    const node = t.closest('[data-goto-node]');
+    if (node && viz() && viz().focusNode) viz().focusNode(node.dataset.gotoNode);
+  }
+
+  /* ---------------- 生命周期 ---------------- */
+
+  function open() {
+    const host = document.getElementById('modelArchitectureView');
+    if (!host || !rules()) return;
+    if (!root) {
+      root = document.createElement('div');
+      root.className = 'kf-fus-root';
+      root.id = 'fusionAdvisor';
+      host.appendChild(root);
+      root.addEventListener('click', onClick);
+    }
+    state.lastFocus = document.activeElement;
+    state.open = true;
+    root.hidden = false;
+    host.classList.add('is-fusion-docked');
+    renderAll();
+    if (state.tab === 'plans') syncGraphToSelection();
+  }
+
+  function close() {
+    if (!root) return;
+    state.open = false;
+    root.hidden = true;
+    const host = document.getElementById('modelArchitectureView');
+    if (host) host.classList.remove('is-fusion-docked');
+    clearPlanFromGraph();
+    if (state.lastFocus && state.lastFocus.isConnected) state.lastFocus.focus();
+  }
+
+  function syncEntry() {
+    const active = (window.PtoModelArchitectureState || {}).active || 'qwen3';
+    // 只有官方结构挂替换方案面板；生成替换模型产出的模型是一个独立模型，不带面板
+    const supported = active === MODEL_ID && !!rules();
+    document.querySelectorAll('[data-open-fusion]').forEach((el) => { el.hidden = !supported; });
+    if (!supported) { if (state.open) close(); return; }
+    const data = view();
+    const stat = document.querySelector('[data-fusion-stat]');
+    if (stat) stat.innerHTML = `<i></i>候选替换 <b>${data.summary.actionable}</b> · 跨模块 <b>${data.summary.cross}</b> · 未推荐 <b>${data.deferred.length}</b>`;
+    const meta = document.querySelector('[data-fusion-meta]');
+    if (meta) meta.textContent = 'model-infer-fusion · torch_npu 替换';
+  }
+
+  const scheduleSync = () => setTimeout(syncEntry, 0);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && state.open) { event.stopPropagation(); close(); }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-open-fusion]')) {
+      event.preventDefault();
+      event.stopPropagation();
+      open();
+      return;
+    }
+    if (event.target.closest('[data-model-id]')) { scheduleSync(); return; }
+    const rail = event.target.closest('[data-activity-view]');
+    if (rail) {
+      if (rail.dataset.activityView !== 'model' && state.open) close();
+      scheduleSync();
+    }
+  }, true);
+
+  document.addEventListener('DOMContentLoaded', scheduleSync);
+
+  // 对比视图关掉后，把当前方案重新投回单图视图
+  function onCompareClosed() {
+    if (state.open && state.tab === 'plans') syncGraphToSelection();
+  }
+
+  window.PtoFusionAdvisor = { open, close, syncEntry, onCompareClosed, isOpen: () => state.open };
+})();
+</script>
+<script>/* Source-aligned recommendation demo. No compile, API call or measured performance is implied. */
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const viz = () => window.PtoDeepSeekV4ModelViz;
+  const cfg = window.PtoFusionRules.CONFIG;
+  const SOURCES = {
+    vector:['UB 连续计算','https://www.hiascend.com/document/detail/zh/canncommercial/80RC2/developmentguide/opdevg/ascendcbestP/atlas_ascendc_best_practices_10_0020.html'],
+    hardware:['2201 架构','https://asc.gitcode.com/guide/programming_guide/advanced_programming/hardware_implementation/architecture_spec/npu_arch_2201.html'],
+    next:['3510 通路（开发分支）','https://asc.gitcode.com/guide/cross_gen_migration_guide/instructions_for_new_features/3510_new_features.html'],
+    tiling:['Auto Tiling','https://www.hiascend.com/document/detail/zh/canncommercial/900/programug/graphdevg/autofuse_1_0031.html'],
+    pipeline:['流水与 Double Buffer','https://www.hiascend.com/zh/developer/techArticles/20240819-1/']
+  };
+  const candidates = [
+    {
+      id:'shared-vector',rule:'FUS-VV-01',title:'Shared Expert：保留截断的 SwiGLU',short:'clamp → SiLU → multiply → cast',module:'shared-expert',steps:[2,3],group:'new',kind:'Vector 局部融合',lines:'599–609',rank:1,
+      pattern:'gate ≤ 10 · up ∈ [−10,10] → SiLU(gate) × up → cast',
+      why:'只融合 w1/w3 之后的 Vector 尾链；两路投影与 w2 保持边界。保留原始非对称 clamp，避免用标准 npu_swiglu 直接替换而改变结果。',
+      boundary:'输入是已完成投影并上转 FP32 的 gate/up；输出是回落到 input_dtype 的乘积。w1/w3/w2 与 routed experts 均不属于本候选。',
+      retained:'保留 gate/up 输入 GM 读取与 w2 输入 GM 写回。共享专家没有 route weight；不能沿用 routed expert 的加权步骤。',
+      before:[['gate / up · FP32','GM 输入','gm'],['up clamp(−10,10) + gate clamp(max=10)','两个 FP32 中间结果'],['中间结果写回 / 重读','假设基线分别执行','gm'],['SiLU → multiply → cast','各阶段按需物化'],['w2 输入','GM 输出，保留','gm']],
+      after:[['gate / up','GM → UB，保留','gm'],['UB：clamp → SiLU → multiply','保持 gate / up 两种 clamp'],['UB：cast 到 input_dtype','保留舍入边界'],['w2 输入','UB → GM，保留','gm']],
+      buffers:[['gate / up tile','UB · 两路 FP32','搬入至最后一次乘积读取','只有 API 允许原地且最后访问完成，才可复用'],['clamp / SiLU / product','UB · FP32 临时值','依次生产、消费，可能复用槽位','按 no-alias 与 scratch 要求决定；不是自动零空间'],['输出 tile','UB · input_dtype','cast 至 MTE3 搬出完成','搬出完成前禁止新 tile 覆写']],
+      schedule:'同一 tile 先做两支 clamp，再执行 SiLU、乘积与 cast；可让 tile k 的计算与 k+1 的搬入重叠。两路矩阵投影仍可独立调度，不强制串行。',
+      sync:'保留 MTE2→Vector、Vector→MTE3 和槽位覆写依赖；本边界没有新 AIC/AIV 交接。Vector 内部依赖仍须由编译器/API 正确处理。',
+      risks:['gate 只有上界 10；up 同时有 −10 和 10，不能统一成双侧 clamp。','若基线编译器已合并逐元素链，新增可消除流量应减少，甚至归零。','FP32 临时值与 cast 输出不能按 BF16 容量估算。'],
+      alternatives:[['本方案','先验证 Vector 局部链','保留矩阵算子性能与并行机会'],['w1/w3 + 整条 SwiGLU','暂不作为主推荐','需要矩阵分块、核间通路和双分支就绪证明'],['包含 w2 的完整 FFN','暂不扩大','K 归约、累加器与中间布局需要独立方案']],
+      validation:['逐元素对比 gate 在 −∞/−10/10/+∞ 附近与 up 两侧边界，包含 NaN 的既有语义。','核对输入上转、乘积 FP32、回落 input_dtype 的顺序。','对照已启用编译优化的 torch_npu 基线，采集实际 Kernel 数与 GM 流量。','验证共享专家输出与整层输出；分别统计 Prefill 与 Decode。'],
+      flowBytes:'shared',lifetimes:[['gate/up · UB',0,4,''],['临时槽 · UB',1,4,''],['输出槽 · UB',3,6,''],['w2 输入 · GM',4,6,'gm']],
+    },
+    {
+      id:'router-vector',rule:'FUS-MOE-02',title:'Router：双分数链与权重归一化',short:'sqrtsoftplus · top-k / hash · gather',module:'router',steps:[1,2,3,4],group:'new',kind:'Vector 归约与选择',lines:'563–583',rank:2,
+      pattern:'logits → sqrt(softplus) → { biased top-k / hash } → gather(original_scores) → normalize',
+      why:'Router 的 256 维打分、选择与权重归一化存在小张量往返。保留“选择用分数”和“权重用分数”的分叉，匹配 V4 的真实语义。',
+      boundary:'从 router linear 的 FP32 logits 开始，输出 expert indices 与 route weights。linear、dispatch、expert 和 combine 在边界外。',
+      retained:'original_scores 要活到 gather 完成；biased scores 只用于选择。indices / weights 是跨阶段输出，必须保留。',
+      before:[['logits · FP32 [T,256]','GM 输入','gm'],['sqrt(softplus)','得到 original_scores'],['original_scores / biased scores','分别保留，禁止覆盖','gm'],['top-k 或 hash → gather 原分数','top-k=6；hash 层无 bias'],['normalize × 1.5 → indices / weights','跨阶段输出','state']],
+      after:[['logits','GM → UB','gm'],['UB：original_scores','保留至 gather 完成'],['选择分支：biased scores / hash IDs','不覆写 original_scores'],['UB：gather → normalize → ×1.5','权重来自未加 bias 的分数'],['indices / weights','保留写出与外部消费者','state']],
+      buffers:[['original_scores','UB · Ttile×256×FP32','sqrtsoftplus 至 gather 完成','不能被带 bias 的分数覆写'],['selection scores / top-k scratch','UB · FP32 + scratch','bias 到 top-k 完成；hash 分支不同','scratch 由目标 API / Tiling 确认'],['indices / route weights','UB → GM · [T,6]','产生至 dispatch / expert 消费完成','外部输出不因局部融合消失']],
+      schedule:'以 token 行分块，先计算原分数；非 hash 层再在独立选择分支加 bias 并取 top-k；随后 gather 原分数、归一化与缩放。hash 层直接查表得到 indices。',
+      sync:'保留选择完成→gather、归约完成→除法及输出就绪依赖；Hash 查表需要额外输入读取。不能跨 dispatch 的读取时刻提前复用输出。',
+      risks:['前 3 层使用 hash 路由，其余 40 层使用 top-k；不能按 43 层统一统计 top-k 收益。','top-k ties 与 NaN 的行为需匹配实际后端，不假设固定 tie-breaking。','不能把有 bias 的 scores 用来 gather 路由权重。'],
+      alternatives:[['双分数局部融合','条件推荐','需 top-k 与临时空间支持'],['逐元素段 + 独立 top-k + 权重段','回退路径','保留原分数 Buffer，降低实现风险'],['Router + dispatch 全融合','不扩大','跨阶段输出与动态 token 重排仍有独立生命周期']],
+      validation:['对比 expert indices、route weights，覆盖同分、极值与 bias 改变选择但不改变权重源。','分别对拍 layer 0–2 的 hash 和 layer 3–42 的 top-k。','对输出做消费者检查，保留路由元数据。','测量小 batch 下 top-k 与调度占比，再评估整层 TPOT。'],
+      flowBytes:null,lifetimes:[['original_scores',0,5,''],['selection / scratch',1,4,''],['indices / weights',3,6,'state'],['输出 · GM',5,6,'gm']],
+    },
+    {
+      id:'compress-pool',rule:'FUS-RED-03',title:'Compressor：Softmax 加权池化',short:'softmax(score) × KV → window sum',module:'compressor',steps:[2,3],group:'new',kind:'Vector 窗口归约',lines:'317–376',rank:3,
+      pattern:'窗口 KV / score → softmax(window axis) → multiply → reduce_sum',
+      why:'新的候选位于压缩器的池化段。Norm/RoPE/Cache 尾链在替换方案中已登记，本次只计算尚未覆盖的窗口权重和加权乘积物化机会。',
+      boundary:'从已构建的 KV/score 窗口开始，到 pooled KV（含原有 dtype 回落）结束；wkv/wgate、状态更新与尾链 API 保持边界。',
+      retained:'保留 kv_state、score_state 与最终 cache。ratio=4 的 overlap 状态和 Indexer 自带 Compressor 单独计量。',
+      before:[['KV / score 窗口','GM / state 输入','state'],['Softmax 沿窗口轴','FP32 统计量'],['窗口权重 → KV × 权重','可能物化权重和乘积','gm'],['reduce_sum → pooled KV','FP32 归约后按原序回落 dtype'],['Norm / RoPE / Cache 适配尾链','既有替换边界','state']],
+      after:[['KV / score 窗口','按合法 tile 搬入','state'],['UB：Softmax + 加权归约','全窗口或在线状态方案'],['pooled KV → cast','保留输入尾链的 dtype'],['Norm / RoPE / Cache 适配尾链','不重复计算已有覆盖收益','state']],
+      buffers:[['KV / score window','UB · FP32 tiles','加载到加权归约消费完成','ratio=4 overlap 与 ratio=128 分别建模'],['max / sum / weighted accumulator','UB · FP32 状态','跨窗口分块直至归约完成','采用在线方案时必须证明重缩放正确'],['kv_state / score_state / cache','GM · 持久状态','跨 Decode step，部分状态还跨窗口','不可作为临时空间回收；保持别名写入顺序']],
+      schedule:'只在 should_compress 为真时运行池化；Prefill 按完整窗口数量处理，Decode 在窗口填满时触发。ratio=4 与 128 使用不同 tile / overlap 方案。',
+      sync:'归约完成后才能调用尾链；状态写入必须在读取窗口前完成，且任何 ping-pong 槽位重用不得覆盖未消费的窗口。Cache 对后续 Attention 的可见性保持。',
+      risks:['compress_ratios=0 的层不执行主 Compressor，不能计入收益。','Decode 触发频率是 1/ratio，不能按每 token 每层都执行来放大收益。','Indexer 另有 head_dim=128 的旋转/FP4 Compressor；本候选默认只算主 Attention 的 head_dim=512 路径。'],
+      alternatives:[['池化段融合','条件推荐','先证明归约与状态一致'],['Softmax 与加权求和分两段','容量不足时回退','增加一个明确 GM 边界'],['池化 + 全部 Cache 尾链','次级探索','需要尾链 API 可组合性，不把接口内部视为可随意插入']],
+      validation:['测试不足一个窗口、整窗口、余数与 overlap 边界。','对拍 ratio=4/128，检查每一步状态数组和压缩 Cache。','验证 stable softmax、−∞ mask 和 FP32 累加误差。','分别按 Prefill 完整窗口数与 Decode 实际触发步统计，不直接乘层数。'],
+      flowBytes:null,lifetimes:[['window tiles · UB',0,4,''],['归约状态 · UB',1,5,''],['pooled KV',4,6,''],['持久 state · GM',0,6,'state']],
+    },
+    {
+      id:'mhc-post',rule:'FUS-MHC-04',title:'mHC：post 加权与残差混合',short:'post × x + sum(comb × residual)',module:'mhc',steps:[4,5],group:'new',kind:'Vector 加权归约',lines:'681–701',rank:4,
+      pattern:'post × x + reduce_sum(comb × residual, hc) → type_as(x)',
+      why:'hc_post 是独立的逐元素与 hc 轴归约段，可尝试不物化广播后的乘积。它保留 mHC 的组合矩阵语义，不用普通 ResidualAdd 替代。',
+      boundary:'输入 x / residual / post / comb，输出 [B,S,4,4096] hidden；hc_pre、Sinkhorn、Attention/MoE 和后继 Norm 在边界外。',
+      retained:'residual、post、comb 从 hc_pre / block 输入跨主计算阶段存活，不能在 Attention 或 MoE 完成前释放；保留最终 4 路 hidden。',
+      before:[['x / residual / post / comb','跨阶段输入','state'],['post×x / comb×residual','广播视图本身零拷贝'],['广播乘积物化 → hc 轴求和','仅在基线确实物化时计收益','gm'],['add → type_as(x)','输出四路 hidden','gm']],
+      after:[['输入按 hidden tile 加载','保留 post / comb / residual','state'],['UB：加权 + hc 归约 + add','hc=4，保留归约与 dtype 语义'],['type_as(x) → hidden 写出','[B,S,4,4096] 输出','gm']],
+      buffers:[['residual / post / comb','GM 持久至本次 hc_post','跨 Attention 或 MoE 到本段消费结束','融合局部 post 段不缩短之前的跨阶段存活'],['hidden tile / accumulators','UB · 4 路 hidden + 累加状态','加权到 hc 轴归约完成','按广播与提升后的实际 dtype 计算'],['输出 tile','UB → GM','cast 至搬出完成','不能提前覆盖 residual 别名区域']],
+      schedule:'以 token/hidden 列分块，对 hc=4 的混合轴归约；避免按完整 hc×hc×hidden 张量物化。每个 block 有 Attention 后和 FFN 后两次 hc_post。',
+      sync:'必须等待主计算输出和 post/comb 就绪；按列 tile 可局部消费，但不能破坏 residual 的其他读取。保留输出搬出完成再复用的依赖。',
+      risks:['默认图只用一个 mHC 摘要节点，实际源码每 block 调用两次 hc_post。','不能将 mHC 的矩阵混合化简成 x+residual。','广播 view 不分配存储，收益只能来自真实乘积/归约中间结果。'],
+      alternatives:[['hc_post 局部链','条件推荐','无需吞入 Sinkhorn'],['整个 mHC 融合','暂不扩大','20 次 Sinkhorn 迭代及主计算边界需独立处理'],['普通 Add + RMSNorm','拒绝替代','不是相同数学函数']],
+      validation:['对拍全部四路 hidden，覆盖 comb/post 极值与不同 dtype。','单独验证 Attention 后与 FFN 后的 hc_post。','检查 broadcast view、别名以及实际分配图。','确认局部改善是否落在整网关键路径，不能直接按 86 倍换算延迟。'],
+      flowBytes:null,lifetimes:[['residual / post / comb',0,5,'state'],['tile accumulator · UB',1,5,''],['output tile · UB',4,6,''],['hidden · GM',5,6,'gm']],
+    },
+    {
+      id:'attn-rope',rule:'FUS-CV-05',title:'Attention 输出：反向 RoPE 衔接',short:'稀疏 Attention 输出 → inverse RoPE',module:'sparse-attn',steps:[3,4],group:'new',kind:'库边界扩展探索',lines:'532–543',rank:5,
+      pattern:'npu_sparse_flash_attention 的输出 → inverse RoPE → out_projection',
+      why:'仅探索现有稀疏 Attention 输出与反旋转的衔接。QK / Softmax / PV 已在基线 API 中，不能再次将 score/probability 的消除算成新增收益。',
+      boundary:'从稀疏 Attention 的输出 tile 到反旋转结果；top-k 生成、Cache 更新和 wo_a/wo_b 保持边界。',
+      retained:'必须保留 attention sink、scale、有效索引和最终输出；若 API 只提供 GM 结果，反旋转继续消费 GM。',
+      before:[['稀疏 Attention 库实现','内部存储 / Kernel 数未知'],['Attention 输出','GM 接口','gm'],['inverse RoPE · Vector','保留频率、旋转方向与 dtype'],['wo_a / wo_b 输入','GM 输出','gm']],
+      after:[['可组合的 Attention tile 输出？','当前 API 能力未证明'],['架构相关交接','2201 经 GM；3510 需核实通路','gm'],['Vector：inverse RoPE','保留局部计算'],['输出投影边界','输出仍需可被 wo_a 消费','gm']],
+      buffers:[['Attention 内部状态','L0 / UB / GM 等，未知','由目标 API 实现决定','不从模型图猜测内部峰值'],['交接 tile','2201：GM→UB；3510：条件通路','生产完成至 Vector 消费完成','槽位需跨核握手，不能默认共享同一 UB'],['RoPE 临时值与输出','UB · dtype 待映射','输入读取到输出搬出完成','原地支持、布局与尾部维度单独检查']],
+      schedule:'需要 API 扩展或自定义实现才能建立 tile 级流水。若维持现有封闭 API，只能在其输出就绪后启动反旋转，不能展示已实现的重叠。',
+      sync:'2201 上保留 AIC 写 GM 完成→AIV 读取的核间依赖；具备片上通路也仍需生产/消费同步。细粒度事件可能增加，关键是实际等待时长。',
+      risks:['封闭库 API 未提供 epilogue 接口时，不存在直接插入 inverse RoPE 的路径。','2201 的 AIC/AIV 数据交换不能默认绕过 GM。','大 head_dim=512 的 tile 与累加状态可能降低流水并发度。'],
+      alternatives:[['库输出 + 独立反旋转','当前可回退边界','保持现有 API'],['可组合 epilogue / 自定义扩展','信息不足','先核实库能力再估算收益'],['重新融合 Attention 主体','不重复推荐','已有覆盖，不以原始未融合图作为收益基线']],
+      validation:['核对实际 API 是否暴露 tile/epilogue 组合能力。','对拍 inverse RoPE、attn_sink、scale 与所有有效索引边界。','按目标架构采集搬运通路、跨核等待与中间区大小。','与现有库而非 naive Attention 比较性能。'],
+      flowBytes:null,lifetimes:[['Attention 状态',0,4,'wait'],['交接槽',2,5,'gm'],['RoPE · UB',3,6,''],['输出 · GM',5,6,'gm']],
+    },
+    {id:'covered-norm',rule:'BASELINE-01',title:'RMSNorm 内部链：已登记替换',short:'不重复计算 final / layer Norm 收益',module:'final-norm',steps:[],group:'covered',kind:'已有基线覆盖',lines:'183–196',rank:10,why:'方案模型已登记 npu_rms_norm。平方、归约、rsqrt 与乘权重属于该替换的内部语义，不再作为新增融合机会。实际替换失败时应先回退基线，并重新评估。'},
+    {id:'covered-tail',rule:'BASELINE-02',title:'稀疏核心 / 压缩尾链：已有覆盖',short:'只推荐未覆盖的池化、量化或 epilogue',module:'compressor',steps:[],group:'covered',kind:'已有基线覆盖',lines:'361–376 / 532–535',rank:11,why:'方案模型假设完成 sparse Attention 主体以及压缩 Norm/RoPE/Cache 适配。主体 score/probability 与尾链中间值的收益不得二次累计；量化和 Hadamard 仍为未核对部分。'},
+    {id:'reject-mhc',rule:'SEMANTIC-01',title:'MoE Combine + 普通残差 Norm',short:'mHC ≠ ResidualAdd；拒绝当前替代',module:'mhc',steps:[],group:'blocked',kind:'语义不等价',lines:'681–701',rank:12,why:'V4 使用 post 与 comb 对 4 路 residual 做混合，而不是普通 x+residual。不能直接套用 combine_add_rms_norm；保留 mHC，改为评估 hc_post 的局部候选。'},
+    {id:'defer-proj',rule:'RESOURCE-01',title:'wo_a + wo_b 两级投影全融合',short:'归约、通路、L0/L1 占用待证明',module:'out-proj',steps:[1,2],group:'blocked',kind:'缺少实现方案',lines:'538–543',rank:13,why:'两级矩阵乘的输出/归约轴与数据布局需要兼容。缺少 streaming/tiling 与累加器方案时，不将两个大矩阵乘直接合并；GM 交换、并行损失和精度代价均未知。'},
+  ];
+  const state = {route:'original',selected:'shared-vector',tab:'overview',arch:'2201',phase:'decode',scope:'all',module:'shared-expert',layer:'all',batch:1,tokens:4096,start:8191};
+  const MOCK_RUN = {meta:{snapshot:'DS-V4F-MOCK-20260911-01',hardware:'Ascend 910B · 2201',software:'CANN 8.0.RC2 · torch_npu 2.6.0',compile:'O2 · auto_tiling · FP32 Vector',workload:'Decode · batch 1 · step 8191 · 43 layers'},byId:{
+    'shared-vector':{status:'Mock 条件通过',baselineKernels:5,fusedKernels:2,baselineGm:'64.00 KiB',fusedGm:'0 B',savedGm:'64.00 KiB',ub:'48 KiB',l0:'0 KiB',events:'3 → 2',overlap:'67%',latency:'4.8 → 3.1 µs',transfers:[['MTE2','2 次 tile 搬入','1 次连续搬入','−1 次边界'],['Vector 链','5 个阶段','1 个融合窗口','−4 个中间边界'],['MTE3','2 次结果搬出','1 次结果搬出','−1 次边界']],capacity:[['UB / Vector','48 KiB / 256 KiB','18.8%','双 Buffer 估算已计入'],['L0A / L0B / L0C','0 / 0 / 0 KiB','—','矩阵边界未吞入'],['GM scratch','0 KiB','—','中间值不跨边界物化']],schedule:[['tile 分块','32 tokens / tile','k 与 k+1 交错','可行性模拟'],['计算流水','MTE2 → Vector → MTE3','3 段流水','事件 2 个'],['关键路径','4.8 µs','3.1 µs','−35.4% · Mock']],validation:[['源码算式','通过','gate / up 非对称 clamp 已保留'],['dtype 边界','通过','FP32 product → input_dtype cast'],['编译映射','待接入','当前为 API 组合模拟'],['硬件 trace','待接入','当前无设备采样']]},
+    'router-vector':{status:'Mock 条件通过',baselineKernels:6,fusedKernels:3,baselineGm:'12.00 KiB',fusedGm:'4.00 KiB',savedGm:'8.00 KiB',ub:'32 KiB',l0:'0 KiB',events:'4 → 3',overlap:'42%',latency:'5.6 → 4.2 µs',transfers:[['MTE2','3 次小张量搬入','2 次搬入','−1 次边界'],['选择分支','original / biased 分开','UB 内保留双分数','无额外 GM'],['MTE3','indices + weights','indices + weights','输出边界保留']],capacity:[['UB / Vector','32 KiB / 256 KiB','12.5%','top-k scratch 已计入'],['L0A / L0B / L0C','0 / 0 / 0 KiB','—','Router 不占 Cube L0'],['GM scratch','4 KiB','—','indices / weights 持久输出']],schedule:[['token 分块','128 tokens / tile','按 hash / top-k 分支','分支不混算'],['计算流水','score → select → gather','3 段流水','事件 3 个'],['关键路径','5.6 µs','4.2 µs','−25.0% · Mock']],validation:[['双分数语义','通过','gather 使用 original_scores'],['Hash / top-k 分支','通过','layer 0–2 / 3–42 分开'],['编译映射','待接入','top-k API 参数未绑定'],['硬件 trace','待接入','当前无设备采样']]},
+    'compress-pool':{status:'Mock 条件通过',baselineKernels:8,fusedKernels:4,baselineGm:'1.50 MiB',fusedGm:'512 KiB',savedGm:'1.00 MiB',ub:'96 KiB',l0:'0 KiB',events:'6 → 4',overlap:'74%',latency:'18.7 → 12.6 µs',transfers:[['MTE2','8 个窗口搬入','4 个窗口搬入','−4 次边界'],['Softmax / reduce','权重与乘积可能物化','在线归约','−2 次中间写回'],['Cache 写入','4 次状态更新','4 次状态更新','持久状态保留']],capacity:[['UB / Vector','96 KiB / 256 KiB','37.5%','online accumulator 已计入'],['L0A / L0B / L0C','0 / 0 / 0 KiB','—','池化不吞入 Cube'],['GM workspace / Cache','512 KiB','—','持久 Cache 不计为可回收']],schedule:[['窗口分块','128 / 512 window','ratio=4 / 128 分开','触发守卫已计入'],['计算流水','load → softmax → reduce','4 段流水','事件 4 个'],['关键路径','18.7 µs','12.6 µs','−32.6% · Mock']],validation:[['ratio=0 守卫','通过','Layer 0–1 不执行主池化'],['ratio=4 / 128','通过','两种窗口独立统计'],['Cache 语义','待接入','需要真实状态 trace'],['硬件 trace','待接入','当前无设备采样']]},
+    'mhc-post':{status:'Mock 条件通过',baselineKernels:5,fusedKernels:2,baselineGm:'256 KiB',fusedGm:'64 KiB',savedGm:'192 KiB',ub:'64 KiB',l0:'0 KiB',events:'4 → 2',overlap:'71%',latency:'7.9 → 5.1 µs',transfers:[['MTE2','4 路输入分别搬入','按 hidden tile 搬入','−2 次边界'],['hc 归约','广播乘积可能物化','UB 内 4 路归约','−2 次中间写回'],['MTE3','hidden 四路输出','hidden 四路输出','输出边界保留']],capacity:[['UB / Vector','64 KiB / 256 KiB','25.0%','hc=4 累加器已计入'],['L0A / L0B / L0C','0 / 0 / 0 KiB','—','矩阵混合未展开'],['GM scratch','64 KiB','—','仅保留输出 tile']],schedule:[['hidden 分块','256 hidden / tile','按 hc=4 归约','避免完整广播'],['计算流水','load → weighted reduce → cast','3 段流水','事件 2 个'],['关键路径','7.9 µs','5.1 µs','−35.4% · Mock']],validation:[['mHC 数学语义','通过','post / comb 仍按四路混合'],['两次调用位置','通过','Attention 后 / FFN 后分别计量'],['别名检查','待接入','需要实际分配图'],['硬件 trace','待接入','当前无设备采样']]},
+    'attn-rope':{status:'Mock 信息不足',baselineKernels:2,fusedKernels:2,baselineGm:'512 KiB',fusedGm:'512 KiB',savedGm:'0 B',ub:'128 KiB',l0:'0 KiB',events:'3 → 3',overlap:'18%',latency:'21.4 → 21.1 µs',transfers:[['AIC → GM','库输出接口固定','库输出接口固定','无变化'],['GM → UB','1 次交接','1 次交接','2201 保留'],['Vector epilogue','独立 inverse RoPE','待 API 组合','无确定收益']],capacity:[['UB / Vector','128 KiB / 256 KiB','50.0%','head_dim=512 估算'],['L0A / L0B / L0C','未知','—','封闭库内部不可见'],['GM workspace','512 KiB','—','库输出接口保持']],schedule:[['库边界','opaque kernel','输出就绪后启动','无 tile overlap 证据'],['Vector epilogue','1 段','独立启动','事件 3 个'],['关键路径','21.4 µs','21.1 µs','−1.4% · Mock，不构成推荐']],validation:[['API epilogue','未证明','当前仅有候选接口假设'],['2201 交接','通过','GM 交换保持'],['数值对拍','待接入','inverse RoPE 边界待测'],['硬件 trace','待接入','当前无设备采样']]},
+    'covered-norm':{status:'Mock 已被基线覆盖',baselineKernels:1,fusedKernels:1,baselineGm:'0 B',fusedGm:'0 B',savedGm:'0 B',ub:'16 KiB',l0:'0 KiB',events:'1 → 1',overlap:'—',latency:'2.0 → 2.0 µs',transfers:[['RMSNorm API','基线内部完成','保持原 API','不重复计量']],capacity:[['UB / Vector','16 KiB / 256 KiB','6.3%','基线内部估算']],schedule:[['基线覆盖','单 API','不产生新增候选','保持']],validation:[['重复收益','阻断','已登记 npu_rms_norm'],['硬件 trace','待接入','当前无设备采样']]},
+    'covered-tail':{status:'Mock 已被基线覆盖',baselineKernels:2,fusedKernels:2,baselineGm:'128 KiB',fusedGm:'128 KiB',savedGm:'0 B',ub:'32 KiB',l0:'0 KiB',events:'2 → 2',overlap:'—',latency:'6.2 → 6.2 µs',transfers:[['Sparse / tail','基线已覆盖','保持原 API','不重复计量']],capacity:[['UB / Vector','32 KiB / 256 KiB','12.5%','基线内部估算']],schedule:[['基线覆盖','主 API + 尾链','只寻找未覆盖池化','保持']],validation:[['重复收益','阻断','稀疏主体与压缩尾链已登记'],['硬件 trace','待接入','当前无设备采样']]},
+    'reject-mhc':{status:'Mock 暂不推荐',baselineKernels:5,fusedKernels:5,baselineGm:'256 KiB',fusedGm:'256 KiB',savedGm:'0 B',ub:'64 KiB',l0:'0 KiB',events:'4 → 4',overlap:'0%',latency:'7.9 → 7.9 µs',transfers:[['mHC','不能替换为 Add + Norm','保留原始路径','语义阻断']],capacity:[['UB / Vector','64 KiB / 256 KiB','25.0%','沿用基线']],schedule:[['语义门禁','ResidualAdd 不等价','不生成融合实现','阻断']],validation:[['数学等价','失败','mHC ≠ ResidualAdd'],['硬件 trace','不执行','无合法候选']]},
+    'defer-proj':{status:'Mock 暂不推荐',baselineKernels:4,fusedKernels:4,baselineGm:'2.00 MiB',fusedGm:'2.00 MiB',savedGm:'0 B',ub:'192 KiB',l0:'128 KiB',events:'6 → 6',overlap:'0%',latency:'24.0 → 24.0 µs',transfers:[['wo_a / wo_b','两级矩阵边界','暂不合并','资源阻断']],capacity:[['UB / Vector','192 KiB / 256 KiB','75.0%','已接近容量上限'],['L0A / L0B / L0C','32 / 48 / 48 KiB','需重新 tiling','未证明']],schedule:[['两级 GEMM','各自归约','不生成融合实现','阻断']],validation:[['归约与布局','未证明','缺少 streaming / tiling 方案'],['硬件 trace','不执行','无合法候选']]}
+  }};
+  const mockFor = c => MOCK_RUN.byId[c.id] || MOCK_RUN.byId['shared-vector'];
+  const tabs = [['overview','推荐理由'],['flow','数据流与搬运'],['buffer','Buffer 生命周期'],['schedule','调度与同步'],['validation','约束与验证']];
+  const modules = [['shared-expert','Shared Expert'],['router','Router'],['compressor','Compressor'],['mhc','mHC'],['sparse-attn','Sparse Attention'],['final-norm','Final Norm'],['out-proj','输出投影']];
+  const nfmt = n => new Intl.NumberFormat('zh-CN').format(n);
+  const bytes = n => n >= 1048576 ? (n/1048576).toFixed(2)+' MiB' : n >=1024 ? (n/1024).toFixed(2)+' KiB' : n+' B';
+  const tokenCount = () => state.batch*(state.phase==='prefill'?state.tokens:1);
+  function contextFor(c) {
+    let status=c.group==='covered'?'已有覆盖':c.group==='blocked'?'暂不推荐':c.id==='attn-rope'?'信息不足':'条件推荐';
+    let context=state.layer==='all'?'按源码范围匹配；重复层不等于延迟收益倍数。':'仅查看第 '+state.layer+' 层（从 0 开始）。';
+    let applies=true;
+    if(c.id==='router-vector') context=state.layer==='all'?'0–2 层 Hash；3–42 层 Top-k，分开估计。':+state.layer<3?'当前为 Hash 路由：查表 indices，无 bias / top-k。':'当前为 Top-k 路由：保留 original_scores 与 biased scores。';
+    if(c.id==='compress-pool') {
+      const ratios=state.layer==='all'?[4,128]:[cfg.compress_ratios[+state.layer]];
+      const active=ratios.filter(r => r>0 && (state.phase==='prefill'?state.tokens>=r:(state.start+1)%r===0));
+      applies=!!active.length;
+      context=state.layer==='all'?'主 Compressor 按 ratio=4 / 128 分组；':'当前层 ratio='+ratios[0]+'；';
+      context+=state.phase==='decode'?'start_pos='+state.start+'，本步触发 '+(active.join(' / ')||'无')+'。':'每请求完整窗口 '+ratios.filter(r=>r>0).map(r=>r+': '+Math.floor(state.tokens/r)).join('，')+'；余数保留状态。';
+      if(!applies)status='本场景不触发';
+    }
+    if(c.id==='mhc-post')context=(state.layer==='all'?'43 层 × 2 个调用位置':'当前层有 Attention 后 / FFN 后两个位置')+'；仅分析局部 post 段。';
+    if(c.id==='covered-norm' && state.layer!=='all')context='Final Norm 为整网输出边界；层内 Norm 也由同一替换方案覆盖。';
+    return {status,context,applies};
+  }
+  const labelClass = c => c.group==='covered'?'muted':c.group==='blocked'?'block':c.id==='attn-rope'?'info':'';
+  function table(headers,rows) {return '<div class="df-table-wrap"><table class="df-table"><thead><tr>'+headers.map(x=>'<th scope="col">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
+  function sourceBlock(c) {return '<div class="df-source">依据：<a href="../../Data/DeepSeek-V4-Flash-Official/model.py" target="_blank" rel="noopener">model.py · '+esc(c.lines)+'</a><a href="../../Data/DeepSeek-V4-Flash-Official/inference-config.json" target="_blank" rel="noopener">配置快照</a><br>规则核实：2026-09-11 · '+Object.values(SOURCES).map(([t,u])=>'<a href="'+u+'" target="_blank" rel="noopener">'+t+' ↗</a>').join('')+'<br>API 的候选映射来自原版演示；实际支持按芯片、CANN / torch_npu 版本核实。所有性能指标均未实测。</div>';}
+  function listItems(arr){return '<ul>'+arr.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';}
+  function gateRows(c){return [
+    ['基线去重',c.group==='covered'?'已覆盖，不进入新增收益': '仅统计 torch_npu 方案模型中未覆盖的范围'],
+    ['语义边界',c.group==='blocked'?'当前边界不通过 / 尚无合法实现证明':'已按源码列出约束，数值等价尚未验证'],
+    ['外部消费者 / 状态',c.retained||'保留原有外部输出、状态与依赖'],
+    ['场景守卫',contextFor(c).context],
+    ['硬件 / 编译版本',state.arch==='2201'?'2201：AIC/AIV 通过 GM 交接；工具链版本未指定':state.arch==='3510'?'3510：片上通路为条件能力，编译选项与 API 路径待核实':'目标未指定，不输出硬件可行性结论'],
+    ['Tiling / 容量 / 事件', '未知：需要 tile、scratch、流水副本、事件资源和编译分配报告'],
+    ['实际收益', '未知：需要当前优化基线、运行 trace 和整网关键路径']
+  ];}
+  function sharedVisual(c){
+    const s=tokenCount()*2048*4, max=8*s;
+    return '<section class="df-visual-block" aria-label="Shared Expert 融合边界可视化"><div class="df-visual-head"><div><span class="df-visual-eyebrow">FUS-VV-01 · 融合边界可视化</span><h3>Vector 尾链 · 保留矩阵边界</h3></div><span class="df-visual-status">条件推荐</span></div><div class="df-visual-stats"><div><b>4</b><small>内部 FP32 值</small><span>仅在确实物化时计量</span></div><div><b>UB</b><small>融合计算位置</small><span>按 tile 消费与复用</span></div><div><b>'+bytes(max)+'</b><small>GM 读写上界</small><span>条件口径 · 8S</span></div></div><div class="df-visual-compare"><div class="df-visual-card"><div class="df-visual-cardhead"><b>融合前 · 分段边界</b><small>中间值可能跨 Kernel 物化</small></div><div class="df-pipeline"><span class="df-pipe-node gm">w1 / w3 输出<em>GM · FP32</em></span><i class="df-pipe-arrow">→</i><span class="df-pipe-node ub">clamp<em>Vector</em></span><i class="df-pipe-arrow">→</i><span class="df-pipe-node ub">SiLU ×<em>Vector</em></span><i class="df-pipe-arrow">→</i><span class="df-pipe-node gm warn">product<em>可能写回 GM</em></span></div><div class="df-pipe-foot"><span class="df-transfer">MTE2</span><span>Kernel 边界</span><span class="df-transfer">MTE3</span></div></div><div class="df-visual-card is-after"><div class="df-visual-cardhead"><b>融合后 · tile 内消费</b><small>保留输入 / 输出 GM 边界</small></div><div class="df-pipeline"><span class="df-pipe-node gm">w1 / w3 输出<em>GM · FP32</em></span><i class="df-pipe-arrow">→</i><span class="df-pipe-node fused">clamp → SiLU → ×<em>同一 UB tile</em></span><i class="df-pipe-arrow">→</i><span class="df-pipe-node cast">cast<em>input_dtype</em></span><i class="df-pipe-arrow">→</i><span class="df-pipe-node gm">w2 输入<em>GM · 保留</em></span></div><div class="df-pipe-foot"><span class="df-transfer">MTE2</span><span class="df-fused-mark">融合窗口</span><span class="df-transfer">MTE3</span></div></div></div><div class="df-visual-boundary"><span>推荐边界</span><b>w1 / w3</b><i>→</i><strong>clamp · SiLU · multiply · cast</strong><i>→</i><b>w2</b><span class="df-boundary-note">不吞入矩阵归约，不引入 routed weight</span></div><div class="df-mini-life"><div class="df-mini-life-head"><b>Buffer 生存窗口</b><span>最后一次读取完成后才可复用</span></div><div class="df-mini-axis"><span></span><span>搬入</span><span>生产</span><span>计算</span><span>搬出</span><span>可复用</span></div><div class="df-mini-row"><b>gate / up</b><span class="df-mini-bar ub" style="grid-column:2 / 5">FP32 · UB</span></div><div class="df-mini-row"><b>临时槽</b><span class="df-mini-bar temp" style="grid-column:3 / 5">clamp / product</span></div><div class="df-mini-row"><b>输出 tile</b><span class="df-mini-bar out" style="grid-column:4 / 6">cast → MTE3</span></div></div><div class="df-visual-footnote">示意图表达数据关系与生命周期，不代表已编译的 Kernel 数或已测得的带宽。</div></section>';
+  }
+  function sharedVisualClarifier(){return '<section class="df-operator-contract" aria-label="Shared Expert 算子融合清单"><div class="df-operator-contract-head"><div><span class="df-visual-eyebrow">OPERATOR CONTRACT</span><b>这条推荐具体融合什么？</b></div><span class="df-mock-chip">目标：1 个 Vector 尾链任务</span></div><div class="df-contract-grid"><div class="df-contract-card is-include"><span class="df-contract-label">纳入融合 · 5 步</span><ol><li><code>gate.clamp(max=10)</code></li><li><code>up.clamp(-10, 10)</code></li><li><code>SiLU(gate)</code></li><li><code>multiply(SiLU(gate), up)</code></li><li><code>cast(input_dtype)</code></li></ol></div><div class="df-contract-card is-product"><span class="df-contract-label">融合产物</span><code class="df-contract-kernel">shared_expert_vector_tail(gate_fp32, up_fp32)</code><div class="df-contract-formula">y = cast(SiLU(min(gate, 10)) × clamp(up, −10, 10))</div><small>在同一 UB tile 内完成；最终输出交给 w2。</small></div><div class="df-contract-card is-exclude"><span class="df-contract-label">明确不纳入</span><ul><li><code>w1 / w3 / w2</code> 矩阵乘与归约</li><li>routed expert 的 route weight</li><li>dispatch / scatter / 通信</li></ul></div></div><div class="df-contract-result"><span>输入</span><b>w1/w3 输出的 gate、up（FP32）</b><i>→</i><span>融合任务</span><strong>Vector 尾链</strong><i>→</i><span>输出</span><b>w2 输入（input_dtype）</b></div></section>';}
+  function reasonVisual(c){
+    const blocked=c.group==='blocked',covered=c.group==='covered',shared=c.id==='shared-vector';
+    const gates=blocked?[
+      ['01','模式匹配','有候选形状，但缺少合法实现','阻断'],['02','语义等价','当前边界不满足','阻断'],['03','硬件资源','不进入估算','跳过'],['04','收益来源','不计算新增收益','跳过']
+    ]:covered?[
+      ['01','模式匹配','已被 torch_npu 基线覆盖','已覆盖'],['02','语义等价','基线 API 已承载','已覆盖'],['03','硬件资源','沿用原 API','已覆盖'],['04','收益来源','避免重复累计','去重']
+    ]:shared?[
+      ['01','源码匹配','5 个连续 Vector 步骤','通过'],['02','语义保真','非对称 clamp / cast 顺序保留','通过'],['03','硬件位置','输入输出 GM，计算落 UB','条件'],['04','收益来源','减少真实中间值物化','待实测']
+    ]:[
+      ['01','源码匹配','算式与分支已对齐','通过'],['02','语义保真','外部状态与 dtype 保留','条件'],['03','硬件位置','tile / 归约资源待核对','条件'],['04','收益来源','按 Mock 快照估算','待实测']
+    ];
+    const cls=x=>x==='通过'?'pass':x==='条件'?'cond':x==='阻断'||x==='跳过'?'block':'covered';
+    const body=gates.map(([n,t,d,s])=>'<div class="df-reason-step '+cls(s)+'"><span class="df-reason-num">'+n+'</span><div><b>'+t+'</b><small>'+d+'</small></div><em>'+s+'</em></div>').join('<i class="df-reason-arrow">→</i>');
+    const map=shared?[
+      ['收益来源','4 个 FP32 中间值可能不落 GM','64.00 KiB 上界 · 8S'],['边界保护','w1 / w3 与 w2 保持矩阵边界','不吞入归约与 route weight'],['主要风险','基线可能已做逐元素合并','需要编译图 / trace 复核']
+    ]:blocked?[
+      ['阻断原因','当前没有可接受的融合实现','不生成候选 Kernel'],['保留路径','沿用原始算子边界','避免语义或资源风险'],['重新开启','补齐算式 / tiling / API 证据','再进入四道门禁']
+    ]:[
+      ['收益来源','边界内中间值或执行边界','数值来自 Mock 快照'],['边界保护','外部输出、状态与 dtype 保留','不跨越未证明的 API 边界'],['主要风险','编译器已融合或资源不足','需要编译图 / trace 复核']
+    ];
+    return '<section class="df-reason-map" aria-label="推荐理由决策图"><div class="df-reason-head"><div><span class="df-visual-eyebrow">DECISION MAP</span><b>为什么给出这个推荐？</b></div><span class="df-mock-chip">'+(blocked?'阻断路径':covered?'基线去重':'四道门禁')+'</span></div><div class="df-reason-steps">'+body+'</div><div class="df-reason-evidence">'+map.map(([t,v,n])=>'<div><span>'+t+'</span><b>'+v+'</b><small>'+n+'</small></div>').join('')+'</div></section>';
+  }
+  function mockSummary(c){
+    const m=mockFor(c);
+    return '<section class="df-mock-panel df-mock-summary" aria-label="Mock 分析快照"><div class="df-mock-panel-head"><div><span class="df-visual-eyebrow">MOCK ANALYSIS SNAPSHOT</span><b>模拟运行结果 · '+esc(m.status)+'</b></div><span class="df-mock-chip">非实测</span></div><div class="df-mock-grid"><div><small>Kernel 数</small><b>'+esc(m.baselineKernels+' → '+m.fusedKernels)+'</b><span>基线 → 候选</span></div><div><small>条件 GM 读写</small><b>'+esc(m.baselineGm+' → '+m.fusedGm)+'</b><span>逻辑中间值口径</span></div><div><small>关键路径</small><b>'+esc(m.latency)+'</b><span>µs · Mock 比较</span></div><div><small>同步事件</small><b>'+esc(m.events)+'</b><span>候选边界估算</span></div></div></section>';
+  }
+  function mockTransfers(c){
+    const m=mockFor(c);
+    return '<section class="df-mock-panel"><div class="df-mock-panel-head"><div><span class="df-visual-eyebrow">TRANSFER LEDGER</span><b>搬运账本 · Mock</b></div><span class="df-mock-chip">'+esc(MOCK_RUN.meta.hardware)+'</span></div>'+table(['阶段','融合前','候选融合后','变化'],m.transfers)+'</section>';
+  }
+  function mockCapacity(c){
+    const m=mockFor(c);
+    return '<section class="df-mock-panel"><div class="df-mock-panel-head"><div><span class="df-visual-eyebrow">MEMORY ACCOUNTING</span><b>容量账本 · Mock</b></div><span class="df-mock-chip">按物理空间分开</span></div>'+table(['空间','峰值估算','占用率 / 结果','口径'],m.capacity)+'</section>';
+  }
+  function mockSchedule(c){
+    const m=mockFor(c);
+    return '<section class="df-mock-panel"><div class="df-mock-panel-head"><div><span class="df-visual-eyebrow">SCHEDULE TRACE</span><b>调度快照 · Mock</b></div><span class="df-mock-chip">'+esc(m.overlap==='—'?'无收益估计':'重叠 '+m.overlap)+'</span></div>'+table(['调度段','融合前','候选融合后','结果'],m.schedule)+'</section>';
+  }
+  function mockValidation(c){
+    const m=mockFor(c);
+    return '<section class="df-mock-panel"><div class="df-mock-panel-head"><div><span class="df-visual-eyebrow">VALIDATION MATRIX</span><b>验证矩阵 · Mock</b></div><span class="df-mock-chip">快照 '+esc(MOCK_RUN.meta.snapshot)+'</span></div>'+table(['门禁','状态','说明'],m.validation)+'</section>';
+  }
+  function overview(c){
+    const ctx=contextFor(c);
+    let out='<div class="df-note '+(c.group==='blocked'?'block':!ctx.applies?'warn':'')+'">'+esc(c.why)+'</div>';
+    if(c.group!=='new')return out+reasonVisual(c)+mockSummary(c)+'<h3>判定依据</h3>'+table(['检查','结论'],gateRows(c))+sourceBlock(c);
+    if(c.id==='shared-vector')out=sharedVisual(c)+sharedVisualClarifier()+reasonVisual(c)+out;
+    else out+=reasonVisual(c);
+    out+=mockSummary(c);
+    out+='<div class="df-metrics"><div class="df-metric"><small>新增收益状态</small><b>待验证</b><p>没有延迟、Kernel 数或实测加速比</p></div><div class="df-metric"><small>执行范围</small><b>'+nfmt(tokenCount())+' tokens</b><p>'+esc(state.phase==='decode'?'当前 Decode step · batch × 1':'单次 Prefill · batch × sequence')+'</p></div><div class="df-metric"><small>适用判定</small><b>'+esc(ctx.status)+'</b><p>源码匹配 → 编译可行性 → 硬件实测</p></div></div>';
+    out+='<div class="df-note warn">'+esc(ctx.context)+'</div><h3>推荐的融合边界</h3><p>'+esc(c.boundary)+'</p><h3>保留的输出与生命周期</h3><p>'+esc(c.retained)+'</p><h3>为什么不继续扩大</h3>'+table(['方案','当前选择','理由'],c.alternatives)+'<h3>关键风险</h3>'+listItems(c.risks)+sourceBlock(c);
+    return out;
+  }
+  function flows(c){
+    if(!c.before)return overview(c);
+    const graph=(name,nodes)=>'<section class="df-flow"><h4>'+name+'</h4>'+nodes.map(([name,sub,type],i)=>(i?'<div class="df-flow-arrow">↓</div>':'')+'<div class="df-flow-node '+(type||'')+'">'+esc(name)+'<small>'+esc(sub)+'</small></div>').join('')+'</section>';
+    let out='<div class="df-note">逻辑执行方案对照；虚线节点表示 GM 接口，绿色表示持久状态。箭头不代表已测得的带宽或时长。</div><div class="df-flow-grid">'+graph('融合前 · 当前基线边界',c.before)+graph('融合后 · 候选实现',c.after)+'</div>';
+    if(c.flowBytes==='shared'){
+      const s=tokenCount()*2048*4, max=8*s;
+      out+='<h3>条件流量示例 · 单次 Shared Expert 调用</h3>'+table(['项目','量','计算口径'],[
+        ['一个 FP32 中间张量 S',bytes(s),'T × 2048 × 4 B；T='+tokenCount()],
+        ['假设可消除的中间值','4 个','up_clamped、gate_clamped、SiLU 输出、FP32 product'],
+        ['条件性逻辑 GM 读写上界',bytes(max),'4 ×（一次写 S + 一次读 S）= 8S'],
+        ['已优化基线可能剩余的节省','0 到 '+bytes(max),'前提：上述值各物化一次且融合后不 spill；实际值须用 trace 修正'],
+        ['不计入节省','gate/up 输入、cast 后输出','矩阵边界保留；纯 view、L2/HBM 命中不在此示例推算'],
+      ])+'<p>这不是显存容量下降，也不是实测 HBM 流量或延迟；不乘 43 推导整网加速。FP32 product 是 cast 前的中间值，cast 舍入点仍被保留。</p>';
+    }else out+='<h3>搬运账本</h3>'+table(['类别','本方案'],[['可能消除','仅边界内真实物化的临时结果；具体字节量待执行图确认'],['必须保留',c.retained],['可能新增','重排、scratch、spill、重复读取或跨核交换，必须从净收益中扣除'],['当前结论','不提供固定 GM 节省量；图边数量不等于搬运次数']]);
+    out+=mockTransfers(c);
+    if(c.id==='attn-rope')out+='<div class="df-note warn">'+esc(state.arch==='2201'?'当前 2201：L0C → GM → UB。即使在同一个融合任务内，也不能默认省掉该 GM 交换。':state.arch==='3510'?'当前 3510：L0C → UB 等新通路仅作为条件方案；需要对应 API、编译选项与生成代码证据。':'未指定硬件：无法确定 Cube/Vector 的实际交接路径。')+'</div>';
+    return out+sourceBlock(c);
+  }
+  function timeline(rows,labels){return '<div class="df-timeline"><div class="df-timeline-axis"><span>相对阶段</span>'+labels.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div>'+rows.map(([name,a,b,t])=>'<div class="df-time-row"><span>'+esc(name)+'</span><div class="df-time-track"><span class="df-time-bar '+(t||'')+'" style="grid-column:'+(a+1)+' / '+(b+1)+'">存活</span></div></div>').join('')+'<div class="df-time-caption">示意顺序，无微秒刻度。最后访问完成后才可安全复用；不是编译分配报告。</div></div>';}
+  function buffers(c){
+    if(!c.buffers)return overview(c);
+    return '<div class="df-note">逻辑 Tensor、物理槽位、槽位中的不同 tile 分开建模。减少 GM 中间值可能延长 UB 存活；释放指令发出不代表异步访问已完成。</div><h3>融合前后变化</h3>'+table(['对象','融合前','候选融合后'],[['内部临时值','可能跨 Kernel 在 GM 物化','按 tile 在片上消费；实际位置由实现确认'],['物理槽位','各阶段独立规划 / 可能已有复用','按最后访问与别名规则复用；不能只看最后一个源码使用'],['外部结果 / 持久状态','由外部消费者决定存活','边界保留，不因为合并而消失']])+'<h3>候选 Buffer 生命周期</h3>'+timeline(c.lifetimes,['搬入','生产','计算','消费','搬出','可复用'])+'<h3>对象明细</h3>'+table(['Buffer','位置与大小','存活区间','复用条件'],c.buffers)+mockCapacity(c)+'<h3>容量约束</h3>'+table(['容量账本','本次证据'],[['每核 UB / L1 / L0A / L0B / L0C','分别校验；不能把不同核或不同空间的容量相加'],['实际分配峰值','Mock 已给出候选峰值；真实值仍需编译分配报告'],['数据存活峰值','示意图反映 tile 复用机会；不等于已分配空间'],['Double Buffer','Mock 账本已计入候选副本；需评估事件与容量'],['GM workspace / Cache','Mock 单独统计；真实结果需区分复用、输出与持久状态']])+sourceBlock(c);
+  }
+  function schedule(c){
+    if(!c.schedule)return overview(c);
+    return '<h3>调度变化</h3><p>'+esc(c.schedule)+'</p>'+mockSchedule(c)+table(['融合前','候选融合后'],[['各算子或 API 独立分块和调度','需要兼容的 tile 边界与核分工'],['按阶段输出就绪启动后续消费','仅在实现支持时改为 tile 就绪驱动'],['基线可能已有流水 / 多流并行','必须扣除因扩大边界导致的并行损失']])+'<h3>同步变化</h3><p>'+esc(c.sync)+'</p>'+table(['同步层级','保留 / 改变内容'],[['Kernel / Stream','减少的是可证明的执行边界；不等于 Host 同步次数减少'],['核内流水','MTE2→计算、计算→MTE3，以及槽位覆写前的最后访问完成'],['AIC / AIV','只在候选跨核时计量；通路与事件按架构 / API 确认'],['跨设备','本次局部候选不删除 collective；保持通信完成和数据可见性'],['收益口径','同时记录事件数、等待时长、重叠区间与关键路径；不默认“同步更少”']])+'<h3>流水方案的代价</h3><div class="df-note warn">Double Buffer 只是待比较的调度变体：增加槽位换取潜在重叠。Mock 数据中的重叠比例只用于演示；真实事件与等待时间需要设备 trace。</div>'+sourceBlock(c);
+  }
+  function validation(c){return '<h3>规则门禁</h3>'+mockValidation(c)+table(['检查项','当前证据'],gateRows(c))+'<h3>验证计划</h3>'+listItems(c.validation||['保持原基线；补齐合法实现后重新生成候选。','对比实际替换模型的语义、编译结果及端到端性能。'])+'<h3>性能验收口径</h3>'+table(['对照对象','验收内容'],[['当前 torch_npu 优化基线','相同 shape/dtype/layout/并行配置；包含已有编译优化'],['局部候选 / 较大边界 / 回退方案','预热后延迟分布、真实 Kernel、GM 读写、workspace 和片上分配'],['整网','TTFT / TPOT / 吞吐 / 峰值内存；按关键路径与实测工作负载聚合'],['证据状态','源码已核对；当前展示 Mock 快照；编译与设备实测仍需接入']])+sourceBlock(c);}
+  function current(){return candidates.find(c=>c.id===state.selected);}
+  function visible(){return candidates.filter(c=>state.scope==='all'||c.module===state.module);}
+  function syncModelFocus(c){
+    if(!c||state.route!=='recommend')return;
+    const focused=viz().focusCandidate({module:c.module,steps:c.steps});
+    $('#modelCanvasStatus').textContent=focused?'左侧模型图已高亮：'+c.title+' · 右侧显示推荐解释':'左侧模型图暂未找到对应节点：'+c.title+' · 请核对模型版本';
+  }
+  function renderDetail(){
+    const c=current(); if(!c){$('#dfDetail').innerHTML='<div class="df-empty">当前范围没有匹配候选。</div>';return;}
+    const ctx=contextFor(c);
+    $('#dfDetail').innerHTML='<div class="df-detail-head"><div class="df-detail-meta"><span class="df-label '+labelClass(c)+'">'+ctx.status+'</span><span>'+c.rule+' · '+c.kind+'</span></div><h2>'+c.title+'</h2><div class="df-pattern">'+esc(c.pattern||c.short)+'</div><div class="df-detail-actions"><button class="df-btn" data-locate>在模型图中定位 ↗</button><button class="df-btn" data-export-candidate>导出方案 JSON</button></div><nav class="df-tabs" aria-label="方案说明">'+tabs.map(([id,t])=>'<button class="'+(state.tab===id?'active':'')+'" data-detail-tab="'+id+'" aria-current="'+(state.tab===id?'page':'false')+'">'+t+'</button>').join('')+'</nav></div><div class="df-detail-content" id="dfDetailContent">'+({overview,flow:flows,buffer:buffers,schedule,validation}[state.tab])(c)+'</div>';
+  }
+  function renderList(){
+    const list=visible(); if(!list.some(c=>c.id===state.selected))state.selected=list[0]?.id;
+    $('#dfCandidates').innerHTML='<div class="df-list-head"><span>匹配方案 / 决策</span><b>'+list.length+'</b></div>'+list.map((c,i)=>(i && c.group!==list[i-1].group?'<div class="df-divider">'+(c.group==='covered'?'已有覆盖 · 避免重复收益':'暂不推荐 · 保留原因')+'</div>':'')+'<button class="df-candidate '+(state.selected===c.id?'active':'')+'" data-candidate="'+c.id+'" aria-pressed="'+(state.selected===c.id)+'"><span class="df-label '+labelClass(c)+'">'+contextFor(c).status+'</span><strong>'+c.title+'</strong><small>'+c.short+'</small></button>').join('');
+    renderDetail();
+  }
+  function selectedOptions(values,value){return values.map(([id,text])=>'<option value="'+id+'" '+(String(id)===String(value)?'selected':'')+'>'+text+'</option>').join('');}
+  function render(){
+    $('#fusionWorkspace').innerHTML='<header class="df-rec-head"><div><h1>融合推荐 <span style="color:var(--df-muted);font-size:14px;font-weight:400">/ DeepSeek V4 Flash · torch_npu</span></h1><p>基于候选替换模型的新增机会 · 5 个条件候选 / 4 个去重与边界决策 · 无实测加速比</p></div><div class="df-head-actions"><button class="df-btn" data-show-rules>规则与基线</button><button class="df-btn primary" data-export-all>导出分析</button></div></header><div class="df-context"><label>目标架构<select data-context="arch">'+selectedOptions([['2201','A2 / A3 · 2201'],['3510','3510 · 片上通路待核实'],['unknown','未指定硬件']],state.arch)+'</select></label><label>场景<select data-context="phase">'+selectedOptions([['decode','Decode'],['prefill','Prefill']],state.phase)+'</select></label><label>Batch<input data-context="batch" type="number" min="1" max="256" value="'+state.batch+'"></label>'+(state.phase==='prefill'?'<label>序列长度<input data-context="tokens" type="number" min="1" max="1048576" value="'+state.tokens+'"></label>':'<label>start_pos<input data-context="start" type="number" min="0" max="1048575" value="'+state.start+'"></label>')+'<label>层范围<select data-context="layer">'+selectedOptions([['all','全部 43 层'],...Array.from({length:43},(_,i)=>[i,'Layer '+i+' · ratio '+cfg.compress_ratios[i]])],state.layer)+'</select></label><label>分析范围<select data-context="scope">'+selectedOptions([['all','模型整网'],['block','局部计算块']],state.scope)+'</select></label>'+(state.scope==='block'?'<label class="df-scope">计算块<select data-context="module">'+selectedOptions(modules,state.module)+'</select></label>':'')+'<span class="df-context-note">示例工作负载，可修改。芯片能力与收益分开判断。</span></div><div class="df-rec-body"><aside class="df-candidates" id="dfCandidates" aria-label="候选列表"></aside><article class="df-detail" id="dfDetail"></article></div>';
+    renderList();
+    $('#fusionWorkspace .df-rec-head')?.insertAdjacentHTML('afterend','<div class="df-mock-banner"><span class="df-mock-chip">演示 Mock 数据</span><span>'+esc(MOCK_RUN.meta.snapshot)+'</span><span>'+esc(MOCK_RUN.meta.hardware)+'</span><span>'+esc(MOCK_RUN.meta.software)+'</span><span>'+esc(MOCK_RUN.meta.compile)+'</span><span>'+esc(MOCK_RUN.meta.workload)+'</span><b>不代表编译或硬件实测</b></div>');
+    syncModelFocus(current());
+  }
+  function toast(msg){$('#dfToast').textContent=msg;$('#dfToast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#dfToast').hidden=true,4000);}
+  function route(name){
+    window.PtoFusionAdvisor?.close();viz().closeCompare();
+    state.route=name;
+    const workspace=document.querySelector('.df-workspace');
+    workspace?.classList.toggle('is-recommend-docked',name==='recommend');
+    $('#modelArchitectureView').hidden=false;$('#fusionWorkspace').hidden=name!=='recommend';
+    if(name==='recommend'){viz().showNpu();render();$('#modelCanvasStatus').textContent='左侧模型图 · 右侧融合规则 2026-09-11 · 基线去重 / 语义 / 硬件 / 收益分层';}
+    else {window.PtoModelArchitectureState={active:name==='npu'?'deepseek-v4-flash-npu':'deepseek-v4-flash'};viz().show();}
+    document.querySelectorAll('[data-route]').forEach(b=>{b.classList.toggle('active',b.dataset.route===name);b.setAttribute('aria-current',b.dataset.route===name?'page':'false');});
+    history.replaceState(null,'','#'+name);
+  }
+  function dialog(html){$('#boundaryContent').innerHTML=html;$('#boundaryDialog').showModal();}
+  function showRules(){
+    dialog('<h2>规则与替换基线</h2><p>先生成候选替换模型，再分析未覆盖的计算。应用 API 方案是演示假设，不表示模型已在昇腾运行。</p>'+table(['层级','当前规则'],[['1 模式','结合源码算式、分支、输出与存储关系定位'],['2 语义','保留 clamp / original_scores / mHC / Cache / dtype 边界'],['3 硬件','2201 GM 交接；3510 条件通路；逐空间校验容量'],['4 收益','只计当前基线未覆盖的物化；不使用任意加权 FusionScore'],['5 整网','冲突候选不叠加；按层、场景和关键路径评估'],['6 验证','源码匹配、编译通过、硬件实测分开标记']])+'<h3>已登记的候选替换</h3>'+listItems(window.PtoFusionRules.evaluate().actionable.map(x=>x.title+'：'+x.apis.join(' / ')))+'<p>MLA Prolog 的逐头 Norm 兼容性未通过核实，因此保留原模块和共享 pre-norm；mHC 与标准 Add+RMSNorm 不等价。</p><p>配置有 '+cfg.compress_ratios.length+' 个 ratio 项；仅前 '+cfg.n_layers+' 项用于 Decoder，额外项不计入重复层收益。</p>');
+  }
+  function exportRecord(c){return {...c,context:{...state},decision:contextFor(c),baseline:{model:'DeepSeek V4 Flash · torch_npu',type:'candidate_replacement_demo',applied:window.PtoFusionRules.evaluate().actionable.map(x=>({id:x.id,apis:x.apis,verified:false}))},evidence:{source:'Data/DeepSeek-V4-Flash-Official/model.py',lines:c.lines,checked:'2026-09-11',level:'static_analysis',compiled:false,runtime_verified:false,latency_us:null,kernel_count:null,allocated_peak_bytes:null},conditional_traffic:c.flowBytes==='shared'?{unit:'logical GM access bytes / invocation',tokens:tokenCount(),intermediate_dtype:'FP32',max_saved_bytes:8*tokenCount()*2048*4,assumptions:'4 internal full tensors; each written/read once; no spill; excludes input/output and compiler pre-fusion; not measured HBM traffic'}:null,sources:SOURCES};}
+  function download(name,data){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('已导出 '+name);}
+  window.PtoFusionCatalogAdvisor={syncEntry(){document.querySelectorAll('[data-open-catalog]').forEach(x=>x.hidden=!viz().isNpuModelActive());if(viz().isNpuModelActive()&&state.route==='original'){state.route='npu';document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route==='npu'));history.replaceState(null,'','#npu');}},open(){route('recommend');},close(){route('npu');}};
+  window.PtoFusionHardwareView={open(item){dialog('<h2>'+esc(item.title)+' · 边界与硬件条件</h2><div class="df-note warn">API 替换不证明单 Kernel，也不证明 GM 搬运消失。当前仅有代码映射，未取得编译或运行证据。</div><h3>拟覆盖</h3>'+listItems(item.covers)+'<h3>保留 / 未覆盖</h3>'+listItems(item.uncovered.length?item.uncovered:['输出与所有外部消费者仍需保留'])+'<h3>硬件交接</h3><p>2201 的 AIC/AIV 经 GM 交换；3510 的片上通路需确认 API 与编译选项。临时 Buffer、流水副本与同步资源单独计算。</p><h3>验证条件</h3>'+listItems(item.constraints.map(x=>x.item+'：'+x.why))+'<p>进入生成后的模型，再打开「融合推荐」查看新增候选的数据流、Buffer 与调度说明。</p>');}};
+  document.addEventListener('click',e=>{
+    const t=e.target;
+    const r=t.closest('[data-route]');if(r){route(r.dataset.route);return;}
+    const model=t.closest('[data-model-id]');if(model){route(model.dataset.modelId.endsWith('-npu')?'npu':'original');$('[data-model-selector-menu]').hidden=true;$('[data-model-selector-trigger]').setAttribute('aria-expanded','false');return;}
+    const trigger=t.closest('[data-model-selector-trigger]');if(trigger){const menu=$('[data-model-selector-menu]');menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden));return;}
+    if(!t.closest('[data-model-selector]')){$('[data-model-selector-menu]').hidden=true;$('[data-model-selector-trigger]').setAttribute('aria-expanded','false');}
+    if(t.closest('[data-open-catalog]')){route('recommend');return;}
+    const pick=t.closest('[data-candidate]');if(pick){state.selected=pick.dataset.candidate;renderList();syncModelFocus(current());return;}
+    const tab=t.closest('[data-detail-tab]');if(tab){state.tab=tab.dataset.detailTab;renderDetail();return;}
+    if(t.closest('[data-locate]')){const c=current();if(state.route!=='recommend')route('npu');else viz().showNpu();viz().focusCandidate({module:c.module,steps:c.steps});$('#modelCanvasStatus').textContent='左侧模型图已定位：'+c.title+' · 右侧保留推荐解释';return;}
+    if(t.closest('[data-show-rules]')){showRules();return;}
+    if(t.closest('[data-export-candidate]')){download(current().id+'.json',exportRecord(current()));return;}
+    if(t.closest('[data-export-all]')){download('deepseek-fusion-analysis.json',{schema_version:2,rule_date:'2026-09-11',context:state,candidates:visible().map(exportRecord),aggregation:'Overlapping or baseline-covered savings are not additive; no measured end-to-end estimate.'});return;}
+    if(t.closest('[data-close-dialog]'))$('#boundaryDialog').close();
+    if(t.closest('[data-model-phase-nav-toggle]')){const nav=$('#modelPhaseNav');nav.classList.toggle('is-collapsed');t.closest('button').setAttribute('aria-expanded',String(!nav.classList.contains('is-collapsed')));}
+  });
+  document.addEventListener('change',e=>{
+    const key=e.target.dataset.context;if(!key)return;
+    if(['batch','tokens','start'].includes(key)){const n=Number(e.target.value),min=Number(e.target.min),max=Number(e.target.max);if(!Number.isInteger(n)||n<min||n>max){e.target.value=state[key];toast('请输入 '+min+' 到 '+max+' 的整数');return;}state[key]=n;}else state[key]=e.target.value;
+    render();
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('[data-model-selector-menu]').hidden=true;$('[data-model-selector-trigger]').setAttribute('aria-expanded','false');if(viz().isComparing())viz().closeCompare();}});
+  window.DeepSeekFusionDemo={candidates,contextFor,exportRecord,getState:()=>({...state}),baseline:()=>window.PtoFusionRules.evaluate().actionable};
+  route(['original','npu','recommend'].includes(location.hash.slice(1))?location.hash.slice(1):'original');
+})();
+</script>
+</body></html>
