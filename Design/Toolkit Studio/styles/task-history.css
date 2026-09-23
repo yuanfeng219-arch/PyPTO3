@@ -827,38 +827,40 @@
   spinner / muted 文字出现在顶部 headline；这里只说分析结论 PASS / WARNING /
   FAIL / NOT EVALUATED。所以结论用直角 monospace 小片，不抢 Run 标题。 */
 .kf-rtpwrap { display: grid; gap: 14px; min-width: 0; }
-/* 总览条：左边结论色块（Domain + 结论 + 状态符号），中间一排指标列
-   （列间细分隔线，标签在上、值在下），右侧一句补充说明。三个页签共用，
-   正确性页的 kf-dg-diagnosis Gate 也并进了这同一条。 */
+/* 顶部 summary strip：单一连续 surface —— 最左结论锚点（Domain + 结论 +
+   状态符号，状态色只染这一格），后面一组并列事实列（label 在上、value 在
+   下，用间距不用框线分隔），最右一句弱说明。Tabs 下方只有这一条，诊断解释
+   一律留给下方工作区。三个页签共用同一套 grammar。 */
 .kf-dh {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(130px, 190px);
-  align-items: stretch; gap: 0 14px;
-  padding: 0 0 10px; border-bottom: 1px solid var(--border-subtle);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(130px, 200px);
+  align-items: stretch;
+  border-radius: var(--radius-md); overflow: hidden;
+  background: color-mix(in srgb, var(--surface-2) 52%, transparent);
 }
 .kf-dh-verdict {
   position: relative; display: grid; align-content: center; gap: 3px;
-  padding: 8px 36px 8px 14px; border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+  padding: 9px 36px 9px 14px;
+  background: color-mix(in srgb, var(--surface-3) 42%, transparent);
 }
 .kf-dh-verdict > span { color: var(--foreground-secondary); font: 600 10px/1.3 var(--font-sans); letter-spacing: .02em; }
-.kf-dh-verdict > b { color: var(--foreground-muted); font: 700 16px/1.1 var(--font-mono); letter-spacing: .05em; }
+.kf-dh-verdict > b { color: var(--foreground-muted); font: 700 15px/1.1 var(--font-mono); letter-spacing: .05em; }
 .kf-dh-verdict > i {
   position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
   color: var(--foreground-muted); font: 700 12px/1 var(--font-mono); font-style: normal; opacity: .85;
 }
-.kf-dh.is-ok .kf-dh-verdict { background: color-mix(in srgb, var(--success) 12%, transparent); }
+.kf-dh.is-ok .kf-dh-verdict { background: color-mix(in srgb, var(--success) 11%, transparent); }
 .kf-dh.is-ok .kf-dh-verdict > b, .kf-dh.is-ok .kf-dh-verdict > i { color: var(--success); }
-.kf-dh.is-warn .kf-dh-verdict { background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.kf-dh.is-warn .kf-dh-verdict { background: color-mix(in srgb, var(--warning) 11%, transparent); }
 .kf-dh.is-warn .kf-dh-verdict > b, .kf-dh.is-warn .kf-dh-verdict > i { color: var(--warning); }
-.kf-dh.is-bad .kf-dh-verdict { background: color-mix(in srgb, var(--danger) 13%, transparent); }
+.kf-dh.is-bad .kf-dh-verdict { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .kf-dh.is-bad .kf-dh-verdict > b, .kf-dh.is-bad .kf-dh-verdict > i { color: var(--danger); }
 /* 指标是证据，不是按钮：无边框、无底色、无 hover、无 cursor。 */
-.kf-dh-metrics { display: flex; flex-wrap: wrap; align-items: stretch; min-width: 0; padding-left: 2px; }
+.kf-dh-metrics { display: flex; flex-wrap: wrap; align-items: stretch; min-width: 0; padding: 2px 0; }
 .kf-dh-metrics > span {
   display: flex; flex-direction: column; justify-content: center; gap: 4px;
-  min-width: 0; padding: 5px 16px;
+  min-width: 0; padding: 5px 18px;
 }
-.kf-dh-metrics > span + span { border-left: 1px solid var(--border-subtle); }
+.kf-dh-metrics > span:first-child { padding-left: 16px; }
 .kf-dh-metrics > span > i { color: var(--foreground-muted); font: 400 10px/1.3 var(--font-sans); font-style: normal; white-space: nowrap; }
 .kf-dh-metrics > span > b {
   overflow: hidden; color: var(--foreground-secondary);
@@ -868,20 +870,18 @@
 .kf-dh-metrics > span > b.is-warn { color: var(--warning); }
 .kf-dh-metrics > span > b.is-bad { color: var(--danger); }
 .kf-dh-note {
-  align-self: center; margin: 0; padding-left: 14px; border-left: 1px solid var(--border-subtle);
+  align-self: center; margin: 0; padding: 4px 14px 4px 2px;
   color: var(--foreground-muted); font-size: 10px; line-height: 1.55;
 }
 @container (max-width: 720px) {
-  .kf-dh { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .kf-dh-note { padding-left: 0; border-left: 0; }
+  .kf-dh { grid-template-columns: minmax(0, 1fr); }
+  .kf-dh-metrics { padding: 0; }
+  .kf-dh-note { padding: 0 14px 8px; }
 }
 /* 统一头部已经说过域名称与结论，各模块自带的同名标题不再重复一遍：
-   编译页只留下它那份「Pass / Kernel / 水位 / IR 变化」事实行，正确性页
-   结果卡里重复的结论块隐藏。模块自己的指标 / 证据都保留。 */
+   编译页只留下它那份「Pass / Kernel / 水位 / IR 变化」事实行。 */
 .kf-dh ~ .kf-rtp .kc-summary { grid-template-columns: minmax(0, 1fr); }
-.kf-dh ~ .kf-rtp .kc-summary__outcome,
-.kf-dh ~ .kf-rtp .kf-dg-verdict { display: none; }
-.kf-dh ~ .kf-rtp .kf-dg-result { grid-template-columns: minmax(0, 1fr); }
+.kf-dh ~ .kf-rtp .kc-summary__outcome { display: none; }
 .kf-dh ~ .kf-rtp .kc-summary__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: 0; }
 @container (max-width: 720px) {
   .kf-dh ~ .kf-rtp .kc-summary__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1654,13 +1654,8 @@
   gap: 10px;
   padding: 0 16px;
 }
-#ideMainSplit.kf-run-no-inspector .kf-dh {
-  min-height: 48px;
-  gap: 0 12px;
-  padding: 8px 0 8px;
-  border-bottom-color: var(--border-default);
-}
-#ideMainSplit.kf-run-no-inspector .kf-dh-verdict { padding: 6px 28px 6px 12px; border-radius: var(--radius-sm); }
+#ideMainSplit.kf-run-no-inspector .kf-dh { min-height: 44px; }
+#ideMainSplit.kf-run-no-inspector .kf-dh-verdict { padding: 6px 28px 6px 12px; }
 #ideMainSplit.kf-run-no-inspector .kf-dh-verdict > b { font-size: 14px; }
 #ideMainSplit.kf-run-no-inspector .kf-dh-metrics > span { padding: 4px 12px; }
 #ideMainSplit.kf-run-no-inspector .kf-dh-metrics > span > i { font-size: 9px; }

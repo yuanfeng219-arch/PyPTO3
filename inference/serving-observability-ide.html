@@ -3465,6 +3465,14 @@ button.operator-tree-toggle:hover {
             { id: 'ep8-compute', lane: 'Expert Compute', label: 'expert compute', start: 6547, dur: 398.2, color: '#d4a66c', kind: 'kernel', task: 'expert-mlp-r4', tensor: 'tensor-expert-31' },
             { id: 'ep8-perf', lane: 'Memory / Perf Hint', label: 'PH001 · innermost dim 256B', start: 6988, dur: 104, color: '#8f7aa8', kind: 'memory', hint: 'PH001' }
           ]
+        },
+        pypto: {
+          id: 'pypto', label: 'PyPTO Serving Trace', kind: 'serving', path: 'PyPTO Serving', engine: 'PyPTO Serving',
+          window: 0, dominant: '未采集', taskCount: 0, tensorCount: 0, edgeCount: 0, eventCount: 0,
+          memory: '未采集', hint: '未采集', memorySections: [], hints: [],
+          events: [], lanes: [], tasks: [], tensors: [], edges: [], taskIndex: {}, tensorIndex: {},
+          request: { requestId: '', promptTokens: null, maxTokens: null, batchSize: null, modelId: '' },
+          coverage: { serving: true, hostRuntime: true, dfxTasks: false, tensorGraph: false, moeRouting: false, deviceTrace: false, memory: false, pmu: false }
         }
       };
 
@@ -3478,7 +3486,8 @@ button.operator-tree-toggle:hover {
         { id: 'RUN-043', name: 'HCA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'hca', kind: 'attention', status: 'Completed', progress: 100, sloRate: 98.1, snapshot: '2026-07-26 22:27:38 +08:00', config: 'attention=HCA · startpos=8192 · batch=8', artifact: 'decode_attention_hca_startpos8192' },
         { id: 'RUN-044', name: 'SWA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'swa', kind: 'attention', status: 'Completed', progress: 100, sloRate: 99.2, snapshot: '2026-07-26 22:28:04 +08:00', config: 'attention=SWA · startpos=8192 · batch=8', artifact: 'decode_attention_swa_startpos8192' },
         { id: 'RUN-045', name: 'EP8 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep8', kind: 'moe', status: 'Completed', progress: 100, sloRate: 93.4, snapshot: '2026-07-26 23:04:02 +08:00', config: 'expert_parallel=8 · balanced routing', artifact: 'moe_ep8_balanced' },
-        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 98.4, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' }
+        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 98.4, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' },
+        { id: 'RUN-047', name: 'PyPTO Serving Trace', scenarioId: 'deepseek', evidenceId: 'pypto', kind: 'serving', engine: 'PyPTO Serving', status: 'Completed', progress: 100, sloRate: null, snapshot: '2026-09-10 09:31:31 +00:00', config: 'request cmpl-2fb23b49 · prompt 64 · max 128 · batch 1', artifact: 'trace_view_pypto.json' }
       ];
 
       var modelOperators = [
@@ -4405,6 +4414,9 @@ button.operator-tree-toggle:hover {
       }
 
       function serviceMetricsFor(run, profile) {
+        if (run && run.kind === 'serving') {
+          return { ttft: null, tpot: null, throughput: null, sloRate: null, queueWaitP95: null, kvHeadroom: null, kvPagesRemaining: null, kvPagesTotal: null };
+        }
         var summary = profile && profile.summary;
         var queue = profile && profile.serving && profile.serving.queue;
         var kv = profile && profile.memory && profile.memory.kv;
@@ -4425,8 +4437,36 @@ button.operator-tree-toggle:hover {
       }
 
       function renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence) {
-        var group = evidence.kind === 'moe' ? 'DFX · MoE distributed execution' : 'DFX · Attention execution';
-        return '<details class="so-card so-run-metadata"><summary>Run Metadata / Configuration</summary><div class="so-run-metadata__body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + '</dd><dt>Status / captured</dt><dd>' + esc(run.status + ' · ' + run.snapshot) + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision + ' · ' + scenario.name) + '</dd><dt>Configuration</dt><dd>' + esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '') + '</dd><dt>Evidence group</dt><dd>' + esc(group) + '</dd><dt>Hierarchy</dt><dd>' + (evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '') + '</dd><dt>Artifact</dt><dd class="so-mono">' + esc(run.artifact || '—') + '</dd></dl></div></details>';
+        var group = evidence.kind === 'moe' ? 'DFX · MoE distributed execution' : evidence.kind === 'serving' ? 'Serving · host runtime trace' : 'DFX · Attention execution';
+        var hierarchy = evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : evidence.kind === 'serving' ? 'Request → Layer → Span' : 'Core → Event';
+        var runtimeGraph = evidence.kind === 'serving' ? '未采集 Task / Tensor / Dependency' : evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '');
+        var configLine = esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '');
+        if (evidence.kind === 'serving') {
+          var req = evidence.request || {};
+          configLine = esc('engine ' + (run.engine || evidence.engine || 'PyPTO Serving') + ' · request ' + (req.requestId || '—') + ' · prompt ' + (req.promptTokens == null ? '—' : req.promptTokens) + ' · max ' + (req.maxTokens == null ? '—' : req.maxTokens) + ' · batch ' + (req.batchSize == null ? '—' : req.batchSize));
+        }
+        return '<details class="so-card so-run-metadata"><summary>Run Metadata / Configuration</summary><div class="so-run-metadata__body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + '</dd><dt>Status / captured</dt><dd>' + esc(run.status + ' · ' + run.snapshot) + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision + ' · ' + scenario.name) + '</dd><dt>Configuration</dt><dd>' + configLine + '</dd><dt>Evidence group</dt><dd>' + esc(group) + '</dd><dt>Hierarchy</dt><dd>' + esc(hierarchy) + '</dd><dt>Runtime graph</dt><dd>' + runtimeGraph + '</dd><dt>Artifact</dt><dd class="so-mono">' + esc(run.artifact || '—') + '</dd></dl></div></details>';
+      }
+
+      function renderDataCoverage(evidence) {
+        if (evidence.kind === 'serving') {
+          var items = [
+            ['Serving Trace', true],
+            ['Host Runtime', true],
+            ['DFX Tasks', false],
+            ['Tensor Graph', false],
+            ['MoE Routing', false],
+            ['Device Trace', false],
+            ['Memory', false],
+            ['PMU', false]
+          ];
+          var spans = items.map(function (item) {
+            return '<span class="so-coverage-item">' + item[0] + ' <b class="' + (item[1] ? '' : 'is-missing') + '">' + (item[1] ? '✓' : '未采集') + '</b></span>';
+          }).join('');
+          return '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span class="so-coverage-list" style="display:flex;flex-wrap:wrap;gap:2px 16px">' + spans + '</span></section>';
+        }
+        var hasMemory = !!(evidence.memorySections && evidence.memorySections.length);
+        return '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span>Trace <b>✓</b> · Memory <b class="' + (hasMemory ? '' : 'is-missing') + '">' + (hasMemory ? '✓' : '未采集') + '</b> · PMU <b class="is-missing">—</b></span></section>';
       }
 
       function renderOverview() {
@@ -4446,15 +4486,19 @@ button.operator-tree-toggle:hover {
         html += metric('TPOT', value(currentService.tpot == null ? '—' : roundText(currentService.tpot), currentService.tpot == null ? '' : ' ms'), 'p50 · 越低越好', '', baselineService ? baselineMarkup(currentService.tpot, baselineService.tpot, roundText(baselineService.tpot) + ' ms', 'lower', baselineRun.id) : '');
         html += metric('Queue Wait · P95', value(currentService.queueWaitP95 == null ? '—' : Number(currentService.queueWaitP95).toFixed(1), currentService.queueWaitP95 == null ? '' : ' ms'), '请求排队 · 越低越好', '', baselineService ? baselineMarkup(currentService.queueWaitP95, baselineService.queueWaitP95, Number(baselineService.queueWaitP95).toFixed(1) + ' ms', 'lower', baselineRun.id) : '');
         html += metric('Throughput', value(currentService.throughput == null ? '—' : Number(currentService.throughput).toLocaleString('en-US'), currentService.throughput == null ? '' : ' tok/s'), '持续输出 · 越高越好', '', baselineService ? baselineMarkup(currentService.throughput, baselineService.throughput, Number(baselineService.throughput).toLocaleString('en-US') + ' tok/s', 'higher', baselineRun.id) : '');
-        html += metric('SLO 达成率', value(currentService.sloRate.toFixed(1), '%'), currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%', currentService.sloRate >= 98 ? '' : 'warn', baselineService ? baselineMarkup(currentService.sloRate, baselineService.sloRate, baselineService.sloRate.toFixed(1) + '%', 'higher', baselineRun.id) : '');
+        html += metric('SLO 达成率', value(currentService.sloRate == null ? '—' : currentService.sloRate.toFixed(1), currentService.sloRate == null ? '' : '%'), currentService.sloRate == null ? '未采集 · 单请求 Trace 无基准 SLO' : (currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%'), currentService.sloRate == null ? 'muted' : (currentService.sloRate >= 98 ? '' : 'warn'), baselineService ? baselineMarkup(currentService.sloRate, baselineService.sloRate, baselineService.sloRate.toFixed(1) + '%', 'higher', baselineRun.id) : '');
         html += metric('KV Headroom', value(currentService.kvHeadroom == null ? '—' : Number(currentService.kvHeadroom).toFixed(1), currentService.kvHeadroom == null ? '' : '%'), currentService.kvPagesRemaining == null ? '容量余量 · 越高越好' : currentService.kvPagesRemaining + ' / ' + currentService.kvPagesTotal + ' 页可用', currentService.kvHeadroom != null && currentService.kvHeadroom < 15 ? 'warn' : '', baselineService ? baselineMarkup(currentService.kvHeadroom, baselineService.kvHeadroom, Number(baselineService.kvHeadroom).toFixed(1) + '%', 'higher', baselineRun.id) : '');
         html += '</div>';
-        html += '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span>Trace <b>✓</b> · Memory <b>✓</b> · PMU <b class="is-missing">—</b></span></section>';
+        html += renderDataCoverage(evidence);
         html += renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence);
         var runFindings = allRunFindings();
         ensureFindingSelection(runFindings);
-        html += '<div class="so-diagnostic-workspace"><section class="so-findings-column" aria-labelledby="run-findings-title"><div class="so-section-title so-findings-section-title"><h2 id="run-findings-title">诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div><div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div></section><section class="so-diagnostic-graph-column" aria-label="诊断图谱">' + renderDiagnosticGraphPanel() + '</section></div>';
+        html += '<div class="so-diagnostic-workspace"><section class="so-findings-column" aria-labelledby="run-findings-title"><div class="so-section-title so-findings-section-title"><h2 id="run-findings-title">诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div><div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div></section><section class="so-diagnostic-graph-column" aria-label="诊断图谱">' + (evidence.kind === 'serving' ? renderServingDiagnosticPanel() : renderDiagnosticGraphPanel()) + '</section></div>';
         return html;
+      }
+
+      function renderServingDiagnosticPanel() {
+        return '<div class="so-section-title so-diagnostic-graph-section-title"><div><h2>诊断图谱</h2><p>从症状、异常维度到根因与验证建议</p></div></div><section class="so-diagnostic-graph-panel" aria-label="诊断图谱"><div class="so-empty" style="padding:28px">未采集诊断图谱数据。<br>当前 Run 是 Serving 单请求 Trace，不包含 DFX 语义诊断（Task / Tensor / Rank / Memory）。</div></section>';
       }
 
       function findingRecommendation(item) {
@@ -4508,7 +4552,7 @@ button.operator-tree-toggle:hover {
           else if (state.coreFilter !== 'all' && event.laneId !== state.coreFilter) return false;
           if (state.tracePreset === 'long' && event.dur < Math.max(10, evidence.window * .015)) return false;
           if (state.tracePreset === 'wait' && !/wait|gather|dispatch|meta|push/i.test(event.funcName)) return false;
-          if (search && [event.funcName, event.taskId, event.lane, event.rawName].join(' ').toLowerCase().indexOf(search) < 0) return false;
+          if (search && [event.funcName, event.taskId, event.lane, event.rawName, event.processName, event.cat].join(' ').toLowerCase().indexOf(search) < 0) return false;
           return true;
         });
       }
@@ -4516,10 +4560,13 @@ button.operator-tree-toggle:hover {
       function visibleTraceLanes(evidence) {
         var map = {};
         filteredTraceEvents(evidence).forEach(function (event) {
-          if (!map[event.lane]) map[event.lane] = { id: event.laneId, label: event.lane, kind: event.laneKind, events: [] };
+          if (!map[event.lane]) map[event.lane] = { id: event.laneId, label: event.lane, kind: event.laneKind, events: [], order: event.laneOrder };
           map[event.lane].events.push(event);
         });
-        return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) { return a.label.localeCompare(b.label, undefined, { numeric: true }); });
+        return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) {
+          if (a.order != null && b.order != null) return a.order - b.order;
+          return a.label.localeCompare(b.label, undefined, { numeric: true });
+        });
       }
 
       function traceLaneIdentity(lane) {
@@ -4534,9 +4581,12 @@ button.operator-tree-toggle:hover {
           var canvasId = 'trace-canvas-' + String(lane.id || lane.label).replace(/[^a-z0-9]/gi, '-') + '-' + laneIndex;
           var baseLane = baseLanes.find(function (item) { return traceLaneIdentity(item) === traceLaneIdentity(lane); }) || null;
           var currentRow = '<div class="so-trace-row"><div class="so-trace-label">' + esc(laneDisplayLabel(lane.label)) + '<small>' + events.length + ' events · 当前</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" id="' + canvasId + '" data-trace-source="current" data-trace-lane="' + esc(lane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="' + esc(laneDisplayLabel(lane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer aria-label="' + esc(laneDisplayLabel(lane.label)) + ' events"></div></div></div>';
-          var baselineRow = baseLane
-            ? '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(baseLane.label)) + '<small>' + baseLane.events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" data-trace-source="baseline" data-trace-lane="' + esc(baseLane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="基线 ' + esc(laneDisplayLabel(baseLane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer></div></div></div>'
-            : '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(lane.label)) + '</div><div class="so-trace-missing">基线无对应 Lane</div></div>';
+          var baselineRow = '';
+          if (baseEvidence) {
+            baselineRow = baseLane
+              ? '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(baseLane.label)) + '<small>' + baseLane.events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" data-trace-source="baseline" data-trace-lane="' + esc(baseLane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="基线 ' + esc(laneDisplayLabel(baseLane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer></div></div></div>'
+              : '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(lane.label)) + '</div><div class="so-trace-missing">基线无对应 Lane</div></div>';
+          }
           return currentRow + baselineRow;
         }).join('');
         if (lanes.length > shown.length) html += '<div class="so-lane-cap">已渲染 ' + shown.length + ' / ' + lanes.length + ' lanes。<button class="so-link" data-action="show-more-lanes">继续展开</button></div>';
@@ -4555,9 +4605,28 @@ button.operator-tree-toggle:hover {
         return '<div class="so-trace-legend" aria-label="Trace event color legend"><span class="so-trace-legend-title">事件颜色</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#c8945d"></i>AIC 计算 / Expert</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#5f9b9b"></i>AIV 计算</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#b86d68"></i>Wait / Gather / Metadata</span>' + (baselineRun ? '<span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:color-mix(in srgb,#5f9b9b 48%,transparent)"></i>基线 · 弱化泳道</span>' : '') + '<span class="so-trace-legend-hint">悬停彩色事件条查看详情</span></div>';
       }
 
+      function servingLegend(evidence) {
+        var layers = evidence.lanes || [];
+        var items = layers.map(function (layer) {
+          var swatch = (layer.events && layer.events[0] && layer.events[0].color) || '#5f6775';
+          return '<span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:' + esc(swatch) + '"></i>' + esc(layer.label) + '</span>';
+        }).join('');
+        return '<div class="so-trace-legend" aria-label="Serving trace layer legend"><span class="so-trace-legend-title">层级</span>' + items + '<span class="so-trace-legend-hint">悬停 span 查看详情 · 详情不包含 DFX Task / Tensor</span></div>';
+      }
+
       function traceTooltipHtml(task) {
         var event = task && task.event || {};
         var end = Number(event.start || 0) + Number(event.dur || 0);
+        if (event.kind && event.processName !== undefined && ['serving', 'scheduler', 'worker', 'executor', 'dspark', 'host', 'chip'].indexOf(event.kind) >= 0) {
+          return '<div class="so-timeline-tooltip__title"><span class="so-trace-tooltip-swatch" style="background:' + esc(event.color || '#5f6775') + '"></span>' + esc(event.funcName || event.label || 'span') + '</div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">layer</span><span class="so-timeline-tooltip__value">' + esc(event.lane || '—') + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">category</span><span class="so-timeline-tooltip__value">' + esc(event.cat || '—') + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">process</span><span class="so-timeline-tooltip__value">' + esc(event.processName || String(event.pid || '—')) + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">thread</span><span class="so-timeline-tooltip__value">' + esc(event.threadName || String(event.tid || '—')) + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">start</span><span class="so-timeline-tooltip__value">' + roundText(event.start) + ' μs</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">duration</span><span class="so-timeline-tooltip__value">' + roundText(event.dur) + ' μs</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">end</span><span class="so-timeline-tooltip__value">' + roundText(end) + ' μs</span></div>';
+        }
         return '<div class="so-timeline-tooltip__title"><span class="so-trace-tooltip-swatch" style="background:' + esc(event.color || '#5f6775') + '"></span>' + esc(event.funcName || event.label || 'runtime event') + '</div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">来源</span><span class="so-timeline-tooltip__value">' + esc(task && task.sourceLabel || '当前 Run') + '</span></div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">lane</span><span class="so-timeline-tooltip__value">' + esc(laneDisplayLabel(event.lane || task.lane || '—')) + '</span></div>' +
@@ -4575,6 +4644,13 @@ button.operator-tree-toggle:hover {
           var selectedLabel = state.selectedRank || 'All ranks';
           var physicalCoreCount = evidence.coreCount || (evidence.id === 'ep8' ? 66 : 6);
           return '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">TRACE SCOPE</div><div class="so-finding-title" style="margin-top:5px">Rank timeline focus</div></div><div class="so-hierarchy-list"><div class="so-hierarchy-stat"><span>Ranks</span><strong>' + evidence.rankCount + '</strong><small>' + (base ? '基线 · ' + base.rankCount + ' ranks' : '当前 Run') + '</small></div><div class="so-hierarchy-stat"><span>Physical core lanes</span><strong>' + physicalCoreCount + '</strong><small>' + (base ? '基线 · ' + (base.coreCount || (base.aicoreCount || 0) + (base.aicpuCount || 0)) + ' physical' : '按执行角色聚合') + '</small></div><div class="so-hierarchy-stat"><span>Execution window</span><strong>' + roundText(evidence.window) + ' μs</strong><small>' + (base ? '基线 · ' + roundText(base.window) + ' μs' : '当前窗口') + '</small></div><div class="so-hierarchy-stat"><span>Current drill</span><strong>' + esc(selectedLabel) + '</strong><small>Rank detail 在选中行内展开</small></div></div></aside>';
+        }
+        if (evidence.kind === 'serving') {
+          var req = evidence.request || {};
+          var layerButtons = '<button class="so-hierarchy-item ' + (state.coreFilter === 'all' ? 'is-active' : '') + '" data-core-filter="all"><span>All layers</span><span>' + (evidence.lanes || []).length + '</span></button>' + (evidence.lanes || []).map(function (layer) {
+            return '<button class="so-hierarchy-item ' + (state.coreFilter === layer.id ? 'is-active' : '') + '" data-core-filter="' + esc(layer.id) + '"><span>' + esc(layer.label) + '</span><span>' + layer.events.length + '</span></button>';
+          }).join('');
+          return '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">TRACE SCOPE</div><div class="so-finding-title" style="margin-top:5px">Single request trace</div></div><div class="so-hierarchy-list"><div class="so-hierarchy-stat"><span>Request</span><strong class="so-mono" style="font-size:12px">' + esc(req.requestId || '—') + '</strong><small>prompt ' + (req.promptTokens == null ? '—' : req.promptTokens) + ' · max ' + (req.maxTokens == null ? '—' : req.maxTokens) + ' · batch ' + (req.batchSize == null ? '—' : req.batchSize) + '</small></div><div class="so-hierarchy-stat"><span>Prefill / Decode</span><strong>' + (req.prefillSteps == null ? '—' : req.prefillSteps) + ' / ' + (req.decodeSteps == null ? '—' : req.decodeSteps) + '</strong><small>' + esc(req.modelId || '—') + '</small></div><div class="so-hierarchy-stat"><span>Execution window</span><strong>' + roundText(evidence.window) + ' μs</strong><small>raw trace ' + evidence.rawTraceEventCount + ' events</small></div><div class="so-divider"></div>' + layerButtons + '</div></aside>';
         }
         var html = '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">EXECUTION HIERARCHY</div><div class="so-finding-title" style="margin-top:5px">' + (evidence.ranks ? 'Rank → Core' : 'Core → Event') + '</div></div><div class="so-hierarchy-list">';
         if (base) html += '<div class="so-hierarchy-stat"><span>基线摘要</span><strong>' + esc(baseRun.id) + '</strong><small>' + (base.coreCount || 0) + ' cores · ' + base.eventCount + ' events · ' + roundText(base.window) + ' μs</small></div><div class="so-divider"></div>';
@@ -4612,6 +4688,7 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDependencyGraph(evidence) {
+        if (evidence.kind === 'serving') return '<div class="so-card"><div class="so-card-head"><div><h3>Dependency Graph</h3><div class="so-finding-summary">Task / Tensor dependency</div></div><button class="so-button" data-trace-view="timeline">回到 Timeline</button></div><div class="so-empty" style="padding:24px">未采集 Task / Tensor Dependency 数据。<br>当前 Run 是 Serving 单请求 Trace，仅包含跨层 span 的时间嵌套关系，不包含 DFX task / tensor dependency。</div></div>';
         var event = selectedEvent();
         if (!event) return '<div class="so-card"><div class="so-empty">先在 Timeline 选中一个 runtime event，再查看该 Task 的一跳 Tensor / Dependency 关系。</div></div>';
         var ctx = selectedTaskContext(evidence, event);
@@ -4662,12 +4739,48 @@ button.operator-tree-toggle:hover {
         return '<div class="so-object-crumb"><strong>' + (evidence.kind === 'moe' ? 'MoE' : 'Attention') + '</strong><span>›</span><strong>' + (event.rank == null ? '' : 'Rank ' + event.rank + ' › ') + event.coreType.toUpperCase() + '_' + event.coreId + '</strong><span>›</span><strong>' + esc(event.funcName) + '</strong><span>›</span><strong>Task ' + esc(event.taskId) + '</strong></div><div class="so-detail-grid"><div class="so-detail-panel"><h4>Runtime Event</h4><dl class="so-kv"><dt>Timing</dt><dd>' + roundText(event.start) + ' → ' + roundText(event.start + event.dur) + ' μs</dd><dt>Duration</dt><dd>' + roundText(event.dur) + ' μs</dd><dt>Kernel / setup</dt><dd>' + roundText(event.kernelDuration) + ' / ' + roundText(event.setupDuration) + ' μs</dd></dl></div><div class="so-detail-panel"><h4>Runtime Task</h4><dl class="so-kv"><dt>Task ID</dt><dd class="so-mono">' + esc(event.taskId) + '</dd><dt>Scope</dt><dd>' + esc(ctx.task && ctx.task.scope || '—') + '</dd><dt>Early dispatch</dt><dd>' + esc(ctx.task && ctx.task.early_dispatch == null ? '—' : ctx.task.early_dispatch) + '</dd><dt>Block num</dt><dd>' + esc(ctx.task && ctx.task.block_num || '—') + '</dd></dl></div><div class="so-detail-panel"><h4>Relations</h4><dl class="so-kv"><dt>Tensors</dt><dd>' + ctx.tensorArgs.length + '</dd><dt>Incoming</dt><dd>' + ctx.incoming.length + '</dd><dt>Outgoing</dt><dd>' + ctx.outgoing.length + '</dd><dt>Fan in / out</dt><dd>' + esc(event.fanin || '—') + ' / ' + esc(event.fanout || '—') + '</dd></dl></div></div>';
       }
 
+      function renderServingEvidenceDock(evidence) {
+        var tabs = [['summary', 'Runtime Span'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies'], ['args', 'Raw Args']];
+        if (!tabs.some(function (tab) { return tab[0] === state.evidenceTab; })) state.evidenceTab = 'summary';
+        var event = selectedEvent();
+        var label = event ? event.funcName : 'No span selected';
+        return '<section class="so-card so-evidence-dock" aria-label="Runtime Span Inspector"><div class="so-task-inspector-head"><div><h3>Runtime Span Inspector</h3><p>当前 Serving / Runtime span 的 category、duration 与原始 trace args</p></div><span class="so-pill">' + esc(label) + '</span></div><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div><div class="so-evidence-body">' + renderServingEvidenceBody(evidence) + '</div></section>';
+      }
+
+      function renderServingEvidenceBody(evidence) {
+        var event = selectedEvent();
+        if (!event) return '<div class="so-empty">在 Timeline 选中一个 Serving / Runtime span 后，这里会展示其 category、duration、process / thread 与原始 args。</div>';
+        if (state.evidenceTab === 'tensors') return '<div class="so-object-crumb"><strong>' + esc(event.funcName) + '</strong><span>›</span><span>Tensors</span></div><div class="so-empty" style="padding:18px">未采集 Tensor 数据。<br>当前 Run 是 Serving 单请求 Trace，不包含 DFX tensor argument 记录。</div>';
+        if (state.evidenceTab === 'dependencies') return '<div class="so-object-crumb"><strong>' + esc(event.funcName) + '</strong><span>›</span><span>Dependencies</span></div><div class="so-empty" style="padding:18px">未采集 Task / Tensor Dependency 数据。<br>当前 Run 不包含 DFX task / tensor dependency，只有 span 时间嵌套关系。</div>';
+        if (state.evidenceTab === 'args') {
+          var args = event.args || {};
+          var keys = Object.keys(args);
+          var rows = keys.length ? keys.map(function (key) { return '<div class="so-object-row"><strong class="so-mono">' + esc(key) + '</strong><span class="so-mono">' + esc(JSON.stringify(args[key])) + '</span></div>'; }).join('') : '<div class="so-finding-summary">该 span 没有 args。</div>';
+          return '<div class="so-object-crumb"><strong>' + esc(event.funcName) + '</strong><span>›</span><span>raw trace args</span></div><div class="so-object-list">' + rows + '</div>';
+        }
+        var req = evidence.request || {};
+        var children = (evidence.events || []).filter(function (item) { return item.parentId === event.id; });
+        var hierarchyRows = '';
+        if (event.parentName) hierarchyRows += '<dt>Parent</dt><dd class="so-mono">' + esc(event.parentName) + '</dd>';
+        hierarchyRows += '<dt>Children</dt><dd>' + (children.length ? children.slice(0, 6).map(function (item) { return esc(item.funcName); }).join(' · ') + (children.length > 6 ? ' · +' + (children.length - 6) : '') : '—') + '</dd>';
+        return '<div class="so-object-crumb"><strong>Runtime Span</strong><span>›</span><strong>' + esc(event.funcName) + '</strong></div><div class="so-detail-grid"><div class="so-detail-panel"><h4>Runtime Span</h4><dl class="so-kv"><dt>Name</dt><dd class="so-mono">' + esc(event.funcName) + '</dd><dt>Category</dt><dd>' + esc(event.cat || event.kind || '—') + '</dd><dt>Duration</dt><dd>' + roundText(event.dur) + ' μs</dd><dt>Process / Thread</dt><dd>' + esc(event.processName || String(event.pid || '—')) + ' / ' + esc(event.threadName || String(event.tid || '—')) + '</dd></dl></div><div class="so-detail-panel"><h4>Request</h4><dl class="so-kv"><dt>Request</dt><dd class="so-mono">' + esc(req.requestId || '—') + '</dd><dt>Model</dt><dd class="so-mono">' + esc(req.modelId || '—') + '</dd><dt>Batch Size</dt><dd>' + (req.batchSize == null ? '—' : req.batchSize) + '</dd></dl></div><div class="so-detail-panel"><h4>Execution hierarchy</h4><dl class="so-kv">' + hierarchyRows + '</dl><p class="so-finding-summary">按时间嵌套推导，非 DFX Task Dependency。</p></div></div>';
+      }
+
       function renderEvidenceDock(evidence) {
+        if (evidence.kind === 'serving') return renderServingEvidenceDock(evidence);
         var tabs = [['summary', 'Summary'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies']];
         if (!tabs.some(function (tab) { return tab[0] === state.evidenceTab; })) state.evidenceTab = 'summary';
         var event = selectedEvent();
         var taskLabel = event && event.taskId ? 'Task ' + event.taskId : 'No task selected';
         return '<section class="so-card so-evidence-dock" aria-label="Selected Task Inspector"><div class="so-task-inspector-head"><div><h3>Selected Task Inspector</h3><p>当前 Task 的 runtime、tensor 与一跳 dependency 上下文</p></div><span class="so-pill">' + esc(taskLabel) + '</span></div><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div><div class="so-evidence-body">' + renderEvidenceBody(evidence) + '</div></section>';
+      }
+
+      function traceFootnote(evidence, baseEvidence, sharedWindow) {
+        if (evidence.kind === 'serving') {
+          var req = evidence.request || {};
+          return esc(evidence.label) + ' · ' + evidence.eventCount + ' spans · request ' + esc(req.requestId || '—') + ' · prefill ×' + (req.prefillSteps == null ? '—' : req.prefillSteps) + ' · decode ×' + (req.decodeSteps == null ? '—' : req.decodeSteps) + ' · raw trace ' + evidence.rawTraceEventCount + ' events';
+        }
+        return esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges' + (baseEvidence ? '<span class="so-baseline-inline">基线 · ' + evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors · 共享时间轴 ' + roundText(sharedWindow) + ' μs</span>' : '');
       }
 
       function renderTrace() {
@@ -4679,15 +4792,16 @@ button.operator-tree-toggle:hover {
         html += observeTabs();
         if (state.dfxStatus !== 'ready') return html + '<div class="so-grid two" style="margin-top:12px">' + dfxStatusCard() + '</div>';
         html += renderSubpageFindings('trace');
-        html += '<div class="so-workbench-toolbar"><div><span class="so-pill accent">' + esc(currentRun().id + ' · ' + currentRun().name) + '</span><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search function / task / core"><span class="so-pill">' + filteredTraceEvents(evidence).length + ' / ' + evidence.eventCount + ' events</span></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="so-button" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="so-button" data-action="trace-zoom-in">＋</button></div></div>';
-        if (evidence.kind !== 'moe') html += traceLegend();
+        html += '<div class="so-workbench-toolbar"><div><span class="so-pill accent">' + esc(currentRun().id + ' · ' + currentRun().name) + '</span><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search span / layer / process"><span class="so-pill">' + filteredTraceEvents(evidence).length + ' / ' + evidence.eventCount + ' events</span></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="so-button" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="so-button" data-action="trace-zoom-in">＋</button></div></div>';
+        if (evidence.kind === 'serving') html += servingLegend(evidence);
+        else if (evidence.kind !== 'moe') html += traceLegend();
         if (evidence.kind === 'moe' && state.traceView === 'timeline') {
           html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>' + renderMoeTraceBody(evidence) + renderEvidenceDock(evidence) + '</div></div>';
         } else {
           html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>';
           if (evidence.ranks && !state.selectedRank && state.traceView === 'timeline') html += renderRankOverview(evidence);
           else if (state.traceView === 'dependency') html += renderDependencyGraph(evidence);
-          else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + sharedWindow + ' μs</span></div>' + traceRows(evidence, baseEvidence) + '<div class="so-trace-note">' + esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges' + (baseEvidence ? '<span class="so-baseline-inline">基线 · ' + evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors · 共享时间轴 ' + roundText(sharedWindow) + ' μs</span>' : '') + '</div></div></div>';
+          else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + sharedWindow + ' μs</span></div>' + traceRows(evidence, baseEvidence) + '<div class="so-trace-note">' + traceFootnote(evidence, baseEvidence, sharedWindow) + '</div></div></div>';
           html += renderEvidenceDock(evidence) + '</div></div>';
         }
         return html;
@@ -4705,6 +4819,9 @@ button.operator-tree-toggle:hover {
 
       function renderCompare() {
         var run = currentRun();
+        if (run.kind === 'serving') {
+          return observeRunHeader() + observeTabs() + '<section class="so-card"><div class="so-card-body"><div class="so-empty"><strong>未采集对比数据</strong><span>当前 Run 是 Serving 单请求 Trace，没有可比较的同类 Controlled Run 与服务基准指标。</span></div></div></section>';
+        }
         if (!state.showComparison) {
           return observeRunHeader() + observeTabs() + '<section class="so-card"><div class="so-card-body"><div class="so-empty"><strong>对比数据已隐藏</strong><span>打开“显示对比”后，将恢复所选基线与其他兼容 Run 的比较。</span></div></div></section>';
         }
@@ -6643,8 +6760,26 @@ button.operator-tree-toggle:hover {
         return renderSimple('workspace');
       }
 
+      function renderServingInspector(evidence) {
+        var event = selectedEvent();
+        var req = evidence.request || {};
+        var html = '<div class="so-inspector-title"><div><h2>Selected evidence</h2><p>点击 Trace span 查看</p></div><span class="so-pill accent">' + (event ? 'linked' : esc(currentRun().id)) + '</span></div>';
+        if (!event) {
+          if (state.dfxStatus !== 'ready') return html + dfxStatusCard();
+          return html + '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-empty">尚未选中 span。<br>在 Timeline 选择 Serving / Host Runtime span。</div><div class="so-divider"></div><dl class="so-kv"><dt>Run</dt><dd>' + esc(currentRun().id + ' · ' + currentRun().name) + '</dd><dt>Spans</dt><dd>' + evidence.eventCount + '</dd><dt>Request</dt><dd class="so-mono">' + esc(req.requestId || '—') + '</dd><dt>Task / Tensor / Dependency</dt><dd>未采集</dd><dt>Memory / PMU</dt><dd>未采集</dd></dl></div></div>';
+        }
+        var children = (evidence.events || []).filter(function (item) { return item.parentId === event.id; });
+        var argsKeys = Object.keys(event.args || {});
+        var hierarchy = '';
+        if (event.parentName) hierarchy += '<dt>Parent</dt><dd class="so-mono">' + esc(event.parentName) + '</dd>';
+        hierarchy += '<dt>Children</dt><dd>' + (children.length ? children.slice(0, 5).map(function (item) { return esc(item.funcName); }).join(' · ') + (children.length > 5 ? ' · +' + (children.length - 5) : '') : '—') + '</dd>';
+        html += '<div class="so-card"><div class="so-card-head"><h3>' + esc(event.funcName || event.label) + '</h3><span class="so-pill">' + roundText(event.dur) + ' μs</span></div><div class="so-card-body"><dl class="so-kv"><dt>Span</dt><dd class="so-mono">' + event.id + '</dd><dt>Category</dt><dd>' + esc(event.cat || event.kind || '—') + '</dd><dt>Layer</dt><dd>' + esc(event.lane || '—') + '</dd><dt>Timing</dt><dd>' + roundText(event.start) + ' → ' + roundText(event.start + event.dur) + ' μs</dd><dt>Process / Thread</dt><dd>' + esc(event.processName || String(event.pid || '—')) + ' / ' + esc(event.threadName || String(event.tid || '—')) + '</dd><dt>Request</dt><dd class="so-mono">' + esc(req.requestId || '—') + '</dd><dt>Model</dt><dd class="so-mono">' + esc(req.modelId || '—') + '</dd><dt>Batch Size</dt><dd>' + (req.batchSize == null ? '—' : req.batchSize) + '</dd></dl><div class="so-divider"></div><div class="so-inspector-block"><h3>Execution hierarchy</h3><dl class="so-kv">' + hierarchy + '</dl><div class="so-finding-summary">按时间嵌套推导，非 DFX Task Dependency。</div></div><div class="so-inspector-block"><h3>Raw Args</h3>' + (argsKeys.length ? argsKeys.map(function (key) { return '<div class="so-object-row"><strong class="so-mono">' + esc(key) + '</strong><span class="so-mono">' + esc(JSON.stringify(event.args[key])) + '</span></div>'; }).join('') : '<div class="so-finding-summary">该 span 没有 args。</div>') + '</div><div class="so-inspector-block"><h3>Data coverage</h3><dl class="so-kv"><dt>DFX Tasks / Tensor / Dependency</dt><dd>未采集</dd><dt>MoE Routing / Rank</dt><dd>未采集</dd><dt>Memory / PMU</dt><dd>未采集</dd></dl></div></div></div>';
+        return html;
+      }
+
       function renderInspector() {
         var evidence = currentEvidence();
+        if (evidence.kind === 'serving') return renderServingInspector(evidence);
         var event = selectedEvent();
         var html = '<div class="so-inspector-title"><div><h2>Selected evidence</h2><p>点击 Trace event 或 Finding 查看</p></div><span class="so-pill accent">' + (state.selectedEvent ? 'linked' : esc(currentRun().id)) + '</span></div>';
         if (!event && !state.selectedRequest) {
