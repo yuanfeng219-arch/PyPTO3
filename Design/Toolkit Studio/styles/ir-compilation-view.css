@@ -38,6 +38,17 @@
 .kc-summary__metrics b { color: var(--foreground-secondary); font: 600 11px/1.35 var(--font-mono); }
 .kc-summary__metrics b.is-warn { color: var(--warning); }
 
+/* Investigation provenance stays compact and preserves the route from Correctness. */
+.kc-context {
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline;
+  gap: var(--space-2) var(--space-3); margin-top: calc(var(--space-3) * -1); padding: 0 2px;
+}
+.kc-context span {
+  padding-right: var(--space-3); border-right: 1px solid var(--kc-line2);
+  color: var(--primary); font: 600 10px/1.4 var(--font-sans); text-transform: uppercase; letter-spacing: .05em;
+}
+.kc-context b { color: var(--foreground-secondary); font: 600 11px/1.45 var(--font-sans); }
+.kc-context small { color: var(--foreground-muted); font: 11px/1.45 var(--font-sans); }
 
 /* Numerical Validation is an evidence strip, separate from memory / intent / perf findings. */
 .kc-nv { display: grid; border-top: 1px solid var(--kc-line); border-bottom: 1px solid var(--kc-line); }
@@ -46,7 +57,7 @@
   gap: var(--space-4); align-items: center; padding: 10px 8px;
 }
 .kc-nv-head > div:first-child { display: flex; min-width: 0; align-items: baseline; gap: var(--space-2); }
-.kc-nv-kicker { color: var(--foreground-muted); font: 600 9px/1.3 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+.kc-nv-kicker { color: var(--foreground-muted); font: 600 9px/1.3 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
 .kc-nv h2 { margin: 0; color: var(--foreground); font: 600 13px/1.4 var(--font-sans); }
 .kc-nv-result { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: var(--space-3); }
 .kc-nv-result b { color: var(--foreground-muted); font: 650 11px/1.4 var(--font-mono); white-space: nowrap; }
@@ -100,12 +111,11 @@
 .kc-fbody small { color: var(--foreground-muted); font: 11px/1.45 var(--font-sans); }
 .kc-fchev { color: var(--foreground-muted); font: 18px/1 var(--font-sans); }
 .kc-finding-action {
-  align-self: center; margin-right: var(--space-2); padding: 4px 7px;
-  border: 1px solid color-mix(in srgb, var(--primary) 46%, var(--border-subtle)); border-radius: var(--radius-sm);
-  color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent);
-  cursor: pointer; font: 600 11px/1.35 var(--font-sans); white-space: nowrap;
+  align-self: center; margin-right: var(--space-2); padding: 5px 7px;
+  border: 0; border-radius: var(--radius-sm); color: var(--primary); background: transparent;
+  cursor: pointer; font: 500 11px/1.35 var(--font-sans); white-space: nowrap;
 }
-.kc-finding-action:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.kc-finding-action:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
 
 /* Workspace tabs */
 .kc-tabs { display: flex; align-items: stretch; gap: var(--space-1); margin: 0; border-bottom: 1px solid var(--kc-line); }
@@ -334,7 +344,8 @@
 }
 @container (max-width: 520px) {
   .kc-summary__metrics { grid-template-columns: minmax(0, 1fr); }
-  .kc-nv-head { grid-template-columns: minmax(0, 1fr); }
+  .kc-context, .kc-nv-head { grid-template-columns: minmax(0, 1fr); }
+  .kc-context span { width: max-content; padding-right: 0; border-right: 0; }
   .kc-nv-head > small { grid-column: auto; }
   .kc-nv-result { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .kc-pass-validation dl { grid-template-columns: minmax(0, 1fr); }

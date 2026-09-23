@@ -3,64 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tuning Console · decode_csa</title>
-<meta name="description" content="算子调优闭环工作台：以一次真实上板执行为对象，从端到端、L2 调度、单核流水、编译降级到 ISA 布局逐层定位瓶颈，并用实验台账约束每轮只验证一个假设。">
+<title>Tuning Story · DeepSeek-V4 压缩链路调优九幕</title>
+<meta name="description" content="把 DeepSeek-V4 解码压缩链路的一次真实性能调优拆成九个场景：建基线、定位热点、诊断依赖、改源码、核对编译、资源预算、核内下钻、实验验证、交付沉淀。">
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/floating-playback-control/pattern.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css">
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=1">
 </head>
-<body class="pto-ide-frame-preview-page tc-page">
-<main class="pto-ide-frame tc-frame" data-ide-frame data-host="standalone" aria-label="Tuning Console">
+<body class="pto-ide-frame-preview-page ts-page">
+<main class="pto-ide-frame ts-frame" data-ide-frame data-host="standalone" aria-label="Tuning Story">
 
   <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
     <div class="pto-ide-frame__topbar-left">
       <a class="btn btn-ghost btn-sm" href="../../launch.html">PTO</a>
-      <span class="pto-ide-frame__pane-title">Tuning Console</span>
-      <button class="btn btn-ghost btn-sm tc-case-chip" type="button" data-act="toggle-fingerprint"
-              aria-expanded="false" aria-controls="fingerprint">
-        <span data-bind="caseChip">decode_csa_test</span>
-        <span class="tc-caret" aria-hidden="true"></span>
-      </button>
+      <span class="pto-ide-frame__pane-title">Tuning Story</span>
+      <span class="stat-chip ts-case-chip" id="caseChip">decode_csa_test · rank0 · a2a3</span>
     </div>
     <div class="pto-ide-frame__topbar-center">
-      <div class="pto-ide-frame__search tc-search" role="search">
-        <svg class="pto-ide-frame__search-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>
-        </svg>
-        <input id="searchInput" type="search" autocomplete="off" placeholder="搜索 kernel、任务、提示、Pass"
-               aria-label="搜索 kernel、任务、编译提示、Pass" aria-controls="searchResults" aria-expanded="false">
-        <div id="searchResults" class="tc-search-results" role="listbox" hidden></div>
-      </div>
+      <div class="ts-phasebar" id="phaseBar" role="list" aria-label="调优阶段"></div>
     </div>
     <div class="pto-ide-frame__topbar-right">
       <div class="pto-ide-frame__window-actions" data-ide-slot="window-controls" aria-label="Window controls">
         <button class="pto-ide-frame__window-action is-selected" type="button" data-ide-toggle="visualization"
-                aria-controls="bottomDock" aria-expanded="true" aria-pressed="true" title="Visualization" aria-label="Toggle bottom visualization">
+                aria-label="Toggle bottom visualization" aria-controls="bottomDock" aria-expanded="true" aria-pressed="true" title="Visualization">
           <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 15h18"></path>
           </svg>
         </button>
         <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="terminal"
-                aria-controls="terminalPane" aria-expanded="false" aria-pressed="false" title="Terminal" aria-label="Toggle terminal">
+                aria-label="Toggle terminal" aria-controls="terminalPane" aria-expanded="false" aria-pressed="false" title="Terminal">
           <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path>
           </svg>
         </button>
         <button class="pto-ide-frame__window-action is-selected" type="button" data-ide-toggle="inspector"
                 data-expanded-label="Collapse inspector" data-collapsed-label="Expand inspector"
-                aria-controls="inspectorPane" aria-expanded="true" aria-pressed="true" title="Inspector" aria-label="Collapse inspector">
+                aria-label="Collapse inspector" aria-controls="inspectorPane" aria-expanded="true" aria-pressed="true" title="Inspector">
           <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M15 3v18"></path>
           </svg>
         </button>
-        <button class="pto-ide-frame__window-action" type="button" data-act="theme" title="Light / dark" aria-label="切换主题">
+        <button class="pto-ide-frame__window-action" type="button" id="themeBtn" aria-label="切换主题" title="切换 light / dark">
           <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9"></circle><path d="M12 3v18"></path><path d="M12 3a9 9 0 0 1 0 18"></path>
+            <circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path>
+            <path d="m4.9 4.9 1.4 1.4"></path><path d="m17.7 17.7 1.4 1.4"></path><path d="M2 12h2"></path>
+            <path d="M20 12h2"></path><path d="m6.3 17.7-1.4 1.4"></path><path d="m19.1 4.9-1.4 1.4"></path>
           </svg>
         </button>
       </div>
@@ -70,23 +62,23 @@
   <div class="pto-ide-frame__body">
     <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" data-ide-slot="activity-rail" aria-label="Activity rail">
       <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer"
-              aria-controls="explorerPane" aria-expanded="true" aria-pressed="true" title="Explorer" aria-label="Toggle file explorer">
+              aria-label="Toggle file explorer" aria-controls="explorerPane" aria-expanded="true" aria-pressed="true" title="Explorer">
         <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
         </svg>
       </button>
-      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-act="focus-search" title="Search" aria-label="Search">
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Search" title="Search">
         <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>
         </svg>
       </button>
-      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-act="show-ledger" title="Source control" aria-label="Source control">
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Source control" title="Source control">
         <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle>
           <path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M6 9v12"></path>
         </svg>
       </button>
-      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-act="open-terminal" title="Terminal" aria-label="Terminal">
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Terminal" title="Terminal">
         <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path>
         </svg>
@@ -94,48 +86,36 @@
     </nav>
 
     <div class="pto-ide-frame__workarea">
-      <div class="pto-ide-frame__split" data-ide-split="tc-vertical" data-split-direction="vertical"
-           data-sizes="74,26" data-min-size="260,120" data-storage-key="tc-vertical">
+      <div class="pto-ide-frame__split" data-ide-split="ts-vertical" data-split-direction="vertical"
+           data-sizes="72,28" data-min-size="320,140">
 
         <section class="pto-ide-frame__pane pto-ide-frame__pane--stack" data-ide-pane="main-row">
           <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-split-direction="horizontal"
-               data-sizes="21,51,28" data-pixel-sizes="300" data-min-size="240,420,300" data-storage-key="tc-main">
+               data-sizes="22,52,26" data-pixel-sizes="292" data-min-size="240,420,280">
 
             <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="explorerPane">
               <header class="pto-ide-frame__pane-header">
-                <span class="pto-ide-frame__pane-title">Run</span>
-                <span class="pto-ide-frame__pane-meta" data-bind="explorerMeta"></span>
+                <span class="pto-ide-frame__pane-title">调优旅程</span>
+                <span class="pto-ide-frame__pane-meta">9 个场景</span>
               </header>
-              <div class="pto-ide-frame__pane-body tc-explorer">
-                <section class="inspector-section">
-                  <div class="inspector-section-head">
-                    <span class="inspector-section-kicker">上板数据</span>
-                  </div>
-                  <div id="runTree" class="tc-tree"></div>
-                </section>
-                <section class="inspector-section">
-                  <div class="inspector-section-head">
-                    <h3 class="inspector-section-title">瓶颈队列</h3>
-                    <span class="inspector-section-kicker" data-bind="findingCount"></span>
-                  </div>
-                  <div class="tc-chipbar" id="findingFilter" role="group" aria-label="按层筛选瓶颈"></div>
-                  <div id="findingList" class="tc-findings"></div>
-                </section>
-              </div>
+              <div class="pto-ide-frame__pane-body ts-explorer" id="sceneList" role="tablist" aria-label="场景列表"></div>
             </aside>
 
             <section class="pto-ide-frame__pane" data-ide-pane="editor-preview">
-              <div class="pto-ide-frame__tabstrip">
-                <nav class="tab-control" id="levelTabs" aria-label="调优层级"></nav>
+              <div class="pto-ide-frame__tabstrip" data-ide-slot="preview-tabs">
+                <div class="tab-control ts-tabs" id="viewTabs" role="tablist" aria-label="场景视图"></div>
               </div>
-              <header class="pto-ide-frame__pane-header" id="viewToolbar"></header>
-              <div class="pto-ide-frame__pane-body tc-stage" id="stage"></div>
+              <header class="pto-ide-frame__pane-header">
+                <span class="pto-ide-frame__pane-title" id="sceneTitle">—</span>
+                <span class="pto-ide-frame__pane-meta" id="sceneMeta"></span>
+              </header>
+              <div class="pto-ide-frame__pane-body ts-stage" id="stage"></div>
             </section>
 
             <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="inspectorPane" aria-label="Inspector">
               <header class="pto-ide-frame__pane-header">
-                <span class="pto-ide-frame__pane-title" data-bind="inspectorTitle">Inspector</span>
-                <span class="pto-ide-frame__pane-meta" data-bind="inspectorMeta"></span>
+                <span class="pto-ide-frame__pane-title">场景详情</span>
+                <span class="pto-ide-frame__pane-meta" id="inspectorMeta"></span>
               </header>
               <div class="pto-ide-frame__pane-body inspector-rail" id="inspector"></div>
             </aside>
@@ -145,18 +125,20 @@
         <section class="pto-ide-frame__pane pto-ide-frame__bottom-dock" data-ide-pane="bottom-panel" data-ide-bottom-dock id="bottomDock">
           <div class="pto-ide-frame__bottom-view" data-ide-bottom-panel="visualization">
             <header class="pto-ide-frame__pane-header">
-              <span class="pto-ide-frame__pane-title">Scheduler &amp; ready queue</span>
-              <span class="pto-ide-frame__pane-meta" data-bind="dockMeta"></span>
-              <div class="tc-toolbar-right">
-                <div class="segmented-control segmented-control-muted" id="dockMode" role="group" aria-label="底部视图"></div>
-              </div>
+              <span class="pto-ide-frame__pane-title">整图泳道总览</span>
+              <span class="pto-ide-frame__pane-meta" id="vizMeta"></span>
             </header>
-            <div class="pto-ide-frame__pane-body tc-dock-body" id="dockBody"></div>
+            <div class="pto-ide-frame__pane-body ts-viz" id="viz">
+              <div class="ts-viz-lanes" id="vizLanes"></div>
+              <p class="ts-viz-note" id="vizNote"></p>
+            </div>
           </div>
-
           <div class="pto-ide-frame__bottom-view pto-ide-frame__terminal" data-ide-bottom-panel="terminal" id="terminalPane" hidden>
             <div class="pto-ide-frame__terminal-tabs" aria-label="Panel tabs">
-              <div class="pto-ide-frame__terminal-tablist" id="terminalTabs"></div>
+              <div class="pto-ide-frame__terminal-tablist">
+                <span class="pto-ide-frame__terminal-tab is-selected">Terminal</span>
+                <span class="pto-ide-frame__terminal-tab">Artifacts</span>
+              </div>
               <div class="pto-ide-frame__terminal-actions" aria-label="Terminal actions">
                 <button class="pto-ide-frame__terminal-action" type="button" data-ide-close="terminal" aria-label="Close terminal">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
@@ -168,18 +150,20 @@
         </section>
       </div>
 
-      <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" id="statusStrip"></footer>
+      <div class="pto-ide-frame__floating-playback-mount" data-ide-floating-playback data-total-steps="9" data-step="0"></div>
+
+      <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" data-ide-slot="status">
+        <div class="ts-status" id="status"></div>
+      </footer>
     </div>
   </div>
-
-  <div id="caseMenu" class="tc-case-menu panel-shell" role="menu" aria-label="切换 case" hidden></div>
-  <div id="fingerprint" class="tc-fingerprint panel-shell" role="dialog" aria-label="Case fingerprint" hidden></div>
 </main>
 
 <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
-<script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/floating-playback-control/pattern.js"></script>
 <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js"></script>
-<script src="data.js?v=6"></script>
-<script src="app.js?v=24"></script>
+<script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+<script src="story-data.js?v=1"></script>
+<script src="story.js?v=1"></script>
 </body>
 </html>

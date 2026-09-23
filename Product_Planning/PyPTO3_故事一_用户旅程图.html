@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>压缩链路调优旅程</title>
+<meta name="description" content="基于真实 GitHub 案例与本地构建数据，绘制 DeepSeek-V4 解码压缩链路性能调优的用户旅程图。">
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #dde1e7;
+  --text: #1c2129;
+  --text-2: #4d5664;
+  --text-3: #7a8494;
+  --accent: #3b5bdb;
+  --pos: #1f9d55;
+  --pos-bg: #e6f6ec;
+  --neg: #d64545;
+  --neg-bg: #fdecec;
+  --neu: #8a94a3;
+  --warn-bg: #fff4e0;
+  --warn: #b26a00;
+  --p0: #d64545;
+  --p1: #c77d00;
+  --p2: #6b7685;
+  --ph-prep: #6f7cf2;
+  --ph-locate: #0f9bb0;
+  --ph-cause: #c2410c;
+  --ph-verify: #7c3aed;
+  --ph-ship: #15803d;
+  --tag-gh-bg: #eef1ff; --tag-gh: #3b4fc4;
+  --tag-local-bg: #e7f6f3; --tag-local: #0f766e;
+  --tag-infer-bg: #f3f0ff; --tag-infer: #6d3fc0;
+  --tag-design-bg: #fff4e0; --tag-design: #a15c00;
+  --col: 236px;
+  --label: 150px;
+  --shadow: 0 1px 2px rgba(20, 30, 50, .06), 0 2px 8px rgba(20, 30, 50, .04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418; --surface: #181c22; --surface-2: #20252d; --border: #2e3540;
+    --text: #e7eaef; --text-2: #b3bbc7; --text-3: #7f8998; --accent: #8ea2ff;
+    --pos: #4ade80; --pos-bg: #13301f; --neg: #f87171; --neg-bg: #3a1a1a; --neu: #8b95a4;
+    --warn-bg: #33270f; --warn: #f0b457;
+    --tag-gh-bg: #222a4d; --tag-gh: #a9b6ff; --tag-local-bg: #12332f; --tag-local: #6ee7d2;
+    --tag-infer-bg: #2b2346; --tag-infer: #c4b0ff; --tag-design-bg: #3a2c12; --tag-design: #f3c27a;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111418; --surface: #181c22; --surface-2: #20252d; --border: #2e3540;
+  --text: #e7eaef; --text-2: #b3bbc7; --text-3: #7f8998; --accent: #8ea2ff;
+  --pos: #4ade80; --pos-bg: #13301f; --neg: #f87171; --neg-bg: #3a1a1a; --neu: #8b95a4;
+  --warn-bg: #33270f; --warn: #f0b457;
+  --tag-gh-bg: #222a4d; --tag-gh: #a9b6ff; --tag-local-bg: #12332f; --tag-local: #6ee7d2;
+  --tag-infer-bg: #2b2346; --tag-infer: #c4b0ff; --tag-design-bg: #3a2c12; --tag-design: #f3c27a;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 56px; }
+header.top { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--text-3); text-transform: uppercase; margin: 0 0 6px; }
+h1 { font-size: 26px; line-height: 1.25; margin: 0 0 8px; font-weight: 650; }
+.lede { color: var(--text-2); margin: 0 0 14px; max-width: 64ch; }
+.theme-btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.theme-btn:focus-visible, .chip:focus-visible, .col-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.persona {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+}
+.persona h2 { font-size: 13px; margin: 0 0 8px; color: var(--text-2); font-weight: 600; }
+.persona dl { margin: 0; display: grid; grid-template-columns: 64px 1fr; gap: 4px 10px; font-size: 13px; }
+.persona dt { color: var(--text-3); }
+.persona dd { margin: 0; }
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 20px 0 18px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+.kpi .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.kpi .k { font-size: 12px; color: var(--text-3); }
+.kpi .s { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+.toolbar .lbl { font-size: 12px; color: var(--text-3); margin-right: 4px; }
+.chip {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--text); color: var(--surface); border-color: var(--text); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-2); margin-left: auto; }
+.legend span { display: inline-flex; gap: 4px; align-items: center; }
+
+/* Journey grid */
+.scroller {
+  overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow);
+}
+.journey {
+  display: grid;
+  grid-template-columns: var(--label) repeat(9, var(--col));
+  width: calc(var(--label) + 9 * var(--col));
+  position: relative;
+}
+.cell { overflow-wrap: anywhere; padding: 10px 12px; border-top: 1px solid var(--border); border-left: 1px solid var(--border); font-size: 12.5px; color: var(--text-2); }
+.cell ul { margin: 0; padding-left: 16px; }
+.cell li { margin: 0 0 4px; }
+.cell li:last-child { margin-bottom: 0; }
+.rowlabel {
+  position: sticky; left: 0; z-index: 3; background: var(--surface-2); color: var(--text);
+  font-weight: 600; font-size: 12.5px; border-left: none; display: flex; flex-direction: column; gap: 2px;
+}
+.rowlabel small { font-weight: 400; color: var(--text-3); font-size: 11px; }
+.phase {
+  grid-row: 1; padding: 8px 12px; font-size: 12px; font-weight: 650; color: #fff; letter-spacing: .02em;
+  border-left: 1px solid rgba(255,255,255,.35);
+}
+.phase small { font-weight: 400; opacity: .85; margin-left: 6px; }
+.corner { grid-row: 1 / span 2; background: var(--surface-2); position: sticky; left: 0; z-index: 4; padding: 10px 12px; font-size: 11px; color: var(--text-3); display: flex; align-items: flex-end; }
+.col-head { grid-row: 2; background: var(--surface); cursor: default; }
+.col-head .tid { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .06em; }
+.col-head .tname { font-size: 14.5px; font-weight: 650; color: var(--text); line-height: 1.3; }
+.q { color: var(--text); font-weight: 500; }
+.data code, .cell code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; background: var(--surface-2); padding: 0 4px; border-radius: 4px; color: var(--text); }
+.moment { background: var(--surface); }
+.moment .m { border-left: 3px solid var(--accent); padding: 2px 0 2px 8px; margin-bottom: 8px; color: var(--text); }
+.moment .m:last-child { margin-bottom: 0; }
+.moment .m.pos { border-color: var(--pos); }
+.moment .m.neg { border-color: var(--neg); }
+.pain li::marker { color: var(--neg); }
+.opp li { list-style: none; margin-left: -16px; display: flex; gap: 6px; align-items: flex-start; }
+.pri { font-size: 10.5px; font-weight: 700; border-radius: 4px; padding: 0 5px; line-height: 18px; flex: none; color: #fff; }
+.pri.p0 { background: var(--p0); } .pri.p1 { background: var(--p1); } .pri.p2 { background: var(--p2); }
+.objs { color: var(--text-3); font-size: 12px; }
+.objs b { color: var(--text-2); font-weight: 600; }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 600; border-radius: 4px; padding: 0 5px; line-height: 17px; margin-left: 3px; vertical-align: 1px; white-space: nowrap; }
+.tag.gh { background: var(--tag-gh-bg); color: var(--tag-gh); }
+.tag.local { background: var(--tag-local-bg); color: var(--tag-local); }
+.tag.infer { background: var(--tag-infer-bg); color: var(--tag-infer); }
+.tag.design { background: var(--tag-design-bg); color: var(--tag-design); }
+.emotion-cell { grid-column: 2 / span 9; padding: 0; position: relative; border-left: 1px solid var(--border); }
+.emotion-cell svg { display: block; }
+.journey [data-col].hl { background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.journey.hide-row-x [data-row="x"] { display: none; }
+[hidden-row] { display: none !important; }
+
+/* Bottom sections */
+.lower { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-top: 20px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+.panel h2 { font-size: 15px; margin: 0 0 10px; }
+.panel p { margin: 0 0 8px; color: var(--text-2); font-size: 13px; }
+table.opps { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.opps th, table.opps td { text-align: left; padding: 7px 8px; border-top: 1px solid var(--border); vertical-align: top; color: var(--text-2); }
+table.opps th { color: var(--text-3); font-weight: 600; font-size: 11.5px; border-top: none; }
+table.opps td:first-child { white-space: nowrap; }
+.sources { font-size: 12.5px; color: var(--text-2); margin: 0; padding-left: 18px; }
+.sources li { margin-bottom: 4px; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.note { font-size: 12px; color: var(--text-3); margin-top: 14px; }
+.tooltip {
+  position: fixed; z-index: 20; pointer-events: none; max-width: 280px; background: var(--text); color: var(--surface);
+  font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; opacity: 0; transition: opacity .12s;
+}
+.tooltip.show { opacity: 1; }
+
+@media (max-width: 900px) {
+  header.top { grid-template-columns: 1fr; }
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lower { grid-template-columns: 1fr; }
+  .legend { margin-left: 0; }
+}
+@media (max-width: 520px) {
+  .page { padding: 18px 16px 40px; }
+  h1 { font-size: 21px; }
+  :root { --col: 216px; --label: 104px; }
+}
+@media print {
+  .toolbar, .theme-btn { display: none; }
+  .scroller { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <p class="eyebrow">PyPTO3 · 性能调优用户旅程图 · 故事一</p>
+      <h1>DeepSeek-V4 解码压缩链路：从“核很空”到“搬运太碎”</h1>
+      <p class="lede">这张旅程图由真实 GitHub 案例与本地构建数据拼接而成，展示一位模型开发者如何把 decode compressor 家族从 1815 µs 调到约 1025 µs，再把 HCA 整图压低 8.7%。共经过 5 个阶段、9 个关键任务，其中的情绪与痛点都能追溯到出处。</p>
+      <button class="theme-btn" id="themeBtn" type="button">切换深色/浅色</button>
+    </div>
+    <aside class="persona" aria-label="角色与目标">
+      <h2>角色与目标</h2>
+      <dl>
+        <dt>角色</dt><dd>模型开发者（复合角色）：熟悉 PyPTO DSL 与模型结构，不是编译器或运行时专家</dd>
+        <dt>对象</dt><dd><code>compressor_ratio128</code> / <code>decode_indexer_compressor</code> / <code>decode_compressor_ratio4</code>，以及所在的 CSA/HCA 子图</dd>
+        <dt>目标</dt><dd>不改对外 API（分页 block table）、精度逐位一致或在容差内，降低 decode 子图 wall</dd>
+        <dt>环境</dt><dd>Ascend 910B（a2a3）· 24 AIC + 48 AIV · 50 MHz 计时</dd>
+      </dl>
+    </aside>
+  </header>
+
+  <section class="summary" aria-label="旅程结果">
+    <div class="kpi"><div class="k">派发开销治理</div><div class="v">−21.8%</div><div class="s">485.48 → 379.88 µs，task 数 94 → ~34 <span class="tag gh">#314</span></div></div>
+    <div class="kpi"><div class="k">伪并行修复</div><div class="v">−43%</div><div class="s">1815 → ~1025 µs，scatter 占用核数 5 → 42 <span class="tag gh">§8</span></div></div>
+    <div class="kpi"><div class="k">访存事务优化</div><div class="v">−8.7%</div><div class="s">HCA 整图 1303.6 → 1190.1 µs，逐位一致 <span class="tag gh">§20</span></div></div>
+    <div class="kpi"><div class="k">被推翻或修正的结论</div><div class="v">≥ 4 次</div><div class="s">带宽误判、关键路径误判、R1 假收益、b_trans 反例</div></div>
+  </section>
+
+  <div class="toolbar" role="group" aria-label="显示控制">
+    <span class="lbl">显示行</span>
+    <button class="chip" type="button" data-toggle="question" aria-pressed="true">关键问题</button>
+    <button class="chip" type="button" data-toggle="action" aria-pressed="true">用户行为</button>
+    <button class="chip" type="button" data-toggle="touch" aria-pressed="true">触点</button>
+    <button class="chip" type="button" data-toggle="data" aria-pressed="true">原始数据</button>
+    <button class="chip" type="button" data-toggle="emotion" aria-pressed="true">情绪曲线</button>
+    <button class="chip" type="button" data-toggle="moment" aria-pressed="true">关键时刻</button>
+    <button class="chip" type="button" data-toggle="pain" aria-pressed="true">痛点</button>
+    <button class="chip" type="button" data-toggle="opp" aria-pressed="true">机会点</button>
+    <button class="chip" type="button" data-toggle="obj" aria-pressed="true">对象与原型</button>
+    <div class="legend" aria-label="出处标签">
+      <span><i class="tag gh">GH</i>GitHub 案例</span>
+      <span><i class="tag local">本地</i>本地构建数据</span>
+      <span><i class="tag infer">推断</i>多源推断</span>
+      <span><i class="pri p0">P0</i><i class="pri p1">P1</i>设计优先级</span>
+    </div>
+  </div>
+
+  <div class="scroller" id="scroller">
+    <div class="journey" id="journey" aria-label="用户旅程图"></div>
+  </div>
+
+  <section class="lower">
+    <div class="panel">
+      <h2>机会点：每个阶段最该先做的事</h2>
+      <table class="opps">
+        <thead><tr><th>阶段</th><th>P0 机会点</th><th>要解决的真实问题</th></tr></thead>
+        <tbody>
+          <tr><td>准备</td><td>基线对象化；冷启动与稳态分开</td><td>本地 rank0 首次调用 45.19 ms，稳态 5.13 ms，相差 9 倍，但界面上完全看不到</td></tr>
+          <tr><td>定位</td><td>以 scope 为单位排行，同时显示关键路径 slack；显示占用率色带</td><td>§18 误判“不在关键路径”；本地窗口占用率低至 0–15%</td></tr>
+          <tr><td>定位</td><td>一句话诊断，依赖边能回到源码行</td><td>一处 <code>pl.at</code> 缩进让 64 个 batch 串行</td></tr>
+          <tr><td>归因</td><td>意图与生效值并排；编译提示分诊</td><td>NZ 声明被静默忽略；230 条提示没有优先级</td></tr>
+          <tr><td>归因</td><td>编译前容量预算，上限注明来源</td><td>5 处容量墙；184 KB 与 192 KB 两个数字不一致</td></tr>
+          <tr><td>归因</td><td>核内按“搬运 / 计算”归类，先判断 trace 是否有效</td><td>Vector 忙的其实是搬运；trace 退化后看起来“很快”</td></tr>
+          <tr><td>验证</td><td>自动选噪声锚点；不合格的数字置灰</td><td>R1 收益大半来自噪声；单次运行曾出现 +20% 假象</td></tr>
+          <tr><td>交付</td><td>经验卡强制写明适用条件和反例</td><td><code>b_trans</code> 在 DeepSeek-V4 上 −8%，在 Qwen3 上 +23%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>读图说明</h2>
+      <p><b>情绪曲线</b>是根据调优日志中的原话和实验结果推断的（例如“差点被骗”“血泪”“省下次的命”），不是访谈量表数据。纵轴表示受挫到释然，每个点都能在对应列里找到依据。</p>
+      <p><b>拼接边界</b>：各列来自同一模型的不同文件和时间点（5–9 月），不是一次连续开发。本地数据来自 9 月 DSpark 构建（<code>_jit_l3_decode_csa_20260903_010617</code>），晚于 6 月的调优。</p>
+      <h2 style="margin-top:14px">主要出处</h2>
+      <ol class="sources">
+        <li><a href="https://github.com/hw-native-sys/pypto-lib/issues/314" target="_blank" rel="noopener">pypto-lib#314</a> compressor_ratio128 优化跟踪</li>
+        <li><a href="https://github.com/wangqin1723-max/pypto-lib/blob/9be7112769fdfbe07a089018ee9b88159ef0156b/docs/swimlane-tuning-log.zh.md" target="_blank" rel="noopener">泳道图调优记录 @9be7112</a> §2 §6 §8 §14 §19 §20（索引见 pypto-lib#828）</li>
+        <li><a href="https://github.com/hw-native-sys/pypto-lib/pull/628" target="_blank" rel="noopener">pypto-lib#628</a> b_trans · <a href="https://github.com/hw-native-sys/pypto-lib/pull/641" target="_blank" rel="noopener">#641</a> 块读 + 列归约</li>
+        <li><a href="https://github.com/hw-native-sys/pypto/issues/2309" target="_blank" rel="noopener">pypto#2309</a> b_trans 在浅 K 场景的开销</li>
+        <li>本地：<code>Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/</code>、<code>Data/_jit_decode_fwd_layers_20260625_184941/report/</code></li>
+        <li>配套文档：<code>Product_Planning/PyPTO3_故事一扩展_DeepSeek-V4压缩链路调优作业全景.md</code></li>
+      </ol>
+    </div>
+  </section>
+  <p class="note">性能数字绑定 a2a3、特定 shape 和版本，只用于说明方法。整理日期 2026-09-23。</p>
+</div>
+<div class="tooltip" id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  const PHASES = [
+    { name: "准备", sub: "Prepare", span: [0, 0], color: "var(--ph-prep)" },
+    { name: "定位", sub: "Locate", span: [1, 2], color: "var(--ph-locate)" },
+    { name: "归因与修改", sub: "Diagnose & Change", span: [3, 6], color: "var(--ph-cause)" },
+    { name: "验证", sub: "Verify", span: [7, 7], color: "var(--ph-verify)" },
+    { name: "交付", sub: "Ship", span: [8, 8], color: "var(--ph-ship)" }
+  ];
+
+  const T = (t, cls) => `<span class="tag ${cls}">${t}</span>`;
+  const GH = t => T(t, "gh"), LOC = t => T(t || "本地", "local"), INF = () => T("推断", "infer");
+
+  const COLS = [
+    {
+      id: "T1", name: "建任务、立基线",
+      question: "现在有多快？怎么测才算数？",
+      action: ["选定配置 B=64 / S=1", "记录 pypto、pypto-lib、simpler、ptoas、CANN 的版本", "运行 <code>--enable-l2-swimlane</code>", "把 12 个 kernel 的 Exec/Latency 手抄进 Markdown 表", "在 Issue 正文里写测量协议"],
+      touch: ["终端", "Markdown / Issue", "git"],
+      data: ["STRACE host log（device_wall 分层）", "泳道汇总表"],
+      moment: [
+        { t: "基线 394.84 µs / 94 task，Tail OH 占 28.3%" + GH("#314"), k: "" },
+        { t: "rank0 首次调用 45.19 ms，稳态 5.13 ms" + LOC(), k: "neg" }
+      ],
+      pain: ["基线是手抄表格，与原始数据没有链接", "冷启动和 rank 差异看不到", "协议写在 Issue 里，工具不执行"],
+      opp: [["p0", "基线对象化：引用原始数据，带环境指纹"], ["p0", "冷启动与稳态分开显示"], ["p1", "测量协议表单驱动后续实验"]],
+      obj: ["Workload · Objective · Environment · Baseline", "算子调优控制台"]
+    },
+    {
+      id: "T2", name: "整图定位热点",
+      question: "时间花在哪个 scope？哪段时间核在空转？",
+      action: ["在 Perfetto 打开 merged_swimlane", "写脚本按 kernel 汇总 core-time", "写脚本按时间窗口计算占用率", "Latency 列缺失时，从 records 重建 wall"],
+      touch: ["Perfetto", "Python 临时脚本"],
+      data: ["merged_swimlane（3.6 万事件）", "chip_swimlane_records", "name_map"],
+      moment: [
+        { t: "66 个 scope，wall 4,880 µs；<code>kv_score_proj</code> 512 个 task，平均 11 µs，排第 4" + LOC(), k: "" },
+        { t: "按窗口看，AIC 占用率低至 0–15%" + LOC(), k: "neg" }
+      ],
+      pain: ["通用 trace 工具不认识 scope", "Worker / Scheduler 两个视图容易重复计数", "没有关键路径工具，§18 误判“不在关键路径”"],
+      opp: [["p0", "以 scope 为单位排行，同时显示关键路径 slack"], ["p0", "占用率色带 + 区间刷选"], ["p1", "视图去重，说明统计口径"]],
+      obj: ["Task · Scope · Counter · Bottleneck", "Tuning Console V2 · Run Overview"]
+    },
+    {
+      id: "T3", name: "诊断调度与依赖",
+      question: "是派发开销，还是依赖把并行变成了串行？",
+      action: ["看 latency/exec 比值和 Head/Tail OH", "数一个 scope 落在几个核上", "用 deps_viewer 看依赖", "做 3-pass / 4-pass 拆分实验", "做 split test"],
+      touch: ["泳道汇总", "deps_viewer（HTML）", "Perfetto flow 箭头"],
+      data: ["deps.json（86 task / 338 边）" + LOC(""), "调度阶段（pop_hit / pop_miss）", "fanin / fanout 提示"],
+      moment: [
+        { t: "<code>kv_cache_write</code> 派发 64 次，latency/exec 为 6.4 倍" + GH("#314"), k: "" },
+        { t: "中段 AIC 只有 1.9%、AIV 只有 5.8% 在忙；拆成 4-pass 后反而 2593 µs" + GH("§8"), k: "neg" }
+      ],
+      pain: ["理解 Head/Tail OH 需要懂调度器", "依赖图与泳道分在两个工具里", "带宽假设被误判（582 → 621 µs）"],
+      opp: [["p0", "一句话诊断：派发型还是串行型，附证据"], ["p0", "依赖边能回到源码行"], ["p1", "显式 deps 与推导出的依赖分开显示"]],
+      obj: ["DepEdge · Tensor · Bottleneck · Experiment", "Decode Layer 计算图"]
+    },
+    {
+      id: "T4", name: "修正源码结构",
+      question: "是哪一行写法造成的？怎么改？",
+      action: ["按 name_hint 搜回源码", "读 <code>pl.at</code> / for 的嵌套和 <code>pl.assemble</code> 的重新赋值", "改写：外提 <code>pl.at</code>、调 chunk、改用 spmd、拆开融合"],
+      touch: ["编辑器", "全局搜索"],
+      data: ["模型源码", "pass dump（Outline*Scopes）"],
+      moment: [
+        { t: "<code>pl.at</code> 包住 <code>for o0</code>：1815 → ~1025 µs（−43%），scatter 占用核数 5 → 42" + GH("§8"), k: "pos" },
+        { t: "拆开融合反而更快（−69 µs）" + GH("§14") + "；chunk=16 带来 −18.2%" + GH("#314"), k: "pos" }
+      ],
+      pain: ["改一行代码要完整编译、上板才知道效果（小时级）", "spmd 写法被编译器 bug 挡住（pypto#1414）"],
+      opp: [["p0", "源码为主界面：行内显示 task 数、核数、写依赖"], ["p0", "估算值与实测值严格区分"], ["p1", "在对应行提示伪并行风险"]],
+      obj: ["Scope · SourceMap · Candidate", "算子开发 Copilot · 算子对象工作台"]
+    },
+    {
+      id: "T5", name: "核对编译过程",
+      question: "我写的意图生效了吗？编译器提示了什么？",
+      action: ["写探针对比 NZ / ND 两个版本的 .pto", "翻 52 个 pass dump", "看 kernel.cpp 里的同步", "读 230 行 perf_hints.log"],
+      touch: ["diff", "grep", "编辑器"],
+      data: ["passes_dump（52 个，35 MB）" + LOC(""), ".pto / kernel .cpp", "perf_hints.log"],
+      moment: [
+        { t: "NZ 声明生成的 .pto 逐字节相同，被静默忽略" + GH("§19") + "；<code>col_expand_sub</code> 没有 codegen" + GH("§20"), k: "neg" },
+        { t: "<code>:110</code> 的 stage=2 在 Right 上只放得下 1 份" + LOC(), k: "neg" }
+      ],
+      pain: ["“没生效”没有任何信号", "230 条提示没有优先级（PH001 占 197 条）", "pass 编号跨版本漂移（29 → 35）"],
+      opp: [["p0", "意图与生效值并排显示"], ["p0", "提示分诊：与热点 join 后排序"], ["p1", "按变化浏览 pass，用 pass 名对齐版本"]],
+      obj: ["Pass · IRNode · CodegenArtifact · Diagnostic", "Pass Transform Explorer · Pass Atlas"]
+    },
+    {
+      id: "T6", name: "硬件资源预算",
+      question: "再加大一档放得下吗？数据是怎么搬的？",
+      action: ["调大 tile / 加深 pipeline，编译，看报错", "心算 3×[128,256] FP32 的占用", "读内存报告", "看 ND2NZ 指令，判断是否事务过碎"],
+      touch: ["终端报错", "内存报告 txt", "草稿纸"],
+      data: ["memory_after_AllocateMemoryAddr" + LOC(""), ".pto 中的 alloc_tile", "PH-MR-001 / PH001"],
+      moment: [
+        { t: "stage=3 时 Mat 576 KB > 512 KB；qr_acc 256 KB > 192 KB" + GH("§2 §19"), k: "neg" },
+        { t: "b_trans 把加载从 ND2NZ 变为 DN2ZN：busy −15.1%，整图 −12.9%" + GH("§19"), k: "pos" },
+        { t: "编译器给的 Vec 上限是 184 KB，日志中写的是 192 KB" + LOC(), k: "" }
+      ],
+      pain: ["容量上限只能试出来", "报错不说明是哪几个 buffer 占的空间", "上限数字来源不一致", "搬运形态藏在指令名里"],
+      opp: [["p0", "编译前分级显示容量预算"], ["p0", "上限注明来源和平台"], ["p1", "越界归因到具体 buffer"], ["p1", "用业务语言解释搬运形态"]],
+      obj: ["Constraint · MemBlock · Tile · SweepAxis", "Memory Inspector · Ascend Memory Studio"]
+    },
+    {
+      id: "T7", name: "核内下钻",
+      question: "单个 task 的时间花在搬运还是计算上？",
+      action: ["用 incore-profiling skill 调用 msprof op simulator", "读 clean.json 中各单元的占比和指令", "发现 trace 退化后修改输入重跑", "可选：上板用 PMU 核实"],
+      touch: ["msprof op simulator", "clean.json", "PMU"],
+      data: ["op-sim *.clean.json（本地无）", "pmu.csv（本地无）", "kernel .cpp 静态指令"],
+      moment: [
+        { t: "position_ids 被清零，循环跑了 0 轮，trace 看起来“很快”" + GH("§20"), k: "neg" },
+        { t: "MTE2 占 69%，是 256 笔 [1,64] 散读；真正的 softmax 计算不到 1 µs" + GH("§20"), k: "pos" }
+      ],
+      pain: ["需要单独的工具链", "按硬件单元罗列，要自己归类", "trace 退化不报警", "replay 输入是随机数，动态维被填 1"],
+      opp: [["p0", "按“搬运 / 计算”归类"], ["p0", "先显示 trace 是否有效"], ["p1", "指令能对应到源码切片"]],
+      obj: ["Counter · Kernel · TensorDump", "调试与调优工作台"]
+    },
+    {
+      id: "T8", name: "实验与验证",
+      question: "真的更快吗？是噪声吗？精度对吗？",
+      action: ["手工改常量，扫描 task 数 2 / 4 / 8", "同一 session A/B，各跑 3 次", "自选一个无关 scope 当噪声锚点", "golden 比对", "手记 build 目录"],
+      touch: ["终端", "调优日志", "测试 harness"],
+      data: ["多次运行的泳道", "STRACE", "golden 比对结果"],
+      moment: [
+        { t: "R1 的 wall 收益，大半来自 <code>qk_pv</code> 那次恰好快了 2,500 µs" + GH("§20"), k: "neg" },
+        { t: "R2 整图 −8.7%，softmax_pool −71%，max_error_ratio = 0" + GH("§20"), k: "pos" },
+        { t: "N=4 是拐点（621 / 582 / 598 µs）" + GH("§6"), k: "" }
+      ],
+      pain: ["全程手工", "噪声判断靠经验", "单次运行曾出现 +20% 假象", "实验记录散落各处"],
+      opp: [["p0", "自动选择噪声锚点"], ["p0", "不合格的数字置灰"], ["p1", "显示设备时长预算"], ["p1", "保留被推翻的结论"]],
+      obj: ["Experiment · Candidate · Gate · Baseline", "Tuning Console（实验）"]
+    },
+    {
+      id: "T9", name: "交付与沉淀",
+      question: "改动会影响谁？经验在什么条件下成立？",
+      action: ["全局搜索，改 4 处签名", "排查 CI 报出的 507018", "发现分支基于旧 base，rebase", "写 PR（数据 + build 目录）", "在源码中留注释，把经验写成法则"],
+      touch: ["GitHub PR", "CI", "调优日志"],
+      data: ["源码注释" + LOC(""), "git 历史", "CI 日志"],
+      moment: [
+        { t: "漏改签名，运行时报 507018，而不是 shape 错误" + GH("§19"), k: "neg" },
+        { t: "PR #628 / #641 合入，原因注释留在源码中" + GH("PR") + LOC(), k: "pos" },
+        { t: "同样的 b_trans 在 Qwen3 TK=64 场景慢了 16–23%" + GH("pypto#2309"), k: "neg" }
+      ],
+      pain: ["影响面靠全局搜索", "经验没写适用条件，反例在另一个仓库", "本地与 CI 的版本有偏差"],
+      opp: [["p0", "经验卡强制写明适用条件和反例"], ["p1", "修改前先看影响面"], ["p1", "检查本地与 CI 环境是否一致"], ["p2", "按 scope 做回归看护"]],
+      obj: ["Lineage · Recipe · Regression", "Toolkit Studio"]
+    }
+  ];
+
+  // Emotion points: col index (can be fractional), score -2..2, label, evidence
+  const EMO = [
+    { c: 0.0, s: 0.5, l: "先立基线，心里有底", e: "#314 先写基线与测量协议" },
+    { c: 0.85, s: -1, l: "3.6 万个事件，只能写脚本", e: "Perfetto 不认识 scope；本地泳道 36,336 个事件" },
+    { c: 1.25, s: 0, l: "发现核在空转", e: "窗口占用率统计出低谷" },
+    { c: 1.95, s: -2, l: "越拆越慢", e: "§8：3-pass 1866 µs，4-pass 2593 µs" },
+    { c: 3.0, s: 2, l: "外提 pl.at，−43%", e: "§8：1815 → ~1025 µs" },
+    { c: 4.0, s: -2, l: "意图被静默忽略", e: "§19 NZ 声明逐字节相同；§20 缺 codegen" },
+    { c: 5.0, s: -1, l: "每加一档都撞墙", e: "§2/§19/§20：Mat 576KB、UB 256KB 超限" },
+    { c: 5.45, s: 1, l: "b_trans 找回 15%", e: "§19：推翻“手段已用尽”的判断" },
+    { c: 5.85, s: -1, l: "trace 看起来很快", e: "§20：门控未进入，trace 退化" },
+    { c: 6.25, s: 1, l: "看清：Vector 在忙搬运", e: "§20：真正的 softmax < 1 µs" },
+    { c: 6.85, s: -1, l: "差点被噪声骗了", e: "§20 原话：“这次差点被骗”" },
+    { c: 7.3, s: 2, l: "R2 −8.7%，逐位一致", e: "§20：锚点 qk_pv 基本不变" },
+    { c: 7.9, s: -2, l: "507018 与旧 base", e: "§19 原话：“血泪”“省下次的命”" },
+    { c: 8.4, s: 1, l: "合入并沉淀法则", e: "PR #628 / #641；源码保留原因注释" }
+  ];
+
+  const ROWS = [
+    { key: "question", label: "关键问题", sub: "用户要回答什么", render: c => `<div class="q">${c.question}</div>` },
+    { key: "action", label: "用户行为", sub: "现状作业过程", render: c => `<ul>${c.action.map(a => `<li>${a}</li>`).join("")}</ul>` },
+    { key: "touch", label: "触点", sub: "工具 / 界面", render: c => `<ul>${c.touch.map(a => `<li>${a}</li>`).join("")}</ul>` },
+    { key: "data", label: "原始数据", sub: "当前能拿到的", render: c => `<ul class="data">${c.data.map(a => `<li>${a}</li>`).join("")}</ul>` },
+    { key: "emotion", label: "情绪曲线", sub: "受挫 ← → 释然 " + INF() },
+    { key: "moment", label: "关键时刻", sub: "带数据的真实瞬间", cls: "moment", render: c => c.moment.map(m => `<div class="m ${m.k}">${m.t}</div>`).join("") },
+    { key: "pain", label: "痛点", sub: "现状卡在哪里", render: c => `<ul class="pain">${c.pain.map(a => `<li>${a}</li>`).join("")}</ul>` },
+    { key: "opp", label: "机会点", sub: "UX 重点设计", render: c => `<ul class="opp">${c.opp.map(([p, t]) => `<li><span class="pri ${p}">${p.toUpperCase()}</span><span>${t}</span></li>`).join("")}</ul>` },
+    { key: "obj", label: "对象与原型", sub: "设计对象 · 可复用原型", render: c => `<div class="objs"><b>${c.obj[0]}</b><br>${c.obj[1]}</div>` }
+  ];
+
+  const j = document.getElementById("journey");
+  const html = [];
+  html.push(`<div class="corner">阶段 / 任务</div>`);
+  PHASES.forEach(p => {
+    html.push(`<div class="phase" style="grid-column:${p.span[0] + 2} / ${p.span[1] + 3};background:${p.color}">${p.name}<small>${p.sub}</small></div>`);
+  });
+  COLS.forEach((c, i) => {
+    html.push(`<div class="cell col-head" data-col="${i}" style="grid-column:${i + 2}"><div class="tid">${c.id}</div><div class="tname">${c.name}</div></div>`);
+  });
+  ROWS.forEach((r, ri) => {
+    const rowNum = ri + 3;
+    html.push(`<div class="cell rowlabel" data-row="${r.key}" style="grid-row:${rowNum};grid-column:1">${r.label}<small>${r.sub}</small></div>`);
+    if (r.key === "emotion") {
+      html.push(`<div class="cell emotion-cell" data-row="emotion" style="grid-row:${rowNum}"><svg id="emo" role="img" aria-label="情绪曲线"></svg></div>`);
+      return;
+    }
+    COLS.forEach((c, i) => {
+      html.push(`<div class="cell ${r.cls || ""}" data-row="${r.key}" data-col="${i}" style="grid-row:${rowNum};grid-column:${i + 2}">${r.render(c)}</div>`);
+    });
+  });
+  j.innerHTML = html.join("");
+
+  // Emotion SVG, sized from the live column width so it stays aligned at every breakpoint.
+  const svg = document.getElementById("emo");
+  const tip = document.getElementById("tip");
+  function drawEmotion() {
+    const col = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--col")) || 236;
+    const W = col * 9, H = 210, top = 26, bot = 30, mid = (H - top - bot) / 2 + top;
+    const y = s => mid - s * ((H - top - bot) / 4);
+    const x = c => col * c + col / 2;
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", H);
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const pts = EMO.map(p => [x(p.c), y(p.s)]);
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let k = 1; k < pts.length; k++) {
+      const [x0, y0] = pts[k - 1], [x1, y1] = pts[k];
+      const cx = (x0 + x1) / 2;
+      d += ` C ${cx} ${y0}, ${cx} ${y1}, ${x1} ${y1}`;
+    }
+    const guides = [-2, -1, 0, 1, 2].map(s => `<line x1="0" x2="${W}" y1="${y(s)}" y2="${y(s)}" stroke="var(--border)" stroke-dasharray="${s === 0 ? "0" : "3 4"}"/>`).join("");
+    const colLines = Array.from({ length: 8 }, (_, i) => `<line x1="${col * (i + 1)}" x2="${col * (i + 1)}" y1="0" y2="${H}" stroke="var(--border)"/>`).join("");
+    const dots = EMO.map((p, i) => {
+      const [px, py] = pts[i];
+      const color = p.s > 0 ? "var(--pos)" : p.s < 0 ? "var(--neg)" : "var(--neu)";
+      const above = p.s <= 0;
+      const ty = above ? py - 12 : py + 20;
+      const anchor = px > W - 90 ? "end" : px < 90 ? "start" : "middle";
+      const tx = anchor === "end" ? px + 6 : anchor === "start" ? px - 6 : px;
+      return `<g class="emo-pt" data-i="${i}" tabindex="0" role="button" aria-label="${p.l}：${p.e}" style="cursor:pointer">
+        <circle cx="${px}" cy="${py}" r="11" fill="transparent"/>
+        <circle cx="${px}" cy="${py}" r="5.5" fill="${color}" stroke="var(--surface)" stroke-width="2"/>
+        <text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="11.5" fill="var(--text)" style="paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round">${p.l}</text>
+      </g>`;
+    }).join("");
+    svg.innerHTML = `${colLines}${guides}
+      <text x="6" y="${y(2) - 6}" font-size="10.5" fill="var(--pos)">释然</text>
+      <text x="6" y="${y(-2) + 14}" font-size="10.5" fill="var(--neg)">受挫</text>
+      <path d="${d}" fill="none" stroke="var(--text-3)" stroke-width="2"/>
+      ${dots}`;
+    svg.querySelectorAll(".emo-pt").forEach(g => {
+      const p = EMO[+g.dataset.i];
+      const show = ev => {
+        tip.innerHTML = `<b>${p.l}</b><br>依据：${p.e}`;
+        const r = g.getBoundingClientRect();
+        tip.style.left = Math.min(window.innerWidth - 290, Math.max(8, r.left + r.width / 2 - 140)) + "px";
+        tip.style.top = (r.top - 8 - 56) + "px";
+        tip.classList.add("show");
+        highlight(Math.round(p.c));
+      };
+      const hide = () => { tip.classList.remove("show"); highlight(-1); };
+      g.addEventListener("mouseenter", show);
+      g.addEventListener("focus", show);
+      g.addEventListener("mouseleave", hide);
+      g.addEventListener("blur", hide);
+    });
+  }
+  drawEmotion();
+  window.addEventListener("resize", drawEmotion);
+
+  // Column highlight on hover
+  function highlight(i) {
+    j.querySelectorAll("[data-col]").forEach(el => el.classList.toggle("hl", +el.dataset.col === i));
+  }
+  j.addEventListener("mouseover", e => {
+    const el = e.target.closest("[data-col]");
+    if (el) highlight(+el.dataset.col);
+  });
+  j.addEventListener("mouseleave", () => highlight(-1));
+
+  // Row toggles (persist per viewer; storage may be unavailable)
+  const KEY = "cj-story1-hidden-rows";
+  let hidden = [];
+  try { hidden = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { hidden = []; }
+  function applyRows() {
+    document.querySelectorAll("[data-toggle]").forEach(b => b.setAttribute("aria-pressed", String(!hidden.includes(b.dataset.toggle))));
+    j.querySelectorAll("[data-row]").forEach(el => {
+      if (hidden.includes(el.dataset.row)) el.setAttribute("hidden-row", ""); else el.removeAttribute("hidden-row");
+    });
+  }
+  document.querySelectorAll("[data-toggle]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.toggle;
+    hidden = hidden.includes(k) ? hidden.filter(x => x !== k) : hidden.concat(k);
+    try { localStorage.setItem(KEY, JSON.stringify(hidden)); } catch (e) {}
+    applyRows();
+  }));
+  applyRows();
+
+  // Theme toggle
+  const root = document.documentElement;
+  const themeBtn = document.getElementById("themeBtn");
+  try { const t = localStorage.getItem("cj-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+  themeBtn.addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("cj-theme", root.dataset.theme); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
