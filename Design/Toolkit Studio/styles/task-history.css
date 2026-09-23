@@ -282,7 +282,7 @@
   background: color-mix(in srgb, var(--surface-1) 45%, transparent);
 }
 .kf-rd-art:hover { border-left-color: var(--primary); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
-.kf-rd-art.is-sel { border-left-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.kf-rd-art.is-sel { border-left-color: var(--primary); background: var(--state-selected); }
 .kf-rd-art-top { display: flex; align-items: center; gap: 7px; }
 .kf-rd-art-top i { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .kf-rd-art.is-ok .kf-rd-art-top i { background: var(--success); }
@@ -794,7 +794,7 @@
    任务与运行 — they cannot leak into the explorer or runs views. */
 .kf-rt { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }
 .kf-rtp { display: grid; gap: 14px; }
-.kf-tuning-embed { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-1); }
+.kf-tuning-embed { min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-1); }
 .kf-tuning-embed > header { display: flex; align-items: center; min-height: 38px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1)); }
 .kf-tuning-embed > header > div { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .kf-tuning-embed > header span { color: var(--foreground); font: 600 11px var(--font-mono); }
@@ -815,6 +815,56 @@
 .kf-rt button:hover { color: var(--foreground-secondary); }
 .kf-rt b { font-size: var(--kf-type-sm); font-weight: 600; }
 .kf-rt button[aria-selected="true"] { border-bottom-color: var(--primary); color: var(--foreground); }
+
+/* ---------- 统一 Domain Header（编译 / 正确性 / 执行）----------------------
+   一级页签正下方的一条域结论。三个页签共用同一个组件，取代此前三种写法
+   （编译页的 kc-summary、正确性页的 kf-dg-diagnosis-head、执行页的
+   kf-rd-h 加几个证据 chip）。读法固定为：
+
+     Domain 名称 · 分析结论 · 一句话结论 · 关键指标
+
+   两套状态词汇严格分开：Run 自己「已完成 / 运行中」只出现在顶部 headline
+   的 .kf-rd-status 圆点胶囊里；这里只说分析结论 PASS / WARNING / FAIL /
+   NOT EVALUATED。所以结论用直角 monospace 小片，形状上和圆点胶囊不撞。 */
+.kf-rtpwrap { display: grid; gap: 14px; min-width: 0; }
+.kf-dh {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline; gap: 6px 24px;
+  padding: 0 0 10px; border-bottom: 1px solid var(--border-subtle);
+}
+.kf-dh-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.kf-dh-domain { color: var(--foreground); font: 650 var(--kf-type-sm)/1.3 var(--font-sans); letter-spacing: -.005em; }
+.kf-dh-verdict {
+  flex: none; padding: 2px 7px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+  font: 700 9px/1.4 var(--font-mono); letter-spacing: .07em; white-space: nowrap;
+}
+.kf-dh.is-ok .kf-dh-verdict { color: var(--success); border-color: color-mix(in srgb, var(--success) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--success) 11%, transparent); }
+.kf-dh.is-warn .kf-dh-verdict { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 11%, transparent); }
+.kf-dh.is-bad .kf-dh-verdict { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--danger) 11%, transparent); }
+.kf-dh-title > small { flex: 1 1 220px; min-width: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.5; }
+/* 指标是证据，不是按钮：无边框、无底色、无 hover、无 cursor。 */
+.kf-dh-metrics { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.kf-dh-metrics > span { display: inline-flex; align-items: baseline; gap: 6px; color: var(--foreground-muted); font-size: 10px; }
+.kf-dh-metrics > span > b { color: var(--foreground-secondary); font: 600 10.5px var(--font-mono); }
+.kf-dh-metrics > span > b.is-ok { color: var(--success); }
+.kf-dh-metrics > span > b.is-warn { color: var(--warning); }
+.kf-dh-metrics > span > b.is-bad { color: var(--danger); }
+@container (max-width: 720px) {
+  .kf-dh { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+/* 统一头部已经说过域名称与结论，各模块自带的同名标题不再重复一遍：
+   编译页只留下它那份「Pass / Kernel / 水位 / IR 变化」事实行，正确性页把
+   重复的 h2 换成右边的「数值精度」范围标签。模块自己的指标 / 证据都保留。 */
+.kf-dh ~ .kf-rtp .kc-summary { grid-template-columns: minmax(0, 1fr); }
+.kf-dh ~ .kf-rtp .kc-summary__outcome,
+.kf-dh ~ .kf-rtp .kf-dg-diagnosis-head h2,
+.kf-dh ~ .kf-rtp .kf-dg-verdict { display: none; }
+.kf-dh ~ .kf-rtp .kf-dg-result { grid-template-columns: minmax(0, 1fr); }
+.kf-dh ~ .kf-rtp .kc-summary__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: 0; }
+@container (max-width: 720px) {
+  .kf-dh ~ .kf-rtp .kc-summary__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Run workbench: the centre carries conclusions and relationships; the right
    IDE pane is reserved for the selected object. These use the existing workbench
@@ -860,11 +910,37 @@
 .kf-rw-runtime-empty { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .kf-rw-runtime-empty > div { display: grid; gap: 3px; padding: 9px; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); }.kf-rw-runtime-empty b { color: var(--foreground-secondary); font: 600 9px var(--font-mono); }.kf-rw-runtime-empty small { color: var(--foreground-muted); font: 8px var(--font-mono); }
 .kf-rw-runtime-empty > p { grid-column: 1 / -1; margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }.kf-rw-runtime-empty > button,.kf-rw-domain-empty > button { width: max-content; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); border-radius: var(--radius-sm); color: var(--primary); background: transparent; cursor: pointer; font-family: var(--font-sans); font-size: 11px; }
-.kf-oi-evidence { padding: 4px 6px; border-radius: var(--radius-sm); color: var(--foreground-secondary); background: var(--surface-3); font: 8px/1.3 var(--font-mono); }
+/* Evidence 只是证据：平铺的等宽事实文本，无边框、无底色、无 hover、不可点。
+   和同一行里的 Object（灰描边、可点）、Action（主色描边、是操作）一眼分得开。 */
+.kf-oi-evidence {
+  display: inline-flex; align-items: center;
+  padding: 0; border: 0; border-radius: 0;
+  color: var(--foreground-muted); background: none;
+  font: 10px/1.6 var(--font-mono);
+}
+.kf-oi-evidence + .kf-oi-evidence { padding-left: 10px; border-left: 1px solid var(--border-subtle); }
 .kf-oi { display: grid; gap: 12px; }.kf-oi.is-empty { padding: 8px 2px; }.kf-oi.is-empty p { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
 /* The eyebrow names the object kind (TASK / KERNEL / PASS) — a UI label. */
-.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 9px var(--font-sans); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
-.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font-family: var(--font-sans); font-size: 11px; line-height: 1.3; }.kf-oi-actions button { color: var(--primary); }
+.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { display: flex; align-items: center; gap: 6px; color: var(--primary); font: 700 9px var(--font-sans); letter-spacing: .08em; }.kf-oi-head > span > em { padding: 1px 5px; border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); color: var(--foreground-muted); background: var(--surface-3); font: 600 8px/1.4 var(--font-sans); font-style: normal; letter-spacing: .02em; }.kf-oi-head > span > em.is-bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--danger) 10%, transparent); }.kf-oi-head > span > em.is-warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 10%, transparent); }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font-family: var(--font-sans); font-size: 11px; line-height: 1.3; }
+/* 跨页跳转后保留的对象选择：被选中的 Object chip 用主色描边标出，和普通
+   Object 的灰描边区分，一眼看出「上一页带来的就是它」。 */
+.kf-oi-link.is-sel, .kf-oi-link[aria-pressed="true"] {
+  border-color: var(--primary); color: var(--primary);
+  background: var(--state-selected);
+}
+/* Object（Task / Tensor / Kernel / Pass）与 Action 都是可点的，但档位不同：
+   Object 是中性描边，Action 是主色描边 + 主色淡底 —— 「在「执行」中查看…」
+   这类跳转必须先被看成操作，而不是又一个对象。两者都补上键盘焦点环。 */
+.kf-oi-link:focus-visible, .kf-rw-health button:focus-visible, .kf-rw-finding:focus-visible, .kf-oi-actions button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent); outline-offset: 1px;
+}
+.kf-oi-actions button {
+  border-color: color-mix(in srgb, var(--primary) 46%, var(--border-subtle));
+  color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent);
+  font-weight: 600;
+}
+.kf-oi-actions button:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, transparent); }
 .kf-object-tooltip {
   position: fixed; z-index: 80; display: none;
   width: min(376px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 16px));
@@ -875,7 +951,7 @@
 .kf-object-tooltip.is-open { display: block; }
 .kf-object-tooltip .kf-oi { gap: 10px; }
 .kf-object-tooltip .kf-inspector-section { display: grid; gap: 5px; margin: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
-.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 600 9px var(--font-sans); letter-spacing: .08em; }
 .kf-object-tooltip dl { display: grid; gap: var(--space-1); margin: 0; }
 .kf-object-tooltip dl > div { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: var(--space-2); align-items: baseline; }
 .kf-object-tooltip dt { color: var(--foreground-muted); font: var(--type-micro); }
@@ -925,14 +1001,6 @@
 
 /* Correctness runtime task tooltip: identity → timing → data flow → evidence. */
 .kf-object-tooltip .kf-oi--task { gap: 0; }
-.kf-task-tip-head { display: grid; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
-.kf-task-tip-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.kf-task-tip-id > span { color: var(--primary); font: var(--type-mono); font-weight: var(--font-weight-bold); }
-.kf-task-tip-id > em { color: var(--foreground-muted); font: var(--type-label); font-style: normal; }
-.kf-task-tip-id > em.is-bad { color: var(--danger); }
-.kf-task-tip-id > em.is-warn { color: var(--warning); }
-.kf-task-tip-head h3 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
-.kf-task-tip-head small { color: var(--foreground-muted); font: var(--type-mono); }
 .kf-task-tip-metrics {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle);
@@ -1241,29 +1309,32 @@
   overflow: visible; font-size: 6.5px; text-overflow: clip;
 }
 
-/* Compilation → Execution context. This block is self-contained so the
-   handoff remains legible even when the Compilation workspace is not mounted. */
+/* 统一跨域 Context Banner：来源 → 意图 → 当前聚焦对象。
+   从一个 Domain 跳到另一个时，这是一条连续的锚点，三个读点固定：
+     来自「X」 / 结论 → 正在做什么 / 当前聚焦 · 对象 */
 .kf-cv-context {
-  display: flex; min-width: 0; align-items: center; gap: 9px;
-  padding: 10px 12px; border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  display: grid; gap: 6px; padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--primary) 5%, var(--surface-1));
 }
-.kf-cv-context > span {
-  flex: none; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border-subtle));
+.kf-cv-context-from {
+  width: max-content; padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border-subtle));
   border-radius: var(--radius-pill); color: var(--primary);
   background: color-mix(in srgb, var(--primary) 9%, transparent);
   font: 600 9px/1.4 var(--font-mono); letter-spacing: .02em;
 }
-.kf-cv-context > b {
-  min-width: 0; overflow: hidden; color: var(--foreground);
-  font: 600 11px/1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap;
-}
-.kf-cv-context--execution { margin-top: 12px; }
+.kf-cv-context-intent { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.kf-cv-context-intent b { color: var(--foreground); font: 600 11px/1.45 var(--font-sans); }
+.kf-cv-context-intent i { color: var(--foreground-muted); font: 500 11px var(--font-sans); font-style: normal; }
+.kf-cv-context-focus { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-cv-context-focus b { color: var(--primary); font: 600 10px var(--font-mono); }
 
 .kf-cv-summary {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  overflow: hidden; border: 1px solid var(--border-subtle); border-top: 0;
+  overflow: hidden; margin-top: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-1) 78%, transparent);
 }
 .kf-cv-summary > div { display: grid; min-width: 0; gap: 4px; padding: 11px 12px 12px; }
