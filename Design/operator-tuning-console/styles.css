@@ -623,6 +623,59 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-evidence-row .l { color: var(--foreground); font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
 .tc-evidence-row .v { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.45; }
 
+/* ------------------------------------------------- L2 scope inspector
+ * Ranked rows with an inline proportional bar behind the name, so the
+ * "where did the time go" reading needs no second chart. */
+.tc-scoperows { display: grid; gap: 1px; }
+.tc-scoperow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 44px 44px;
+  gap: var(--space-2);
+  align-items: baseline;
+  width: 100%;
+  padding: 3px var(--space-1);
+  margin-inline: calc(var(--space-1) * -1);
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.tc-scoperow:hover { background: var(--state-hover); color: var(--foreground); }
+/* a scope with a node on the critical path */
+.tc-scoperow.is-crit { border-left-color: var(--danger); }
+.tc-scoperow.is-head {
+  cursor: default;
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-left-color: transparent;
+}
+.tc-scoperow.is-head:hover { background: transparent; }
+.tc-scoperow > .l { position: relative; min-width: 0; padding: 1px 4px; }
+.tc-scoperow > .l > .bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.tc-scoperow.is-crit > .l > .bar { background: color-mix(in srgb, var(--danger) 22%, transparent); }
+.tc-scoperow > .l > .tx {
+  position: relative;
+  display: block;
+  font-family: var(--font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tc-scoperow > .n { font-family: var(--font-mono); text-align: right; }
+.tc-scoperow > .n.muted { color: var(--foreground-muted); }
+/* zero slack on a fat scope: the combination worth acting on */
+.tc-scoperow > .n.hot { color: var(--warning); }
+
 /* ----------------------------------------------- launch-skew breakdown
  * Lives in the E2E inspector: the measured wait against the upper bound the
  * host-clock offset implies. A row jumps to that wait task on the L2 stage. */

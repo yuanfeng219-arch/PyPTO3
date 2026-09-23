@@ -609,14 +609,14 @@ const occWindows = (function () {
     const acc = l.kind === 'aic' ? aic : aiv;
     (laneBlocks[li] || []).forEach((b) => {
       /* clamp: SPAN is rounded, so a block can end a hair past it */
-      let t = Math.max(0, b[0]);
-      const end = Math.min(SPAN, b[0] + b[1]);
-      while (t < end) {
-        const w = Math.min(WIN_N - 1, Math.floor(t / winW));
-        const wEnd = Math.min(end, (w + 1) * winW);
-        acc[w] += wEnd - t;
-        if (wEnd <= t) break;   /* never stall */
-        t = wEnd;
+      const bs = Math.max(0, b[0]);
+      const be = Math.min(SPAN, b[0] + b[1]);
+      if (be <= bs) return;
+      const w0 = Math.max(0, Math.min(WIN_N - 1, Math.floor(bs / winW)));
+      const w1 = Math.max(0, Math.min(WIN_N - 1, Math.floor((be - 1e-9) / winW)));
+      for (let w = w0; w <= w1; w++) {
+        const ov = Math.min(be, (w + 1) * winW) - Math.max(bs, w * winW);
+        if (ov > 0) acc[w] += ov;
       }
     });
   });
@@ -649,10 +649,36 @@ const idleRuns = (function () {
         share: r2(((t1 - t0) / SPAN) * 100),
         aic: r2(sum(slice.map((w) => w[1])) / slice.length),
         aiv: r2(sum(slice.map((w) => w[2])) / slice.length),
-        /* what was running in that window, if anything */
-        tasks: tasks.filter((t) => t.start < t1 && t.end > t0)
+        /* blocks genuinely executing inside the window, by core-time */
+        running: (function () {
+          const acc = {};
+          let busy = 0;
+          lanes.forEach((l, li) => {
+            (laneBlocks[li] || []).forEach((b) => {
+              const bs = b[0], be = b[0] + b[1];
+              if (bs >= t1 || be <= t0) return;
+              const ov = Math.min(be, t1) - Math.max(bs, t0);
+              busy += ov;
+              const t = tasks[b[2]];
+              if (!t) return;
+              const a = (acc[t.callable] = acc[t.callable] || { callable: t.callable, us: 0, blocks: 0, onCrit: t.onCrit });
+              a.us += ov; a.blocks++;
+            });
+          });
+          return {
+            busyUs: r2(busy),
+            /* share of the window's total core capacity that was busy */
+            capacityPct: r2((busy / ((t1 - t0) * lanes.length)) * 100),
+            top: Object.keys(acc).map((k) => acc[k])
+              .sort((a, b) => b.us - a.us).slice(0, 3)
+              .map((a) => ({ callable: a.callable, us: r2(a.us), blocks: a.blocks, onCrit: a.onCrit })),
+          };
+        })(),
+        /* tasks whose envelope merely spans the window — usually the single
+         * block that everything else is waiting on */
+        spanning: tasks.filter((t) => t.start < t1 && t.end > t0)
           .sort((a, b) => b.span - a.span).slice(0, 3)
-          .map((t) => ({ tag: t.tag, callable: t.callable, span: t.span, onCrit: t.onCrit })),
+          .map((t) => ({ tag: t.tag, callable: t.callable, span: t.span, onCrit: t.onCrit, blocks: t.blockCount })),
       });
       start = null;
     }

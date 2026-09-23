@@ -842,7 +842,8 @@
       const plotX = LBL, plotW = Math.max(40, w - LBL - 10);
       const overlayRows = S.overlay === 'sched' ? rank.scheduler.lanes.length : 0;
       const readyH = S.overlay === 'ready' ? 46 : 0;
-      const top = 20 + (overlayRows ? overlayRows * (ROW_H + ROW_GAP) + 8 : 0) + readyH;
+      const OCC_H = 26;
+      const top = 20 + OCC_H + (overlayRows ? overlayRows * (ROW_H + ROW_GAP) + 8 : 0) + readyH;
       const h = top + lanes.length * (ROW_H + ROW_GAP) + 8;
       const ctx = fitCanvas(laneCanvas, w, Math.max(h, laneHost.clientHeight || h));
       const sx = (t) => plotX + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
@@ -852,10 +853,70 @@
       ctx.textAlign = 'left';
       laneLayout = [];
 
+      /* ---- occupancy band ----
+       * Two stacked strips (AIC, AIV) whose opacity tracks how many cores were
+       * busy in that window. The idle stretches are the point: they get a
+       * warning-tinted wash so a low-occupancy window is visible without
+       * reading 72 lanes of bars. */
+      (function drawOccBand() {
+        const wins = rank.occWindows;
+        if (!wins || !wins.length) return;
+        const ww = rank.occWindowUs;
+        const bandY = 20;
+        const strip = (OCC_H - 4) / 2;
+        ctx.fillStyle = cssVar('--foreground-muted');
+        ctx.font = '500 10px ' + cssVar('--font-sans');
+        ctx.fillText('AIC', 4, bandY + strip / 2);
+        ctx.fillText('AIV', 4, bandY + strip + 2 + strip / 2);
+        wins.forEach((win) => {
+          const x = sx(win[0]), x2 = sx(win[0] + ww);
+          if (x2 < plotX || x > plotX + plotW) return;
+          const xa = Math.max(plotX, x);
+          const wpx = Math.max(0.8, Math.min(plotX + plotW, x2) - xa);
+          [[win[1], bandY, 'aic'], [win[2], bandY + strip + 2, 'aiv']].forEach((cfg) => {
+            ctx.fillStyle = CMAP.colorForLaneKind(cfg[2]);
+            ctx.globalAlpha = 0.12 + (clamp(cfg[0], 0, 100) / 100) * 0.85;
+            ctx.fillRect(xa, cfg[1], wpx, strip);
+            ctx.globalAlpha = 1;
+          });
+        });
+        /* highlight the stretches where both engines were under the threshold */
+        (rank.idleRuns || []).forEach((r) => {
+          const x = sx(r.t0), x2 = sx(r.t1);
+          if (x2 < plotX || x > plotX + plotW) return;
+          const xa = Math.max(plotX, x);
+          const wpx = Math.min(plotX + plotW, x2) - xa;
+          if (wpx < 1) return;
+          ctx.fillStyle = cssVar('--warning');
+          ctx.globalAlpha = 0.14;
+          ctx.fillRect(xa, bandY, wpx, h - bandY - 4);
+          ctx.globalAlpha = 0.75;
+          ctx.strokeStyle = cssVar('--warning');
+          ctx.setLineDash([2, 2]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(Math.round(xa) + 0.5, bandY);
+          ctx.lineTo(Math.round(xa) + 0.5, h - 4);
+          ctx.moveTo(Math.round(xa + wpx) - 0.5, bandY);
+          ctx.lineTo(Math.round(xa + wpx) - 0.5, h - 4);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          if (wpx > 52) {
+            ctx.fillStyle = cssVar('--warning');
+            ctx.font = '500 10px ' + cssVar('--font-sans');
+            ctx.textAlign = 'center';
+            ctx.fillText(num(r.us, 0) + ' us 空转', xa + wpx / 2, bandY - 6);
+            ctx.textAlign = 'left';
+          }
+        });
+        ctx.font = '500 10px ' + cssVar('--font-sans');
+      })();
+
       /* AICPU scheduler lanes */
       if (overlayRows) {
         rank.scheduler.lanes.forEach((name, i) => {
-          const y = 20 + i * (ROW_H + ROW_GAP);
+          const y = 20 + OCC_H + i * (ROW_H + ROW_GAP);
           ctx.fillStyle = cssVar('--foreground-muted');
           ctx.fillText(name, 4, y + ROW_H / 2);
           rank.scheduler.blocks[i].forEach((b) => {
@@ -871,7 +932,7 @@
 
       /* ready-but-undispatched strip */
       if (readyH) {
-        const y0 = 22, hh = readyH - 8;
+        const y0 = 22 + OCC_H, hh = readyH - 8;
         const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
         ctx.fillStyle = cssVar('--foreground-muted');
         ctx.fillText('READY', 4, y0 + hh / 2);
@@ -1800,7 +1861,8 @@
     const meta = $('[data-bind="inspectorMeta"]');
 
     const focus = S.focus || defaultFocus();
-    if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
+    if (focus === 'scope') renderScopeInspector(host, title, meta);
+    else if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
     else if (focus === 'hint' && S.hintSite) renderHintInspector(host, title, meta);
     else if (focus === 'pass') renderPassInspector(host, title, meta);
     else if (focus === 'run') renderRunInspector(host, title, meta);
@@ -1809,11 +1871,129 @@
     host.appendChild(renderLedger());
   }
 
-  /* the inspector follows the view unless the user pinned something else */
+  /* the inspector follows the view unless the user pinned something else.
+   * L2 asks "which scope ate the time / when was the machine idle";
+   * L1 asks "what happened inside one kernel". Different panel. */
   function defaultFocus() {
     if (S.view === 'e2e' || S.view === 'isa') return 'run';
     if (S.view === 'compiler') return S.compilerTab === 'passes' ? 'pass' : (S.hintSite ? 'hint' : 'run');
+    if (S.view === 'l2') return 'scope';
     return 'task';
+  }
+
+  /* ------------------------------------------------------ L2 inspector
+   * Answers the two questions the swimlane alone cannot: where the core-time
+   * went by scope, and which stretches of wall time the machine sat idle.
+   * Σdur on its own ranks the fat scopes; pairing it with DAG slack separates
+   * "fat" from "fat and pinned to the critical path". */
+  const lanesOf = () => R().swimlane.lanes.length;
+
+  function renderScopeInspector(host, title, meta) {
+    const rank = R();
+    title.textContent = 'L2 · ' + S.rank;
+    meta.textContent = rank.scopes.length + ' scope';
+
+    /* --- 1. accounting: two views of the same block, stated once --- */
+    const A = rank.accounting;
+    const s0 = inspectorSection('统计口径', A.schedCoreTime ? 'Worker / Scheduler' : 'Worker');
+    s0.appendChild(kv([
+      ['Worker View', num(A.workerCoreTime, 0) + ' us · ' + A.workerBlocks + ' 块'],
+      ['  kernel', num(A.workerKernelTime, 0) + ' us'],
+      ['  setup', num(A.workerSetupTime, 0) + ' us'],
+      ['Scheduler View', A.schedCoreTime
+        ? num(A.schedCoreTime, 0) + ' us · ' + A.schedBlocks + ' 块' : '—'],
+      ['hand-off 差', A.handoff == null ? '—' : '+' + num(A.handoff, 0) + ' us'],
+    ]));
+    if (A.naiveSum) {
+      s0.appendChild(el('div', 'inspector-soft-card is-warning',
+        '同一个块在 trace 里出现两次。两边相加得 ' + num(A.naiveSum, 0)
+        + ' us —— 这是重复计数，不是总量。下面的 scope 排行只用 Worker View。'));
+    }
+    host.appendChild(s0);
+
+    /* --- 2. scope ranking: core-time × slack --- */
+    const top = rank.scopes.slice(0, 14);
+    const maxCore = top[0] ? top[0].coreTime : 1;
+    const s1 = inspectorSection('scope 排行', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
+    const rows = el('div', 'tc-scoperows');
+    const hd = el('div', 'tc-scoperow is-head');
+    ['scope', 'core-time', '占', 'slack'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
+    rows.appendChild(hd);
+    top.forEach((sc) => {
+      const b = el('button', 'tc-scoperow' + (sc.onCrit ? ' is-crit' : ''));
+      b.type = 'button';
+      b.title = sc.taskCount + ' 任务 / ' + sc.blocks + ' 块 · wall ' + num(sc.wall, 1) + ' us'
+        + (sc.onCrit ? ' · 关键路径上 ' + sc.critNodes + ' 个节点' : ' · 不在关键路径上');
+      const nm = el('span', 'l');
+      nm.appendChild(el('i', 'bar'));
+      nm.lastChild.style.width = ((sc.coreTime / maxCore) * 100).toFixed(1) + '%';
+      nm.appendChild(el('span', 'tx', sc.name));
+      b.appendChild(nm);
+      b.appendChild(el('span', 'n', num(sc.coreTime, 0)));
+      b.appendChild(el('span', 'n muted', pct(sc.coreShare, 1)));
+      /* zero slack on a fat scope is the actionable combination */
+      b.appendChild(el('span', 'n' + (sc.minSlack === 0 ? ' hot' : ''),
+        sc.minSlack === 0 ? '0' : num(sc.minSlack, 0)));
+      b.addEventListener('click', () => {
+        S.task = sc.tags[0];
+        S.focus = 'task';
+        const t = tasksOf[S.rank][sc.tags[0]];
+        if (t) { const pad = Math.max(40, t.span * 0.3); setWindow(t.start - pad, t.end + pad); }
+        render();
+      });
+      rows.appendChild(b);
+    });
+    s1.appendChild(rows);
+    s1.appendChild(el('div', 'inspector-soft-card',
+      'slack = DAG 上这个 scope 最紧的那个任务能被推迟多久（fanin/fanout + 实测 span 的'
+      + '前推/后推）。0 = 在关键路径上，动它直接缩短总时长；slack 大 = 它胖但不急，'
+      + '先看并行度。不含资源争抢。'));
+    host.appendChild(s1);
+
+    /* --- 3. idle windows --- */
+    const idle = rank.idleRuns || [];
+    const idleUs = idle.reduce((a, r) => a + r.us, 0);
+    const s2 = inspectorSection('空转窗口',
+      idle.length ? idle.length + ' 段 · ' + pct((idleUs / rank.swimlane.spanUs) * 100, 1) : '无');
+    if (!idle.length) {
+      s2.appendChild(el('div', 'inspector-soft-card',
+        '没有 AIC 与 AIV 同时低于 ' + rank.idlePct + '% 的窗口（窗宽 '
+        + num(rank.occWindowUs, 1) + ' us）。'));
+    } else {
+      const ir = el('div', 'tc-scoperows');
+      const ih = el('div', 'tc-scoperow is-head');
+      ['窗口', '时长', 'AIC', 'AIV'].forEach((t, i) => ih.appendChild(el('span', i ? 'n' : 'l', t)));
+      ir.appendChild(ih);
+      idle.slice(0, 8).forEach((r) => {
+        const b = el('button', 'tc-scoperow');
+        b.type = 'button';
+        b.title = '窗口内实际在跑：' + (r.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('，') || '无')
+          + String.fromCharCode(10) + '核容量占用 ' + pct(r.running.capacityPct, 1);
+        b.appendChild(el('span', 'l', num(r.t0, 0) + '–' + num(r.t1, 0) + ' us'));
+        b.appendChild(el('span', 'n hot', num(r.us, 0)));
+        b.appendChild(el('span', 'n muted', pct(r.aic, 0)));
+        b.appendChild(el('span', 'n muted', pct(r.aiv, 0)));
+        b.addEventListener('click', () => {
+          const pad = Math.max(30, r.us * 0.2);
+          setWindow(r.t0 - pad, r.t1 + pad);
+          redrawStage(); renderToolbar(); renderDock();
+        });
+        ir.appendChild(b);
+      });
+      s2.appendChild(ir);
+      const worst = idle[0];
+      /* what is actually executing, by block overlap — not by task envelope */
+      const hog = worst.spanning.filter((t) => t.blocks <= 2 && t.onCrit)[0];
+      s2.appendChild(el('div', 'inspector-soft-card is-warning',
+        '最长一段 ' + num(worst.us, 0) + ' us（占 ' + pct(worst.share, 1) + '），'
+        + lanesOf() + ' 核只用掉 ' + pct(worst.running.capacityPct, 1) + ' 容量。'
+        + (worst.running.top.length
+          ? '窗口内在跑：' + worst.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('、')
+          : '窗口内没有任何块在执行。')
+        + (hog ? ' 跨越整段的是 ' + hog.callable + '（' + hog.blocks + ' 块，span ' + num(hog.span, 0)
+          + ' us，在关键路径上）——单块任务挡住全部核。' : '')));
+    }
+    host.appendChild(s2);
   }
 
   function renderRunInspector(host, title, meta) {
