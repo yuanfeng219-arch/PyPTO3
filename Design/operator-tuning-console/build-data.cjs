@@ -1287,6 +1287,88 @@ passEvidenceIndex.forEach((detail) => {
   }
 });
 
+/* Investigations are the product-level objects built from this run's raw
+ * findings. Views remain evidence lenses; the task, its hypothesis and its
+ * experiment are what a developer actually carries through a tuning loop. */
+const investigationIds = new Set(findings.map((f) => f.id));
+const includeFinding = (id) => investigationIds.has(id) ? id : null;
+const compactIds = (ids) => ids.filter(Boolean);
+const investigations = [];
+const addInvestigation = (id, title, status, target, findingRefs, hypotheses, experiments) => {
+  investigations.push({
+    id, title, status, target,
+    baseline: '当前 run · ' + caseInfo.program,
+    owner: '待分派',
+    findings: compactIds(findingRefs), hypotheses, experiments,
+  });
+};
+
+if (investigationIds.has('F3') && investigationIds.has('F1')) {
+  addInvestigation('INV-024', '解释 rank 间尾部延迟', '需要实验',
+    '缩短关键路径上的通信等待，并验证是否改善端到端尾部。',
+    [includeFinding('F3'), includeFinding('F1'), includeFinding('F7'), includeFinding('F6')],
+    [
+      { id: 'H-01', title: 'rank 启动错位放大集合通信等待', level: '强支持',
+        claim: 'F3 的 launch skew 与 F1 的关键路径 wait 有同一条跨层时序锚点；它解释等待来源，但不排除其他成因。',
+        evidence: ['F3', 'F1'], need: '在不改通信算法的前提下，缩小启动错位后 wait span 是否同步下降。' },
+      { id: 'H-02', title: '调度队列可能是额外贡献因素', level: '待区分',
+        claim: 'F7/F6 同时出现，只能作为竞争解释，不能升级为 H-01 的因果前提。',
+        evidence: compactIds([includeFinding('F7'), includeFinding('F6')]),
+        need: '比较局部 dispatch 调整前后 ready>0 占比、complete 次数与 device wall。' },
+    ],
+    [{ id: 'EXP-024-01', status: '待执行', name: '只调整关键 rank 的启动 / dispatch 时序',
+      change: '不改通信算法、Tile、融合边界', measures: 'rank start skew · wait span · device wall',
+      guardrail: '结果校验、吞吐、host bind 时间' }]);
+} else if (investigationIds.has('F7') && investigationIds.has('F6')) {
+  addInvestigation('INV-031', '解释 AIC 任务已就绪但未派发', '需要实验',
+    '确认 ready queue 堵塞是否对 device wall 有可观测贡献。',
+    [includeFinding('F7'), includeFinding('F6'), includeFinding('F9')],
+    [
+      { id: 'H-01', title: '关键路径上的依赖 / dispatch 时机造成队列积压', level: '待验证',
+        claim: 'ready queue 指标说明 AIC 任务可运行但未派发；不能单独证明调度器是根因。', evidence: ['F7'],
+        need: '仅改变关键路径任务的 dispatch 时机，重测 queue 与 device wall。' },
+      { id: 'H-02', title: 'AICPU complete 开销是竞争解释', level: '待区分',
+        claim: 'complete 阶段的工作量可能延后派发，需要独立测量而不是与 queue 告警合并。', evidence: ['F6'],
+        need: '记录 complete 次数和单位任务开销是否与等待窗口同向变化。' },
+    ],
+    [{ id: 'EXP-031-01', status: '待执行', name: '关键路径局部提前 dispatch',
+      change: '不改变任务数量与 fusion 边界', measures: 'ready>0 · AIC util · device wall',
+      guardrail: '吞吐与正确性同基线回归' }]);
+} else {
+  const firstFinding = findings[0];
+  addInvestigation('INV-001', '建立首个可证伪的性能假设', '待分诊',
+    '用一个可回滚改动验证最高影响发现是否能改善端到端结果。', [firstFinding && firstFinding.id],
+    [{ id: 'H-01', title: '最高优先级发现值得进一步验证', level: '待建模',
+      claim: '当前只有同层观测，尚未形成跨层解释。', evidence: [firstFinding && firstFinding.id].filter(Boolean),
+      need: '先绑定端到端指标和最小改动，再开始实验。' }],
+    [{ id: 'EXP-001-01', status: '待规划', name: '定义最小单变量实验', change: '待选择',
+      measures: '局部指标 · device wall · 正确性', guardrail: '保持同一基线与采样条件' }]);
+}
+
+if (investigationIds.has('F2') || investigationIds.has('F9')) {
+  addInvestigation('INV-025', '评估混合核的任务边界', '待分诊',
+    '判断 hand-off 或块内串行是否值得以融合 / 解耦方式处理。',
+    [includeFinding('F2'), includeFinding('F9'), includeFinding('F8')],
+    [{ id: 'H-01', title: '任务边界引入可避免的 hand-off 或串行段', level: '待建模',
+      claim: '先区分任务领取、依赖等待和核内串行，再选择 fusion 或 FIFO 方案。',
+      evidence: compactIds([includeFinding('F2'), includeFinding('F9')]),
+      need: '定位最小 scope 并做一个只改变边界的对照实验。' }],
+    [{ id: 'EXP-025-01', status: '待规划', name: '选择一个 kernel scope 建立对照', change: '待确认',
+      measures: '任务 span · hand-off · util', guardrail: '避免形成新的独占核' }]);
+}
+
+if (investigationIds.has('F4') || investigationIds.has('F5')) {
+  addInvestigation('INV-026', '处理 Tile 与流水资源约束', '需要补证',
+    '确认搬运粒度改动是否会触发流水深度回退。', [includeFinding('F4'), includeFinding('F5')],
+    [{ id: 'H-01', title: '粒度与流水深度受同一 L0 / UB 预算约束', level: '约束耦合',
+      claim: 'F5 的修改可能触发 F4；它是 guardrail 关系，尚不是性能因果结论。',
+      evidence: compactIds([includeFinding('F4'), includeFinding('F5')]),
+      need: '在同一个 source scope 对比 Tile 预算、PH-MR-001 和 MTE 时间。' }],
+    [{ id: 'EXP-026-01', status: '待规划', name: '同 scope 的 Tile 预算对照',
+      change: '只调整末维或 pipeline depth 之一', measures: 'PH 提示 · MTE · L0/UB 预算',
+      guardrail: '不接受深度回退换来的局部收益' }]);
+}
+
 /* ---------------------------------------------------------------- write */
 const payload = {
   generatedBy: 'Design/operator-tuning-console/build-data.cjs',
@@ -1307,6 +1389,7 @@ const payload = {
   dsl: dsl,
   irPairs: irPairs,
   findings: findings,
+  investigations: investigations,
   launchSkew: launchSkew,
   derived: {
     waitTasks: waitTasks.map((t) => t.tag), waitSpan: waitSpan,

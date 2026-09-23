@@ -1,0 +1,326 @@
+/* =============================================================
+ * Tuning Story — page-local layout only.
+ * Shell、chrome、pane、按钮、tab、inspector section 全部来自
+ * PTO 设计系统；这里只补场景视图的排版。颜色一律引用 token。
+ * ============================================================= */
+
+html, body { height: 100%; }
+
+body.ts-page {
+  --ts-gutter: 10px;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ide-frame-page-bg);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 全屏宿主窗口：与仓库内其他全屏 PTO demo 一致，放开 4:3 比例，
+ * 渐变、aura、pane fill、blur 仍然继承共享 ide-frame skin。 */
+.ts-frame {
+  width: 100vw;
+  height: 100dvh;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------- top chrome */
+.ts-case-chip { font-family: var(--font-mono); }
+
+.ts-phasebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.ts-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  white-space: nowrap;
+}
+.ts-phase.is-active { background: var(--surface-3); color: var(--foreground); }
+.ts-phase-dots { display: inline-flex; gap: 3px; }
+.ts-phase-dot {
+  width: 5px; height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--foreground-disabled);
+}
+.ts-phase-dot.is-done { background: var(--foreground-muted); }
+.ts-phase-dot.is-current { background: var(--primary); }
+
+/* --------------------------------------------------------- explorer */
+.ts-explorer { padding: var(--space-2) 0; }
+.ts-group-label {
+  padding: var(--space-2) var(--ts-gutter) 4px;
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ts-scene {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  width: 100%;
+  padding: var(--space-2) var(--ts-gutter);
+  border: 0;
+  background: transparent;
+  color: var(--foreground-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.ts-scene:hover { background: var(--state-hover); }
+.ts-scene.is-selected { background: var(--ide-frame-selected-bg); color: var(--foreground); }
+.ts-scene-id { font: var(--type-mono); color: var(--foreground-muted); }
+.ts-scene.is-selected .ts-scene-id { color: var(--primary); }
+.ts-scene-name { font: var(--type-title-3); color: inherit; }
+.ts-scene-q {
+  margin-top: 2px;
+  color: var(--foreground-muted);
+  font: var(--type-body-sm);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ------------------------------------------------------------ stage */
+.ts-tabs { margin: 0; }
+.ts-stage {
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4) var(--space-6);
+  font: var(--type-body);
+  color: var(--foreground-secondary);
+}
+.ts-lead {
+  margin: 0 0 var(--space-4);
+  color: var(--foreground);
+  font: var(--type-body);
+}
+.ts-section { margin-bottom: var(--space-5); }
+.ts-section:last-child { margin-bottom: 0; }
+.ts-section-title {
+  margin: 0 0 var(--space-2);
+  color: var(--foreground);
+  font: var(--type-title-3);
+}
+.ts-section-note {
+  margin: var(--space-2) 0 0;
+  color: var(--foreground-muted);
+  font: var(--type-body-sm);
+}
+
+/* KPI 行 */
+.ts-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.ts-kpi {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.ts-kpi-k { color: var(--foreground-muted); font: var(--type-label); }
+.ts-kpi-v {
+  margin-top: 2px;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.ts-kpi-s { margin-top: 2px; color: var(--foreground-secondary); font: var(--type-body-sm); }
+
+/* 表格 */
+.ts-table { width: 100%; border-collapse: collapse; font: var(--type-body-sm); }
+.ts-table th {
+  padding: 5px var(--space-2);
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  text-align: left;
+  white-space: nowrap;
+}
+.ts-table td {
+  padding: 6px var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--foreground-secondary);
+  vertical-align: top;
+}
+.ts-table tr.is-focus td { background: var(--ide-frame-selected-bg); color: var(--foreground); }
+.ts-table .num { font-family: var(--font-mono); text-align: right; white-space: nowrap; }
+.ts-table .name { font-family: var(--font-mono); color: var(--foreground); }
+.ts-table caption {
+  caption-side: bottom;
+  padding-top: var(--space-2);
+  color: var(--foreground-muted);
+  font: var(--type-body-sm);
+  text-align: left;
+}
+
+/* 条形（占用率、容量、扫描） */
+.ts-bar {
+  position: relative;
+  height: 8px;
+  min-width: 60px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.ts-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+}
+.ts-bar > i.low { background: var(--danger); }
+.ts-bar > i.mid { background: var(--warning); }
+.ts-bar > i.high { background: var(--success); }
+.ts-bar-row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 52px; gap: var(--space-2); align-items: center; }
+.ts-bar-row + .ts-bar-row { margin-top: 6px; }
+.ts-bar-k { color: var(--foreground-secondary); font: var(--type-body-sm); font-family: var(--font-mono); }
+.ts-bar-v { color: var(--foreground); font: var(--type-body-sm); font-family: var(--font-mono); text-align: right; }
+
+/* 判定 / 状态文本 */
+.ts-verdict { font: var(--type-label); }
+.ts-verdict.ok { color: var(--success); }
+.ts-verdict.warn { color: var(--warning); }
+.ts-verdict.bad { color: var(--danger); }
+.ts-verdict.neutral { color: var(--foreground-muted); }
+
+/* 结论块：用淡底强调，不用边框 */
+.ts-callout {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--tone-info-bg);
+  color: var(--foreground);
+  font: var(--type-body);
+}
+.ts-callout.warn { background: var(--tone-warning-bg); }
+.ts-callout.bad { background: var(--tone-critical-bg); }
+.ts-callout-k {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+}
+
+/* 代码块 */
+.ts-code {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+.ts-code .hl { color: var(--foreground); background: var(--state-selected); border-radius: 3px; }
+.ts-code .cm { color: var(--foreground-muted); }
+
+.ts-diff { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-3); }
+.ts-diff-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font: var(--type-label);
+}
+.ts-diff-head .k { color: var(--foreground-muted); }
+.ts-diff-head .v { color: var(--foreground); }
+
+/* 五层对照 */
+.ts-layer { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border-subtle); }
+.ts-layer:first-child { border-top: 0; }
+.ts-layer-k { color: var(--foreground); font: var(--type-title-3); }
+.ts-layer-file { margin-top: 2px; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
+
+/* 意图核对 */
+.ts-intent-state { font: var(--type-label); white-space: nowrap; }
+.ts-intent-state.yes { color: var(--success); }
+.ts-intent-state.partial { color: var(--warning); }
+.ts-intent-state.no { color: var(--danger); }
+
+/* 场景之间的过渡 */
+.ts-stage > * { animation: ts-in 160ms ease-out; }
+@keyframes ts-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ts-stage > * { animation: none; } }
+
+/* -------------------------------------------------------- inspector */
+.inspector-rail .ts-ins-list { margin: 0; padding-left: 18px; color: var(--foreground-secondary); font: var(--type-body); }
+.inspector-rail .ts-ins-list li { margin-bottom: 5px; }
+.inspector-rail .ts-ins-list li:last-child { margin-bottom: 0; }
+.inspector-rail .ts-ins-list.pain li::marker { color: var(--danger); }
+
+.ts-opp { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: var(--space-2); align-items: start; margin-bottom: var(--space-2); }
+.ts-opp:last-child { margin-bottom: 0; }
+.ts-pri {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  font: var(--type-micro);
+}
+.ts-pri.P0 { color: var(--danger); }
+.ts-pri.P1 { color: var(--warning); }
+.ts-pri.P2 { color: var(--foreground-muted); }
+.ts-opp-t { color: var(--foreground-secondary); font: var(--type-body); }
+
+.ts-src { margin-bottom: var(--space-2); }
+.ts-src:last-child { margin-bottom: 0; }
+.ts-src-head { display: flex; align-items: baseline; gap: var(--space-2); }
+.ts-prov { font: var(--type-micro); }
+.ts-prov.fact { color: var(--success); }
+.ts-prov.infer { color: var(--warning); }
+.ts-prov.design { color: var(--accent); }
+.ts-src-s { color: var(--foreground); font-family: var(--font-mono); font-size: 11px; }
+.ts-src-d { color: var(--foreground-muted); font: var(--type-body-sm); }
+
+.ts-obj { color: var(--foreground-secondary); font: var(--type-body); }
+.ts-obj-proto { margin-top: 4px; color: var(--foreground-muted); font: var(--type-body-sm); }
+
+/* --------------------------------------------------- bottom / viz */
+.ts-viz { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--ts-gutter) var(--space-3); overflow-y: auto; }
+.ts-viz-lanes { display: flex; flex-direction: column; gap: 3px; }
+.ts-lane { display: grid; grid-template-columns: 210px minmax(0, 1fr) 62px; gap: var(--space-2); align-items: center; }
+.ts-lane-k {
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ts-lane.is-focus .ts-lane-k { color: var(--foreground); }
+.ts-lane-canvas { display: block; width: 100%; height: 14px; }
+.ts-lane-v { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; text-align: right; }
+.ts-viz-note { margin: 0; color: var(--foreground-muted); font: var(--type-body-sm); }
+
+.pto-ide-frame__terminal-body { white-space: pre; }
+.ts-term-line { margin: 0; color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 12px; line-height: 1.55; }
+.ts-term-line.cmd { color: var(--foreground); }
+
+/* ----------------------------------------------------------- status */
+.ts-status { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; width: 100%; min-width: 0; }
+.ts-status span { color: var(--foreground-muted); font: var(--type-micro); white-space: nowrap; }
+.ts-status b { color: var(--foreground-secondary); font-weight: 500; }
+.ts-status .sep { color: var(--foreground-disabled); }
+
+/* 播放条是浮层，会盖住 dock 底部；给泳道区留出它的高度，避免永久遮挡 */
+.ts-viz { padding-bottom: 58px; }
