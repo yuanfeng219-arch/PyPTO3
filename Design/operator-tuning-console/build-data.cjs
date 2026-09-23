@@ -498,14 +498,199 @@ const critical = {
   spanSum: r2(sum(critTags.map((tg) => byTag[tg].span))),
 };
 
+/* -------------------------------------------------------------- slack
+ * Standard forward/backward pass over the fanin/fanout DAG using the
+ * MEASURED span of each task. ES/EF from predecessors, LF/LS from
+ * successors, slack = LS - ES. This is structural slack: it says how much
+ * the dependency graph would tolerate, and deliberately ignores resource
+ * contention — two zero-slack tasks may still be fighting for the same core.
+ * Tasks on the measured critical path have slack 0 by construction. */
+const topo = tasks.slice().sort((a, b) => a.start - b.start);
+const ES = {}, EF = {}, LS = {}, LF = {};
+topo.forEach((t) => {
+  let es = 0;
+  t.pred.forEach((ptag) => { if (EF[ptag] != null && EF[ptag] > es) es = EF[ptag]; });
+  ES[t.tag] = es;
+  EF[t.tag] = es + t.span;
+});
+const makespan = Math.max.apply(null, topo.map((t) => EF[t.tag]));
+topo.slice().reverse().forEach((t) => {
+  let lf = null;
+  t.succ.forEach((stag) => { if (LS[stag] != null && (lf === null || LS[stag] < lf)) lf = LS[stag]; });
+  LF[t.tag] = lf === null ? makespan : lf;
+  LS[t.tag] = LF[t.tag] - t.span;
+});
+tasks.forEach((t) => {
+  t.es = r2(ES[t.tag]);
+  t.ef = r2(EF[t.tag]);
+  t.ls = r2(LS[t.tag]);
+  t.slack = r2(Math.max(0, LS[t.tag] - ES[t.tag]));
+  t.onCrit = critTags.indexOf(t.tag) >= 0;
+});
+
+/* ------------------------------------------------------------- scopes
+ * "Where did the time go" is asked per scope, not per block: every task
+ * carrying the same callable is one outlined scope. Σ core-time alone
+ * ranks the fat ones; pairing it with the scope's minimum slack separates
+ * "fat" from "fat AND on the critical path". */
+const scopeMap = {};
+tasks.forEach((t) => {
+  const k = t.callable;
+  const sc = (scopeMap[k] = scopeMap[k] || {
+    name: k, tasks: [], tags: [], kinds: {},
+    coreTime: 0, kernelTime: 0, setupTime: 0, aicpuTime: 0,
+    blocks: 0, cores: new Set(), critNodes: 0,
+    first: Infinity, last: -Infinity,
+  });
+  sc.tasks.push(t.tag);
+  sc.tags.push(t.tag);
+  sc.kinds[t.kind] = (sc.kinds[t.kind] || 0) + 1;
+  sc.coreTime += t.busySum;
+  sc.kernelTime += t.kdurSum || (t.busySum - t.setupSum);
+  sc.setupTime += t.setupSum;
+  if (t.svAicpuMean != null) sc.aicpuTime += t.svAicpuMean * t.svBlocks;
+  sc.blocks += t.blockCount;
+  sc.cores.add(t.coreCount);
+  if (t.onCrit) sc.critNodes++;
+  sc.first = Math.min(sc.first, t.start);
+  sc.last = Math.max(sc.last, t.end);
+});
+const totalCoreTime = sum(tasks.map((t) => t.busySum));
+const scopes = Object.keys(scopeMap).map((k) => {
+  const sc = scopeMap[k];
+  const ts = sc.tasks.map((tg) => byTag[tg]);
+  const slacks = ts.map((t) => t.slack);
+  const kind = Object.keys(sc.kinds).sort((a, b) => sc.kinds[b] - sc.kinds[a])[0];
+  /* wall time this scope actually occupies, merging overlapping tasks */
+  const iv = ts.map((t) => [t.start, t.end]).sort((a, b) => a[0] - b[0]);
+  let wall = 0, cur = null;
+  iv.forEach((r) => {
+    if (!cur) { cur = r.slice(); return; }
+    if (r[0] <= cur[1]) { cur[1] = Math.max(cur[1], r[1]); return; }
+    wall += cur[1] - cur[0]; cur = r.slice();
+  });
+  if (cur) wall += cur[1] - cur[0];
+  return {
+    name: k,
+    kind: kind,
+    taskCount: ts.length,
+    tags: sc.tags,
+    blocks: sc.blocks,
+    coreTime: r2(sc.coreTime),
+    coreShare: r2((sc.coreTime / totalCoreTime) * 100),
+    kernelTime: r2(sc.kernelTime),
+    setupTime: r2(sc.setupTime),
+    setupShare: r3(sc.setupTime / Math.max(sc.coreTime, 1e-9)),
+    aicpuTime: sc.aicpuTime ? r2(sc.aicpuTime) : null,
+    wall: r2(wall),
+    first: r2(sc.first), last: r2(sc.last),
+    minSlack: r2(Math.min.apply(null, slacks)),
+    medSlack: r2(slacks.slice().sort((a, b) => a - b)[Math.floor(slacks.length / 2)]),
+    critNodes: sc.critNodes,
+    onCrit: sc.critNodes > 0,
+    /* the fat scope that is also pinned to the critical path is the one worth
+     * touching first; a fat scope with slack is a parallelism question. */
+    critCoreTime: r2(sum(ts.filter((t) => t.onCrit).map((t) => t.busySum))),
+  };
+}).sort((a, b) => b.coreTime - a.coreTime);
+
+/* -------------------------------------------------- occupancy windows
+ * Bucket the run into fixed windows and measure how many cores were busy
+ * in each. This is what "which stretch was the machine idle" needs and it
+ * cannot be read off a per-task list. */
+const WIN_N = 240;
+const winW = SPAN / WIN_N;
+const occWindows = (function () {
+  const aicN = lanes.filter((l) => l.kind === 'aic').length || 1;
+  const aivN = lanes.filter((l) => l.kind === 'aiv').length || 1;
+  const aic = new Float64Array(WIN_N);
+  const aiv = new Float64Array(WIN_N);
+  lanes.forEach((l, li) => {
+    const acc = l.kind === 'aic' ? aic : aiv;
+    (laneBlocks[li] || []).forEach((b) => {
+      /* clamp: SPAN is rounded, so a block can end a hair past it */
+      let t = Math.max(0, b[0]);
+      const end = Math.min(SPAN, b[0] + b[1]);
+      while (t < end) {
+        const w = Math.min(WIN_N - 1, Math.floor(t / winW));
+        const wEnd = Math.min(end, (w + 1) * winW);
+        acc[w] += wEnd - t;
+        if (wEnd <= t) break;   /* never stall */
+        t = wEnd;
+      }
+    });
+  });
+  const out = [];
+  for (let i = 0; i < WIN_N; i++) {
+    out.push([
+      r2(i * winW),
+      r2((aic[i] / (winW * aicN)) * 100),
+      r2((aiv[i] / (winW * aivN)) * 100),
+    ]);
+  }
+  return out;
+})();
+
+/* contiguous stretches where both engines sat below the threshold */
+const IDLE_PCT = 15;
+const idleRuns = (function () {
+  const runs = [];
+  let start = null;
+  for (let i = 0; i < occWindows.length; i++) {
+    const low = occWindows[i][1] < IDLE_PCT && occWindows[i][2] < IDLE_PCT;
+    if (low && start === null) start = i;
+    if ((!low || i === occWindows.length - 1) && start !== null) {
+      const endI = low ? i : i - 1;
+      const t0 = start * winW;
+      const t1 = (endI + 1) * winW;
+      const slice = occWindows.slice(start, endI + 1);
+      runs.push({
+        t0: r2(t0), t1: r2(t1), us: r2(t1 - t0),
+        share: r2(((t1 - t0) / SPAN) * 100),
+        aic: r2(sum(slice.map((w) => w[1])) / slice.length),
+        aiv: r2(sum(slice.map((w) => w[2])) / slice.length),
+        /* what was running in that window, if anything */
+        tasks: tasks.filter((t) => t.start < t1 && t.end > t0)
+          .sort((a, b) => b.span - a.span).slice(0, 3)
+          .map((t) => ({ tag: t.tag, callable: t.callable, span: t.span, onCrit: t.onCrit })),
+      });
+      start = null;
+    }
+  }
+  return runs.sort((a, b) => b.us - a.us);
+})();
+
 const aicLanes = lanes.filter((l) => l.kind === 'aic');
 const aivLanes = lanes.filter((l) => l.kind === 'aiv');
+
+/* ------------------------------------------------ Worker / Scheduler 口径
+ * The same block appears twice in this trace. Stating both totals next to
+ * each other is the only way to stop them being silently added together. */
+const workerTotal = r2(sum(tasks.map((t) => t.busySum)));
+const schedTotal = r2(sum(tasks.filter((t) => t.svAicpuMean != null)
+  .map((t) => t.svAicpuMean * t.svBlocks)));
+const accounting = {
+  workerBlocks: sum(tasks.map((t) => t.blockCount)),
+  schedBlocks: sum(tasks.map((t) => t.svBlocks)),
+  workerCoreTime: workerTotal,
+  workerKernelTime: r2(sum(tasks.map((t) => t.kdurSum || (t.busySum - t.setupSum)))),
+  workerSetupTime: r2(sum(tasks.map((t) => t.setupSum))),
+  schedCoreTime: schedTotal || null,
+  handoff: schedTotal ? r2(schedTotal - workerTotal) : null,
+  naiveSum: schedTotal ? r2(schedTotal + workerTotal) : null,
+};
 
 return {
   rank: rank,
   traceFile: traceFile,
   swimlane: { spanUs: SPAN, laneNames: laneNames, lanes: lanes, blocks: laneBlocks },
   tasks: tasks,
+  scopes: scopes,
+  occWindows: occWindows,
+  occWindowUs: r2(winW),
+  idleRuns: idleRuns,
+  idlePct: IDLE_PCT,
+  accounting: accounting,
   taskIndex: taskIndex,
   critical: critical,
   scheduler: {

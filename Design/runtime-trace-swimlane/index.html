@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Runtime Trace Swimlane · PTO</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: var(--space-4);
+      background: var(--ide-frame-page-bg);
+      color: var(--foreground);
+      font: var(--type-body);
+    }
+
+    button, input { font: inherit; }
+
+    .trace-page {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+    }
+
+    .trace-frame {
+      min-height: 760px;
+    }
+
+    .trace-workspace-name {
+      overflow: hidden;
+      color: var(--foreground-secondary);
+      font: var(--type-label);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .trace-search {
+      width: min(100%, 340px);
+      min-height: 30px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--surface-1);
+      color: var(--foreground);
+      font: var(--type-body-sm);
+      padding: 0 var(--space-3);
+    }
+
+    .trace-search:focus { border-color: var(--primary); }
+
+    .trace-pane-body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      min-height: 0;
+      padding: var(--space-3);
+    }
+
+    .trace-explorer-summary,
+    .trace-inspector-empty {
+      color: var(--foreground-secondary);
+      font: var(--type-body);
+      line-height: 1.5;
+    }
+
+    .trace-source-path,
+    .trace-readout,
+    .trace-event-name,
+    .trace-event-value,
+    .trace-thread-count {
+      font: var(--type-mono);
+    }
+
+    .trace-source-path {
+      overflow-wrap: anywhere;
+      color: var(--foreground-muted);
+    }
+
+    .trace-section-label {
+      color: var(--foreground-muted);
+      font: var(--type-label);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .trace-thread-list {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      gap: var(--space-1);
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .trace-thread-toggle {
+      display: grid;
+      grid-template-columns: 16px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--space-2);
+      width: 100%;
+      min-height: 32px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--foreground-secondary);
+      cursor: pointer;
+      padding: 0 var(--space-2);
+      text-align: left;
+    }
+
+    .trace-thread-toggle:hover,
+    .trace-thread-toggle.is-selected { background: var(--state-hover); color: var(--foreground); }
+
+    .trace-thread-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); }
+    .trace-thread-name { overflow: hidden; font: var(--type-body-sm); text-overflow: ellipsis; white-space: nowrap; }
+    .trace-thread-count { color: var(--foreground-muted); font-size: 11px; }
+
+    .trace-preview-pane { display: flex; flex-direction: column; min-height: 0; }
+
+    .trace-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      min-width: 0;
+    }
+
+    .trace-toolbar-title { min-width: 0; color: var(--foreground); font: var(--type-title-3); }
+    .trace-toolbar-meta { min-width: 0; color: var(--foreground-muted); font: var(--type-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .trace-canvas-pane {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      padding: 0;
+    }
+
+    .trace-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3);
+      min-height: 46px;
+      padding: 0 var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .trace-control-group { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
+    .trace-control-label { color: var(--foreground-muted); font: var(--type-label); }
+    .trace-control-range { accent-color: var(--primary); width: 110px; }
+    .trace-filter-input { width: min(240px, 100%); }
+    .trace-status { margin-left: auto; color: var(--foreground-muted); font: var(--type-mono); }
+
+    .trace-timeline-root {
+      position: relative;
+      display: flex;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .trace-timeline-scroll { flex: 1 1 auto; min-width: 0; overflow: auto; }
+
+    .trace-timeline-content {
+      display: flex;
+      min-width: 100%;
+      min-height: 100%;
+      width: max-content;
+    }
+
+    .trace-lane-labels {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      flex: 0 0 156px;
+      width: 156px;
+      background: var(--ide-frame-pane-fill);
+      border-right: 1px solid var(--border-subtle);
+      backdrop-filter: var(--ide-frame-pane-backdrop-filter);
+      -webkit-backdrop-filter: var(--ide-frame-pane-backdrop-filter);
+    }
+
+    .trace-lane-label-header,
+    .trace-lane-label {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      padding: 0 var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .trace-lane-label-header { height: 38px; color: var(--foreground-muted); font: var(--type-label); }
+    .trace-lane-label { height: 28px; gap: var(--space-2); color: var(--foreground-secondary); }
+    .trace-lane-label.is-selected { background: var(--state-selected); color: var(--foreground); }
+    .trace-lane-label-name { overflow: hidden; font: var(--type-body-sm); text-overflow: ellipsis; white-space: nowrap; }
+
+    .trace-chart-canvas { display: block; cursor: crosshair; }
+
+    .trace-inspector { display: flex; flex-direction: column; gap: var(--space-4); }
+    .trace-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+    .trace-stat-label { display: block; margin-bottom: var(--space-1); color: var(--foreground-muted); font: var(--type-label); }
+    .trace-stat-value { color: var(--foreground); font: var(--type-mono); }
+    .trace-inspector-section { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+    .trace-event-name { overflow-wrap: anywhere; color: var(--foreground); font-size: 12px; }
+    .trace-event-row { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--foreground-secondary); font: var(--type-body-sm); }
+    .trace-event-value { color: var(--foreground); text-align: right; }
+    .trace-args { margin: 0; max-height: 220px; overflow: auto; color: var(--foreground-secondary); font: var(--type-mono); white-space: pre-wrap; }
+
+    .trace-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+    .trace-legend-item { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--foreground-secondary); font: var(--type-body-sm); }
+    .trace-legend-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); }
+
+    .trace-loading {
+      display: grid;
+      flex: 1 1 auto;
+      min-height: 260px;
+      place-items: center;
+      color: var(--foreground-secondary);
+      font: var(--type-body);
+    }
+
+    .trace-error { color: var(--danger); }
+
+    .pto-ide-frame__status-strip { padding: 0 var(--space-3); }
+
+    @media (max-width: 900px) {
+      body { padding: 0; }
+      .trace-frame { min-height: 100vh; border-radius: 0; }
+      .trace-toolbar-meta { display: none; }
+      .trace-controls { align-content: center; padding-block: var(--space-2); }
+      .trace-status { width: 100%; margin-left: 0; }
+      .trace-lane-labels { flex-basis: 132px; width: 132px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="trace-page">
+    <section class="pto-ide-frame trace-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="Runtime Trace Swimlane">
+      <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+        <div class="pto-ide-frame__topbar-left">
+          <div class="pto-ide-frame__host-chip" aria-hidden="true">
+            <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+          </div>
+          <div class="trace-workspace-name">Runtime Trace / trace_view_pypto_1.json</div>
+        </div>
+        <div class="pto-ide-frame__topbar-center">
+          <input id="globalSearch" class="trace-search" type="search" aria-label="Search event names" placeholder="搜索事件名称">
+        </div>
+        <div class="pto-ide-frame__topbar-right">
+          <div class="pto-ide-frame__window-actions">
+            <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="inspector" data-expanded-label="Collapse inspector" data-collapsed-label="Expand inspector" aria-label="Collapse inspector" aria-controls="trace-inspector" aria-expanded="true" aria-pressed="true" title="Inspector">
+              <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M15 3v18"></path></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="pto-ide-frame__body">
+        <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" aria-label="Activity rail">
+          <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="Toggle file explorer" aria-controls="trace-explorer" aria-expanded="true" aria-pressed="true" title="Explorer">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+          </button>
+          <button id="searchRail" class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Search" title="Search">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          </button>
+          <button id="resetRail" class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Reset filters" title="Reset filters">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M6 9v12"></path></svg>
+          </button>
+          <button id="fitRail" class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Fit trace" title="Fit trace">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+          </button>
+        </nav>
+
+        <div class="pto-ide-frame__workarea">
+          <div class="pto-ide-frame__split" data-ide-split="trace-main" data-split-direction="horizontal" data-sizes="22,56,22" data-pixel-sizes="292" data-min-size="220,450,230" data-storage-key="runtime-trace-swimlane-main-v1">
+            <aside class="pto-ide-frame__pane" data-ide-pane="explorer" id="trace-explorer">
+              <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Trace source</span><span class="pto-ide-frame__pane-meta" id="laneCount">Loading</span></header>
+              <div class="pto-ide-frame__pane-body trace-pane-body">
+                <div class="trace-explorer-summary" id="traceSummary">正在解析 Chrome Trace…</div>
+                <div class="trace-source-path">'Data/vllm_pypto_inference_data/trace_view_pypto_1.json</div>
+                <div class="trace-section-label">Threads</div>
+                <div id="threadList" class="trace-thread-list" aria-label="Trace threads"></div>
+              </div>
+            </aside>
+
+            <section class="pto-ide-frame__pane trace-preview-pane" data-ide-pane="editor-preview">
+              <header class="pto-ide-frame__pane-header">
+                <div class="trace-toolbar"><span class="trace-toolbar-title">Execution swimlane</span><span id="traceRange" class="trace-toolbar-meta">Loading trace data</span></div>
+              </header>
+              <div class="pto-ide-frame__pane-body trace-canvas-pane">
+                <div class="trace-controls">
+                  <div class="trace-control-group"><span class="trace-control-label">Scale</span><input id="zoomRange" class="trace-control-range" type="range" min="1" max="12" step="1" value="1" aria-label="Timeline zoom"><span id="zoomReadout" class="trace-readout">1×</span></div>
+                  <div class="trace-control-group"><input id="eventFilter" class="trace-search trace-filter-input" type="search" aria-label="Filter events" placeholder="筛选事件"></div>
+                  <span id="traceStatus" class="trace-status">Loading…</span>
+                </div>
+                <div id="timelineRoot" class="trace-timeline-root">
+                  <div id="loadingState" class="trace-loading">正在读取并布局 25.7 MB Trace 数据…</div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="trace-inspector">
+              <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Event inspector</span><span class="pto-ide-frame__pane-meta">click task bar</span></header>
+              <div class="pto-ide-frame__pane-body trace-pane-body">
+                <div id="inspectorContent" class="trace-inspector-empty">选择一条任务条以查看线程、开始时间、持续时间与原始参数。</div>
+              </div>
+            </aside>
+          </div>
+
+          <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome"><span id="footerStatus">Trace source: local JSON · Chrome Trace format</span></footer>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const TRACE_URL = "../../'Data/vllm_pypto_inference_data/trace_view_pypto_1.json";
+      const ROW_HEIGHT = 28;
+      const HEADER_HEIGHT = 38;
+      const chart = window.PtoSwimlaneTaskPattern;
+      const colorMap = chart.createTaskColormap();
+      const state = { allLanes: [], visibleLanes: [], selectedLaneIds: new Set(), search: '', zoom: 1, selected: null, hovered: null, minTs: 0, maxTs: 0, tooltip: null };
+
+      const dom = {
+        frame: document.querySelector('[data-ide-frame]'),
+        globalSearch: document.querySelector('#globalSearch'),
+        eventFilter: document.querySelector('#eventFilter'),
+        zoomRange: document.querySelector('#zoomRange'),
+        zoomReadout: document.querySelector('#zoomReadout'),
+        traceSummary: document.querySelector('#traceSummary'),
+        laneCount: document.querySelector('#laneCount'),
+        threadList: document.querySelector('#threadList'),
+        traceRange: document.querySelector('#traceRange'),
+        traceStatus: document.querySelector('#traceStatus'),
+        footerStatus: document.querySelector('#footerStatus'),
+        timelineRoot: document.querySelector('#timelineRoot'),
+        inspector: document.querySelector('#inspectorContent'),
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+      }
+
+      function formatDuration(us) {
+        if (us >= 1000000) return `${(us / 1000000).toFixed(2)} s`;
+        if (us >= 1000) return `${(us / 1000).toFixed(2)} ms`;
+        return `${Math.round(us)} µs`;
+      }
+
+      function formatTime(us) { return `${(us / 1000000).toFixed(3)} s`; }
+
+      function eventKind(name, category) {
+        const value = `${name} ${category || ''}`.toLowerCase();
+        if (value.includes('scheduler') || value.includes('schedule')) return 'cpu_sched';
+        if (value.includes('chip') || value.includes('kernel')) return 'matmul';
+        if (value.includes('dispatch') || value.includes('submit')) return 'mte_load';
+        if (value.includes('node')) return 'vec_elementwise';
+        if (value.includes('prefill') || value.includes('runner')) return 'vec_layernorm';
+        return 'vec_reduce';
+      }
+
+      function lanePriority(lane) {
+        const name = lane.name.toLowerCase();
+        if (name.includes('main')) return 0;
+        if (name.includes('task')) return 1;
+        if (name.includes('orchestrator')) return 2;
+        if (name.includes('scheduler')) return 3;
+        if (name.includes('chip')) return 4;
+        return 5;
+      }
+
+      function normalizeTrace(trace) {
+        const events = Array.isArray(trace.traceEvents) ? trace.traceEvents : [];
+        const threadNames = new Map();
+        const processNames = new Map();
+        events.forEach((event) => {
+          if (event.ph !== 'M') return;
+          if (event.name === 'thread_name') threadNames.set(`${event.pid}:${event.tid}`, event.args?.name || `Thread ${event.tid}`);
+          if (event.name === 'process_name') processNames.set(String(event.pid), event.args?.name || `Process ${event.pid}`);
+        });
+
+        const byLane = new Map();
+        events.forEach((event, index) => {
+          if (event.ph !== 'X' || !Number.isFinite(event.ts) || !Number.isFinite(event.dur)) return;
+          const id = `${event.pid}:${event.tid}`;
+          if (!byLane.has(id)) {
+            byLane.set(id, { id, pid: event.pid, tid: event.tid, name: threadNames.get(id) || `Thread ${event.tid}`, process: processNames.get(String(event.pid)) || `Process ${event.pid}`, events: [] });
+          }
+          byLane.get(id).events.push({ ...event, id: `${id}:${index}`, end: event.ts + event.dur, kind: eventKind(event.name, event.cat) });
+        });
+
+        const lanes = [...byLane.values()].filter((lane) => lane.events.length).map((lane) => ({
+          ...lane,
+          events: lane.events.sort((a, b) => a.ts - b.ts || b.dur - a.dur),
+        })).sort((a, b) => lanePriority(a) - lanePriority(b) || b.events.length - a.events.length || a.name.localeCompare(b.name));
+
+        const timelineEvents = lanes.flatMap((lane) => lane.events);
+        state.minTs = Math.min(...timelineEvents.map((event) => event.ts));
+        state.maxTs = Math.max(...timelineEvents.map((event) => event.end));
+        return { lanes, timedEvents: timelineEvents.length, processes: processNames.size };
+      }
+
+      function laneColor(lane) {
+        return colorMap.colorForTask({ colorKey: lanePriority(lane) === 4 ? 'matmul' : eventKind(lane.name, lane.process), laneKind: 'other' }, 'semantic');
+      }
+
+      function renderThreadList() {
+        dom.threadList.innerHTML = state.allLanes.map((lane) => {
+          const selected = state.selectedLaneIds.has(lane.id);
+          return `<button class="trace-thread-toggle${selected ? ' is-selected' : ''}" type="button" data-lane-id="${escapeHtml(lane.id)}" aria-pressed="${selected}">
+            <span class="trace-thread-dot" style="background:${laneColor(lane)}"></span>
+            <span class="trace-thread-name" title="${escapeHtml(`${lane.process} / ${lane.name}`)}">${escapeHtml(lane.name)}</span>
+            <span class="trace-thread-count">${lane.events.length.toLocaleString()}</span>
+          </button>`;
+        }).join('');
+      }
+
+      function visibleEvents(lane) {
+        if (!state.search) return lane.events;
+        const needle = state.search.toLowerCase();
+        return lane.events.filter((event) => `${event.name} ${event.cat || ''}`.toLowerCase().includes(needle));
+      }
+
+      function refreshVisibleLanes() {
+        state.visibleLanes = state.allLanes.filter((lane) => state.selectedLaneIds.has(lane.id) && visibleEvents(lane).length);
+        renderThreadList();
+        renderTimeline();
+      }
+
+      function tickStep(spanUs, targetCount) {
+        const rough = spanUs / targetCount;
+        const basis = [1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000, 20000000];
+        return basis.find((step) => step >= rough) || basis.at(-1);
+      }
+
+      function renderLaneLabels(lanes) {
+        const labels = document.querySelector('#laneLabels');
+        if (!labels) return;
+        labels.innerHTML = `<div class="trace-lane-label-header">Thread / lane</div>${lanes.map((lane) => `<div class="trace-lane-label${state.selected?.laneId === lane.id ? ' is-selected' : ''}"><span class="trace-thread-dot" style="background:${laneColor(lane)}"></span><span class="trace-lane-label-name" title="${escapeHtml(`${lane.process} / ${lane.name}`)}">${escapeHtml(lane.name)}</span></div>`).join('')}`;
+      }
+
+      function findEventAt(lane, ts) {
+        let result = null;
+        for (const event of visibleEvents(lane)) {
+          if (event.ts <= ts && event.end >= ts && (!result || event.dur <= result.dur)) result = event;
+          if (event.ts > ts) break;
+        }
+        return result;
+      }
+
+      function drawChart(canvas, lanes) {
+        const scroll = document.querySelector('#timelineScroll');
+        const viewportWidth = Math.max(640, scroll?.clientWidth || 640);
+        const chartWidth = Math.round(Math.max(viewportWidth - 156, viewportWidth * state.zoom));
+        const chartHeight = HEADER_HEIGHT + lanes.length * ROW_HEIGHT;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.style.width = `${chartWidth}px`;
+        canvas.style.height = `${chartHeight}px`;
+        canvas.width = chartWidth * dpr;
+        canvas.height = chartHeight * dpr;
+        const ctx = canvas.getContext('2d');
+        const styles = getComputedStyle(document.documentElement);
+        const canvasColors = {
+          border: styles.getPropertyValue('--border-subtle').trim(),
+          muted: styles.getPropertyValue('--foreground-muted').trim(),
+          stripe: styles.getPropertyValue('--surface-1').trim(),
+        };
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, chartWidth, chartHeight);
+
+        const span = Math.max(1, state.maxTs - state.minTs);
+        const px = (time) => ((time - state.minTs) / span) * chartWidth;
+        const step = tickStep(span, Math.max(4, Math.floor(chartWidth / 130)));
+        ctx.font = '500 10px var(--font-mono)';
+        ctx.textBaseline = 'middle';
+
+        for (let time = Math.ceil(state.minTs / step) * step; time <= state.maxTs; time += step) {
+          const x = Math.round(px(time)) + .5;
+          ctx.strokeStyle = canvasColors.border;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, chartHeight); ctx.stroke();
+          ctx.fillStyle = canvasColors.muted;
+          ctx.fillText(formatTime(time - state.minTs), Math.min(x + 5, chartWidth - 48), 18);
+        }
+
+        lanes.forEach((lane, index) => {
+          const y = HEADER_HEIGHT + index * ROW_HEIGHT;
+          ctx.fillStyle = index % 2 ? canvasColors.stripe : 'transparent';
+          ctx.fillRect(0, y, chartWidth, ROW_HEIGHT);
+          ctx.strokeStyle = canvasColors.border;
+          ctx.beginPath(); ctx.moveTo(0, y + ROW_HEIGHT + .5); ctx.lineTo(chartWidth, y + ROW_HEIGHT + .5); ctx.stroke();
+          const eventList = visibleEvents(lane).slice().sort((a, b) => b.dur - a.dur || a.ts - b.ts);
+          eventList.forEach((event) => {
+            const x = px(event.ts);
+            const width = Math.max(1, px(event.end) - x);
+            chart.drawTaskBar(ctx, {
+              task: { opName: event.name, label: event.name, laneKind: lane.name, laneId: lane.tid, totalCycle: event.dur, duration: event.dur, status: event.cat || '', dominantCounter: event.kind },
+              x, y: y + 5, width, height: 18,
+              baseColor: colorMap.colorForTask({ colorKey: event.kind, laneKind: 'other' }, 'semantic'),
+              isSelected: state.selected?.id === event.id,
+              isEmphasized: state.hovered?.event?.id === event.id,
+              radius: 3,
+              fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'sans-serif',
+            });
+          });
+        });
+        canvas.__traceGeometry = { chartWidth, lanes, px, span };
+      }
+
+      function renderTimeline() {
+        const lanes = state.visibleLanes;
+        const total = lanes.reduce((count, lane) => count + visibleEvents(lane).length, 0);
+        dom.traceStatus.textContent = `${lanes.length} lanes · ${total.toLocaleString()} tasks`;
+        dom.laneCount.textContent = `${lanes.length} / ${state.allLanes.length}`;
+        if (!lanes.length) {
+          dom.timelineRoot.innerHTML = '<div class="trace-loading">当前筛选没有匹配的任务。</div>';
+          return;
+        }
+        dom.timelineRoot.innerHTML = '<div id="timelineScroll" class="trace-timeline-scroll"><div class="trace-timeline-content"><div id="laneLabels" class="trace-lane-labels"></div><canvas id="traceCanvas" class="trace-chart-canvas" aria-label="Execution timeline"></canvas></div></div>';
+        renderLaneLabels(lanes);
+        const canvas = document.querySelector('#traceCanvas');
+        const timelineScroll = document.querySelector('#timelineScroll');
+        drawChart(canvas, lanes);
+        bindCanvasInteractions(canvas, timelineScroll);
+      }
+
+      function renderInspector(event, lane) {
+        if (!event || !lane) {
+          dom.inspector.className = 'trace-inspector-empty';
+          dom.inspector.textContent = '选择一条任务条以查看线程、开始时间、持续时间与原始参数。';
+          return;
+        }
+        const start = event.ts - state.minTs;
+        dom.inspector.className = 'trace-inspector';
+        dom.inspector.innerHTML = `
+          <div><span class="trace-section-label">${escapeHtml(lane.process)}</span><div class="trace-event-name">${escapeHtml(event.name)}</div></div>
+          <div class="trace-stat-grid">
+            <div><span class="trace-stat-label">Start</span><span class="trace-stat-value">${formatTime(start)}</span></div>
+            <div><span class="trace-stat-label">Duration</span><span class="trace-stat-value">${formatDuration(event.dur)}</span></div>
+            <div><span class="trace-stat-label">Thread</span><span class="trace-stat-value">${escapeHtml(lane.name)}</span></div>
+            <div><span class="trace-stat-label">Category</span><span class="trace-stat-value">${escapeHtml(event.cat || 'uncategorized')}</span></div>
+          </div>
+          <div class="trace-inspector-section"><span class="trace-section-label">Trace arguments</span><pre class="trace-args">${escapeHtml(JSON.stringify(event.args || {}, null, 2))}</pre></div>`;
+      }
+
+      function bindCanvasInteractions(canvas, scroll) {
+        const tooltipRoot = dom.timelineRoot;
+        state.tooltip?.destroy?.();
+        state.tooltip = chart.initHoverTooltip({ root: tooltipRoot, targets: [canvas], getTask: () => state.hovered ? { opName: state.hovered.event.name, lane: state.hovered.lane.name, duration: state.hovered.event.dur, totalCycle: state.hovered.event.dur, status: state.hovered.event.cat || '', dominantCounter: state.hovered.event.kind } : null, durationUnit: 'µs', bounds: tooltipRoot });
+
+        const locate = (pointer) => {
+          const geometry = canvas.__traceGeometry;
+          if (!geometry) return null;
+          const rect = canvas.getBoundingClientRect();
+          const x = pointer.clientX - rect.left;
+          const y = pointer.clientY - rect.top;
+          const row = Math.floor((y - HEADER_HEIGHT) / ROW_HEIGHT);
+          if (row < 0 || row >= geometry.lanes.length) return null;
+          const lane = geometry.lanes[row];
+          const time = state.minTs + Math.max(0, Math.min(geometry.chartWidth, x)) / geometry.chartWidth * geometry.span;
+          const event = findEventAt(lane, time);
+          return event ? { event, lane } : null;
+        };
+
+        canvas.addEventListener('pointermove', (pointer) => {
+          const next = locate(pointer);
+          if (next?.event?.id === state.hovered?.event?.id) return;
+          state.hovered = next;
+          if (next) chart.showTooltip(state.tooltip.tooltip, { opName: next.event.name, lane: next.lane.name, duration: next.event.dur, totalCycle: next.event.dur, status: next.event.cat || '', dominantCounter: next.event.kind }, pointer, { bounds: tooltipRoot, durationUnit: 'µs' });
+          else chart.hideTooltip(state.tooltip.tooltip);
+          drawChart(canvas, state.visibleLanes);
+        });
+        canvas.addEventListener('pointerleave', () => { state.hovered = null; chart.hideTooltip(state.tooltip.tooltip); drawChart(canvas, state.visibleLanes); });
+        canvas.addEventListener('click', (pointer) => {
+          const hit = locate(pointer);
+          state.selected = hit ? { ...hit.event, laneId: hit.lane.id } : null;
+          renderInspector(hit?.event, hit?.lane);
+          renderLaneLabels(state.visibleLanes);
+          drawChart(canvas, state.visibleLanes);
+        });
+        new ResizeObserver(() => drawChart(canvas, state.visibleLanes)).observe(scroll);
+      }
+
+      function resetFilters() {
+        state.search = '';
+        state.zoom = 1;
+        state.selected = null;
+        state.hovered = null;
+        state.selectedLaneIds = new Set(state.allLanes.map((lane) => lane.id));
+        dom.globalSearch.value = '';
+        dom.eventFilter.value = '';
+        dom.zoomRange.value = '1';
+        dom.zoomReadout.textContent = '1×';
+        renderInspector();
+        refreshVisibleLanes();
+      }
+
+      function bindControls() {
+        const syncSearch = (value) => { state.search = value.trim(); dom.globalSearch.value = value; dom.eventFilter.value = value; refreshVisibleLanes(); };
+        dom.globalSearch.addEventListener('input', () => syncSearch(dom.globalSearch.value));
+        dom.eventFilter.addEventListener('input', () => syncSearch(dom.eventFilter.value));
+        dom.zoomRange.addEventListener('input', () => { state.zoom = Number(dom.zoomRange.value); dom.zoomReadout.textContent = `${state.zoom}×`; renderTimeline(); });
+        dom.threadList.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-lane-id]');
+          if (!button) return;
+          const id = button.dataset.laneId;
+          if (state.selectedLaneIds.has(id)) state.selectedLaneIds.delete(id); else state.selectedLaneIds.add(id);
+          refreshVisibleLanes();
+        });
+        document.querySelector('#searchRail').addEventListener('click', () => dom.globalSearch.focus());
+        document.querySelector('#resetRail').addEventListener('click', resetFilters);
+        document.querySelector('#fitRail').addEventListener('click', () => { state.zoom = 1; dom.zoomRange.value = '1'; dom.zoomReadout.textContent = '1×'; renderTimeline(); });
+        dom.frame.addEventListener('pointermove', (event) => {
+          const rect = dom.frame.getBoundingClientRect();
+          dom.frame.style.setProperty('--ide-cursor-x', `${event.clientX - rect.left}px`);
+          dom.frame.style.setProperty('--ide-cursor-y', `${event.clientY - rect.top}px`);
+          dom.frame.style.setProperty('--ide-cursor-alpha', '.16');
+          dom.frame.style.setProperty('--ide-dot-opacity', '.22');
+        });
+        dom.frame.addEventListener('pointerleave', () => { dom.frame.style.setProperty('--ide-cursor-alpha', '0'); dom.frame.style.setProperty('--ide-dot-opacity', '0'); });
+      }
+
+      async function initialize() {
+        bindControls();
+        try {
+          const response = await fetch(TRACE_URL);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const trace = await response.json();
+          const normalized = normalizeTrace(trace);
+          state.allLanes = normalized.lanes;
+          state.selectedLaneIds = new Set(normalized.lanes.map((lane) => lane.id));
+          const span = state.maxTs - state.minTs;
+          dom.traceSummary.textContent = `${normalized.timedEvents.toLocaleString()} timed events across ${normalized.lanes.length} thread lanes.`;
+          dom.traceRange.textContent = `${formatDuration(span)} capture · ${normalized.processes} processes`;
+          dom.footerStatus.textContent = `Chrome Trace · ${normalized.timedEvents.toLocaleString()} task bars · ${formatDuration(span)} capture`;
+          refreshVisibleLanes();
+        } catch (error) {
+          dom.timelineRoot.innerHTML = `<div class="trace-loading trace-error">无法读取 Trace 数据：${escapeHtml(error.message)}。请通过本仓库的本地 Web server 打开此页面。</div>`;
+          dom.traceSummary.textContent = 'Trace load failed';
+          dom.traceStatus.textContent = 'Load failed';
+        }
+      }
+
+      initialize();
+    })();
+  </script>
+</body>
+</html>
