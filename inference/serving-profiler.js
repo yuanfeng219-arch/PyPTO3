@@ -50,6 +50,7 @@
   function profileForRun(runId) {
     var base = profile();
     if (!base) return null;
+    if (runId === 'RUN-047') return null; // PyPTO Serving Trace：单请求 Trace，无 profiling 数据
     var v = RUN_VARIANTS[runId] || RUN_VARIANTS['RUN-045'];
     var p = JSON.parse(JSON.stringify(base));
     var latencyScale = v.tpot == null ? v.latency : v.tpot / base.summary.tpot.p50;
@@ -209,6 +210,11 @@
   }
 
   function render(tab, comparison) {
+    var currentRun = comparison && comparison.current && comparison.current.run;
+    if (currentRun && currentRun.kind === 'serving') {
+      var labels = { ops: '算子', memory: '内存 / PMU', serving: '调度' };
+      return '<div class="so-profile-pane"><div class="so-empty">未采集' + (labels[tab] || tab) + '数据。<br>当前 Run 是 Serving 单请求 Trace，不含 profiling / memory / PMU 证据。</div></div>';
+    }
     var p = comparison && comparison.current && comparison.current.profile || profile();
     var b = comparison && comparison.baseline && comparison.baseline.profile || null;
     var baselineId = comparison && comparison.baseline && comparison.baseline.run.id || '';

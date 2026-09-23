@@ -474,6 +474,18 @@
   }
 
   function renderCompilationTab(panel, r) {
+    if (r.id === 'run_106' && st.compilationEntry?.from === 'investigation') {
+      const compiler = window.PTO_CORRECTNESS_DIAGNOSTICS.profiles[r.id].compiler || {};
+      const nv = compiler.numericalValidation || {};
+      panel.innerHTML = '<section class="kf-rd-sec" aria-label="当前 Run 编译校验">' +
+        '<div class="kf-rd-h">编译校验证据<small>当前 Run · 已检查输出</small></div>' +
+        dl([['结构校验', compiler.structuralVerification?.status === 'pass' ? '通过' : '未确认'],
+          ['数值校验', nv.status === 'pass' ? '已检查输出匹配' : '未确认'],
+          ['通过 / 已检查 Pass', (nv.passed ?? '—') + ' / ' + (nv.total ?? '—')]]) +
+        '<p class="kf-rd-note">' + esc(nv.summary || '未采集数值校验摘要') + '</p>' +
+        '<p class="kf-rd-note">当前仅保留校验摘要，未关联逐 Pass 比对明细；不能据此排除所有输入与设备执行路径。</p></section>';
+      return;
+    }
     const view = window.PTO_COMPILATION;
     if (view && view.ready) {
       window.PTO_RUN_CONTEXT = {
@@ -1693,6 +1705,87 @@
     renderInspector();
   }
 
+  // Investigation is a view of the current Run, never a second diagnosis store.
+  const investigation = { runId: null, controller: null, savedState: null, entry: null };
+
+  function releaseInvestigation() {
+    if (investigation.controller) {
+      investigation.savedState = investigation.controller.getState();
+      investigation.controller.destroy();
+      investigation.controller = null;
+    }
+    if (investigation.runId !== st.run) {
+      investigation.runId = st.run;
+      investigation.savedState = null;
+      investigation.entry = null;
+      clearSelection();
+    }
+  }
+
+  function investigationPanel(data) {
+    return '<section class="kf-investigation" aria-label="算子调查地图">' +
+      '<header class="kf-investigation-head"><div class="kf-rd-h">调查地图<small>正确性 · 证据 → 定位 → 假设 → 诊断</small></div>' +
+      '<p class="kf-rd-note">' + esc(data.summary) + '</p></header>' +
+      '<div data-run-investigation></div>' +
+      '<footer class="kf-investigation-verdict"><div><span class="kf-rd-h">当前判断</span><p>' + esc(data.judgment) + '</p>' +
+      '<p class="kf-rd-note">' + esc(data.nextStep) + '</p></div>' +
+      (data.action ? '<button type="button" class="btn btn-solid" data-investigation-next>检查关键证据 →</button>' : '') +
+      '</footer></section>';
+  }
+
+  function mountInvestigation(run) {
+    const root = $('[data-run-investigation]', els.detail);
+    const data = window.PTO_RUN_INVESTIGATION?.build(run.id);
+    if (!root || !data || !window.DiagnosticGraphController) return;
+    investigation.controller = new window.DiagnosticGraphController(root, data, {
+      evidenceMode: 'note', savedState: investigation.savedState,
+      typeTitles: { finding: '现象', reasoning: '缩小范围', entity: '定位对象', cause: '分支排查', hypothesis: '待验证假设', diagnosis: '当前判断' },
+      openEvidence: openInvestigationEvidence
+    });
+  }
+
+  function investigationReturnBar() {
+    if (!investigation.entry || investigation.runId !== st.run || st.tab === 'overview') return '';
+    return '<div class="kf-investigation-return"><button type="button" class="btn btn-ghost" data-investigation-return>← 返回调查地图</button>' +
+      '<span>当前 Run 的调查证据 · ' + esc(investigation.entry.id || '编译校验') + '</span></div>';
+  }
+
+  function openInvestigationEvidence(input) {
+    const action = window.PTO_RUN_INVESTIGATION?.resolveAction(st.run, input);
+    if (!action) return;
+    investigation.entry = action;
+    dgReset(st.run);
+    if (action.id != null) {
+      selectObject({ kind: action.kind, id: action.id, sourceTab: 'overview' });
+      dg.sel = { kind: action.kind, id: String(action.id) };
+    }
+    const profile = window.PTO_CORRECTNESS_DIAGNOSTICS.profiles[st.run];
+    const options = action.tab === 'execution' ? { executionEntry: {
+      from: 'investigation', runId: st.run, finding: '正确性调查', suspectedCause: '运行时排序',
+      focusTask: action.taskIds?.[0] || action.id, taskIds: action.taskIds || [],
+      timeline: profile.runtime?.timeline, range: action.range
+    }} : action.tab === 'compilation' ? { compilationEntry: {
+      from: 'investigation', runId: st.run, finding: '正确性调查', intent: '检查编译校验证据',
+      numericalValidation: profile.compiler?.numericalValidation
+    }} : {};
+    toTab(action.tab, options);
+    requestAnimationFrame(() => {
+      if (st.run !== action.runId || st.tab !== action.tab) return;
+      if (action.tab === 'correctness') {
+        dgSelect(action.kind, action.id);
+        const target = $$('[data-dg-select-id]', els.detail).find(el => el.dataset.dgSelectId === String(action.id));
+        target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        if (target) showObjectTooltip(target, st.selection);
+      } else if (action.tab === 'execution') {
+        // This profile owns its own timeline; never focus similarly numbered
+        // tasks in PTO_RUN_TRACE, which belongs to a different measured Run.
+        $('[aria-label="排序证据"]', els.detail)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      } else if (action.tab === 'compilation' && action.id != null) {
+        window.PTO_COMPILATION?.selectPass?.(action.id);
+      }
+    });
+  }
+
   function overviewPanel(r, L) {
     const m = getRunModel(r);
     const states = DOMAIN_ORDER.map(key => {
@@ -1734,8 +1827,9 @@
     const baseline = m.baseline && m.baselineMeta
       ? '<p class="kf-rd-note">可信基线 · <code>' + esc(m.baselineMeta.id) + '</code></p>' +
         '<details class="kf-rw-evidence"><summary>可复现性元数据</summary><div class="kf-rw-evidence-body"><p class="kf-rd-note">source commit · ' + esc(m.baselineMeta.sourceCommit) + ' · backend · ' + esc(m.baselineMeta.backend) + ' · environment · ' + esc(m.baselineMeta.environmentFingerprint) + ' · input · ' + esc(m.baselineMeta.inputShape) + ' · compiler · ' + esc(m.baselineMeta.compilerVersion) + ' · Run ID · ' + esc(m.baselineMeta.runId) + '</p></div></details>' : '';
-    return '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>各 domain 的结论与支撑证据</small></div><div>' + states + '</div></section>' +
-      '<section class="kf-rd-sec"><div class="kf-rd-h">问题发现<small>用户需要处理的问题</small></div>' + findings + fixtureNote + lineage + baseline + optimizationActions + '</section>' +
+    const map = window.PTO_RUN_INVESTIGATION?.build(r.id);
+    return (map ? investigationPanel(map) : '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>各 domain 的结论与支撑证据</small></div><div>' + states + '</div></section>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">问题发现<small>用户需要处理的问题</small></div>' + findings + fixtureNote + lineage + baseline + optimizationActions + '</section>') +
       '<details class="kf-rw-evidence"><summary>诊断证据与产物</summary><div class="kf-rw-evidence-body kf-rw-coverage">' + evidence +
         '<p class="kf-rd-note">原始产物 · ' + raw + '</p></div></details>';
   }
@@ -1855,15 +1949,110 @@
     '</section>';
   }
 
-  function executionSummaryPanel(r) {
-    const d = getDomainVerdict(r, 'execution');
-    const fixedOrdering = isPerformanceWarningStory(r) || isValidatedOptimizationStory(r);
-    return '<section class="kf-rd-sec" aria-label="执行证据摘要">' +
-      '<div class="kf-rd-h">执行<small>' + esc(d.verdict.toUpperCase()) + ' · ' + esc(d.summary) + '</small></div>' +
-      '<div class="kf-oi-links"><span class="kf-oi-evidence">Dependency Graph · 完整</span>' +
-        '<span class="kf-oi-evidence">Runtime Timeline · 可用</span>' +
-        (fixedOrdering ? '<span class="kf-oi-evidence">Task #182 → #197 · 已建立排序</span>' : '') + '</div>' +
-    '</section>';
+  function domainHeadMetrics(key, r) {
+    if (key === 'compilation') {
+      if (isCompileFailureStory(r)) {
+        const failed = COMPILE_STORY_PASSES.find(p => p[1] === 'FAIL');
+        return [
+          ['首个失败 Pass', failed[0], 'bad'],
+          ['IR Validation', 'FAIL', 'bad'],
+          ['设备代码', '未生成', 'bad']
+        ];
+      }
+      if (getDomainVerdict(r, 'compilation').verdict !== 'pass') {
+        return [
+          ['IR Validation', evidenceState(r, 'ir_validation')],
+          ['Pass Dump', evidenceState(r, 'pass_dump')],
+          ['Source Location', evidenceState(r, 'source_location')]
+        ];
+      }
+      return [
+        stateMetric('IR Validation', r, 'ir_validation', 'PASS'),
+        ['阻塞错误', '0', 'ok'],
+        ['设备代码', '已生成', 'ok']
+      ];
+    }
+    if (key === 'correctness') {
+      if (isCorrectnessFailureStory(r)) {
+        const profile = diagnosisViewForRun(r.id) || {};
+        const first = profile.firstDivergence || {};
+        const cells = [
+          ['首个分歧', (first.kind === 'pass' ? 'Pass · ' : 'Tensor · ') + (first.id || '—'), 'bad'],
+          ['Golden Compare', 'FAIL', 'bad']
+        ];
+        if (profile.result && profile.result.maxAbs != null) {
+          cells.splice(1, 0, ['最大绝对误差', profile.result.maxAbs, 'bad']);
+        }
+        return cells;
+      }
+      if (getDomainVerdict(r, 'correctness').verdict === 'pass') {
+        return [
+          ['Golden Compare', 'PASS', 'ok'],
+          ['Oracle', '3 / 3', 'ok'],
+          ['Checkpoint', '12 / 12 匹配', 'ok']
+        ];
+      }
+      return [
+        ['Golden Compare', evidenceState(r, 'golden_compare')],
+        ['Tensor Checkpoints', evidenceState(r, 'tensor_dump')],
+        ['Args Dump', evidenceState(r, 'args_dump')]
+      ];
+    }
+    /* execution：Performance 的结论已经并进这个域，它在这里只是同一组运行时
+       证据上的一条支撑项，不再单独成域。 */
+    const metrics = [
+      stateMetric('Dependency Graph', r, 'dependency_graph', '完整'),
+      stateMetric('Runtime Timeline', r, 'runtime_timeline', '可用')
+    ];
+    if (isCorrectnessFailureStory(r)) metrics.push(['Task 排序', '#182 → #197 缺少依赖', 'warn']);
+    else if (isPerformanceWarningStory(r) || isValidatedOptimizationStory(r)) metrics.push(['Task 排序', '#182 → #197 已建立', 'warn']);
+    return metrics;
+  }
+
+  /* 正确性页签：诊断 profile 存在时，把原来的 Gate（参考基准 / 容差 / 语义
+     校验）和结果指标（输出 / 误差 / 重复运行）合成同一组列，与 Domain Header
+     融为顶部唯一的 summary strip —— 诊断解释交给下方工作区，不在这里展开。 */
+  function domainOverviewMetrics(key, r) {
+    if (key === 'correctness') {
+      /* 注册表对未知 run 会兜底返回失败样例，只有 profile 确实属于这个 run
+         时才用它的数据，否则维持各页签通用的指标行。 */
+      const profile = diagnosisViewForRun(r.id);
+      if (profile && profile.runId === String(r.id) && profile.result) {
+        const R = profile.result, cells = [];
+        if (R.output != null) cells.push(['输出', R.output]);
+        if (profile.reference) cells.push(['参考基准', profile.reference.source || '不可用']);
+        if (R.maxAbs != null) cells.push(['最大绝对误差', R.maxAbs, 'bad']);
+        if (profile.tolerance) cells.push(['容差', 'rtol ' + (profile.tolerance.rtol || '—') + ' · atol ' + (profile.tolerance.atol || '—')]);
+        if (R.maxRel != null) cells.push(['最大相对误差', R.maxRel]);
+        if (profile.repeatability) cells.push(['重复运行', profile.repeatability.summary || '—', profile.repeatability.stable ? 'ok' : 'warn']);
+        const numerical = profile.compiler?.numericalValidation;
+        if (numerical && numerical.total != null) {
+          cells.push(['编译语义校验', numerical.status === 'pass'
+            ? numerical.passed + ' / ' + numerical.total + ' 匹配'
+            : String(numerical.status || 'unknown').toUpperCase(), numerical.status === 'pass' ? 'ok' : numerical.status === 'fail' ? 'bad' : null]);
+        }
+        if (cells.length) return cells;
+      }
+    }
+    return domainHeadMetrics(key, r);
+  }
+
+  function domainHead(key, r) {
+    if (!DOMAIN_HEAD_KEYS[key] || !r) return '';
+    const d = getDomainVerdict(r, key);
+    const v = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
+    const byVerdict = DOMAIN_CONCLUSION[key] || {};
+    const said = (d.verdict === 'pass' && byVerdict.pass) || d.summary || '无可用结论';
+    const profile = key === 'correctness' ? diagnosisViewForRun(r.id) : null;
+    const note = (profile && profile.runId === String(r.id) && profile.compiler?.numericalValidation?.summary) || said;
+    const icon = { ok: '✓', warn: '!', bad: '×', idle: '○' }[v[1]] || '○';
+    return '<header class="kf-dh is-' + v[1] + '" aria-label="' + esc(DOMAIN_LABEL[key]) + '域结论">' +
+      '<div class="kf-dh-verdict" aria-hidden="true"><span>' + esc(DOMAIN_LABEL[key]) + '</span><b>' + esc(v[0]) + '</b><i>' + icon + '</i></div>' +
+      '<div class="kf-dh-metrics">' + domainOverviewMetrics(key, r).map(m =>
+        '<span><i>' + esc(m[0]) + '</i><b' + (m[2] ? ' class="is-' + m[2] + '"' : '') + '>' + esc(m[1]) + '</b></span>').join('') +
+      '</div>' +
+      '<p class="kf-dh-note">' + esc(note) + '</p>' +
+    '</header>';
   }
 
   function validatedPerformancePanel(r) {
@@ -2059,7 +2248,8 @@
 
   /* Task 是这一层的节点，比 Semantic Op 更小更紧凑；本轮不显示 Kernel。 */
   function dgRuntimeTask(t) {
-    const on = dg.sel && dg.sel.kind === 'task' && dg.sel.id === t.id;
+    const on = (dg.sel && dg.sel.kind === 'task' && dg.sel.id === t.id) ||
+      (st.executionEntry?.from === 'investigation' && st.executionEntry.taskIds?.includes(t.id));
     return '<button type="button" class="kf-dg-rt-task is-' + t.role + (on ? ' is-sel' : '') +
       '" data-dg-select-kind="task" data-dg-select-id="' + t.id + '"' +
       ' aria-label="' + esc('Task #' + t.id + ' · ' + t.note) + '">' +
@@ -2092,7 +2282,8 @@
   function dgTimelineRow(r, i) {
     const T = DG.timeline, ov = T.overlap, t = dgTask(r.task);
     const pct = v => (v - T.base) / T.span * 100;
-    const on = dg.sel && dg.sel.kind === 'task' && dg.sel.id === t.id;
+    const on = (dg.sel && dg.sel.kind === 'task' && dg.sel.id === t.id) ||
+      (st.executionEntry?.from === 'investigation' && st.executionEntry.taskIds?.includes(t.id));
     return '<button type="button" class="kf-dg-tlx-row is-' + dgTimelineTone(t) + (on ? ' is-sel' : '') + '"' +
       ' style="grid-row:' + (3 + i) + '" data-dg-select-kind="task" data-dg-select-id="' + t.id + '"' +
       ' aria-label="' + esc('Task #' + t.id + ' · ' + t.core + ' · ' + r.s + ' → ' + r.e + ' μs · ' + t.note) + '">' +
@@ -2245,54 +2436,11 @@
     '</div>';
   }
 
-  /* ---------- 诊断门 / 结果 / 诊断路径 ---------- */
-  function dgDiagnosisGates() {
-    const structural = DG.compiler?.structuralVerification || {};
-    const numerical = DG.compiler?.numericalValidation || {};
-    const expected = DG.expectedDifference || {};
-    const gate = (label, value, status) => {
-      const tone = status === 'fail' ? 'bad' : status === 'pass' ? 'ok' : 'idle';
-      return '<div class="kf-dg-gate is-' + tone + '" role="listitem">' +
-        '<span>' + esc(label) + '</span><b><i aria-hidden="true">' + (tone === 'bad' ? '×' : tone === 'ok' ? '✓' : '○') +
-        '</i>' + esc(value) + '</b></div>';
-    };
-    const gates = [
-      gate('参考基准', DG.reference?.source || '不可用', DG.reference?.status === 'valid' ? 'pass' : 'unknown'),
-      gate('容差', 'rtol ' + (DG.tolerance?.rtol || '—') + ' · atol ' + (DG.tolerance?.atol || '—'), DG.tolerance?.status === 'valid' ? 'pass' : 'unknown'),
-      gate('预期差异', expected.status === 'none' ? '未声明允许的差异' : (expected.reason || '需要复核'), expected.status === 'none' ? 'pass' : 'unknown'),
-      gate('结构校验', (structural.status || 'unknown').toUpperCase(), structural.status),
-      gate('数值校验', numerical.status === 'pass' ? numerical.passed + ' / ' + numerical.total + ' Pass' : (numerical.status || 'unknown').toUpperCase(), numerical.status),
-      gate('设备结果', DG.result?.verdict === 'fail' ? 'MISMATCH' : (DG.result?.verdict || 'unknown').toUpperCase(), DG.result?.verdict)
-    ];
-    return '<section class="kf-dg-diagnosis" aria-label="数值精度诊断 Gate">' +
-      '<header class="kf-dg-diagnosis-head"><div><h2>正确性</h2><span>数值精度（Numerical Accuracy）</span></div>' +
-        '<p><b>' + esc(DG.diagnosis?.routeLabel || '继续定位') + '</b>' +
-        '<small>' + esc(DG.diagnosis?.rationale || '') + '</small></p></header>' +
-      '<div class="kf-dg-gates" role="list">' + gates.join('') + '</div>' +
-    '</section>';
-  }
-
-  function dgResult() {
-    const R = DG.result;
-    const compilerDivergence = DG.compiler?.numericalValidation?.status === 'fail' && DG.compiler?.numericalValidation?.firstDivergentPass != null;
-    const direction = compilerDivergence ? '编译' : '运行时数据';
-    const lens = compilerDivergence ? '编译语义变换' : '执行排序';
-    const cell = (k, v, tone) => '<div class="kf-dg-cell"><span>' + k + '</span><b class="' + (tone || '') + '">' + v + '</b></div>';
-    return '<section class="kf-dg-result" aria-label="正确性结果">' +
-      '<div class="kf-dg-verdict"><span>正确性</span><b>' + esc((R.verdict || 'unknown').toUpperCase()) + '</b></div>' +
-      '<div class="kf-dg-cells">' +
-        cell('输出', R.output) +
-        cell('最大绝对误差', R.maxAbs, 'is-bad') +
-        cell('最大相对误差', R.maxRel) +
-        cell(compilerDivergence ? '首个异常 Pass' : '重复运行', compilerDivergence ? DG.compiler.numericalValidation.firstDivergentPass : (DG.repeatability?.summary || '—'), compilerDivergence ? 'is-bad' : (DG.repeatability?.stable ? '' : 'is-warn')) +
-      '</div>' +
-      '<div class="kf-dg-semantics">' +
-        '<span>调查方向</span><b>' + direction + '</b>' +
-        '<small>' + lens + '</small>' +
-      '</div>' +
-    '</section>';
-  }
-
+  /* ---------- 结果 / 诊断路径 ----------
+     结果指标（输出 / 误差 / 重复运行）与诊断 Gate（参考基准 / 容差 / 语义
+     校验）都已并入统一 Domain Header 的 summary strip（见 domainOverviewMetrics）。
+     诊断解释（现象 / 失效模式 / 根因域）不再在顶部叠大卡片，交给下方
+     诊断工作区（dgTrail / dgCanvas / dgCause）表达。 */
   function dgHasCompilerDivergence() {
     const numerical = DG?.compiler?.numericalValidation || {};
     return numerical.status === 'fail' && numerical.firstDivergentPass != null;
@@ -2332,15 +2480,11 @@
   function correctnessDiagnosisPanel() {
     if (dgHasCompilerDivergence()) {
       return '<section class="kf-rd-sec kf-dg" aria-label="编译语义正确性诊断">' +
-        dgDiagnosisGates() +
-        dgResult() +
         dgCompilerDivergence() +
         dgCause() +
       '</section>';
     }
     return '<section class="kf-rd-sec kf-dg" aria-label="正确性诊断">' +
-      dgDiagnosisGates() +
-      dgResult() +
       dgTrail() +
       '<div class="kf-dg-layout">' +
         dgCanvas() +
@@ -2437,19 +2581,18 @@
 
   function correctnessExecutionStoryPanel() {
     const entry = st.executionEntry;
-    const enteredFromCorrectness = entry?.from === 'correctness';
-    const profileTimeline = enteredFromCorrectness && DG?.timeline ?
+    const enteredFromCorrectness = entry?.from === 'correctness' || entry?.from === 'investigation';
+    const profileTimeline = DG?.timeline?.overlap ?
       '<div class="kf-dg-rt-body" data-dg-rtbody="timeline">' + dgRuntimeTimeline() + '</div>' : '';
     return '<section class="kf-rd-sec" aria-label="排序证据">' +
-      (enteredFromCorrectness ? '<section class="kf-cv-context kf-cv-context--execution" aria-label="正确性诊断上下文">' +
-        '<span>来自「正确性」诊断</span><b>' + esc(entry.finding) + ' · 疑似原因 · ' + esc(entry.suspectedCause) + '</b></section>' : '') +
+      (enteredFromCorrectness ? contextBanner(entry.from === 'investigation' ? '调查地图' : '正确性', entry.finding, '正在验证' + entry.suspectedCause, focusedTask) : '') +
       '<div class="kf-rd-h">排序证据<small>Task 依赖与执行时间线（Timeline）</small></div>' +
       '<div class="kf-oi-links">' +
         objectButton('task', '182', 'Task #182 · 读取方', 'execution') +
         objectButton('buffer', 'B2', 'B2 · 共享 buffer', 'execution') +
         objectButton('task', '197', 'Task #197 · 写入方 / 覆盖', 'execution') +
       '</div>' +
-      '<div class="kf-rd-art"><b>缺少预期排序</b><code>Task #182  →  Task #197</code><small>#182 仍在读取 · #197 开始覆盖写入 · 写入方先于读取方完成</small></div>' +
+      '<div class="kf-rd-art"><b>缺少预期排序</b><code>Task #182  →  Task #197</code><small>#182 仍在读取 · #197 开始覆盖写入 · 写入方在读取方完成前开始写入</small></div>' +
       profileTimeline +
       '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看缺失依赖</button></div>' +
     '</section>';
@@ -2549,6 +2692,7 @@
 
   function renderDetailBody() {
     if (!els.detail) return;
+    releaseInvestigation();
     // never innerHTML over nodes on loan from another stage
     releaseBorrowed();
     // 同理：Compilation 的第二个页签借用了 stage 2 的 #kgTrace，
@@ -2573,6 +2717,10 @@
     }
 
     const L = LX;
+    /* 统一 Domain Header 放在面板外面：页签切换、借用 stage DOM、编译视图重绘
+       都只会重写 #runTabPanel，头部不会被冲掉，也不用参与借用 / 归还流程。 */
+    const shell = '<div class="kf-rtpwrap">' + investigationReturnBar() + domainHead(st.tab, r) +
+      '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div></div>';
     if (L) {
       /* Identity, verdict and the headline numbers stay above the tabs — they
          are true of the run, not of one view of it. Everything below switches. */
@@ -2586,6 +2734,7 @@
 
       if (st.tab === 'overview') {
         panel.innerHTML = overviewPanel(r, L);
+        mountInvestigation(r);
       } else if (st.tab === 'execution') {
         renderExecutionTab(panel, r);
       } else if (st.tab === 'compilation') {
@@ -2618,8 +2767,11 @@
     const panel = $('#runTabPanel', els.detail);
     if (st.tab === 'overview') {
       panel.innerHTML = overviewPanel(r, null) + sig;
+      mountInvestigation(r);
     } else if (st.tab === 'compilation') {
-      if (isCompileFailureStory(r)) {
+      if (r.id === 'run_109' || (r.id === 'run_106' && st.compilationEntry?.from === 'investigation')) {
+        renderCompilationTab(panel, r);
+      } else if (isCompileFailureStory(r)) {
         syncPanel();
         panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
       } else if (getDomainVerdict(r, 'compilation').verdict === 'pass') {
@@ -2637,9 +2789,9 @@
       else if (getDomainVerdict(r, 'correctness').verdict === 'pass' && hasEvidence(r, 'golden_compare')) panel.innerHTML = correctnessPassPanel(r);
       else panel.innerHTML = notEvaluatedEvidencePanel(r, 'correctness');
     } else if (st.tab === 'execution') {
-      if (isCorrectnessFailureStory(r)) {
-        renderExecution(panel);
-        panel.prepend(document.createRange().createContextualFragment(correctnessExecutionStoryPanel(r)));
+      if (r.id === 'run_106') {
+        dgReset(r.id);
+        panel.innerHTML = correctnessExecutionStoryPanel(r);
       } else if (hasEvidence(r, 'dependency_graph') || hasEvidence(r, 'runtime_timeline')) {
         renderExecution(panel);
         panel.prepend(document.createRange().createContextualFragment(executionSummaryPanel(r)));
@@ -2909,6 +3061,15 @@
     if (compareSubmit && !compareSubmit.disabled) {
       renderRunComparison();
       els.compareBox.hidden = true;
+      return;
+    }
+    if (e.target.closest('[data-investigation-return]')) {
+      clearSelection();
+      toTab('overview');
+      return;
+    }
+    if (e.target.closest('[data-investigation-next]')) {
+      openInvestigationEvidence(window.PTO_RUN_INVESTIGATION?.build(st.run)?.action);
       return;
     }
     const compareClose = e.target.closest('[data-th-compare-close]');

@@ -816,6 +816,77 @@
 .kf-rt b { font-size: var(--kf-type-sm); font-weight: 600; }
 .kf-rt button[aria-selected="true"] { border-bottom-color: var(--primary); color: var(--foreground); }
 
+/* ---------- 统一 Domain Header（编译 / 正确性 / 执行）----------------------
+   一级页签正下方的一条域结论。三个页签共用同一个组件，取代此前三种写法
+   （编译页的 kc-summary、正确性页的 kf-dg-diagnosis-head、执行页的
+   kf-rd-h 加几个证据 chip）。读法固定为：
+
+     Domain 名称 · 分析结论 · 一句话结论 · 关键指标
+
+  两套状态词汇严格分开：Run 自己的生命周期（运行中 / 已取消）只以最弱的
+  spinner / muted 文字出现在顶部 headline；这里只说分析结论 PASS / WARNING /
+  FAIL / NOT EVALUATED。所以结论用直角 monospace 小片，不抢 Run 标题。 */
+.kf-rtpwrap { display: grid; gap: 14px; min-width: 0; }
+/* 顶部 summary strip：单一连续 surface —— 最左结论锚点（Domain + 结论 +
+   状态符号，状态色只染这一格），后面一组并列事实列（label 在上、value 在
+   下，用间距不用框线分隔），最右一句弱说明。Tabs 下方只有这一条，诊断解释
+   一律留给下方工作区。三个页签共用同一套 grammar。 */
+.kf-dh {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(130px, 200px);
+  align-items: stretch;
+  border-radius: var(--radius-md); overflow: hidden;
+  background: color-mix(in srgb, var(--surface-2) 52%, transparent);
+}
+.kf-dh-verdict {
+  position: relative; display: grid; align-content: center; gap: 3px;
+  padding: 9px 36px 9px 14px;
+  background: color-mix(in srgb, var(--surface-3) 42%, transparent);
+}
+.kf-dh-verdict > span { color: var(--foreground-secondary); font: 600 10px/1.3 var(--font-sans); letter-spacing: .02em; }
+.kf-dh-verdict > b { color: var(--foreground-muted); font: 700 15px/1.1 var(--font-mono); letter-spacing: .05em; }
+.kf-dh-verdict > i {
+  position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--foreground-muted); font: 700 12px/1 var(--font-mono); font-style: normal; opacity: .85;
+}
+.kf-dh.is-ok .kf-dh-verdict { background: color-mix(in srgb, var(--success) 11%, transparent); }
+.kf-dh.is-ok .kf-dh-verdict > b, .kf-dh.is-ok .kf-dh-verdict > i { color: var(--success); }
+.kf-dh.is-warn .kf-dh-verdict { background: color-mix(in srgb, var(--warning) 11%, transparent); }
+.kf-dh.is-warn .kf-dh-verdict > b, .kf-dh.is-warn .kf-dh-verdict > i { color: var(--warning); }
+.kf-dh.is-bad .kf-dh-verdict { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.kf-dh.is-bad .kf-dh-verdict > b, .kf-dh.is-bad .kf-dh-verdict > i { color: var(--danger); }
+/* 指标是证据，不是按钮：无边框、无底色、无 hover、无 cursor。 */
+.kf-dh-metrics { display: flex; flex-wrap: wrap; align-items: stretch; min-width: 0; padding: 2px 0; }
+.kf-dh-metrics > span {
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  min-width: 0; padding: 5px 18px;
+}
+.kf-dh-metrics > span:first-child { padding-left: 16px; }
+.kf-dh-metrics > span > i { color: var(--foreground-muted); font: 400 10px/1.3 var(--font-sans); font-style: normal; white-space: nowrap; }
+.kf-dh-metrics > span > b {
+  overflow: hidden; color: var(--foreground-secondary);
+  font: 600 11px/1.3 var(--font-mono); text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-dh-metrics > span > b.is-ok { color: var(--success); }
+.kf-dh-metrics > span > b.is-warn { color: var(--warning); }
+.kf-dh-metrics > span > b.is-bad { color: var(--danger); }
+.kf-dh-note {
+  align-self: center; margin: 0; padding: 4px 14px 4px 2px;
+  color: var(--foreground-muted); font-size: 10px; line-height: 1.55;
+}
+@container (max-width: 720px) {
+  .kf-dh { grid-template-columns: minmax(0, 1fr); }
+  .kf-dh-metrics { padding: 0; }
+  .kf-dh-note { padding: 0 14px 8px; }
+}
+/* 统一头部已经说过域名称与结论，各模块自带的同名标题不再重复一遍：
+   编译页只留下它那份「Pass / Kernel / 水位 / IR 变化」事实行。 */
+.kf-dh ~ .kf-rtp .kc-summary { grid-template-columns: minmax(0, 1fr); }
+.kf-dh ~ .kf-rtp .kc-summary__outcome { display: none; }
+.kf-dh ~ .kf-rtp .kc-summary__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: 0; }
+@container (max-width: 720px) {
+  .kf-dh ~ .kf-rtp .kc-summary__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Run workbench: the centre carries conclusions and relationships; the right
    IDE pane is reserved for the selected object. These use the existing workbench
    surfaces and compact record rows rather than introducing a new card system. */
@@ -1325,4 +1396,552 @@
   .kf-cv-summary > div + div { border-top: 1px solid var(--border-subtle); border-left: 0; }
   .kf-cv-dependency > header, .kf-cv-context { align-items: flex-start; flex-direction: column; }
   .kf-cv-dependency > header > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+}
+
+/* ===========================================================================
+   Run workspace shell — compact engineering workbench
+   This block only changes the shared Run shell. Domain workspaces keep their
+   own component styling, data density and interaction semantics.
+   ========================================================================== */
+
+#ideMainSplit.kf-run-no-inspector {
+  background: rgba(255,255,255,0.05);
+}
+#ideMainSplit.kf-run-no-inspector > [data-ide-pane="explorer"] {
+  background: var(--surface-1);
+  border-right: 1px solid var(--border-default);
+}
+#ideMainSplit.kf-run-no-inspector > [data-ide-pane="editor-preview"],
+#ideMainSplit.kf-run-no-inspector .kf-main-body,
+#ideMainSplit.kf-run-no-inspector .kf-run-detail {
+  background: var(--background);
+}
+#ideMainSplit.kf-run-no-inspector > [data-ide-pane="explorer"] > .pto-ide-frame__pane-header {
+  min-height: 48px;
+  padding: 8px 12px;
+  border-bottom-color: var(--border-default);
+  background: var(--surface-1);
+}
+#ideMainSplit.kf-run-no-inspector .kf-explorer-body {
+  padding: 7px 16px 10px;
+}
+
+/* Run list: one continuous navigation surface, not a stack of cards. */
+#ideMainSplit.kf-run-no-inspector .kf-th {
+  gap: 5px;
+  padding: 0 0 8px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-list { gap: 5px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-row {
+  min-height: 36px;
+  padding: 5px 28px 5px 7px;
+  border-radius: var(--radius-sm);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-row:hover,
+#ideMainSplit.kf-run-no-inspector .kf-th-run:hover {
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-item.is-open > .kf-th-row {
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-title { font-size: 12px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-dot,
+#ideMainSplit.kf-run-no-inspector .kf-th-rdot {
+  box-shadow: none;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-runs {
+  margin: 0 0 2px 13px;
+  padding: 2px 0 3px 10px;
+  border-left-color: var(--border-default);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run {
+  min-height: 32px;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run.is-sel {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--foreground-secondary);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-compare-icon {
+  top: 6px;
+  right: 5px;
+  border-color: transparent;
+  background: transparent;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-compare-icon:hover {
+  border-color: var(--border-default);
+  color: var(--foreground-secondary);
+  background: var(--surface-2);
+}
+
+/* Main Run surface: content starts at the pane edge and keeps the workbench
+   wide. Hierarchy comes from surface steps and hairlines, not floating cards. */
+#ideMainSplit.kf-run-no-inspector .kf-run-detail {
+  padding: 0 16px 22px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview {
+  grid-template-columns: minmax(0, 1fr) minmax(132px, .32fr) minmax(132px, .32fr) !important;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  border-radius: 0;
+  box-shadow: none;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary {
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary::after { display: none; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-eyebrow { margin-bottom: 5px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-eyebrow > span {
+  color: var(--foreground-muted);
+  font-size: 8px;
+  letter-spacing: .09em;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-eyebrow > span i {
+  width: 5px;
+  height: 5px;
+  background: var(--foreground-muted);
+  box-shadow: none;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-titleline h2 {
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-id > p {
+  margin-top: 4px;
+  font-size: 10px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run {
+  margin-top: 8px;
+  padding-top: 7px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run code {
+  font-size: 13px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi {
+  min-height: 0;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-kpi::after { display: none; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-kpi > header span { font-size: 10px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-kpi > header em {
+  padding: 0;
+  color: var(--foreground-muted);
+  background: transparent;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-kpi-main > b {
+  font-size: clamp(20px, 3cqi, 26px);
+  letter-spacing: -.03em;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-kpi > small { font-size: 9px; }
+
+/* Primary tabs and Domain Header form one continuous navigation stack. */
+#ideMainSplit.kf-run-no-inspector .kf-rt {
+  padding: 0 16px;
+  gap: 0;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rt button {
+  padding: 0 11px;
+  height: 32px;
+  border-bottom-width: 1px;
+  border-radius: 0;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rt b {
+  font-size: 12px;
+  font-weight: 550;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rt button[aria-selected="true"] {
+  border-bottom-color: var(--foreground-secondary);
+  color: var(--foreground);
+}
+#ideMainSplit.kf-run-no-inspector .kf-rtpwrap {
+  gap: 10px;
+  padding: 0 16px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-dh { min-height: 44px; }
+#ideMainSplit.kf-run-no-inspector .kf-dh-verdict { padding: 6px 28px 6px 12px; }
+#ideMainSplit.kf-run-no-inspector .kf-dh-verdict > b { font-size: 14px; }
+#ideMainSplit.kf-run-no-inspector .kf-dh-metrics > span { padding: 4px 12px; }
+#ideMainSplit.kf-run-no-inspector .kf-dh-metrics > span > i { font-size: 9px; }
+#ideMainSplit.kf-run-no-inspector .kf-dh-metrics > span > b { font-size: 10px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-band {
+  margin-top: 3px;
+  padding-bottom: 5px;
+}
+
+@container (max-width: 720px) {
+  #ideMainSplit.kf-run-no-inspector .kf-rd-overview {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  #ideMainSplit.kf-run-no-inspector .kf-rd-kpi {
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+}
+
+/* Reference correction: Task / Run hierarchy and the Run identity header.
+   Scope is deliberately limited to these two shells; tab and domain bodies are
+   not part of this correction. */
+#ideMainSplit.kf-run-no-inspector .kf-th-list { gap: 18px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-item { padding: 0 6px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-areas: "icon copy";
+  align-items: center;
+  min-height: 76px;
+  gap: 12px;
+  padding: 10px 38px 10px 10px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 74%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-item.is-open > .kf-th-row {
+  min-height: 94px;
+  border-bottom: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-row:hover {
+  background: color-mix(in srgb, var(--foreground) 5%, var(--surface-1));
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-item.is-open > .kf-th-row:hover {
+  background: color-mix(in srgb, var(--foreground) 7%, var(--surface-2));
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-icon {
+  display: grid;
+  grid-area: icon;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--foreground-secondary);
+  background: color-mix(in srgb, var(--surface-3) 72%, transparent);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-icon svg { width: 27px; height: 27px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-dot {
+  position: absolute;
+  top: 14px;
+  left: 58px;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface-2);
+  box-shadow: none;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-copy {
+  display: grid;
+  grid-area: copy;
+  min-width: 0;
+  gap: 7px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-title {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.012em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-meta {
+  overflow: hidden;
+  color: var(--foreground-muted);
+  font: 11px/1.25 var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-verdict,
+#ideMainSplit.kf-run-no-inspector .kf-th-sub,
+#ideMainSplit.kf-run-no-inspector .kf-th-time { display: none; }
+#ideMainSplit.kf-run-no-inspector .kf-th-compare-icon {
+  top: 32px;
+  right: 13px;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Runs remain compact records inside the Task, not individual navigation cards. */
+#ideMainSplit.kf-run-no-inspector .kf-th-runs {
+  margin: 0 0 2px 25px;
+  padding: 2px 0 3px 0px;
+  border-left: 1px solid var(--border-default);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "id verdict" "time time";
+  min-height: 57px;
+  gap: 5px 10px;
+  margin: 0;
+  padding: 9px 12px 8px 22px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run > code {
+  color: var(--foreground-secondary);
+  font: 600 12px/1.2 var(--font-mono);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-rv {
+  justify-self: end;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  font-size: 11px;
+  line-height: 1.25;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run > small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--foreground-muted);
+  font: 10px/1.25 var(--font-mono);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run > small > i {
+  color: var(--foreground-muted);
+  font-style: normal;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run > em,
+#ideMainSplit.kf-run-no-inspector .kf-th-rdot { display: none; }
+#ideMainSplit.kf-run-no-inspector .kf-th-run.is-sel {
+  background: color-mix(in srgb, var(--foreground) 8%, var(--surface-1));
+  box-shadow: inset 2px 0 0 var(--foreground);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-run.is-sel > code { color: var(--foreground); }
+
+/* Run Header: a single horizontal IDE information band. */
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview {
+  grid-template-columns: minmax(300px, 1fr) minmax(190px, .48fr) minmax(190px, .48fr) !important;
+  align-items: stretch;
+  min-height: 112px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview-left {
+  display: flex;
+  min-width: 0;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary {
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-run-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--foreground-secondary);
+  background: var(--surface-2);
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-run-icon svg { width: 25px; height: 25px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-id { min-width: 0; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-titleline { gap: 8px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-titleline h2 {
+  overflow: hidden;
+  font-size: 19px;
+  line-height: 1.2;
+  letter-spacing: -.018em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 7px 0 0;
+  padding: 0;
+  border: 0;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run > span,
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run code,
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run small {
+  color: var(--foreground-muted);
+  font: 12px/1.25 var(--font-sans);
+  letter-spacing: 0;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run code {
+  color: var(--foreground-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run small > i {
+  color: var(--foreground-muted);
+  font-style: normal;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-meta-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 11px;
+  background: var(--border-subtle);
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-kpi {
+  display: grid;
+  align-content: center;
+  min-height: 0;
+  gap: 7px;
+  padding: 15px 18px;
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi > header { justify-content: flex-start; gap: 9px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi > header span {
+  color: var(--foreground-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi > header em {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--kpi-accent, var(--foreground-secondary));
+  background: color-mix(in srgb, var(--kpi-accent, var(--foreground-secondary)) 12%, transparent);
+  font-size: 9px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi .kf-rd-kpi-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi .kf-rd-kpi-main > b {
+  color: var(--foreground);
+  font-size: 24px;
+  line-height: 1;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi .kf-rd-kpi-main > b > i {
+  color: var(--foreground-secondary);
+  font-size: 12px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi > small {
+  display: block;
+  overflow: hidden;
+  color: var(--foreground-muted);
+  font: 10px/1.3 var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-line-clamp: unset;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview .kf-rd-kpi-eff,
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview .kf-rd-kpi-ring { display: none; }
+
+@container (max-width: 560px) {
+  #ideMainSplit.kf-run-no-inspector .kf-rd-overview {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  #ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi { border-top: 1px solid var(--border-subtle); border-left: 0; }
+}
+
+/* Density correction: group headers and the identity column only.
+   Run records and the tab/content panels deliberately retain their prior rules. */
+#ideMainSplit.kf-run-no-inspector .kf-th-list { gap: 9px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-item { padding: 0; }
+#ideMainSplit.kf-run-no-inspector .kf-th-row {
+  grid-template-columns: 32px minmax(0, 1fr);
+  min-height: 58px;
+  gap: 8px;
+  padding: 8px 28px 8px 10px;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-item.is-open > .kf-th-row {
+  min-height: 58px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 74%, transparent);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-item.is-open > .kf-th-row:hover {
+  background: color-mix(in srgb, var(--foreground) 4%, var(--surface-1));
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-3) 45%, transparent);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-icon svg { width: 18px; height: 18px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-dot {
+  top: 8px;
+  left: 35px;
+  width: 7px;
+  height: 7px;
+  border-color: var(--surface-1);
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-copy { gap: 3px; }
+#ideMainSplit.kf-run-no-inspector .kf-th-task-copy > .kf-th-title,
+#ideMainSplit.kf-run-no-inspector .kf-th-task-copy > .kf-th-task-meta {
+  grid-area: auto;
+  min-width: 0;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-title {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-task-meta {
+  font-size: 10px;
+  line-height: 1.2;
+}
+#ideMainSplit.kf-run-no-inspector .kf-th-compare-icon {
+  top: 18px;
+  right: 8px;
+}
+
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview { min-height: 96px; padding:16px}
+#ideMainSplit.kf-run-no-inspector .kf-rd-identity { gap: 10px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-run-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-run-icon svg { width: 18px; height: 18px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-titleline { gap: 6px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-titleline h2 { font-size: 17px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin-top: 5px;
+  white-space: nowrap;
+}
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run > span,
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run code,
+#ideMainSplit.kf-run-no-inspector .kf-rd-summary .kf-rd-run small { font-size: 11px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-meta-sep { margin-inline: 8px; }
+#ideMainSplit.kf-run-no-inspector .kf-rd-overview > .kf-rd-kpi {
+  gap: 5px;
+  padding-block: 10px;
 }

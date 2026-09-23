@@ -1056,6 +1056,13 @@
       pickKernel(String(name), { scroll: true });
       return true;
     },
+    selectPass(name) {
+      if (!host) return false;
+      const index = PASSNAMES.indexOf(String(name));
+      if (index < 0) return false;
+      openPass(index, { toggle: false, scroll: true });
+      return true;
+    },
     /* Correctness 可将它已有的 compiler evidence 原样传入。若已知首个
        divergence，会在现有 transformation / IR diff 中自动展开，不创建新 viewer。 */
     setNumericalContext(validation, entry) {

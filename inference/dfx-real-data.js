@@ -478,15 +478,187 @@
     return f;
   }
 
+  // ---------------------------------------------------------------------------
+  // PyPTO Serving single-request Chrome Trace (RUN-047)
+  // ---------------------------------------------------------------------------
+  var SERVING_LAYERS = [
+    { id: 'serving', label: 'Serving', color: '#526a86', order: 0 },
+    { id: 'scheduler', label: 'Scheduler', color: '#7089a4', order: 1 },
+    { id: 'worker', label: 'Worker', color: '#6d9f9a', order: 2 },
+    { id: 'executor', label: 'Executor', color: '#52b79d', order: 3 },
+    { id: 'dspark', label: 'DSpark', color: '#c8945d', order: 4 },
+    { id: 'host', label: 'Host Runtime', color: '#b78862', order: 5 },
+    { id: 'chip', label: 'Chip Workers', color: '#8f7aa8', order: 6 }
+  ];
+  var SERVING_LAYER_BY_ID = {};
+  SERVING_LAYERS.forEach(function (layer) { SERVING_LAYER_BY_ID[layer.id] = layer; });
+
+  function servingClassify(event, processName) {
+    var name = event.name || '';
+    var cat = event.cat || '';
+    if (cat === 'serving' || cat === 'request') return 'serving';
+    if (cat === 'scheduler') return 'scheduler';
+    if (cat === 'worker') return 'worker';
+    if (cat === 'kernel') return 'dspark';
+    if (cat === 'executor') {
+      return name.indexOf('DSparkModelRunner') === 0 ? 'dspark' : 'executor';
+    }
+    // strace.host / host.scheduler — host node vs 16 chip children
+    if (processName && processName.indexOf('chip child') >= 0) return 'chip';
+    return 'host';
+  }
+
+  function servingShouldKeep(layerId, name) {
+    if (layerId === 'host') return name === 'node.graph_build';
+    if (layerId === 'chip') return name === 'chip.run';
+    return true;
+  }
+
+  function loadServing() {
+    return fetch('./data/trace_view_pypto.json').then(function (response) {
+      if (!response.ok) throw new Error('Serving trace unavailable: data/trace_view_pypto.json');
+      return response.json();
+    }).then(function (trace) {
+      var rawEvents = trace.traceEvents || [];
+      var processNames = {};
+      var threadNames = {};
+      rawEvents.forEach(function (event) {
+        if (event.ph !== 'M' || !event.args) return;
+        if (event.name === 'process_name') processNames[event.pid] = event.args.name;
+        else if (event.name === 'thread_name') threadNames[event.pid + ':' + event.tid] = event.args.name;
+      });
+
+      var spans = rawEvents.filter(function (event) { return event.ph === 'X' || event.ph === 'i'; });
+      var minTs = spans.reduce(function (min, event) { return event.ts == null ? min : Math.min(min, event.ts); }, Infinity);
+      if (minTs === Infinity) minTs = 0;
+      var maxEnd = spans.reduce(function (max, event) { return Math.max(max, (event.ts || 0) + (event.dur || 0)); }, 0);
+
+      var events = [];
+      var index = 0;
+      spans.forEach(function (event) {
+        var layerId = servingClassify(event, processNames[event.pid]);
+        var layer = SERVING_LAYER_BY_ID[layerId];
+        if (!layer || !servingShouldKeep(layerId, event.name)) return;
+        var id = 'pypto:' + layerId + ':' + index;
+        index += 1;
+        events.push({
+          id: id,
+          lane: layer.label,
+          laneId: layer.id,
+          laneKind: layer.id,
+          laneOrder: layer.order,
+          label: event.name,
+          funcName: event.name,
+          rawName: event.name,
+          start: round((event.ts - minTs) / 1000, 2),
+          dur: round((event.dur || 0) / 1000, 2),
+          color: layer.color,
+          kind: layer.id,
+          coreType: layer.id,
+          coreId: event.pid,
+          taskId: 'span-' + (index - 1),
+          cat: event.cat,
+          pid: event.pid,
+          tid: event.tid,
+          ph: event.ph,
+          ts: event.ts,
+          processName: processNames[event.pid] || '',
+          threadName: threadNames[event.pid + ':' + event.tid] || '',
+          args: event.args || {}
+        });
+      });
+
+      // Execution hierarchy via time containment within the same process only.
+      // This is NOT a DFX task dependency — it is derived from span nesting.
+      events.forEach(function (event) {
+        var parent = null;
+        for (var i = 0; i < events.length; i += 1) {
+          var candidate = events[i];
+          if (candidate.id === event.id || candidate.pid !== event.pid) continue;
+          if (candidate.start <= event.start && (candidate.start + candidate.dur) >= (event.start + event.dur)) {
+            if (!parent || candidate.dur < parent.dur) parent = candidate;
+          }
+        }
+        event.parentId = parent ? parent.id : null;
+        event.parentName = parent ? parent.funcName : null;
+      });
+
+      var laneMap = {};
+      events.forEach(function (event) {
+        if (!laneMap[event.laneId]) laneMap[event.laneId] = { id: event.laneId, label: event.lane, kind: event.laneId, order: event.laneOrder, events: [] };
+        laneMap[event.laneId].events.push(event);
+      });
+      var lanes = SERVING_LAYERS.map(function (layer) { return laneMap[layer.id]; }).filter(Boolean);
+      var longest = events.slice().sort(function (a, b) { return b.dur - a.dur; })[0] || null;
+
+      var request = { requestId: '', promptTokens: null, maxTokens: null, batchSize: null, modelId: '', wallTime: '' };
+      rawEvents.forEach(function (event) {
+        var args = event.args || {};
+        if (args.request_id) request.requestId = args.request_id;
+        if (args.prompt_tokens != null) request.promptTokens = args.prompt_tokens;
+        if (args.max_tokens != null) request.maxTokens = args.max_tokens;
+        if (args.max_new_tokens != null) request.maxTokens = args.max_new_tokens;
+        if (args.model_id) request.modelId = args.model_id;
+        if (args.batch_size != null) request.batchSize = args.batch_size;
+        if (args.wall_time) request.wallTime = args.wall_time;
+      });
+      request.prefillSteps = events.filter(function (event) { return event.funcName === 'WorkerProcess.batch_prefill'; }).length;
+      request.decodeSteps = events.filter(function (event) { return event.funcName === 'WorkerProcess.batch_decode'; }).length;
+
+      return {
+        id: 'pypto',
+        label: 'PyPTO Serving Trace',
+        kind: 'serving',
+        path: 'PyPTO Serving',
+        engine: 'PyPTO Serving',
+        window: round((maxEnd - minTs) / 1000, 2),
+        eventCount: events.length,
+        taskCount: 0,
+        tensorCount: 0,
+        edgeCount: 0,
+        dominant: longest ? longest.funcName : '未采集',
+        dominantEventId: longest ? longest.id : '',
+        memory: '未采集',
+        hint: '未采集',
+        hints: [],
+        hintGroups: [],
+        memorySections: [],
+        memoryMetrics: [],
+        memoryHotspots: [],
+        events: events,
+        lanes: lanes,
+        tasks: [],
+        tensors: [],
+        edges: [],
+        taskIndex: {},
+        tensorIndex: {},
+        tracePath: 'data/trace_view_pypto.json',
+        request: request,
+        rawTraceEventCount: rawEvents.length,
+        coverage: {
+          serving: true,
+          hostRuntime: true,
+          dfxTasks: false,
+          tensorGraph: false,
+          moeRouting: false,
+          deviceTrace: false,
+          memory: false,
+          pmu: false
+        }
+      };
+    });
+  }
+
   function load() {
     return Promise.all([
       loadFlat(MANIFEST.csa),
       loadFlat(MANIFEST.hca),
       loadFlat(MANIFEST.swa),
       loadMoe(MANIFEST.ep2),
-      loadMoe(MANIFEST.ep8)
+      loadMoe(MANIFEST.ep8),
+      loadServing()
     ]).then(function (items) {
-      var bundle = { csa: items[0], hca: items[1], swa: items[2], ep2: items[3], ep8: items[4] };
+      var bundle = { csa: items[0], hca: items[1], swa: items[2], ep2: items[3], ep8: items[4], pypto: items[5] };
       bundle.findings = makeFindings(bundle);
       return bundle;
     });
