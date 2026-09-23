@@ -26,75 +26,9 @@
   container-type: inline-size;
 }
 
-/* ---------- numerical diagnosis gates ---------- */
-.kf-dg-diagnosis {
-  display: grid;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--dg-line);
-}
-.kf-dg-diagnosis-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-.kf-dg-diagnosis-head > div { display: flex; align-items: baseline; gap: var(--space-2); }
-.kf-dg-diagnosis-head h2 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
-.kf-dg-diagnosis-head > div > span {
-  color: var(--foreground-secondary);
-  font: var(--type-micro);
-}
-.kf-dg-diagnosis-head p {
-  display: grid;
-  gap: 1px;
-  margin: 0;
-  text-align: right;
-}
-.kf-dg-diagnosis-head p b { color: var(--foreground); font: var(--type-label); }
-.kf-dg-diagnosis-head p small { color: var(--foreground-muted); font: var(--type-micro); }
-.kf-dg-gates {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  min-width: 0;
-  background: color-mix(in srgb, var(--surface-1) 42%, transparent);
-}
-.kf-dg-gate {
-  display: grid;
-  align-content: center;
-  gap: 3px;
-  min-width: 0;
-  min-height: 50px;
-  padding: var(--space-2) var(--space-3);
-}
-.kf-dg-gate + .kf-dg-gate { border-left: 1px solid var(--dg-line); }
-.kf-dg-gate > span {
-  overflow: hidden;
-  color: var(--foreground-muted);
-  font: var(--type-micro);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.kf-dg-gate > b {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  overflow: hidden;
-  color: var(--foreground-secondary);
-  font: var(--type-label);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* 状态符号：✓ 通过绿、× 失败红、○（未评估 / 未知 / 不可用）一律中性灰。
-   默认就是灰，别让「NOT EVALUATED」的 ○ 被上一版的 success 误染成绿。 */
-.kf-dg-gate > b i { color: var(--foreground-muted); font-style: normal; opacity: 1; }
-.kf-dg-gate.is-ok > b i { color: var(--success); opacity: .72; }
-.kf-dg-gate.is-idle > b i { color: var(--foreground-muted); opacity: 1; }
-.kf-dg-gate.is-bad {
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-}
-.kf-dg-gate.is-bad > b,
-.kf-dg-gate.is-bad > b i { color: var(--danger); opacity: 1; }
+/* ---------- numerical diagnosis gates ----------
+   诊断 Gate 已并入统一 Domain Header 的总览条（task-history.css 的 .kf-dh），
+   这里不再有独立的 kf-dg-diagnosis / kf-dg-gates 区块。 */
 
 /* ---------- result ---------- */
 .kf-dg-result {
@@ -421,11 +355,6 @@
 
 /* ---------- narrow ---------- */
 @container (max-width: 900px) {
-  .kf-dg-diagnosis-head { align-items: flex-start; flex-direction: column; gap: var(--space-2); }
-  .kf-dg-diagnosis-head p { text-align: left; }
-  .kf-dg-gates { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .kf-dg-gate:nth-child(4) { border-left: 0; }
-  .kf-dg-gate:nth-child(n+4) { border-top: 1px solid var(--dg-line); }
   .kf-dg-result { grid-template-columns: auto minmax(0, 1fr); }
   .kf-dg-semantics { grid-column: 1 / -1; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--dg-line); }
   .kf-dg-cause { grid-template-columns: minmax(0, 1fr); }

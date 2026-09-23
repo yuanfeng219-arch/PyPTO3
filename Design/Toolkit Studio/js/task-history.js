@@ -614,11 +614,9 @@
     const on = r.id === st.run && t.id === st.task;
     return '<button type="button" class="kf-th-run' + (on ? ' is-sel' : '') +
       (r.purged ? ' is-purged' : '') + '" data-th-run="' + r.id + '" data-th-of="' + t.id + '">' +
-      '<span class="kf-th-rdot is-' + v[1] + '"></span>' +
       '<code>' + esc(runDisplayId(r)) + '</code>' +
       '<span class="kf-th-rv is-' + v[1] + '">' + v[0] + '</span>' +
-      '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small>' +
-      (r.live ? '<em>产物在库</em>' : r.model?.fixture ? '<em>Demo fixture</em>' : '') +
+      '<small><i aria-hidden="true">◷</i>' + esc(r.time) + '</small>' +
     '</button>';
   }
 
@@ -651,17 +649,33 @@
      Keep the run identity together: the title is followed immediately by the
      immutable run id and timestamp. The live overview puts the two actionable
      metrics in a separate right-hand column. */
+  /* Run lifecycle 是最弱的信息，不抢注意力：
+     运行中 = 标题旁一个轻量 spinner；已取消 = 弱化文字「— 已取消」；
+     完成 / 失败 / 不完整 一律不显示任何 lifecycle 文案 —— 结论交给各 Domain。 */
+  function runLifecycle(m) {
+    if (m.state === 'running') return '<span class="kf-rd-spinner" role="status" aria-label="运行中"></span>';
+    if (m.state === 'cancelled') return '<span class="kf-rd-cancelled">— 已取消</span>';
+    return '';
+  }
   function headline(t, r, L) {
-    const v = getRunDisplayStatus(r), m = getRunModel(r);
+    const m = getRunModel(r);
     const title = t.title;
     return '<section class="kf-rd-summary">' +
-      '<div class="kf-rd-head">' +
+      '<div class="kf-rd-identity">' +
+        /* 运行快照图标 · 翻转摄像头。Pixso 导出的 28 网格几何原样保留，
+           去掉掩膜 / 滤镜与 opacity=0 的图层，描边改为跟随容器的 currentColor。 */
+        '<span class="kf-rd-run-icon" aria-hidden="true">' +
+          '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M7.68301 4.60802C7.97 3.60702 8.88501 2.91602 9.927 2.91602L17.712 2.91602C18.645 2.91602 19.489 3.47202 19.856 4.33002L20.849 6.64602C20.941 6.86002 21.152 6.99902 21.385 6.99902L23.917 6.99902C25.528 6.99902 26.834 8.30502 26.834 9.91602L26.834 21.583C26.834 23.516 25.267 25.083 23.334 25.083L4.66699 25.083C2.73401 25.083 1.16699 23.516 1.16699 21.583L1.16699 9.91602C1.16699 8.30502 2.47299 6.99902 4.08401 6.99902L6.56 6.99902C6.82101 6.99902 7.04999 6.82702 7.121 6.57601L7.68301 4.60802Z"/>' +
+            '<circle cx="11" cy="6" r="1" fill="currentColor" stroke="none"/>' +
+            '<path d="M1.83291 0.0484024C0.711538 0.984976 0 2.38162 0 3.94168C0 6.76162 2.32482 9.04762 5.19262 9.04762C5.61257 9.04762 6.02081 8.99862 6.41186 8.9061M1.89143 1.40364L1.89143 0" transform="matrix(-1,0,0,-1,19,19.051)"/>' +
+            '<path d="M10.833 11.002C9.71201 11.938 9 13.335 9 14.895C9 17.715 11.325 20.001 14.193 20.001C14.617 20.001 15.03 19.951 15.425 19.856M10.891 12.357L10.891 10.953"/>' +
+          '</svg>' +
+        '</span>' +
         '<div class="kf-rd-id">' +
-          '<div class="kf-rd-eyebrow"><span><i></i>运行快照</span></div>' +
-          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' +
-            '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + esc(STATE_LABEL[m.state] || m.state) + '</span></div>' +
-          '<div class="kf-rd-run"><span>Run</span><code>' + esc(runDisplayId(r)) + '</code>' +
-            '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
+          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' + runLifecycle(m) + '</div>' +
+          '<div class="kf-rd-run"><span>Run · </span><code>' + esc(runDisplayId(r)) + '</code><i class="kf-rd-meta-sep" aria-hidden="true"></i>' +
+            '<small><i aria-hidden="true">◷</i>' + esc(r.time) + '</small></div>' +
         '</div>' +
       '</div>' +
     '</section>';
@@ -736,8 +750,8 @@
       ];
     } else if (isCorrectnessFailureStory(r)) {
       tiles = [
-        { l: '首个分歧', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'max_abs_diff 0.382 · 重复运行不稳定' },
-        { l: '排序证据', v: '1', u: '项', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · 缺少依赖' }
+        { l: 'First divergence', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'max_abs_diff 0.382 · repeated-run instability' },
+        { l: 'Ordering evidence', v: '1', u: '', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · missing edge' }
       ];
     } else if (isPerformanceWarningStory(r)) {
       tiles = [
@@ -1347,6 +1361,7 @@
     const toggle = $('#inspectorToggle');
     const split = $('#ideMainSplit');
     if (!split) return;
+    const frame = split.closest('[data-ide-frame]');
     const panes = ['explorer', 'editor-preview', 'inspector']
       .map(name => split.querySelector(':scope > [data-ide-pane="' + name + '"]'));
 
@@ -1376,6 +1391,7 @@
         panes[1].style.width = 'auto';
       }
       if (toggle) toggle.hidden = true;
+      if (frame) frame.dataset.surface = 'solid';
       split.classList.add('kf-run-no-inspector');
       return;
     }
@@ -1411,6 +1427,7 @@
       }
     }
     split.classList.remove('kf-run-no-inspector');
+    if (frame) frame.removeAttribute('data-surface');
     if (toggle) toggle.hidden = false;
   }
 
@@ -2022,19 +2039,49 @@
     return metrics;
   }
 
+  /* 正确性页签：诊断 profile 存在时，把原来 kf-dg-diagnosis 的关键 Gate
+     （参考基准 / 容差 / 语义校验）和 kf-dg-result 的结果指标（输出 / 最大
+     误差 / 重复运行）合成同一组列，与 Domain Header 融为一条总览。 */
+  function domainOverviewMetrics(key, r) {
+    if (key === 'correctness') {
+      /* 注册表对未知 run 会兜底返回失败样例，只有 profile 确实属于这个 run
+         时才用它的数据，否则维持各页签通用的指标行。 */
+      const profile = diagnosisViewForRun(r.id);
+      if (profile && profile.runId === String(r.id) && profile.result) {
+        const R = profile.result, cells = [];
+        if (R.output != null) cells.push(['输出', R.output]);
+        if (profile.reference) cells.push(['参考基准', profile.reference.source || '不可用']);
+        if (R.maxAbs != null) cells.push(['最大绝对误差', R.maxAbs, 'bad']);
+        if (profile.tolerance) cells.push(['容差', 'rtol ' + (profile.tolerance.rtol || '—') + ' · atol ' + (profile.tolerance.atol || '—')]);
+        if (R.maxRel != null) cells.push(['最大相对误差', R.maxRel]);
+        if (profile.repeatability) cells.push(['重复运行', profile.repeatability.summary || '—', profile.repeatability.stable ? 'ok' : 'warn']);
+        const numerical = profile.compiler?.numericalValidation;
+        if (numerical && numerical.total != null) {
+          cells.push(['语义校验', numerical.status === 'pass'
+            ? numerical.passed + ' / ' + numerical.total + ' 匹配'
+            : String(numerical.status || 'unknown').toUpperCase(), numerical.status === 'pass' ? 'ok' : numerical.status === 'fail' ? 'bad' : null]);
+        }
+        if (cells.length) return cells;
+      }
+    }
+    return domainHeadMetrics(key, r);
+  }
+
   function domainHead(key, r) {
     if (!DOMAIN_HEAD_KEYS[key] || !r) return '';
     const d = getDomainVerdict(r, key);
     const v = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
     const byVerdict = DOMAIN_CONCLUSION[key] || {};
     const said = (d.verdict === 'pass' && byVerdict.pass) || d.summary || '无可用结论';
+    const profile = key === 'correctness' ? diagnosisViewForRun(r.id) : null;
+    const note = (profile && profile.runId === String(r.id) && profile.compiler?.numericalValidation?.summary) || said;
+    const icon = { ok: '✓', warn: '!', bad: '×', idle: '○' }[v[1]] || '○';
     return '<header class="kf-dh is-' + v[1] + '" aria-label="' + esc(DOMAIN_LABEL[key]) + '域结论">' +
-      '<div class="kf-dh-title"><span class="kf-dh-domain">' + esc(DOMAIN_LABEL[key]) + '</span>' +
-        '<span class="kf-dh-verdict">' + esc(v[0]) + '</span>' +
-        '<small>' + esc(said) + '</small></div>' +
-      '<div class="kf-dh-metrics">' + domainHeadMetrics(key, r).map(m =>
-        '<span>' + esc(m[0]) + '<b' + (m[2] ? ' class="is-' + m[2] + '"' : '') + '>' + esc(m[1]) + '</b></span>').join('') +
+      '<div class="kf-dh-verdict" aria-hidden="true"><span>' + esc(DOMAIN_LABEL[key]) + '</span><b>' + esc(v[0]) + '</b><i>' + icon + '</i></div>' +
+      '<div class="kf-dh-metrics">' + domainOverviewMetrics(key, r).map(m =>
+        '<span><i>' + esc(m[0]) + '</i><b' + (m[2] ? ' class="is-' + m[2] + '"' : '') + '>' + esc(m[1]) + '</b></span>').join('') +
       '</div>' +
+      '<p class="kf-dh-note">' + esc(note) + '</p>' +
     '</header>';
   }
 
@@ -2417,32 +2464,9 @@
     '</div>';
   }
 
-  /* ---------- 诊断门 / 结果 / 诊断路径 ---------- */
-  function dgDiagnosisGates() {
-    const structural = DG.compiler?.structuralVerification || {};
-    const numerical = DG.compiler?.numericalValidation || {};
-    const expected = DG.expectedDifference || {};
-    const gate = (label, value, status) => {
-      const tone = status === 'fail' ? 'bad' : status === 'pass' ? 'ok' : 'idle';
-      return '<div class="kf-dg-gate is-' + tone + '" role="listitem">' +
-        '<span>' + esc(label) + '</span><b><i aria-hidden="true">' + (tone === 'bad' ? '×' : tone === 'ok' ? '✓' : '○') +
-        '</i>' + esc(value) + '</b></div>';
-    };
-    const gates = [
-      gate('参考基准', DG.reference?.source || '不可用', DG.reference?.status === 'valid' ? 'pass' : 'unknown'),
-      gate('容差', 'rtol ' + (DG.tolerance?.rtol || '—') + ' · atol ' + (DG.tolerance?.atol || '—'), DG.tolerance?.status === 'valid' ? 'pass' : 'unknown'),
-      gate('预期差异', expected.status === 'none' ? '未声明允许的差异' : (expected.reason || '需要复核'), expected.status === 'none' ? 'pass' : 'unknown'),
-      gate('结构校验', (structural.status || 'unknown').toUpperCase(), structural.status),
-      gate('数值校验', numerical.status === 'pass' ? numerical.passed + ' / ' + numerical.total + ' Pass' : (numerical.status || 'unknown').toUpperCase(), numerical.status),
-      gate('设备结果', DG.deviceResult?.label || 'NOT EVALUATED', DG.deviceResult?.status || 'not_evaluated')
-    ];
-    return '<section class="kf-dg-diagnosis" aria-label="数值精度诊断 Gate">' +
-      '<header class="kf-dg-diagnosis-head"><div><h2>正确性</h2><span>数值精度（Numerical Accuracy）</span></div>' +
-        '<p><small>' + esc(DG.diagnosis?.rationale || '') + '</small></p></header>' +
-      '<div class="kf-dg-gates" role="list">' + gates.join('') + '</div>' +
-    '</section>';
-  }
-
+  /* ---------- 诊断门 / 结果 / 诊断路径 ----------
+     诊断 Gate（参考基准 / 容差 / 语义校验）已并入统一 Domain Header 的
+     总览条（见 domainOverviewMetrics），这里不再单独渲染 kf-dg-diagnosis。 */
   function dgResult() {
     const R = DG.result;
     const diagnosis = DG.diagnosis || {};
@@ -2507,14 +2531,12 @@
   function correctnessDiagnosisPanel() {
     if (dgHasCompilerDivergence()) {
       return '<section class="kf-rd-sec kf-dg" aria-label="编译语义正确性诊断">' +
-        dgDiagnosisGates() +
         dgResult() +
         dgCompilerDivergence() +
         dgCause() +
       '</section>';
     }
     return '<section class="kf-rd-sec kf-dg" aria-label="正确性诊断">' +
-      dgDiagnosisGates() +
       dgResult() +
       dgTrail() +
       '<div class="kf-dg-layout">' +
@@ -2866,17 +2888,14 @@
 
       return '<div class="kf-th-item' + (open ? ' is-open' : '') + '">' +
         '<button type="button" class="kf-th-row" data-th-task="' + t.id + '" aria-expanded="' + open + '">' +
+          '<span class="kf-th-task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M20.6604 8.15501L20.6604 15.845C20.6604 16.56 20.2792 17.22 19.6604 17.577L13.0001 21.423C12.3813 21.78 11.6189 21.78 11.0001 21.423L4.33984 17.577C3.72105 17.22 3.33984 16.56 3.33984 15.845L3.33984 8.15501C3.33984 7.44002 3.72105 6.78001 4.33984 6.42301L11.0001 2.57702C11.6189 2.22002 12.3813 2.22002 13.0001 2.57702L19.6604 6.42301C20.2792 6.78001 20.6604 7.44002 20.6604 8.15501Z" fill-rule="evenodd" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path d="M20.3252 7.19398L13.9506 10.874M9.95794 10.821L3.55273 7.12299" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path d="M12 21L12 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path d="M8.5023 7.442L9.15181 7.067L11.2499 5.856C11.7499 5.567 12.2499 5.567 12.7499 5.856L14.8479 7.067L15.4975 7.442C15.7861 7.609 15.8471 7.836 15.6805 8.125C15.5138 8.414 15.2861 8.475 14.9975 8.308L14.3479 7.933L12.2499 6.722C12.0832 6.625 11.9165 6.625 11.7499 6.722L9.65181 7.933L9.0023 8.308C8.71361 8.475 8.48591 8.414 8.31931 8.125C8.15261 7.836 8.21361 7.609 8.5023 7.442ZM17.696 11.25L17.696 12L17.696 14.423C17.696 15 17.446 15.433 16.946 15.722L14.8479 16.933L14.1984 17.308C13.9097 17.475 13.6821 17.414 13.5154 17.125C13.3487 16.836 13.4097 16.609 13.6984 16.442L14.3479 16.067L16.446 14.856C16.6127 14.759 16.696 14.615 16.696 14.423L16.696 12L16.696 11.25C16.696 10.917 16.8627 10.75 17.196 10.75C17.5294 10.75 17.696 10.917 17.696 11.25ZM9.80131 17.308L9.15181 16.933L7.05371 15.722C6.55371 15.433 6.30371 15 6.30371 14.423L6.30371 12L6.30371 11.25C6.30371 10.917 6.47041 10.75 6.80371 10.75C7.13701 10.75 7.30371 10.917 7.30371 11.25L7.30371 12L7.30371 14.423C7.30371 14.615 7.38701 14.759 7.55371 14.856L9.65181 16.067L10.3013 16.442C10.59 16.609 10.651 16.836 10.4843 17.125C10.3176 17.414 10.09 17.475 9.80131 17.308ZM15.4701 7.449L15.4975 7.442C15.7399 7.582 15.8205 7.883 15.6805 8.125C15.5405 8.367 15.2399 8.448 14.9975 8.308L14.9901 8.281L15.4701 7.449ZM9.00961 8.281L9.0023 8.308C8.75981 8.448 8.4593 8.367 8.31931 8.125C8.17931 7.883 8.25981 7.582 8.5023 7.442L8.52961 7.449L9.00961 8.281ZM6.32371 11.27L6.30371 11.25C6.30371 10.97 6.5237 10.75 6.80371 10.75C7.08371 10.75 7.30371 10.97 7.30371 11.25L7.28371 11.27L6.32371 11.27ZM10.274 16.449L10.3013 16.442C10.5438 16.582 10.6243 16.883 10.4843 17.125C10.3443 17.367 10.0438 17.448 9.80131 17.308L9.79401 17.281L10.274 16.449ZM14.2057 17.281L14.1984 17.308C13.9559 17.448 13.6554 17.367 13.5154 17.125C13.3754 16.883 13.4559 16.582 13.6984 16.442L13.7257 16.449L14.2057 17.281ZM16.716 11.27L16.696 11.25C16.696 10.97 16.916 10.75 17.196 10.75C17.476 10.75 17.696 10.97 17.696 11.25L17.676 11.27L16.716 11.27Z" fill="currentColor" fill-rule="nonzero"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/></svg></span>' +
           '<span class="kf-th-dot is-' + v[1] + '"></span>' +
-          '<span class="kf-th-title">' + esc(t.title) + '</span>' +
-          '<span class="kf-th-verdict is-' + v[1] + '">' + v[0] + '</span>' +
-          '<span class="kf-th-sub">' + esc(t.kind) + ' · ' + esc(t.model) + ' · ' + esc(t.op) + '</span>' +
-          '<span class="kf-th-time">' + t.runs.length + ' 次运行 · 最近 ' + esc(head.time.slice(5, 16)) + '</span>' +
+          '<span class="kf-th-task-copy"><span class="kf-th-title">' + esc(t.title) + '</span>' +
+            '<span class="kf-th-task-meta">' + t.runs.length + ' 次运行 · ' + (liveN ? liveN + ' 次产物在库' : '暂无产物在库') + '</span></span>' +
         '</button>' +
         '<button type="button" class="kf-th-compare-icon" data-th-compare-open data-th-compare-task-id="' + t.id + '" aria-label="对比 ' + esc(t.title) + ' 的运行" title="对比此算子的运行"' + (t.runs.length < 2 ? ' disabled' : '') + '>⇄</button>' +
         (open
           ? '<div class="kf-th-runs">' +
-              '<div class="kf-th-arts-h">运行历史 · ' + t.runs.length + ' 次' +
-                (liveN ? ' · ' + liveN + ' 次产物在库' : '') + '</div>' +
               t.runs.map(r => runRow(t, r)).join('') +
             '</div>' +
             ''
