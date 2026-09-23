@@ -792,7 +792,7 @@
    the headline numbers stay above it because they are true of the run, not of
    one view of it. Living here also means the tabs only ever exist under
    任务与运行 — they cannot leak into the explorer or runs views. */
-.kf-rt { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }
+.kf-rt { display: flex; gap: 2px;}
 .kf-rtp { display: grid; gap: 14px; }
 .kf-tuning-embed { min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-1); }
 .kf-tuning-embed > header { display: flex; align-items: center; min-height: 38px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1)); }
@@ -1072,7 +1072,6 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
   border-radius: calc(var(--radius-lg) + 2px);
-  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
   box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025);
 }
 .kf-rd-overview-left, .kf-rd-overview-right { min-width: 0; }
@@ -1083,7 +1082,7 @@
 
 .kf-rd-summary {
   position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 13px;
-  padding: 17px 18px 15px; border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
   border-radius: calc(var(--radius-lg) + 2px);
   background:
     radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 52%),
@@ -1567,17 +1566,14 @@
 }
 #ideMainSplit.kf-run-no-inspector .kf-rd-overview {
   grid-template-columns: minmax(0, 1fr) minmax(132px, .32fr) minmax(132px, .32fr) !important;
-  margin: 0 -16px;
   overflow: hidden;
   border: 0;
   border-bottom: 1px solid var(--border-default);
   border-radius: 0;
-  background: var(--surface-1);
   box-shadow: none;
 }
 #ideMainSplit.kf-run-no-inspector .kf-rd-summary {
   gap: 8px;
-  padding: 12px 16px 11px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1637,16 +1633,12 @@
 
 /* Primary tabs and Domain Header form one continuous navigation stack. */
 #ideMainSplit.kf-run-no-inspector .kf-rt {
-  min-height: 40px;
-  margin: 0 -16px;
-  padding: 0 8px;
+  padding: 0 16px;
   gap: 0;
-  border-bottom-color: var(--border-default);
-  background: var(--surface-1);
 }
 #ideMainSplit.kf-run-no-inspector .kf-rt button {
-  min-height: 40px;
   padding: 0 11px;
+  height: 32px;
   border-bottom-width: 1px;
   border-radius: 0;
 }
@@ -1657,11 +1649,10 @@
 #ideMainSplit.kf-run-no-inspector .kf-rt button[aria-selected="true"] {
   border-bottom-color: var(--foreground-secondary);
   color: var(--foreground);
-  background: color-mix(in srgb, var(--foreground) 3%, transparent);
 }
 #ideMainSplit.kf-run-no-inspector .kf-rtpwrap {
   gap: 10px;
-  padding-top: 0;
+  padding: 0 16px;
 }
 #ideMainSplit.kf-run-no-inspector .kf-dh {
   min-height: 48px;
@@ -1677,7 +1668,6 @@
 #ideMainSplit.kf-run-no-inspector .kf-rd-band {
   margin-top: 3px;
   padding-bottom: 5px;
-  border-bottom-color: var(--border-default);
 }
 
 @container (max-width: 720px) {
@@ -1841,7 +1831,6 @@
   display: flex;
   width: 100%;
   align-items: center;
-  padding: 16px 20px;
 }
 #ideMainSplit.kf-run-no-inspector .kf-rd-identity {
   display: flex;
@@ -2017,7 +2006,6 @@
 }
 
 #ideMainSplit.kf-run-no-inspector .kf-rd-overview { min-height: 96px; padding:16px}
-#ideMainSplit.kf-run-no-inspector .kf-rd-summary { padding: 11px 14px; }
 #ideMainSplit.kf-run-no-inspector .kf-rd-identity { gap: 10px; }
 #ideMainSplit.kf-run-no-inspector .kf-rd-run-icon {
   width: 48px;
