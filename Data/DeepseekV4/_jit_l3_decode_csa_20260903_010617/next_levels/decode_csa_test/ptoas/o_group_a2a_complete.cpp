@@ -1,0 +1,114 @@
+#include "pto/pto-inst.hpp"
+using namespace pto;
+
+template <typename Tensor>
+static AICORE inline auto PTOAS__GLOBAL_TENSOR_DATA(Tensor &tensor)
+    -> decltype(tensor.data()) {
+  return tensor.data();
+}
+
+
+enum class PTOAutoSyncTailMode : int {
+  kBarrierAll = 0,
+  kSetWaitMte3ToSEvent0 = 1,
+};
+
+static AICORE inline void ptoas_auto_sync_tail(
+    PTOAutoSyncTailMode mode = PTOAutoSyncTailMode::kBarrierAll) {
+  switch (mode) {
+  case PTOAutoSyncTailMode::kSetWaitMte3ToSEvent0:
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    break;
+  case PTOAutoSyncTailMode::kBarrierAll:
+  default:
+    pipe_barrier(PIPE_ALL);
+    break;
+  }
+}
+
+template <typename Ptr>
+static AICORE inline void PTOAS__DCCI_SINGLE_CACHE_LINE(Ptr ptr) {
+  dcci((__gm__ void*)ptr, cache_line_t::SINGLE_CACHE_LINE);
+}
+
+AICORE void o_group_a2a_complete(__gm__ bfloat16_t* v1, __gm__ int32_t* v2, int32_t v3, int32_t v4, __gm__ int64_t* v5) {
+  pto::comm::WaitCmp v6 = pto::comm::WaitCmp::GE;
+  pto::comm::NotifyOp v7 = pto::comm::NotifyOp::AtomicAdd;
+  const int32_t v8 = 1;
+  const int64_t v9 = 4;
+  const int64_t v10 = 0;
+  const int64_t v11 = 2;
+  const int64_t v12 = 1;
+  const int32_t v13 = 49;
+  const int32_t v14 = -49;
+  using T = float;
+
+  #if defined(__DAV_VEC__)
+  set_mask_norm();
+  set_vector_mask(-1, -1);
+  // pto: %completion_anchor_inline2439__tile
+  bfloat16_t v15 = (v1)[v10];
+  for (int64_t i16 = v10; i16 < v11; i16 += v12) {
+    // pto: %0
+    int64_t v17 = (int64_t) v3;
+    // pto: %1
+    if (i16 != v17) {
+      // pto: %4
+      int64_t v18 = (v5)[v11];
+      // pto: %5, %6, %7, %8
+      int64_t v19 = (v5)[(int64_t) ((uint64_t) ((int64_t) ((int32_t) v18)) + (uint64_t) v9)];
+      // pto: %2, %3, %9, %10
+      int64_t v20 = (v5)[(int64_t) ((uint64_t) ((int64_t) ((uint64_t) ((int64_t) v4) + (uint64_t) i16)) + (uint64_t) v9)];
+      // pto: %attention_signal__ssa_v0_peer_pview
+      pto::Shape<1, 1, 1, 1, 1> v21 = pto::Shape<1, 1, 1, 1, 1>();
+      // pto: %attention_signal__ssa_v0_peer_pview
+      pto::Stride<1, 1, 1, 1, 2> v22 = pto::Stride<1, 1, 1, 1, 2>();
+      // pto: %11, %12, %14, %16, %attention_signal__ssa_v0_peer_pview
+      GlobalTensor<int32_t, pto::Shape<1, 1, 1, 1, 1>, pto::Stride<1, 1, 1, 1, 2>, pto::Layout::DN> v23 = GlobalTensor<int32_t, pto::Shape<1, 1, 1, 1, 1>, pto::Stride<1, 1, 1, 1, 2>, pto::Layout::DN>((v2 + (int64_t) ((uint64_t) v20 - (uint64_t) v19) / v9) + (v10 + (v17 < v10 ? v10 : v17)), v21, v22);
+      pto::comm::TNOTIFY(v23, v8, v7);
+    }
+  }
+  for (int64_t i24 = v10; i24 < v11; i24 += v12) {
+    // pto: %20, %21
+    if (i24 != (int64_t) v3) {
+      // pto: %attention_signal__ssa_v0_local_pview
+      pto::Shape<1, 1, 1, 1, 1> v25 = pto::Shape<1, 1, 1, 1, 1>();
+      // pto: %attention_signal__ssa_v0_local_pview
+      pto::Stride<1, 1, 1, 1, 2> v26 = pto::Stride<1, 1, 1, 1, 2>();
+      // pto: %22, %attention_signal__ssa_v0_local_pview
+      GlobalTensor<int32_t, pto::Shape<1, 1, 1, 1, 1>, pto::Stride<1, 1, 1, 1, 2>, pto::Layout::DN> v27 = GlobalTensor<int32_t, pto::Shape<1, 1, 1, 1, 1>, pto::Stride<1, 1, 1, 1, 2>, pto::Layout::DN>(v2 + (v10 + (i24 < v10 ? v10 : i24)), v25, v26);
+      pto::comm::TWAIT(v27, v13, v6);
+    }
+  }
+  dcci((__gm__ void*)0, cache_line_t::ENTIRE_DATA_CACHE);
+  for (int64_t i28 = v10; i28 < v11; i28 += v12) {
+    // pto: %27, %28
+    if (i28 != (int64_t) v3) {
+      // pto: %29
+      int64_t v29 = (v5)[v11];
+      // pto: %30, %31, %32, %33
+      int64_t v30 = (v5)[(int64_t) ((uint64_t) ((int64_t) ((int32_t) v29)) + (uint64_t) v9)];
+      // pto: %26, %self_rank_inline2423__ssa_v0_idx, %34, %35
+      int64_t v31 = (v5)[(int64_t) ((uint64_t) ((int64_t) ((int32_t) ((uint32_t) v4 + (uint32_t) v3))) + (uint64_t) v9)];
+      // pto: %42
+      pto::Shape<1, 1, 1, 1, 1> v32 = pto::Shape<1, 1, 1, 1, 1>();
+      // pto: %42
+      pto::Stride<1, 1, 1, 1, 2> v33 = pto::Stride<1, 1, 1, 1, 2>();
+      // pto: %36, %37, %39, %41, %42
+      GlobalTensor<int32_t, pto::Shape<1, 1, 1, 1, 1>, pto::Stride<1, 1, 1, 1, 2>, pto::Layout::DN> v34 = GlobalTensor<int32_t, pto::Shape<1, 1, 1, 1, 1>, pto::Stride<1, 1, 1, 1, 2>, pto::Layout::DN>((v2 + (int64_t) ((uint64_t) v31 - (uint64_t) v30) / v9) + (v10 + (i28 < v10 ? v10 : i28)), v32, v33);
+      pto::comm::TNOTIFY(v34, v14, v7);
+    }
+  }
+  (v1)[v10] = v15;
+  pipe_barrier(PIPE_ALL);
+  dcci((__gm__ void*)0, cache_line_t::ENTIRE_DATA_CACHE);
+  dsb((mem_dsb_t)0);
+  #endif // __DAV_VEC__
+
+  pipe_barrier(PIPE_ALL);
+  dcci((__gm__ void*)0, cache_line_t::ENTIRE_DATA_CACHE);
+  dsb((mem_dsb_t)0);
+  ptoas_auto_sync_tail(PTOAutoSyncTailMode::kBarrierAll);
+  return;
+}

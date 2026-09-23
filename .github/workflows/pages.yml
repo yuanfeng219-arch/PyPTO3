@@ -1,0 +1,66 @@
+name: Deploy Design Lab to GitHub Pages
+
+on:
+  push:
+    branches: [main, insight]
+    paths:
+      - "launch.html"
+      - "Design/**"
+      - "inference/**"
+      - "Insight/**"
+      - "Data/DeepSeek-V4-Flash-Official/**"
+      - "Data/DeepseekV4/deepseek_v4_flash_dspark/**"
+      - "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/**/merged_swimlane_*.json"
+      - "vendor/pto-design-system/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Prepare static site
+        shell: bash
+        run: |
+          mkdir -p _site/vendor
+          cp launch.html _site/index.html
+          cp launch.html _site/launch.html
+          cp -R Design _site/Design
+          cp -R inference _site/inference
+          cp -R Insight _site/Insight
+          mkdir -p _site/Data/DeepseekV4
+          cp -R Data/DeepSeek-V4-Flash-Official _site/Data/DeepSeek-V4-Flash-Official
+          cp -R Data/DeepseekV4/deepseek_v4_flash_dspark _site/Data/DeepseekV4/deepseek_v4_flash_dspark
+          mkdir -p _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0
+          mkdir -p _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0
+          cp Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/merged_swimlane_20260903_010746.json _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/
+          cp Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/merged_swimlane_20260903_010747.json _site/Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/
+          cp -R vendor/pto-design-system _site/vendor/pto-design-system
+          touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

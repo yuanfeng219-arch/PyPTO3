@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="KV Cache 多目标优化空间探索工作台">
+  <title>KV Explorer</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" aria-label="KV Cache 优化空间探索工作台">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip" aria-hidden="true"><svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 15h2V9H7zm4 0h2V6h-2zm4 0h2v-4h-2z"/></svg></div>
+        <div class="pto-ide-frame__workspace"><span class="kv-brand">KV Explorer</span><span class="kv-brand-sub">/ optimization space</span></div>
+      </div>
+      <div class="pto-ide-frame__topbar-center"><button class="pto-ide-frame__search" type="button" id="commandTrigger" aria-label="搜索场景或候选配置"><span>搜索场景、配置或运行编号</span><kbd>⌘ K</kbd></button></div>
+      <div class="pto-ide-frame__topbar-right"><span class="kv-runtime-state"><i></i>A3 · 910B · CANN 9.0.0</span><button class="pto-ide-frame__window-action" id="resetDemo" type="button" aria-label="重置探索空间" title="重置探索空间"><svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg></button></div>
+    </header>
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" aria-label="工作台导航">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="切换探索场景栏" aria-controls="kv-explorer" aria-expanded="true" aria-pressed="true" title="Explorer"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13Z"/></svg></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="runs" aria-label="打开运行记录" title="Search"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="baseline" aria-label="打开基线版本" title="Source control"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></svg></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" id="consoleAction" aria-label="查看探索日志" title="Terminal"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg></button>
+      </nav>
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="27,51,22" data-pixel-sizes="352" data-min-size="300,560,320" data-storage-key="kv-cache-explorer-v2">
+          <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="kv-explorer">
+            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">探索场景</span><span class="pto-ide-frame__pane-meta">SC-042</span></header>
+            <div class="pto-ide-frame__pane-body kv-explorer-pane">
+              <div class="kv-scene-card"><div class="kv-kicker">当前场景</div><h1>Decode 延迟回归</h1><p>Llama 3.1 8B · batch 8 · A3</p><span class="badge badge--warning">目标未达成</span></div>
+              <div class="kv-section"><div class="kv-section-title">优化目标 <span>多目标</span></div><label class="kv-objective"><input type="checkbox" checked data-objective="latency"><span><b>P95 延迟</b><small>≤ 120 ms</small></span><em>主要</em></label><label class="kv-objective"><input type="checkbox" checked data-objective="memory"><span><b>KV 显存</b><small>≤ 72 GB</small></span><em>约束</em></label><label class="kv-objective"><input type="checkbox" checked data-objective="throughput"><span><b>吞吐率</b><small>≥ 68 tok/s</small></span><em>目标</em></label><label class="kv-objective"><input type="checkbox" checked data-objective="prefixHit"><span><b>Prefix hit rate</b><small>≥ 70%</small></span><em>目标</em></label></div>
+              <div class="kv-section"><div class="kv-section-title">Serving 参数 <span>8 / 8</span></div><div class="kv-field-grid">
+                <label class="kv-field"><span>max_batch_size</span><input id="maxBatchSize" type="number" min="1" max="64" step="1" value="16"></label><label class="kv-field"><span>context_len</span><input id="contextLen" type="number" min="512" max="32768" step="512" value="8192"></label><label class="kv-field"><span>max_seq_len</span><input id="maxSeqLen" type="number" min="128" max="32768" step="128" value="512"></label><label class="kv-field"><span>max_new_tokens</span><input id="maxNewTokens" type="number" min="1" max="512" step="1" value="16"></label><label class="kv-field"><span>page_size <i>tokens</i></span><select id="pageSize"><option value="64">64</option><option value="128" selected>128</option><option value="256">256</option></select></label><label class="kv-field"><span>kv_dtype</span><select id="kvDtype"><option value="bfloat16" selected>bfloat16</option><option value="float16">float16</option><option value="int8">int8</option></select></label><label class="kv-field"><span>q_tile</span><select id="qTile"><option value="8">8</option><option value="16" selected>16</option><option value="32">32</option></select></label><label class="kv-field"><span>N_UNROLL</span><select id="nUnroll"><option value="32">32</option><option value="64" selected>64</option><option value="128">128</option></select></label>
+              </div><div class="kv-switch-grid"><label><input id="prefixCache" type="checkbox" checked><span>Prefix cache</span></label><label><input id="chunkPrefill" type="checkbox" checked><span>Chunk prefill</span></label><label><input id="asyncScheduling" type="checkbox" checked><span>Async scheduling</span></label></div></div>
+              <div class="kv-section"><div class="kv-section-title">搜索策略 <span id="strategyBadge">Recommended</span></div><div class="kv-strategy-tabs" role="tablist" aria-label="搜索策略"><button class="kv-strategy-tab is-selected" data-strategy="quick" type="button"><b>Quick</b><small>快速收敛</small></button><button class="kv-strategy-tab" data-strategy="brute" type="button"><b>Brute</b><small>枚举组合</small></button><button class="kv-strategy-tab" data-strategy="optuna" type="button"><b>Optuna</b><small>智能采样</small><i>Alpha</i></button></div><div class="kv-brute-modes" id="bruteModes" hidden><button class="kv-mode-button is-selected" data-brute-mode="automatic" type="button">Automatic Brute</button><button class="kv-mode-button" data-brute-mode="manual" type="button">Manual Brute</button></div><div class="kv-strategy-copy" id="strategyCopy"></div><div class="kv-strategy-controls" id="strategyControls"></div><div class="kv-complexity"><div class="kv-complexity-label"><span>枚举</span><span>智能搜索</span></div><div class="kv-complexity-track"><i></i><b id="complexityMarker" style="left: 68%"></b></div><div class="kv-complexity-modes"><span>Manual</span><span>Automatic</span><span>Quick</span><span>Optuna</span></div></div></div>
+              <div class="kv-section"><div class="kv-section-title">约束 <span id="constraintCount">2 个硬约束</span></div><div class="kv-presets"><button class="btn btn-compact is-selected" data-preset="decode" type="button">Decode SLA</button><button class="btn btn-compact" data-preset="memory" type="button">HBM Safe</button><button class="btn btn-compact" data-preset="throughput" type="button">Throughput First</button></div><div id="constraintRows" class="kv-constraint-rows"></div><button class="btn btn-compact kv-add-constraint" id="addConstraint" type="button">+ 添加约束</button></div>
+              <div class="kv-section kv-constraints"><div class="kv-section-title">运行边界 <span class="kv-live-dot">已加载</span></div><div class="kv-boundary"><span>HBM capacity</span><b>80 GB</b></div><div class="kv-boundary"><span>Model context</span><b>32,768</b></div><div class="kv-boundary"><span>Baseline</span><b class="mono">RUN-207</b></div></div>
+              <button class="btn btn-solid kv-run-button" id="runSweep" type="button"><span>运行空间探索</span><span class="kv-run-icon">↗</span></button>
+            </div>
+          </aside>
+          <main class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+            <div class="pto-ide-frame__tabstrip"><div class="pto-ide-frame__tab is-active"><span class="kv-tab-dot"></span>KV space</div><span class="pto-ide-frame__tabstrip-spacer"></span><span class="kv-run-label" id="runLabel">RUN-218 · 12 min ago</span></div>
+            <header class="pto-ide-frame__pane-header kv-main-header"><div><span class="pto-ide-frame__pane-title">优化空间</span><span class="kv-header-sub">候选配置在目标约束下的可行区域</span></div><div class="kv-header-actions"><button class="btn btn-compact" id="filterPareto" type="button">仅看 Pareto</button><button class="btn btn-compact" id="fitSpace" type="button">适配视图</button></div></header>
+            <div class="pto-ide-frame__pane-body kv-main-pane">
+              <section class="kv-summary-row" aria-label="当前摘要"><div class="kv-summary"><span>可行候选</span><strong id="feasibleCount">—</strong><small>满足全部硬约束</small></div><div class="kv-summary"><span>最佳延迟</span><strong id="bestLatency">—</strong><small id="bestLatencyMeta">当前搜索</small></div><div class="kv-summary"><span>显存余量</span><strong id="memoryHeadroom">—</strong><small>基线 80 GB</small></div><div class="kv-summary kv-summary-accent"><span>推荐起点</span><strong id="recommendation">—</strong><small id="recommendationMeta">平衡型 Pareto 候选</small></div></section>
+              <section class="kv-lineage-shell" aria-labelledby="lineageTitle"><div class="kv-viz-head"><div><h2 id="lineageTitle">Candidate population lineage</h2><p id="lineageSummary">搜索策略将候选从参数空间逐层收敛到 Pareto shortlist。</p></div><div class="kv-lineage-meta"><span id="lineageStrategy">Quick · hill-climbing</span><span id="lineageTrials">18 trials</span></div></div><div class="kv-lineage-wrap"><svg id="lineageSvg" viewBox="0 0 1110 276" role="img" aria-labelledby="lineageTitle lineageDesc"><desc id="lineageDesc">候选群体从参数空间经过合法性、内存和调度检查，最终进入 Pareto shortlist。</desc></svg></div></section>
+              <section class="kv-viz-shell" aria-labelledby="spaceTitle"><div class="kv-viz-head"><div><h2 id="spaceTitle">延迟 × KV 显存</h2><p>点的大小代表吞吐率；颜色表示候选状态。选择策略或修改约束后，候选空间会重新计算。</p></div><div class="kv-legend"><span><i class="dot dot-feasible"></i>可行</span><span><i class="dot dot-pareto"></i>Pareto</span><span><i class="dot dot-rejected"></i>被约束拒绝</span></div></div><div class="kv-chart-wrap"><svg id="spaceChart" viewBox="0 0 820 380" role="img" aria-labelledby="chartTitle chartDesc"><title id="chartTitle">KV Cache 优化候选空间</title><desc id="chartDesc">横轴为 P95 延迟，纵轴为 KV 显存，候选点按目标与约束分布。</desc></svg><div class="kv-chart-tooltip" id="chartTooltip" hidden></div></div><div class="kv-chart-footer"><span><i class="line-sample"></i>Pareto 前沿</span><span><i class="constraint-sample"></i><span id="constraintSummary">约束边界：P95 ≤ 120 ms · KV ≤ 72 GB</span></span><span id="spaceStatus">—</span></div></section>
+              <section class="kv-candidates"><div class="kv-section-header"><div><h2>候选配置</h2><p>按推荐优先级排序，点击候选查看因果解释。</p></div><span class="badge" id="candidateStatus">—</span></div><div class="kv-table-scroll"><table class="kv-table"><thead><tr><th>候选</th><th>Batch</th><th>Page</th><th>Q tile</th><th>延迟</th><th>KV 显存</th><th>吞吐率</th><th>状态</th></tr></thead><tbody id="candidateRows"></tbody></table></div></section>
+            </div>
+          </main>
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">候选解释器</span><span class="pto-ide-frame__pane-meta" id="inspectorId">—</span></header><div class="pto-ide-frame__pane-body kv-inspector" id="inspector"></div></aside>
+        </div>
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" aria-live="polite"><span><i class="kv-status-dot"></i><span id="statusText">空间探索已就绪</span></span><span id="statusMeta">— 个候选 · 8 个 serving / kernel 参数 · 2 个硬约束</span><span>Issue #2880 · Decode / KV</span></footer>
+      </div>
+    </div>
+  </section>
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script><script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script><script src="./app.js?v=20260824"></script>
+</body>
+</html>

@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTO 典型 IDE 框架</title>
+  <link rel="icon" href="data:,">
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const requested = params.get('theme');
+      let saved = 'dark';
+      try {
+        saved = localStorage.getItem('pto-typical-ide-frame-theme') || saved;
+      } catch (_error) {
+        saved = 'dark';
+      }
+      document.documentElement.dataset.theme = requested === 'light' || requested === 'dark'
+        ? requested
+        : (saved === 'light' ? 'light' : 'dark');
+    })();
+  </script>
+  <link rel="stylesheet" href="./tokens/foundation.css">
+  <link rel="stylesheet" href="./tokens/semantic.css">
+  <link rel="stylesheet" href="./tokens/components.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="./patterns/floating-playback-control/pattern.css">
+  <link rel="stylesheet" href="./patterns/ide-frame/pattern.css">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--ide-gradient-bg);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    :root,
+    :root[data-theme='dark'] {
+      --ide-bg-start: #17181d;
+      --ide-bg-mid: #101114;
+      --ide-bg-end: #0c0d10;
+      --ide-glow-left: 155 96 170;
+      --ide-glow-right: 24 99 220;
+      --ide-glow-center: 20 184 166;
+      --ide-glow-lower: 245 158 11;
+      --ide-glow-bottom: 155 96 170;
+      --ide-dot-color: 116 140 190;
+      --ide-dot-hot-color: 155 96 170;
+      --ide-cursor-color: 67 105 239;
+      --ide-gradient-left-alpha: 0.12;
+      --ide-gradient-right-alpha: 0.12;
+      --ide-gradient-center-alpha: 0.06;
+      --ide-gradient-lower-alpha: 0.05;
+      --ide-aura-left-alpha: 0.18;
+      --ide-aura-right-alpha: 0.16;
+      --ide-aura-center-alpha: 0.08;
+      --ide-aura-lower-alpha: 0.06;
+      --ide-aura-bottom-alpha: 0.08;
+      --ide-dot-opacity: 0;
+      --ide-dot-size: 1px;
+      --ide-dot-gap: 22px;
+      --ide-dot-hot-radius: 220px;
+      --ide-cursor-x: 50%;
+      --ide-cursor-y: 40%;
+      --ide-cursor-alpha: 0;
+      --ide-cursor-radius: 380px;
+      --ide-gradient-bg:
+        radial-gradient(circle at top left, rgb(var(--ide-glow-left) / var(--ide-gradient-left-alpha)), transparent 28%),
+        radial-gradient(circle at top right, rgb(var(--ide-glow-right) / var(--ide-gradient-right-alpha)), transparent 30%),
+        radial-gradient(circle at 48% 6%, rgb(var(--ide-glow-center) / var(--ide-gradient-center-alpha)), transparent 34%),
+        radial-gradient(circle at 18% 86%, rgb(var(--ide-glow-lower) / var(--ide-gradient-lower-alpha)), transparent 34%),
+        linear-gradient(180deg, var(--ide-bg-start) 0%, var(--ide-bg-mid) 44%, var(--ide-bg-end) 100%);
+      --ide-aura-bg:
+        radial-gradient(circle at var(--ide-cursor-x) var(--ide-cursor-y), rgb(var(--ide-cursor-color) / var(--ide-cursor-alpha)) 0, transparent var(--ide-cursor-radius)),
+        radial-gradient(circle at 12% 12%, rgb(var(--ide-glow-left) / var(--ide-aura-left-alpha)), transparent 0 22rem),
+        radial-gradient(circle at 88% 8%, rgb(var(--ide-glow-right) / var(--ide-aura-right-alpha)), transparent 0 24rem),
+        radial-gradient(circle at 52% 18%, rgb(var(--ide-glow-center) / var(--ide-aura-center-alpha)), transparent 0 20rem),
+        radial-gradient(circle at 18% 78%, rgb(var(--ide-glow-lower) / var(--ide-aura-lower-alpha)), transparent 0 18rem),
+        radial-gradient(circle at 72% 86%, rgb(var(--ide-glow-bottom) / var(--ide-aura-bottom-alpha)), transparent 0 18rem);
+      --ide-frame-page-bg: #101114;
+      --ide-frame-bg: #101114;
+    }
+
+    :root[data-theme='light'] {
+      --ide-bg-start: #fdfdff;
+      --ide-bg-mid: #f6f7fb;
+      --ide-bg-end: #eceff6;
+      --ide-glow-left: 155 96 170;
+      --ide-glow-right: 24 99 220;
+      --ide-glow-center: 20 184 166;
+      --ide-glow-lower: 245 158 11;
+      --ide-glow-bottom: 155 96 170;
+      --ide-dot-color: 24 99 220;
+      --ide-dot-hot-color: 155 96 170;
+      --ide-cursor-color: 24 99 220;
+      --ide-gradient-left-alpha: 0.16;
+      --ide-gradient-right-alpha: 0.14;
+      --ide-gradient-center-alpha: 0.08;
+      --ide-gradient-lower-alpha: 0.06;
+      --ide-aura-left-alpha: 0.22;
+      --ide-aura-right-alpha: 0.18;
+      --ide-aura-center-alpha: 0.10;
+      --ide-aura-lower-alpha: 0.08;
+      --ide-aura-bottom-alpha: 0.08;
+      --ide-gradient-bg:
+        radial-gradient(circle at top left, rgb(var(--ide-glow-left) / var(--ide-gradient-left-alpha)), transparent 28%),
+        radial-gradient(circle at top right, rgb(var(--ide-glow-right) / var(--ide-gradient-right-alpha)), transparent 30%),
+        radial-gradient(circle at 48% 6%, rgb(var(--ide-glow-center) / var(--ide-gradient-center-alpha)), transparent 34%),
+        radial-gradient(circle at 18% 86%, rgb(var(--ide-glow-lower) / var(--ide-gradient-lower-alpha)), transparent 34%),
+        linear-gradient(180deg, var(--ide-bg-start) 0%, var(--ide-bg-mid) 42%, var(--ide-bg-end) 100%);
+      --ide-aura-bg:
+        radial-gradient(circle at var(--ide-cursor-x) var(--ide-cursor-y), rgb(var(--ide-cursor-color) / var(--ide-cursor-alpha)) 0, transparent var(--ide-cursor-radius)),
+        radial-gradient(circle at 12% 12%, rgb(var(--ide-glow-left) / var(--ide-aura-left-alpha)), transparent 0 22rem),
+        radial-gradient(circle at 88% 8%, rgb(var(--ide-glow-right) / var(--ide-aura-right-alpha)), transparent 0 24rem),
+        radial-gradient(circle at 52% 18%, rgb(var(--ide-glow-center) / var(--ide-aura-center-alpha)), transparent 0 20rem),
+        radial-gradient(circle at 18% 78%, rgb(var(--ide-glow-lower) / var(--ide-aura-lower-alpha)), transparent 0 18rem),
+        radial-gradient(circle at 72% 86%, rgb(var(--ide-glow-bottom) / var(--ide-aura-bottom-alpha)), transparent 0 18rem);
+      --ide-frame-page-bg: #f8f8fb;
+      --ide-frame-bg: #f8f8fb;
+      --ide-frame-pane-bg: #ffffff;
+    }
+
+    .standalone-ide-frame {
+      width: 100vw;
+      height: 100vh;
+      aspect-ratio: auto;
+      border-radius: 0;
+      box-shadow: none;
+      background: var(--ide-gradient-bg);
+      --floating-playback-expanded-width: min(820px, calc(100vw - 160px));
+    }
+
+    .standalone-ide-frame .pto-ide-frame__split {
+      --pto-workbench-shell-gutter: 8px;
+      padding-left: 0;
+      padding-bottom: 0;
+      background: transparent;
+      overflow: visible;
+    }
+
+    .standalone-ide-frame .pto-ide-frame__split > .pto-workbench-shell__split-gutter {
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .standalone-ide-frame > .pto-ide-frame__topbar,
+    .standalone-ide-frame > .pto-ide-frame__body {
+      position: relative;
+      z-index: 1;
+    }
+
+    .standalone-ide-frame > .pto-ide-frame__floating-playback-mount {
+      position: absolute;
+      z-index: 50;
+    }
+
+    .standalone-ide-frame .pto-ide-frame__topbar-center {
+      display: none;
+    }
+
+    .standalone-ide-frame .pto-ide-frame__host-chip span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--foreground);
+      font: var(--ide-frame-title-font);
+    }
+
+    .standalone-ide-frame .pto-ide-frame__host-chip {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .standalone-ide-frame .pto-ide-frame__host-chip b {
+      color: var(--accent);
+    }
+
+    .standalone-ide-frame .pto-ide-frame__topbar-left {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .standalone-ide-frame .pto-ide-frame__topbar-right {
+      flex: 0 0 auto;
+      min-width: max-content;
+    }
+
+    .ide-top-actions {
+      flex: 0 0 auto;
+      gap: 4px;
+    }
+
+    :root[data-theme='light'] .opv-theme-toggle,
+    :root[data-theme='light'] .opv-icon-btn {
+      color: #0f0f10 !important;
+    }
+
+    .opv-icon-btn {
+      width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--foreground-muted);
+      cursor: pointer;
+    }
+
+    .opv-icon-btn:hover {
+      background: var(--state-hover);
+      color: var(--foreground-secondary);
+    }
+
+    .opv-icon-btn.is-active {
+      background: var(--ide-frame-control-bg);
+      border-color: var(--ide-frame-control-border);
+      color: var(--foreground);
+    }
+
+    .opv-icon-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .bg-debug-panel {
+      position: fixed;
+      top: 48px;
+      right: 12px;
+      z-index: 220;
+      width: min(340px, calc(100vw - 24px));
+      max-height: calc(100vh - 76px);
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 14px;
+      border: 1px solid var(--ide-frame-control-border);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--ide-frame-pane-bg) 88%, transparent);
+      box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .bg-debug-panel[hidden] {
+      display: none;
+    }
+
+    .bg-debug-panel__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .bg-debug-panel__title {
+      color: var(--foreground);
+      font: var(--ide-frame-title-font);
+    }
+
+    .bg-debug-panel__close {
+      width: 24px;
+      height: 24px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--foreground-muted);
+      cursor: pointer;
+    }
+
+    .bg-debug-panel__close:hover {
+      background: var(--state-hover);
+      color: var(--foreground);
+    }
+
+    .bg-debug-section {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .bg-debug-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--foreground-secondary);
+      font: var(--text-label);
+    }
+
+    .bg-debug-value {
+      color: var(--foreground-muted);
+      font: var(--text-mono);
+    }
+
+    .bg-palette-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .bg-palette-btn {
+      min-width: 0;
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--foreground) 4%, transparent);
+      color: var(--foreground-secondary);
+      font: 700 11px / 1 var(--font-sans);
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .bg-palette-btn:hover {
+      background: var(--state-hover);
+      color: var(--foreground);
+    }
+
+    .bg-palette-btn.is-active {
+      border-color: var(--ide-frame-selected-border);
+      background: var(--ide-frame-selected-bg);
+      color: var(--foreground);
+    }
+
+    .bg-palette-swatch {
+      width: 34px;
+      height: 24px;
+      border-radius: 7px;
+      background:
+        radial-gradient(circle at 24% 30%, rgb(var(--swatch-a) / 0.9), transparent 56%),
+        radial-gradient(circle at 78% 28%, rgb(var(--swatch-b) / 0.9), transparent 58%),
+        linear-gradient(135deg, var(--swatch-bg-a), var(--swatch-bg-b));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+    }
+
+    .bg-debug-slider {
+      width: 100%;
+      margin: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .bg-debug-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 32px;
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+    }
+
+    .bg-debug-toggle input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
+    .bg-debug-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .pto-ide-frame[data-inspector-open="false"] [data-ide-pane="inspector"] {
+      display: none;
+    }
+
+    .pto-ide-frame[data-inspector-open="false"] [data-ide-split="standalone-main"] > [data-ide-pane="editor-preview"] {
+      flex: 1 1 100% !important;
+      width: 100% !important;
+    }
+
+    .pto-ide-frame[data-inspector-open="false"] [data-ide-split="standalone-main"] > [data-split-direction="horizontal"].pto-workbench-shell__split-gutter {
+      display: none;
+    }
+
+    .preview-tree {
+      padding: 8px 6px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      color: var(--foreground-secondary);
+      font: 500 12px / 1.45 var(--font-sans);
+    }
+
+    .preview-tree-group {
+      padding: 6px 8px 4px;
+      color: var(--foreground);
+      font-weight: 700;
+    }
+
+    .preview-tree-row {
+      min-height: 26px;
+      display: grid;
+      grid-template-columns: 16px 16px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px 0 calc(8px + var(--tree-depth, 0) * 16px);
+      border-radius: 7px;
+    }
+
+    .preview-tree-row.is-active {
+      background: var(--state-selected);
+      color: var(--foreground);
+    }
+
+    .preview-tree-row.is-muted {
+      color: var(--foreground-muted);
+    }
+
+    .preview-tree-icon,
+    .preview-tree-chevron {
+      width: 15px;
+      height: 15px;
+      display: block;
+      fill: none;
+      stroke: var(--ide-frame-icon-stroke);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: var(--ide-frame-icon-opacity-secondary);
+    }
+
+    .preview-tree-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-tree-status {
+      color: var(--foreground-muted);
+      font: var(--text-mono);
+    }
+
+    .preview-tree-status.is-modified {
+      color: var(--warning);
+    }
+
+    .preview-editor-breadcrumbs {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 14px;
+      color: var(--foreground-muted);
+      font: var(--text-mono);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .preview-editor-breadcrumbs strong {
+      color: var(--foreground-secondary);
+      font-weight: 600;
+    }
+
+    .preview-code-surface {
+      height: calc(100% - 34px);
+      overflow: auto;
+      padding: 6px 0 14px;
+      background:
+        linear-gradient(90deg, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px) 46px 0 / 1px 100% no-repeat;
+    }
+
+    .preview-code-surface .pto-ide-frame__code-line {
+      grid-template-columns: 50px minmax(720px, 1fr);
+      min-height: 23px;
+    }
+
+    .preview-code-surface .pto-ide-frame__code-line-code::before {
+      display: none;
+    }
+
+    .preview-code-surface .pto-ide-frame__code-line-code {
+      padding: 0 22px 0 12px;
+    }
+
+    .tk-comment { color: var(--foreground-muted); font-style: italic; }
+    .tk-tag { color: #ff7b72; }
+    .tk-attr { color: #79c0ff; }
+    .tk-value { color: #a5d6ff; }
+    .tk-keyword { color: #c792ea; }
+    .tk-type { color: #82aaff; }
+    .tk-number { color: #f78c6c; }
+    .tk-fn { color: #82aaff; }
+
+    :root[data-theme='light'] .tk-tag { color: #cf222e; }
+    :root[data-theme='light'] .tk-attr { color: #0550ae; }
+    :root[data-theme='light'] .tk-value { color: #0a3069; }
+    :root[data-theme='light'] .tk-keyword { color: #8250df; }
+    :root[data-theme='light'] .tk-type { color: #0550ae; }
+    :root[data-theme='light'] .tk-number { color: #953800; }
+    :root[data-theme='light'] .tk-fn { color: #0550ae; }
+
+    .ide-inspector {
+      height: 100%;
+      overflow: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ide-inspector-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .ide-inspector-section:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .ide-inspector-title {
+      color: var(--foreground);
+      font: var(--text-title-2);
+      font-size: 13px;
+    }
+
+    .ide-inspector-row {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 8px;
+      align-items: baseline;
+      min-width: 0;
+      font: var(--text-body-sm);
+    }
+
+    .ide-inspector-row span {
+      color: var(--foreground-muted);
+    }
+
+    .ide-inspector-row b {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--foreground-secondary);
+      font-weight: 600;
+    }
+
+    .ide-inspector-soft {
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--foreground) 5%, transparent);
+      padding: 10px;
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+      line-height: 1.55;
+    }
+
+    .ide-status {
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--foreground-muted);
+      font: 600 12px / 1 var(--font-sans);
+    }
+
+    .ide-status__group {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .ide-status__group--right {
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+
+    .ide-status__item {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      color: var(--foreground-muted);
+    }
+
+    .ide-status__icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .ide-status__icon--solid {
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .ide-status__item--disabled {
+      opacity: 0.55;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    @media (max-width: 900px) {
+      .standalone-ide-frame .pto-ide-frame__workspace {
+        display: none;
+      }
+
+      .standalone-ide-frame [data-ide-pane="inspector"],
+      .standalone-ide-frame [data-ide-pane="editor-preview"] + .pto-workbench-shell__split-gutter {
+        display: none !important;
+      }
+
+      .standalone-ide-frame [data-ide-pane="editor-preview"] {
+        flex: 1 1 100% !important;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .standalone-ide-frame {
+        --floating-playback-expanded-width: calc(100vw - 24px);
+      }
+
+      .standalone-ide-frame .pto-ide-frame__topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 0 8px;
+        gap: 6px;
+      }
+
+      .standalone-ide-frame .pto-ide-frame__topbar-left,
+      .standalone-ide-frame .pto-ide-frame__topbar-right {
+        width: auto;
+      }
+
+      .standalone-ide-frame .pto-ide-frame__host-chip span {
+        max-width: calc(100vw - 90px);
+      }
+
+      .standalone-ide-frame .opv-theme-toggle {
+        position: fixed;
+        top: 10px;
+        right: 8px;
+        z-index: 200;
+        background: var(--ide-frame-control-bg);
+        border-color: var(--ide-frame-control-border);
+        color: var(--foreground);
+      }
+
+      .standalone-ide-frame #bgDebugToggle {
+        position: fixed;
+        top: 10px;
+        right: 44px;
+        z-index: 200;
+        background: var(--ide-frame-control-bg);
+        border-color: var(--ide-frame-control-border);
+        color: var(--foreground);
+      }
+
+      .standalone-ide-frame [data-click-explorer-toggle],
+      .standalone-ide-frame #inspectorToggle {
+        display: none;
+      }
+
+      .standalone-ide-frame [data-ide-pane="explorer"],
+      .standalone-ide-frame [data-ide-pane="explorer"] + .pto-workbench-shell__split-gutter {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .ide-status__item--selection,
+      .ide-status__item--spaces,
+      .ide-status__item--encoding,
+      .ide-status__item--linefeed,
+      .ide-status__item--cue {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="pto-ide-frame standalone-ide-frame" data-ide-frame data-host="standalone" data-inspector-open="true" aria-label="PTO typical IDE frame">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip">
+          <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <path d="m7 9 3 3-3 3"></path>
+            <path d="M12 15h5"></path>
+          </svg>
+          <span>PTO 典型 IDE 框架 · <b>workbench shell</b></span>
+        </div>
+        <div class="pto-ide-frame__workspace" data-ide-slot="workspace-switcher">
+          <span>ascend-950-workbench-demo</span>
+          <span class="pto-ide-frame__crumbs">index.html</span>
+        </div>
+      </div>
+      <div class="pto-ide-frame__topbar-center"></div>
+      <div class="pto-ide-frame__topbar-right">
+        <div class="pto-ide-frame__window-actions ide-top-actions" data-ide-slot="window-controls" aria-label="Window controls">
+          <button id="themeToggle" class="opv-icon-btn opv-theme-toggle" type="button" aria-pressed="false" title="切换主题" aria-label="切换主题">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.5 6.5 0 0 0 7.8 8.8A8 8 0 1 1 12 3z"></path></svg>
+          </button>
+          <button id="bgDebugToggle" class="opv-icon-btn" type="button" aria-expanded="false" aria-controls="bgDebugPanel" title="背景调试" aria-label="背景调试">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 4h-7"></path>
+              <path d="M10 4H3"></path>
+              <path d="M21 12h-9"></path>
+              <path d="M8 12H3"></path>
+              <path d="M21 20h-5"></path>
+              <path d="M12 20H3"></path>
+              <circle cx="12" cy="4" r="2"></circle>
+              <circle cx="10" cy="12" r="2"></circle>
+              <circle cx="14" cy="20" r="2"></circle>
+            </svg>
+          </button>
+          <button class="opv-icon-btn is-active" type="button" aria-pressed="true" aria-label="隐藏 Explorer 面板" title="隐藏 Explorer 面板" data-click-explorer-toggle>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M9 3v18"></path>
+            </svg>
+          </button>
+          <button id="inspectorToggle" class="opv-icon-btn is-active" type="button" aria-expanded="true" aria-controls="inspectPane" aria-label="隐藏 Inspector 面板" title="隐藏 Inspector 面板">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M15 3v18"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <aside class="bg-debug-panel" id="bgDebugPanel" hidden aria-label="Background debug panel">
+      <div class="bg-debug-panel__head">
+        <div class="bg-debug-panel__title">背景调试</div>
+        <button class="bg-debug-panel__close" type="button" id="bgDebugClose" aria-label="关闭背景调试">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+            <path d="m6 6 12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+          </svg>
+        </button>
+      </div>
+      <section class="bg-debug-section" aria-label="Palette">
+        <div class="bg-debug-label">配色 <span class="bg-debug-value" id="bgPaletteValue">Cohere</span></div>
+        <div class="bg-palette-grid">
+          <button class="bg-palette-btn is-active" type="button" data-bg-palette="cohere">
+            <span class="bg-palette-swatch" style="--swatch-a:155 96 170;--swatch-b:24 99 220;--swatch-bg-a:#fdfdff;--swatch-bg-b:#eceff6"></span>
+            <span>Cohere</span>
+          </button>
+          <button class="bg-palette-btn" type="button" data-bg-palette="aurora">
+            <span class="bg-palette-swatch" style="--swatch-a:20 184 166;--swatch-b:124 58 237;--swatch-bg-a:#f7fffb;--swatch-bg-b:#edf2ff"></span>
+            <span>Aurora</span>
+          </button>
+          <button class="bg-palette-btn" type="button" data-bg-palette="graphite">
+            <span class="bg-palette-swatch" style="--swatch-a:67 105 239;--swatch-b:34 197 94;--swatch-bg-a:#f9fbff;--swatch-bg-b:#edf4f2"></span>
+            <span>Graphite</span>
+          </button>
+          <button class="bg-palette-btn" type="button" data-bg-palette="ember">
+            <span class="bg-palette-swatch" style="--swatch-a:244 114 182;--swatch-b:245 158 11;--swatch-bg-a:#fffafa;--swatch-bg-b:#fff5ec"></span>
+            <span>Ember</span>
+          </button>
+        </div>
+      </section>
+      <section class="bg-debug-section" aria-label="Intensity">
+        <label class="bg-debug-label" for="bgIntensity">强度 <span class="bg-debug-value" id="bgIntensityValue">100%</span></label>
+        <input class="bg-debug-slider" id="bgIntensity" type="range" min="0" max="180" value="100">
+      </section>
+      <section class="bg-debug-section" aria-label="Dot matrix">
+        <label class="bg-debug-label" for="bgDotBrightness">点阵亮度 <span class="bg-debug-value" id="bgDotBrightnessValue">0%</span></label>
+        <input class="bg-debug-slider" id="bgDotBrightness" type="range" min="0" max="100" value="0">
+        <label class="bg-debug-label" for="bgDotGap">点距 <span class="bg-debug-value" id="bgDotGapValue">22px</span></label>
+        <input class="bg-debug-slider" id="bgDotGap" type="range" min="10" max="34" value="22">
+      </section>
+      <section class="bg-debug-section" aria-label="Cursor effects">
+        <label class="bg-debug-toggle">光标光晕 <input id="bgCursorGlow" type="checkbox"></label>
+        <label class="bg-debug-toggle">点阵跟随 <input id="bgCursorDots" type="checkbox"></label>
+      </section>
+      <div class="bg-debug-actions">
+        <button class="btn btn-sm btn-ghost" type="button" id="bgDebugReset">重置</button>
+      </div>
+    </aside>
+
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" data-ide-slot="activity-rail" aria-label="Activity rail">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="Toggle file explorer" aria-controls="feature-explorer-pane" aria-expanded="true" aria-pressed="true" title="Explorer">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Search" title="Search">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Source control" title="Source control">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="6" r="3"></circle>
+            <path d="M6 15V3"></path>
+            <path d="M9 18a9 9 0 0 0 9-9"></path>
+          </svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Terminal" title="Terminal">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <path d="m7 9 3 3-3 3"></path>
+            <path d="M12 15h5"></path>
+          </svg>
+        </button>
+      </nav>
+
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-storage-key="pto-typical-ide-frame-main-v1" data-split-direction="horizontal" data-sizes="22,50,28" data-pixel-sizes="300" data-min-size="220,360,240">
+          <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="feature-explorer-pane">
+            <header class="pto-ide-frame__pane-header">
+              <h2 class="pto-ide-frame__pane-title">资源管理器</h2>
+              <span class="pto-ide-frame__pane-meta">PTO</span>
+            </header>
+            <div class="pto-ide-frame__pane-body" data-ide-slot="navigation">
+              <div class="preview-tree">
+                <div class="preview-tree-group">文件</div>
+                <div class="preview-tree-row" style="--tree-depth:0">
+                  <svg class="preview-tree-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                  <span class="preview-tree-name">ascend-950-workbench-demo</span>
+                  <span class="preview-tree-status"></span>
+                </div>
+                <div class="preview-tree-row" style="--tree-depth:1">
+                  <svg class="preview-tree-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                  <span class="preview-tree-name">kernels</span>
+                  <span class="preview-tree-status"></span>
+                </div>
+                <div class="preview-tree-row" style="--tree-depth:2">
+                  <span></span>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                  <span class="preview-tree-name">c_api_add.asc</span>
+                  <span class="preview-tree-status is-modified">M</span>
+                </div>
+                <div class="preview-tree-row" style="--tree-depth:2">
+                  <span></span>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                  <span class="preview-tree-name">gelu_high_api.js</span>
+                  <span class="preview-tree-status">U</span>
+                </div>
+                <div class="preview-tree-row" style="--tree-depth:2">
+                  <span></span>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                  <span class="preview-tree-name">fp8_mmad_masked_reduce.js</span>
+                  <span class="preview-tree-status"></span>
+                </div>
+                <div class="preview-tree-row" style="--tree-depth:1">
+                  <svg class="preview-tree-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                  <span class="preview-tree-name">patterns</span>
+                  <span class="preview-tree-status"></span>
+                </div>
+                <div class="preview-tree-row is-active" style="--tree-depth:1">
+                  <span></span>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                  <span class="preview-tree-name">index.html</span>
+                  <span class="preview-tree-status is-modified">M</span>
+                </div>
+                <div class="preview-tree-row" style="--tree-depth:1">
+                  <span></span>
+                  <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                  <span class="preview-tree-name">hardware-frame.html</span>
+                  <span class="preview-tree-status"></span>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <section class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+            <div class="pto-ide-frame__tabstrip" data-ide-slot="preview-tabs">
+              <div class="tab-control" role="tablist" aria-label="Preview tabs">
+                <button class="tab-control-item" type="button" role="tab">c_api_add.asc <span class="pto-ide-frame__tab-close" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></span></button>
+                <button class="tab-control-item is-selected" type="button" role="tab">index.html <span class="pto-ide-frame__tab-close" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></span></button>
+              </div>
+            </div>
+            <header class="pto-ide-frame__pane-header">
+              <h2 class="pto-ide-frame__pane-title">预览</h2>
+              <span class="pto-ide-frame__pane-meta">index.html</span>
+            </header>
+            <div class="pto-ide-frame__pane-body" data-ide-slot="preview">
+              <div class="preview-editor-breadcrumbs">
+                <strong>ascend-950-workbench-demo</strong>
+                <span>/</span>
+                <strong>index.html</strong>
+                <span>/</span>
+                <span>workbench shell</span>
+              </div>
+              <div class="pto-ide-frame__code-surface preview-code-surface" aria-label="Code preview surface">
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1944</span><span class="pto-ide-frame__code-line-code"><span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;workbench-shell-page wb-page&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1945</span><span class="pto-ide-frame__code-line-code">  <span class="tk-tag">&lt;header</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;layout-header layout-header-filled workbench-shell-header&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1946</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;layout-header-left&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line is-related"><span class="pto-ide-frame__code-line-number">1947</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;a</span> <span class="tk-attr">href</span>=<span class="tk-value">&quot;../launch.html&quot;</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;home-link&quot;</span> <span class="tk-attr">title</span>=<span class="tk-value">&quot;Back to Launcher&quot;</span><span class="tk-tag">&gt;</span>⌂<span class="tk-tag">&lt;/a&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1948</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-brand&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1949</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-title-stack&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line is-active"><span class="pto-ide-frame__code-line-number">1950</span><span class="pto-ide-frame__code-line-code">          <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-title&quot;</span><span class="tk-tag">&gt;</span>硬件路径工作台<span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1951</span><span class="pto-ide-frame__code-line-code">          <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-subtitle&quot;</span><span class="tk-tag">&gt;</span>代码 ↔ 硬件 ↔ 决策同步审查<span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1952</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1953</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1954</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-context&quot;</span> <span class="tk-attr">aria-label</span>=<span class="tk-value">&quot;Context&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line is-related"><span class="pto-ide-frame__code-line-number">1955</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip&quot;</span><span class="tk-tag">&gt;</span>内核 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextKernelName&quot;</span><span class="tk-tag">&gt;</span>c_api_add<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1956</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip&quot;</span><span class="tk-tag">&gt;</span>目标 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextTarget&quot;</span><span class="tk-tag">&gt;</span>Ascend 910B<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1957</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip&quot;</span><span class="tk-tag">&gt;</span>分析 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextAnalysis&quot;</span><span class="tk-tag">&gt;</span>T1 静态<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1958</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip is-verdict&quot;</span><span class="tk-tag">&gt;</span>结论 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextVerdict&quot;</span><span class="tk-tag">&gt;</span>Native Vector baseline<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1959</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1960</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1961</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;layout-header-right&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line is-active"><span class="pto-ide-frame__code-line-number">1962</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;button</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;btn btn-sm&quot;</span> <span class="tk-attr">type</span>=<span class="tk-value">&quot;button&quot;</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;analyzeBtn&quot;</span><span class="tk-tag">&gt;</span>分析<span class="tk-tag">&lt;/button&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1963</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;button</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;btn btn-solid btn-sm&quot;</span> <span class="tk-attr">type</span>=<span class="tk-value">&quot;button&quot;</span><span class="tk-tag">&gt;</span>应用建议<span class="tk-tag">&lt;/button&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1964</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1965</span><span class="pto-ide-frame__code-line-code">  <span class="tk-tag">&lt;/header&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1966</span><span class="pto-ide-frame__code-line-code"></span></div>
+                <div class="pto-ide-frame__code-line is-related"><span class="pto-ide-frame__code-line-number">1967</span><span class="pto-ide-frame__code-line-code">  <span class="tk-tag">&lt;main</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;workbench-frame workbench-frame-split wb-workbench&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1968</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;section</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;panel-shell panel-shell-quiet workbench-pane wb-source-panel&quot;</span> <span class="tk-attr">aria-label</span>=<span class="tk-value">&quot;Kernel source&quot;</span><span class="tk-tag">&gt;</span></span></div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="inspectPane">
+            <header class="pto-ide-frame__pane-header">
+              <h2 class="pto-ide-frame__pane-title">视图</h2>
+              <span class="pto-ide-frame__pane-meta">Inspector</span>
+            </header>
+            <div class="pto-ide-frame__pane-body" data-ide-slot="inspector">
+              <div class="ide-inspector">
+                <section class="ide-inspector-section">
+                  <div class="ide-inspector-title">当前视图</div>
+                  <div class="ide-inspector-row"><span>视图</span><b>Hardware path workbench</b></div>
+                  <div class="ide-inspector-row"><span>目标</span><b>Ascend 910B</b></div>
+                  <div class="ide-inspector-row"><span>内核</span><b>c_api_add</b></div>
+                </section>
+                <section class="ide-inspector-section">
+                  <div class="ide-inspector-title">运行态</div>
+                  <div class="ide-inspector-row"><span>分析</span><b>T1 静态</b></div>
+                  <div class="ide-inspector-row"><span>结论</span><b>Native Vector baseline</b></div>
+                  <div class="ide-inspector-row"><span>状态</span><b>Ready</b></div>
+                </section>
+                <section class="ide-inspector-section">
+                  <div class="ide-inspector-title">建议</div>
+                  <div class="ide-inspector-soft">AICore 路径稳定，当前 baseline 可继续进入硬件映射审查。</div>
+                </section>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" data-ide-slot="status" aria-label="IDE status">
+          <div class="ide-status">
+            <div class="ide-status__group ide-status__group--left">
+              <span class="ide-status__item" title="Errors">
+                <svg class="ide-status__icon ide-status__icon--solid" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="m15 9-6 6" stroke="var(--ide-frame-bg)" stroke-width="2.4" stroke-linecap="round"></path>
+                  <path d="m9 9 6 6" stroke="var(--ide-frame-bg)" stroke-width="2.4" stroke-linecap="round"></path>
+                </svg>
+                <span>0</span>
+              </span>
+              <span class="ide-status__item" title="Warnings">
+                <svg class="ide-status__icon ide-status__icon--solid" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3 22 20H2L12 3Z"></path>
+                  <path d="M12 8v6" stroke="var(--ide-frame-bg)" stroke-width="2.2" stroke-linecap="round"></path>
+                  <path d="M12 17.2h.01" stroke="var(--ide-frame-bg)" stroke-width="3" stroke-linecap="round"></path>
+                </svg>
+                <span>0</span>
+              </span>
+              <span class="ide-status__item" title="IDE Panel">
+                <svg class="ide-status__icon ide-status__icon--solid" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 4h16v13H4z"></path>
+                  <path d="M8 8v5" stroke="var(--ide-frame-bg)" stroke-width="2" stroke-linecap="round"></path>
+                  <path d="M12 10v3" stroke="var(--ide-frame-bg)" stroke-width="2" stroke-linecap="round"></path>
+                  <path d="M16 6v7" stroke="var(--ide-frame-bg)" stroke-width="2" stroke-linecap="round"></path>
+                  <path d="M8 21h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                </svg>
+              </span>
+            </div>
+            <div class="ide-status__group ide-status__group--right">
+              <span class="ide-status__item ide-status__item--selection">行 719，列 1 (已选择273)</span>
+              <span class="ide-status__item ide-status__item--spaces">空格: 3</span>
+              <span class="ide-status__item ide-status__item--encoding">UTF-8</span>
+              <span class="ide-status__item ide-status__item--linefeed">LF</span>
+              <span class="ide-status__item" title="Language tools">{ }</span>
+              <span class="ide-status__item">Markdown</span>
+              <span class="ide-status__item ide-status__item--disabled ide-status__item--cue">CUE</span>
+              <span class="ide-status__item" title="Notifications">
+                <svg class="ide-status__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+              </span>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <div class="pto-ide-frame__floating-playback-mount" data-ide-slot="playback" data-ide-floating-playback data-total-steps="128" data-step="32" data-playback-state="memory path trace"></div>
+  </section>
+
+  <script src="./patterns/workbench-shell/pattern.js"></script>
+  <script src="./patterns/floating-playback-control/pattern.js"></script>
+  <script src="./patterns/ide-frame/pattern.js"></script>
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const themeBtn = document.getElementById('themeToggle');
+      const ideFrame = document.querySelector('[data-ide-frame]');
+      const explorerProxy = document.querySelector('[data-click-explorer-toggle]');
+      const explorerToggle = document.querySelector('[data-ide-toggle="explorer"]');
+      const inspectorToggle = document.getElementById('inspectorToggle');
+      const inspectorPane = document.getElementById('inspectPane');
+      const bgDebugToggle = document.getElementById('bgDebugToggle');
+      const bgDebugPanel = document.getElementById('bgDebugPanel');
+      const bgDebugClose = document.getElementById('bgDebugClose');
+      const bgDebugReset = document.getElementById('bgDebugReset');
+      const bgPaletteValue = document.getElementById('bgPaletteValue');
+      const bgPaletteButtons = Array.from(document.querySelectorAll('[data-bg-palette]'));
+      const bgControls = {
+        intensity: document.getElementById('bgIntensity'),
+        intensityValue: document.getElementById('bgIntensityValue'),
+        dotBrightness: document.getElementById('bgDotBrightness'),
+        dotBrightnessValue: document.getElementById('bgDotBrightnessValue'),
+        dotGap: document.getElementById('bgDotGap'),
+        dotGapValue: document.getElementById('bgDotGapValue'),
+        cursorGlow: document.getElementById('bgCursorGlow'),
+        cursorDots: document.getElementById('bgCursorDots'),
+      };
+      const THEME_TOGGLE_ICONS = {
+        toDark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.5 6.5 0 0 0 7.8 8.8A8 8 0 1 1 12 3z"></path></svg>',
+        toLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>',
+      };
+      const BG_STORAGE_KEY = 'pto-typical-ide-frame-bg-debug';
+      const BG_DEFAULTS = {
+        palette: 'cohere',
+        intensity: 100,
+        dotBrightness: 0,
+        dotGap: 22,
+        cursorGlow: false,
+        cursorDots: false,
+      };
+      const BG_PALETTES = {
+        cohere: {
+          label: 'Cohere',
+          light: { bgStart: '#fdfdff', bgMid: '#f6f7fb', bgEnd: '#eceff6', left: '155 96 170', right: '24 99 220', center: '20 184 166', lower: '245 158 11', bottom: '244 114 182', dot: '24 99 220', hot: '155 96 170', cursor: '24 99 220' },
+          dark: { bgStart: '#17181d', bgMid: '#101114', bgEnd: '#0c0d10', left: '155 96 170', right: '67 105 239', center: '20 184 166', lower: '245 158 11', bottom: '244 114 182', dot: '116 140 190', hot: '155 96 170', cursor: '67 105 239' },
+        },
+        aurora: {
+          label: 'Aurora',
+          light: { bgStart: '#fbfffd', bgMid: '#f3fbfa', bgEnd: '#eef4ff', left: '20 184 166', right: '124 58 237', center: '34 197 94', lower: '14 165 233', bottom: '244 114 182', dot: '20 184 166', hot: '124 58 237', cursor: '20 184 166' },
+          dark: { bgStart: '#101917', bgMid: '#0d1118', bgEnd: '#090b10', left: '20 184 166', right: '124 58 237', center: '34 197 94', lower: '14 165 233', bottom: '244 114 182', dot: '94 234 212', hot: '167 139 250', cursor: '45 212 191' },
+        },
+        graphite: {
+          label: 'Graphite',
+          light: { bgStart: '#fbfcff', bgMid: '#f6f8fb', bgEnd: '#edf4f2', left: '67 105 239', right: '34 197 94', center: '14 165 233', lower: '168 85 247', bottom: '15 23 42', dot: '67 105 239', hot: '34 197 94', cursor: '67 105 239' },
+          dark: { bgStart: '#151719', bgMid: '#101316', bgEnd: '#0b0d0f', left: '67 105 239', right: '34 197 94', center: '14 165 233', lower: '168 85 247', bottom: '148 163 184', dot: '148 163 184', hot: '34 197 94', cursor: '96 165 250' },
+        },
+        ember: {
+          label: 'Ember',
+          light: { bgStart: '#fffdfd', bgMid: '#fff7f4', bgEnd: '#f5eef7', left: '244 114 182', right: '245 158 11', center: '248 113 113', lower: '34 197 94', bottom: '24 99 220', dot: '245 158 11', hot: '244 114 182', cursor: '244 114 182' },
+          dark: { bgStart: '#1a1216', bgMid: '#120f13', bgEnd: '#0c0b0e', left: '244 114 182', right: '245 158 11', center: '248 113 113', lower: '34 197 94', bottom: '67 105 239', dot: '251 191 36', hot: '244 114 182', cursor: '251 113 133' },
+        },
+      };
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const readStoredBgState = () => {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(BG_STORAGE_KEY) || '{}');
+          return { ...BG_DEFAULTS, ...parsed };
+        } catch (_error) {
+          return { ...BG_DEFAULTS };
+        }
+      };
+      let bgState = readStoredBgState();
+
+      function currentThemeMode() {
+        return root.dataset.theme === 'light' ? 'light' : 'dark';
+      }
+
+      function persistBgState() {
+        try {
+          localStorage.setItem(BG_STORAGE_KEY, JSON.stringify(bgState));
+        } catch (_error) {
+          // Ignore storage errors in restricted preview contexts.
+        }
+      }
+
+      function setCssVar(name, value) {
+        root.style.setProperty(name, value);
+      }
+
+      function syncBgControls() {
+        const palette = BG_PALETTES[bgState.palette] || BG_PALETTES.cohere;
+        bgPaletteValue.textContent = palette.label;
+        bgPaletteButtons.forEach((button) => {
+          button.classList.toggle('is-active', button.dataset.bgPalette === bgState.palette);
+        });
+        bgControls.intensity.value = String(bgState.intensity);
+        bgControls.intensityValue.textContent = `${bgState.intensity}%`;
+        bgControls.dotBrightness.value = String(bgState.dotBrightness);
+        bgControls.dotBrightnessValue.textContent = `${bgState.dotBrightness}%`;
+        bgControls.dotGap.value = String(bgState.dotGap);
+        bgControls.dotGapValue.textContent = `${bgState.dotGap}px`;
+        bgControls.cursorGlow.checked = !!bgState.cursorGlow;
+        bgControls.cursorDots.checked = !!bgState.cursorDots;
+      }
+
+      function applyBackgroundDebug({ persist = true } = {}) {
+        bgState.palette = BG_PALETTES[bgState.palette] ? bgState.palette : BG_DEFAULTS.palette;
+        bgState.intensity = clamp(Number(bgState.intensity) || 0, 0, 180);
+        bgState.dotBrightness = clamp(Number(bgState.dotBrightness) || 0, 0, 100);
+        bgState.dotGap = clamp(Number(bgState.dotGap) || 22, 10, 34);
+        const mode = currentThemeMode();
+        const palette = BG_PALETTES[bgState.palette][mode];
+        const intensity = bgState.intensity / 100;
+        const alphaBase = mode === 'light'
+          ? { gl: 0.16, gr: 0.14, gc: 0.08, gd: 0.06, al: 0.22, ar: 0.18, ac: 0.10, ad: 0.08, ab: 0.08, dot: 0.16, cursor: 0.16 }
+          : { gl: 0.12, gr: 0.12, gc: 0.06, gd: 0.05, al: 0.18, ar: 0.16, ac: 0.08, ad: 0.06, ab: 0.08, dot: 0.22, cursor: 0.20 };
+
+        setCssVar('--ide-bg-start', palette.bgStart);
+        setCssVar('--ide-bg-mid', palette.bgMid);
+        setCssVar('--ide-bg-end', palette.bgEnd);
+        setCssVar('--ide-glow-left', palette.left);
+        setCssVar('--ide-glow-right', palette.right);
+        setCssVar('--ide-glow-center', palette.center);
+        setCssVar('--ide-glow-lower', palette.lower);
+        setCssVar('--ide-glow-bottom', palette.bottom);
+        setCssVar('--ide-dot-color', palette.dot);
+        setCssVar('--ide-dot-hot-color', palette.hot);
+        setCssVar('--ide-cursor-color', palette.cursor);
+        setCssVar('--ide-gradient-left-alpha', (alphaBase.gl * intensity).toFixed(3));
+        setCssVar('--ide-gradient-right-alpha', (alphaBase.gr * intensity).toFixed(3));
+        setCssVar('--ide-gradient-center-alpha', (alphaBase.gc * intensity).toFixed(3));
+        setCssVar('--ide-gradient-lower-alpha', (alphaBase.gd * intensity).toFixed(3));
+        setCssVar('--ide-aura-left-alpha', (alphaBase.al * intensity).toFixed(3));
+        setCssVar('--ide-aura-right-alpha', (alphaBase.ar * intensity).toFixed(3));
+        setCssVar('--ide-aura-center-alpha', (alphaBase.ac * intensity).toFixed(3));
+        setCssVar('--ide-aura-lower-alpha', (alphaBase.ad * intensity).toFixed(3));
+        setCssVar('--ide-aura-bottom-alpha', (alphaBase.ab * intensity).toFixed(3));
+        setCssVar('--ide-dot-opacity', (alphaBase.dot * bgState.dotBrightness / 100 * Math.max(0.35, intensity)).toFixed(3));
+        setCssVar('--ide-dot-gap', `${bgState.dotGap}px`);
+        setCssVar('--ide-dot-hot-radius', `${clamp(320 - bgState.dotGap * 4, 150, 280)}px`);
+        setCssVar('--ide-cursor-alpha', bgState.cursorGlow ? (alphaBase.cursor * intensity).toFixed(3) : '0');
+        ideFrame?.setAttribute('data-cursor-dots', bgState.cursorDots ? 'true' : 'false');
+        syncBgControls();
+        if (persist) persistBgState();
+      }
+
+      function updateBgState(patch) {
+        bgState = { ...bgState, ...patch };
+        applyBackgroundDebug();
+      }
+
+      function syncThemeToggle(theme) {
+        const toDark = theme === 'light';
+        themeBtn.innerHTML = toDark ? THEME_TOGGLE_ICONS.toDark : THEME_TOGGLE_ICONS.toLight;
+        themeBtn.title = toDark ? '切换到暗色模式' : '切换到浅色模式';
+        themeBtn.setAttribute('aria-label', themeBtn.title);
+        themeBtn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+      }
+
+      function applyTheme(theme) {
+        root.dataset.theme = theme;
+        syncThemeToggle(theme);
+        applyBackgroundDebug({ persist: false });
+        try {
+          localStorage.setItem('pto-typical-ide-frame-theme', theme);
+        } catch (_error) {
+          // Ignore storage errors in restricted preview contexts.
+        }
+      }
+
+      themeBtn.addEventListener('click', () => {
+        applyTheme(root.dataset.theme === 'light' ? 'dark' : 'light');
+      });
+
+      function setBgDebugOpen(open) {
+        if (!bgDebugPanel || !bgDebugToggle) return;
+        bgDebugPanel.hidden = !open;
+        bgDebugToggle.classList.toggle('is-active', open);
+        bgDebugToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+
+      bgDebugToggle?.addEventListener('click', () => {
+        setBgDebugOpen(bgDebugPanel?.hidden !== false);
+      });
+
+      bgDebugClose?.addEventListener('click', () => setBgDebugOpen(false));
+
+      bgPaletteButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          updateBgState({ palette: button.dataset.bgPalette });
+        });
+      });
+
+      bgControls.intensity?.addEventListener('input', () => {
+        updateBgState({ intensity: Number(bgControls.intensity.value) });
+      });
+
+      bgControls.dotBrightness?.addEventListener('input', () => {
+        updateBgState({ dotBrightness: Number(bgControls.dotBrightness.value) });
+      });
+
+      bgControls.dotGap?.addEventListener('input', () => {
+        updateBgState({ dotGap: Number(bgControls.dotGap.value) });
+      });
+
+      bgControls.cursorGlow?.addEventListener('change', () => {
+        updateBgState({ cursorGlow: bgControls.cursorGlow.checked });
+      });
+
+      bgControls.cursorDots?.addEventListener('change', () => {
+        updateBgState({ cursorDots: bgControls.cursorDots.checked });
+      });
+
+      bgDebugReset?.addEventListener('click', () => {
+        bgState = { ...BG_DEFAULTS };
+        applyBackgroundDebug();
+      });
+
+      ideFrame?.addEventListener('pointermove', (event) => {
+        const rect = ideFrame.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const x = clamp((event.clientX - rect.left) / rect.width * 100, 0, 100);
+        const y = clamp((event.clientY - rect.top) / rect.height * 100, 0, 100);
+        setCssVar('--ide-cursor-x', `${x.toFixed(2)}%`);
+        setCssVar('--ide-cursor-y', `${y.toFixed(2)}%`);
+      });
+
+      function syncExplorerProxy() {
+        if (!explorerProxy || !explorerToggle) return;
+        const open = explorerToggle.getAttribute('aria-expanded') !== 'false';
+        explorerProxy.classList.toggle('is-active', open);
+        explorerProxy.setAttribute('aria-pressed', open ? 'true' : 'false');
+        explorerProxy.title = open ? '隐藏 Explorer 面板' : '打开 Explorer 面板';
+        explorerProxy.setAttribute('aria-label', explorerProxy.title);
+      }
+
+      explorerProxy?.addEventListener('click', () => {
+        explorerToggle?.click();
+        requestAnimationFrame(syncExplorerProxy);
+      });
+
+      explorerToggle?.addEventListener('click', () => {
+        requestAnimationFrame(syncExplorerProxy);
+      });
+
+      function setInspectorOpen(open) {
+        if (!ideFrame || !inspectorToggle) return;
+        ideFrame.dataset.inspectorOpen = open ? 'true' : 'false';
+        inspectorPane?.setAttribute('aria-hidden', open ? 'false' : 'true');
+        inspectorToggle.classList.toggle('is-active', open);
+        inspectorToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        inspectorToggle.title = open ? '隐藏 Inspector 面板' : '打开 Inspector 面板';
+        inspectorToggle.setAttribute('aria-label', inspectorToggle.title);
+      }
+
+      inspectorToggle?.addEventListener('click', () => {
+        const next = ideFrame?.dataset.inspectorOpen !== 'true';
+        try {
+          localStorage.setItem('pto-typical-ide-frame-inspector-open', next ? 'true' : 'false');
+        } catch (_error) {
+          // Ignore storage errors in restricted preview contexts.
+        }
+        setInspectorOpen(next);
+      });
+
+      let inspectorOpen = true;
+      try {
+        inspectorOpen = localStorage.getItem('pto-typical-ide-frame-inspector-open') !== 'false';
+      } catch (_error) {
+        inspectorOpen = true;
+      }
+      setInspectorOpen(inspectorOpen);
+      syncExplorerProxy();
+      syncThemeToggle(root.dataset.theme || 'dark');
+      applyBackgroundDebug({ persist: false });
+    })();
+  </script>
+</body>
+</html>

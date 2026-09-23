@@ -1,0 +1,537 @@
+/*
+ * Copyright (c) PyPTO Contributors.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
+ */
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "pypto/core/logging.h"
+#include "pypto/ir/expr.h"
+#include "pypto/ir/function.h"
+#include "pypto/ir/kind_traits.h"
+#include "pypto/ir/scalar_expr.h"
+#include "pypto/ir/stmt.h"
+#include "pypto/ir/transforms/base/mutator.h"
+#include "pypto/ir/transforms/pass_properties.h"
+#include "pypto/ir/transforms/passes.h"
+#include "pypto/ir/transforms/utils/auto_name_utils.h"
+#include "pypto/ir/transforms/utils/mutable_copy.h"
+#include "pypto/ir/type.h"
+
+namespace pypto {
+namespace ir {
+
+namespace {
+
+/**
+ * @brief Mutator that flattens nested call expressions into three-address code
+ *
+ * This pass ensures that:
+ * 1. Call arguments cannot be calls
+ * 2. If conditions cannot be calls
+ * 3. For loop ranges (start/stop/step) cannot be calls
+ * 4. Binary/unary expression operands cannot be calls
+ * 5. Return values cannot be calls
+ *
+ * Nested calls are extracted into temporary variables and inserted as
+ * AssignStmt before the statement containing the nested call.
+ *
+ * For if/for statements, extracted statements are inserted directly before
+ * the if/for as siblings in the enclosing SeqStmts.
+ */
+class FlattenCallExprMutator : public IRMutator {
+ public:
+  FlattenCallExprMutator() = default;
+
+  // Statement visitors
+  StmtPtr VisitStmt_(const SeqStmtsPtr& op) override;
+  StmtPtr VisitStmt_(const IfStmtPtr& op) override;
+  StmtPtr VisitStmt_(const ForStmtPtr& op) override;
+  StmtPtr VisitStmt_(const WhileStmtPtr& op) override;
+  StmtPtr VisitStmt_(const ReturnStmtPtr& op) override;
+  StmtPtr VisitStmt_(const InCoreScopeStmtPtr& op) override;
+  StmtPtr VisitStmt_(const ClusterScopeStmtPtr& op) override;
+  StmtPtr VisitStmt_(const HierarchyScopeStmtPtr& op) override;
+  StmtPtr VisitStmt_(const SpmdScopeStmtPtr& op) override;
+  StmtPtr VisitStmt_(const SplitAivScopeStmtPtr& op) override;
+  StmtPtr VisitStmt_(const RuntimeScopeStmtPtr& op) override;
+
+  // Expression visitors
+  ExprPtr VisitExpr_(const CallPtr& op) override;
+  ExprPtr VisitExpr_(const SubmitPtr& op) override;
+  ExprPtr VisitExpr_(const AddPtr& op) override;
+  ExprPtr VisitExpr_(const SubPtr& op) override;
+  ExprPtr VisitExpr_(const MulPtr& op) override;
+  ExprPtr VisitExpr_(const FloorDivPtr& op) override;
+  ExprPtr VisitExpr_(const FloorModPtr& op) override;
+  ExprPtr VisitExpr_(const FloatDivPtr& op) override;
+  ExprPtr VisitExpr_(const MinPtr& op) override;
+  ExprPtr VisitExpr_(const MaxPtr& op) override;
+  ExprPtr VisitExpr_(const PowPtr& op) override;
+  ExprPtr VisitExpr_(const EqPtr& op) override;
+  ExprPtr VisitExpr_(const NePtr& op) override;
+  ExprPtr VisitExpr_(const LtPtr& op) override;
+  ExprPtr VisitExpr_(const LePtr& op) override;
+  ExprPtr VisitExpr_(const GtPtr& op) override;
+  ExprPtr VisitExpr_(const GePtr& op) override;
+  ExprPtr VisitExpr_(const AndPtr& op) override;
+  ExprPtr VisitExpr_(const OrPtr& op) override;
+  ExprPtr VisitExpr_(const XorPtr& op) override;
+  ExprPtr VisitExpr_(const BitAndPtr& op) override;
+  ExprPtr VisitExpr_(const BitOrPtr& op) override;
+  ExprPtr VisitExpr_(const BitXorPtr& op) override;
+  ExprPtr VisitExpr_(const BitShiftLeftPtr& op) override;
+  ExprPtr VisitExpr_(const BitShiftRightPtr& op) override;
+  ExprPtr VisitExpr_(const AbsPtr& op) override;
+  ExprPtr VisitExpr_(const NegPtr& op) override;
+  ExprPtr VisitExpr_(const NotPtr& op) override;
+  ExprPtr VisitExpr_(const BitNotPtr& op) override;
+  ExprPtr VisitExpr_(const CastPtr& op) override;
+
+  /**
+   * @brief Flatten a function body and drain any leftover pending temporaries.
+   *
+   * Regular `VisitStmt` may leave extracted-temp `AssignStmt`s in
+   * `pending_stmts_` when the body root itself is the statement that triggered
+   * extraction (e.g. a bare `ReturnStmt` body, with no enclosing `SeqStmts`
+   * visitor to splice them in). Returning through this entry point guarantees
+   * those temps end up in the IR.
+   */
+  StmtPtr FlattenFunctionBody(const StmtPtr& body) {
+    auto new_body = VisitStmt(body);
+    if (pending_stmts_.empty()) {
+      return new_body;
+    }
+    std::vector<StmtPtr> wrapped;
+    wrapped.reserve(pending_stmts_.size() + 1);
+    for (const auto& p : pending_stmts_) wrapped.push_back(p);
+    wrapped.push_back(new_body);
+    pending_stmts_.clear();
+    return SeqStmts::Flatten(std::move(wrapped), body->span_);
+  }
+
+ private:
+  int temp_var_counter_ = 0;
+  std::vector<StmtPtr> pending_stmts_;
+
+  /**
+   * @brief Generate a unique temporary variable name
+   */
+  std::string GenerateTempVarName() { return auto_name::BuildName("t", "", "tmp", temp_var_counter_++); }
+
+  /**
+   * @brief Flatten a scope/loop/branch body, wrapping hoisted temps when needed.
+   *
+   * Saves/restores the surrounding `pending_stmts_` so the enclosing statement's
+   * own hoisted temporaries are preserved for the parent SeqStmts. When the body
+   * is a single (non-SeqStmts) statement, its hoisted temporaries would have no
+   * SeqStmts to be spliced into, so they are wrapped together with the body into
+   * a SeqStmts here (issue #1708). Returns the new body (which may equal the
+   * original pointer if nothing changed).
+   */
+  StmtPtr FlattenScopeBody(const StmtPtr& original_body) {
+    auto outer_pending = std::move(pending_stmts_);
+    pending_stmts_.clear();
+    auto new_body = VisitStmt(original_body);
+    if (!As<SeqStmts>(original_body) && !pending_stmts_.empty()) {
+      std::vector<StmtPtr> body_stmts;
+      body_stmts.reserve(pending_stmts_.size() + 1);
+      for (const auto& p : pending_stmts_) body_stmts.push_back(p);
+      body_stmts.push_back(new_body);
+      new_body = SeqStmts::Flatten(std::move(body_stmts), original_body->span_);
+    }
+    pending_stmts_ = std::move(outer_pending);
+    return new_body;
+  }
+
+  /**
+   * @brief Extract a call expression into a temporary variable
+   *
+   * Creates a new temporary variable, generates an assignment statement,
+   * and adds it to pending_stmts_.
+   *
+   * @param expr Expression (must be a Call)
+   * @return Var expression referring to the temporary variable
+   */
+  ExprPtr ExtractCallToTemp(const ExprPtr& expr) {
+    // Submit is a sibling ObjectKind of Call (pl.submit); a nested Submit
+    // argument must be hoisted to a temporary too (pass-submit-awareness.md).
+    if (!As<Call>(expr) && !As<Submit>(expr)) {
+      return expr;
+    }
+
+    // Create temporary variable
+    std::string temp_name = GenerateTempVarName();
+    auto temp_var = std::make_shared<Var>(temp_name, expr->GetType(), expr->span_);
+
+    // Create assignment statement
+    auto assign = std::make_shared<AssignStmt>(temp_var, expr, expr->span_);
+    pending_stmts_.push_back(assign);
+
+    return temp_var;
+  }
+
+  /**
+   * @brief Process binary expression, extracting any call operands
+   */
+  template <typename BinaryExprType>
+  ExprPtr ProcessBinaryExpr(const std::shared_ptr<const BinaryExprType>& op) {
+    auto new_left = VisitExpr(op->left_);
+    auto new_right = VisitExpr(op->right_);
+
+    // Extract calls from operands
+    if (As<Call>(new_left)) {
+      new_left = ExtractCallToTemp(new_left);
+    }
+    if (As<Call>(new_right)) {
+      new_right = ExtractCallToTemp(new_right);
+    }
+
+    bool changed = (new_left.get() != op->left_.get()) || (new_right.get() != op->right_.get());
+    if (changed) {
+      // Extract DataType from op's type (which should be ScalarType)
+      auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(op->GetType());
+      INTERNAL_CHECK_SPAN(scalar_type, op->span_) << "Binary expression type must be ScalarType";
+      return std::make_shared<const BinaryExprType>(new_left, new_right, scalar_type->dtype_, op->span_);
+    }
+    return op;
+  }
+
+  /**
+   * @brief Process unary expression, extracting any call operand
+   */
+  template <typename UnaryExprType>
+  ExprPtr ProcessUnaryExpr(const std::shared_ptr<const UnaryExprType>& op) {
+    auto new_operand = VisitExpr(op->operand_);
+
+    // Extract call from operand
+    if (As<Call>(new_operand)) {
+      new_operand = ExtractCallToTemp(new_operand);
+    }
+
+    if (new_operand.get() != op->operand_.get()) {
+      // Extract DataType from op's type (which should be ScalarType)
+      auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(op->GetType());
+      INTERNAL_CHECK_SPAN(scalar_type, op->span_) << "Unary expression type must be ScalarType";
+      return std::make_shared<const UnaryExprType>(new_operand, scalar_type->dtype_, op->span_);
+    }
+    return op;
+  }
+};
+
+// Statement visitors implementation
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const SeqStmtsPtr& op) {
+  std::vector<StmtPtr> new_stmts;
+
+  for (const auto& stmt : op->stmts_) {
+    pending_stmts_.clear();
+
+    auto new_stmt = VisitStmt(stmt);
+
+    // Add all pending statements directly as siblings before the current stmt
+    for (const auto& pending : pending_stmts_) {
+      new_stmts.push_back(pending);
+    }
+
+    new_stmts.push_back(new_stmt);
+  }
+
+  // The last child's extracted temps were already pushed into new_stmts above
+  // but the entries also still sit in pending_stmts_. Scope visitors don't
+  // notice (they save/restore around their own body), but FlattenFunctionBody
+  // would treat them as a real leftover and double-add. Clear to make this
+  // path unambiguous.
+  pending_stmts_.clear();
+
+  return SeqStmts::Flatten(std::move(new_stmts), op->span_);
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const IfStmtPtr& op) {
+  // Note: Don't clear pending_stmts_, preserve previous state
+
+  auto new_condition = VisitExpr(op->condition_);
+
+  // If condition is a call, extract to temporary variable
+  if (As<Call>(new_condition)) {
+    new_condition = ExtractCallToTemp(new_condition);
+  }
+
+  // Flatten then/else through FlattenScopeBody so a single-statement
+  // (non-SeqStmts) branch still materializes its hoisted temporaries
+  // (issue #1708). FlattenScopeBody saves/restores the surrounding pending
+  // stmts, so the condition's hoisted temps are preserved for the parent
+  // SeqStmts across both branches.
+  auto new_then = FlattenScopeBody(op->then_body_);
+
+  std::optional<StmtPtr> new_else;
+  if (op->else_body_.has_value()) {
+    new_else = FlattenScopeBody(op->else_body_.value());
+  }
+
+  auto result = MutableCopy(op);
+  result->condition_ = new_condition;
+  result->then_body_ = new_then;
+  result->else_body_ = new_else;
+  return result;
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const ForStmtPtr& op) {
+  // Note: Don't clear pending_stmts_, preserve previous state
+
+  auto new_start = VisitExpr(op->start_);
+  auto new_stop = VisitExpr(op->stop_);
+  auto new_step = VisitExpr(op->step_);
+
+  // Extract calls from range
+  if (As<Call>(new_start)) {
+    new_start = ExtractCallToTemp(new_start);
+  }
+  if (As<Call>(new_stop)) {
+    new_stop = ExtractCallToTemp(new_stop);
+  }
+  if (As<Call>(new_step)) {
+    new_step = ExtractCallToTemp(new_step);
+  }
+
+  // Flatten the body through FlattenScopeBody. It saves/restores the range's
+  // own pending stmts for the parent SeqStmts, and — when the body is a single
+  // (non-SeqStmts) statement — wraps the body's hoisted temporaries into a
+  // SeqStmts so they are not dropped. A bare-call loop body whose args needed
+  // hoisting otherwise lost the materializing AssignStmts (issue #1708:
+  // rank-slice temps became undefined free vars by codegen → runtime KeyError).
+  auto new_body = FlattenScopeBody(op->body_);
+
+  auto result = MutableCopy(op);
+  result->start_ = new_start;
+  result->stop_ = new_stop;
+  result->step_ = new_step;
+  result->body_ = new_body;
+  return result;
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const WhileStmtPtr& op) {
+  // Note: Don't clear pending_stmts_, preserve previous state
+
+  auto new_condition = VisitExpr(op->condition_);
+
+  // Extract calls from condition
+  if (As<Call>(new_condition)) {
+    new_condition = ExtractCallToTemp(new_condition);
+  }
+
+  // Flatten the body through FlattenScopeBody so a single-statement
+  // (non-SeqStmts) loop body still materializes its hoisted temporaries
+  // (issue #1708). The condition's own pending stmts are preserved for the
+  // parent SeqStmts.
+  auto new_body = FlattenScopeBody(op->body_);
+
+  auto result = MutableCopy(op);
+  result->condition_ = new_condition;
+  result->body_ = new_body;
+  return result;
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const ReturnStmtPtr& op) {
+  // Note: Don't clear pending_stmts_, preserve previous state so SeqStmts
+  // visitor inserts our extracted temporaries before the ReturnStmt.
+
+  std::vector<ExprPtr> new_values;
+  new_values.reserve(op->value_.size());
+  bool changed = false;
+
+  for (const auto& value : op->value_) {
+    auto visited = VisitExpr(value);
+
+    // A direct `return call(...)` would otherwise reach codegen as a
+    // ReturnStmt-wrapped Call, which several codegen paths silently drop
+    // because they only walk top-level AssignStmt/EvalStmt for side effects.
+    // Extract any Call value into a temporary so codegen always sees the
+    // dispatch as a real statement.
+    if (As<Call>(visited)) {
+      visited = ExtractCallToTemp(visited);
+      changed = true;
+    } else if (visited.get() != value.get()) {
+      changed = true;
+    }
+    new_values.push_back(visited);
+  }
+
+  if (!changed) {
+    return op;
+  }
+  auto result = MutableCopy(op);
+  result->value_ = std::move(new_values);
+  return result;
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const InCoreScopeStmtPtr& op) {
+  auto new_body = FlattenScopeBody(op->body_);
+  if (new_body.get() == op->body_.get()) return op;
+  return std::make_shared<const InCoreScopeStmt>(op->split_, op->name_hint_, std::move(new_body), op->span_,
+                                                 op->leading_comments_, op->attrs_);
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const ClusterScopeStmtPtr& op) {
+  auto new_body = FlattenScopeBody(op->body_);
+  if (new_body.get() == op->body_.get()) return op;
+  return std::make_shared<const ClusterScopeStmt>(op->name_hint_, std::move(new_body), op->span_,
+                                                  op->leading_comments_, op->attrs_);
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const HierarchyScopeStmtPtr& op) {
+  auto new_body = FlattenScopeBody(op->body_);
+  if (new_body.get() == op->body_.get()) return op;
+  return std::make_shared<const HierarchyScopeStmt>(op->level_, op->role_, op->name_hint_,
+                                                    std::move(new_body), op->span_, op->leading_comments_,
+                                                    op->attrs_);
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const SpmdScopeStmtPtr& op) {
+  auto new_body = FlattenScopeBody(op->body_);
+  if (new_body.get() == op->body_.get()) return op;
+  return std::make_shared<const SpmdScopeStmt>(op->core_num_, op->sync_start_, op->name_hint_,
+                                               std::move(new_body), op->span_, op->leading_comments_,
+                                               op->attrs_);
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const SplitAivScopeStmtPtr& op) {
+  auto new_body = FlattenScopeBody(op->body_);
+  if (new_body.get() == op->body_.get()) return op;
+  return std::make_shared<const SplitAivScopeStmt>(op->split_, op->count_, op->name_hint_,
+                                                   std::move(new_body), op->span_, op->leading_comments_,
+                                                   op->attrs_);
+}
+
+StmtPtr FlattenCallExprMutator::VisitStmt_(const RuntimeScopeStmtPtr& op) {
+  auto new_body = FlattenScopeBody(op->body_);
+  if (new_body.get() == op->body_.get()) return op;
+  return std::make_shared<const RuntimeScopeStmt>(op->manual_, op->name_hint_, std::move(new_body), op->span_,
+                                                  op->leading_comments_, op->attrs_);
+}
+
+// Expression visitors implementation
+
+ExprPtr FlattenCallExprMutator::VisitExpr_(const CallPtr& op) {
+  std::vector<ExprPtr> new_args;
+  bool changed = false;
+
+  for (const auto& arg : op->args_) {
+    auto visited_arg = VisitExpr(arg);
+
+    // If argument is a call, extract to temporary variable
+    if (As<Call>(visited_arg)) {
+      auto temp_var = ExtractCallToTemp(visited_arg);
+      new_args.push_back(temp_var);
+      changed = true;
+    } else {
+      new_args.push_back(visited_arg);
+      if (visited_arg.get() != arg.get()) {
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    return std::make_shared<Call>(op->op_, new_args, op->kwargs_, op->attrs_, op->GetType(), op->span_);
+  }
+  return op;
+}
+
+// Submit (pl.submit inside pl.manual_scope) is a sibling ObjectKind of Call;
+// VisitExpr_(CallPtr) never sees it, so a nested Call/Submit argument of a
+// Submit is left inline, violating the three-address "Call arguments cannot be
+// calls" invariant. Mirror the Call handler but rebuild a Submit, preserving
+// deps_ / kwargs_ / attrs_ and the TASK_ID-augmented return type.
+ExprPtr FlattenCallExprMutator::VisitExpr_(const SubmitPtr& op) {
+  std::vector<ExprPtr> new_args;
+  bool changed = false;
+
+  for (const auto& arg : op->args_) {
+    auto visited_arg = VisitExpr(arg);
+    if (As<Call>(visited_arg) || As<Submit>(visited_arg)) {
+      auto temp_var = ExtractCallToTemp(visited_arg);
+      new_args.push_back(temp_var);
+      changed = true;
+    } else {
+      new_args.push_back(visited_arg);
+      if (visited_arg.get() != arg.get()) {
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    // deps_ are TaskId Vars/Arrays, never nested calls — pass through unchanged.
+    return std::make_shared<Submit>(op->op_, new_args, op->deps_, op->kwargs_, op->attrs_, op->GetType(),
+                                    op->span_, op->core_num_, op->sync_start_, op->allow_early_resolve_);
+  }
+  return op;
+}
+
+// Binary expression visitors
+ExprPtr FlattenCallExprMutator::VisitExpr_(const AddPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const SubPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const MulPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const FloorDivPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const FloorModPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const FloatDivPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const MinPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const MaxPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const PowPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const EqPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const NePtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const LtPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const LePtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const GtPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const GePtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const AndPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const OrPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const XorPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const BitAndPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const BitOrPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const BitXorPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const BitShiftLeftPtr& op) { return ProcessBinaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const BitShiftRightPtr& op) { return ProcessBinaryExpr(op); }
+
+// Unary expression visitors
+ExprPtr FlattenCallExprMutator::VisitExpr_(const AbsPtr& op) { return ProcessUnaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const NegPtr& op) { return ProcessUnaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const NotPtr& op) { return ProcessUnaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const BitNotPtr& op) { return ProcessUnaryExpr(op); }
+ExprPtr FlattenCallExprMutator::VisitExpr_(const CastPtr& op) { return ProcessUnaryExpr(op); }
+
+/**
+ * @brief Transform a function by flattening nested call expressions
+ */
+FunctionPtr TransformFlattenCallExpr(const FunctionPtr& func) {
+  INTERNAL_CHECK(func) << "FlattenCallExpr cannot run on null function";
+
+  FlattenCallExprMutator mutator;
+  auto new_body = mutator.FlattenFunctionBody(func->body_);
+  auto result = MutableCopy(func);
+  result->body_ = new_body;
+  return result;
+}
+
+}  // namespace
+
+// Factory function
+namespace pass {
+Pass FlattenCallExpr() {
+  return CreateFunctionPass(TransformFlattenCallExpr, "FlattenCallExpr", kFlattenCallExprProperties);
+}
+}  // namespace pass
+
+}  // namespace ir
+}  // namespace pypto

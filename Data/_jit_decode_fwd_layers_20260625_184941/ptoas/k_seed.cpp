@@ -1,0 +1,48 @@
+#include "pto/pto-inst.hpp"
+using namespace pto;
+
+enum class PTOAutoSyncTailMode : int {
+  kBarrierAll = 0,
+  kSetWaitMte3ToSEvent0 = 1,
+};
+
+static AICORE inline void ptoas_auto_sync_tail(
+    PTOAutoSyncTailMode mode = PTOAutoSyncTailMode::kBarrierAll) {
+  switch (mode) {
+  case PTOAutoSyncTailMode::kSetWaitMte3ToSEvent0:
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    break;
+  case PTOAutoSyncTailMode::kBarrierAll:
+  default:
+    pipe_barrier(PIPE_ALL);
+    break;
+  }
+}
+
+AICORE void k_seed(__gm__ float* v1) {
+  const float v2 = 0.0f;
+  const int64_t v3 = 1;
+  const int64_t v4 = 1024;
+  const int64_t v5 = 16;
+  const int64_t v6 = 0;
+  using T = float;
+
+  #if defined(__DAV_VEC__)
+  set_mask_norm();
+  set_vector_mask(-1, -1);
+  Tile<TileType::Vec, float, 16, 1024, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null> v7 = Tile<TileType::Vec, float, 16, 1024, BLayout::RowMajor, -1, -1, SLayout::NoneBox, 512, PadValue::Null, CompactMode::Null>(v5, v4);
+  uint64_t v8 = (uint64_t) v6;
+  TASSIGN(v7, v8);
+  TEXPANDS(v7, v2);
+  set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+  pto::Shape<1, 1, 1, 16, 1024> v9 = pto::Shape<1, 1, 1, 16, 1024>();
+  pto::Stride<16384, 16384, 16384, 1024, 1> v10 = pto::Stride<16384, 16384, 16384, 1024, 1>();
+  GlobalTensor<float, pto::Shape<1, 1, 1, 16, 1024>, pto::Stride<16384, 16384, 16384, 1024, 1>, pto::Layout::ND> v11 = GlobalTensor<float, pto::Shape<1, 1, 1, 16, 1024>, pto::Stride<16384, 16384, 16384, 1024, 1>, pto::Layout::ND>(v1 + (v6 + v6 * v4 + v6 * v3), v9, v10);
+  wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+  TSTORE(v11, v7);
+  #endif // __DAV_VEC__
+
+  ptoas_auto_sync_tail(PTOAutoSyncTailMode::kBarrierAll);
+  return;
+}

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PyPTO 编译失败诊断 Agent in the loop 工作台原型">
+  <title>编译失败诊断 · PyPTO Studio</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b0f; --surface-0: #0d1015; --surface-1: #11151b; --surface-2: #181d25;
+      --surface-3: #202632; --line: rgba(255,255,255,.075); --line-strong: rgba(255,255,255,.15);
+      --text: #edf0f5; --text-2: #b6bdc9; --muted: #788191; --blue: #6b8dff;
+      --blue-soft: rgba(107,141,255,.13); --green: #49d4a4; --green-soft: rgba(73,212,164,.11);
+      --amber: #e4ad58; --amber-soft: rgba(228,173,88,.11); --red: #ef7181;
+      --red-soft: rgba(239,113,129,.11); --mono: "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+      --sans: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-width: 1080px; height: 100%; margin: 0; overflow: hidden; }
+    body { color: var(--text); background: var(--bg); font: 13px var(--sans); -webkit-font-smoothing: antialiased; }
+    button, input { color: inherit; font: inherit; } button { border: 0; cursor: pointer; }
+    code, .mono { font-family: var(--mono); } ::selection { background: rgba(107,141,255,.4); color: white; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 9px; background: rgba(255,255,255,.16); background-clip: padding-box; }
+    .app { display: grid; height: 100vh; grid-template-rows: 52px 76px minmax(0, 1fr) 24px; }
+    .topbar { display: flex; align-items: center; gap: 13px; padding: 0 15px; border-bottom: 1px solid var(--line); background: #0c0f14; }
+    .brand { display: flex; min-width: 188px; align-items: center; gap: 9px; font-weight: 720; }
+    .brand-mark { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid rgba(107,141,255,.4); border-radius: 6px; color: #a8baff; font: 800 10px var(--mono); }
+    .product-label { padding: 4px 8px; border: 1px solid rgba(107,141,255,.2); border-radius: 5px; color: #a8baff; background: var(--blue-soft); font-size: 10px; font-weight: 650; }
+    .title { min-width: 0; overflow: hidden; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; } .title b { color: var(--text); }
+    .spacer { flex: 1; } .branch { color: var(--muted); font: 10px var(--mono); } .branch::before { display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--amber); content: ""; }
+    .target { padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-2); background: var(--surface-1); font: 10px var(--mono); }
+    .avatar { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 50%; color: white; background: #315bc7; font-size: 10px; font-weight: 750; }
+
+    .progress { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--surface-0); }
+    .progress-copy { display: flex; align-items: center; gap: 10px; min-width: 0; } .progress-copy strong { font-size: 12px; } .progress-copy span { color: var(--muted); font-size: 10px; }
+    .state-track { display: flex; min-width: 630px; align-items: center; } .state-step { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; white-space: nowrap; }
+    .state-step::after { width: 32px; height: 1px; margin: 0 6px; background: var(--line-strong); content: ""; } .state-step:last-child::after { display: none; }
+    .state-dot { display: grid; width: 18px; height: 18px; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface-2); font: 9px var(--mono); }
+    .state-step.done, .state-step.active { color: var(--text-2); } .state-step.done .state-dot { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+    .state-step.active { color: var(--amber); } .state-step.active .state-dot { border-color: var(--amber); color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 0 3px rgba(228,173,88,.06); }
+    .progress-status { justify-self: end; padding: 5px 8px; border-radius: 5px; color: var(--amber); background: var(--amber-soft); font: 10px var(--mono); }
+
+    .workspace { display: grid; min-height: 0; grid-template-columns: 250px minmax(560px, 1fr) 350px; }
+    .rail, .main, .inspector { min-height: 0; background: var(--surface-0); } .rail { border-right: 1px solid var(--line); } .inspector { border-left: 1px solid var(--line); }
+    .panel-head { display: flex; min-height: 43px; align-items: center; padding: 0 13px; border-bottom: 1px solid var(--line); } .panel-head strong { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; } .panel-head span { margin-left: auto; color: var(--muted); font: 9px var(--mono); }
+    .rail-body, .inspector-body, .main-body { min-height: 0; overflow: auto; } .rail-body { padding: 12px 10px; }
+    .context-group { margin-bottom: 19px; } .context-title { display: flex; margin: 0 7px 8px; color: var(--muted); font-size: 9px; font-weight: 720; letter-spacing: .1em; text-transform: uppercase; } .context-title span { margin-left: auto; font: 9px var(--mono); letter-spacing: 0; }
+    .context-item { display: grid; grid-template-columns: 17px 1fr auto; gap: 7px; align-items: center; padding: 8px 8px; border-radius: 5px; color: var(--text-2); font-size: 10px; } .context-item:hover { background: rgba(255,255,255,.035); } .context-item.is-active { color: var(--text); background: var(--blue-soft); }
+    .context-icon { color: var(--muted); text-align: center; font: 10px var(--mono); } .context-item small { color: var(--muted); font: 9px var(--mono); } .context-item.pass .context-icon { color: var(--green); } .context-item.warn .context-icon { color: var(--amber); } .context-item.fail .context-icon { color: var(--red); }
+    .completeness { padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-1); } .completeness-head { display: flex; justify-content: space-between; color: var(--text-2); font-size: 10px; } .completeness-head b { color: var(--amber); font: 10px var(--mono); } .bar { height: 4px; margin: 9px 0 7px; overflow: hidden; border-radius: 5px; background: var(--surface-3); } .bar i { display: block; width: 73%; height: 100%; background: var(--amber); } .completeness p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+
+    .main { display: grid; grid-template-rows: 49px minmax(0, 1fr); background: #0b0e13; } .main-tabs { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); background: var(--surface-0); } .main-tab { padding: 0 14px; color: var(--muted); background: transparent; font-size: 10px; } .main-tab.is-active { color: var(--text); box-shadow: inset 0 -1px var(--blue); }
+    .main-body { padding: 18px 20px 36px; } .section-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 12px; } .eyebrow { margin: 0 0 4px; color: var(--muted); font: 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; } h1 { margin: 0; font-size: 17px; font-weight: 650; } .section-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .header-actions { display: flex; gap: 6px; } .ghost, .primary, .danger { min-height: 30px; padding: 0 10px; border-radius: 5px; font-size: 10px; font-weight: 650; } .ghost { border: 1px solid var(--line); color: var(--text-2); background: var(--surface-1); } .ghost:hover { background: var(--surface-2); } .primary { color: white; background: #426de0; } .primary:hover { background: #547cf0; } .danger { color: #ffc6cc; background: var(--red-soft); }
+    .summary { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; margin-bottom: 17px; } .summary-card { min-height: 74px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-1); } .summary-card.critical { border-color: rgba(239,113,129,.28); background: linear-gradient(135deg, var(--red-soft), var(--surface-1)); } .summary-label { color: var(--muted); font-size: 9px; } .summary-value { margin-top: 7px; color: var(--text); font-size: 12px; font-weight: 620; } .summary-value code { color: #ffabb5; font-size: 11px; } .summary-meta { margin-top: 5px; color: var(--muted); font: 9px var(--mono); }
+    .block { margin-bottom: 17px; } .block-title { display: flex; align-items: center; margin: 0 0 9px; color: var(--text-2); font-size: 11px; font-weight: 650; } .block-title span { margin-left: auto; color: var(--muted); font: 9px var(--mono); font-weight: 400; }
+    .phase-list { display: grid; gap: 2px; } .phase { display: grid; grid-template-columns: 22px 1fr auto; gap: 9px; align-items: center; padding: 8px 10px; border-radius: 5px; color: var(--text-2); background: rgba(255,255,255,.018); } .phase:hover, .phase.is-selected { background: var(--blue-soft); } .phase-mark { display: grid; width: 16px; height: 16px; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--muted); font: 8px var(--mono); } .phase.pass .phase-mark { border-color: var(--green); color: var(--green); } .phase.warn .phase-mark { border-color: var(--amber); color: var(--amber); } .phase.fail .phase-mark { border-color: var(--red); color: var(--red); } .phase b { display: block; font-size: 10px; font-weight: 550; } .phase small { display: block; margin-top: 2px; color: var(--muted); font: 9px var(--mono); } .phase time { color: var(--muted); font: 9px var(--mono); }
+    .evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .evidence-card { min-height: 140px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-1); } .evidence-card h3 { display: flex; justify-content: space-between; margin: 0 0 9px; color: var(--text-2); font-size: 10px; } .evidence-card h3 span { color: var(--muted); font: 9px var(--mono); } .chain { display: grid; gap: 6px; } .chain-row { display: grid; grid-template-columns: 18px 1fr; gap: 7px; align-items: start; color: var(--text-2); font-size: 10px; line-height: 1.45; } .chain-row::before { display: grid; width: 16px; height: 16px; place-items: center; border-radius: 4px; color: var(--blue); background: var(--blue-soft); content: "→"; font: 10px var(--mono); } .chain-row:last-child::before { color: var(--red); background: var(--red-soft); content: "×"; } .chain-row code { color: #aebcf2; font-size: 9px; }
+    .diff { display: grid; gap: 4px; font: 10px/1.55 var(--mono); } .diff-row { padding: 4px 6px; border-radius: 3px; white-space: pre-wrap; } .diff-row.old { color: #e8919c; background: var(--red-soft); } .diff-row.new { color: #83dbbb; background: var(--green-soft); } .diff-row.note { color: var(--muted); background: rgba(255,255,255,.025); }
+
+    .inspector { display: grid; grid-template-rows: 43px 38px minmax(0, 1fr) 58px; } .inspector-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); } .inspector-tabs button { color: var(--muted); background: transparent; font-size: 10px; } .inspector-tabs button.is-active { color: var(--text); box-shadow: inset 0 -1px var(--blue); } .inspector-body { padding: 13px; } .view { display: none; } .view.is-active { display: block; } .section { margin-bottom: 19px; } .section-title { display: flex; align-items: center; margin: 0 0 9px; color: var(--muted); font-size: 9px; font-weight: 720; letter-spacing: .09em; text-transform: uppercase; } .section-title span { margin-left: auto; color: var(--text-2); font: 9px var(--mono); letter-spacing: 0; text-transform: none; }
+    .diagnosis { padding: 11px; border: 1px solid rgba(228,173,88,.3); border-radius: 7px; background: var(--amber-soft); } .diagnosis strong { display: block; color: var(--amber); font-size: 11px; } .diagnosis p { margin: 7px 0 0; color: #d9c18f; font-size: 10px; line-height: 1.55; } .confidence { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--muted); font: 9px var(--mono); } .confidence i { flex: 1; height: 4px; overflow: hidden; border-radius: 4px; background: var(--surface-3); } .confidence i::before { display: block; width: 82%; height: 100%; background: var(--amber); content: ""; }
+    .hypotheses { display: grid; gap: 5px; } .hypothesis { display: grid; grid-template-columns: 17px 1fr auto; gap: 7px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-2); background: var(--surface-1); text-align: left; } .hypothesis:hover, .hypothesis.is-selected { border-color: rgba(107,141,255,.42); background: var(--blue-soft); } .hypothesis-mark { color: var(--blue); font: 10px var(--mono); } .hypothesis b { display: block; font-size: 10px; font-weight: 550; } .hypothesis small { display: block; margin-top: 3px; color: var(--muted); font: 9px var(--mono); } .hypothesis em { color: var(--amber); font: 9px var(--mono); font-style: normal; }
+    .action-list { display: grid; gap: 2px; } .action { display: grid; grid-template-columns: 16px 1fr auto; gap: 7px; align-items: center; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,.045); } .action-mark { display: grid; width: 14px; height: 14px; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--muted); font: 8px var(--mono); } .action.done .action-mark { border-color: var(--green); color: var(--green); } .action b { color: var(--text-2); font-size: 10px; font-weight: 550; } .action small { display: block; margin-top: 2px; color: var(--muted); font: 9px var(--mono); } .action time { color: var(--muted); font: 9px var(--mono); }
+    .warning { padding: 10px; border: 1px solid rgba(239,113,129,.24); border-radius: 7px; color: #d8a8af; background: var(--red-soft); font-size: 10px; line-height: 1.55; } .warning b { display: block; margin-bottom: 4px; color: var(--red); }
+    .inspector-actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: 7px; padding: 10px 12px; border-top: 1px solid var(--line); } .inspector-actions button { min-height: 34px; border-radius: 6px; font-size: 10px; font-weight: 650; } .inspector-actions .secondary { border: 1px solid var(--line); color: var(--text-2); background: var(--surface-1); } .inspector-actions .primary { color: white; background: #426de0; } .inspector-actions .primary.is-done { color: #b8f2dc; background: rgba(73,212,164,.15); }
+    .statusbar { display: flex; align-items: center; gap: 15px; padding: 0 10px; color: #9ca9c2; background: #173e82; font: 9px var(--mono); } .statusbar .right { margin-left: auto; } .toast { position: fixed; z-index: 20; right: 18px; bottom: 38px; max-width: 360px; padding: 10px 13px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--text-2); background: #1b2029; box-shadow: 0 14px 50px rgba(0,0,0,.36); font-size: 10px; opacity: 0; transform: translateY(8px); transition: .18s ease; pointer-events: none; } .toast.is-visible { opacity: 1; transform: translateY(0); }
+    @media (max-width: 1240px) { .workspace { grid-template-columns: 220px minmax(510px, 1fr) 310px; } .state-track { min-width: 540px; } .branch { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">P3</span><span>PyPTO Studio</span></div>
+      <span class="product-label">编译失败诊断</span>
+      <div class="title"><b>rmsnorm.py · Lowering 失败</b> · DIAG-2418</div>
+      <div class="spacer"></div><div class="branch">feat/rmsnorm-layout</div><div class="target">Ascend 910B</div><div class="avatar">WY</div>
+    </header>
+
+    <section class="progress" aria-label="诊断任务状态">
+      <div class="progress-copy"><strong>Agent in the loop</strong><span id="progressHint">等待确认诊断假设 · 已完成 4 / 7 步</span></div>
+      <div class="state-track" id="stateTrack">
+        <button class="state-step done" data-state="发现失败"><span class="state-dot">✓</span><span>发现失败</span></button>
+        <button class="state-step done" data-state="建立上下文"><span class="state-dot">✓</span><span>建立上下文</span></button>
+        <button class="state-step done" data-state="采集证据"><span class="state-dot">✓</span><span>采集证据</span></button>
+        <button class="state-step active" data-state="初步归因"><span class="state-dot">4</span><span>初步归因</span></button>
+        <button class="state-step" data-state="验证计划"><span class="state-dot">5</span><span>验证计划</span></button>
+        <button class="state-step" data-state="重新编译"><span class="state-dot">6</span><span>重新编译</span></button>
+        <button class="state-step" data-state="验收"><span class="state-dot">7</span><span>验收</span></button>
+      </div>
+      <div class="progress-status" id="progressStatus">WAITING FOR DECISION</div>
+    </section>
+
+    <main class="workspace">
+      <aside class="rail" aria-label="诊断上下文">
+        <div class="panel-head"><strong>诊断上下文</strong><span>11 sources</span></div>
+        <div class="rail-body">
+          <section class="context-group"><h2 class="context-title">工程现场 <span>READY</span></h2>
+            <button class="context-item is-active" data-jump="source"><span class="context-icon">▣</span><span><code>rmsnorm.py</code><br><small>当前失败入口 · line 94</small></span><small>✕</small></button>
+            <button class="context-item" data-jump="source"><span class="context-icon">↳</span><span>调用点与相邻实现<br><small>input_rmsnorm / post_rmsnorm</small></span><small>2</small></button>
+            <button class="context-item pass" data-jump="phase"><span class="context-icon">✓</span><span>最近成功基线<br><small>commit 8e21a · 2h ago</small></span><small>✓</small></button>
+            <button class="context-item" data-jump="evidence"><span class="context-icon">◇</span><span>相关测试<br><small>rmsnorm_compile_test.py</small></span><small>6</small></button>
+          </section>
+          <section class="context-group"><h2 class="context-title">环境快照 <span>LOCKED</span></h2>
+            <div class="context-item"><span class="context-icon">⌘</span><span>目标硬件<br><small>Ascend 910B · 1 device</small></span><small>—</small></div>
+            <div class="context-item"><span class="context-icon">▤</span><span>软件版本<br><small>CANN 8.2.RC1 · PTO 0.4.2</small></span><small>—</small></div>
+            <div class="context-item warn"><span class="context-icon">!</span><span>配置差异<br><small>layout_policy changed</small></span><small>1</small></div>
+          </section>
+          <div class="completeness"><div class="completeness-head"><span>证据完整度</span><b>8 / 11</b></div><div class="bar"><i></i></div><p>源码、错误日志和 Pass IR 已获取。真实设备指令与 UB 分配尚未采集。</p></div>
+        </div>
+      </aside>
+
+      <section class="main" aria-label="证据与编译链路">
+        <div class="main-tabs"><button class="main-tab is-active">诊断概览</button><button class="main-tab" data-toast="切换到完整日志视图">完整日志</button><button class="main-tab" data-toast="切换到 IR Diff 视图">IR Diff</button><button class="main-tab" data-toast="切换到复现配置">复现配置</button></div>
+        <div class="main-body">
+          <div class="section-head"><div><p class="eyebrow">Compilation diagnosis / DIAG-2418</p><h1>为什么 <code>rmsnorm.py</code> 没有进入 Vector Lowering？</h1><p>Agent 已完成上下文拼接和初步归因，下一步需要开发者选择一个可验证的假设。</p></div><div class="header-actions"><button class="ghost" id="refresh">重新诊断</button><button class="ghost" id="export">导出证据包</button></div></div>
+          <section class="summary">
+            <div class="summary-card critical"><div class="summary-label">失败阶段</div><div class="summary-value"><code>LowerVectorOp</code></div><div class="summary-meta">首次失败 · 0.62s</div></div>
+            <div class="summary-card"><div class="summary-label">疑似责任域</div><div class="summary-value">Layout / Vector CodeGen</div><div class="summary-meta">Agent 置信度 82%</div></div>
+            <div class="summary-card"><div class="summary-label">最近变更</div><div class="summary-value"><code>layout_policy</code></div><div class="summary-meta">commit 8e21a · 2h ago</div></div>
+          </section>
+
+          <section class="block" id="phase"><h2 class="block-title">编译阶段时间线 <span>点击阶段查看证据</span></h2>
+            <div class="phase-list">
+              <button class="phase pass" data-toast="Python Parse：源码语法正常"><span class="phase-mark">✓</span><span><b>Python Parse</b><small>源码解析与装饰器注册</small></span><time>0.42s</time></button>
+              <button class="phase pass" data-toast="Type Inference：输入输出 dtype 与 shape 已推导"><span class="phase-mark">✓</span><span><b>Type Inference</b><small>输入输出 dtype / shape 契约</small></span><time>0.81s</time></button>
+              <button class="phase pass" data-toast="Shape Validation：Hidden 8192 可整除 Chunk 512"><span class="phase-mark">✓</span><span><b>Shape Validation</b><small>有效区、尾块与对齐检查</small></span><time>0.23s</time></button>
+              <button class="phase warn is-selected" data-toast="Layout Normalize：未插入预期的 layout conversion"><span class="phase-mark">!</span><span><b>Layout Normalize</b><small>ND layout 保留到下一阶段</small></span><time>1.10s</time></button>
+              <button class="phase fail" data-toast="LowerVectorOp：非法 layout 导致硬件约束校验失败"><span class="phase-mark">×</span><span><b>LowerVectorOp</b><small>Vector 路径要求连续 tile layout</small></span><time>0.62s</time></button>
+              <button class="phase" data-toast="CodeGen：因上游失败而未执行"><span class="phase-mark">—</span><span><b>CodeGen</b><small>未执行</small></span><time>—</time></button>
+            </div>
+          </section>
+
+          <section class="block" id="evidence"><h2 class="block-title">证据链 <span>源码事实 → 推断 → 验证边界</span></h2>
+            <div class="evidence-grid">
+              <article class="evidence-card" id="source"><h3>错误因果链 <span>4 evidence</span></h3><div class="chain"><div class="chain-row">源码声明 <code>layout="ND"</code></div><div class="chain-row">NormalizeLayout 未插入转换节点</div><div class="chain-row">Vector Lowering 读取到非法 layout</div><div class="chain-row">硬件约束校验失败，编译终止</div></div></article>
+              <article class="evidence-card"><h3>Pass 前后 IR Diff <span>IR-013</span></h3><div class="diff"><div class="diff-row old">- LoadTensor(layout="ND")</div><div class="diff-row new">+ LoadTensor(layout="ND")</div><div class="diff-row note">  expected: LayoutConvert(ND → tile)</div><div class="diff-row old">- VectorOp(input=tile_0)</div><div class="diff-row note">  actual: constraint violation</div></div></article>
+            </div>
+          </section>
+
+          <section class="block"><h2 class="block-title">当前行动记录 <span id="actionCount">2 actions</span></h2><div class="action-list"><div class="action done"><span class="action-mark">✓</span><span><b>聚合编译上下文</b><small>源码、配置、日志、最近 Diff</small></span><time>09:41</time></div><div class="action done"><span class="action-mark">✓</span><span><b>定位首个失败 Pass</b><small><code>LowerVectorOp</code> · 置信度 82%</small></span><time>09:42</time></div><div class="action" id="pendingAction"><span class="action-mark">3</span><span><b>等待选择诊断假设</b><small>选择右侧 H1 后生成最小验证计划</small></span><time>now</time></div></div></section>
+        </div>
+      </section>
+
+      <aside class="inspector" aria-label="Agent 诊断与人类决策">
+        <div class="panel-head"><strong>Agent Copilot</strong><span id="agentState">WAITING</span></div>
+        <div class="inspector-tabs" id="inspectorTabs"><button class="is-active" data-view="diagnosis">诊断</button><button data-view="plan">验证计划</button><button data-view="risks">边界</button></div>
+        <div class="inspector-body">
+          <div class="view is-active" data-view-panel="diagnosis">
+            <section class="section"><h2 class="section-title">当前结论 <span>推断</span></h2><div class="diagnosis"><strong>最可能是 layout 约束未满足</strong><p>源码将输入保持为 ND layout，但当前 Vector Lowering 路径要求连续 tile layout。相邻成功基线在同一阶段插入了显式转换。</p><div class="confidence"><span>置信度 82%</span><i></i></div></div></section>
+            <section class="section"><h2 class="section-title">候选假设 <span>选择后验证</span></h2><div class="hypotheses" id="hypotheses"><button class="hypothesis is-selected" data-hypothesis="H1"><span class="hypothesis-mark">H1</span><span><b>显式 layout conversion 缺失</b><small>源码 + IR Diff + 基线对比</small></span><em>82%</em></button><button class="hypothesis" data-hypothesis="H2"><span class="hypothesis-mark">H2</span><span><b>CANN 版本缺少该路径支持</b><small>能力矩阵尚未覆盖当前组合</small></span><em>48%</em></button><button class="hypothesis" data-hypothesis="H3"><span class="hypothesis-mark">H3</span><span><b>dtype 修改导致隐式转换失效</b><small>最近 Diff 尚未完成反向验证</small></span><em>31%</em></button></div></section>
+            <section class="section"><h2 class="section-title">人类决策点 <span>需要确认</span></h2><div class="warning"><b>Agent 不会自动修改代码</b>接受 H1 后，Agent 将生成最小 Patch 与验证计划；重新编译和真机实验仍需单独授权。</div></section>
+          </div>
+          <div class="view" data-view-panel="plan"><section class="section"><h2 class="section-title">最小验证计划 <span id="planState">DRAFT</span></h2><div class="action-list"><div class="action"><span class="action-mark">1</span><span><b>对比成功基线 IR</b><small>确认 conversion 节点差异</small></span><time>静态</time></div><div class="action"><span class="action-mark">2</span><span><b>生成显式 layout Patch</b><small>只修改 rmsnorm.py</small></span><time>需确认</time></div><div class="action"><span class="action-mark">3</span><span><b>重新运行 Lowering</b><small>检查非法 layout 是否消失</small></span><time>需授权</time></div><div class="action"><span class="action-mark">4</span><span><b>补充编译回归测试</b><small>ND 输入与 tile 输出路径</small></span><time>可自动</time></div></div></section><section class="section"><h2 class="section-title">预期验收条件</h2><div class="diagnosis"><strong>编译通过 ≠ 结论完成</strong><p>至少需要确认 Pass 后 IR 存在合法转换，并保留当前失败用例作为回归测试。</p></div></section></div>
+          <div class="view" data-view-panel="risks"><section class="section"><h2 class="section-title">当前不能确认 <span>3 items</span></h2><div class="warning"><b>真实设备证据缺失</b>当前结论来自源码、能力规则和 Pass IR，不能确认实际指令时序、UB 分配或性能影响。</div><div class="action-list" style="margin-top:10px"><div class="action"><span class="action-mark">!</span><span><b>真机是否支持该 dtype 组合</b><small>需要 Ascend 910B ST</small></span><time>未验证</time></div><div class="action"><span class="action-mark">!</span><span><b>转换是否增加搬运成本</b><small>需要设备 Profiling</small></span><time>未验证</time></div><div class="action"><span class="action-mark">!</span><span><b>动态 shape 是否同样成立</b><small>当前只覆盖 Hidden 8192</small></span><time>未验证</time></div></div></section></div>
+        </div>
+        <div class="inspector-actions"><button class="secondary" id="reject">提出反证</button><button class="primary" id="accept">接受 H1 · 生成计划</button></div>
+      </aside>
+    </main>
+    <footer class="statusbar"><span>feat/rmsnorm-layout</span><span>Python 3.11</span><span>Ascend910B</span><span class="right" id="statusText">证据链已建立 · 等待人类决策</span><span>DIAG-2418</span></footer>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    let toastTimer;
+    function toast(message) { const node = $("#toast"); node.textContent = message; node.classList.add("is-visible"); clearTimeout(toastTimer); toastTimer = setTimeout(() => node.classList.remove("is-visible"), 2600); }
+    function setView(view) { $$("#inspectorTabs button").forEach(button => button.classList.toggle("is-active", button.dataset.view === view)); $$('[data-view-panel]').forEach(panel => panel.classList.toggle("is-active", panel.dataset.viewPanel === view)); }
+    function setProgress(step, status, hint) { const steps = $$(".state-step"); steps.forEach((node, index) => { node.classList.toggle("done", index < step); node.classList.toggle("active", index === step); const dot = $(".state-dot", node); dot.textContent = index < step ? "✓" : String(index + 1); }); $("#progressStatus").textContent = status; $("#progressHint").textContent = hint; }
+    $$(".state-step").forEach(button => button.addEventListener("click", () => toast(`当前任务阶段：${button.dataset.state}`)));
+    $$(".phase").forEach(button => button.addEventListener("click", () => { $$(".phase").forEach(item => item.classList.remove("is-selected")); button.classList.add("is-selected"); toast(button.dataset.toast); }));
+    $$("[data-toast]").forEach(button => button.addEventListener("click", () => toast(button.dataset.toast)));
+    $$("[data-jump]").forEach(button => button.addEventListener("click", () => { const target = $("#" + button.dataset.jump); if (target) target.scrollIntoView({ behavior: "smooth", block: "center" }); toast("已跳转到关联证据"); }));
+    $$(".main-tab").forEach(button => button.addEventListener("click", () => { $$(".main-tab").forEach(item => item.classList.remove("is-active")); button.classList.add("is-active"); toast(button.dataset.toast || "已切换诊断视图"); }));
+    $("#inspectorTabs").addEventListener("click", event => { const button = event.target.closest("button[data-view]"); if (button) setView(button.dataset.view); });
+    $("#hypotheses").addEventListener("click", event => { const button = event.target.closest(".hypothesis"); if (!button) return; $$(".hypothesis").forEach(item => item.classList.remove("is-selected")); button.classList.add("is-selected"); $("#accept").textContent = `接受 ${button.dataset.hypothesis} · 生成计划`; toast(`${button.dataset.hypothesis} 已选中，等待确认`); });
+    $("#accept").addEventListener("click", () => { setProgress(4, "PLAN READY", "验证计划已生成 · 等待授权执行"); setView("plan"); $("#planState").textContent = "READY"; $("#accept").textContent = "授权执行验证"; $("#accept").classList.add("is-done"); $("#pendingAction").innerHTML = '<span class="action-mark">✓</span><span><b>已接受诊断假设 H1</b><small>验证计划已生成，等待执行授权</small></span><time>now</time>'; $("#actionCount").textContent = "3 actions"; $("#statusText").textContent = "验证计划已生成 · 等待执行授权"; toast("已生成最小验证计划，未修改代码"); });
+    $("#reject").addEventListener("click", () => { setView("diagnosis"); toast("请输入反证或选择另一个候选假设"); });
+    $("#refresh").addEventListener("click", () => { $("#statusText").textContent = "重新检查上下文 · 未修改工作区"; toast("已重新读取源码、配置和最近编译证据"); });
+    $("#export").addEventListener("click", () => toast("证据包已准备：Manifest、日志、IR Diff、假设记录"));
+  </script>
+</body>
+</html>

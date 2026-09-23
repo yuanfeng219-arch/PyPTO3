@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360" role="img"
+     aria-label="算子调优控制台 · Tuning Console 封面：五层调优闭环与本次上板执行的关键数字">
+  <!-- Launcher cover card (not a screenshot). Standalone asset: design-system
+       token values are inlined because CSS variables from launch.html do not
+       reach an <img>-loaded SVG. Values match tokens/semantic.css dark theme. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17181d"/>
+      <stop offset="0.44" stop-color="#101114"/>
+      <stop offset="1" stop-color="#0c0d10"/>
+    </linearGradient>
+    <radialGradient id="auraA" cx="0.12" cy="0.12" r="0.55">
+      <stop offset="0" stop-color="#9b60aa" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#9b60aa" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auraB" cx="0.88" cy="0.1" r="0.55">
+      <stop offset="0" stop-color="#4369ef" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#4369ef" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auraC" cx="0.72" cy="0.9" r="0.5">
+      <stop offset="0" stop-color="#f472b6" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#f472b6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <rect width="640" height="360" fill="url(#auraA)"/>
+  <rect width="640" height="360" fill="url(#auraB)"/>
+  <rect width="640" height="360" fill="url(#auraC)"/>
+
+  <g font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif">
+    <text x="36" y="56" fill="#ffffff" fill-opacity="0.9" font-size="26" font-weight="700">Tuning Console</text>
+    <text x="36" y="80" fill="#ffffff" fill-opacity="0.6" font-size="14">算子调优控制台 · 五层闭环</text>
+
+    <!-- five levels of the loop -->
+    <g font-size="11.5" font-weight="600">
+      <g>
+        <rect x="36" y="104" width="94" height="26" rx="13" fill="#ffffff" fill-opacity="0.06"/>
+        <text x="83" y="121" fill="#ffffff" fill-opacity="0.82" text-anchor="middle">E2E</text>
+      </g>
+      <g>
+        <rect x="138" y="104" width="94" height="26" rx="13" fill="#ffffff" fill-opacity="0.06"/>
+        <text x="185" y="121" fill="#ffffff" fill-opacity="0.82" text-anchor="middle">L2 调度</text>
+      </g>
+      <g>
+        <rect x="240" y="104" width="94" height="26" rx="13" fill="#ffffff" fill-opacity="0.06"/>
+        <text x="287" y="121" fill="#ffffff" fill-opacity="0.82" text-anchor="middle">L1 / L0</text>
+      </g>
+      <g>
+        <rect x="342" y="104" width="94" height="26" rx="13" fill="#ffffff" fill-opacity="0.06"/>
+        <text x="389" y="121" fill="#ffffff" fill-opacity="0.82" text-anchor="middle">编译器</text>
+      </g>
+      <g>
+        <rect x="444" y="104" width="94" height="26" rx="13" fill="#ffffff" fill-opacity="0.06"/>
+        <text x="491" y="121" fill="#ffffff" fill-opacity="0.82" text-anchor="middle">ISA / 布局</text>
+      </g>
+      <g stroke="#ffffff" stroke-opacity="0.22" stroke-width="1">
+        <path d="M130 117h8M232 117h8M334 117h8M436 117h8"/>
+      </g>
+    </g>
+
+    <!-- measured headline numbers from the run -->
+    <g>
+      <text x="36" y="176" fill="#ffffff" fill-opacity="0.4" font-size="10.5" letter-spacing="0.6">真实上板执行 · DEEPSEEK V4 DECODE_CSA · A2A3</text>
+
+      <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+        <text x="36"  y="212" fill="#ffffff" fill-opacity="0.9" font-size="22" font-weight="600">4879.8</text>
+        <text x="130" y="212" fill="#ffffff" fill-opacity="0.9" font-size="22" font-weight="600">72</text>
+        <text x="200" y="212" fill="#ffffff" fill-opacity="0.9" font-size="22" font-weight="600">4038</text>
+        <text x="288" y="212" fill="#ff4b7b" font-size="22" font-weight="600">33</text>
+        <text x="352" y="212" fill="#ffaa3b" font-size="22" font-weight="600">230</text>
+        <text x="428" y="212" fill="#ffffff" fill-opacity="0.9" font-size="22" font-weight="600">52</text>
+      </g>
+      <g font-size="10" fill="#ffffff" fill-opacity="0.45">
+        <text x="36"  y="228">us trace</text>
+        <text x="130" y="228">core</text>
+        <text x="200" y="228">block</text>
+        <text x="288" y="228">crit path</text>
+        <text x="352" y="228">perf hint</text>
+        <text x="428" y="228">IR pass</text>
+      </g>
+    </g>
+
+    <!-- swimlane motif: density of the real trace, abstracted -->
+    <g opacity="0.85">
+      <rect x="36" y="252" width="568" height="1" fill="#ffffff" fill-opacity="0.08"/>
+      <g fill="#735bb4">
+        <rect x="36"  y="262" width="62" height="5" rx="2"/>
+        <rect x="112" y="262" width="34" height="5" rx="2"/>
+        <rect x="160" y="262" width="96" height="5" rx="2"/>
+        <rect x="330" y="262" width="52" height="5" rx="2"/>
+        <rect x="396" y="262" width="118" height="5" rx="2"/>
+      </g>
+      <g fill="#4d70ba">
+        <rect x="36"  y="274" width="40" height="5" rx="2"/>
+        <rect x="90"  y="274" width="152" height="5" rx="2"/>
+        <rect x="256" y="274" width="28" height="5" rx="2"/>
+        <rect x="300" y="274" width="74" height="5" rx="2"/>
+        <rect x="520" y="274" width="84" height="5" rx="2"/>
+      </g>
+      <g fill="#38b8b2">
+        <rect x="36"  y="286" width="120" height="5" rx="2"/>
+        <rect x="170" y="286" width="46" height="5" rx="2"/>
+        <rect x="240" y="286" width="186" height="5" rx="2"/>
+        <rect x="446" y="286" width="30" height="5" rx="2"/>
+      </g>
+      <g fill="#e46b8a">
+        <rect x="36"  y="298" width="28" height="5" rx="2"/>
+        <rect x="78"  y="298" width="222" height="5" rx="2"/>
+        <rect x="316" y="298" width="64" height="5" rx="2"/>
+        <rect x="400" y="298" width="140" height="5" rx="2"/>
+      </g>
+      <g fill="#f2a23a">
+        <rect x="36"  y="310" width="90" height="5" rx="2"/>
+        <rect x="140" y="310" width="58" height="5" rx="2"/>
+        <rect x="214" y="310" width="112" height="5" rx="2"/>
+        <rect x="350" y="310" width="44" height="5" rx="2"/>
+        <rect x="410" y="310" width="194" height="5" rx="2"/>
+      </g>
+    </g>
+
+    <text x="36" y="342" fill="#ffffff" fill-opacity="0.4" font-size="10.5">瓶颈队列 → 证据 → 假设 → 正确性 → 性能 → 保留 / 回退</text>
+  </g>
+</svg>

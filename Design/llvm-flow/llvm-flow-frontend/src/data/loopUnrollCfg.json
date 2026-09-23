@@ -1,0 +1,291 @@
+{
+  "before_json": {
+    "name": "sum_positive — before",
+    "directed": true,
+    "strict": false,
+    "label": "sum_positive — before",
+    "_subgraph_cnt": 0,
+    "objects": [
+      {
+        "_gvid": 0,
+        "name": "Node0",
+        "label": "{%1:\\lbr label %2\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%1",
+          "source_lines": [1],
+          "instruction_count": 1,
+          "opcodes": ["br"],
+          "terminator": "br label %2",
+          "predecessors": [],
+          "successors": [{ "block_id": "%2" }]
+        }
+      },
+      {
+        "_gvid": 1,
+        "name": "Node1",
+        "label": "{%2:\\l%i = phi i32 [ 0, %1 ], [ %i.next, %5 ]\\l%total = phi i32 [ 0, %1 ], [ %total.next, %5 ]\\l%cond = icmp slt i32 %i, %n\\lbr i1 %cond, label %3, label %6\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%2",
+          "source_lines": [3],
+          "instruction_count": 4,
+          "opcodes": ["phi", "phi", "icmp", "br"],
+          "terminator": "br i1 %cond, label %3, label %6",
+          "predecessors": ["%1", "%5"],
+          "successors": [
+            { "block_id": "%3", "label": "T" },
+            { "block_id": "%6", "label": "F" }
+          ]
+        }
+      },
+      {
+        "_gvid": 2,
+        "name": "Node2",
+        "label": "{%3:\\l%p = getelementptr inbounds i32, ptr %a, i32 %i\\l%x = load i32, ptr %p\\l%gt = icmp sgt i32 %x, 0\\lbr i1 %gt, label %4, label %5\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%3",
+          "source_lines": [4],
+          "instruction_count": 4,
+          "opcodes": ["getelementptr", "load", "icmp", "br"],
+          "terminator": "br i1 %gt, label %4, label %5",
+          "predecessors": ["%2"],
+          "successors": [
+            { "block_id": "%4", "label": "T" },
+            { "block_id": "%5", "label": "F" }
+          ]
+        }
+      },
+      {
+        "_gvid": 3,
+        "name": "Node3",
+        "label": "{%4:\\l%total.add = add i32 %total, %x\\lbr label %5\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%4",
+          "source_lines": [5, 6],
+          "instruction_count": 2,
+          "opcodes": ["add", "br"],
+          "terminator": "br label %5",
+          "predecessors": ["%3"],
+          "successors": [{ "block_id": "%5" }]
+        }
+      },
+      {
+        "_gvid": 4,
+        "name": "Node4",
+        "label": "{%5:\\l%total.next = phi i32 [ %total, %3 ], [ %total.add, %4 ]\\l%i.next = add i32 %i, 1\\lbr label %2\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%5",
+          "source_lines": [3],
+          "instruction_count": 3,
+          "opcodes": ["phi", "add", "br"],
+          "terminator": "br label %2",
+          "predecessors": ["%3", "%4"],
+          "successors": [{ "block_id": "%2" }]
+        }
+      },
+      {
+        "_gvid": 5,
+        "name": "Node5",
+        "label": "{%6:\\lret i32 %total\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%6",
+          "source_lines": [9],
+          "instruction_count": 1,
+          "opcodes": ["ret"],
+          "terminator": "ret i32 %total",
+          "predecessors": ["%2"],
+          "successors": []
+        }
+      }
+    ],
+    "edges": [
+      { "_gvid": 0, "tail": 0, "head": 1 },
+      { "_gvid": 1, "tail": 1, "head": 2, "label": "T" },
+      { "_gvid": 2, "tail": 1, "head": 5, "label": "F" },
+      { "_gvid": 3, "tail": 2, "head": 3, "label": "T" },
+      { "_gvid": 4, "tail": 2, "head": 4, "label": "F" },
+      { "_gvid": 5, "tail": 3, "head": 4 },
+      { "_gvid": 6, "tail": 4, "head": 1 }
+    ]
+  },
+  "before_output": ["%1", "%2", "%6"],
+  "after_json": {
+    "name": "sum_positive — after (unroll ×2)",
+    "directed": true,
+    "strict": false,
+    "label": "sum_positive — after (unroll ×2)",
+    "_subgraph_cnt": 0,
+    "objects": [
+      {
+        "_gvid": 0,
+        "name": "Node0",
+        "label": "{%1:\\lbr label %7\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%1",
+          "source_lines": [1],
+          "instruction_count": 1,
+          "opcodes": ["br"],
+          "terminator": "br label %7",
+          "predecessors": [],
+          "successors": [{ "block_id": "%7" }]
+        }
+      },
+      {
+        "_gvid": 1,
+        "name": "Node1",
+        "label": "{%7:\\lbr label %2\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%7",
+          "source_lines": [3],
+          "instruction_count": 1,
+          "opcodes": ["br"],
+          "terminator": "br label %2",
+          "predecessors": ["%1"],
+          "successors": [{ "block_id": "%2" }]
+        }
+      },
+      {
+        "_gvid": 2,
+        "name": "Node2",
+        "label": "{%2:\\l%i = phi i32 [ 0, %7 ], [ %i.next, %12 ]\\l%total = phi i32 [ 0, %7 ], [ %total.next, %12 ]\\l%cond = icmp slt i32 %i, %n\\lbr i1 %cond, label %8, label %6\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%2",
+          "source_lines": [3],
+          "instruction_count": 4,
+          "opcodes": ["phi", "phi", "icmp", "br"],
+          "terminator": "br i1 %cond, label %8, label %6",
+          "predecessors": ["%7", "%12"],
+          "successors": [
+            { "block_id": "%8", "label": "T" },
+            { "block_id": "%6", "label": "F" }
+          ]
+        }
+      },
+      {
+        "_gvid": 3,
+        "name": "Node3",
+        "label": "{%8:\\l%p1 = getelementptr inbounds i32, ptr %a, i32 %i\\l%x1 = load i32, ptr %p1\\l%gt1 = icmp sgt i32 %x1, 0\\lbr i1 %gt1, label %9, label %10\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%8",
+          "source_lines": [4],
+          "instruction_count": 4,
+          "opcodes": ["getelementptr", "load", "icmp", "br"],
+          "terminator": "br i1 %gt1, label %9, label %10",
+          "predecessors": ["%2"],
+          "successors": [
+            { "block_id": "%9", "label": "T" },
+            { "block_id": "%10", "label": "F" }
+          ]
+        }
+      },
+      {
+        "_gvid": 4,
+        "name": "Node4",
+        "label": "{%9:\\l%total.add1 = add i32 %total, %x1\\lbr label %10\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%9",
+          "source_lines": [5],
+          "instruction_count": 2,
+          "opcodes": ["add", "br"],
+          "terminator": "br label %10",
+          "predecessors": ["%8"],
+          "successors": [{ "block_id": "%10" }]
+        }
+      },
+      {
+        "_gvid": 5,
+        "name": "Node5",
+        "label": "{%10:\\l%p2 = getelementptr inbounds i32, ptr %a, i32 %i.next1\\l%x2 = load i32, ptr %p2\\l%gt2 = icmp sgt i32 %x2, 0\\lbr i1 %gt2, label %11, label %12\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%10",
+          "source_lines": [6],
+          "instruction_count": 4,
+          "opcodes": ["getelementptr", "load", "icmp", "br"],
+          "terminator": "br i1 %gt2, label %11, label %12",
+          "predecessors": ["%8", "%9"],
+          "successors": [
+            { "block_id": "%11", "label": "T" },
+            { "block_id": "%12", "label": "F" }
+          ]
+        }
+      },
+      {
+        "_gvid": 6,
+        "name": "Node6",
+        "label": "{%11:\\l%total.add2 = add i32 %total.add1, %x2\\lbr label %12\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%11",
+          "source_lines": [7],
+          "instruction_count": 2,
+          "opcodes": ["add", "br"],
+          "terminator": "br label %12",
+          "predecessors": ["%10"],
+          "successors": [{ "block_id": "%12" }]
+        }
+      },
+      {
+        "_gvid": 7,
+        "name": "Node7",
+        "label": "{%12:\\l%total.next = phi i32 [ %total, %10 ], [ %total.add2, %11 ]\\l%i.next = add i32 %i, 2\\lbr label %2\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%12",
+          "source_lines": [3],
+          "instruction_count": 3,
+          "opcodes": ["phi", "add", "br"],
+          "terminator": "br label %2",
+          "predecessors": ["%10", "%11"],
+          "successors": [{ "block_id": "%2" }]
+        }
+      },
+      {
+        "_gvid": 8,
+        "name": "Node8",
+        "label": "{%6:\\lret i32 %total\\l}",
+        "shape": "record",
+        "metadata": {
+          "block_id": "%6",
+          "source_lines": [9],
+          "instruction_count": 1,
+          "opcodes": ["ret"],
+          "terminator": "ret i32 %total",
+          "predecessors": ["%2"],
+          "successors": []
+        }
+      }
+    ],
+    "edges": [
+      { "_gvid": 0, "tail": 0, "head": 1 },
+      { "_gvid": 1, "tail": 1, "head": 2 },
+      { "_gvid": 2, "tail": 2, "head": 3, "label": "T" },
+      { "_gvid": 3, "tail": 2, "head": 8, "label": "F" },
+      { "_gvid": 4, "tail": 3, "head": 4, "label": "T" },
+      { "_gvid": 5, "tail": 3, "head": 5, "label": "F" },
+      { "_gvid": 6, "tail": 4, "head": 5 },
+      { "_gvid": 7, "tail": 5, "head": 6, "label": "T" },
+      { "_gvid": 8, "tail": 5, "head": 7, "label": "F" },
+      { "_gvid": 9, "tail": 6, "head": 7 },
+      { "_gvid": 10, "tail": 7, "head": 2 }
+    ]
+  },
+  "after_output": ["%1", "%2", "%6"],
+  "file_pass": "Loop unroll · before vs after",
+  "source_data": {
+    "dev": "int sum_positive(const int* a, int n) {\n  int total = 0;\n  for (int i = 0; i < n; ++i) {\n    int x = a[i];\n    if (x > 0) {\n      total += x;\n    }\n  }\n  return total;\n}",
+    "host": "int sum_positive(const int* a, int n) {\n  int total = 0;\n  for (int i = 0; i + 1 < n; i += 2) {\n    int x1 = a[i];\n    if (x1 > 0) total += x1;\n    int x2 = a[i + 1];\n    if (x2 > 0) total += x2;\n  }\n  return total;\n}",
+    "dev_path": "sum_positive.cpp",
+    "host_path": "sum_positive_unrolled.cpp"
+  }
+}

@@ -1,0 +1,171 @@
+.cfg-frame {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+}
+
+.cfg-frame__header {
+  flex: 0 0 auto;
+  justify-content: space-between;
+}
+
+.cfg-frame__header > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cfg-frame__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cfg-legend-toggle.is-active {
+  color: var(--llvmcfg-primary-text, var(--primary));
+  background: var(--state-hover);
+}
+
+.cfg-frame__canvas {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  background: var(--surface-1);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] .cfg-frame__canvas {
+  color-scheme: dark;
+}
+
+.cfg-frame .react-flow,
+.cfg-frame .react-flow__renderer,
+.cfg-frame .react-flow__pane {
+  background: var(--surface-1);
+}
+
+.cfg-frame .react-flow__background {
+  color: var(--border-default);
+}
+
+.cfg-frame .react-flow__minimap {
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.cfg-frame .react-flow__minimap-mask {
+  fill: color-mix(in srgb, var(--surface-1) 72%, transparent);
+}
+
+.cfg-frame .react-flow__minimap-node {
+  stroke: var(--border-strong);
+}
+
+.cfg-frame .react-flow__edge-text {
+  font: var(--type-mono);
+  fill: var(--foreground);
+}
+
+.cfg-frame .react-flow__edge-textbg {
+  fill: var(--surface-1);
+}
+
+path.react-flow__edge-path {
+  stroke-width: 1.5;
+  stroke: var(--foreground-secondary);
+}
+
+path.react-flow__edge-path:hover,
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 2.5;
+  stroke: var(--foreground);
+}
+
+.react-flow__attribution {
+  background: transparent;
+}
+
+.react-flow__attribution a {
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+}
+
+.cfg-layout-tabs {
+  min-height: var(--button-height-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.cfg-layout-tabs .tab-control-item {
+  min-height: var(--button-height-sm);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.cfg-layout-tabs .tab-control-item.is-selected,
+.cfg-layout-tabs .tab-control-item.is-selected:hover {
+  background: var(--ide-frame-selected-bg);
+  color: var(--foreground);
+}
+
+.cfg-legend {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(380px, calc(100% - var(--space-6)));
+  padding: var(--space-4);
+  background: var(--surface-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  color: var(--foreground-secondary);
+  font: var(--type-body);
+}
+
+.cfg-legend code {
+  color: var(--foreground);
+  font: var(--type-mono);
+}
+
+.cfg-legend__row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cfg-legend__glyph {
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+  color: var(--foreground);
+  font: var(--type-mono);
+}
+
+.cfg-legend__box {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.cfg-legend__box--outline {
+  background: var(--surface-2);
+}
+
+.cfg-legend__box--same {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-1));
+}
+
+.cfg-legend__box--diff {
+  background: var(--surface-3);
+}

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>推理优化目标依赖关系 · 交互旋钮</title>
+<style>
+:root{
+  --bg:#f5f7fb;--panel:#ffffff;--card:#f8fafc;--text:#172033;--muted:#667085;--border:#dfe3ea;
+  --accent:#5367e8;--series2:#2f9e67;--series4:#d59b2d;--series5:#d95d5d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+button,input,select{font:inherit}
+.wrap{max-width:1420px;margin:0 auto;padding:24px}
+.header{margin-bottom:16px}
+.header h1{margin:0 0 6px;font-size:24px}
+.header p{margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(310px,.86fr) minmax(0,1.55fr);gap:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px}
+.panel-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
+.title{font-weight:700}.sub{margin-top:4px;color:var(--muted)}
+.btn{border:1px solid var(--border);background:white;border-radius:10px;padding:8px 12px;cursor:pointer}
+.controls{display:grid;gap:19px}
+.labelrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.value{background:var(--card);border-radius:7px;padding:4px 8px;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.scale{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:4px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+select{width:100%;border:1px solid var(--border);border-radius:10px;padding:10px;background:white;color:var(--text)}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px;border:1px solid var(--border);border-radius:12px}
+.toggle input{width:18px;height:18px;accent-color:var(--accent)}
+.pills{display:flex;flex-wrap:wrap;gap:7px}
+.pill{background:var(--card);border-radius:999px;padding:5px 9px;color:var(--muted);font-size:12px}
+.flow{border:1px solid var(--border);border-radius:14px;overflow:auto;background:#fff}
+.flow svg{display:block;width:100%;min-width:680px}
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.metric{background:var(--card);border-radius:13px;padding:13px}
+.metric small{color:var(--muted)} .metric strong{display:block;margin-top:4px;font-size:21px;font-variant-numeric:tabular-nums}
+.delta{margin-top:4px;font-size:12px;color:var(--muted)}
+.status{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:6px 10px}
+.lower{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-top:16px}
+.chart{border:1px solid var(--border);border-radius:13px;background:var(--card);width:100%;display:block}
+.explain{border:1px solid var(--border);border-radius:13px;padding:13px}
+.note{background:var(--card);padding:10px;border-radius:9px;margin-top:8px;color:var(--muted)}
+.footer-note{margin-top:15px;color:var(--muted);font-size:12px}
+@media(max-width:960px){.grid,.lower{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.wrap{padding:12px}.cols,.metrics{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="header">
+    <h1>推理优化目标依赖关系 · 交互旋钮</h1>
+    <p>调整一个部署/运行参数，观察系统资源、Capacity 与最终 SLO 如何沿因果链发生变化。</p>
+  </div>
+
+  <section class="grid">
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="title">调整一个系统旋钮</div><div class="sub">观察哪些中间变量先变化，以及最终影响哪些 SLO。</div></div>
+        <button id="resetBtn" class="btn" type="button">重置</button>
+      </div>
+      <div class="controls">
+        <label>
+          <div class="labelrow"><span><b>Concurrency</b></span><span id="concurrencyVal" class="value">96</span></div>
+          <input id="concurrency" type="range" min="16" max="256" step="8" value="96">
+          <div class="scale"><span>16</span><span>饱和点附近 ≈ 128</span><span>256</span></div>
+        </label>
+        <label>
+          <div class="labelrow"><span><b>Max batch size</b></span><span id="batchVal" class="value">16</span></div>
+          <input id="batch" type="range" min="1" max="64" step="1" value="16">
+        </label>
+        <label>
+          <div class="labelrow"><span><b>KV Cache 预算</b></span><span id="kvVal" class="value">72%</span></div>
+          <input id="kv" type="range" min="35" max="90" step="1" value="72">
+        </label>
+        <div class="cols">
+          <label><div class="labelrow"><span><b>TP</b></span></div>
+            <select id="tp"><option value="1">TP 1</option><option value="2">TP 2</option><option value="4" selected>TP 4</option><option value="8">TP 8</option></select>
+          </label>
+          <label><div class="labelrow"><span><b>EP</b></span></div>
+            <select id="ep"><option value="1">EP 1</option><option value="2" selected>EP 2</option><option value="4">EP 4</option><option value="8">EP 8</option></select>
+          </label>
+        </div>
+        <label class="toggle">
+          <div><b>PD 分离</b><div class="sub">降低 prefill/decode 相互干扰，但引入 KV transfer 与调度开销</div></div>
+          <input id="pd" type="checkbox">
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="title">因果链</div><div id="causeSummary" class="sub">当前并发仍低于饱和点，新增并发主要转化为更高吞吐。</div></div>
+        <div class="pills"><span class="pill">① 旋钮</span><span class="pill">② 系统资源</span><span class="pill">③ Capacity</span><span class="pill">④ SLO</span></div>
+      </div>
+      <div class="flow">
+        <svg id="flowSvg" viewBox="0 0 760 390" aria-label="推理配置到系统资源、容量和服务指标之间的依赖关系">
+          <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+          <g id="edges" fill="none" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)"></g>
+          <g id="nodes"></g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="panel-head">
+      <div><div class="title">最终指标变化</div><div class="sub">数值为用于展示依赖关系的简化模型，不代表真实硬件 benchmark。</div></div>
+      <div id="stateBadge" class="status">Healthy operating region</div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><small>Throughput</small><strong id="throughput">—</strong><div id="throughputDelta" class="delta">—</div></div>
+      <div class="metric"><small>P99 TTFT</small><strong id="ttft">—</strong><div id="ttftDelta" class="delta">—</div></div>
+      <div class="metric"><small>P99 TPOT</small><strong id="tpot">—</strong><div id="tpotDelta" class="delta">—</div></div>
+      <div class="metric"><small>KV Usage</small><strong id="kvUsage">—</strong><div id="kvDelta" class="delta">—</div></div>
+      <div class="metric"><small>Cost / 1K tokens</small><strong id="cost">—</strong><div id="costDelta" class="delta">—</div></div>
+    </div>
+    <div class="lower">
+      <div>
+        <div class="title" style="margin-bottom:8px">Concurrency sweep</div>
+        <svg id="chart" viewBox="0 0 620 230" class="chart" aria-label="并发增加时吞吐和 TTFT 变化趋势"></svg>
+      </div>
+      <div class="explain">
+        <div class="title">这次改动为什么影响这些指标？</div>
+        <div id="explanation" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="footer-note">用途：用于推理工作台概念验证，强调“配置 → 系统机制 → Capacity → SLO”的因果关系，而不是给出真实设备性能预测。</div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const root=document.getElementById('app');
+  const $=id=>document.getElementById(id);
+  const controls=['concurrency','batch','kv','tp','ep','pd'];
+  const defaults={concurrency:96,batch:16,kv:72,tp:4,ep:2,pd:false};
+  let prev=null;
+
+  const nodeDefs=[
+    {id:'knob',x:34,y:38,w:148,h:58,label:'Configuration',sub:'TP · EP · Batch · KV'},
+    {id:'compute',x:235,y:18,w:145,h:52,label:'Compute pressure',sub:'算力 / 并行效率'},
+    {id:'memory',x:235,y:92,w:145,h:52,label:'Memory pressure',sub:'KV / HBM'},
+    {id:'comm',x:235,y:166,w:145,h:52,label:'Communication',sub:'TP / EP / KV transfer'},
+    {id:'scheduler',x:235,y:240,w:145,h:52,label:'Scheduler',sub:'batch / queue / dispatch'},
+    {id:'capacity',x:450,y:85,w:145,h:58,label:'Capacity',sub:'max concurrency / QPS'},
+    {id:'queue',x:450,y:183,w:145,h:58,label:'Queueing',sub:'等待 / saturation'},
+    {id:'slo',x:632,y:105,w:105,h:58,label:'SLO',sub:'TTFT · TPOT'},
+    {id:'throughputNode',x:632,y:205,w:105,h:58,label:'Throughput',sub:'tokens/s'}
+  ];
+  const edges=[['knob','compute'],['knob','memory'],['knob','comm'],['knob','scheduler'],
+    ['compute','capacity'],['memory','capacity'],['comm','capacity'],['scheduler','capacity'],
+    ['capacity','queue'],['queue','slo'],['compute','slo'],['scheduler','slo'],
+    ['capacity','throughputNode'],['scheduler','throughputNode']];
+
+  function val(id){const el=$(id);return el.type==='checkbox'?el.checked:Number(el.value)}
+  function simulate(c,b,k,tp,ep,pd){
+    const parallel=Math.sqrt(tp)*(1+Math.log2(ep)*0.09);
+    const commPenalty=1+Math.max(0,tp-2)*0.035+Math.max(0,ep-2)*0.018+(pd?0.055:0);
+    const kvCap=58+(k-35)*1.65+(tp-1)*7+(pd?10:0);
+    const saturation=Math.max(56,Math.min(220,kvCap*(0.93+Math.log2(b+1)*0.08)/commPenalty));
+    const load=c/saturation;
+    const batchEfficiency=0.62+0.38*(1-Math.exp(-b/13));
+    const rawThroughput=1180*parallel*batchEfficiency/commPenalty;
+    const throughput=rawThroughput*Math.min(1,Math.pow(load,0.72));
+    const queue=load<=0.82?18*load:15+115*Math.pow(Math.max(0,load-0.82),1.75);
+    const prefill=255/Math.pow(tp,0.42)*commPenalty*(1+Math.max(0,b-18)*0.004);
+    const ttft=prefill+queue+(pd?-22:0);
+    const tpotBase=34/Math.pow(tp,0.27)*(1+Math.max(0,ep-2)*0.025)*commPenalty;
+    const tpot=tpotBase*(1+Math.max(0,load-0.9)*0.55)*(pd?0.88:1);
+    const kvUsage=Math.min(99,24+c*0.31*(72/k)*(1+Math.max(0,b-16)*0.003));
+    const utilization=Math.min(0.97,0.38+load*0.52+batchEfficiency*0.12);
+    const devices=Math.max(tp,tp*ep/2)*(pd?1.35:1);
+    const cost=0.48*devices/Math.max(0.5,throughput/1000)*(0.9+utilization*0.18);
+    return {parallel,commPenalty,kvCap,saturation,load,batchEfficiency,throughput,queue,prefill,ttft,tpot,kvUsage,utilization,cost,devices}
+  }
+  function current(){return simulate(val('concurrency'),val('batch'),val('kv'),val('tp'),val('ep'),val('pd'))}
+  const fmt=(n,d=0)=>Number(n).toFixed(d);
+  function delta(now,old,goodUp=true){
+    if(!old)return'基准';
+    const diff=now-old;if(Math.abs(diff)<0.01)return'≈ 无变化';
+    const arrow=diff>0?'↑':'↓',pct=Math.abs(diff/old*100),good=diff>0?goodUp:!goodUp;
+    return `${arrow} ${pct.toFixed(1)}% · ${good?'有利':'代价'}`
+  }
+  function colorFor(level){
+    if(level==='hot')return getComputedStyle(document.documentElement).getPropertyValue('--series5').trim();
+    if(level==='warn')return getComputedStyle(document.documentElement).getPropertyValue('--series4').trim();
+    if(level==='good')return getComputedStyle(document.documentElement).getPropertyValue('--series2').trim();
+    return getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()
+  }
+  function renderFlow(s){
+    const nodes=$('nodes'),eg=$('edges');
+    const levels={compute:s.utilization>0.88?'hot':s.utilization>0.72?'warn':'good',
+      memory:s.kvUsage>88?'hot':s.kvUsage>72?'warn':'good',
+      comm:s.commPenalty>1.28?'hot':s.commPenalty>1.14?'warn':'good',
+      scheduler:s.queue>85?'hot':s.queue>35?'warn':'good',
+      capacity:s.load>1?'hot':s.load>0.82?'warn':'good',
+      queue:s.queue>85?'hot':s.queue>35?'warn':'good',
+      slo:s.ttft>560||s.tpot>45?'hot':s.ttft>430||s.tpot>38?'warn':'good',
+      throughputNode:s.load<0.55?'warn':'good',knob:'neutral'};
+    const map=Object.fromEntries(nodeDefs.map(n=>[n.id,n]));
+    eg.innerHTML=edges.map(([a,b])=>{
+      const A=map[a],B=map[b],x1=A.x+A.w,y1=A.y+A.h/2,x2=B.x,y2=B.y+B.h/2;
+      const active=levels[a]==='hot'||levels[b]==='hot';
+      return `<path d="M ${x1} ${y1} C ${x1+34} ${y1}, ${x2-34} ${y2}, ${x2} ${y2}" style="color:${active?colorFor('hot'):'#dfe3ea'};opacity:${active?.9:.8}"></path>`
+    }).join('');
+    nodes.innerHTML=nodeDefs.map(n=>{
+      const c=colorFor(levels[n.id]);
+      return `<g transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${n.h}" rx="12" fill="#f8fafc" stroke="${c}" stroke-width="${levels[n.id]==='neutral'?1:2}"></rect><text x="12" y="22" fill="#172033" font-size="13" font-weight="600">${n.label}</text><text x="12" y="40" fill="#667085" font-size="11">${n.sub}</text></g>`
+    }).join('')
+  }
+  function renderChart(state){
+    const svg=$('chart'),W=620,H=230,p={l:46,r:28,t:18,b:34},pts=[];
+    for(let c=16;c<=256;c+=8)pts.push({c,...simulate(c,val('batch'),val('kv'),val('tp'),val('ep'),val('pd'))});
+    const maxThr=Math.max(...pts.map(d=>d.throughput))*1.08,maxT=Math.max(...pts.map(d=>d.ttft))*1.05;
+    const x=c=>p.l+(c-16)/(256-16)*(W-p.l-p.r),yThr=v=>H-p.b-v/maxThr*(H-p.t-p.b),yT=v=>H-p.b-v/maxT*(H-p.t-p.b);
+    const line=(arr,y)=>arr.map((d,i)=>`${i?'L':'M'} ${x(d.c).toFixed(1)} ${y(d).toFixed(1)}`).join(' ');
+    const sat=state.saturation,now=val('concurrency');
+    svg.innerHTML=`
+      <line x1="${p.l}" y1="${H-p.b}" x2="${W-p.r}" y2="${H-p.b}" stroke="#dfe3ea"/>
+      <line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${H-p.b}" stroke="#dfe3ea"/>
+      <path d="${line(pts,d=>yThr(d.throughput))}" fill="none" stroke="#2f9e67" stroke-width="2.5"/>
+      <path d="${line(pts,d=>yT(d.ttft))}" fill="none" stroke="#d95d5d" stroke-width="2.5"/>
+      <line x1="${x(sat)}" y1="${p.t}" x2="${x(sat)}" y2="${H-p.b}" stroke="#d59b2d" stroke-width="1.4" stroke-dasharray="5 5"/>
+      <line x1="${x(now)}" y1="${p.t}" x2="${x(now)}" y2="${H-p.b}" stroke="#5367e8" stroke-width="2"/>
+      <circle cx="${x(now)}" cy="${yThr(state.throughput)}" r="4" fill="#2f9e67"/>
+      <circle cx="${x(now)}" cy="${yT(state.ttft)}" r="4" fill="#d95d5d"/>
+      <text x="${p.l}" y="14" fill="#2f9e67" font-size="11">Throughput</text>
+      <text x="${p.l+78}" y="14" fill="#d95d5d" font-size="11">TTFT</text>
+      <text x="${Math.min(W-118,x(sat)+5)}" y="${p.t+12}" fill="#d59b2d" font-size="10">Saturation ≈ ${Math.round(sat)}</text>
+      <text x="${Math.min(W-70,x(now)+5)}" y="${H-p.b-7}" fill="#5367e8" font-size="10">当前 ${now}</text>
+      <text x="${W/2-28}" y="${H-8}" fill="#667085" font-size="11">Concurrency</text>`
+  }
+  function renderExplanation(s,changed){
+    const lines=[];
+    if(changed==='concurrency'){
+      lines.push(s.load>1?'<b>Concurrency ↑</b> 已超过 capacity：新增请求主要进入 queue，不再明显增加 throughput。':'<b>Concurrency ↑</b> 提高 active requests，使 batch 更容易填满，device utilization 与 throughput 上升。');
+      lines.push(`当前负载为 saturation 的 <b>${(s.load*100).toFixed(0)}%</b>，queue wait ≈ <b>${fmt(s.queue)} ms</b>。`)
+    }else if(changed==='batch'){
+      lines.push('<b>Batch ↑</b> 提升设备利用率与吞吐效率，但需要积累更多请求，并可能增加单批执行与排队时间。');
+      lines.push(`当前 batch efficiency ≈ <b>${(s.batchEfficiency*100).toFixed(0)}%</b>。`)
+    }else if(changed==='kv'){
+      lines.push('<b>KV 预算 ↑</b> 首先提升可容纳的 active sequence 数量，因此 capacity / saturation point 上移。');
+      lines.push('它不会直接降低单个 token 的计算时间，但可以推迟“进入排队区”的时间点。')
+    }else if(changed==='tp'){
+      lines.push('<b>TP ↑</b> 分摊单卡计算与内存压力，因此可能降低 prefill / decode compute；同时 collective communication 增加。');
+      lines.push(`当前通信惩罚系数 ≈ <b>${s.commPenalty.toFixed(2)}×</b>。`)
+    }else if(changed==='ep'){
+      lines.push('<b>EP ↑</b> 分散 expert 权重与计算，但增加 all-to-all 与负载不均风险。');
+      lines.push('因此它可能提升 capacity，却不保证 TTFT / TPOT 同比例改善。')
+    }else if(changed==='pd'){
+      lines.push('<b>PD 分离</b> 减少 prefill 与 decode 的资源干扰，通常利于 TTFT / TPOT 隔离。');
+      lines.push('代价是新增 KV transfer、routing 和跨池调度，因此通信与成本会上升。')
+    }else{
+      lines.push('尝试拖动任一旋钮。系统会优先高亮被影响的中间变量，再显示最终 SLO 如何变化。')
+    }
+    $('explanation').innerHTML=lines.map(x=>`<div class="note">${x}</div>`).join('')
+  }
+  function update(changed='init'){
+    const s=current();
+    $('concurrencyVal').textContent=val('concurrency');$('batchVal').textContent=val('batch');$('kvVal').textContent=val('kv')+'%';
+    $('throughput').textContent=fmt(s.throughput)+' tok/s';$('ttft').textContent=fmt(s.ttft)+' ms';$('tpot').textContent=fmt(s.tpot,1)+' ms';$('kvUsage').textContent=fmt(s.kvUsage)+'%';$('cost').textContent='$'+fmt(s.cost,2);
+    $('throughputDelta').textContent=delta(s.throughput,prev?.throughput,true);$('ttftDelta').textContent=delta(s.ttft,prev?.ttft,false);$('tpotDelta').textContent=delta(s.tpot,prev?.tpot,false);$('kvDelta').textContent=delta(s.kvUsage,prev?.kvUsage,false);$('costDelta').textContent=delta(s.cost,prev?.cost,false);
+    let badge='Healthy operating region',summary='当前并发仍低于饱和点，新增并发主要转化为更高吞吐。';
+    if(s.load>1.08){badge='Over saturation';summary='当前并发已经超过系统容量上限；新增并发主要转化为 Queueing，TTFT 会快速恶化。'}
+    else if(s.load>0.82){badge='Near saturation';summary='系统接近饱和点：吞吐增益开始变小，Queueing 与 tail latency 对负载变化变得敏感。'}
+    if(s.kvUsage>90){badge='KV constrained';summary='KV 使用率已经成为主要约束，继续增加并发会先触发 memory capacity，而不是算力上限。'}
+    $('stateBadge').textContent=badge;$('causeSummary').textContent=summary;
+    renderFlow(s);renderChart(s);renderExplanation(s,changed);prev=s
+  }
+  controls.forEach(id=>{const el=$(id);el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',()=>update(id))});
+  $('resetBtn').addEventListener('click',()=>{$('concurrency').value=defaults.concurrency;$('batch').value=defaults.batch;$('kv').value=defaults.kv;$('tp').value=defaults.tp;$('ep').value=defaults.ep;$('pd').checked=defaults.pd;prev=null;update('init')});
+  update('init')
+})();
+</script>
+</body>
+</html>

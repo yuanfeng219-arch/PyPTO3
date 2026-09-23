@@ -1,0 +1,735 @@
+{
+  "width": 1486,
+  "height": 2844,
+  "model": {
+    "name": "DeepSeek-V4 Flash CSA Distributed Operator Implementation",
+    "framework": "PyPTO",
+    "source_root": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark"
+  },
+  "extraction_scope": {
+    "kind": "hybrid",
+    "full_main_layers": 43,
+    "trace_main_layers": 1,
+    "notes": [
+      "This is a stage-2 distributed operator implementation graph derived from PyPTO decode_csa.py, not a stage-1 DeepSeek source-model architecture graph.",
+      "The canonical graph covers one ratio-4 CSA operator plus a collapsed decoder-layer FFN context.",
+      "The captured _jit_l3_decode_csa artifact is a standalone two-rank operator trace, not a complete-model trace.",
+      "CSA resolves for layers 2,4,...,42; layer 3 resolves to HCA and does not execute this branch."
+    ]
+  },
+  "sourceSchema": "model_architecture.v1",
+  "nodes": [
+    {
+      "id": "hc_input",
+      "label": "HC State Input",
+      "kind": "tensor",
+      "typeLabel": "Input",
+      "colorKey": "io:input",
+      "width": 230.0,
+      "height": 48.0,
+      "x": 671,
+      "y": 132,
+      "parent": "decoder_layer_group"
+    },
+    {
+      "id": "hc_pre",
+      "label": "HC Pre Mix",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMix",
+      "colorKey": "sem:linear",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 671,
+      "y": 242,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_norm",
+      "label": "Attention RMSNorm",
+      "kind": "op",
+      "typeLabel": "RMSNorm",
+      "colorKey": "sem:norm",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 671,
+      "y": 352,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "q_projection",
+      "label": "Query Projection",
+      "kind": "op",
+      "typeLabel": "LowRankLinearRoPE",
+      "colorKey": "sem:linear",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 281,
+      "y": 492,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "tp_allgather",
+      "label": "Token All-Gather",
+      "kind": "op",
+      "typeLabel": "AllGather",
+      "colorKey": "sem:comm",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 751,
+      "y": 492,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "kv_projection",
+      "label": "Shared KV Projection",
+      "kind": "op",
+      "typeLabel": "LinearRoPE",
+      "colorKey": "sem:attention",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 471,
+      "y": 622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "raw_kv_cache",
+      "label": "Raw KV Cache",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210.0,
+      "height": 48.0,
+      "x": 471,
+      "y": 752,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "main_compressor",
+      "label": "Main KV Compressor",
+      "kind": "op",
+      "typeLabel": "OnlineSoftmaxPool",
+      "colorKey": "sem:attention",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 751,
+      "y": 622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "compressor_state",
+      "label": "Compressor State",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210.0,
+      "height": 48.0,
+      "x": 215,
+      "y": 626,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "compressed_kv_cache",
+      "label": "Compressed KV Cache",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 220.0,
+      "height": 48.0,
+      "x": 751,
+      "y": 752,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "indexer_compressor",
+      "label": "Indexer Compressor",
+      "kind": "op",
+      "typeLabel": "CompressedIndexEncode",
+      "colorKey": "sem:linear",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 1031,
+      "y": 622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "indexer_state",
+      "label": "Indexer State",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210.0,
+      "height": 48.0,
+      "x": 1271,
+      "y": 626,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "index_cache",
+      "label": "Index KV Cache",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210.0,
+      "height": 48.0,
+      "x": 1031,
+      "y": 752,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "lightning_indexer",
+      "label": "Lightning Indexer",
+      "kind": "op",
+      "typeLabel": "RetrievalScore",
+      "colorKey": "sem:linear",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 1031,
+      "y": 882,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "exact_topk",
+      "label": "Exact TopK Select",
+      "kind": "op",
+      "typeLabel": "TopK",
+      "colorKey": "sem:gate",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 1031,
+      "y": 1002,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "window_gather",
+      "label": "Sliding Window Gather",
+      "kind": "op",
+      "typeLabel": "Gather",
+      "colorKey": "sem:linear",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 471,
+      "y": 922,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "compressed_gather",
+      "label": "Selected KV Gather",
+      "kind": "op",
+      "typeLabel": "Gather",
+      "colorKey": "sem:attention",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 751,
+      "y": 1002,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "sparse_attention",
+      "label": "Sparse Shared-KV Attention",
+      "kind": "op",
+      "typeLabel": "OnlineSoftmaxAttention",
+      "colorKey": "sem:attention",
+      "width": 270.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 1142,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "head_merge",
+      "label": "Block Merge and Inverse RoPE",
+      "kind": "op",
+      "typeLabel": "AttentionNormalize",
+      "colorKey": "sem:rope",
+      "width": 270.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 1262,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_alltoall",
+      "label": "Attention All-to-All",
+      "kind": "op",
+      "typeLabel": "AllToAll",
+      "colorKey": "sem:comm",
+      "width": 250.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 1382,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "grouped_output_projection",
+      "label": "Grouped Output Projection",
+      "kind": "op",
+      "typeLabel": "LowRankLinear",
+      "colorKey": "sem:linear",
+      "width": 280.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 1502,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "output_reduce_scatter",
+      "label": "Output Reduce-Scatter",
+      "kind": "op",
+      "typeLabel": "ReduceScatter",
+      "colorKey": "sem:comm",
+      "width": 260.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 1622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_hc_post",
+      "label": "Attention HC Post and Merge",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMerge",
+      "colorKey": "sem:attention",
+      "width": 280.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 1742,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_hc_output",
+      "label": "Attention HC State",
+      "kind": "tensor",
+      "typeLabel": "Output",
+      "colorKey": "io:output",
+      "width": 250.0,
+      "height": 48.0,
+      "x": 621,
+      "y": 1862,
+      "parent": "decoder_layer_group"
+    },
+    {
+      "id": "ffn_hc_pre",
+      "label": "FFN HC Pre Mix",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMix",
+      "colorKey": "sem:mlp",
+      "width": 240.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 2032,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "ffn_norm",
+      "label": "FFN RMSNorm",
+      "kind": "op",
+      "typeLabel": "RMSNorm",
+      "colorKey": "sem:norm",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 2142,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "router_select",
+      "label": "Router Select",
+      "kind": "op",
+      "typeLabel": "ConditionalRouter",
+      "colorKey": "sem:gate",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 401,
+      "y": 2262,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "routed_experts",
+      "label": "Routed Experts",
+      "kind": "module",
+      "typeLabel": "Module",
+      "colorKey": "sem:moe",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 401,
+      "y": 2382,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "shared_expert",
+      "label": "Shared Expert",
+      "kind": "module",
+      "typeLabel": "Module",
+      "colorKey": "sem:moe",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 841,
+      "y": 2382,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "moe_combine",
+      "label": "MoE Combine",
+      "kind": "op",
+      "typeLabel": "ExpertCombine",
+      "colorKey": "sem:moe",
+      "width": 230.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 2502,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "ffn_hc_post",
+      "label": "FFN HC Post and Merge",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMerge",
+      "colorKey": "sem:mlp",
+      "width": 270.0,
+      "height": 56.0,
+      "x": 621,
+      "y": 2622,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "layer_output",
+      "label": "Decoder Layer Output",
+      "kind": "tensor",
+      "typeLabel": "Output",
+      "colorKey": "io:output",
+      "width": 240.0,
+      "height": 48.0,
+      "x": 621,
+      "y": 2742,
+      "parent": "decoder_layer_group"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_input_pre",
+      "source": "hc_input",
+      "target": "hc_pre",
+      "tensorLabel": "x_hc | [T,HC,D] | fp32"
+    },
+    {
+      "id": "e_pre_norm",
+      "source": "hc_pre",
+      "target": "attention_norm",
+      "tensorLabel": "x_mixed | [T,D] | bf16"
+    },
+    {
+      "id": "e_norm_q",
+      "source": "attention_norm",
+      "target": "q_projection",
+      "tensorLabel": "x_normed_local | [T_local,D] | bf16"
+    },
+    {
+      "id": "e_norm_gather",
+      "source": "attention_norm",
+      "target": "tp_allgather",
+      "tensorLabel": "x_normed_local | [T_local,D] | bf16 | tp_shard"
+    },
+    {
+      "id": "e_gather_kv",
+      "source": "tp_allgather",
+      "target": "kv_projection",
+      "tensorLabel": "x_normed_full | [TP*T_local,D] | bf16 | tp_replicated"
+    },
+    {
+      "id": "e_kv_cache",
+      "source": "kv_projection",
+      "target": "raw_kv_cache",
+      "tensorLabel": "kv_full | [TP*T_local,D_h] | bf16"
+    },
+    {
+      "id": "e_gather_cmp",
+      "source": "tp_allgather",
+      "target": "main_compressor",
+      "tensorLabel": "x_normed_full | [TP*T_local,D] | bf16"
+    },
+    {
+      "id": "e_cmp_state_read",
+      "source": "compressor_state",
+      "target": "main_compressor",
+      "tensorLabel": "compress_state | fp32 | persistent ring"
+    },
+    {
+      "id": "e_cmp_state_write",
+      "source": "main_compressor",
+      "target": "compressor_state",
+      "tensorLabel": "compress_state_update | fp32"
+    },
+    {
+      "id": "e_cmp_cache",
+      "source": "main_compressor",
+      "target": "compressed_kv_cache",
+      "tensorLabel": "cmp_kv | [N_cmp,D_h] | bf16 | one row per four source positions"
+    },
+    {
+      "id": "e_gather_idxcmp",
+      "source": "tp_allgather",
+      "target": "indexer_compressor",
+      "tensorLabel": "x_normed_full | [TP*T_local,D] | bf16"
+    },
+    {
+      "id": "e_idx_state_read",
+      "source": "indexer_state",
+      "target": "indexer_compressor",
+      "tensorLabel": "inner_compress_state | fp32 | persistent ring"
+    },
+    {
+      "id": "e_idx_state_write",
+      "source": "indexer_compressor",
+      "target": "indexer_state",
+      "tensorLabel": "inner_state_update | fp32"
+    },
+    {
+      "id": "e_idx_cache",
+      "source": "indexer_compressor",
+      "target": "index_cache",
+      "tensorLabel": "idx_kv_cache | [N_cmp,index_dim] | int8"
+    },
+    {
+      "id": "e_q_indexer",
+      "source": "q_projection",
+      "target": "lightning_indexer",
+      "tensorLabel": "qr | [T_local,Q_lora] | int8"
+    },
+    {
+      "id": "e_norm_indexer",
+      "source": "attention_norm",
+      "target": "lightning_indexer",
+      "tensorLabel": "x_normed_local | [T_local,D] | bf16"
+    },
+    {
+      "id": "e_cache_indexer",
+      "source": "index_cache",
+      "target": "lightning_indexer",
+      "tensorLabel": "index_vectors | [N_cmp,index_dim] | int8"
+    },
+    {
+      "id": "e_indexer_topk",
+      "source": "lightning_indexer",
+      "target": "exact_topk",
+      "tensorLabel": "retrieval_scores | [T_local,N_visible] | fp32"
+    },
+    {
+      "id": "e_raw_window",
+      "source": "raw_kv_cache",
+      "target": "window_gather",
+      "tensorLabel": "recent_kv | [T_local,window,D_h] | bf16 | causal positions only"
+    },
+    {
+      "id": "e_cmp_selected",
+      "source": "compressed_kv_cache",
+      "target": "compressed_gather",
+      "tensorLabel": "compressed_kv | [N_cmp,D_h] | bf16"
+    },
+    {
+      "id": "e_topk_selected",
+      "source": "exact_topk",
+      "target": "compressed_gather",
+      "tensorLabel": "selected_indices | [T_local,index_topk] | int32 | index_topk=512"
+    },
+    {
+      "id": "e_q_attention",
+      "source": "q_projection",
+      "target": "sparse_attention",
+      "tensorLabel": "q | [T_local,N_h,D_h] | bf16"
+    },
+    {
+      "id": "e_window_attention",
+      "source": "window_gather",
+      "target": "sparse_attention",
+      "tensorLabel": "window_kv | [T_local,window,D_h] | bf16"
+    },
+    {
+      "id": "e_cmp_attention",
+      "source": "compressed_gather",
+      "target": "sparse_attention",
+      "tensorLabel": "selected_compressed_kv | [T_local,index_topk,D_h] | bf16"
+    },
+    {
+      "id": "e_attention_merge",
+      "source": "sparse_attention",
+      "target": "head_merge",
+      "tensorLabel": "block_softmax_statistics | fp32"
+    },
+    {
+      "id": "e_merge_a2a",
+      "source": "head_merge",
+      "target": "attention_alltoall",
+      "tensorLabel": "packed_head_groups | [O_groups,T_local,O_group_in] | bf16 | group_owner_shard"
+    },
+    {
+      "id": "e_a2a_oproj",
+      "source": "attention_alltoall",
+      "target": "grouped_output_projection",
+      "tensorLabel": "owned_attention_groups | bf16 | tp_group_owner"
+    },
+    {
+      "id": "e_oproj_rs",
+      "source": "grouped_output_projection",
+      "target": "output_reduce_scatter",
+      "tensorLabel": "output_group_partials | [TP*T_local,D] | fp32/int32 | tp_partial"
+    },
+    {
+      "id": "e_rs_hcpost",
+      "source": "output_reduce_scatter",
+      "target": "attention_hc_post",
+      "tensorLabel": "attn_out | [T_local,D] | bf16 | token_owner"
+    },
+    {
+      "id": "e_input_residual",
+      "source": "hc_input",
+      "target": "attention_hc_post",
+      "tensorLabel": "attention_residual | [T_local,HC,D] | fp32",
+      "dashed": true
+    },
+    {
+      "id": "e_hcpost_boundary",
+      "source": "attention_hc_post",
+      "target": "attention_hc_output",
+      "tensorLabel": "x_out | [T_local,HC,D] | fp32"
+    },
+    {
+      "id": "e_attn_ffnpre",
+      "source": "attention_hc_output",
+      "target": "ffn_hc_pre",
+      "tensorLabel": "attention_hc_state | [T_local,HC,D] | fp32"
+    },
+    {
+      "id": "e_ffnpre_norm",
+      "source": "ffn_hc_pre",
+      "target": "ffn_norm",
+      "tensorLabel": "ffn_x_mixed | [T_local,D] | bf16"
+    },
+    {
+      "id": "e_norm_router",
+      "source": "ffn_norm",
+      "target": "router_select",
+      "tensorLabel": "normalized_hidden | [T_local,D] | bf16/int8"
+    },
+    {
+      "id": "e_router_routed",
+      "source": "router_select",
+      "target": "routed_experts",
+      "tensorLabel": "expert_indices_and_weights | [T_local,experts_per_token] | int32/fp32 | experts_per_token=6"
+    },
+    {
+      "id": "e_norm_shared",
+      "source": "ffn_norm",
+      "target": "shared_expert",
+      "tensorLabel": "normalized_hidden | [T_local,D] | bf16/int8"
+    },
+    {
+      "id": "e_routed_combine",
+      "source": "routed_experts",
+      "target": "moe_combine",
+      "tensorLabel": "weighted_routed_outputs | [T_local,experts_per_token,D] | bf16"
+    },
+    {
+      "id": "e_shared_combine",
+      "source": "shared_expert",
+      "target": "moe_combine",
+      "tensorLabel": "shared_output | [T_local,D] | bf16"
+    },
+    {
+      "id": "e_combine_ffnpost",
+      "source": "moe_combine",
+      "target": "ffn_hc_post",
+      "tensorLabel": "ffn_out | [T_local,D] | bf16"
+    },
+    {
+      "id": "e_ffn_residual",
+      "source": "attention_hc_output",
+      "target": "ffn_hc_post",
+      "tensorLabel": "ffn_residual | [T_local,HC,D] | fp32",
+      "dashed": true
+    },
+    {
+      "id": "e_ffn_output",
+      "source": "ffn_hc_post",
+      "target": "layer_output",
+      "tensorLabel": "next_hc_state | [T_local,HC,D] | fp32"
+    }
+  ],
+  "clusters": [
+    {
+      "id": "decoder_layer_group",
+      "label": "DeepSeek-V4 Flash Decoder Layer Template",
+      "x": 44,
+      "y": 44,
+      "width": 1398,
+      "height": 2756,
+      "parent": null,
+      "nodes": [
+        "hc_input",
+        "attention_hc_output",
+        "layer_output"
+      ],
+      "children": [
+        "csa_operator_group",
+        "moe_context_group"
+      ],
+      "colorKey": "module:decoder",
+      "repeat": "43 decoder layers"
+    },
+    {
+      "id": "csa_operator_group",
+      "label": "decode_csa Operator Coverage",
+      "x": 82,
+      "y": 158,
+      "width": 1322,
+      "height": 1640,
+      "parent": "decoder_layer_group",
+      "nodes": [
+        "hc_pre",
+        "attention_norm",
+        "q_projection",
+        "tp_allgather",
+        "kv_projection",
+        "raw_kv_cache",
+        "main_compressor",
+        "compressor_state",
+        "compressed_kv_cache",
+        "indexer_compressor",
+        "indexer_state",
+        "index_cache",
+        "lightning_indexer",
+        "exact_topk",
+        "window_gather",
+        "compressed_gather",
+        "sparse_attention",
+        "head_merge",
+        "attention_alltoall",
+        "grouped_output_projection",
+        "output_reduce_scatter",
+        "attention_hc_post"
+      ],
+      "children": [],
+      "colorKey": "sem:attention",
+      "repeat": "21 CSA layers"
+    },
+    {
+      "id": "moe_context_group",
+      "label": "MoE FFN Context — Outside decode_csa",
+      "x": 258,
+      "y": 1948,
+      "width": 726,
+      "height": 730,
+      "parent": "decoder_layer_group",
+      "nodes": [
+        "ffn_hc_pre",
+        "ffn_norm",
+        "router_select",
+        "routed_experts",
+        "shared_expert",
+        "moe_combine",
+        "ffn_hc_post"
+      ],
+      "children": [],
+      "colorKey": "sem:moe"
+    }
+  ]
+}

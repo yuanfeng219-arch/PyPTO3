@@ -1,0 +1,535 @@
+.pto-memory-reuse-viewer {
+  --reuse-viewer-bg: color-mix(in srgb, var(--background-elevated) 94%, transparent);
+  --reuse-viewer-panel: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  --reuse-viewer-panel-strong: color-mix(in srgb, var(--surface-3) 78%, transparent);
+  --reuse-viewer-line: var(--border-default);
+  --reuse-viewer-muted: var(--foreground-muted);
+  --reuse-viewer-accent: #58a6ff;
+  --reuse-viewer-success: #3fb950;
+  --reuse-viewer-warning: var(--warning);
+  --reuse-viewer-danger: var(--danger);
+  --reuse-viewer-canvas-bg: #101010;
+  --reuse-viewer-plot-bg: #0b0d10;
+  --reuse-viewer-grid: rgba(255, 255, 255, 0.08);
+  --reuse-viewer-grid-text: rgba(255, 255, 255, 0.46);
+  --reuse-viewer-ruler: rgba(255, 255, 255, 0.38);
+  --reuse-viewer-ruler-text: rgba(255, 255, 255, 0.72);
+  --reuse-viewer-axis-text: rgba(255, 255, 255, 0.58);
+  --reuse-viewer-plot-stroke: rgba(255, 255, 255, 0.24);
+  --reuse-viewer-tensor-stroke: #0b0d10;
+  --reuse-viewer-tensor-label: #0b0d10;
+  --reuse-viewer-tensor-hover: #f5f5f5;
+  --reuse-viewer-tensor-selected: #ffaa3b;
+  --reuse-viewer-peak: #ff4b7b;
+  --reuse-viewer-mono: var(--font-mono, "SF Mono", Menlo, Consolas, monospace);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  color: var(--foreground);
+  background: var(--reuse-viewer-bg);
+}
+
+:root[data-theme='light'] .pto-memory-reuse-viewer {
+  --reuse-viewer-bg: #ffffff;
+  --reuse-viewer-panel: #ffffff;
+  --reuse-viewer-panel-strong: #f6f8fb;
+  --reuse-viewer-canvas-bg: #ffffff;
+  --reuse-viewer-plot-bg: #ffffff;
+  --reuse-viewer-grid: rgba(17, 24, 39, 0.08);
+  --reuse-viewer-grid-text: rgba(17, 24, 39, 0.52);
+  --reuse-viewer-ruler: rgba(17, 24, 39, 0.28);
+  --reuse-viewer-ruler-text: rgba(17, 24, 39, 0.68);
+  --reuse-viewer-axis-text: rgba(17, 24, 39, 0.62);
+  --reuse-viewer-plot-stroke: rgba(17, 24, 39, 0.18);
+  --reuse-viewer-tensor-stroke: rgba(255, 255, 255, 0.86);
+  --reuse-viewer-tensor-label: #111827;
+  --reuse-viewer-tensor-hover: #111827;
+  --reuse-viewer-tensor-selected: #d97706;
+  --reuse-viewer-peak: #e63b6f;
+}
+
+.pto-memory-reuse-viewer__toolbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(330px, auto);
+  align-items: center;
+  column-gap: 12px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--reuse-viewer-line);
+}
+
+.pto-memory-reuse-viewer__title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pto-memory-reuse-viewer__title strong {
+  color: var(--foreground);
+  font: var(--type-title-2);
+}
+
+.pto-memory-reuse-viewer__title span {
+  color: var(--foreground-muted);
+  font: var(--type-body-sm);
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pto-memory-reuse-viewer__controls,
+.pto-memory-reuse-viewer__metrics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pto-memory-reuse-viewer__controls {
+  justify-self: center;
+  flex-wrap: nowrap;
+}
+
+.pto-memory-reuse-viewer__metrics {
+  justify-self: end;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.pto-memory-reuse-viewer__select,
+.pto-memory-reuse-viewer__button,
+.pto-memory-reuse-viewer__icon-button {
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+}
+
+.pto-memory-reuse-viewer__select {
+  min-width: 112px;
+  padding: 0 8px;
+}
+
+.pto-memory-reuse-viewer__button {
+  padding: 0 9px;
+  cursor: pointer;
+}
+
+.pto-memory-reuse-viewer__options {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.pto-memory-reuse-viewer__options summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+.pto-memory-reuse-viewer__options summary::-webkit-details-marker {
+  display: none;
+}
+
+.pto-memory-reuse-viewer__options summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  opacity: 0.72;
+}
+
+.pto-memory-reuse-viewer__options[open] summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+.pto-memory-reuse-viewer__options-panel {
+  position: absolute;
+  z-index: 9;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  gap: 10px;
+  width: 254px;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background-elevated) 97%, transparent);
+  box-shadow: var(--shadow-lg);
+}
+
+.pto-memory-reuse-viewer__option-group {
+  display: grid;
+  gap: 6px;
+}
+
+.pto-memory-reuse-viewer__option-group > .pto-memory-reuse-viewer__button,
+.pto-memory-reuse-viewer__options-panel > .pto-memory-reuse-viewer__button {
+  justify-content: center;
+}
+
+.pto-memory-reuse-viewer__option-label {
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pto-memory-reuse-viewer__icon-button {
+  width: 28px;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  font: 700 13px/1 var(--font-sans);
+}
+
+.pto-memory-reuse-viewer__button:hover,
+.pto-memory-reuse-viewer__button.is-active,
+.pto-memory-reuse-viewer__icon-button:hover,
+.pto-memory-reuse-viewer__icon-button[aria-expanded="true"] {
+  color: var(--foreground);
+  border-color: var(--border-default);
+  background: var(--state-hover);
+}
+
+.pto-memory-reuse-viewer__metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: max-content;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0;
+}
+
+.pto-memory-reuse-viewer__metric b {
+  color: var(--foreground);
+  font-family: var(--reuse-viewer-mono);
+}
+
+.pto-memory-reuse-viewer__metric.is-peak b {
+  color: var(--reuse-viewer-danger);
+}
+
+.pto-memory-reuse-viewer__body {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.pto-memory-reuse-viewer__stage {
+  position: relative;
+  min-width: 0;
+  min-height: 430px;
+  height: 100%;
+  overflow: hidden;
+  background: var(--reuse-viewer-canvas-bg);
+}
+
+.pto-memory-reuse-viewer__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pto-memory-reuse-viewer__stage.is-tensor-hovered .pto-memory-reuse-viewer__canvas {
+  cursor: pointer;
+}
+
+.pto-memory-reuse-viewer__tip {
+  position: absolute;
+  z-index: 3;
+  display: none;
+  max-width: 300px;
+  pointer-events: none;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background-elevated) 96%, transparent);
+  box-shadow: var(--shadow-lg);
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+}
+
+.pto-memory-reuse-viewer__tip-name {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.pto-memory-reuse-viewer__tip b {
+  color: var(--foreground);
+  font-family: var(--reuse-viewer-mono);
+}
+
+.pto-memory-reuse-viewer__info-popover,
+.pto-memory-reuse-viewer__detail-popover {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background-elevated) 97%, transparent);
+  box-shadow: var(--shadow-lg);
+  color: var(--foreground-secondary);
+}
+
+.pto-memory-reuse-viewer__info-popover {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 8px);
+  right: 12px;
+  width: min(420px, calc(100vw - 48px));
+  padding: 12px 14px;
+}
+
+.pto-memory-reuse-viewer__info-popover[hidden],
+.pto-memory-reuse-viewer__detail-popover[hidden] {
+  display: none;
+}
+
+.pto-memory-reuse-viewer__info-popover strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+  font: var(--type-title-3);
+}
+
+.pto-memory-reuse-viewer__info-popover p {
+  margin: 0;
+  font: var(--type-body-sm);
+}
+
+.pto-memory-reuse-viewer__detail-popover {
+  position: absolute;
+  z-index: 6;
+  width: min(430px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  padding: 12px;
+}
+
+.pto-memory-reuse-viewer__detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.pto-memory-reuse-viewer__detail-head strong,
+.pto-memory-reuse-viewer__detail-head span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pto-memory-reuse-viewer__detail-head strong {
+  color: var(--foreground);
+  font: var(--type-title-3);
+}
+
+.pto-memory-reuse-viewer__detail-head span {
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0;
+}
+
+.pto-memory-reuse-viewer__detail-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  color: var(--foreground-muted);
+  cursor: pointer;
+}
+
+.pto-memory-reuse-viewer__detail-close:hover {
+  color: var(--foreground);
+  border-color: var(--border-default);
+  background: var(--state-hover);
+}
+
+.pto-memory-reuse-viewer__side {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid var(--reuse-viewer-line);
+  background: var(--reuse-viewer-panel);
+}
+
+.pto-memory-reuse-viewer__section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--reuse-viewer-line);
+}
+
+.pto-memory-reuse-viewer__section h3 {
+  margin: 0 0 8px;
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pto-memory-reuse-viewer__hint {
+  margin: 0;
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+}
+
+.pto-memory-reuse-viewer__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0;
+}
+
+.pto-memory-reuse-viewer__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pto-memory-reuse-viewer__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.pto-memory-reuse-viewer__filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pto-memory-reuse-viewer__filter button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.pto-memory-reuse-viewer__filter button:hover,
+.pto-memory-reuse-viewer__filter button.is-active {
+  color: var(--foreground);
+  border-color: var(--border-default);
+  background: var(--state-hover);
+}
+
+.pto-memory-reuse-viewer__empty {
+  color: var(--foreground-muted);
+  font: var(--type-body-sm);
+}
+
+.pto-memory-reuse-viewer__kv {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 5px 8px;
+  font: var(--type-body-sm);
+}
+
+.pto-memory-reuse-viewer__kv dt {
+  color: var(--foreground-muted);
+}
+
+.pto-memory-reuse-viewer__kv dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--foreground);
+  font-family: var(--reuse-viewer-mono);
+  word-break: break-all;
+}
+
+.pto-memory-reuse-viewer__reuse-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.pto-memory-reuse-viewer__tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--success) 42%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  font: var(--type-label);
+  letter-spacing: 0;
+}
+
+.pto-memory-reuse-viewer__code-label {
+  margin: 0 0 5px;
+  color: var(--foreground-muted);
+  font: var(--type-label);
+  letter-spacing: 0;
+}
+
+.pto-memory-reuse-viewer__code {
+  max-height: 150px;
+  overflow: auto;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--background) 84%, black);
+  color: var(--foreground-secondary);
+  font: 11px/1.55 var(--reuse-viewer-mono);
+  white-space: pre;
+}
+
+.pto-memory-reuse-viewer__code + .pto-memory-reuse-viewer__code-label {
+  margin-top: 10px;
+}
+
+@media (max-width: 860px) {
+  .pto-memory-reuse-viewer__toolbar {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    row-gap: 8px;
+  }
+
+  .pto-memory-reuse-viewer__controls,
+  .pto-memory-reuse-viewer__metrics {
+    justify-self: stretch;
+    flex-wrap: wrap;
+  }
+
+  .pto-memory-reuse-viewer__metrics {
+    justify-content: flex-start;
+  }
+
+  .pto-memory-reuse-viewer__side {
+    max-height: 340px;
+    border-left: 0;
+    border-top: 1px solid var(--reuse-viewer-line);
+  }
+}

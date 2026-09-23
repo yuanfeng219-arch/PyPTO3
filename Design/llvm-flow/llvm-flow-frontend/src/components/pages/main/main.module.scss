@@ -1,0 +1,326 @@
+@import '../../../styles/variable';
+
+.main {
+  margin: 0 auto;
+  max-width: 1200px;
+  width: 90%;
+  padding: 2rem 0;
+  min-height: 70vh;
+
+  // Hero Section
+  .hero {
+    background-color: white;
+    margin-bottom: 4rem;
+    text-align: center;
+    
+    .heroContent {
+      max-width: 800px;
+      margin: 0 auto;
+      
+      h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: $dark;
+        letter-spacing: -0.02em;
+        
+        @media (max-width: 768px) {
+          font-size: 2.2rem;
+        }
+        
+        @media (max-width: 480px) {
+          font-size: 1.8rem;
+        }
+      }
+      
+      .subtitle {
+        font-size: 1.3rem;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+        color: #6c757d;
+        font-weight: 500;
+        
+        @media (max-width: 768px) {
+          font-size: 1rem;
+        }
+      }
+      
+      .actionButtons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        
+        .primaryBtn {
+          background: $purple;
+          color: white;
+          border: 2px solid $purple;
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            background: darken($purple, 10%);
+            border-color: darken($purple, 10%);
+            transform: translateY(-1px);
+          }
+          
+          svg {
+            font-size: 1.2rem;
+          }
+        }
+        
+        .secondaryBtn {
+          background: white;
+          color: $dark;
+          border: 2px solid #e9ecef;
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            background: $lightpurple;
+            border-color: $purple;
+            transform: translateY(-1px);
+          }
+          
+          svg {
+            font-size: 1.2rem;
+          }
+        }
+      }
+    }
+  }
+
+  // Demo Section
+  .demoSection {
+    margin-bottom: 4rem;
+    
+    .demoContainer {
+      background-color: white;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      
+      .demoButton {
+        position: relative;
+        width: 80%;
+        border: none;
+        background: none;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          transform: translateY(-1px);
+          
+          .playOverlay {
+            opacity: 1;
+          }
+        }
+        
+        img {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+        
+        .playOverlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(210, 210, 210, 0.5);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: all 0.2s ease;
+          
+          svg {
+            font-size: 2.5rem;
+            color: white;
+            margin-bottom: 0.5rem;
+            
+            @media (max-width: 768px) {
+              font-size: 2rem;
+            }
+          }
+          
+          span {
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            
+            @media (max-width: 768px) {
+              font-size: 0.9rem;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Features Section
+  .featuresSection {
+    .featuresGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 8rem;
+      
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+    }
+    
+    .featureCard {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid #e9ecef;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        transform: translateY(-3px);
+      }
+      
+      .featureIcon {
+        width: 48px;
+        height: 48px;
+        background: $secondary;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        color: $dark;
+        
+        svg {
+          font-size: 1.5rem;
+        }
+      }
+      
+      img {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        margin-bottom: 1rem;
+        opacity: 0.7;
+      }
+      
+      .featureContent {
+        h3 {
+          font-size: 1.2rem;
+          font-weight: 600;
+          color: $dark;
+          margin-bottom: 0.75rem;
+          line-height: 1.3;
+        }
+        
+        p {
+          color: #6c757d;
+          line-height: 1.5;
+          font-size: 0.9rem;
+          margin: 0;
+          
+          a {
+            color: $purple;
+            font-weight: 600;
+            text-decoration: none;
+            
+            &:hover {
+              text-decoration: underline;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 1200px) {
+  .main {
+    width: 95%;
+  }
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 1rem 0;
+    
+    .hero {
+      padding: 2rem 1.5rem;
+      margin-bottom: 1.5rem;
+      
+      .heroContent .actionButtons {
+        flex-direction: column;
+        align-items: center;
+        
+        .primaryBtn,
+        .secondaryBtn {
+          width: 100%;
+          max-width: 280px;
+          justify-content: center;
+        }
+      }
+    }
+    
+    .demoSection {
+      margin-bottom: 1.5rem;
+      
+      .demoContainer {
+        padding: 1rem;
+      }
+    }
+    
+    .featuresSection .featureCard {
+      padding: 1.25rem;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    .hero {
+      padding: 1.5rem 1rem;
+      border-radius: 8px;
+    }
+    
+    .demoSection .demoContainer {
+      border-radius: 8px;
+      
+      .demoButton {
+        border-radius: 6px;
+        
+        img {
+          border-radius: 6px;
+        }
+        
+        .playOverlay {
+          border-radius: 6px;
+        }
+      }
+    }
+    
+    .featuresSection .featureCard {
+      border-radius: 8px;
+      padding: 1rem;
+    }
+  }
+}

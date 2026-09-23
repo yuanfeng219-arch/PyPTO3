@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>decode_layer 计算图 · Qwen3-14B Decode Kernel</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+<link rel="stylesheet" href="./styles/graph.css" />
+</head>
+<body>
+<div class="dl-app">
+  <header class="dl-topbar">
+    <div class="dl-brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="6" r="2.6"/><circle cx="12" cy="18" r="2.6"/><path d="M6 8.6v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3"/><path d="M12 13.6v1.8"/></svg>
+      <b>decode_layer 计算图</b>
+      <span class="dl-src">Design/Toolkit Studio/decode_layer.py</span>
+    </div>
+    <nav class="dl-tabs" role="tablist">
+      <button type="button" role="tab" data-view="layer" class="is-active">单层任务图</button>
+      <button type="button" role="tab" data-view="host">多层编排图</button>
+      <button type="button" role="tab" data-view="math">数学数据流</button>
+    </nav>
+    <div class="dl-topbar-right">
+      <label class="dl-check"><input type="checkbox" id="tglCarry" checked /><span>跨层 carry 边</span></label>
+      <label class="dl-check"><input type="checkbox" id="tglLabels" checked /><span>张量标签</span></label>
+      <div class="dl-zoom">
+        <button type="button" id="zoomOut" title="缩小">−</button>
+        <span id="zoomVal">100%</span>
+        <button type="button" id="zoomIn" title="放大">+</button>
+        <button type="button" id="zoomFit" title="适应窗口">适应</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dl-body">
+    <aside class="dl-side" id="sidePanel"></aside>
+
+    <section class="dl-canvas-wrap" id="canvasWrap">
+      <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="dl-legend" id="legend"></div>
+      <div class="dl-hint" id="hint">点击节点查看详情 · 拖拽平移 · Ctrl/⌘+滚轮缩放</div>
+    </section>
+
+    <aside class="dl-inspector" id="inspector"></aside>
+  </main>
+</div>
+<script src="./js/graph-data.js"></script>
+<script src="./js/graph.js"></script>
+</body>
+</html>

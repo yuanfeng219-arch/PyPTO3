@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="按 Pass 逐站检查 PyPTO 编译流水线：代码 Diff、结构图变化与每个 Pass 的实测优化证据。">
+<title>Pass Transform Explorer · PyPTO</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=2">
+<link rel="stylesheet" href="styles.css?v=mu9nzvv9">
+</head>
+<body class="pto-ide-frame ptx" data-host="standalone">
+
+<header class="pto-ide-frame__topbar ptx-topbar">
+  <div class="pto-ide-frame__topbar-left">
+    <a class="btn btn-ghost btn-sm" href="../../launch.html">PTO</a>
+    <span class="pto-ide-frame__pane-title">Pass Transform Explorer</span>
+    <select id="runSelect" class="ptx-select" aria-label="选择算子编译运行"></select>
+  </div>
+  <div class="pto-ide-frame__topbar-center ptx-topbar-center">
+    <span id="runMeta" class="ptx-meta"></span>
+  </div>
+  <div class="pto-ide-frame__topbar-right">
+    <button id="prevPass" class="btn btn-ghost btn-sm" title="上一个 Pass (←)">←</button>
+    <button id="nextPass" class="btn btn-ghost btn-sm" title="下一个 Pass (→)">→</button>
+    <button id="docToggle" class="btn btn-ghost btn-sm" title="切换 Pass 说明面板">说明</button>
+    <button id="themeToggle" class="btn btn-ghost btn-sm btn-icon" title="切换主题" aria-label="切换主题">◐</button>
+  </div>
+</header>
+
+<div class="ptx-body">
+
+  <!-- ── Pass timeline ─────────────────────────────────────────────── -->
+  <aside class="ptx-rail" id="rail">
+    <div class="ptx-rail__head">
+      <div class="ptx-rail__title">Pass 流水线</div>
+      <div id="railSummary" class="ptx-rail__summary"></div>
+      <label class="ptx-checkline">
+        <input type="checkbox" id="onlyChanged"> 只看改动了 IR 的 Pass
+      </label>
+      <input type="search" id="passFilter" class="ptx-input" placeholder="过滤 Pass 名称…">
+    </div>
+    <nav class="ptx-rail__list" id="passList" aria-label="Pass 时间线"></nav>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────────── -->
+  <main class="ptx-main">
+    <header class="ptx-passhead">
+      <div class="ptx-passhead__top">
+        <span class="ptx-phase" id="passPhase"></span>
+        <h1 class="ptx-passhead__name" id="passName">—</h1>
+        <span class="ptx-delta" id="passDelta"></span>
+        <span class="ptx-flex"></span>
+        <a class="ptx-srclink" id="passSource" target="_blank" rel="noreferrer" hidden>Pass 源码</a>
+      </div>
+      <p class="ptx-passhead__headline" id="passHeadline"></p>
+      <div class="ptx-tabs" role="tablist">
+        <button class="ptx-tab" data-tab="overview" role="tab">变化概览</button>
+        <button class="ptx-tab" data-tab="diff" role="tab">代码 Diff</button>
+        <button class="ptx-tab" data-tab="graph" role="tab">结构图</button>
+      </div>
+    </header>
+
+    <section class="ptx-view" id="viewOverview" hidden></section>
+
+    <section class="ptx-view ptx-view--flush" id="viewDiff" hidden>
+      <div class="ptx-subbar">
+        <div class="ptx-chips" id="diffFnChips"></div>
+        <span class="ptx-flex"></span>
+        <div class="ptx-seg" id="diffMode">
+          <button data-mode="split" class="is-active">并排</button>
+          <button data-mode="unified">统一</button>
+        </div>
+      </div>
+      <div class="ptx-diff" id="diffBody"></div>
+    </section>
+
+    <section class="ptx-view ptx-view--flush" id="viewGraph" hidden>
+      <div class="ptx-subbar">
+        <div class="ptx-seg ptx-seg--lens" id="lensPicker"></div>
+        <span class="ptx-flex"></span>
+        <div class="ptx-legend">
+          <span class="ptx-dot ptx-dot--add"></span>新增
+          <span class="ptx-dot ptx-dot--del"></span>删除
+          <span class="ptx-dot ptx-dot--chg"></span>属性改变
+          <span class="ptx-dot ptx-dot--same"></span>未变
+        </div>
+        <select id="graphFn" class="ptx-select ptx-select--sm" aria-label="选择函数"></select>
+      </div>
+      <div class="ptx-graph" id="graphBody"></div>
+    </section>
+  </main>
+
+  <!-- ── Pass documentation ────────────────────────────────────────── -->
+  <aside class="ptx-doc" id="docPane">
+    <div class="ptx-doc__head">
+      <span>Pass 说明</span>
+      <small id="docOrigin"></small>
+    </div>
+    <div class="ptx-doc__body" id="docBody"></div>
+  </aside>
+
+</div>
+
+<div class="ptx-toast" id="toast" hidden></div>
+
+<script src="lib/bundle.js?v=mu9nzvv9"></script>
+<script src="data/index.js?v=mu9nzvv9"></script>
+<script src="app.js?v=mu9nzvv9"></script>
+</body>
+</html>

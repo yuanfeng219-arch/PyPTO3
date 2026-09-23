@@ -1,0 +1,414 @@
+/* Diagnostic semantic trace — the Correctness diagnosis view
+   (js/task-history.js, `correctnessDiagnosisPanel` + `DG`).
+
+   Grammar this pattern enforces, and the reason it is not a reuse of
+   pass-ir-graph-node:
+
+     op      the only node. Plain rectangle, neutral surface, 1px border,
+             no glow, no gradient, no badge, no icon.
+     tensor  never a node. It is an edge label sitting on the wire, and it
+             carries the compare verdict, because that is what was measured.
+     wire    carries the state colour. Exactly one wire is `is-bad`: the first
+             divergence. Anything that went wrong because of it is `is-warn`,
+             which is deliberately weaker so only one thing reads as "look here".
+
+   The runtime expansion is a dashed region inside the same canvas — the
+   semantic graph stays on screen, and the runtime nodes are visibly smaller
+   and more technical than the ops above them. */
+
+.kf-dg {
+  --dg-line: var(--border-subtle);
+  --dg-line2: var(--border-default);
+  display: grid;
+  gap: 14px;
+  /* own query container: the narrow layout below keys off this pane's width,
+     not the viewport — the pane is ~1240px inside a 1680px window. */
+  container-type: inline-size;
+}
+
+/* ---------- numerical diagnosis gates ---------- */
+.kf-dg-diagnosis {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--dg-line);
+}
+.kf-dg-diagnosis-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.kf-dg-diagnosis-head > div { display: flex; align-items: baseline; gap: var(--space-2); }
+.kf-dg-diagnosis-head h2 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
+.kf-dg-diagnosis-head > div > span {
+  color: var(--foreground-secondary);
+  font: var(--type-micro);
+}
+.kf-dg-diagnosis-head p {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  text-align: right;
+}
+.kf-dg-diagnosis-head p b { color: var(--foreground); font: var(--type-label); }
+.kf-dg-diagnosis-head p small { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-dg-gates {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  min-width: 0;
+  background: color-mix(in srgb, var(--surface-1) 42%, transparent);
+}
+.kf-dg-gate {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 50px;
+  padding: var(--space-2) var(--space-3);
+}
+.kf-dg-gate + .kf-dg-gate { border-left: 1px solid var(--dg-line); }
+.kf-dg-gate > span {
+  overflow: hidden;
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kf-dg-gate > b {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kf-dg-gate > b i { color: var(--success); font-style: normal; opacity: .72; }
+.kf-dg-gate.is-bad {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.kf-dg-gate.is-bad > b,
+.kf-dg-gate.is-bad > b i { color: var(--danger); opacity: 1; }
+
+/* ---------- result ---------- */
+.kf-dg-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 232px);
+  align-items: center;
+  gap: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--dg-line2);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kf-dg-verdict { display: grid; gap: 2px; padding-right: 16px; border-right: 1px solid var(--dg-line); }
+.kf-dg-verdict span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-dg-verdict b { color: var(--danger); font: 700 20px/1.1 var(--font-mono); }
+.kf-dg-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 18px; }
+.kf-dg-cell { display: grid; gap: 3px; min-width: 0; }
+.kf-dg-cell span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-cell b { overflow: hidden; color: var(--foreground); font: 600 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-dg-cell b.is-bad { color: var(--danger); }
+.kf-dg-cell b.is-warn { color: var(--warning); }
+.kf-dg-semantics {
+  display: grid; gap: 3px; align-self: stretch; align-content: center;
+  padding-left: 16px; border-left: 1px solid var(--dg-line);
+}
+.kf-dg-semantics span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-semantics b { color: var(--success); font: 600 13px var(--font-mono); }
+.kf-dg-semantics small { color: var(--foreground-muted); font-size: 9px; line-height: 1.45; }
+
+/* ---------- diagnosis trail ---------- */
+.kf-dg-trail { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.kf-dg-trail button {
+  padding: 3px 7px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: transparent; font: 10px var(--font-mono);
+}
+.kf-dg-trail button:hover { color: var(--foreground-secondary); background: var(--surface-2); }
+.kf-dg-trail button.is-on { border-color: color-mix(in srgb, var(--primary) 45%, transparent); color: var(--foreground); background: var(--state-selected); }
+.kf-dg-trail i { color: var(--foreground-disabled); font-style: normal; font-size: 10px; }
+
+/* ---------- canvas ---------- */
+.kf-dg-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+.kf-dg-canvas {
+  position: relative; min-width: 0; padding: 18px 44px 22px;
+  border: 1px solid var(--dg-line); border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--primary) 5%, transparent), transparent 62%),
+    color-mix(in srgb, var(--surface-1) 34%, transparent);
+}
+/* ---------- edge wires ---------- */
+.kf-dg-edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.kf-dg-edges path { fill: none; stroke: var(--dg-line2); stroke-width: 1; }
+.kf-dg-edges path.is-ok { stroke: var(--border-strong); }
+.kf-dg-edges path.is-dim { stroke: color-mix(in srgb, var(--border-strong) 55%, transparent); stroke-dasharray: 3 3; }
+.kf-dg-edges path.is-warn { stroke: color-mix(in srgb, var(--danger) 42%, transparent); }
+.kf-dg-edges path.is-bad { stroke: var(--danger); stroke-width: 1.6; }
+
+/* ---------- stages ---------- */
+.kf-dg-stage {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 26px; justify-items: center; align-items: center;
+}
+.kf-dg-stage[data-dg-stage^="link"] { padding: 7px 0 20px; }
+.kf-dg-stage[data-dg-stage="source"] { padding-bottom: 20px; }
+.kf-dg-slot { display: flex; justify-content: center; justify-self: stretch; min-width: 0; }
+.kf-dg-slot.is-center { grid-column: 1 / -1; }
+
+/* ---------- op: the only node ---------- */
+.kf-dg-op {
+  width: 100%; max-width: 172px; min-height: 34px; padding: 0 12px;
+  border: 1px solid var(--dg-line2); border-radius: var(--radius-md);
+  color: var(--foreground); background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  font: 600 var(--kf-type-xs) var(--font-sans); text-align: center;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.kf-dg-op:hover { border-color: var(--border-strong); background: var(--surface-3); }
+.kf-dg-op.is-sel { border-color: var(--primary); background: var(--state-selected); }
+
+/* ---------- tensor: an edge label, never a card ---------- */
+.kf-dg-tensor {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%;
+  padding: 2px 7px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: var(--surface-1);
+  font: 10px var(--font-mono); white-space: nowrap;
+}
+.kf-dg-tensor-name { overflow: hidden; text-overflow: ellipsis; }
+.kf-dg-tensor-mark { color: var(--success); font-style: normal; font-size: 9px; }
+.kf-dg-tensor-diff { color: inherit; font-style: normal; font-size: 9px; opacity: .85; }
+.kf-dg-tensor.is-source { color: var(--foreground-secondary); border-color: var(--dg-line2); }
+.kf-dg-tensor.is-ok .kf-dg-tensor-mark { opacity: .75; }
+.kf-dg-tensor.is-dim { color: color-mix(in srgb, var(--foreground-muted) 78%, transparent); }
+.kf-dg-tensor.is-dim .kf-dg-tensor-mark { color: var(--foreground-disabled); }
+
+/* the single strongest element on the page */
+.kf-dg-tensor.is-bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 52%, transparent);
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface-1));
+  font-weight: 600;
+}
+.kf-dg-tensor.is-bad .kf-dg-tensor-mark { color: var(--danger); font: 700 8px var(--font-sans); letter-spacing: .07em; }
+
+/* down-stream damage is real but not the finding */
+.kf-dg-tensor.is-warn {
+  color: color-mix(in srgb, var(--danger) 58%, var(--foreground-muted));
+  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface-1));
+}
+.kf-dg-tensor.is-warn .kf-dg-tensor-mark { color: inherit; font-size: 8px; }
+
+.kf-dg-tensor.is-sel { border-color: var(--primary); background: var(--state-selected); }
+
+/* ---------- runtime expansion (dashed region, same canvas) ---------- */
+.kf-dg-rt {
+  position: relative; z-index: 1; margin: 6px 0 20px;
+  border: 1px dashed color-mix(in srgb, var(--warning) 38%, var(--dg-line2));
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+.kf-dg-rt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px 7px; border-bottom: 1px dashed color-mix(in srgb, var(--warning) 26%, var(--dg-line)); }
+.kf-dg-rt-title { color: var(--warning); font: 700 9px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; }
+.kf-dg-rt-sub { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-dg-rt-views { display: flex; gap: 2px; margin-left: auto; }
+.kf-dg-rt-views button {
+  padding: 3px 8px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: transparent; font-size: 10px;
+}
+.kf-dg-rt-views button:hover { color: var(--foreground-secondary); background: var(--surface-2); }
+.kf-dg-rt-views button.is-on { border-color: var(--dg-line2); color: var(--foreground); background: var(--surface-2); }
+.kf-dg-rt-x { padding: 3px 6px; border: 0; color: var(--foreground-muted); background: transparent; font-size: 10px; }
+.kf-dg-rt-x:hover { color: var(--foreground); }
+.kf-dg-rt-body { display: grid; gap: 14px; padding: 12px; }
+
+/* ---------- runtime task chain ----------
+   Runtime Expansion 直接嵌在 semantic 数据流里（Attention 与 Output Projection 之间），
+   不是左右分栏、也不是第二个 viewer。这一层里 Task = 节点，
+   Task 之间的 tensor = 边标签，挂在竖直连线右侧 —— 不画成和 Task 一样大的节点。 */
+/* 纵向内距归零，让上下两截连线正好接在虚线框的 border 上 */
+.kf-dg-rt-body[data-dg-rtbody="tasks"] { padding: 0 12px; }
+.kf-dg-rt-chain { display: grid; justify-items: center; }
+
+/* 接住 semantic edge：上端是 attention_out 进框，下端出框接到 Output Projection。
+   比框内那条 attention_out 边弱一档，避免抢掉唯一强焦点的注意力。 */
+.kf-dg-rt-stem { width: 1px; height: 26px; }
+.kf-dg-rt-stem.is-entry { background: color-mix(in srgb, var(--danger) 50%, var(--dg-line2)); }
+.kf-dg-rt-stem.is-exit { background: color-mix(in srgb, var(--danger) 34%, var(--dg-line2)); }
+
+/* compact task node —— 刻意比 semantic op 小，两行：Task ID / 角色 */
+.kf-dg-rt-task {
+  display: grid; gap: 1px; justify-items: start; width: 140px;
+  padding: 5px 10px 6px;
+  border: 1px solid var(--dg-line2); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+  text-align: left;
+}
+.kf-dg-rt-task code { color: var(--foreground); font: 600 10px var(--font-mono); }
+.kf-dg-rt-task:hover { border-color: var(--border-strong); }
+.kf-dg-rt-task.is-sel { border-color: var(--primary); background: var(--state-selected); }
+.kf-dg-rt-task.is-producer { border-color: color-mix(in srgb, var(--danger) 40%, var(--dg-line2)); }
+.kf-dg-rt-task.is-suspicious { border-color: color-mix(in srgb, var(--warning) 42%, var(--dg-line2)); }
+.kf-dg-rt-role {
+  padding: 0 4px; border-radius: 3px; white-space: nowrap;
+  color: var(--foreground-muted); background: var(--surface-3);
+  font: 700 7.5px var(--font-sans); font-style: normal; letter-spacing: .06em;
+}
+.kf-dg-rt-role.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.kf-dg-rt-role.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+
+/* 边：连线绝对居中，始终落在上下两个 Task 的中线上；标签偏到右侧，不把连线挤歪 */
+.kf-dg-rt-link { position: relative; display: flex; justify-content: center; padding: 3px 0; }
+.kf-dg-rt-slug { position: relative; display: block; width: 1px; height: 34px; background: var(--dg-line2); }
+.kf-dg-rt-slug::after {
+  content: ''; position: absolute; left: -2.5px; bottom: 0;
+  border-left: 3px solid transparent; border-right: 3px solid transparent;
+  border-top: 4px solid var(--dg-line2);
+}
+.kf-dg-rt-link small {
+  position: absolute; left: calc(50% + 9px); top: 50%; transform: translateY(-50%);
+  color: var(--foreground-muted); font: 9px var(--font-mono); white-space: nowrap;
+}
+.kf-dg-rt-link.is-bad .kf-dg-rt-slug { background: var(--danger); }
+.kf-dg-rt-link.is-bad .kf-dg-rt-slug::after { border-top-color: var(--danger); }
+.kf-dg-rt-link.is-bad small { color: var(--danger); }
+.kf-dg-rt-note { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-rt-note b { color: var(--warning); }
+
+/* ---------- timeline view: task timeline evidence ----------
+   六列固定布局，左侧是 task / 角色 / 核心 / 时间区间 / 耗时，最右是 time bar。
+   行内 tone 只由角色决定；整块只服务 correctness 结论，不做性能 profiling。 */
+.kf-dg-tlx {
+  display: grid; row-gap: 2px;
+  --kf-tlx-cols: 46px 58px 62px 96px 54px minmax(0, 1fr);
+}
+/* .kf-dg-tlx 自己是单列网格，每行各自再切 6 列。
+   必须把子项钉在 1 / -1：否则跨行标注带一旦带 grid-column，就会凭空造出隐式列，
+   把每一行都挤进窄列里。 */
+.kf-dg-tlx > * { grid-column: 1 / -1; }
+.kf-dg-tlx-head,
+.kf-dg-tlx-axis,
+.kf-dg-tlx-row,
+.kf-dg-tlx-ovlrow {
+  display: grid; grid-template-columns: var(--kf-tlx-cols);
+  column-gap: 6px; align-items: center;
+}
+.kf-dg-tlx-head { padding-bottom: 5px; border-bottom: 1px solid var(--dg-line); }
+.kf-dg-tlx-head span { color: var(--foreground-muted); font: 700 8.5px var(--font-sans); letter-spacing: .06em; }
+
+/* 刻度只做参照：标签读得出量级，网格线由 track 的背景平铺出来 */
+.kf-dg-tlx-axis { height: 16px; }
+.kf-dg-tlx-ticks { position: relative; height: 100%; }
+.kf-dg-tlx-ticks i {
+  position: absolute; top: 3px; transform: translateX(-50%);
+  color: var(--foreground-disabled); font: 8px var(--font-mono); font-style: normal;
+}
+.kf-dg-tlx-ticks i:first-child { transform: none; }
+.kf-dg-tlx-ticks i:last-child { transform: translateX(-100%); }
+
+.kf-dg-tlx-row {
+  /* 行是 button：必须显式清掉全局按钮的底色/边框/字体，否则白底会盖掉
+     次要文字与跨行重叠带，整行也读不出层级 */
+  position: relative; padding: 4px 0; border-radius: var(--radius-sm);
+  border: 0; background: transparent; text-align: left; cursor: pointer;
+}
+.kf-dg-tlx-row:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.kf-dg-tlx-row.is-sel { background: var(--state-selected); }
+.kf-dg-tlx-id { color: var(--foreground); font: 600 10px var(--font-mono); }
+.kf-dg-tlx-role {
+  justify-self: start; padding: 0 4px; border-radius: 3px; white-space: nowrap;
+  color: var(--foreground-muted); background: var(--surface-3);
+  font: 700 7.5px var(--font-sans); font-style: normal; letter-spacing: .06em;
+}
+.kf-dg-tlx-row.is-focus .kf-dg-tlx-role { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.kf-dg-tlx-row.is-risk .kf-dg-tlx-role { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.kf-dg-tlx-core { color: var(--foreground-secondary); font: 9px var(--font-mono); }
+.kf-dg-tlx-range { color: var(--foreground-secondary); font: 9px var(--font-mono); }
+.kf-dg-tlx-range i { color: var(--foreground-muted); font-style: normal; }
+.kf-dg-tlx-dur { color: var(--foreground-muted); font: 9px var(--font-mono); }
+
+.kf-dg-tlx-track {
+  position: relative; height: 18px;
+  /* 每个 tick 一条竖线，用 background-size 平铺，不必逐个画 DOM */
+  background-image: linear-gradient(to right, var(--dg-line) 0 1px, transparent 1px);
+  background-size: calc(100% / var(--kf-tlx-n)) 100%;
+}
+.kf-dg-tlx-bar { position: absolute; top: 3px; height: 12px; border-radius: 2px; }
+.kf-dg-tlx-row.is-calm  .kf-dg-tlx-bar { background: color-mix(in srgb, var(--primary) 38%, var(--surface-3)); }
+.kf-dg-tlx-row.is-focus .kf-dg-tlx-bar { background: var(--warning); }
+.kf-dg-tlx-row.is-risk  .kf-dg-tlx-bar { background: var(--danger); }
+.kf-dg-tlx-row.is-dim   .kf-dg-tlx-bar { background: color-mix(in srgb, var(--foreground-muted) 42%, transparent); }
+
+/* 重叠窗口：一条跨 #182 / #197 两行的标注带。grid-row 由 JS 按数据算出，
+   高度自动跟随行高与行距；必须画在 bar 之上，否则窗口整段落在两条 bar 内部。 */
+.kf-dg-tlx-span {
+  /* 列宽与 gap 必须和每一行完全一致，否则重叠带会和 track 对不齐 */
+  display: grid; grid-template-columns: var(--kf-tlx-cols); column-gap: 6px;
+  align-self: stretch; z-index: 2; pointer-events: none;
+}
+.kf-dg-tlx-band {
+  /* 放在第 6 列（track 列）内，left/width 都由 JS 按 μs 算成 % */
+  grid-column: 6; position: relative; left: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--danger) 75%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--danger) 75%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+/* 尺寸标注：与上面那条带共用同一 x 区间，读图时直接对应 */
+.kf-dg-tlx-ovlrow { height: 40px; align-items: start; }
+.kf-dg-tlx-ovlcell { position: relative; height: 100%; }
+.kf-dg-tlx-ovl {
+  position: absolute; top: 0; height: 34px; padding: 0; cursor: pointer;
+  border: 0; border-radius: 0; background: transparent;
+  border-top: 1px solid color-mix(in srgb, var(--danger) 60%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+}
+.kf-dg-tlx-ovl:hover { background: color-mix(in srgb, var(--danger) 6%, transparent); }
+.kf-dg-tlx-ovl b, .kf-dg-tlx-ovl em {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  white-space: nowrap; font-style: normal;
+}
+.kf-dg-tlx-ovl b { top: 5px; color: var(--danger); font: 700 9px var(--font-sans); }
+.kf-dg-tlx-ovl em { top: 18px; color: var(--foreground-muted); font: 9px var(--font-mono); }
+
+.kf-dg-tlx-sum {
+  margin-top: 12px; padding: 9px 11px;
+  border: 1px solid var(--dg-line); border-left: 2px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 45%, transparent);
+}
+.kf-dg-tlx-sum-h { display: flex; align-items: baseline; gap: 8px; }
+.kf-dg-tlx-sum-h span { color: var(--danger); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-dg-tlx-sum-h b { color: var(--foreground); font: 600 11px var(--font-mono); }
+.kf-dg-tlx-sum p { margin: 5px 0 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.65; }
+.kf-dg-tlx-sum ul { display: grid; gap: 3px; margin: 7px 0 0; padding: 0; list-style: none; }
+.kf-dg-tlx-sum li { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-tlx-sum li::before { content: '›'; margin-right: 5px; color: var(--foreground-disabled); }
+
+/* ---------- likely cause ---------- */
+.kf-dg-cause {
+  display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px;
+  padding: 11px 13px; border: 1px solid var(--dg-line); border-left: 2px solid var(--warning);
+  border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 45%, transparent);
+}
+.kf-dg-cause > div { display: grid; gap: 3px; }
+.kf-dg-cause > div span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+.kf-dg-cause > div b { color: var(--foreground); font-size: var(--kf-type-sm); }
+.kf-dg-cause ul { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 0; padding: 0; list-style: none; }
+.kf-dg-cause li { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-cause li::before { content: '›'; margin-right: 5px; color: var(--foreground-disabled); }
+
+/* ---------- narrow ---------- */
+@container (max-width: 900px) {
+  .kf-dg-diagnosis-head { align-items: flex-start; flex-direction: column; gap: var(--space-2); }
+  .kf-dg-diagnosis-head p { text-align: left; }
+  .kf-dg-gates { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kf-dg-gate:nth-child(4) { border-left: 0; }
+  .kf-dg-gate:nth-child(n+4) { border-top: 1px solid var(--dg-line); }
+  .kf-dg-result { grid-template-columns: auto minmax(0, 1fr); }
+  .kf-dg-semantics { grid-column: 1 / -1; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--dg-line); }
+  .kf-dg-cause { grid-template-columns: minmax(0, 1fr); }
+}

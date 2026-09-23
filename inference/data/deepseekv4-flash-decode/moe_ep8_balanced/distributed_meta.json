@@ -1,0 +1,253 @@
+{
+  "schema": 1,
+  "params": [
+    {
+      "name": "x_hc__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        8,
+        4,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "hc_ffn_fn__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        24,
+        16384
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "hc_ffn_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        3
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "hc_ffn_base__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        24
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "norm_w__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "gate_w__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        128,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "gate_bias__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        128
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "tid2eid__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        129280,
+        6
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "input_ids__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "int64"
+    },
+    {
+      "name": "routed_w1__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        16,
+        2048,
+        4096
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "routed_w1_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        16,
+        2048
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "routed_w3__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        16,
+        2048,
+        4096
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "routed_w3_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        16,
+        2048
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "routed_w2__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        16,
+        4096,
+        2048
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "routed_w2_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        16,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "shared_w1__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        2048,
+        4096
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "shared_w1_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        2048
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "shared_w3__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        2048,
+        4096
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "shared_w3_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        2048
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "shared_w2__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        4096,
+        2048
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "shared_w2_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        8,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "x_next__ssa_v0",
+      "direction": "Out",
+      "shape": [
+        8,
+        8,
+        4,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "layer_id__ssa_v0",
+      "direction": "In",
+      "shape": null,
+      "dtype": "int32"
+    },
+    {
+      "name": "num_tokens__ssa_v0",
+      "direction": "In",
+      "shape": null,
+      "dtype": "int32"
+    }
+  ],
+  "num_return_types": 1,
+  "platform": "a2a3",
+  "backend_type": "Ascend910B",
+  "distributed_config": {
+    "device_ids": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14
+    ],
+    "num_sub_workers": 0,
+    "runtime": "tensormap_and_ringbuffer",
+    "block_dim": null,
+    "aicpu_thread_num": 4
+  }
+}

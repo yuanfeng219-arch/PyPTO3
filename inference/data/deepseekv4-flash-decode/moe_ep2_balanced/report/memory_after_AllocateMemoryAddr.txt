@@ -1,0 +1,619 @@
+=== Memory Usage Report ===
+Pass: AllocateMemoryAddr
+Backend: 910B
+Functions: 29 compute functions
+
+--- comb_sinkhorn ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |     4.6 KB  |   184.0 KB  |    2.5%  |  34
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_100       |      256 B  |  [0, 256)                 |  [145, 153]
+    mem_vec_101       |      256 B  |  [256, 512)               |  [131, 154]
+    mem_vec_102       |      256 B  |  [512, 768)               |  [135, 155]
+    mem_vec_103       |      256 B  |  [768, 1024)              |  [139, 156]
+    mem_vec_104       |      256 B  |  [1024, 1280)             |  [143, 152]
+    mem_vec_105       |      256 B  |  [1280, 1536)             |  [150, 151]
+    mem_vec_13        |      256 B  |  [1536, 1792)             |  [36, 186]
+    mem_vec_34        |      256 B  |  [1792, 2048)             |  [32, 180]
+    mem_vec_36        |       32 B  |  [2048, 2080)             |  [59, 143]
+    mem_vec_37        |       32 B  |  [2080, 2112)             |  [60, 78]
+    mem_vec_38        |       32 B  |  [2112, 2144)             |  [61, 80]
+    mem_vec_4         |       32 B  |  [2144, 2176)             |  [26, 172]
+    mem_vec_5         |      256 B  |  [2176, 2432)             |  [28, 195]
+    mem_vec_6         |      256 B  |  [2432, 2688)             |  [29, 196]
+    mem_vec_65        |      256 B  |  [2688, 2944)             |  [33, 175]
+    mem_vec_7         |      256 B  |  [2944, 3200)             |  [30, 197]
+    mem_vec_8         |      256 B  |  [3200, 3456)             |  [31, 198]
+    mem_vec_81        |      256 B  |  [3456, 3712)             |  [34, 176]
+    mem_vec_82        |      256 B  |  [3712, 3968)             |  [35, 147]
+    mem_vec_83        |      256 B  |  [3968, 4224)             |  [111, 148]
+    mem_vec_84        |      256 B  |  [4224, 4480)             |  [115, 128]
+    mem_vec_85        |      256 B  |  [4480, 4736)             |  [122, 123]
+
+--- combine ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |     8.0 KB  |   184.0 KB  |    4.3%  |  1
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_5         |     8.0 KB  |  [0, 8192)                |  [15, 16]
+
+--- dispatch_gather ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |     4.0 KB  |   184.0 KB  |    2.2%  |  1
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_8         |     4.0 KB  |  [0, 4096)                |  [16, 17]
+
+--- dispatch_meta ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |       64 B  |   184.0 KB  |    0.0%  |  1
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_5         |       64 B  |  [0, 64)                  |  [23, 30]
+
+--- dispatch_push ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |     4.1 KB  |   184.0 KB  |    2.2%  |  3
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |     4.0 KB  |  [0, 4096)                |  [27, 28]
+    mem_vec_8         |       32 B  |  [4096, 4128)             |  [13, 33]
+    mem_vec_9         |       32 B  |  [4128, 4160)             |  [14, 35]
+
+--- exp_gate_mm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   272.0 KB  |   512.0 KB  |   53.1%  |  4
+  Left   |     8.0 KB  |    64.0 KB  |   12.5%  |  4
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |    16.0 KB  |   128.0 KB  |   12.5%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_23        |   128.0 KB  |  [0, 131072)              |  [64, 98]
+    mem_mat_4         |     8.0 KB  |  [131072, 139264)         |  [21, 57]
+    mem_mat_5         |     8.0 KB  |  [139264, 147456)         |  [22, 97]
+    mem_mat_6         |   128.0 KB  |  [147456, 278528)         |  [24, 58]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_10       |     2.0 KB  |  [0, 2048)                |  [33, 60]
+    mem_left_25       |     2.0 KB  |  [2048, 4096)             |  [71, 99]
+    mem_left_27       |     2.0 KB  |  [4096, 6144)             |  [73, 100]
+    mem_left_8        |     2.0 KB  |  [6144, 8192)             |  [31, 59]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_11      |    32.0 KB  |  [0, 32768)               |  [34, 100]
+    mem_right_9       |    32.0 KB  |  [32768, 65536)           |  [32, 99]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |    16.0 KB  |  [0, 16384)               |  [18, 105]
+
+--- exp_gate_up_act ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    64.1 KB  |   184.0 KB  |   34.9%  |  10
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_11        |     8.0 KB  |  [0, 8192)                |  [23, 65]
+    mem_vec_12        |     8.0 KB  |  [8192, 16384)            |  [24, 62]
+    mem_vec_13        |       64 B  |  [16384, 16448)           |  [25, 52]
+    mem_vec_25        |     8.0 KB  |  [16448, 24640)           |  [21, 41]
+    mem_vec_28        |     8.0 KB  |  [24640, 32832)           |  [22, 42]
+    mem_vec_41        |     8.0 KB  |  [32832, 41024)           |  [26, 60]
+    mem_vec_44        |     8.0 KB  |  [41024, 49216)           |  [27, 61]
+    mem_vec_6         |     8.0 KB  |  [49216, 57408)           |  [18, 46]
+    mem_vec_7         |     8.0 KB  |  [57408, 65600)           |  [19, 43]
+    mem_vec_8         |       64 B  |  [65600, 65664)           |  [20, 33]
+
+--- exp_h_q ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |   128.2 KB  |   184.0 KB  |   69.7%  |  9
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_11        |    32.0 KB  |  [0, 32768)               |  [20, 23]
+    mem_vec_14        |       64 B  |  [32768, 32832)           |  [23, 25]
+    mem_vec_3         |       64 B  |  [32832, 32896)           |  [9, 28]
+    mem_vec_4         |    32.0 KB  |  [32896, 65664)           |  [12, 41]
+    mem_vec_5         |    32.0 KB  |  [65664, 98432)           |  [13, 46]
+    mem_vec_6         |    32.0 KB  |  [98432, 131200)          |  [14, 42]
+    mem_vec_9         |       64 B  |  [131200, 131264)         |  [17, 19]
+
+--- exp_up_mm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   272.0 KB  |   512.0 KB  |   53.1%  |  4
+  Left   |     8.0 KB  |    64.0 KB  |   12.5%  |  4
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |    16.0 KB  |   128.0 KB  |   12.5%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_23        |   128.0 KB  |  [0, 131072)              |  [64, 98]
+    mem_mat_4         |     8.0 KB  |  [131072, 139264)         |  [21, 57]
+    mem_mat_5         |     8.0 KB  |  [139264, 147456)         |  [22, 97]
+    mem_mat_6         |   128.0 KB  |  [147456, 278528)         |  [24, 58]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_10       |     2.0 KB  |  [0, 2048)                |  [33, 60]
+    mem_left_25       |     2.0 KB  |  [2048, 4096)             |  [71, 99]
+    mem_left_27       |     2.0 KB  |  [4096, 6144)             |  [73, 100]
+    mem_left_8        |     2.0 KB  |  [6144, 8192)             |  [31, 59]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_11      |    32.0 KB  |  [0, 32768)               |  [34, 100]
+    mem_right_9       |    32.0 KB  |  [32768, 65536)           |  [32, 99]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |    16.0 KB  |  [0, 16384)               |  [18, 105]
+
+--- exp_w2_act ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    68.1 KB  |   184.0 KB  |   37.0%  |  8
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |    32.0 KB  |  [0, 32768)               |  [23, 34]
+    mem_vec_11        |     2.0 KB  |  [32768, 34816)           |  [24, 32]
+    mem_vec_5         |       64 B  |  [34816, 34880)           |  [8, 15]
+    mem_vec_7         |       64 B  |  [34880, 34944)           |  [15, 31]
+    mem_vec_8         |    32.0 KB  |  [34944, 67712)           |  [11, 29]
+    mem_vec_9         |     2.0 KB  |  [67712, 69760)           |  [22, 27]
+
+--- exp_w2_mm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   272.0 KB  |   512.0 KB  |   53.1%  |  4
+  Left   |     8.0 KB  |    64.0 KB  |   12.5%  |  4
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |    16.0 KB  |   128.0 KB  |   12.5%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_23        |   128.0 KB  |  [0, 131072)              |  [64, 98]
+    mem_mat_4         |     8.0 KB  |  [131072, 139264)         |  [21, 57]
+    mem_mat_5         |     8.0 KB  |  [139264, 147456)         |  [22, 97]
+    mem_mat_6         |   128.0 KB  |  [147456, 278528)         |  [24, 58]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_10       |     2.0 KB  |  [0, 2048)                |  [33, 60]
+    mem_left_25       |     2.0 KB  |  [2048, 4096)             |  [71, 99]
+    mem_left_27       |     2.0 KB  |  [4096, 6144)             |  [73, 100]
+    mem_left_8        |     2.0 KB  |  [6144, 8192)             |  [31, 59]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_11      |    32.0 KB  |  [0, 32768)               |  [34, 100]
+    mem_right_9       |    32.0 KB  |  [32768, 65536)           |  [32, 99]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |    16.0 KB  |  [0, 16384)               |  [18, 105]
+
+--- ffn_norm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    48.0 KB  |   184.0 KB  |   26.1%  |  10
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_12        |    16.0 KB  |  [0, 16384)               |  [9, 49]
+    mem_vec_13        |       32 B  |  [16384, 16416)           |  [16, 44]
+    mem_vec_7         |    16.0 KB  |  [16416, 32800)           |  [8, 50]
+    mem_vec_9         |    16.0 KB  |  [32800, 49184)           |  [7, 51]
+
+--- gate_aic ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   512.0 KB  |   512.0 KB  |  100.0%  |  4
+  Left   |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |     1.0 KB  |   128.0 KB  |    0.8%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_10        |   128.0 KB  |  [0, 131072)              |  [26, 98]
+    mem_mat_7         |   128.0 KB  |  [131072, 262144)         |  [23, 59]
+    mem_mat_8         |   128.0 KB  |  [262144, 393216)         |  [24, 60]
+    mem_mat_9         |   128.0 KB  |  [393216, 524288)         |  [25, 97]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_12       |    32.0 KB  |  [0, 32768)               |  [33, 99]
+    mem_left_14       |    32.0 KB  |  [32768, 65536)           |  [35, 100]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_13      |    32.0 KB  |  [0, 32768)               |  [34, 99]
+    mem_right_15      |    32.0 KB  |  [32768, 65536)           |  [36, 100]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_6         |     1.0 KB  |  [0, 1024)                |  [18, 104]
+
+--- gate_aiv ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    11.1 KB  |   184.0 KB  |    6.0%  |  4
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_6         |       64 B  |  [8192, 8256)             |  [16, 47]
+    mem_vec_7         |     1.0 KB  |  [8256, 9280)             |  [18, 65]
+    mem_vec_8         |     1.0 KB  |  [9280, 10304)            |  [20, 64]
+    mem_vec_9         |     1.0 KB  |  [10304, 11328)           |  [21, 63]
+
+--- gate_pre_route ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    14.0 KB  |   184.0 KB  |    7.6%  |  1
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_1         |    14.0 KB  |  [0, 14336)               |  [5, 6]
+
+--- hc_post ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |   160.0 KB  |   184.0 KB  |   87.0%  |  10
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |    16.0 KB  |  [0, 16384)               |  [36, 102]
+    mem_vec_11        |    16.0 KB  |  [16384, 32768)           |  [37, 104]
+    mem_vec_12        |    16.0 KB  |  [32768, 49152)           |  [38, 104]
+    mem_vec_22        |    16.0 KB  |  [49152, 65536)           |  [49, 74]
+    mem_vec_24        |    16.0 KB  |  [65536, 81920)           |  [22, 68]
+    mem_vec_25        |    16.0 KB  |  [81920, 98304)           |  [62, 70]
+    mem_vec_26        |    16.0 KB  |  [98304, 114688)          |  [63, 72]
+    mem_vec_27        |    16.0 KB  |  [114688, 131072)         |  [64, 72]
+    mem_vec_7         |    16.0 KB  |  [131072, 147456)         |  [23, 106]
+    mem_vec_9         |    16.0 KB  |  [147456, 163840)         |  [21, 100]
+
+--- hc_pre_linear ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |    96.0 KB  |   512.0 KB  |   18.8%  |  4
+  Left   |    32.0 KB  |    64.0 KB  |   50.0%  |  2
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |     2.0 KB  |   128.0 KB  |    1.6%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_4         |    16.0 KB  |  [0, 16384)               |  [20, 33]
+    mem_mat_5         |    32.0 KB  |  [16384, 49152)           |  [21, 34]
+    mem_mat_6         |    16.0 KB  |  [49152, 65536)           |  [22, 46]
+    mem_mat_7         |    32.0 KB  |  [65536, 98304)           |  [23, 47]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_14       |    16.0 KB  |  [0, 16384)               |  [40, 48]
+    mem_left_8        |    16.0 KB  |  [16384, 32768)           |  [27, 35]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_15      |    32.0 KB  |  [0, 32768)               |  [41, 48]
+    mem_right_9       |    32.0 KB  |  [32768, 65536)           |  [28, 35]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |     2.0 KB  |  [0, 2048)                |  [15, 51]
+
+--- hc_pre_rms ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |   128.2 KB  |   184.0 KB  |   69.7%  |  14
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_12        |    16.0 KB  |  [0, 16384)               |  [34, 35]
+    mem_vec_13        |       32 B  |  [16384, 16416)           |  [35, 37]
+    mem_vec_16        |    16.0 KB  |  [16416, 32800)           |  [39, 40]
+    mem_vec_17        |       32 B  |  [32800, 32832)           |  [40, 42]
+    mem_vec_2         |       32 B  |  [32832, 32864)           |  [17, 49]
+    mem_vec_20        |    16.0 KB  |  [32864, 49248)           |  [44, 45]
+    mem_vec_21        |       32 B  |  [49248, 49280)           |  [45, 47]
+    mem_vec_3         |    16.0 KB  |  [49280, 65664)           |  [24, 52]
+    mem_vec_4         |    16.0 KB  |  [65664, 82048)           |  [25, 52]
+    mem_vec_5         |    16.0 KB  |  [82048, 98432)           |  [26, 54]
+    mem_vec_6         |    16.0 KB  |  [98432, 114816)          |  [27, 45]
+    mem_vec_8         |    16.0 KB  |  [114816, 131200)         |  [29, 30]
+    mem_vec_9         |       32 B  |  [131200, 131232)         |  [30, 32]
+
+--- hc_pre_seed ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |     1.0 KB  |   184.0 KB  |    0.5%  |  1
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_1         |     1.0 KB  |  [0, 1024)                |  [5, 6]
+
+--- mix_x ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    64.2 KB  |   184.0 KB  |   34.9%  |  13
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |     8.0 KB  |  [0, 8192)                |  [33, 54]
+    mem_vec_11        |     8.0 KB  |  [8192, 16384)            |  [34, 52]
+    mem_vec_12        |     8.0 KB  |  [16384, 24576)           |  [35, 51]
+    mem_vec_13        |     8.0 KB  |  [24576, 32768)           |  [36, 51]
+    mem_vec_5         |      256 B  |  [32768, 33024)           |  [16, 49]
+    mem_vec_6         |     8.0 KB  |  [33024, 41216)           |  [14, 45]
+    mem_vec_7         |     8.0 KB  |  [41216, 49408)           |  [15, 43]
+    mem_vec_8         |     8.0 KB  |  [49408, 57600)           |  [31, 42]
+    mem_vec_9         |     8.0 KB  |  [57600, 65792)           |  [32, 42]
+
+--- route_hash ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    16.6 KB  |   184.0 KB  |    9.0%  |  11
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |       32 B  |  [0, 32)                  |  [30, 31]
+    mem_vec_13        |      256 B  |  [32, 288)                |  [29, 48]
+    mem_vec_15        |       32 B  |  [288, 320)               |  [40, 42]
+    mem_vec_5         |      256 B  |  [320, 576)               |  [10, 38]
+    mem_vec_6         |     8.0 KB  |  [576, 8768)              |  [21, 50]
+    mem_vec_7         |     8.0 KB  |  [8768, 16960)            |  [22, 42]
+
+--- sh_gate_mm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   272.0 KB  |   512.0 KB  |   53.1%  |  4
+  Left   |     8.0 KB  |    64.0 KB  |   12.5%  |  4
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |    16.0 KB  |   128.0 KB  |   12.5%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_4         |     8.0 KB  |  [0, 8192)                |  [18, 54]
+    mem_mat_5         |   128.0 KB  |  [8192, 139264)           |  [19, 55]
+    mem_mat_6         |     8.0 KB  |  [139264, 147456)         |  [20, 92]
+    mem_mat_7         |   128.0 KB  |  [147456, 278528)         |  [21, 93]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_11       |     2.0 KB  |  [0, 2048)                |  [30, 57]
+    mem_left_25       |     2.0 KB  |  [2048, 4096)             |  [66, 94]
+    mem_left_27       |     2.0 KB  |  [4096, 6144)             |  [68, 95]
+    mem_left_9        |     2.0 KB  |  [6144, 8192)             |  [28, 56]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_10      |    32.0 KB  |  [0, 32768)               |  [29, 94]
+    mem_right_12      |    32.0 KB  |  [32768, 65536)           |  [31, 95]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |    16.0 KB  |  [0, 16384)               |  [15, 99]
+
+--- sh_gate_up_act_q ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |   160.1 KB  |   184.0 KB  |   87.0%  |  14
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_11        |    32.0 KB  |  [0, 32768)               |  [17, 58]
+    mem_vec_23        |    32.0 KB  |  [32768, 65536)           |  [18, 51]
+    mem_vec_26        |    32.0 KB  |  [65536, 98304)           |  [19, 35]
+    mem_vec_31        |       32 B  |  [98304, 98336)           |  [39, 41]
+    mem_vec_40        |    64.0 KB  |  [98336, 163872)          |  [16, 63]
+    mem_vec_8         |       32 B  |  [163872, 163904)         |  [11, 26]
+    mem_vec_9         |       32 B  |  [163904, 163936)         |  [12, 46]
+
+--- sh_up_mm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   272.0 KB  |   512.0 KB  |   53.1%  |  4
+  Left   |     8.0 KB  |    64.0 KB  |   12.5%  |  4
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |    16.0 KB  |   128.0 KB  |   12.5%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_4         |     8.0 KB  |  [0, 8192)                |  [18, 54]
+    mem_mat_5         |   128.0 KB  |  [8192, 139264)           |  [19, 55]
+    mem_mat_6         |     8.0 KB  |  [139264, 147456)         |  [20, 92]
+    mem_mat_7         |   128.0 KB  |  [147456, 278528)         |  [21, 93]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_11       |     2.0 KB  |  [0, 2048)                |  [30, 57]
+    mem_left_25       |     2.0 KB  |  [2048, 4096)             |  [66, 94]
+    mem_left_27       |     2.0 KB  |  [4096, 6144)             |  [68, 95]
+    mem_left_9        |     2.0 KB  |  [6144, 8192)             |  [28, 56]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_10      |    32.0 KB  |  [0, 32768)               |  [29, 94]
+    mem_right_12      |    32.0 KB  |  [32768, 65536)           |  [31, 95]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |    16.0 KB  |  [0, 16384)               |  [15, 99]
+
+--- sh_w2_act ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    68.1 KB  |   184.0 KB  |   37.0%  |  7
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |     2.0 KB  |  [0, 2048)                |  [19, 30]
+    mem_vec_6         |       64 B  |  [2048, 2112)             |  [11, 29]
+    mem_vec_7         |    32.0 KB  |  [2112, 34880)            |  [10, 26]
+    mem_vec_8         |     2.0 KB  |  [34880, 36928)           |  [17, 23]
+    mem_vec_9         |    32.0 KB  |  [36928, 69696)           |  [9, 33]
+
+--- sh_w2_mm ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Mat    |   272.0 KB  |   512.0 KB  |   53.1%  |  4
+  Left   |     8.0 KB  |    64.0 KB  |   12.5%  |  4
+  Right  |    64.0 KB  |    64.0 KB  |  100.0%  |  2
+  Acc    |    16.0 KB  |   128.0 KB  |   12.5%  |  1
+
+  Buffers (Mat)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_mat_4         |     8.0 KB  |  [0, 8192)                |  [18, 54]
+    mem_mat_5         |   128.0 KB  |  [8192, 139264)           |  [19, 55]
+    mem_mat_6         |     8.0 KB  |  [139264, 147456)         |  [20, 92]
+    mem_mat_7         |   128.0 KB  |  [147456, 278528)         |  [21, 93]
+
+  Buffers (Left)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_left_11       |     2.0 KB  |  [0, 2048)                |  [30, 57]
+    mem_left_25       |     2.0 KB  |  [2048, 4096)             |  [66, 94]
+    mem_left_27       |     2.0 KB  |  [4096, 6144)             |  [68, 95]
+    mem_left_9        |     2.0 KB  |  [6144, 8192)             |  [28, 56]
+
+  Buffers (Right)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_right_10      |    32.0 KB  |  [0, 32768)               |  [29, 94]
+    mem_right_12      |    32.0 KB  |  [32768, 65536)           |  [31, 95]
+
+  Buffers (Acc)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_acc_3         |    16.0 KB  |  [0, 16384)               |  [15, 99]
+
+--- shared_routed ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    40.0 KB  |   184.0 KB  |   21.7%  |  3
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_4         |    16.0 KB  |  [0, 16384)               |  [9, 22]
+    mem_vec_5         |     8.0 KB  |  [16384, 24576)           |  [13, 14]
+    mem_vec_6         |    16.0 KB  |  [24576, 40960)           |  [8, 15]
+
+--- split_pre_post ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |      576 B  |   184.0 KB  |    0.3%  |  4
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_10        |      256 B  |  [0, 256)                 |  [14, 33]
+    mem_vec_5         |       32 B  |  [256, 288)               |  [8, 25]
+    mem_vec_6         |       32 B  |  [288, 320)               |  [9, 27]
+    mem_vec_7         |      256 B  |  [320, 576)               |  [11, 35]
+
+--- x_norm_quant ---
+
+  Space  |  Used       |  Limit      |  Usage   |  MemRefs
+  -------+-------------+-------------+----------+---------
+  Vec    |    16.0 KB  |   184.0 KB  |    8.7%  |  3
+
+  Buffers (Vec)  -- base allocations making up Used (gaps between ranges = alignment)
+    Name              |  Size       |  Address range            |  Live range
+    ------------------+-------------+-------------------------+------------
+    mem_vec_3         |       32 B  |  [0, 32)                  |  [5, 15]
+    mem_vec_4         |     8.0 KB  |  [32, 8224)               |  [8, 14]
+    mem_vec_5         |     8.0 KB  |  [8224, 16416)            |  [9, 19]

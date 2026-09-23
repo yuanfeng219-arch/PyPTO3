@@ -1,0 +1,1115 @@
+# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+"""Comprehensive tests for IR serialization and deserialization."""
+
+import tempfile
+from pathlib import Path
+from typing import cast
+
+import pypto.language as pl
+import pytest
+from pypto import DataType, ir
+
+
+class TestBasicSerialization:
+    """Tests for basic serialization of simple IR nodes."""
+
+    def test_serialize_var(self):
+        """Test serialization of Var node."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        data = ir.serialize(x)
+        assert isinstance(data, bytes)
+        assert len(data) > 0
+        restored = ir.deserialize(data)
+        ir.assert_structural_equal(x, restored, enable_auto_mapping=True)
+
+    def test_serialize_iter_arg(self):
+        """Test serialization of IterArg node."""
+        init_value = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
+        iter_arg = ir.IterArg("iter_arg", ir.ScalarType(DataType.INT64), init_value, ir.Span.unknown())
+
+        data = ir.serialize(iter_arg)
+        assert isinstance(data, bytes)
+        assert len(data) > 0
+        restored = ir.deserialize(data)
+        restored_iter_arg = cast(ir.IterArg, restored)
+
+        ir.assert_structural_equal(iter_arg, restored, enable_auto_mapping=True)
+        assert restored_iter_arg.name_hint == "iter_arg"
+        assert isinstance(restored_iter_arg.initValue, ir.ConstInt)
+        assert cast(ir.ConstInt, restored_iter_arg.initValue).value == 5
+
+    def test_serialize_iter_arg_with_expr_init_value(self):
+        """Test serialization of IterArg with expression as initValue."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        init_value = ir.Add(x, y, DataType.INT64, ir.Span.unknown())
+        iter_arg = ir.IterArg("iter_arg", ir.ScalarType(DataType.INT64), init_value, ir.Span.unknown())
+
+        data = ir.serialize(iter_arg)
+        restored = ir.deserialize(data)
+        restored_iter_arg = cast(ir.IterArg, restored)
+
+        ir.assert_structural_equal(iter_arg, restored, enable_auto_mapping=True)
+        assert isinstance(restored_iter_arg.initValue, ir.Add)
+
+    def test_serialize_const_int(self):
+        """Test serialization of ConstInt node."""
+        c = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
+
+        data = ir.serialize(c)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(c, restored, enable_auto_mapping=True)
+
+    def test_serialize_const_float(self):
+        """Test serialization of ConstFloat node."""
+        f = ir.ConstFloat(42.0, DataType.FP32, ir.Span.unknown())
+
+        data = ir.serialize(f)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(f, restored, enable_auto_mapping=True)
+
+    def test_serialize_const_bool(self):
+        """Test serialization of ConstBool node."""
+        b_true = ir.ConstBool(True, ir.Span.unknown())
+        b_false = ir.ConstBool(False, ir.Span.unknown())
+
+        data_true = ir.serialize(b_true)
+        restored_true = ir.deserialize(data_true)
+        ir.assert_structural_equal(b_true, restored_true, enable_auto_mapping=True)
+
+        data_false = ir.serialize(b_false)
+        restored_false = ir.deserialize(data_false)
+        ir.assert_structural_equal(b_false, restored_false, enable_auto_mapping=True)
+
+    def test_serialize_binary_expr(self):
+        """Test serialization of binary expressions."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        add = ir.Add(x, y, DataType.INT64, ir.Span.unknown())
+
+        data = ir.serialize(add)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(add, restored, enable_auto_mapping=True)
+
+    def test_serialize_unary_expr(self):
+        """Test serialization of unary expressions."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        neg = ir.Neg(x, DataType.INT64, ir.Span.unknown())
+
+        data = ir.serialize(neg)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(neg, restored, enable_auto_mapping=True)
+
+    def test_serialize_call(self):
+        """Test serialization of Call expression."""
+        op = ir.Op("func")
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        call = ir.Call(op, [x, y], ir.Span.unknown())
+
+        data = ir.serialize(call)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
+
+
+class TestSubmitSerialization:
+    """Round-trip the Submit task-launch node (pl.submit / pl.spmd_submit),
+    including its first-class deps_ and the SPMD launch spec (core_num / sync_start),
+    plus the RuntimeScopeStmt (pl.manual_scope) wrapper it lives inside."""
+
+    @staticmethod
+    def _submit_ret_ty() -> "ir.TupleType":
+        return ir.TupleType([ir.ScalarType(DataType.INDEX), ir.ScalarType(DataType.TASK_ID)])
+
+    def test_serialize_plain_submit(self):
+        """A plain pl.submit (no launch spec): core_num round-trips as None."""
+        span = ir.Span.unknown()
+        gv = ir.GlobalVar("kernel")
+        a = ir.Var("a", ir.ScalarType(DataType.INDEX), span)
+        tid = ir.Var("t", ir.ScalarType(DataType.TASK_ID), span)
+        submit = ir.Submit(gv, [a], [tid], self._submit_ret_ty(), span)
+
+        restored = cast("ir.Submit", ir.deserialize(ir.serialize(submit)))
+        ir.assert_structural_equal(submit, restored, enable_auto_mapping=True)
+        assert restored.core_num is None
+        assert restored.sync_start is False
+        assert len(restored.deps) == 1
+
+    def test_serialize_spmd_submit_launch_spec(self):
+        """pl.spmd_submit: the SPMD launch spec (core_num + sync_start) survives
+        the msgpack round-trip on the Submit's first-class fields."""
+        span = ir.Span.unknown()
+        gv = ir.GlobalVar("kernel")
+        a = ir.Var("a", ir.ScalarType(DataType.INDEX), span)
+        core_num = ir.ConstInt(8, DataType.INDEX, span)
+        submit = ir.Submit(
+            gv, [a], [], {}, None, self._submit_ret_ty(), span, core_num=core_num, sync_start=True
+        )
+
+        restored = cast("ir.Submit", ir.deserialize(ir.serialize(submit)))
+        ir.assert_structural_equal(submit, restored, enable_auto_mapping=True)
+        assert isinstance(restored.core_num, ir.ConstInt)
+        assert restored.core_num.value == 8
+        assert restored.sync_start is True
+
+    def test_serialize_manual_scope_spmd_submit_program(self):
+        """A full @pl.program with `with pl.manual_scope(): out, tid =
+        pl.spmd_submit(...)` round-trips — exercises both RuntimeScopeStmt and
+        the Submit launch spec end-to-end."""
+
+        @pl.program
+        class Prog:
+            @pl.function(type=pl.FunctionType.InCore)
+            def k(
+                self, x: pl.Tensor[[128], pl.FP32], out: pl.Out[pl.Tensor[[128], pl.FP32]]
+            ) -> pl.Tensor[[128], pl.FP32]:
+                t = pl.load(x, [0], [128])
+                out = pl.store(t, [0], out)
+                return out
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def main(
+                self, x: pl.Tensor[[128], pl.FP32], out: pl.Out[pl.Tensor[[128], pl.FP32]]
+            ) -> pl.Tensor[[128], pl.FP32]:
+                with pl.manual_scope():
+                    out, tid = pl.spmd_submit(self.k, x, out, core_num=4, sync_start=True)
+                return out
+
+        restored = ir.deserialize(ir.serialize(Prog))
+        ir.assert_structural_equal(Prog, restored, enable_auto_mapping=True)
+
+
+class TestCommDomainScopeStmtSerialization:
+    """Round-trip the CommDomainScopeStmt scope node synthesized by
+    ``MaterializeCommDomainScopes`` — covers the ``devices`` int-list and
+    ``slots`` WindowBuffer-vector fields the pass adds on top of ScopeStmt.
+
+    Direct construction (mirroring ``tests/ut/ir/core/test_comm_group_schema``)
+    rather than a full pass-driven program: the pass output doesn't print/parse
+    round-trip (see ``test_materialize_comm_domain_scopes`` autouse fixture),
+    so an end-to-end ``@pl.program`` test would collide with the global
+    roundtrip verification instrument. Direct construction exercises the same
+    serializer/deserializer dispatch entries without that conflict."""
+
+    @staticmethod
+    def _window_buffer(name: str, size: int) -> ir.WindowBuffer:
+        base = ir.Var(name, ir.PtrType(), ir.Span.unknown())
+        sz = ir.ConstInt(size, DataType.INDEX, ir.Span.unknown())
+        return ir.WindowBuffer(base, sz)
+
+    @staticmethod
+    def _scope(devices: list[int], slots: list[ir.WindowBuffer]) -> ir.CommDomainScopeStmt:
+        body = ir.SeqStmts([], ir.Span.unknown())
+        return ir.CommDomainScopeStmt(devices, slots, "g0", body=body, span=ir.Span.unknown())
+
+    def test_serialize_comm_domain_scope_subset_devices(self):
+        """A subset ``devices`` list with one slot round-trips: the int64 list
+        and the WindowBuffer slot survive the dispatch + reflection path."""
+        wb = self._window_buffer("buf", 1024)
+        scope = self._scope([0, 1], [wb])
+
+        restored = cast(ir.CommDomainScopeStmt, ir.deserialize(ir.serialize(scope)))
+        ir.assert_structural_equal(scope, restored, enable_auto_mapping=True)
+        assert list(restored.devices) == [0, 1]
+        assert len(restored.slots) == 1
+        assert restored.slots[0].name_hint == "buf"
+        assert cast(ir.ConstInt, restored.slots[0].size).value == 1024
+        assert restored.name_hint == "g0"
+
+    def test_serialize_comm_domain_scope_all_devices_empty_list(self):
+        """``devices=[]`` is the wire-encoding for kAll — distinct from a
+        non-empty subset list and must survive the round-trip as empty."""
+        scope = self._scope([], [self._window_buffer("buf", 512)])
+
+        restored = cast(ir.CommDomainScopeStmt, ir.deserialize(ir.serialize(scope)))
+        ir.assert_structural_equal(scope, restored, enable_auto_mapping=True)
+        assert list(restored.devices) == []
+
+    def test_serialize_comm_domain_scope_multi_slot(self):
+        """Slot order is alloc-order and load-bearing for codegen — multiple
+        slots must come back in the same sequence."""
+        slots = [
+            self._window_buffer("a", 256),
+            self._window_buffer("b", 512),
+            self._window_buffer("c", 1024),
+        ]
+        scope = self._scope([0, 1, 2, 3], slots)
+
+        restored = cast(ir.CommDomainScopeStmt, ir.deserialize(ir.serialize(scope)))
+        ir.assert_structural_equal(scope, restored, enable_auto_mapping=True)
+        assert [s.name_hint for s in restored.slots] == ["a", "b", "c"]
+        assert [cast(ir.ConstInt, s.size).value for s in restored.slots] == [256, 512, 1024]
+
+
+class TestCapturedScopeAttrSerialization:
+    """Round-trip un-outlined captured/deps scopes whose ScopeStmt.attrs_ carry the
+    reserved Var-valued attrs ``task_id_var`` (a ``VarPtr``) and ``manual_dep_edges``
+    (a ``std::vector<VarPtr>``).
+
+    Before the serializer learned these attr value types, ``ir.serialize`` of such a
+    program aborted with ``TypeError: Invalid kwarg type for key: task_id_var``. The
+    captured Var also round-trips by identity: the producer TaskId bound by one scope
+    (``as tid``) is the same Var object referenced by a later scope's ``deps=[tid]``,
+    so ``assert_structural_equal`` validates both that the attrs survive and that the
+    Var-identity edge between scopes is preserved.
+    """
+
+    def test_serialize_at_capture_and_deps_chain(self):
+        """``with pl.at(...) as tid0:`` then ``with pl.at(..., deps=[tid0]):`` —
+        the issue's exact repro. Exercises ``task_id_var`` + ``manual_dep_edges`` on
+        the un-outlined InCore-family scopes (no outlining runs, so the attrs are
+        still on the ScopeStmt, not yet folded into an ``ir.Submit``)."""
+
+        @pl.program
+        class AtProg:
+            @pl.function
+            def main(self, x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+                with pl.at(level=pl.Level.CORE_GROUP) as tid0:
+                    y: pl.Tensor[[64], pl.FP32] = pl.add(x, x)
+                with pl.at(level=pl.Level.CORE_GROUP, deps=[tid0]) as tid1:  # noqa: F841
+                    z: pl.Tensor[[64], pl.FP32] = pl.mul(y, y)
+                return z
+
+        restored = ir.deserialize(ir.serialize(AtProg))
+        ir.assert_structural_equal(AtProg, restored, enable_auto_mapping=True)
+
+    def test_serialize_spmd_capture_and_deps_chain(self):
+        """``with pl.spmd(...) as tid0:`` then ``with pl.spmd(..., deps=[tid0]):`` —
+        the same capture/deps attrs on un-outlined ``SpmdScopeStmt`` nodes."""
+
+        @pl.program
+        class SpmdProg:
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def main(
+                self,
+                a: pl.Tensor[[512, 128], pl.FP32],
+                out: pl.Out[pl.Tensor[[512, 128], pl.FP32]],
+            ) -> pl.Tensor[[512, 128], pl.FP32]:
+                with pl.spmd(4, name_hint="stage1") as tid0:
+                    i = pl.tile.get_block_idx()
+                    t: pl.Tile[[128, 128], pl.FP32] = pl.load(a, [i * 128, 0], [128, 128])
+                    out = pl.store(t, [i * 128, 0], out)
+                with pl.spmd(4, name_hint="stage2", deps=[tid0]) as tid1:  # noqa: F841
+                    j = pl.tile.get_block_idx()
+                    u: pl.Tile[[128, 128], pl.FP32] = pl.load(out, [j * 128, 0], [128, 128])
+                    out = pl.store(pl.add(u, u), [j * 128, 0], out)
+                return out
+
+        restored = ir.deserialize(ir.serialize(SpmdProg))
+        ir.assert_structural_equal(SpmdProg, restored, enable_auto_mapping=True)
+
+
+class TestExtendedAttrSerialization:
+    """Round-trip the remaining non-scalar call/scope attr value types that the
+    serializer's type ladder originally omitted (while ``structural_equal`` already
+    handled them): ``arg_direction_overrides`` (a ``std::vector<int32_t>`` no_dep
+    index list) and ``device`` (an ``ExprPtr`` placement expression). Both aborted
+    serialization with ``Invalid kwarg type for key: ...`` before these branches
+    were added."""
+
+    def test_serialize_call_with_arg_direction_overrides(self):
+        """``arg_direction_overrides`` (``std::vector<int32_t>``) round-trips as an
+        int list; structural-equal validates both the type and the values."""
+        op = ir.Op("kernel")
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        call = ir.Call(
+            op,
+            [x, y],
+            {},
+            {"arg_direction_overrides": [0, 1]},
+            ir.ScalarType(DataType.INT64),
+            ir.Span.unknown(),
+        )
+
+        restored = cast(ir.Call, ir.deserialize(ir.serialize(call)))
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
+        assert restored.attrs["arg_direction_overrides"] == [0, 1]
+
+    def test_serialize_call_with_device_expr_attr(self):
+        """``device`` (an ``ExprPtr``) round-trips through the node-reference path.
+        The device expression references arg ``x``, so the restored ExprPtr must
+        resolve to the *same* Var object as the call arg — structural-equal checks
+        that cross-reference identity via its Var map."""
+        span = ir.Span.unknown()
+        op = ir.Op("kernel")
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
+        device = ir.Add(x, ir.ConstInt(1, DataType.INT64, span), DataType.INT64, span)
+        call = ir.Call(op, [x], {}, {"device": device}, ir.ScalarType(DataType.INT64), span)
+
+        restored = ir.deserialize(ir.serialize(call))
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
+
+
+class TestComplexExpressions:
+    """Tests for serialization of complex nested expressions."""
+
+    def test_serialize_nested_arithmetic(self):
+        """Test serialization of nested arithmetic expression: (x + 5) * 2."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        c5 = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
+        c2 = ir.ConstInt(2, DataType.INT64, ir.Span.unknown())
+
+        add = ir.Add(x, c5, DataType.INT64, ir.Span.unknown())
+        mul = ir.Mul(add, c2, DataType.INT64, ir.Span.unknown())
+
+        data = ir.serialize(mul)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(mul, restored, enable_auto_mapping=True)
+
+    def test_serialize_deeply_nested(self):
+        """Test serialization of deeply nested expression."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+        c2 = ir.ConstInt(2, DataType.INT64, ir.Span.unknown())
+        c3 = ir.ConstInt(3, DataType.INT64, ir.Span.unknown())
+        c4 = ir.ConstInt(4, DataType.INT64, ir.Span.unknown())
+
+        # Build: (((x + 1) - 2) * 3) / 4
+        expr = ir.FloatDiv(
+            ir.Mul(
+                ir.Sub(
+                    ir.Add(x, c1, DataType.INT64, ir.Span.unknown()),
+                    c2,
+                    DataType.INT64,
+                    ir.Span.unknown(),
+                ),
+                c3,
+                DataType.INT64,
+                ir.Span.unknown(),
+            ),
+            c4,
+            DataType.INT64,
+            ir.Span.unknown(),
+        )
+
+        data = ir.serialize(expr)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
+
+
+class TestPointerSharing:
+    """Tests for preserving pointer sharing during serialization."""
+
+    def test_shared_var_in_expression(self):
+        """Test that shared variable pointer is preserved: x + x."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        add = ir.Add(x, x, DataType.INT64, ir.Span.unknown())  # Same x used twice
+
+        data = ir.serialize(add)
+        restored = ir.deserialize(data)
+        restored_add = cast(ir.Add, restored)
+
+        # Check structural equality
+        ir.assert_structural_equal(add, restored_add, enable_auto_mapping=True)
+
+        # Check that the left and right operands are the same object
+        # In the restored version, they should also be the same object
+        assert restored_add.left is restored_add.right
+
+    def test_shared_subexpression(self):
+        """Test that shared subexpression pointer is preserved."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+
+        # Create shared subexpression: x + 1
+        sub = ir.Add(x, c1, DataType.INT64, ir.Span.unknown())
+
+        # Use it twice: (x+1) * (x+1)
+        mul = ir.Mul(sub, sub, DataType.INT64, ir.Span.unknown())
+
+        data = ir.serialize(mul)
+        restored = ir.deserialize(data)
+        restored_mul = cast(ir.Mul, restored)
+
+        # Check structural equality
+        ir.assert_structural_equal(mul, restored_mul, enable_auto_mapping=True)
+
+        # Check that left and right are the same object
+        assert restored_mul.left is restored_mul.right
+
+    def test_complex_pointer_sharing(self):
+        """Test complex pointer sharing with multiple shared nodes."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        # Create: (x + y) and reuse it
+        add = ir.Add(x, y, DataType.INT64, ir.Span.unknown())
+
+        # Create: (x + y) * x
+        mul1 = ir.Mul(add, x, DataType.INT64, ir.Span.unknown())
+
+        # Create: (x + y) + y
+        add2 = ir.Add(add, y, DataType.INT64, ir.Span.unknown())
+
+        # Combine: ((x + y) * x) - ((x + y) + y)
+        sub = ir.Sub(mul1, add2, DataType.INT64, ir.Span.unknown())
+
+        data = ir.serialize(sub)
+        restored = ir.deserialize(data)
+        restored_sub = cast(ir.Sub, restored)
+
+        # Check structural equality
+        ir.assert_structural_equal(sub, restored_sub, enable_auto_mapping=True)
+
+        # Verify pointer sharing is preserved
+        # mul1.left and add2.left should be the same object (the original 'add')
+        assert cast(ir.Add, restored_sub.left).left is cast(ir.Add, restored_sub.right).left
+
+
+class TestStatementSerialization:
+    """Tests for statement serialization."""
+
+    def test_serialize_assign_stmt(self):
+        """Test serialization of AssignStmt."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        assign = ir.AssignStmt(x, y, ir.Span.unknown())
+
+        data = ir.serialize(assign)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(assign, restored, enable_auto_mapping=True)
+
+    def test_serialize_if_stmt(self):
+        """Test serialization of IfStmt."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        z = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        cond = ir.Gt(x, y, DataType.INT64, ir.Span.unknown())
+        then_body = ir.AssignStmt(z, x, ir.Span.unknown())
+        else_body = ir.AssignStmt(z, y, ir.Span.unknown())
+
+        if_stmt = ir.IfStmt(cond, then_body, else_body, [], ir.Span.unknown())
+
+        data = ir.serialize(if_stmt)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(if_stmt, restored, enable_auto_mapping=True)
+
+    def test_serialize_if_stmt_with_nullopt_else_body(self):
+        """Test serialization of IfStmt with nullopt else_body."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        z = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        cond = ir.Gt(x, y, DataType.INT64, ir.Span.unknown())
+        then_body = ir.AssignStmt(z, x, ir.Span.unknown())
+
+        # IfStmt with nullopt else_body (using constructor that only takes then_body)
+        if_stmt = ir.IfStmt(cond, then_body, None, [], ir.Span.unknown())
+
+        data = ir.serialize(if_stmt)
+        restored = ir.deserialize(data)
+        restored_if_stmt = cast(ir.IfStmt, restored)
+
+        # Check structural equality
+        ir.assert_structural_equal(if_stmt, restored, enable_auto_mapping=True)
+
+        # Verify that else_body is None in the restored version
+        assert restored_if_stmt.else_body is None
+
+    def test_serialize_for_stmt(self):
+        """Test serialization of ForStmt."""
+        i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        start = ir.ConstInt(0, DataType.INT64, ir.Span.unknown())
+        stop = ir.ConstInt(10, DataType.INT64, ir.Span.unknown())
+        step = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+
+        body = ir.AssignStmt(x, ir.Add(x, i, DataType.INT64, ir.Span.unknown()), ir.Span.unknown())
+
+        for_stmt = ir.ForStmt(i, start, stop, step, [], body, [], ir.Span.unknown())
+
+        data = ir.serialize(for_stmt)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(for_stmt, restored)
+
+    def test_serialize_for_stmt_with_iter_args(self):
+        """Test serialization of ForStmt with iter_args."""
+        i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        start = ir.ConstInt(0, DataType.INT64, ir.Span.unknown())
+        stop = ir.ConstInt(10, DataType.INT64, ir.Span.unknown())
+        step = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+
+        # Create IterArg instances
+        init_value1 = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
+        iter_arg1 = ir.IterArg("arg1", ir.ScalarType(DataType.INT64), init_value1, ir.Span.unknown())
+
+        init_value2 = x
+        iter_arg2 = ir.IterArg("arg2", ir.ScalarType(DataType.INT64), init_value2, ir.Span.unknown())
+
+        body = ir.AssignStmt(x, ir.Add(x, i, DataType.INT64, ir.Span.unknown()), ir.Span.unknown())
+
+        for_stmt = ir.ForStmt(i, start, stop, step, [iter_arg1, iter_arg2], body, [], ir.Span.unknown())
+
+        data = ir.serialize(for_stmt)
+        restored = ir.deserialize(data)
+        restored_for_stmt = cast(ir.ForStmt, restored)
+
+        ir.assert_structural_equal(for_stmt, restored)
+        assert len(restored_for_stmt.iter_args) == 2
+        assert restored_for_stmt.iter_args[0].name_hint == "arg1"
+        assert restored_for_stmt.iter_args[1].name_hint == "arg2"
+        assert isinstance(restored_for_stmt.iter_args[0].initValue, ir.ConstInt)
+        assert isinstance(restored_for_stmt.iter_args[1].initValue, ir.Var)
+
+    def test_serialize_for_stmt_with_empty_iter_args(self):
+        """Test serialization of ForStmt with empty iter_args."""
+        i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        start = ir.ConstInt(0, DataType.INT64, ir.Span.unknown())
+        stop = ir.ConstInt(10, DataType.INT64, ir.Span.unknown())
+        step = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+
+        body = ir.AssignStmt(x, ir.Add(x, i, DataType.INT64, ir.Span.unknown()), ir.Span.unknown())
+
+        for_stmt = ir.ForStmt(i, start, stop, step, [], body, [], ir.Span.unknown())
+
+        data = ir.serialize(for_stmt)
+        restored = ir.deserialize(data)
+        restored_for_stmt = cast(ir.ForStmt, restored)
+
+        ir.assert_structural_equal(for_stmt, restored)
+        assert len(restored_for_stmt.iter_args) == 0
+
+    def test_serialize_yield_stmt(self):
+        """Test serialization of YieldStmt."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        yield_stmt = ir.YieldStmt([x, y], ir.Span.unknown())
+
+        data = ir.serialize(yield_stmt)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(yield_stmt, restored, enable_auto_mapping=True)
+
+    def test_serialize_return_stmt(self):
+        """Test serialization of ReturnStmt."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        return_stmt = ir.ReturnStmt([x, y], ir.Span.unknown())
+
+        data = ir.serialize(return_stmt)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
+
+    def test_serialize_return_stmt_with_single_value(self):
+        """Test serialization of ReturnStmt with single value."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        return_stmt = ir.ReturnStmt([x], ir.Span.unknown())
+
+        data = ir.serialize(return_stmt)
+        restored = ir.deserialize(data)
+        restored_return = cast(ir.ReturnStmt, restored)
+
+        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
+        assert len(restored_return.value) == 1
+
+    def test_serialize_return_stmt_empty(self):
+        """Test serialization of ReturnStmt without values."""
+        return_stmt = ir.ReturnStmt([], ir.Span.unknown())
+
+        data = ir.serialize(return_stmt)
+        restored = ir.deserialize(data)
+        restored_return = cast(ir.ReturnStmt, restored)
+
+        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
+        assert len(restored_return.value) == 0
+
+    def test_serialize_return_stmt_with_expressions(self):
+        """Test serialization of ReturnStmt with complex expressions."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        # Return with binary expression
+        add_expr = ir.Add(x, y, DataType.INT64, ir.Span.unknown())
+        return_stmt = ir.ReturnStmt([add_expr], ir.Span.unknown())
+
+        data = ir.serialize(return_stmt)
+        restored = ir.deserialize(data)
+        restored_return = cast(ir.ReturnStmt, restored)
+
+        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
+        assert len(restored_return.value) == 1
+        assert isinstance(restored_return.value[0], ir.Add)
+
+    def test_serialize_return_stmt_multiple_expressions(self):
+        """Test serialization of ReturnStmt with multiple different expressions."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        c = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
+        add_expr = ir.Add(x, c, DataType.INT64, ir.Span.unknown())
+
+        return_stmt = ir.ReturnStmt([x, c, add_expr], ir.Span.unknown())
+
+        data = ir.serialize(return_stmt)
+        restored = ir.deserialize(data)
+        restored_return = cast(ir.ReturnStmt, restored)
+
+        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
+        assert len(restored_return.value) == 3
+        assert isinstance(restored_return.value[0], ir.Var)
+        assert isinstance(restored_return.value[1], ir.ConstInt)
+        assert isinstance(restored_return.value[2], ir.Add)
+
+    def test_serialize_seq_stmts(self):
+        """Test serialization of SeqStmts."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        z = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        stmts: list[ir.Stmt] = [
+            ir.AssignStmt(x, ir.ConstInt(1, DataType.INT64, ir.Span.unknown()), ir.Span.unknown()),
+            ir.AssignStmt(y, ir.ConstInt(2, DataType.INT64, ir.Span.unknown()), ir.Span.unknown()),
+            ir.AssignStmt(z, ir.Add(x, y, DataType.INT64, ir.Span.unknown()), ir.Span.unknown()),
+        ]
+
+        seq = ir.SeqStmts(stmts, ir.Span.unknown())
+
+        data = ir.serialize(seq)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(seq, restored)
+
+
+class TestFunctionSerialization:
+    """Tests for Function and Program serialization."""
+
+    def test_serialize_function(self):
+        """Test serialization of Function."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        result = ir.Var("result", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        body = ir.SeqStmts(
+            [
+                ir.AssignStmt(result, ir.Add(x, y, DataType.INT64, ir.Span.unknown()), ir.Span.unknown()),
+                ir.YieldStmt([result], ir.Span.unknown()),
+            ],
+            ir.Span.unknown(),
+        )
+
+        func = ir.Function(
+            "add_func",
+            [x, y],
+            [ir.ScalarType(DataType.INT64)],
+            body,
+            ir.Span.unknown(),
+            ir.FunctionType.InCore,
+        )
+
+        data = ir.serialize(func)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(func, restored)
+
+    def test_serialize_function_with_return_stmt(self):
+        """Test serialization of Function with ReturnStmt."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        # Function body with return statement
+        body = ir.ReturnStmt([ir.Add(x, y, DataType.INT64, ir.Span.unknown())], ir.Span.unknown())
+
+        func = ir.Function(
+            "add_return",
+            [x, y],
+            [ir.ScalarType(DataType.INT64)],
+            body,
+            ir.Span.unknown(),
+            ir.FunctionType.InCore,
+        )
+
+        data = ir.serialize(func)
+        restored = ir.deserialize(data)
+        restored_func = cast(ir.Function, restored)
+
+        ir.assert_structural_equal(func, restored)
+        assert isinstance(restored_func.body, ir.ReturnStmt)
+        assert len(cast(ir.ReturnStmt, restored_func.body).value) == 1
+
+    def test_serialize_program(self):
+        """Test serialization of Program."""
+        # Create a simple function
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        body = ir.YieldStmt([x], ir.Span.unknown())
+
+        func = ir.Function(
+            "identity", [x], [ir.ScalarType(DataType.INT64)], body, ir.Span.unknown(), ir.FunctionType.InCore
+        )
+
+        program = ir.Program([func], "test_program", ir.Span.unknown())
+
+        data = ir.serialize(program)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(program, restored)
+
+
+class TestSpanSerialization:
+    """Tests for Span serialization."""
+
+    def test_serialize_with_span(self):
+        """Test that Span information is preserved."""
+        span = ir.Span("test.py", 10, 5, 10, 15)
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
+
+        data = ir.serialize(x)
+        restored = ir.deserialize(data)
+
+        # Span fields should be preserved
+        assert restored.span.filename == "test.py"
+        assert restored.span.begin_line == 10
+        assert restored.span.begin_column == 5
+        assert restored.span.end_line == 10
+        assert restored.span.end_column == 15
+
+
+class TestFileSerialization:
+    """Tests for file I/O serialization."""
+
+    def test_serialize_to_file(self):
+        """Test serialization to and from file."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        c = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
+        add = ir.Add(x, c, DataType.INT64, ir.Span.unknown())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = Path(tmpdir) / "test.msgpack"
+
+            # Serialize to file
+            ir.serialize_to_file(add, str(filepath))
+
+            # Verify file exists
+            assert filepath.exists()
+            assert filepath.stat().st_size > 0
+
+            # Deserialize from file
+            restored = ir.deserialize_from_file(str(filepath))
+
+            # Verify equality
+            ir.assert_structural_equal(add, restored, enable_auto_mapping=True)
+
+
+class TestEdgeCases:
+    """Tests for edge cases and special scenarios."""
+
+    def test_serialize_all_binary_ops(self):
+        """Test serialization of all binary operation types."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        ops = [
+            ir.Add,
+            ir.Sub,
+            ir.Mul,
+            ir.FloorDiv,
+            ir.FloorMod,
+            ir.FloatDiv,
+            ir.Min,
+            ir.Max,
+            ir.Pow,
+            ir.Eq,
+            ir.Ne,
+            ir.Lt,
+            ir.Le,
+            ir.Gt,
+            ir.Ge,
+            ir.And,
+            ir.Or,
+            ir.Xor,
+            ir.BitAnd,
+            ir.BitOr,
+            ir.BitXor,
+            ir.BitShiftLeft,
+            ir.BitShiftRight,
+        ]
+
+        for op_class in ops:
+            expr = op_class(x, y, DataType.INT64, ir.Span.unknown())
+            data = ir.serialize(expr)
+            restored = ir.deserialize(data)
+            ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
+
+    def test_serialize_all_unary_ops(self):
+        """Test serialization of all unary operation types."""
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+
+        ops = [ir.Abs, ir.Neg, ir.Not, ir.BitNot]
+
+        for op_class in ops:
+            expr = op_class(x, DataType.INT64, ir.Span.unknown())
+            data = ir.serialize(expr)
+            restored = ir.deserialize(data)
+            ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
+
+    def test_serialize_empty_collections(self):
+        """Test serialization with empty collections."""
+        # YieldStmt with empty value list
+        yield_empty = ir.YieldStmt([], ir.Span.unknown())
+        data = ir.serialize(yield_empty)
+        restored = ir.deserialize(data)
+        ir.assert_structural_equal(yield_empty, restored, enable_auto_mapping=True)
+
+        # ReturnStmt with empty value list
+        return_empty = ir.ReturnStmt([], ir.Span.unknown())
+        data = ir.serialize(return_empty)
+        restored = ir.deserialize(data)
+        ir.assert_structural_equal(return_empty, restored, enable_auto_mapping=True)
+
+        # Call with empty args
+        op = ir.Op("func")
+        call_empty = ir.Call(op, [], ir.Span.unknown())
+        data = ir.serialize(call_empty)
+        restored = ir.deserialize(data)
+        ir.assert_structural_equal(call_empty, restored, enable_auto_mapping=True)
+
+        # ForStmt with empty iter_args
+        i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        start = ir.ConstInt(0, DataType.INT64, ir.Span.unknown())
+        stop = ir.ConstInt(10, DataType.INT64, ir.Span.unknown())
+        step = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+        body = ir.AssignStmt(i, start, ir.Span.unknown())
+        for_stmt_empty = ir.ForStmt(i, start, stop, step, [], body, [], ir.Span.unknown())
+        data = ir.serialize(for_stmt_empty)
+        restored = ir.deserialize(data)
+        ir.assert_structural_equal(for_stmt_empty, restored)
+
+    def test_serialize_global_var(self):
+        """Test serialization of GlobalVar in Call."""
+        gvar = ir.GlobalVar("my_func")
+        x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        call = ir.Call(gvar, [x], ir.Span.unknown())
+
+        data = ir.serialize(call)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
+
+    def test_serialize_call_with_padvalue_kwarg(self):
+        """Test serialization of Call kwargs containing PadValue."""
+        span = ir.Span.unknown()
+        dim8 = ir.ConstInt(8, DataType.INT32, span)
+        tile_type = ir.TileType([dim8, dim8], DataType.FP32)
+        tile = ir.Var("tile", tile_type, span)
+        call = ir.Call(ir.get_op("tile.fillpad"), [tile], {"pad_value": ir.PadValue.min}, tile_type, span)
+
+        data = ir.serialize(call)
+        restored = ir.deserialize(data)
+
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
+
+
+class TestRobustness:
+    """Tests for error handling and robustness."""
+
+    def test_deserialize_invalid_data(self):
+        """Test that deserializing invalid data raises an error."""
+        invalid_data = b"invalid msgpack data"
+
+        with pytest.raises(ValueError):  # Should raise some kind of error
+            ir.deserialize(invalid_data)
+
+    def test_deserialize_nonexistent_file(self):
+        """Test that deserializing from nonexistent file raises an error."""
+        with pytest.raises(ValueError):
+            ir.deserialize_from_file("/nonexistent/path/file.msgpack")
+
+
+class TestTypeSerialization:
+    """Tests for type serialization, especially optional fields."""
+
+    def test_tiletype_memory_space_survives_round_trip(self):
+        """TileType memory_space is preserved through serialize/deserialize."""
+        # Create a Var with TileType that has memory_space set
+        shape = [
+            ir.ConstInt(16, DataType.INT64, ir.Span.unknown()),
+            ir.ConstInt(16, DataType.INT64, ir.Span.unknown()),
+        ]
+        memory_space = ir.MemorySpace.Mat
+        tile_type = ir.TileType(shape, DataType.FP32, None, None, memory_space)
+
+        # Create a Var with this TileType
+        var = ir.Var("tile_var", tile_type, ir.Span.unknown())
+
+        # Serialize and deserialize
+        serialized = ir.serialize(var)
+        restored = ir.deserialize(serialized)
+        restored_var = cast(ir.Var, restored)
+
+        # Verify memory_space is preserved in the TileType
+        restored_tile_type = restored_var.type
+        assert isinstance(restored_tile_type, ir.TileType)
+        assert restored_tile_type.memory_space == memory_space
+
+        # Verify structural equality
+        ir.assert_structural_equal(var, restored_var, enable_auto_mapping=True)
+
+    def test_tiletype_without_memory_space_survives_round_trip(self):
+        """TileType without memory_space (nullopt) survives round-trip."""
+        # Create a Var with TileType without memory_space
+        shape = [
+            ir.ConstInt(16, DataType.INT64, ir.Span.unknown()),
+            ir.ConstInt(16, DataType.INT64, ir.Span.unknown()),
+        ]
+        tile_type = ir.TileType(shape, DataType.FP32)
+
+        # Create a Var with this TileType
+        var = ir.Var("tile_var", tile_type, ir.Span.unknown())
+
+        # Serialize and deserialize
+        serialized = ir.serialize(var)
+        restored = ir.deserialize(serialized)
+        restored_var = cast(ir.Var, restored)
+
+        # Verify memory_space is still nullopt
+        restored_tile_type = restored_var.type
+        assert isinstance(restored_tile_type, ir.TileType)
+        assert restored_tile_type.memory_space is None
+
+        # Verify structural equality
+        ir.assert_structural_equal(var, restored_var, enable_auto_mapping=True)
+
+    def test_tensortype_tensorview_pad_survives_round_trip(self):
+        """TensorView::pad is preserved through serialize/deserialize."""
+        span = ir.Span.unknown()
+        shape = [
+            ir.ConstInt(16, DataType.INT64, span),
+            ir.ConstInt(16, DataType.INT64, span),
+        ]
+        tensor_view = ir.TensorView(
+            stride=[],
+            layout=ir.TensorLayout.ND,
+            pad=ir.PadValue.zero,
+        )
+        tensor_type = ir.TensorType(shape, DataType.FP32, None, tensor_view)
+        var = ir.Var("tensor_var", tensor_type, span)
+
+        serialized = ir.serialize(var)
+        restored = ir.deserialize(serialized)
+        restored_var = cast(ir.Var, restored)
+
+        restored_tensor_type = restored_var.type
+        assert isinstance(restored_tensor_type, ir.TensorType)
+        assert restored_tensor_type.tensor_view is not None
+        assert restored_tensor_type.tensor_view.pad == ir.PadValue.zero
+
+        ir.assert_structural_equal(var, restored_var, enable_auto_mapping=True)
+
+    def test_tiletype_with_memref_and_memory_space(self):
+        """TileType with both memref and memory_space preserves both."""
+        # Create MemRef
+        addr = ir.ConstInt(0, DataType.INT64, ir.Span.unknown())
+        memref = ir.MemRef(ir.MemorySpace.Vec, addr, 256, 1)
+
+        # Create TileType with both memref and memory_space
+        shape = [
+            ir.ConstInt(16, DataType.INT64, ir.Span.unknown()),
+            ir.ConstInt(16, DataType.INT64, ir.Span.unknown()),
+        ]
+        memory_space = ir.MemorySpace.Acc
+        tile_type = ir.TileType(shape, DataType.FP32, memref, None, memory_space)
+
+        # Create a Var with this TileType
+        var = ir.Var("tile_var", tile_type, ir.Span.unknown())
+
+        # Serialize and deserialize
+        serialized = ir.serialize(var)
+        restored = ir.deserialize(serialized)
+        restored_var = cast(ir.Var, restored)
+
+        # Verify both memref and memory_space are preserved
+        restored_tile_type = restored_var.type
+        assert isinstance(restored_tile_type, ir.TileType)
+        assert restored_tile_type.memref is not None
+        assert restored_tile_type.memory_space == memory_space
+
+        # Verify structural equality
+        ir.assert_structural_equal(var, restored_var, enable_auto_mapping=True)
+
+
+class TestLeadingCommentsRoundTrip:
+    """Stmt.leading_comments metadata survives serialize/deserialize."""
+
+    def _make_assign_with_comments(self, comments: list[str]) -> ir.Stmt:
+        var = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        value = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+        stmt = ir.AssignStmt(var, value, ir.Span.unknown())
+        return ir.attach_leading_comments(stmt, comments)
+
+    def test_single_comment_survives(self):
+        stmt = self._make_assign_with_comments(["note"])
+        restored = cast(ir.Stmt, ir.deserialize(ir.serialize(stmt)))
+        assert list(restored.leading_comments) == ["note"]
+
+    def test_multiple_comments_survive(self):
+        stmt = self._make_assign_with_comments(["first", "second", "third"])
+        restored = cast(ir.Stmt, ir.deserialize(ir.serialize(stmt)))
+        assert list(restored.leading_comments) == ["first", "second", "third"]
+
+    def test_empty_comments(self):
+        var = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
+        value = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
+        stmt = ir.AssignStmt(var, value, ir.Span.unknown())
+        restored = cast(ir.Stmt, ir.deserialize(ir.serialize(stmt)))
+        assert list(restored.leading_comments) == []
+
+    def test_comments_on_nested_stmts(self):
+        import pypto.language as pl  # noqa: PLC0415 — local import keeps top-level test deps minimal
+
+        @pl.program
+        class P:
+            @pl.function
+            def main(self, x: pl.Scalar[pl.FP32]) -> pl.Scalar[pl.FP32]:
+                # outer
+                for _i in pl.range(4):  # header
+                    # body
+                    x = x + 1.0
+                return x
+
+        restored = cast(ir.Program, ir.deserialize(ir.serialize(P)))
+
+        def _collect(stmt: ir.Stmt) -> list[list[str]]:
+            out: list[list[str]] = []
+            if isinstance(stmt, ir.SeqStmts):
+                for s in stmt.stmts:
+                    out.extend(_collect(s))
+            else:
+                out.append(list(stmt.leading_comments))
+                if isinstance(stmt, ir.ForStmt):
+                    out.extend(_collect(stmt.body))
+            return out
+
+        func = list(restored.functions.values())[0]
+        assert ["outer", "header"] in _collect(func.body)
+        assert ["body"] in _collect(func.body)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

@@ -1,0 +1,425 @@
+/*
+ * Module-local layout for Ascend Memory Studio.
+ * Visual language (color / radius / surface / typography) comes from PTO tokens.
+ * Only layout + a couple of data-viz encodings live here.
+ */
+
+/* ---- standalone full-viewport shell ----
+ * The ide-frame pattern ships as a 4:3 floating card meant to sit inside a
+ * preview container. For a standalone app page we pin it to the viewport,
+ * following the canonical treatment in pto-typical-ide-frame.html. */
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ide-frame-page-bg);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+* { box-sizing: border-box; }
+
+.pto-ide-frame[data-host="standalone"] {
+  width: 100vw;
+  height: 100vh;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mv-title {
+  font-size: var(--font-size-title-sm, 16px);
+  font-weight: 600;
+  color: var(--foreground);
+}
+.mv-title-sub {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-body-sm, 12px);
+  color: var(--foreground-muted);
+}
+
+/* hosts fill their panes */
+.mv-viewer-host,
+.mv-swimlane-host {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.mv-swimlane-host {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---- explorer ---- */
+#mv-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+.mv-group-label {
+  font-size: var(--font-size-label-xs, 11px);
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-label, 0.5px);
+  text-transform: uppercase;
+  color: var(--foreground-muted);
+  padding: 0 var(--space-1);
+}
+.mv-kernel-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.mv-kernel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.mv-kernel:hover {
+  background: var(--surface-2);
+}
+.mv-kernel.is-selected {
+  background: var(--surface-4);
+}
+.mv-kernel__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: var(--radius-pill);
+  flex: 0 0 auto;
+}
+.mv-kernel__name {
+  font-size: var(--font-size-body-md, 14px);
+  color: var(--foreground);
+}
+.mv-kernel__sub {
+  font-size: var(--font-size-body-sm, 12px);
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+}
+
+/* space legend */
+.mv-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.mv-legend__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-body-sm, 12px);
+  color: var(--foreground-secondary);
+}
+.mv-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+/* ---- inspector helpers (compose the shared inspector-section classes) ---- */
+.mv-kv {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-body-sm, 12px);
+}
+.mv-kv .k { color: var(--foreground-muted); }
+.mv-kv .v {
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+.mv-meterbar {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+  margin: var(--space-2) 0 var(--space-1);
+}
+.mv-meterbar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--radius-pill);
+}
+.mv-meterbar__cap {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--danger);
+}
+.mv-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--font-size-body-sm, 12px);
+  color: var(--foreground-secondary);
+  padding: 2px 0;
+}
+.mv-metric-row b {
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.mv-hint {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.mv-hint__code {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.mv-hint__msg {
+  font-size: var(--font-size-body-sm, 12px);
+  line-height: 1.5;
+  color: var(--foreground-secondary);
+}
+.mv-hint__src {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--primary);
+  cursor: pointer;
+}
+.mv-hint__src:hover { text-decoration: underline; }
+
+.mv-code {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  background: var(--background-elevated);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--foreground-secondary);
+  white-space: pre;
+  overflow-x: auto;
+}
+.mv-code .ln {
+  display: inline-block;
+  width: 26px;
+  text-align: right;
+  margin-right: var(--space-2);
+  color: var(--foreground-disabled);
+  user-select: none;
+}
+.mv-code .hot {
+  display: block;
+  margin: 0 calc(-1 * var(--space-3));
+  padding: 0 var(--space-3);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+}
+.mv-code .cm { color: var(--foreground-muted); }
+.mv-code .op { color: var(--primary-hover); }
+
+.mv-reuse-tag {
+  display: inline-block;
+  margin: 2px 4px 0 0;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--surface-3);
+  color: var(--foreground-secondary);
+}
+
+/* diff table */
+.mv-diff-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-body-sm, 12px);
+  border-top: 0.5px solid var(--border-subtle);
+}
+.mv-diff-row:first-child { border-top: none; }
+.mv-diff-row .lbl { color: var(--foreground-secondary); }
+.mv-diff-row .num { font-family: var(--font-mono); color: var(--foreground-muted); }
+.mv-diff-row .delta { font-family: var(--font-mono); font-weight: 500; }
+.mv-ab {
+  display: inline-flex;
+  gap: 0;
+  margin-left: var(--space-2);
+}
+
+.mv-empty {
+  font-size: var(--font-size-body-sm, 12px);
+  color: var(--foreground-muted);
+  font-style: italic;
+  padding: var(--space-2) 0;
+}
+
+/* status strip */
+.mv-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  font-size: var(--font-size-body-sm, 12px);
+  color: var(--foreground-secondary);
+}
+.mv-status .item b {
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+.mv-status .item.is-peak b { color: var(--danger); }
+.mv-status .spacer { flex: 1; }
+
+/* ---- P2 full-file IDE source panel (bidirectional map ↔ source) ---- */
+.mv-preview-split {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+#mv-viewer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.mv-src {
+  flex: 0 0 46%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-subtle);
+  background: var(--background-elevated);
+  overflow: hidden;
+}
+.mv-src[hidden] { display: none; }
+.mv-src__tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 34px;
+  flex: 0 0 auto;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.mv-src__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  flex: 0 0 auto;
+}
+.mv-src__tab {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+.mv-src__close {
+  margin-left: auto;
+  cursor: pointer;
+  color: var(--foreground-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
+}
+.mv-src__close:hover { background: var(--surface-3); color: var(--foreground); }
+.mv-src__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+}
+.mv-src__toolbar b { color: var(--foreground); }
+.mv-src__nav {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.mv-src__nav .btn { min-width: 24px; padding: 2px 6px; font-size: 10px; }
+.mv-src__scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.mv-src__code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+  padding: var(--space-2) 0 40vh;
+}
+.mv-src-line { display: flex; }
+.mv-src-line:hover { background: var(--surface-1); }
+.mv-src-line .gut {
+  flex: 0 0 46px;
+  text-align: right;
+  padding: 0 10px 0 0;
+  color: var(--foreground-disabled);
+  user-select: none;
+  border-right: 1px solid var(--border-subtle);
+}
+.mv-src-line .txt {
+  padding: 0 var(--space-3);
+  color: var(--foreground-secondary);
+  flex: 1;
+  min-width: 0;
+}
+/* a line that maps to any tensor becomes a click affordance */
+.mv-src-line.mapped { cursor: pointer; }
+.mv-src-line.mapped:hover .txt {
+  background: color-mix(in srgb, var(--success) 7%, transparent);
+}
+/* the selected tensor's full line range */
+.mv-src-line.range { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+.mv-src-line.range .gut {
+  color: var(--primary);
+  border-left: 2px solid var(--primary);
+  margin-left: -2px;
+}
+/* the selected tensor's hot line */
+.mv-src-line.hot { background: color-mix(in srgb, var(--warning) 18%, transparent) !important; }
+.mv-src-line.hot .gut { color: var(--warning); }
+.mv-src-line .tag {
+  float: right;
+  font-size: 10px;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  opacity: 0.85;
+}
+/* lightweight syntax coloring (data-viz-style exemption) */
+.mv-src__code .c { color: var(--foreground-muted); }
+.mv-src__code .k { color: var(--danger); }
+.mv-src__code .t { color: var(--primary); }
+.mv-src__code .f { color: var(--primary-hover); }
+
+/* diagnostics terminal log */
+.mv-log-line {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--foreground-secondary);
+  white-space: pre-wrap;
+}
+.mv-log-line .lv-ok { color: var(--success); }
+.mv-log-line .lv-warn { color: var(--warning); }
+.mv-log-line .lv-err { color: var(--danger); }

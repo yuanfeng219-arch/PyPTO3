@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PyPTO Artifact Hub · 算子执行产物管理</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-run" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/><circle cx="12" cy="12" r="10"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10M8 8c2.5 0 3.5 1 4.5 3S14.5 14 18 14V8"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.7 20h18.6z"/><path d="M12 9v5M12 17.5v.2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 20h16"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Artifact Hub 首页">
+        <span class="brand-mark"><svg><use href="#i-box"></use></svg></span>
+        <span>PyPTO <strong>Artifact Hub</strong></span>
+      </a>
+      <div class="run-path" aria-label="当前位置">
+        <span>Qwen3-14B</span><svg><use href="#i-chevron"></use></svg>
+        <span>Decode Layer</span><svg><use href="#i-chevron"></use></svg>
+        <strong>20260625_184941</strong>
+      </div>
+      <div class="top-actions">
+        <label class="global-search">
+          <svg><use href="#i-search"></use></svg>
+          <input id="global-search" type="search" placeholder="搜索产物、Kernel、Task ID" aria-label="搜索产物">
+          <kbd>⌘ K</kbd>
+        </label>
+        <button class="button secondary" id="compare-button">比较 Run</button>
+        <button class="button primary" id="manifest-button"><svg><use href="#i-download"></use></svg>导出 Manifest</button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <nav class="primary-nav" aria-label="主导航">
+        <button class="nav-item"><svg><use href="#i-grid"></use></svg>工作区</button>
+        <button class="nav-item active"><svg><use href="#i-run"></use></svg>任务与运行<span>1</span></button>
+        <button class="nav-item"><svg><use href="#i-box"></use></svg>产物目录</button>
+        <button class="nav-item"><svg><use href="#i-branch"></use></svg>Run 对比</button>
+      </nav>
+
+      <div class="side-section">
+        <div class="side-heading"><span>任务</span><button aria-label="更多任务操作"><svg><use href="#i-more"></use></svg></button></div>
+        <button class="task-card active">
+          <span class="task-icon">DL</span>
+          <span><strong>Decode Layer</strong><small>decode_fwd_layers</small></span>
+          <i class="presence"></i>
+        </button>
+      </div>
+
+      <div class="side-section run-section">
+        <div class="side-heading"><span>执行记录</span><small>1 RUN</small></div>
+        <button class="run-item active">
+          <span class="run-line"><i></i></span>
+          <span><strong>20260625_184941</strong><small>真实产物 · 本地导入</small></span>
+          <em>当前</em>
+        </button>
+      </div>
+
+      <div class="side-footer">
+        <span class="storage-ring" aria-label="本地存储已使用 64%"><i></i></span>
+        <span><strong>本地证据库</strong><small>32.0 MiB · 206 项有效产物</small></span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <section class="run-header">
+        <div class="eyebrow"><span class="live-dot"></span>IMPORTED RUN <span class="separator">·</span> ASCEND 910B</div>
+        <div class="title-row">
+          <div>
+            <h1>Decode Layer 融合算子</h1>
+            <p>一次不可变的执行证据包 <code>_jit_decode_fwd_layers_20260625_184941</code></p>
+          </div>
+          <div class="header-meta"><span><svg><use href="#i-clock"></use></svg>2026-06-25 18:49:41</span><span class="status-chip neutral">时长未知</span></div>
+        </div>
+
+        <div class="gate-strip" aria-label="运行门禁状态">
+          <button class="gate pass" data-gate="编译"><span><svg><use href="#i-check"></use></svg></span><span><small>编译</small><strong>通过</strong></span></button>
+          <button class="gate pass" data-gate="执行"><span><svg><use href="#i-check"></use></svg></span><span><small>执行</small><strong>已观测</strong></span></button>
+          <button class="gate unknown" data-gate="正确性"><span>—</span><span><small>正确性</small><strong>未验证</strong></span></button>
+          <button class="gate warn" data-gate="性能"><span><svg><use href="#i-alert"></use></svg></span><span><small>性能</small><strong>16 条提示</strong></span></button>
+          <button class="gate warn" data-gate="资源"><span><svg><use href="#i-alert"></use></svg></span><span><small>资源</small><strong>Right 100%</strong></span></button>
+          <button class="gate partial" data-gate="复现"><span>½</span><span><small>复现</small><strong>部分就绪</strong></span></button>
+        </div>
+      </section>
+
+      <nav class="view-tabs" role="tablist" aria-label="运行视图">
+        <button class="view-tab active" data-view="overview" role="tab" aria-selected="true">概览</button>
+        <button class="view-tab" data-view="artifacts" role="tab" aria-selected="false">产物清单 <span>206</span></button>
+        <button class="view-tab" data-view="relations" role="tab" aria-selected="false">证据链</button>
+        <button class="view-tab" data-view="retention" role="tab" aria-selected="false">保留策略</button>
+      </nav>
+
+      <div class="view-container">
+        <section class="view active" id="view-overview" data-panel="overview">
+          <div class="stats-grid">
+            <article class="stat-card"><small>有效产物</small><strong>206</strong><span>排除 1 项系统缓存</span></article>
+            <article class="stat-card"><small>产物体积</small><strong>33.52 <em>MB</em></strong><span>Trace 占 31.5%</span></article>
+            <article class="stat-card"><small>IR Pass</small><strong>42</strong><span>00 frontend → 41 runtime</span></article>
+            <article class="stat-card"><small>Callable Kernel</small><strong>39</strong><span>8 AIC · 31 AIV</span></article>
+          </div>
+
+          <div class="attention-banner">
+            <span class="banner-icon"><svg><use href="#i-alert"></use></svg></span>
+            <div><strong>这次 Run 还不能成为可信基线</strong><p>已经具备编译与运行时证据，但缺少 Golden / Oracle、环境指纹和确定性输入。完成 3 个缺口后再签发基线。</p></div>
+            <button id="open-gaps">查看缺口 <svg><use href="#i-chevron"></use></svg></button>
+          </div>
+
+          <section class="content-card lifecycle-card">
+            <header class="section-header">
+              <div><h2>产物生命周期</h2><p>按工程用途组织，而不是按扩展名平铺</p></div>
+              <div class="legend"><span><i class="raw"></i>原始证据</span><span><i class="derived"></i>派生索引</span></div>
+            </header>
+            <div class="stage-track" id="stage-track"></div>
+          </section>
+
+          <div class="two-column">
+            <section class="content-card evidence-card">
+              <header class="section-header">
+                <div><h2>跨层证据链</h2><p>从编译变换追踪到一次 Core 执行</p></div>
+                <button class="text-button" data-switch="relations">展开关系图 <svg><use href="#i-chevron"></use></svg></button>
+              </header>
+              <div class="evidence-chain" id="evidence-chain"></div>
+              <div class="chain-detail" id="chain-detail"></div>
+            </section>
+
+            <section class="content-card completeness-card">
+              <header class="section-header"><div><h2>证据完整度</h2><p>Manifest 所需字段覆盖情况</p></div><strong class="score">68%</strong></header>
+              <div class="completeness-bar"><i style="width:68%"></i></div>
+              <ul class="check-list">
+                <li class="done"><span><svg><use href="#i-check"></use></svg></span><div><strong>编译产物完整</strong><small>Pass、PTOAS、Kernel、Orchestration</small></div></li>
+                <li class="done"><span><svg><use href="#i-check"></use></svg></span><div><strong>运行时证据完整</strong><small>Task Graph、Swimlane、Trace、Name Map</small></div></li>
+                <li><span>1</span><div><strong>补充环境指纹</strong><small>CANN、Runtime、PTOAS、Driver 版本</small></div></li>
+                <li><span>2</span><div><strong>固定复现输入</strong><small>记录随机种子或输入摘要</small></div></li>
+                <li><span>3</span><div><strong>增加正确性 Oracle</strong><small>Golden、阈值与 Tensor Diff</small></div></li>
+              </ul>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-artifacts" data-panel="artifacts" hidden>
+          <section class="content-card artifact-browser">
+            <header class="browser-header">
+              <div><h2>产物清单</h2><p>原始文件保持不可变；摘要、关系和诊断属于派生索引。</p></div>
+              <label class="table-search"><svg><use href="#i-search"></use></svg><input id="artifact-search" type="search" placeholder="搜索路径或类型"></label>
+            </header>
+            <div class="filter-row" id="artifact-filters"></div>
+            <div class="artifact-table-wrap">
+              <table class="artifact-table">
+                <thead><tr><th>产物集合</th><th>阶段</th><th>数量</th><th>体积</th><th>完整性</th><th>查看方式</th></tr></thead>
+                <tbody id="artifact-rows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="view-relations" data-panel="relations" hidden>
+          <section class="content-card graph-card">
+            <header class="browser-header">
+              <div><h2>证据关系图</h2><p>选择节点查看它如何跨越 IR、Codegen 与 Runtime。</p></div>
+              <div class="graph-tools"><button class="button secondary small" id="reset-graph">重置焦点</button></div>
+            </header>
+            <div class="relation-canvas" id="relation-canvas"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-retention" data-panel="retention" hidden>
+          <div class="retention-layout">
+            <section class="content-card policy-card">
+              <header class="section-header"><div><h2>分层保留策略</h2><p>保留结论和身份，按成本清理可再生产物。</p></div></header>
+              <div id="policy-list" class="policy-list"></div>
+            </section>
+            <section class="content-card savings-card">
+              <span class="savings-icon"><svg><use href="#i-box"></use></svg></span>
+              <small>应用推荐策略后</small><strong>10.56 MB</strong><p>可转为冷存储，同时永久保留 Manifest、摘要、哈希和清理记录。</p>
+              <div class="savings-meter"><i></i></div>
+              <button class="button secondary full" id="simulate-policy">模拟策略</button>
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="inspector" id="inspector">
+      <header><div><small>INSPECTOR</small><strong id="inspector-title">编译过程</strong></div><button id="close-inspector" aria-label="关闭详情">×</button></header>
+      <div id="inspector-body"></div>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" aria-label="关闭">×</button>
+      <span class="modal-icon"><svg><use href="#i-branch"></use></svg></span>
+      <h2 id="modal-title">还没有可比较的 Run</h2>
+      <p>当前任务只导入了一个真实执行。导入另一份同算子产物后，可比较配置、Pass、Kernel、诊断和运行时指标。</p>
+      <button class="button primary" id="modal-confirm">知道了</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

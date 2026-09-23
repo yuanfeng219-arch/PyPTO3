@@ -1,0 +1,152 @@
+# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+"""
+PyPTO IR module with tensor operations.
+
+This module provides:
+- Re-exports of all core IR types from pypto_core.ir
+- Organized operation namespaces (e.g., op.tensor.create)
+- IR Builder for incremental IR construction
+- Helper utilities
+- Enhanced type constructors (e.g., TensorType with integer shape support)
+"""
+
+import shutil as _shutil
+
+# Re-export all core IR types and functions from native module
+from pypto.pypto_core import DataType
+from pypto.pypto_core.ir import *  # noqa: F403
+from pypto.pypto_core.ir import IRMutator, IRVisitor
+from pypto.pypto_core.passes import (
+    DiagnosticCheck,
+    DiagnosticCheckSet,
+    DiagnosticPhase,
+    PassContext,
+    VerificationLevel,
+    VerificationMode,
+)
+
+# Import call-site direction helpers (input/output/inout/...) for hand-written IR.
+from . import directions as _directions
+
+# Import operation modules
+from . import op, operators  # noqa: F401
+
+# Import IR Builder
+from .builder import IRBuilder
+
+# Import high-level API functions
+from .compile import compile
+from .compiled_program import CompiledProgram
+from .directions import make_call
+
+# Import roundtrip instrument factory
+from .instruments import make_roundtrip_instrument
+
+# Import op conversion utilities
+from .op_conversion import ConversionContext, op_conversion, register_op_conversion
+
+# Import PassManager and OptimizationStrategy
+from .pass_manager import OptimizationStrategy, PassManager
+
+# Import python_print utility
+from .printer import python_print
+
+# Import TensorType and TileType with enhanced __init__ that supports integer shapes
+# This patches the native TensorType and TileType classes to accept integer shapes
+from .type import (  # also shadows C++ TensorView/TileView with Python subclasses
+    TensorType,
+    TensorView,
+    TileType,
+    TileView,
+)
+
+# Export common DataType values for convenience
+FP4 = DataType.FP4
+FP8E4M3FN = DataType.FP8E4M3FN
+FP8E5M2 = DataType.FP8E5M2
+FP16 = DataType.FP16
+FP32 = DataType.FP32
+BF16 = DataType.BF16
+HF4 = DataType.HF4
+HF8 = DataType.HF8
+INT4 = DataType.INT4
+INT8 = DataType.INT8
+INT16 = DataType.INT16
+INT32 = DataType.INT32
+INT64 = DataType.INT64
+UINT4 = DataType.UINT4
+UINT8 = DataType.UINT8
+UINT16 = DataType.UINT16
+UINT32 = DataType.UINT32
+UINT64 = DataType.UINT64
+BOOL = DataType.BOOL
+INDEX = DataType.INDEX
+
+
+__all__ = [
+    "op",
+    "IRBuilder",
+    "IRMutator",
+    "IRVisitor",
+    "TensorType",
+    "TensorView",
+    "TileType",
+    "TileView",
+    "python_print",
+    "compile",
+    "CompiledProgram",
+    "PassManager",
+    "OptimizationStrategy",
+    "VerificationMode",
+    "VerificationLevel",
+    "PassContext",
+    "DiagnosticPhase",
+    "DiagnosticCheck",
+    "DiagnosticCheckSet",
+    "ConversionContext",
+    "op_conversion",
+    "register_op_conversion",
+    "make_roundtrip_instrument",
+    "directions",
+    "make_call",
+    "input",
+    "output",
+    "output_existing",
+    "inout",
+    "no_dep",
+    "scalar_dir",
+]  # fmt: skip
+
+# Re-export the lowercase ArgDirection aliases at the top level so callers can
+# spell ``ir.input``, ``ir.output``, etc. without importing the submodule.
+# These intentionally shadow the builtin ``input`` name; users only ever access
+# them via ``ir.input``, which keeps the global builtin untouched.
+input = _directions.input
+output = _directions.output
+output_existing = _directions.output_existing
+inout = _directions.inout
+no_dep = _directions.no_dep
+scalar_dir = _directions.scalar  # avoid clashing with potential ``ir.scalar`` op helpers
+directions = _directions
+del _directions
+
+# Register ruff as the format callback for IR printing (best-effort: no-op if ruff is unavailable)
+try:
+    if _shutil.which("ruff"):
+        from pypto.ir.formatter import ruff_format as _ruff_format
+        from pypto.pypto_core import ir as _ir_core
+
+        _ir_core.register_format_callback(_ruff_format)
+        del _ruff_format, _ir_core
+except Exception:  # noqa: BLE001
+    pass  # Best-effort: formatting is optional
+
+del _shutil

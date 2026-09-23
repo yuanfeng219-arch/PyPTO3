@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepSeek V3.2 Model Architecture Gallery</title>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const theme = params.get("theme");
+      document.documentElement.dataset.theme = ["light", "dark", "glass"].includes(theme) ? theme : "dark";
+      if (params.get("embed") === "1") document.documentElement.dataset.embed = "1";
+    })();
+  </script>
+  <link rel="stylesheet" href="../../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../../tokens/components.css">
+  <link rel="stylesheet" href="../pattern.css?v=model-gallery-light-border-1">
+  <link rel="stylesheet" href="../../pass-ir-graph-node/pattern.css?v=pass-ir-capsule-2">
+  <link rel="stylesheet" href="../capsule.css?v=model-capsule-12">
+  <style>
+    :root {
+      color-scheme: dark;
+      --deepseek-side-node-fill: #313131;
+      --deepseek-side-node-stroke: #6f6f6f;
+      --deepseek-side-node-text: var(--foreground);
+      --deepseek-side-node-muted: var(--foreground-muted);
+      --deepseek-side-edge: color-mix(in srgb, var(--foreground) 72%, transparent);
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --deepseek-side-node-fill: #d1d1d1;
+      --deepseek-side-node-stroke: #9a9a9a;
+      --deepseek-side-node-text: #202124;
+      --deepseek-side-node-muted: #5f6368;
+      --deepseek-side-edge: color-mix(in srgb, #202124 52%, transparent);
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+    }
+
+    body {
+      min-width: 0;
+    }
+
+    .deepseek-gallery-app {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      min-height: 460px;
+      background: var(--background);
+      overflow: hidden;
+    }
+
+    .deepseek-gallery-topbar {
+      position: absolute;
+      inset: 0 0 auto;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      min-height: 56px;
+      padding: 0 var(--space-4);
+      background: color-mix(in srgb, var(--background) 92%, transparent);
+      box-shadow: inset 0 -1px 0 var(--border-subtle);
+      backdrop-filter: blur(12px);
+    }
+
+    .deepseek-gallery-title {
+      margin: 0;
+      font: var(--text-title-sm);
+      letter-spacing: 0;
+    }
+
+    .deepseek-gallery-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+      white-space: nowrap;
+    }
+
+    .deepseek-source-stage {
+      position: absolute;
+      inset: 56px 0 28px;
+      background: var(--background);
+      overflow: hidden;
+    }
+
+    .deepseek-gallery-status {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 4;
+      min-height: 28px;
+      padding: 0 var(--space-4);
+      display: flex;
+      align-items: center;
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+      background: color-mix(in srgb, var(--background) 92%, transparent);
+      box-shadow: inset 0 1px 0 var(--border-subtle);
+    }
+
+    :root[data-embed="1"] .deepseek-gallery-topbar,
+    :root[data-embed="1"] .deepseek-gallery-status {
+      display: none;
+    }
+
+    :root[data-embed="1"] .deepseek-source-stage {
+      inset: 0;
+    }
+
+    .deepseek-source-stage #graph-container_8738e552-e764-4a57-839a-6321bc3ae7d3 {
+      width: 100% !important;
+      min-width: 100% !important;
+      height: 100% !important;
+      min-height: 100% !important;
+    }
+
+    .deepseek-source-stage #graph_8738e552-e764-4a57-839a-6321bc3ae7d3 {
+      height: 100% !important;
+    }
+
+    .deepseek-source-stage .logo_8738e552-e764-4a57-839a-6321bc3ae7d3,
+    .deepseek-source-stage .source-validation_8738e552-e764-4a57-839a-6321bc3ae7d3,
+    .deepseek-source-stage .modelviz-toolbar_8738e552-e764-4a57-839a-6321bc3ae7d3,
+    .deepseek-source-stage .report-source-overlay,
+    .deepseek-source-stage .report-source-badge-group,
+    .deepseek-source-stage .priority-badge,
+    .deepseek-source-stage .source-line-tag,
+    .deepseek-source-stage [data-priority],
+    .deepseek-source-stage [class*="priority"] {
+      display: none !important;
+    }
+
+    .deepseek-loading {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--foreground-muted);
+      font: var(--text-body-sm);
+      background: var(--background);
+    }
+
+    .deepseek-side-input-layer {
+      pointer-events: none;
+    }
+
+    .deepseek-side-input-edge {
+      fill: none;
+      stroke: var(--deepseek-side-edge);
+      stroke-width: 1.15px;
+      stroke-dasharray: 7 5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.86;
+    }
+
+    .deepseek-side-input-node rect {
+      fill: var(--deepseek-side-node-fill);
+      stroke: var(--deepseek-side-node-stroke);
+      stroke-width: 0.9px;
+      rx: 9px;
+      ry: 9px;
+    }
+
+    .deepseek-side-input-node text {
+      font-family: var(--font-sans);
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .deepseek-side-input-label {
+      fill: var(--deepseek-side-node-text);
+      font-size: 10.5px;
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0;
+    }
+
+    .deepseek-side-input-type {
+      fill: var(--deepseek-side-node-muted);
+      font-size: 8px;
+      font-weight: var(--font-weight-medium);
+      letter-spacing: 0;
+    }
+  </style>
+</head>
+<body class="pto-model-graphviz-pattern-page pto-model-graphviz-capsule-page">
+  <main class="deepseek-gallery-app">
+    <header class="deepseek-gallery-topbar">
+      <h1 class="deepseek-gallery-title">DeepSeek V3.2 Architecture</h1>
+      <div class="deepseek-gallery-meta" aria-label="Architecture summary">
+        <span>source graph baseline</span>
+        <span>weights/state side inputs</span>
+        <span>business badges off</span>
+      </div>
+    </header>
+    <section id="architectureRoot" class="deepseek-source-stage pto-model-architecture-stage" aria-label="DeepSeek V3.2 architecture graph">
+      <div id="architectureLoading" class="deepseek-loading">loading source graph fragment</div>
+    </section>
+    <div id="statusText" class="deepseek-gallery-status">Loading source graph baseline...</div>
+  </main>
+
+  <script src="../../pass-ir-graph-node/pattern.js?v=pass-ir-capsule-2"></script>
+  <script src="../capsule.js?v=model-capsule-12"></script>
+  <script>
+    (() => {
+      const SOURCE_GRAPH_URL = "../graphviz/deepseek_v32_source_graph.html?v=model-capsule-12";
+      const GRAPH_ID = "graph_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const NODE_CLASS = "node_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const LABEL_CLASS = "node-label_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const SIDE_LAYER_CLASS = "deepseek-side-input-layer";
+      const SVG_NS = "http://www.w3.org/2000/svg";
+
+      const root = document.getElementById("architectureRoot");
+      const loading = document.getElementById("architectureLoading");
+      const statusText = document.getElementById("statusText");
+
+      const sideInputs = [
+        {
+          id: "embedding-weight",
+          label: "Embedding Weight",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["Parallel Embedding"]
+        },
+        {
+          id: "attention-projection-weights",
+          label: "Attention Projection Weights",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["Query Projection Path"]
+        },
+        {
+          id: "dense-mlp-weights",
+          label: "Dense MLP Weights",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["MLP Gate and Up Linear"]
+        },
+        {
+          id: "router-weight",
+          label: "Router Weight",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["Router Linear"]
+        },
+        {
+          id: "routed-expert-weights",
+          label: "Routed Expert Weights",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["Routed Experts"]
+        },
+        {
+          id: "shared-expert-weight",
+          label: "Shared Expert Weight",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["Shared Expert"]
+        },
+        {
+          id: "lm-head-weight",
+          label: "LM Head Weight",
+          typeLabel: "Parameter",
+          side: "left",
+          targets: ["LM Head Linear"]
+        },
+        {
+          id: "rope-cache",
+          label: "RoPE Cache",
+          typeLabel: "State",
+          side: "right",
+          targets: ["Query Projection Path"]
+        }
+      ];
+
+      let observer = null;
+      let augmentTimer = 0;
+
+      function setStatus(message) {
+        if (statusText) statusText.textContent = message;
+      }
+
+      async function executeEmbeddedScripts(container) {
+        const scripts = Array.from(container.querySelectorAll("script"));
+        for (const script of scripts) {
+          await new Promise((resolve, reject) => {
+            const next = document.createElement("script");
+            Array.from(script.attributes).forEach((attr) => next.setAttribute(attr.name, attr.value));
+            if (script.src) {
+              next.onload = resolve;
+              next.onerror = reject;
+              next.src = script.src;
+            } else {
+              next.textContent = script.textContent;
+            }
+            script.replaceWith(next);
+            if (!script.src) resolve();
+          });
+        }
+      }
+
+      function injectSourceGraphLayoutConstraints(html) {
+        const createGraphMarker = "    function createGraph(graphvizData) {";
+        const renderMarker = "            createGraph(extractedGraphData);";
+
+        const postLayout = [
+          '    function applyGalleryVerticalSpine(graphvizData) {',
+          '        const nodes = graphvizData.nodes || {};',
+          '        const clusters = graphvizData.clusters || {};',
+          '        const ids = {',
+          '            ffnChoice: "dsv32arch_ffn_choice_710c2f62",',
+          '            denseDown: "dsv32arch_dense_w2_8e01455d",',
+          '            moeSum: "dsv32arch_moe_sum_50118d9a",',
+          '            blockOut: "dsv32arch_block_out_821a34da",',
+          '            finalNorm: "dsv32arch_final_norm_2010d80f",',
+          '            lmHead: "dsv32arch_lm_head_2b98b847",',
+          '            logits: "dsv32arch_logits_c7d6c722"',
+          '        };',
+          '        const ffnChoice = nodes[ids.ffnChoice];',
+          '        const blockOut = nodes[ids.blockOut];',
+          '        if (!ffnChoice || !blockOut) return;',
+          '',
+          '        const blockInSources = graphvizData.edges',
+          '            .filter((edge) => edge.target === ids.blockOut && nodes[edge.source])',
+          '            .map((edge) => nodes[edge.source]);',
+          '        const visibleBranchNodes = [',
+          '            ...blockInSources,',
+          '            nodes[ids.denseDown],',
+          '            nodes[ids.moeSum],',
+          '            nodes[ids.ffnChoice]',
+          '        ].filter(Boolean);',
+          '        const branchBottom = Math.max(...visibleBranchNodes.map((node) => node.position.y + node.height / 2));',
+          '        const centerX = ffnChoice.position.x;',
+          '        const firstY = branchBottom + blockOut.height / 2 + 78;',
+          '        const sequence = [',
+          '            [ids.blockOut, firstY],',
+          '            [ids.finalNorm, firstY + 90],',
+          '            [ids.lmHead, firstY + 180],',
+          '            [ids.logits, firstY + 270]',
+          '        ];',
+          '        sequence.forEach(([nodeId, y]) => {',
+          '            if (!nodes[nodeId]) return;',
+          '            nodes[nodeId].position.x = centerX;',
+          '            nodes[nodeId].position.y = y;',
+          '        });',
+          '',
+          '        function includeNodes(clusterId, nodeIds, pad = 44) {',
+          '            const cluster = clusters[clusterId];',
+          '            if (!cluster || !cluster.bb) return;',
+          '            let [x1, y1, x2, y2] = cluster.bb.split(",").map(Number);',
+          '            nodeIds.forEach((nodeId) => {',
+          '                const node = nodes[nodeId];',
+          '                if (!node) return;',
+          '                x1 = Math.min(x1, node.position.x - node.width / 2 - pad);',
+          '                y1 = Math.min(y1, node.position.y - node.height / 2 - pad);',
+          '                x2 = Math.max(x2, node.position.x + node.width / 2 + pad);',
+          '                y2 = Math.max(y2, node.position.y + node.height / 2 + pad);',
+          '            });',
+          '            cluster.bb = [x1, y1, x2, y2].join(",");',
+          '        }',
+          '        includeNodes("dsv32arch_block_0214b4b3", [ids.blockOut]);',
+          '        includeNodes("dsv32arch_transformer_9236e026", [ids.blockOut, ids.finalNorm, ids.lmHead]);',
+          '',
+          '        function anchor(node, side) {',
+          '            const cx = node.position.x;',
+          '            const cy = node.position.y;',
+          '            if (side === "left") return { x: cx - node.width / 2, y: cy };',
+          '            if (side === "right") return { x: cx + node.width / 2, y: cy };',
+          '            if (side === "top") return { x: cx, y: cy - node.height / 2 };',
+          '            return { x: cx, y: cy + node.height / 2 };',
+          '        }',
+          '',
+          '        function reroute(sourceId, targetId) {',
+          '            const source = nodes[sourceId];',
+          '            const target = nodes[targetId];',
+          '            if (!source || !target) return;',
+          '            const dx = target.position.x - source.position.x;',
+          '            const dy = target.position.y - source.position.y;',
+          '            const vertical = Math.abs(dy) >= Math.abs(dx);',
+          '            const start = vertical',
+          '                ? anchor(source, dy >= 0 ? "bottom" : "top")',
+          '                : anchor(source, dx >= 0 ? "right" : "left");',
+          '            const end = vertical',
+          '                ? anchor(target, dy >= 0 ? "top" : "bottom")',
+          '                : anchor(target, dx >= 0 ? "left" : "right");',
+          '            const control = vertical',
+          '                ? [{ x: start.x, y: (start.y + end.y) / 2 }, { x: end.x, y: (start.y + end.y) / 2 }]',
+          '                : [{ x: (start.x + end.x) / 2, y: start.y }, { x: (start.x + end.x) / 2, y: end.y }];',
+          '            graphvizData.edges.forEach((edge) => {',
+          '                if (edge.source !== sourceId || edge.target !== targetId) return;',
+          '                edge.path = [start, ...control, end];',
+          '                edge.labelPos = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };',
+          '            });',
+          '        }',
+          '',
+          '        graphvizData.edges',
+          '            .filter((edge) => edge.target === ids.blockOut && nodes[edge.source])',
+          '            .forEach((edge) => reroute(edge.source, edge.target));',
+          '        reroute(ids.blockOut, ids.finalNorm);',
+          '        reroute(ids.finalNorm, ids.lmHead);',
+          '        reroute(ids.lmHead, ids.logits);',
+          '    }',
+          ''
+        ].join("\n");
+
+        let nextHtml = html;
+        if (nextHtml.includes(createGraphMarker) && !nextHtml.includes("function applyGalleryVerticalSpine")) {
+          nextHtml = nextHtml.replace(createGraphMarker, `${postLayout}\n${createGraphMarker}`);
+        }
+        if (nextHtml.includes(renderMarker)) {
+          nextHtml = nextHtml.replace(renderMarker, "            applyGalleryVerticalSpine(extractedGraphData);\n            createGraph(extractedGraphData);");
+        }
+        return nextHtml;
+      }
+
+      function svgElement(tagName, attrs = {}) {
+        const node = document.createElementNS(SVG_NS, tagName);
+        for (const [name, value] of Object.entries(attrs)) {
+          if (value !== null && value !== undefined) node.setAttribute(name, String(value));
+        }
+        return node;
+      }
+
+      function getSvg() {
+        return root.querySelector(`#${GRAPH_ID} svg`) || root.querySelector("svg");
+      }
+
+      function getInner(svg) {
+        return svg ? svg.querySelector(":scope > g") : null;
+      }
+
+      function nodeGroups() {
+        return Array.from(root.querySelectorAll(`.${NODE_CLASS}`));
+      }
+
+      function nodeLabel(group) {
+        return (group.querySelector(`.${LABEL_CLASS}`)?.textContent || "").trim();
+      }
+
+      function parseTranslate(value) {
+        const match = /translate\(\s*([-0-9.]+)[,\s]+([-0-9.]+)\s*\)/.exec(value || "");
+        return match ? { x: Number(match[1]), y: Number(match[2]) } : { x: 0, y: 0 };
+      }
+
+      function groupBounds(group) {
+        const data = Array.isArray(group.__data__) ? group.__data__[1] : null;
+        if (data?.position) {
+          return {
+            cx: Number(data.position.x),
+            cy: Number(data.position.y),
+            width: Number(data.width) || 150,
+            height: Number(data.height) || 34
+          };
+        }
+
+        const translate = parseTranslate(group.getAttribute("transform"));
+        const rect = group.querySelector("rect");
+        if (rect) {
+          return {
+            cx: translate.x,
+            cy: translate.y,
+            width: Number(rect.getAttribute("width")) || 150,
+            height: Number(rect.getAttribute("height")) || 34
+          };
+        }
+
+        const box = group.getBBox();
+        return {
+          cx: translate.x + box.x + box.width / 2,
+          cy: translate.y + box.y + box.height / 2,
+          width: box.width || 150,
+          height: box.height || 34
+        };
+      }
+
+      function findTargets(labels) {
+        const wanted = new Set(labels.map((label) => label.toLowerCase()));
+        return nodeGroups().filter((group) => wanted.has(nodeLabel(group).toLowerCase()));
+      }
+
+      function getSideInputWidth(label) {
+        return Math.max(166, Math.min(252, label.length * 6.8 + 60));
+      }
+
+      function snapY(value) {
+        return Math.round(value / 56) * 56;
+      }
+
+      function targetAggregate(boundsList) {
+        const minLeft = Math.min(...boundsList.map((item) => item.cx - item.width / 2));
+        const maxRight = Math.max(...boundsList.map((item) => item.cx + item.width / 2));
+        const avgY = boundsList.reduce((sum, item) => sum + item.cy, 0) / boundsList.length;
+        return { minLeft, maxRight, avgY };
+      }
+
+      function computePlacements(entries) {
+        const bySide = new Map();
+        entries.forEach((entry) => {
+          const side = entry.config.side || "left";
+          if (!bySide.has(side)) bySide.set(side, []);
+          bySide.get(side).push(entry);
+        });
+
+        bySide.forEach((sideEntries) => {
+          const side = sideEntries[0]?.config.side || "left";
+          const laneGap = 116;
+          const maxWidth = Math.max(...sideEntries.map((entry) => entry.width));
+          const minLeft = Math.min(...sideEntries.map((entry) => entry.aggregate.minLeft));
+          const maxRight = Math.max(...sideEntries.map((entry) => entry.aggregate.maxRight));
+          const laneX = side === "right"
+            ? maxRight + laneGap + maxWidth / 2
+            : minLeft - laneGap - maxWidth / 2;
+
+          sideEntries.sort((a, b) => a.baseY - b.baseY);
+          const spacing = 64;
+          sideEntries.forEach((entry) => {
+            entry.x = laneX;
+            entry.y = snapY(entry.baseY);
+          });
+
+          for (let i = 1; i < sideEntries.length; i += 1) {
+            if (sideEntries[i].y - sideEntries[i - 1].y < spacing) {
+              sideEntries[i].y = sideEntries[i - 1].y + spacing;
+            }
+          }
+          for (let i = sideEntries.length - 2; i >= 0; i -= 1) {
+            if (sideEntries[i + 1].y - sideEntries[i].y < spacing) {
+              sideEntries[i].y = sideEntries[i + 1].y - spacing;
+            }
+          }
+        });
+      }
+
+      function ensureSideMarker(svg) {
+        let defs = svg.querySelector("defs");
+        if (!defs) {
+          defs = svgElement("defs");
+          svg.insertBefore(defs, svg.firstChild);
+        }
+
+        const markerId = "deepseek-side-input-arrow";
+        let marker = defs.querySelector(`#${markerId}`);
+        if (!marker) {
+          marker = svgElement("marker", {
+            id: markerId,
+            viewBox: "0 -4 8 8",
+            refX: 7,
+            refY: 0,
+            markerWidth: 5,
+            markerHeight: 5,
+            orient: "auto"
+          });
+          const path = svgElement("path", {
+            d: "M0,-4L8,0L0,4",
+            fill: "var(--deepseek-side-edge)"
+          });
+          marker.appendChild(path);
+          defs.appendChild(marker);
+        }
+        return markerId;
+      }
+
+      function edgePath(fromX, fromY, toX, toY, side) {
+        const gap = Math.abs(toX - fromX);
+        const curve = Math.max(52, Math.min(140, gap * 0.45));
+        const c1x = side === "right" ? fromX - curve : fromX + curve;
+        const c2x = side === "right" ? toX + curve : toX - curve;
+        return `M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}`;
+      }
+
+      function drawSideInput(layer, entry, markerId) {
+        const config = entry.config;
+        const side = config.side || "left";
+        const width = entry.width;
+        const height = 38;
+        const bounds = entry.boundsList;
+        const cx = entry.x;
+        const cy = entry.y;
+
+        const node = svgElement("g", {
+          class: "deepseek-side-input-node",
+          "data-side-input-id": config.id,
+          transform: `translate(${cx}, ${cy})`
+        });
+        node.appendChild(svgElement("rect", {
+          x: -width / 2,
+          y: -height / 2,
+          width,
+          height
+        }));
+
+        const label = svgElement("text", {
+          class: "deepseek-side-input-label",
+          x: 0,
+          y: -5
+        });
+        label.textContent = config.label;
+        node.appendChild(label);
+
+        const type = svgElement("text", {
+          class: "deepseek-side-input-type",
+          x: 0,
+          y: 10
+        });
+        type.textContent = config.typeLabel;
+        node.appendChild(type);
+
+        bounds.forEach((target) => {
+          const fromX = side === "right" ? cx - width / 2 : cx + width / 2;
+          const toX = side === "right" ? target.cx + target.width / 2 + 3 : target.cx - target.width / 2 - 3;
+          const fromY = cy;
+          const toY = target.cy;
+          const edge = svgElement("path", {
+            class: "deepseek-side-input-edge",
+            d: edgePath(fromX, fromY, toX, toY, side),
+            "marker-end": `url(#${markerId})`
+          });
+          layer.appendChild(edge);
+        });
+
+        layer.appendChild(node);
+      }
+
+      function removeObserver() {
+        if (observer) observer.disconnect();
+      }
+
+      function observeGraph() {
+        if (!root) return;
+        removeObserver();
+        observer = new MutationObserver((mutations) => {
+          const onlySideLayer = mutations.every((mutation) => {
+            return Array.from(mutation.addedNodes)
+              .concat(Array.from(mutation.removedNodes))
+              .every((node) => node.nodeType === 1 && node.classList?.contains(SIDE_LAYER_CLASS));
+          });
+          if (!onlySideLayer) scheduleAugmentSideInputs();
+        });
+        observer.observe(root, { childList: true, subtree: true });
+      }
+
+      function augmentSideInputs() {
+        const svg = getSvg();
+        const inner = getInner(svg);
+        if (!svg || !inner || !nodeGroups().length) return;
+
+        removeObserver();
+        inner.querySelectorAll(`.${SIDE_LAYER_CLASS}`).forEach((node) => node.remove());
+
+        const markerId = ensureSideMarker(svg);
+        const layer = svgElement("g", {
+          class: SIDE_LAYER_CLASS,
+          "aria-hidden": "true"
+        });
+
+        const entries = sideInputs.map((config) => {
+          const targets = findTargets(config.targets);
+          if (!targets.length) return null;
+          const boundsList = targets.map(groupBounds);
+          const aggregate = targetAggregate(boundsList);
+          return {
+            config,
+            aggregate,
+            boundsList,
+            width: getSideInputWidth(config.label),
+            baseY: aggregate.avgY,
+            y: aggregate.avgY
+          };
+        }).filter(Boolean);
+
+        computePlacements(entries);
+        entries.forEach((entry) => drawSideInput(layer, entry, markerId));
+        inner.appendChild(layer);
+        observeGraph();
+        setStatus(`Source graph ready; ${entries.length} side inputs added.`);
+      }
+
+      function scheduleAugmentSideInputs() {
+        window.clearTimeout(augmentTimer);
+        augmentTimer = window.setTimeout(augmentSideInputs, 140);
+      }
+
+      function waitForSourceGraph(attempt = 0) {
+        if (nodeGroups().length) {
+          if (loading) loading.remove();
+          augmentSideInputs();
+          return;
+        }
+        if (attempt > 180) {
+          setStatus("Source graph did not render in time.");
+          if (loading) loading.textContent = "source graph did not render in time";
+          return;
+        }
+        window.setTimeout(() => waitForSourceGraph(attempt + 1), 120);
+      }
+
+      async function loadArchitectureGraph() {
+        try {
+          const response = await fetch(SOURCE_GRAPH_URL);
+          if (!response.ok) throw new Error(`source graph fetch failed: ${response.status}`);
+          const html = injectSourceGraphLayoutConstraints(await response.text());
+          root.innerHTML = html;
+          await executeEmbeddedScripts(root);
+          waitForSourceGraph();
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || "Failed to load source graph.");
+          if (loading) loading.textContent = error.message || "failed to load source graph";
+        }
+      }
+
+      loadArchitectureGraph();
+    })();
+  </script>
+</body>
+</html>

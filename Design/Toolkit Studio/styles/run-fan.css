@@ -1,0 +1,134 @@
+/* Run composition fan (js/run-fan.js) — centre → facets → members.
+   Three columns with an SVG overlay for the edges; the overlay is measured
+   from real bounding boxes, so nothing here may change the columns' geometry
+   without run-fan.js redrawing. */
+
+.kf-fan-h {
+  color: var(--foreground-secondary); font-size: var(--kf-type-2xs);
+  font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+.kf-fan-h small {
+  display: block; margin-top: 4px; color: var(--foreground-muted);
+  font: 9px/1.5 var(--font-mono); font-weight: 400; letter-spacing: 0; text-transform: none;
+}
+
+/* The fan is sized by its column, not the window — the middle pane is roughly
+   half the viewport, so a viewport media query collapses it while there is
+   still plenty of room. Every track is flexible so the three columns survive
+   down to the container query below, where stacking is genuinely better. */
+.kf-fan-host { container-type: inline-size; }
+
+/* Column 3 is an empty gutter the curves cross — without it the fan has only
+   the grid gap to spread across and reads as a bracket, not a fan. Tracks are
+   assigned explicitly so nothing auto-places into the gutter. */
+.kf-fan {
+  position: relative; display: grid; gap: 0 12px; margin-top: 10px; padding: 16px 12px;
+  grid-template-columns: minmax(0, .86fr) minmax(0, .74fr) 48px minmax(0, 1.2fr);
+  align-items: center; overflow: hidden;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 90% at 8% 50%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 62%),
+    color-mix(in srgb, var(--surface-1) 62%, transparent);
+}
+
+/* ---- centre ---- */
+.kf-fan-centre { grid-column: 1; position: relative; display: grid; justify-items: center; gap: 3px; }
+.kf-fan-ring { width: 100%; max-width: 184px; overflow: visible; }
+.kf-fan-ring-bars line { stroke: var(--primary); stroke-width: 1.6; stroke-linecap: round; }
+.kf-fan-orb {
+  fill: color-mix(in srgb, var(--primary) 42%, var(--surface-1));
+  stroke: color-mix(in srgb, var(--primary) 60%, transparent); stroke-width: 1;
+}
+.kf-fan-centre b { margin-top: 6px; color: var(--foreground); font: 650 var(--kf-type-sm) var(--font-mono); }
+.kf-fan-centre code { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-fan-chip {
+  margin-top: 3px; padding: 2px 8px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill); color: var(--foreground-secondary);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  font: 600 9px var(--font-mono);
+}
+
+/* ---- facet column ---- */
+.kf-fan-facets { grid-column: 2; position: relative; z-index: 2; display: grid; gap: 6px; }
+.kf-fan-facets button {
+  display: grid; gap: 1px; padding: 9px 11px; cursor: pointer; text-align: left;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  transition: border-color 140ms, background 140ms;
+}
+.kf-fan-facets button:hover { border-color: var(--border-strong); }
+.kf-fan-facets b { color: var(--foreground); font: 650 17px/1.1 var(--font-mono); }
+.kf-fan-facets span { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kf-fan-facets small { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-fan-facets button[aria-selected="true"] {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border-default));
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-2));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.kf-fan-facets button[aria-selected="true"] b { color: var(--primary); }
+
+/* ---- leaf column ----
+   Fixed height with faded ends: the fan is a sample of a long list, and the
+   fade is what says so. Edges redraw on scroll. */
+.kf-fan-leaves {
+  grid-column: 4; position: relative; z-index: 2;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+.kf-fan-scroll {
+  display: grid; gap: 3px; max-height: 430px; padding: 20px 2px;
+  overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+}
+.kf-fan-leaf {
+  display: grid; align-items: center; gap: 1px 8px; padding: 5px 9px;
+  grid-template-columns: minmax(0, 1fr) auto; cursor: pointer; text-align: left;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kf-fan-leaf:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.kf-fan-leaf.is-sel {
+  border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface-2));
+}
+.kf-fan-leaf > b {
+  overflow: hidden; color: var(--foreground-secondary); font: 10px var(--font-mono);
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-fan-leaf.is-sel > b { color: var(--foreground); }
+.kf-fan-leaf-chip { color: var(--foreground); font: 650 10px var(--font-mono); white-space: nowrap; }
+.kf-fan-leaf-chip i { font: 400 8px var(--font-mono); font-style: normal; opacity: .6; }
+.kf-fan-leaf > em {
+  padding: 0 5px; border-radius: var(--radius-pill);
+  color: var(--foreground-muted); background: color-mix(in srgb, var(--surface-3) 80%, transparent);
+  font: 600 8px var(--font-mono); font-style: normal; justify-self: start; white-space: nowrap;
+}
+.kf-fan-leaf > small {
+  grid-column: 1 / -1; overflow: hidden; color: var(--foreground-muted);
+  font: 8px var(--font-mono); text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* the segment bar: one cell per verdict this facet actually has */
+.kf-fan-segs { display: inline-flex; gap: 2px; justify-self: end; min-height: 7px; }
+.kf-fan-segs i { width: 9px; height: 7px; border-radius: 1.5px; background: var(--surface-3); }
+.kf-fan-segs i.is-ok { background: var(--success); }
+.kf-fan-segs i.is-warn { background: var(--warning); }
+.kf-fan-segs i.is-bad { background: var(--danger); }
+.kf-fan-segs i.is-dim { background: color-mix(in srgb, var(--foreground-muted) 30%, transparent); }
+
+/* ---- edges ---- */
+.kf-fan-edges {
+  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%;
+  pointer-events: none; overflow: visible;
+}
+.kf-fan-edges path { fill: none; stroke-width: 1; opacity: .62; }
+.kf-fan-edges path.is-ok { stroke: color-mix(in srgb, var(--primary) 70%, transparent); }
+.kf-fan-edges path.is-warn { stroke: color-mix(in srgb, var(--warning) 70%, transparent); }
+.kf-fan-edges path.is-bad { stroke: color-mix(in srgb, var(--danger) 75%, transparent); }
+.kf-fan-edges path.is-sel { stroke-width: 1.8; opacity: 1; }
+
+@container (max-width: 520px) {
+  .kf-fan { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 0 14px; }
+  .kf-fan-centre { grid-column: 1; }
+  .kf-fan-facets { grid-column: 2; }
+  .kf-fan-leaves { grid-column: 1 / -1; margin-top: 10px; }
+  .kf-fan-edges { display: none; }
+}

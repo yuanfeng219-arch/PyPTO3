@@ -1,0 +1,860 @@
+/* ---- 统一算子属性面板 (Operator Inspector) ----------------------------
+   一套骨架服务所有算子源码：结论区 / 四格 Tab / Body / 证据与行动。
+   文件之间的差异全部落在 OperatorProfile 数据里，不落在这张样式表里。
+   规范：Design/Toolkit Studio 算子属性面板统一规范 §四–§八 */
+
+.kf-inspector.is-op-inspector {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.kf-op {
+  --kf-op-guard: #a985dd;
+  --kf-op-gap: 10px;
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---- ① 结论区 ---------------------------------------------------------- */
+
+.kf-op__verdict {
+  flex: none;
+  padding: 11px 13px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface-2));
+}
+.kf-op__eyebrow {
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1 var(--font-sans);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.kf-op__summary {
+  margin: 6px 0 8px;
+  color: var(--foreground);
+  font: var(--kf-font-xs)/1.55 var(--font-sans);
+  /* 两行封顶：结论区不能被一段长描述撑开 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.kf-op__summary.is-open { -webkit-line-clamp: unset; line-clamp: unset; }
+
+.kf-op__id { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.kf-op__name {
+  margin-right: 2px;
+  color: var(--foreground);
+  font: 650 var(--kf-font-md)/1.2 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.kf-op__badge {
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  font: 600 var(--kf-font-micro)/1.5 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__badge.is-kind { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.kf-op__badge.is-complete { border-color: color-mix(in srgb, var(--success) 45%, var(--border-default)); color: var(--success); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.kf-op__badge.is-partial,
+.kf-op__badge.is-placeholder { border-color: color-mix(in srgb, var(--warning) 45%, var(--border-default)); color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, transparent); }
+.kf-op__badge.is-blocked { border-color: color-mix(in srgb, var(--danger) 45%, var(--border-default)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.kf-op__badge.is-trait { border-color: var(--border-default); color: var(--foreground-muted); background: transparent; }
+
+/* 状态条：左风险 chips ｜ 右置信度 chips。位置恒定占用，无风险时也不塌陷。 */
+.kf-op__status { display: flex; align-items: stretch; gap: 7px; margin-top: 9px; }
+.kf-op__risk { display: flex; gap: 3px; flex: none; }
+.kf-op__risk button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid;
+  border-radius: 4px;
+  font: 600 var(--kf-font-micro)/1.4 var(--font-mono);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.kf-op__risk button:disabled { cursor: default; opacity: .55; }
+.kf-op__risk .is-block { border-color: color-mix(in srgb, var(--danger) 45%, transparent); color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-2)); }
+.kf-op__risk .is-warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface-2)); }
+.kf-op__risk .is-guard { border-color: color-mix(in srgb, var(--kf-op-guard) 50%, transparent); color: var(--kf-op-guard); background: color-mix(in srgb, var(--kf-op-guard) 12%, var(--surface-2)); }
+.kf-op__risk .is-clear { border-color: color-mix(in srgb, var(--success) 40%, transparent); color: var(--success); background: color-mix(in srgb, var(--success) 10%, var(--surface-2)); }
+
+.kf-op__status-div { flex: none; width: 1px; background: var(--border-default); }
+
+.kf-op__confidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 2px 8px;
+  min-width: 0;
+  flex: 1;
+}
+.kf-op__confidence button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kf-op__confidence button i { font-style: normal; font-weight: 700; }
+.kf-op__confidence button.is-on i { color: var(--success); }
+.kf-op__confidence button.is-off i { color: var(--danger); }
+.kf-op__confidence button:hover { color: var(--foreground-secondary); }
+/* 修改模式：旧证据对新代码不成立，整组灰掉 */
+.kf-op.is-diff .kf-op__confidence { opacity: .4; }
+.kf-op.is-diff .kf-op__confidence button i { color: var(--foreground-muted) !important; }
+
+/* ---- ② Tab 条：恒定四格，等分 ------------------------------------------ */
+
+.kf-op__tabs {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+.kf-op__tabs button {
+  min-width: 0;
+  padding: 9px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--foreground-muted);
+  background: transparent;
+  cursor: pointer;
+  font: var(--kf-font-xs)/1.3 var(--font-sans);
+  white-space: nowrap;
+}
+.kf-op__tabs button:hover { color: var(--foreground-secondary); }
+.kf-op__tabs button.is-active { border-bottom-color: var(--primary); color: var(--primary); font-weight: 600; }
+.kf-op__tabs button.is-empty { opacity: .55; }
+
+/* ---- ③ Body ------------------------------------------------------------ */
+
+.kf-op__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 13px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.kf-op__block { margin-bottom: 16px; }
+.kf-op__block:last-child { margin-bottom: 0; }
+.kf-op__block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.kf-op__block-head h3 {
+  margin: 0;
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1.3 var(--font-sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.kf-op__origin {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__origin i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+/* 五级来源标记，与 ④ 的图例一一对应（规划文档 §3.2 口径） */
+.kf-op-dot-fact { background: var(--foreground-secondary); }
+.kf-op-dot-resolved { background: var(--primary); }
+.kf-op-dot-compiled { background: var(--success); }
+.kf-op-dot-estimated { background: transparent; border: 1px dashed var(--warning); }
+.kf-op-dot-measured { background: transparent; border: 1px solid var(--border-strong); }
+
+/* 不适用的格：一行具体理由 + 跳转，不是通用空态 */
+.kf-op__na {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.kf-op__na b { color: var(--foreground-secondary); font: 600 var(--kf-font-xs)/1.4 var(--font-sans); }
+.kf-op__na p { margin: 0; color: var(--foreground-muted); font: var(--kf-font-micro)/1.6 var(--font-sans); }
+.kf-op__na button {
+  justify-self: start;
+  padding: 5px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--primary);
+  background: transparent;
+  cursor: pointer;
+  font: var(--kf-font-micro)/1.4 var(--font-mono);
+}
+.kf-op__na button:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+/* ---- ④ 证据与行动 ------------------------------------------------------ */
+
+.kf-op__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 13px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+.kf-op__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 9px;
+  flex: 1;
+  min-width: 0;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+}
+.kf-op__legend span { display: inline-flex; align-items: center; gap: 4px; }
+.kf-op__legend i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.kf-op__action {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  cursor: pointer;
+  font: 600 var(--kf-font-micro)/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__action:hover { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+
+/* ---- 抽屉：风险 / 护栏 / 证据下钻 / 对象详情共用 ------------------------ */
+
+.kf-op__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, #000 42%, transparent);
+  cursor: pointer;
+}
+.kf-op__drawer {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 74%;
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface-2);
+  box-shadow: 0 -8px 26px rgba(0, 0, 0, .34);
+  animation: kf-op-drawer-in .16s ease-out;
+}
+@keyframes kf-op-drawer-in { from { transform: translateY(14px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kf-op__drawer { animation: none; } }
+
+.kf-op__drawer-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px 9px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.kf-op__drawer-head b { color: var(--foreground); font: 650 var(--kf-font-sm)/1.3 var(--font-sans); }
+.kf-op__drawer-head small { color: var(--foreground-muted); font: var(--kf-font-micro)/1.4 var(--font-mono); }
+.kf-op__drawer-close {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--foreground-muted);
+  background: transparent;
+  cursor: pointer;
+  font: var(--kf-font-xs)/1 var(--font-mono);
+}
+.kf-op__drawer-close:hover { color: var(--foreground); border-color: var(--border-strong); }
+.kf-op__drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 13px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* 风险条目：为什么 · 影响什么 · 如何验证（洞察报告 O7 要求的三段） */
+.kf-op__risk-list { display: grid; gap: 9px; }
+.kf-op__risk-item {
+  padding: 10px 11px;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.kf-op__risk-item.is-block { border-left-color: var(--danger); }
+.kf-op__risk-item.is-warn { border-left-color: var(--warning); }
+.kf-op__risk-item.is-guard { border-left-color: var(--kf-op-guard); }
+.kf-op__risk-top { display: flex; align-items: baseline; gap: 7px; margin-bottom: 6px; }
+.kf-op__risk-top b { color: var(--foreground); font: 650 var(--kf-font-xs)/1.4 var(--font-sans); }
+.kf-op__risk-cls {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface-4, var(--surface-3)) 70%, transparent);
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+}
+.kf-op__risk-line {
+  margin-left: auto;
+  border: 0;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  cursor: pointer;
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__risk-line:hover { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+/* `.kf-inspector dl div` 是面板级的 flex + space-between 规则，会把标签挤成竖排。
+   这里显式改回定宽标签列 + 自由正文列，并抵消 dd 的右对齐与等宽字体。 */
+.kf-op__risk-item dl { display: grid; gap: 7px; margin: 0; }
+.kf-op__risk-item dl > div {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  justify-content: stretch;
+}
+.kf-op__risk-item dt {
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1.6 var(--font-sans);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.kf-op__risk-item dd {
+  margin: 0;
+  color: var(--foreground-secondary);
+  font: var(--kf-font-micro)/1.65 var(--font-sans);
+  text-align: left;
+}
+.kf-op__risk-item dd code { font-family: var(--font-mono); }
+/* 「建议改法」是这条风险里唯一可执行的一行，给它一条 accent 边区分于描述。 */
+.kf-op__risk-item dl > div.is-fix {
+  margin: 1px 0;
+  padding: 6px 8px 6px 6px;
+  border-left: 2px solid var(--primary);
+  border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.kf-op__risk-item dl > div.is-fix dt { color: var(--primary); }
+.kf-op__risk-item dl > div.is-fix dd { color: var(--foreground); }
+.kf-op-why-green { color: var(--foreground-muted); }
+
+.kf-op__evidence-note {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-subtle);
+}
+.kf-op__evidence-note > b {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1.3 var(--font-sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.kf-op__risk-conflict {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm, 4px);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--foreground-secondary);
+  font: var(--kf-font-micro)/1.6 var(--font-sans);
+}
+.kf-op__risk-conflict b { color: var(--danger); }
+
+.kf-op__empty-note {
+  padding: 12px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.7 var(--font-sans);
+}
+.kf-op__empty-note b { display: block; margin-bottom: 4px; color: var(--foreground-secondary); font-size: var(--kf-font-xs); }
+
+/* 置信度下钻 */
+.kf-op__evidence { display: grid; gap: 8px; }
+.kf-op__evidence div {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.kf-op__evidence div { justify-content: stretch; }
+.kf-op__evidence i { font-style: normal; font-weight: 700; font-family: var(--font-mono); color: var(--danger); }
+.kf-op__evidence div.is-on i { color: var(--success); }
+.kf-op__evidence b { display: block; color: var(--foreground); font: 600 var(--kf-font-xs)/1.4 var(--font-sans); }
+.kf-op__evidence small { display: block; margin-top: 2px; color: var(--foreground-muted); font: var(--kf-font-micro)/1.6 var(--font-mono); }
+.kf-op__evidence em {
+  font-style: normal;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+  white-space: nowrap;
+}
+
+/* 区块内的补充说明。区块标题由骨架提供，这里只承载正文旁注。 */
+.kf-op__body .kf-pa-note,
+.kf-op-inline-note {
+  margin: 8px 0 0;
+  color: var(--foreground-muted);
+  font: var(--kf-font-xs)/1.55 var(--font-sans);
+}
+.kf-op__body .kf-pa-note code,
+.kf-op-inline-note code { font-family: var(--font-mono); }
+
+/* 迁移到四层骨架的文件：区块标题由骨架渲染，逃生口里残留的 section 头部
+   会造成双标题，统一压掉。随着 raw 区块被结构化，这条规则会消失。 */
+.kf-op__body .kf-inspector-section { margin-bottom: 16px; }
+
+/* 假设推演（"如果声明 pl.pipeline 会发生什么"）不是现状，默认折叠。
+   现状永远直接可见，推演要多点一下——这是这个面板的取舍顺序。 */
+.kf-op__body .kf-op-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 7px 0;
+}
+.kf-op__body .kf-op-fold > summary::-webkit-details-marker { display: none; }
+.kf-op__body .kf-op-fold > summary::before {
+  content: "›";
+  flex: none;
+  width: 14px;
+  color: var(--foreground-muted);
+  font: var(--kf-font-sm)/1 var(--font-mono);
+  transition: transform .15s ease;
+}
+.kf-op__body .kf-op-fold[open] > summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .kf-op__body .kf-op-fold > summary::before { transition: none; }
+}
+
+/* 图层轴与 tab 轴是同一根轴：从图的某个图层直接跳到对应的格 */
+.kf-op-layer-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 6px 9px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 40%, var(--border-default));
+  border-radius: 4px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  cursor: pointer;
+  font: var(--kf-font-micro)/1.5 var(--font-sans);
+  text-align: left;
+}
+.kf-op-layer-jump:hover { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.kf-op-layer-jump i { margin-left: auto; font-style: normal; }
+
+/* 计算图曾经占满整个 tab，所以定了 580px。在四格骨架里它只是概览的一个区块，
+   必须留在第一屏；降到 380px，展开态仍给更多空间。 */
+.kf-op__body .kf-pa-computation__stage,
+.kf-op__body .kf-pa-computation__stage svg { height: 380px; min-height: 380px; }
+.kf-op__body .kf-pa-computation__stage.is-expanded,
+.kf-op__body .kf-pa-computation__stage.is-expanded svg { height: 520px; min-height: 520px; }
+
+@media (max-width: 1180px) {
+  .kf-op__status { flex-wrap: wrap; }
+  .kf-op__status-div { display: none; }
+  .kf-op__confidence { flex-basis: 100%; }
+}
+
+/* 源码行 ↔ 面板的统一高亮。取代此前每个文件一套的
+   .is-rms-function-active / .is-attention-line-active / .is-paged-attention-line-active … */
+#dslEditor [data-inspector-scope].is-inspector-scope-active {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  box-shadow: inset 2px 0 var(--primary);
+}
+
+/* 作用域切换器：一个文件里几个同族函数共用结论，各自有自己的数据与分块。 */
+.kf-op__variants {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  margin-top: 9px;
+}
+.kf-op__variants button {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  color: var(--foreground-muted);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.kf-op__variants button b { font: 600 var(--kf-font-micro)/1.3 var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
+.kf-op__variants button small { font: var(--kf-font-micro)/1.3 var(--font-sans); opacity: .8; overflow: hidden; text-overflow: ellipsis; }
+.kf-op__variants button.is-active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-2));
+}
+
+/* ---- paged_attention 概览重构 --------------------------------------------
+   1) 计算图去掉 5 个图层按钮，改为图下的"风险落点"条
+   2) 输入与输出：加一列人话说明
+   3) Agent 结论：从六字段表改为 发现→根因→影响→改法→验证 的判断链
+   4) 示例运行画像下沉为置信度脚注
+
+   两条既有约束，这里一律遵守而不是绕开：
+   · demo.css:1601 用 !important 把 inspector 内所有文字压成 12px（标题 14px）。
+     所以下面不写任何 font-size——层级全部靠字重、颜色、留白和底色做出来。
+   · 面板跟随主题（当前默认深色）。所以颜色一律走 token，不写死任何字面色值。 */
+
+/* 1 · 风险落点 */
+.kf-pa-risk-landing {
+  margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, transparent);
+}
+.kf-pa-risk-landing > b { display: block; font-weight: 700; color: var(--warning); letter-spacing: 0.01em; }
+.kf-pa-risk-landing > div { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 8px; }
+.kf-pa-risk-landing button {
+  display: inline-flex; align-items: center; gap: 7px; padding: 4px 9px;
+  border-radius: 999px; cursor: pointer; font-family: inherit;
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-default));
+  background: var(--surface-1); color: var(--foreground);
+}
+.kf-pa-risk-landing button:hover {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface-1));
+}
+.kf-pa-risk-landing button em {
+  font-style: normal; font-weight: 700; color: var(--warning);
+  min-width: 18px; padding: 0 4px; text-align: center; border-radius: 4px;
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+}
+.kf-pa-risk-landing > small { display: block; line-height: 1.7; color: var(--foreground-muted); }
+
+/* 2 · 输入与输出 */
+/* 基础表是 .8fr 1.25fr 1fr 的三列。人话说明塞进第一列只有 ~85px，会逐字换行，
+   所以让它单独占一整行——三列放"参数名 / 形状 / 读写"，说明横跨全宽。 */
+.kf-pa-tensor-table.is-plain > div,
+.kf-pa-tensor-table.is-plain > button {
+  /* context_lens / block_table 在 .8fr 下会被省略号截掉，参数名截掉就没用了 */
+  grid-template-columns: 1.05fr 1.6fr .5fr;
+}
+.kf-pa-tensor-table.is-plain button { align-items: baseline; row-gap: 3px; }
+.kf-pa-tensor-table.is-plain button > small {
+  grid-column: 1 / -1; color: var(--foreground-muted); line-height: 1.55;
+}
+.kf-pa-tensor-table.is-plain button > b { display: flex; align-items: baseline; gap: 6px; }
+.kf-pa-tensor-table.is-plain button > b i {
+  font-style: normal; font-weight: 600; color: var(--foreground-muted);
+  padding: 0 5px; border-radius: 4px; background: var(--surface-3);
+}
+.kf-pa-tensor-table.is-plain button.is-out {
+  background: color-mix(in srgb, var(--success) 9%, transparent);
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border-default));
+}
+.kf-pa-tensor-table.is-plain button.is-out > em { color: var(--success); font-weight: 700; }
+
+/* 3 · Agent 结论 */
+.kf-pa2-agent.is-lead {
+  border-radius: 12px; padding: 13px 15px 6px;
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface-2));
+}
+.kf-pa2-agent-tag {
+  margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+  font-weight: 700; letter-spacing: 0.02em; text-transform: none;
+  color: var(--surface-1); background: var(--danger);
+}
+/* 结论句压不了字号，就给它一条竖杠 + 满字重 + 最亮的前景色，让它在 12px 里
+   也是第一眼看到的东西 */
+.kf-pa2-headline {
+  margin: 9px 0 6px; padding-left: 10px;
+  border-left: 3px solid var(--danger);
+  line-height: 1.7; font-weight: 700; color: var(--foreground);
+}
+.kf-pa2-scope { margin: 0 0 4px; padding-left: 13px; line-height: 1.65; color: var(--foreground-muted); }
+/* 折叠条：默认态下它是这个区块的最后一行，要看得出还有东西可点 */
+.kf-pa2-agent-fold { border-top: 1px solid color-mix(in srgb, var(--danger) 22%, transparent); margin-top: 10px; }
+.kf-op__body .kf-pa2-agent-fold > summary { padding: 9px 0 8px; }
+.kf-pa2-agent-fold > summary::before { color: var(--danger) !important; }
+.kf-pa2-agent-fold > summary b { font-weight: 700; color: var(--danger); }
+.kf-pa2-agent-fold > summary small { color: var(--foreground-muted); }
+.kf-pa2-agent-fold > summary:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.kf-pa2-agent-fold[open] > summary { border-bottom: 1px solid var(--border-subtle); margin-bottom: 11px; }
+.kf-pa2-agent-fold .kf-pa2-steps { padding-bottom: 6px; }
+.kf-pa2-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.kf-pa2-step { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; align-items: start; }
+.kf-pa2-step > i { font-style: normal; font-weight: 700; color: var(--danger); line-height: 1.6; }
+.kf-pa2-step > div > b { display: block; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
+.kf-pa2-step > div > p { margin: 0; line-height: 1.8; color: color-mix(in srgb, var(--foreground) 78%, transparent); }
+.kf-pa2-tail { margin-top: 8px !important; }
+.kf-pa2-trace { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; }
+.kf-pa2-trace button {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 3px 9px;
+  text-align: left; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-default); background: var(--surface-1); font-family: inherit;
+}
+.kf-pa2-trace button:hover {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-1));
+}
+.kf-pa2-trace em {
+  grid-row: span 2; font-style: normal; font-weight: 700;
+  color: var(--foreground-muted); text-align: right;
+}
+.kf-pa2-trace code { font-family: var(--font-mono); line-height: 1.6; color: var(--foreground); word-break: break-word; }
+.kf-pa2-trace small { line-height: 1.55; color: var(--foreground-muted); }
+.kf-pa2-code {
+  margin: 9px 0 0; padding: 10px 12px; border-radius: 8px; overflow-x: auto;
+  background: var(--surface-3);
+  border: 1px solid color-mix(in srgb, var(--success) 26%, transparent);
+}
+.kf-pa2-code code {
+  display: block; white-space: pre; line-height: 1.9;
+  color: var(--foreground); font-family: var(--font-mono);
+}
+
+/* 4 · 置信度脚注里的运行配置 */
+.kf-pa-run-lead { display: block; font-weight: 700; color: var(--foreground); margin-bottom: 7px; }
+
+/* ---- 源码地图 · 贴在源码顶部 ---------------------------------------------
+   原来是右侧面板概览里的一个区块。右侧那份只能说"文件分成哪几段"，说不了
+   "你现在读到哪一段"——后者才是读 563 行陌生代码时真正需要的。挪上来做成
+   sticky 条：随滚动指出当前段，点开是完整的 10 段跳转表。 */
+.kf-source-region {
+  position: sticky; top: 0; z-index: 4;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 6px 14px -10px rgba(0, 0, 0, .75);
+}
+.kf-source-region__head {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  align-items: baseline; gap: 9px;
+  width: 100%; padding: 8px 11px;
+  border: 0; border-radius: 8px; background: transparent;
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.kf-source-region__head:hover { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.kf-source-region__pos {
+  flex: none; padding: 1px 6px; border-radius: 4px;
+  color: var(--foreground-muted); background: var(--surface-3);
+  font-family: var(--font-mono);
+}
+.kf-source-region__head > b { color: var(--foreground); font-weight: 700; }
+.kf-source-region__head > i {
+  font-style: normal; color: var(--primary); font-family: var(--font-mono);
+}
+.kf-source-region__head > small {
+  overflow: hidden; color: var(--foreground-muted);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.kf-source-region__head > em {
+  flex: none; font-style: normal; color: var(--foreground-muted);
+}
+.kf-source-region__list {
+  display: grid; gap: 2px; padding: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+.kf-source-region__list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto) auto minmax(0, 1fr);
+  align-items: baseline; gap: 9px;
+  padding: 6px 8px; border: 0; border-radius: 6px;
+  background: transparent; cursor: pointer; text-align: left;
+  color: var(--foreground); font-family: inherit;
+}
+.kf-source-region__list button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.kf-source-region__list button.is-active { background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.kf-source-region__list button > span {
+  color: var(--foreground-muted); font-family: var(--font-mono);
+}
+.kf-source-region__list button > b { font-weight: 700; }
+.kf-source-region__list button > i {
+  font-style: normal; color: var(--primary); font-family: var(--font-mono);
+}
+.kf-source-region__list button > small {
+  overflow: hidden; color: var(--foreground-muted);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* ---- 风险条目 → 源码联动 --------------------------------------------------
+   整个标题行都是跳转按钮，不只是右边那枚行号 chip：风险列表最常见的用法是
+   逐条点下去看代码，点击目标越大越好。正文留给选中复制，不参与点击。 */
+.kf-op__risk-top.is-clickable {
+  margin: -10px -11px 6px;
+  padding: 10px 11px 7px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+}
+.kf-op__risk-top.is-clickable:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.kf-op__risk-top.is-clickable:hover .kf-op__risk-line { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.kf-op__risk-top.is-clickable:focus-visible {
+  outline: 1px solid var(--primary);
+  outline-offset: -1px;
+}
+/* 当前正在看的那条：走到列表中段时不丢位置感 */
+.kf-op__risk-item.is-active {
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle));
+}
+.kf-op__risk-item.is-active .kf-op__risk-line {
+  color: var(--surface-1);
+  background: var(--primary);
+}
+
+/* ---- 计算图叠加图层开关 ---------------------------------------------------
+   之前那排 5 个按钮是单选、互斥、和四格 Tab 同一根轴，所以删了。这一排是
+   开关：每个占不同的视觉通道（副标题 / 边标签 / 标题后缀），可以同时开。 */
+.kf-pa-layers {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  padding: 8px 9px; margin-bottom: 8px;
+  border: 1px solid var(--border-subtle); border-radius: 8px;
+  background: var(--surface-2);
+}
+.kf-pa-layers__lead { color: var(--foreground-muted); margin-right: 2px; }
+.kf-pa-layers button {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: transparent; color: var(--foreground-muted);
+  cursor: pointer; font-family: inherit;
+}
+/* 小滑块，说明这是开关不是单选 */
+.kf-pa-layers button > i {
+  position: relative; flex: none;
+  width: 18px; height: 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 22%, transparent);
+  transition: background .15s ease;
+}
+.kf-pa-layers button > i::after {
+  content: ""; position: absolute; top: 1px; left: 1px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--surface-1);
+  transition: transform .15s ease;
+}
+.kf-pa-layers button:hover:not(:disabled) { color: var(--foreground); border-color: var(--border-strong); }
+.kf-pa-layers button.is-on {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.kf-pa-layers button.is-on > i { background: var(--primary); }
+.kf-pa-layers button.is-on > i::after { transform: translateX(8px); }
+.kf-pa-layers button.is-locked {
+  opacity: .45; cursor: not-allowed;
+  border-style: dashed; padding-left: 9px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kf-pa-layers button > i,
+  .kf-pa-layers button > i::after { transition: none; }
+}
+
+/* ---- 分块硬件 ② 片上工作集 -------------------------------------------------
+   原来「Tile 形状」在分块硬件、「单 Block 工作集」在数据精度，是把因和果分到
+   了两屏：分块尺寸就是被"这一块放不放得下"决定的。合成一块，并按占用排出
+   长条——一眼看出 K/V Block 吃掉了三分之二。 */
+.kf-pa-footprint {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.kf-pa-footprint > header {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.kf-pa-footprint > header b { color: var(--foreground-secondary); font-weight: 600; }
+.kf-pa-footprint > header em {
+  margin-left: auto; font-style: normal; font-weight: 700;
+  color: var(--primary); font-family: var(--font-mono);
+}
+.kf-pa-footprint button {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: center; gap: 8px;
+  width: 100%; padding: 5px 9px;
+  border: 0; border-top: 1px solid var(--border-subtle);
+  background: transparent; color: var(--foreground-secondary);
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.kf-pa-footprint button:first-of-type { border-top: 0; }
+.kf-pa-footprint button:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.kf-pa-footprint button > i {
+  height: 7px; border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.kf-pa-footprint button > i::before {
+  content: ""; display: block; width: var(--w); height: 100%;
+  border-radius: 3px; background: var(--primary);
+}
+.kf-pa-footprint button > b {
+  display: flex; align-items: baseline; gap: 5px;
+  font-family: var(--font-mono); white-space: nowrap;
+}
+/* dtype 跟在容量后面，不另起一行——八个 buffer 各占两行会把这块撑到 700px */
+.kf-pa-footprint button > b em {
+  font-style: normal; font-weight: 400; color: var(--foreground-muted);
+}
+
+/* ③ 泳道下的函数 → 单元 → 路径注解，取代原先另起一节的同构表格 */
+.kf-pa-hw-fns {
+  display: grid; gap: 1px;
+  margin-top: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.kf-pa-hw-fns > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 6px 9px;
+  background: var(--surface-1);
+}
+.kf-pa-hw-fns code { color: var(--foreground-secondary); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.kf-pa-hw-fns b { color: var(--primary); font-weight: 600; white-space: nowrap; }
+.kf-pa-hw-fns small { grid-column: 1 / -1; color: var(--foreground-muted); font-family: var(--font-mono); }

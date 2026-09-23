@@ -1,0 +1,556 @@
+# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+"""Convert the operator simulator's ``visualize_data.bin`` dump into a clean,
+Chrome-viewable AI-core pipeline trace.
+
+The dump is a flat sequence of length-prefixed JSON blocks. This tool rebuilds
+the ``TRACE`` block into a de-cluttered Chrome Trace Event JSON and reshapes the
+``API_INSTR`` block into a per-core metrics sidecar.
+"""
+
+import argparse
+import json
+import shutil
+import struct
+import sys
+from collections.abc import Iterator
+from pathlib import Path
+
+# --- visualize_data.bin block container format ---------------------------------
+# Header: contentSize:u64, type:u8, padding:u8, instrVersion:u8, reserve:u8.
+_HEADER = struct.Struct("<QBBBB")
+_MAGIC = 0x5A  # the reserve byte; also the binary-format magic
+_TYPE_SOURCE, _TYPE_TRACE, _TYPE_API_INSTR = 1, 2, 4
+_SOURCE_PATH_LEN = 4096  # SOURCE blocks prefix the payload with a fixed-size path
+
+
+def iter_blocks(data: bytes) -> Iterator[tuple[int, bytes]]:
+    """Decode the block container of a ``visualize_data.bin`` buffer.
+
+    Args:
+        data: Raw bytes of a ``visualize_data.bin`` file.
+
+    Yields:
+        ``(block_type, payload)`` tuples. ``SOURCE`` blocks have their fixed
+        4096-byte path prefix removed; every payload has trailing 4-byte
+        alignment padding stripped.
+
+    Raises:
+        ValueError: A block header is corrupt (bad magic or oversized length).
+    """
+    off = 0
+    while off + _HEADER.size <= len(data):
+        size, btype, padding, _, reserve = _HEADER.unpack_from(data, off)
+        body = off + _HEADER.size
+        if reserve != _MAGIC or size > len(data) - body:
+            raise ValueError(f"corrupt block at offset {off}: size={size}, reserve={reserve:#x}")
+        if padding > 3 or padding > size:
+            raise ValueError(f"corrupt block at offset {off}: size={size}, padding={padding}")
+        payload = data[body : body + size]
+        if btype == _TYPE_SOURCE:
+            if size < _SOURCE_PATH_LEN:
+                raise ValueError(
+                    f"corrupt SOURCE block at offset {off}: size {size} < path length {_SOURCE_PATH_LEN}"
+                )
+            payload = payload[_SOURCE_PATH_LEN:]
+        yield btype, payload[: len(payload) - padding]
+        off = body + size
+
+
+# --- sync-flag arrow reconstruction --------------------------------------------
+# Pipeline names used in SET_FLAG/WAIT_FLAG detail strings differ from trace
+# thread (tid) names; map the aliases.
+_PIPE_ALIAS = {"VEC": "VECTOR"}
+
+
+def _parse_detail(detail: str | None) -> dict[str, str]:
+    """Parse a comma-separated ``KEY:VALUE,`` detail string into a dict."""
+    out: dict[str, str] = {}
+    if not detail:
+        return out
+    for part in detail.split(","):
+        if ":" in part:
+            key, _, val = part.partition(":")
+            out[key.strip()] = val.strip()
+    return out
+
+
+def _pair_flag_events(events: list[dict], name: str) -> list[dict]:
+    """Pair the B/E phases of a flag op into begin/end records.
+
+    Returns one record per matched pair with keys ``pid``, ``tid``, ``detail``
+    (taken from the B phase), ``begin_ts`` and ``end_ts``.
+    """
+    open_stack: dict[tuple[str, str], list[dict]] = {}
+    records: list[dict] = []
+    for event in events:
+        if event.get("name") != name:
+            continue
+        key = (event.get("pid", ""), event.get("tid", ""))
+        if event.get("ph") == "B":
+            open_stack.setdefault(key, []).append(event)
+        elif event.get("ph") == "E" and open_stack.get(key):
+            begin = open_stack[key].pop()
+            records.append(
+                {
+                    "pid": event.get("pid", ""),
+                    "tid": event.get("tid", ""),
+                    "detail": begin.get("args", {}).get("detail", ""),
+                    "begin_ts": begin.get("ts", 0.0),
+                    "end_ts": event.get("ts", 0.0),
+                }
+            )
+    return records
+
+
+def _last_at_or_before(insts_sorted: list[dict], ts: float) -> dict | None:
+    """Return the last instruction with ``ts`` <= the given timestamp."""
+    found = None
+    for inst in insts_sorted:
+        if inst["ts"] <= ts:
+            found = inst
+        else:
+            break
+    return found
+
+
+def _first_at_or_after(insts_sorted: list[dict], ts: float) -> dict | None:
+    """Return the first instruction with ``ts`` >= the given timestamp."""
+    for inst in insts_sorted:
+        if inst["ts"] >= ts:
+            return inst
+    return None
+
+
+def _flag_key(detail: str | None) -> tuple[str, str, str]:
+    """Canonical ``(producer, consumer, flag-id)`` key for matching SET/WAIT
+    flags, independent of detail-string field order or formatting."""
+    parsed = _parse_detail(detail)
+    return (
+        _PIPE_ALIAS.get(parsed.get("PIPE", ""), parsed.get("PIPE", "")),
+        _PIPE_ALIAS.get(parsed.get("TRIGGERPIPE", ""), parsed.get("TRIGGERPIPE", "")),
+        parsed.get("FLAGID", ""),
+    )
+
+
+def _build_sync_arrows(insts: list[dict], events: list[dict]) -> tuple[list[dict], int]:
+    """Rebuild SET_FLAG/WAIT_FLAG pairs as re-anchored Chrome flow arrows.
+
+    Args:
+        insts: The kept instruction slices (used as arrow anchor points).
+        events: All raw trace events (the SET_FLAG/WAIT_FLAG source).
+
+    Returns:
+        ``(flow_events, skipped_count)`` — one ``s``/``f`` flow-event pair per
+        re-anchored flag, plus the count of flags that could not be anchored.
+    """
+    # Group by the logical pipe (``_pipe``), not the rendered sub-lane tid, so a
+    # flag's producer/consumer is found across all sub-lanes of the pipe.
+    by_lane: dict[tuple[str, str], list[dict]] = {}
+    for inst in insts:
+        by_lane.setdefault((inst.get("pid", ""), inst.get("_pipe", inst.get("tid", ""))), []).append(inst)
+    for lane in by_lane.values():
+        lane.sort(key=lambda inst: inst.get("ts", 0.0))
+
+    waits_by_key: dict[tuple[str, tuple[str, str, str]], list[dict]] = {}
+    for wait in _pair_flag_events(events, "WAIT_FLAG"):
+        waits_by_key.setdefault((wait["pid"], _flag_key(wait["detail"])), []).append(wait)
+    for wlist in waits_by_key.values():
+        wlist.sort(key=lambda rec: rec["begin_ts"])
+
+    arrows: list[dict] = []
+    skipped = 0
+    flow_id = 0
+    for flag in sorted(_pair_flag_events(events, "SET_FLAG"), key=lambda rec: rec["begin_ts"]):
+        detail = _parse_detail(flag["detail"])
+        producer = _PIPE_ALIAS.get(detail.get("PIPE", ""), detail.get("PIPE", ""))
+        consumer = _PIPE_ALIAS.get(detail.get("TRIGGERPIPE", ""), detail.get("TRIGGERPIPE", ""))
+        wlist = waits_by_key.get((flag["pid"], _flag_key(flag["detail"])))
+        if not wlist:
+            skipped += 1
+            continue
+        wait = wlist.pop(0)
+        prod = _last_at_or_before(by_lane.get((flag["pid"], producer), []), flag["begin_ts"])
+        cons = _first_at_or_after(by_lane.get((flag["pid"], consumer), []), wait["end_ts"])
+        if prod is None or cons is None:
+            skipped += 1
+            continue
+        flow_id += 1
+        label = f"{detail.get('PIPE', '?')}->{detail.get('TRIGGERPIPE', '?')} flag{detail.get('FLAGID', '?')}"
+        arrows.append(
+            {
+                "ph": "s",
+                "id": flow_id,
+                "cat": "sync",
+                "name": label,
+                "pid": flag["pid"],
+                "tid": prod.get("_tid", producer),
+                "ts": prod.get("ts", 0.0),
+            }
+        )
+        arrows.append(
+            {
+                "ph": "f",
+                "id": flow_id,
+                "cat": "sync",
+                "bp": "e",
+                "name": label,
+                "pid": flag["pid"],
+                "tid": cons.get("_tid", consumer),
+                "ts": cons.get("ts", 0.0),
+            }
+        )
+    return arrows, skipped
+
+
+# --- clean trace rebuild -------------------------------------------------------
+# Pipeline lanes in dataflow order (load -> compute -> store -> setup).
+_PIPELINE_ORDER = {
+    "MTE2": 0,
+    "MTE1": 1,
+    "CUBE": 2,
+    "VECTOR": 3,
+    "FIXPIPE": 4,
+    "MTE3": 5,
+    "SCALAR": 6,
+}
+_DROP_LANES = frozenset({"CACHEMISS", "FLOWCTRL", "ALL"})
+_SYNC_NAMES = frozenset({"SET_FLAG", "WAIT_FLAG", "BAR"})
+_LANE_LABEL = {
+    "MTE2": "MTE2 (load GM->UB)",
+    "MTE1": "MTE1 (load L1->L0)",
+    "CUBE": "CUBE (matmul)",
+    "VECTOR": "VECTOR (compute)",
+    "FIXPIPE": "FIXPIPE (quant/out)",
+    "MTE3": "MTE3 (store UB->GM)",
+    "SCALAR": "SCALAR (setup)",
+}
+_LANE_CNAME = {
+    "MTE2": "thread_state_iowait",
+    "MTE1": "thread_state_iowait",
+    "CUBE": "rail_response",
+    "VECTOR": "good",
+    "FIXPIPE": "yellow",
+    "MTE3": "cq_build_passed",
+    "SCALAR": "grey",
+}
+
+
+def _assign_sublanes(insts: list[dict]) -> None:
+    """Pack partially-overlapping instructions on each pipe into sub-lanes.
+
+    Chrome Trace ``X`` (complete) events on the same ``tid`` must be disjoint or
+    strictly nested. Software-pipelined instructions on a pipe (e.g. several MTE1
+    L1->L0 loads in flight at once) only *partially* overlap, so placing them all
+    on one tid makes the viewer collapse the visible depth (the true 6-7-deep
+    concurrency renders as ~2). Greedily interval-partition each ``(pid, pipe)``
+    group into the minimum number of disjoint sub-lanes (= peak concurrency) and
+    stamp ``_pipe`` / ``_lane`` / ``_tid`` on each instruction. Lane 0 keeps the
+    bare pipe name so non-overlapping pipes are unchanged; extra lanes become
+    ``"<pipe>#<n>"``.
+    """
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for e in insts:
+        groups.setdefault((e.get("pid", ""), e.get("tid", "")), []).append(e)
+    for (_, pipe), evs in groups.items():
+        evs.sort(key=lambda e: (e.get("ts", 0.0), e.get("dur", 0.0)))
+        lane_end: list[float] = []  # next-free ts per open sub-lane
+        for e in evs:
+            start = e.get("ts", 0.0)
+            end = start + e.get("dur", 0.0)
+            lane = next((i for i, le in enumerate(lane_end) if le <= start), None)
+            if lane is None:
+                lane = len(lane_end)
+                lane_end.append(end)
+            else:
+                lane_end[lane] = end
+            e["_pipe"] = pipe
+            e["_lane"] = lane
+            e["_tid"] = pipe if lane == 0 else f"{pipe}#{lane}"
+
+
+def rebuild_trace(raw: dict, keep_scalar: bool = False) -> tuple[dict, int]:
+    """Rebuild a raw simulator trace into a clean AI-core pipeline view.
+
+    Args:
+        raw: The parsed ``TRACE`` block (a Chrome Trace Event JSON dict).
+        keep_scalar: Keep the ``SCALAR`` setup lane (dropped by default).
+
+    Returns:
+        ``(clean_trace, skipped_arrows)`` — the rebuilt Chrome trace dict and
+        the number of sync flags that could not be re-anchored.
+    """
+    events = raw.get("traceEvents", [])
+
+    def lane_kept(tid: str) -> bool:
+        if tid in _DROP_LANES:
+            return False
+        if tid == "SCALAR" and not keep_scalar:
+            return False
+        return True
+
+    # Rules 1 + 2: keep only X (complete) instruction events on pipeline lanes.
+    insts = [
+        e
+        for e in events
+        if e.get("ph") == "X" and lane_kept(e.get("tid", "")) and e.get("name") not in _SYNC_NAMES
+    ]
+
+    # Pipelined instructions on a pipe only partially overlap; split them into
+    # sub-lanes so the viewer shows the true concurrency instead of collapsing it.
+    _assign_sublanes(insts)
+
+    out: list[dict] = []
+
+    # Rule 3: process/thread metadata for a deterministic dataflow ordering.
+    for proc_index, pid in enumerate(sorted({e.get("pid", "") for e in insts})):
+        out.append({"name": "process_name", "ph": "M", "pid": pid, "args": {"name": pid}})
+        out.append({"name": "process_sort_index", "ph": "M", "pid": pid, "args": {"sort_index": proc_index}})
+        lane_info = {e["_tid"]: (e["_pipe"], e["_lane"]) for e in insts if e.get("pid", "") == pid}
+        for tid in sorted(
+            lane_info,
+            key=lambda t: (_PIPELINE_ORDER.get(lane_info[t][0], 99), lane_info[t][1]),
+        ):
+            pipe, lane = lane_info[tid]
+            label = _LANE_LABEL.get(pipe, pipe)
+            if lane:
+                label = f"{label} #{lane}"
+            out.append(
+                {
+                    "name": "thread_name",
+                    "ph": "M",
+                    "pid": pid,
+                    "tid": tid,
+                    "args": {"name": label},
+                }
+            )
+            out.append(
+                {
+                    "name": "thread_sort_index",
+                    "ph": "M",
+                    "pid": pid,
+                    "tid": tid,
+                    "args": {"sort_index": _PIPELINE_ORDER.get(pipe, 99) * 100 + lane},
+                }
+            )
+
+    # Rules 5 + 6: copy instruction slices, recolor by lane, timestamps verbatim.
+    for e in insts:
+        slice_ = {
+            "name": e["name"],
+            "ph": "X",
+            "pid": e.get("pid", ""),
+            "tid": e["_tid"],
+            "ts": e["ts"],
+            "cname": _LANE_CNAME.get(e["_pipe"], "grey"),
+        }
+        if "dur" in e:
+            slice_["dur"] = e["dur"]
+        if "args" in e:
+            slice_["args"] = e["args"]
+        out.append(slice_)
+
+    # Rule 4: rebuild SET_FLAG/WAIT_FLAG pairs as re-anchored flow arrows.
+    arrows, skipped = _build_sync_arrows(insts, events)
+    out.extend(arrows)
+
+    clean = {
+        "displayTimeUnit": "ns",
+        "profilingType": raw.get("profilingType", "op"),
+        "schemaVersion": raw.get("schemaVersion", 1),
+        "traceEvents": out,
+    }
+    return clean, skipped
+
+
+# --- API_INSTR metrics sidecar -------------------------------------------------
+def reshape_metrics(api_instr: dict) -> dict:
+    """Reshape the API_INSTR block into per-core instruction records.
+
+    The raw block stores each metric as an array indexed by the ``Cores`` list.
+    This flattens those arrays so each core gets its own list of records with
+    scalar field values; field names are lower-cased with spaces replaced by
+    underscores.
+
+    Args:
+        api_instr: The parsed ``API_INSTR`` block.
+
+    Returns:
+        A dict with ``cores``, ``instructions`` (keyed by core name) and
+        ``column_types`` (the original ``Instructions Dtype`` map).
+    """
+    cores = api_instr.get("Cores", [])
+    by_core: dict[str, list[dict]] = {core: [] for core in cores}
+    for record in api_instr.get("Instructions", []):
+        for index, core in enumerate(cores):
+            row: dict = {}
+            for key, value in record.items():
+                field = key.lower().replace(" ", "_")
+                if isinstance(value, list) and len(value) == len(cores):
+                    row[field] = value[index]
+                else:
+                    row[field] = value
+            by_core[core].append(row)
+    return {
+        "cores": cores,
+        "instructions": by_core,
+        "column_types": api_instr.get("Instructions Dtype", {}),
+    }
+
+
+# --- command-line interface ----------------------------------------------------
+def _resolve_input(path: Path) -> Path:
+    """Resolve a CLI path to an actual ``visualize_data.bin`` file.
+
+    Accepts the file directly, or an ``OPPROF_*`` directory containing either
+    ``visualize_data.bin`` or ``simulator/visualize_data.bin``.
+
+    Raises:
+        FileNotFoundError: No ``visualize_data.bin`` could be located.
+    """
+    if path.is_file():
+        return path
+    if path.is_dir():
+        for candidate in (path / "visualize_data.bin", path / "simulator" / "visualize_data.bin"):
+            if candidate.is_file():
+                return candidate
+    raise FileNotFoundError(
+        f"no visualize_data.bin found at {path} (expected a .bin file or a "
+        f"directory containing simulator/visualize_data.bin)"
+    )
+
+
+def _copy_raw_trace(bin_path: Path, out_dir: Path) -> Path | None:
+    """Bring the raw simulator binary trace into ``out_dir/raw_simulator/``.
+
+    The cleaned trace is the deliverable, but the target folder should be
+    self-contained for re-analysis — so the binary trace result
+    (``visualize_data.bin``) and its sibling per-core artifacts (``core*`` dirs,
+    Insight ``trace.json``) are copied next to ``trace.clean.json``. The source
+    under the run's ``OPPROF_*/simulator`` dir is left intact (copy, not move).
+
+    Returns the destination directory, or ``None`` when there is nothing to do
+    (the raw bin already lives in ``out_dir``).
+    """
+    src_dir = bin_path.parent  # the OPPROF_*/simulator directory
+    if out_dir.resolve() == src_dir.resolve():
+        return None
+    raw_dir = out_dir / "raw_simulator"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_resolved = raw_dir.resolve()
+    for item in sorted(src_dir.iterdir()):
+        # Never recurse into our own destination if it sits under the source.
+        try:
+            if raw_resolved == item.resolve() or raw_resolved.is_relative_to(item.resolve()):
+                continue
+        except (OSError, ValueError):
+            pass
+        dest = raw_dir / item.name
+        try:
+            if item.is_dir():
+                shutil.copytree(item, dest, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest)
+        except OSError as exc:
+            print(f"warning: could not copy {item} -> {dest}: {exc}", file=sys.stderr)
+    return raw_dir
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point. Returns a process exit code."""
+    parser = argparse.ArgumentParser(
+        prog="clean_sim_trace", description="Rebuild a clean AI-core pipeline trace from visualize_data.bin."
+    )
+    parser.add_argument("path", type=Path, help="a visualize_data.bin file or an OPPROF_* directory")
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="output directory (default: next to the input file)",
+    )
+    parser.add_argument(
+        "--keep-scalar", action="store_true", help="keep the SCALAR setup lane (dropped by default)"
+    )
+    parser.add_argument(
+        "--raw-metrics", action="store_true", help="dump the API_INSTR block verbatim instead of reshaping"
+    )
+    parser.add_argument(
+        "--copy-raw",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="copy the raw binary trace (visualize_data.bin + per-core artifacts) into "
+        "<output-dir>/raw_simulator/ so the target folder is self-contained alongside the "
+        "cleaned trace (default: on; --no-copy-raw to skip). No-op without -o/--output-dir.",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        bin_path = _resolve_input(args.path)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        blocks: dict[int, bytes] = {}
+        wanted = (_TYPE_TRACE, _TYPE_API_INSTR)
+        for btype, payload in iter_blocks(bin_path.read_bytes()):
+            if btype in wanted:
+                blocks.setdefault(btype, payload)
+    except ValueError as exc:
+        print(f"error: {bin_path}: {exc}", file=sys.stderr)
+        return 1
+
+    if _TYPE_TRACE not in blocks:
+        print(f"error: {bin_path}: no TRACE block found", file=sys.stderr)
+        return 1
+
+    out_dir = args.output_dir or bin_path.parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        trace, skipped = rebuild_trace(json.loads(blocks[_TYPE_TRACE]), keep_scalar=args.keep_scalar)
+    except ValueError as exc:
+        print(f"error: {bin_path}: TRACE block: {exc}", file=sys.stderr)
+        return 1
+    trace_path = out_dir / "trace.clean.json"
+    with trace_path.open("w", encoding="utf-8") as f:
+        json.dump(trace, f)
+    print(f"wrote {trace_path}")
+    if skipped:
+        print(f"note: {skipped} sync flag(s) could not be re-anchored and were skipped")
+
+    if _TYPE_API_INSTR in blocks:
+        metrics_path = out_dir / "instr_metrics.json"
+        if args.raw_metrics:
+            # Preserve the API_INSTR payload byte-for-byte (documented "verbatim").
+            metrics_path.write_bytes(blocks[_TYPE_API_INSTR])
+        else:
+            try:
+                api = json.loads(blocks[_TYPE_API_INSTR])
+            except ValueError as exc:
+                print(f"error: {bin_path}: API_INSTR block: {exc}", file=sys.stderr)
+                return 1
+            with metrics_path.open("w", encoding="utf-8") as f:
+                json.dump(reshape_metrics(api), f)
+        print(f"wrote {metrics_path}")
+    else:
+        print("warning: no API_INSTR block found; skipping instr_metrics.json", file=sys.stderr)
+
+    if args.copy_raw:
+        raw_dir = _copy_raw_trace(bin_path, out_dir)
+        if raw_dir is not None:
+            print(f"copied raw binary trace into {raw_dir}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

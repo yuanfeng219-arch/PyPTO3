@@ -1,0 +1,945 @@
+/*
+ * Copyright (c) PyPTO Contributors.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
+ */
+
+#ifndef PYPTO_CODEGEN_PTO_PTO_CODEGEN_H_
+#define PYPTO_CODEGEN_PTO_PTO_CODEGEN_H_
+
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "pypto/backend/common/backend.h"
+#include "pypto/codegen/codegen_base.h"
+#include "pypto/core/dtype.h"
+#include "pypto/ir/expr.h"
+#include "pypto/ir/function.h"
+#include "pypto/ir/memory_space.h"
+#include "pypto/ir/memref.h"
+#include "pypto/ir/program.h"
+#include "pypto/ir/scalar_expr.h"
+#include "pypto/ir/stmt.h"
+#include "pypto/ir/type.h"
+
+namespace pypto {
+
+// Forward declaration for PTOCodegen::GetBackendHandler()'s return type. The full
+// definition lives in pypto/backend/common/backend_handler.h and is included by
+// the translation units that call the handler's methods (e.g. op-emit callbacks).
+namespace backend {
+class BackendHandler;
+}  // namespace backend
+
+namespace codegen {
+
+/// Order distinct DataTypes by their internal code so containers keyed on
+/// DataType (e.g. the CommRemoteOffset helper dtype set) iterate
+/// deterministically.
+struct DtypeCodeLess {
+  bool operator()(const DataType& a, const DataType& b) const { return a.Code() < b.Code(); }
+};
+
+/**
+ * @brief Collect Vars referenced by a tensor-shape expression, in first-seen DFS order.
+ *
+ * Used by:
+ *   - PTOCodegen, to emit trailing `%argN: index` params on `func.func` signatures
+ *     (see `CollectTensorShapeDynVars` in pto_codegen.cpp).
+ *   - The Python kernel-wrapper codegen, to recover dynamic dims from
+ *     `tensor->shapes[]` and forward them to the inner call in matching positional
+ *     order. This is the single source of truth shared by both paths: the wrapper
+ *     and the compiled function signature stay in lockstep by construction.
+ *
+ * Supported node kinds: Var / BinaryExpr / UnaryExpr / Call / TupleGetItemExpr /
+ * ConstInt / ConstFloat / ConstBool. Any other expression kind triggers an
+ * INTERNAL_CHECK failure. Adding a new shape-expressible `Expr` subclass requires
+ * updating only this function.
+ *
+ * Dedup key: raw `Var*` (sound because the IR holds the canonical shared_ptr
+ * graph, so each Var has exactly one address). The dedup scope is this single
+ * call; cross-expression dedup is the caller's responsibility.
+ *
+ * @param expr Tensor-shape expression (a dim from `TensorType::shape_`).
+ * @return Vars in first-seen DFS order, deduped within this single call.
+ */
+std::vector<ir::VarPtr> CollectVarsFromShapeExpr(const ir::ExprPtr& expr);
+
+/**
+ * @brief PTO MLIR code generator
+ *
+ * Generates PTO-ISA MLIR format code from PyPTO IR Program.
+ * Traverses the IR using the visitor pattern.
+ * Automatically generates make_tensor_view, partition_view, and alloc_tile instructions.
+ */
+class PTOCodegen : public CodegenBase {
+ public:
+  /** @brief Default constructor (backend is always PTO) */
+  PTOCodegen();
+
+  /**
+   * @brief Construct PTO codegen with backend pointer (for internal use)
+   */
+  explicit PTOCodegen(const backend::Backend* backend);
+
+  ~PTOCodegen() override = default;
+
+  /**
+   * @brief Backend handler for backend-specific codegen decisions.
+   *
+   * Never null: the constructor requires a backend that exposes a handler.
+   * Used by op-emit callbacks that must gate behaviour on the target backend
+   * (e.g. rejecting a bf16 atomic-add store on Ascend950).
+   */
+  [[nodiscard]] const backend::BackendHandler* GetBackendHandler() const;
+
+  /**
+   * @brief Generate PTO-ISA MLIR format code from IR Program
+   *
+   * @param program Input PyPTO IR Program
+   * @param emit_tile_addr When true (default), emit the physical `addr` operand
+   *        on `pto.alloc_tile` from the MemRef byte offset (ptoas
+   *        --pto-level=level3). When false, omit `addr` so the ptoas PlanMemory
+   *        pass allocates instead (--pto-level=level2).
+   * @return MLIR code as string
+   */
+  std::string Generate(const ir::ProgramPtr& program, bool emit_tile_addr = true);
+
+  // CodegenBase interface (unified API for operator codegen callbacks)
+  [[nodiscard]] std::string GetCurrentResultTarget() const override;
+  void Emit(const std::string& line) override;
+  std::string GetExprAsCode(const ir::ExprPtr& expr) override;
+  [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  int64_t GetConstIntValue(const ir::ExprPtr& expr) const override;
+  std::string GetVarName(const ir::VarPtr& var) const override;
+
+  // PTO-specific helper methods for operator codegen functions
+
+  /**
+   * @brief Create a new temporary SSA variable
+   *
+   * @return New SSA variable name (e.g., "%1", "%2")
+   */
+  std::string NewTemp();
+
+  /**
+   * @brief Create a named SSA variable using an IR variable name
+   *
+   * If the name is non-empty and not already used, returns "%<name>".
+   * Otherwise falls back to NewTemp() for a numeric name.
+   *
+   * @param name IR variable name (e.g., "sq_sum_0_tile")
+   * @return Named SSA variable (e.g., "%sq_sum_0_tile") or numeric fallback
+   */
+  std::string NewNamedTemp(const std::string& name);
+
+  /**
+   * @brief Get or create tensor view for a variable
+   *
+   * @param tensor Tensor variable
+   * @return Tensor view name
+   */
+  std::string GetOrCreateTensorView(const ir::VarPtr& tensor);
+
+  /**
+   * @brief Look up the tensor view for a variable without creating/failing.
+   *
+   * Like GetOrCreateTensorView but returns an empty string when no view is
+   * registered (and none is reachable via an IterArg init chain), instead of
+   * raising. Callers that have a valid fallback (e.g. yielding a tensor that
+   * has no make_tensor_view, or propagating a plain tensor alias) use this to
+   * avoid a hard failure.
+   *
+   * @param tensor Tensor variable
+   * @return Tensor view SSA name, or "" if none is registered
+   */
+  [[nodiscard]] std::string TryGetTensorView(const ir::VarPtr& tensor) const;
+
+  /**
+   * @brief Get or emit a numeric constant of any dtype (int, index, or float).
+   *
+   * Both overloads write the constant to the constants section on first use and
+   * return the SSA name. Subsequent calls for the same (value, dtype) pair
+   * return the cached name without emitting again.
+   *
+   * @param value Integer or index value
+   * @param dt    Data type (e.g., DataType::INDEX, DataType::INT32, DataType::INT64)
+   * @return SSA variable name for the constant
+   */
+  std::string GetOrEmitConstant(int64_t value, DataType dt);
+
+  /**
+   * @brief Get or emit a floating-point constant of any float dtype.
+   *
+   * @param value Floating-point value
+   * @param dt    Data type (e.g., DataType::FP32, DataType::BF16, DataType::FP16)
+   * @return SSA variable name for the constant
+   */
+  std::string GetOrEmitConstant(double value, DataType dt);
+
+  /**
+   * @brief Emit arith.index_cast if var is not already index type
+   *
+   * Valid_shape vars may be INT64/INT32 (from pl.min(...)), but pto.alloc_tile
+   * and pto.set_validshape need index type operands.
+   *
+   * @param var IR variable to cast
+   * @param mlir_name Current MLIR SSA name for the variable
+   * @return SSA name of the index-typed value (original if already index)
+   */
+  std::string EmitCastToIndex(const ir::VarPtr& var, const std::string& mlir_name);
+
+  /**
+   * @brief Emit arith.index_cast if expression is not already index type
+   *
+   * Shape/stride expressions in PTO codegen may be constants, variables, or
+   * general scalar expressions. PTO ops that consume dimensions require index
+   * operands, so dynamic integer expressions must be cast on demand.
+   *
+   * @param expr IR expression whose type determines the cast
+   * @param mlir_name Current MLIR SSA name for the expression value
+   * @return SSA name of the index-typed value (original if already index)
+   */
+  std::string EmitCastToIndex(const ir::ExprPtr& expr, const std::string& mlir_name);
+
+  /**
+   * @brief Emit arith.index_cast if expression is not already i32 type
+   *
+   * PTO ISA instructions like pto.tmrgsort require i32 operands. When the
+   * operand is a runtime variable (e.g., loop induction variable typed as
+   * index), this emits the necessary cast.
+   *
+   * @param expr IR expression whose type determines the cast
+   * @param mlir_name Current MLIR SSA name for the expression value
+   * @return SSA name of the i32-typed value (original if already i32)
+   */
+  std::string EmitCastToI32(const ir::ExprPtr& expr, const std::string& mlir_name);
+
+  /**
+   * @brief Register a variable to an MLIR SSA name
+   *
+   * @param var IR variable
+   * @param mlir_name MLIR SSA name (e.g., "%arg3")
+   */
+  void RegisterVarToMlir(const ir::VarPtr& var, const std::string& mlir_name);
+
+  /**
+   * @brief Register a tensor variable to its tensor view SSA name
+   *
+   * Used when block.store assigns a tensor result that inherits the input tensor's view.
+   *
+   * @param var IR variable
+   * @param tensor_view_name MLIR tensor view SSA name
+   */
+  void RegisterTensorView(const ir::VarPtr& var, const std::string& tensor_view_name);
+
+  /// Record the base pointer SSA for a tensor var (keyed by Var, like tensor_to_view).
+  void RegisterBasePtr(const ir::VarPtr& var, const std::string& ptr_name);
+
+  /// Base pointer SSA for a tensor var; lets element-wise pl.read/pl.write recover
+  /// the underlying !pto.ptr even after a slice-assign rebound the var to a view,
+  /// so mixing both access styles cannot bind one SSA to two types (issue #1493).
+  std::string GetTensorBasePtr(const ir::VarPtr& tensor) const;
+
+  /**
+   * @brief Get the IR variable currently being assigned
+   */
+  [[nodiscard]] ir::VarPtr GetCurrentResultVar() const;
+
+  /**
+   * @brief Get tensor_view type string for a TensorType (e.g., "!pto.tensor_view<?x?xf32>")
+   */
+  std::string GetTensorViewTypeString(const ir::TensorType* tensor_type) const;
+
+  /**
+   * @brief Get tile_buf type string for a MemRef (e.g., "!pto.tile_buf<loc=vec, dtype=f32, ...>")
+   */
+  std::string GetTileBufTypeString(const ir::Var* base_ptr) const;
+
+  /**
+   * @brief Get type annotation for an expression (for ins/outs clauses)
+   */
+  std::string GetExprTypeAnnotation(const ir::ExprPtr& expr);
+
+  /**
+   * @brief Get tile_buf type string for the current assignment result target
+   *
+   * Uses the memref-based lookup (same as alloc_tile) to ensure the emitted
+   * type is consistent with the SSA value's definition.
+   */
+  std::string GetCurrentResultTileBufTypeString() const;
+
+  /**
+   * @brief Get tile_buf type string from the current result's own TileType
+   *
+   * Unlike GetCurrentResultTileBufTypeString(), this bypasses the memref lookup
+   * and uses current_result_tile_type_ directly. Needed for operations like
+   * reshape where the output shape differs from the memref's alloc_tile shape.
+   */
+  std::string GetCurrentResultTileBufTypeStringFromTileType() const;
+
+  /**
+   * @brief Get tpop result valid_shape operands as index-typed SSA values.
+   *
+   * PTOAS frontend tpop accepts optional `(valid_row, valid_col)` operands only
+   * when the result tile type carries dynamic valid shape (`v_row=?, v_col=?`).
+   * Returns empty strings when the current result does not require dynamic
+   * valid_shape operands.
+   */
+  std::pair<std::string, std::string> GetCurrentResultTpopValidShapeOperands();
+
+  /**
+   * @brief Get tile_buf type string directly from a TileType
+   *
+   * Unlike GetTileBufTypeString(memref), this uses the shape/layout from the
+   * provided TileType directly, bypassing the memref_to_tile_type_ lookup.
+   * Needed when multiple variables with different shapes share the same MemRef
+   * (e.g., reshape input/output).
+   */
+  std::string GetTileBufTypeStringFromTileType(const std::shared_ptr<const ir::TileType>& tile_type) const;
+
+  /**
+   * @brief tile_buf type string for a VIEW result (`pto.treshape`).
+   *
+   * Same as GetTileBufTypeStringFromTileType but renders STATIC valid dims when
+   * they are statically known. A view op takes no `valid_row` / `valid_col`
+   * operands, so ptoas builds its destination tile from the result type alone; a
+   * `v_row=?, v_col=?` result would leave the tile's valid extent at zero.
+   */
+  std::string GetViewTileBufTypeStringFromTileType(
+      const std::shared_ptr<const ir::TileType>& tile_type) const;
+
+  /**
+   * @brief Allocate a new tile buffer for codegen (emitted at function scope)
+   *
+   * Used when an operation needs a distinct output buffer (e.g., reshape where
+   * input and output would otherwise share the same buffer).
+   *
+   * @param tile_buf_type_string The tile_buf type string for the alloc_tile instruction
+   * @param name_hint Preferred SSA name seed
+   * @param addr_ssa Optional SSA value for the alloc_tile addr operand
+   * @param valid_row_ssa Optional SSA value for the alloc_tile valid_row operand
+   * @param valid_col_ssa Optional SSA value for the alloc_tile valid_col operand
+   * @return New SSA variable name for the allocated buffer
+   */
+  std::string AllocNewTileBuf(const std::string& tile_buf_type_string, const std::string& name_hint = "",
+                              const std::string& addr_ssa = "", const std::string& valid_row_ssa = "",
+                              const std::string& valid_col_ssa = "");
+
+  /**
+   * @brief Emit alloc_tile for a tile variable before its first use
+   *
+   * Idempotent: a Var is only allocated once per function (tracked via
+   * `fs_.emitted_tile_alloc_vars`). Multi-output op codegen (e.g. tile.gather_compare)
+   * uses this to eagerly allocate DPS dst/cdst tiles bound by downstream
+   * `dst = tuple_var[i]` AssignStmts before they are visited.
+   */
+  void EmitAllocTileForVar(const ir::VarPtr& tile_var, const std::shared_ptr<const ir::TileType>& tile_type);
+
+  /**
+   * @brief Resolve the DPS element vars of a tuple-returning op call
+   *
+   * Multi-output ops (e.g. tile.gather_compare) return a TupleType. The parser
+   * desugars `a, b = call(...)` into:
+   *   _tuple_tmp = call(...)
+   *   a = _tuple_tmp[0]
+   *   b = _tuple_tmp[1]
+   *
+   * Since the dst element Vars do not appear in the Call's args, codegen must
+   * scan the current function body for these `<var> = tuple_var[i]` AssignStmts
+   * to recover the SSA names of the DPS outputs.
+   *
+   * @param tuple_var The tuple-result Var (typically GetCurrentResultVar()).
+   * @param arity     Number of expected tuple elements.
+   * @return Vector of length `arity`; entry i is the Var bound to
+   *         `tuple_var[i]`, or nullptr if no such consumer exists.
+   */
+  [[nodiscard]] std::vector<ir::VarPtr> ResolveTupleResultElements(const ir::VarPtr& tuple_var,
+                                                                   size_t arity) const;
+
+  /**
+   * @brief Override the current result buffer name
+   *
+   * Allows codegen lambdas to redirect the result to a newly allocated buffer.
+   * VisitStmt_ detects the change and updates variable-to-MLIR mappings accordingly.
+   *
+   * @param buf New result buffer SSA name
+   */
+  void SetCurrentResultBuf(const std::string& buf);
+  void RegisterTileBufType(const std::string& ssa_name, const std::string& type_string);
+  std::string GetSSATileBufType(const std::string& ssa_name) const;
+  struct SubviewMaterializationInfo {
+    std::string source_ssa;
+    std::string source_type;
+    std::string row_off_ssa;
+    std::string col_off_ssa;
+    std::string materialize_target_ssa;
+    std::string materialize_target_type;
+    std::optional<ir::MemorySpace> source_memory_space;
+    /// Column count of the tile the subview is taken of, and the subview's own
+    /// shape. The materialize target inherits the source's buffer, so the lazy
+    /// pto.textract writes into its own input: it is only safe when the window is
+    /// contiguous (view_rows == 1 or view_cols == source_cols) and the repack is
+    /// therefore an identity copy. See MaterializeSubviewOperandIfNeeded (#2010).
+    int64_t source_cols = 0;
+    int64_t view_rows = 0;
+    int64_t view_cols = 0;
+    /// Both slice offset components are ConstInt. A dynamic offset cannot be
+    /// folded into the inherited buffer's address, which then falls back to the
+    /// bare source base — so even a contiguous window would be extracted onto the
+    /// source's row 0. See MaterializeSubviewOperandIfNeeded (#1640).
+    bool const_offset = false;
+    bool emitted = false;
+  };
+  void RegisterSubviewMaterialization(const std::string& subview_ssa, const SubviewMaterializationInfo& info);
+  SubviewMaterializationInfo* GetSubviewMaterialization(const std::string& subview_ssa);
+  const SubviewMaterializationInfo* GetSubviewMaterialization(const std::string& subview_ssa) const;
+
+  /**
+   * @brief Record the SSA name of the __gm_pipe_buffer function parameter
+   *
+   * On Ascend910B (a2a3), the GM slot buffer is a function parameter used as
+   * intermediary for cross-core pipe communication. The codegen emits it as
+   * a gm_slot_buffer operand in initialize_pipe instructions.
+   */
+  void RecordGMSlotBufferSSA(const std::string& ssa, const DataType& dtype);
+
+  /**
+   * @brief Get the recorded GM slot buffer SSA name (empty if none)
+   */
+  [[nodiscard]] std::string GetGMSlotBufferSSA() const;
+
+  /**
+   * @brief SSA name of the synthetic SPMD block_idx param.
+   *
+   * When the current function uses tile.get_block_idx / tile.get_block_num,
+   * PTOCodegen appends two i32 params to the end of the emitted func.func
+   * signature. The kernel wrapper resolves the runtime values via
+   * intrinsic.h::get_block_idx(args) / get_block_num(args) and forwards them
+   * as trailing call args. Returns empty when the function does not use
+   * SPMD block ops.
+   */
+  [[nodiscard]] std::string GetSpmdBlockIdxArgSSA() const { return fs_.spmd_block_idx_arg; }
+
+  /**
+   * @brief SSA name of the synthetic SPMD block_num param. See
+   * GetSpmdBlockIdxArgSSA() for the surrounding mechanism.
+   */
+  [[nodiscard]] std::string GetSpmdBlockNumArgSSA() const { return fs_.spmd_block_num_arg; }
+
+  /**
+   * @brief SSA name of the synthetic SPMD subblock_idx (AIV lane) param.
+   *
+   * Mirrors GetSpmdBlockIdxArgSSA(): when the function uses
+   * tile.get_subblock_idx, PTOCodegen appends one i32 param to the func.func
+   * signature and the kernel wrapper resolves it from
+   * intrinsic.h::get_sub_block_id(args) (the runtime's per-core lane id),
+   * rather than reading the ccec get_subblockid() register. Returns empty when
+   * the function does not use the op.
+   */
+  [[nodiscard]] std::string GetSpmdSubblockIdxArgSSA() const { return fs_.spmd_subblock_idx_arg; }
+
+  /**
+   * @brief SSA name of the materialized CommContext pointer arg for a
+   * DistributedTensor parameter.
+   *
+   * MaterializeDistTensorCtx adds one explicit ``CommCtxType``
+   * parameter per DistributedTensor parameter. PTOCodegen lowers those
+   * params as ``!pto.ptr<i64>`` scalar arguments and records the
+   * ``dist_tensor_var -> ctx_ssa`` mapping so pld.system.get_comm_ctx /
+   * pld.tile.remote_load / pld.tensor.put / pld.system.notify /
+   * pld.system.wait codegen can recover the matching context pointer.
+   *
+   * @param dist_var DistributedTensor parameter variable.
+   * @return SSA name (e.g. ``%arg7``), or empty string if @p dist_var is
+   *         not a DistributedTensor param of the current function.
+   */
+  [[nodiscard]] std::string GetCommCtxSSAFor(const ir::Var* dist_var) const;
+
+  /**
+   * @brief Alias a DistributedTensor LHS Var to an existing CommContext SSA.
+   *
+   * Mirrors the ``RegisterBasePtr`` alias mechanism that ``tile.store`` /
+   * ``tensor.write`` etc. use to thread a parameter's base pointer through
+   * an SSA-rebound write (``data = pl.store(local, [0, 0], data)``). The
+   * CommContext binding follows the same path: an op codegen that propagates
+   * the base ptr from its source DistributedTensor arg should also propagate
+   * the CommContext, so subsequent cross-rank ops on the rebound Var
+   * (``pld.tile.remote_load`` etc.) resolve to the same ctx pointer.
+   *
+   * @param dist_var SSA-rebound DistributedTensor Var (a Call's LHS).
+   * @param ctx_ssa  CommContext SSA name from ``GetCommCtxSSAFor(source)``.
+   *                 No-op if @p dist_var is null or @p ctx_ssa is empty.
+   */
+  void RegisterCommCtxFor(const ir::VarPtr& dist_var, const std::string& ctx_ssa);
+
+  /**
+   * @brief Set the current expression's SSA result.
+   *
+   * Op codegen lambdas that produce a value without emitting an MLIR line
+   * (e.g. ``pld.system.get_comm_ctx`` aliases the existing ctx-ptr arg) call
+   * this to publish their result; the surrounding ``VisitStmt_(AssignStmt)``
+   * then binds the LHS Var to the same SSA. Lambdas that emit an MLIR line
+   * AND want the emitted LHS to be the result must also call this — Emit()
+   * alone does not update ``current_expr_value``.
+   */
+  void SetCurrentExprValue(std::string value) { fs_.current_expr_value = std::move(value); }
+
+  /**
+   * @brief Name of the module-level ``@CommRemoteOffset_<dtype>`` helper.
+   *
+   * Distributed remote ops that need cross-rank peer addressing lower their
+   * per-call peer-rank arithmetic to a ``func.call`` of a per-dtype
+   * module-level helper that returns the **element offset** (``index``)
+   * between the local rank's window slice and the peer rank's slice. The
+   * call site then does ``pto.addptr %local_ptr, %delems`` followed by
+   * ``pto.make_tensor_view`` — keeping ``addptr`` and ``make_tensor_view``
+   * co-located in the user kernel's ``func.func``, which is what PTOAS's
+   * per-func lowering check (``addptr must feed make_tensor_view /
+   * initialize_l2g2l_pipe(gm_addr) / load|store_scalar``) requires.
+   *
+   * The helper cannot return the peer **pointer** (addptr → func.return
+   * is rejected by PTOAS) and cannot return the **tensor view** (the
+   * view's lowered memref is strided whenever strides are SSA operands,
+   * but ``!pto.tensor_view<…>`` source syntax cannot encode strided
+   * layout, so the func boundary always lowers to plain memref → type
+   * mismatch). Returning the **offset** is the minimum-fanout shape that
+   * shares the CommContext field reads + element-size division across
+   * call sites while leaving both forbidden ops at the call site.
+   *
+   * Helper is keyed only on dtype — the only dtype-dependent code in the
+   * body is the element-size constant fed to ``arith.divsi``.
+   *
+   * @param dtype Element dtype of the DistributedTensor (e.g. ``FP16``,
+   *              ``INT32``).
+   * @return Helper function name (e.g. ``CommRemoteOffset_f16``).
+   */
+  [[nodiscard]] static std::string GetCommRemoteOffsetFuncName(const DataType& dtype);
+
+  /**
+   * @brief Register a dtype that needs a ``@CommRemoteOffset_<dtype>``
+   *        helper, and return the helper function name.
+   *
+   * Called by op lowering code (``EmitCommRemoteView`` in
+   * ``pto_ops_common.cpp``) at the moment a ``func.call`` to the helper
+   * is emitted. Any op that routes peer addressing through
+   * ``EmitCommRemoteView`` automatically gets the matching helper emitted
+   * at module-flush time — no separate pre-walk of the IR is needed.
+   *
+   * Validates that the dtype is byte-sized (sub-byte dtypes have no
+   * whole-byte element stride and so have no well-defined cross-rank
+   * offset). Failing here surfaces the error at the op call site rather
+   * than at module-emission time.
+   */
+  std::string RegisterCommRemoteOffsetHelper(const DataType& dtype);
+
+  /// Increase/decrease the current indentation level (used by op codegen helpers that emit scf.for blocks)
+  void IncreaseIndent() { indent_level_++; }
+  void DecreaseIndent() { indent_level_--; }
+
+  /**
+   * @brief Return the GM slot buffer SSA region for one frontend pipe.
+   *
+   * Ascend910B uses a single function parameter as the backing GM FIFO
+   * workspace. Multiple frontend pipe ids in one function must point at
+   * disjoint byte ranges within that parameter.
+   */
+  [[nodiscard]] std::string GetGMSlotBufferSSAForPipe(int pipe_id, int dir_mask);
+
+  /**
+   * @brief Whether physical addresses are baked into the emitted PTO.
+   *
+   * False under `memory_planner=PtoAS` (--pto-level=level2), where ptoas
+   * PlanMemory owns local-memory placement: `pto.alloc_tile` omits `addr` and
+   * `pto.reserve_buffer` is emitted as `auto = true` with no `base`.
+   */
+  [[nodiscard]] bool EmitTileAddr() const { return emit_tile_addr_; }
+
+  /**
+   * @brief Check if the current function is an AIC (Cube) function
+   */
+  [[nodiscard]] bool IsAICFunction() const;
+
+  /**
+   * @brief Check if the current function is an AIV (Vector) function
+   */
+  [[nodiscard]] bool IsAIVFunction() const;
+
+  /**
+   * @brief Check if the current function carries the `dual_aiv_dispatch`
+   * attribute (910B no-split dual-AIV dispatch). In that mode the single cube
+   * consumer reads the FULL slot while two AIV subblocks share it, so the
+   * cross-core tpush transport widens only the COLUMN axis to the producer's
+   * box (carrying its fillpad'd columns) while PRESERVING the row
+   * `valid_shape[0]`: subblock 0's real push stays full and subblock 1's
+   * 0-row replay stays a no-op. Genuine `split==1/2` paths widen both axes --
+   * see `EmitSplitTpushTransportValidShape`.
+   */
+  [[nodiscard]] bool IsDualAivDispatchFunction() const;
+
+ protected:
+  // Statement-entry dispatch guard: rejects any SplitAivScopeStmt that survived
+  // to PTO codegen (it must be lowered and erased by LowerAutoVectorSplit,
+  // pass 21). The base visitor would otherwise silently unwrap it.
+  void VisitStmt(const ir::StmtPtr& stmt) override;
+
+  // Override visitor methods for code generation - Statements
+  void VisitStmt_(const ir::AssignStmtPtr& op) override;
+  void VisitStmt_(const ir::ForStmtPtr& op) override;
+  void VisitStmt_(const ir::IfStmtPtr& op) override;
+  void VisitStmt_(const ir::WhileStmtPtr& op) override;
+  void VisitStmt_(const ir::YieldStmtPtr& op) override;
+  void VisitStmt_(const ir::EvalStmtPtr& op) override;
+
+  // Override visitor methods for code generation - Expressions
+  void VisitExpr_(const ir::CallPtr& op) override;
+  void VisitExpr_(const ir::VarPtr& op) override;
+  void VisitExpr_(const ir::IterArgPtr& op) override;
+  void VisitExpr_(const ir::ConstIntPtr& op) override;
+  void VisitExpr_(const ir::ConstFloatPtr& op) override;
+  void VisitExpr_(const ir::ConstBoolPtr& op) override;
+  void VisitExpr_(const ir::AddPtr& op) override;
+  void VisitExpr_(const ir::SubPtr& op) override;
+  void VisitExpr_(const ir::MulPtr& op) override;
+  void VisitExpr_(const ir::FloorDivPtr& op) override;
+  void VisitExpr_(const ir::FloorModPtr& op) override;
+  void VisitExpr_(const ir::EqPtr& op) override;
+  void VisitExpr_(const ir::NePtr& op) override;
+  void VisitExpr_(const ir::LtPtr& op) override;
+  void VisitExpr_(const ir::LePtr& op) override;
+  void VisitExpr_(const ir::GtPtr& op) override;
+  void VisitExpr_(const ir::GePtr& op) override;
+  void VisitExpr_(const ir::CastPtr& op) override;
+  // Logical
+  void VisitExpr_(const ir::AndPtr& op) override;
+  void VisitExpr_(const ir::OrPtr& op) override;
+  void VisitExpr_(const ir::XorPtr& op) override;
+  // Bitwise
+  void VisitExpr_(const ir::BitAndPtr& op) override;
+  void VisitExpr_(const ir::BitOrPtr& op) override;
+  void VisitExpr_(const ir::BitXorPtr& op) override;
+  void VisitExpr_(const ir::BitShiftLeftPtr& op) override;
+  void VisitExpr_(const ir::BitShiftRightPtr& op) override;
+  // Other binary
+  void VisitExpr_(const ir::FloatDivPtr& op) override;
+  void VisitExpr_(const ir::MinPtr& op) override;
+  void VisitExpr_(const ir::MaxPtr& op) override;
+  // Unary
+  void VisitExpr_(const ir::NotPtr& op) override;
+  void VisitExpr_(const ir::NegPtr& op) override;
+  void VisitExpr_(const ir::AbsPtr& op) override;
+  void VisitExpr_(const ir::BitNotPtr& op) override;
+
+ private:
+  /**
+   * @brief Generate PTO-ISA MLIR for a single function
+   */
+  void GenerateFunction(const ir::FunctionPtr& func);
+
+  /**
+   * @brief Collect deterministic GM slot buffer byte offsets for frontend pipe ids in a module.
+   */
+  void PrepareGMSlotBufferLayout(const ir::ProgramPtr& program);
+
+  /**
+   * @brief Emit one ``func.func @CommRemoteOffset_<dtype>`` per dtype
+   *        registered via :func:`RegisterCommRemoteOffsetHelper`. Each
+   *        helper performs the runtime CommContext field reads and the
+   *        byte→element division, returning the peer-vs-local element
+   *        offset as ``index``. The call site does ``pto.addptr`` + the
+   *        trailing ``pto.make_tensor_view`` inside the user kernel so
+   *        PTOAS's per-func lowering check (``addptr must feed
+   *        make_tensor_view``) is satisfied locally.
+   *
+   * Emitted at the **end** of the module, after all user functions —
+   * MLIR's symbol table is whole-module so forward references from
+   * ``func.call`` sites earlier in the module resolve normally.
+   */
+  void EmitCommRemoteOffsetHelpers();
+
+  /**
+   * @brief Build variable identity to MemRef mapping from function body
+   */
+  void BuildVarToMemRefMapping(const ir::FunctionPtr& func);
+
+  /**
+   * @brief Get the pointer-identity key for a variable
+   */
+  [[nodiscard]] const ir::Var* GetVarKey(const ir::VarPtr& var) const;
+  void BindVarToMlir(const ir::VarPtr& var, const std::string& mlir_name);
+  void BindTensorView(const ir::VarPtr& var, const std::string& tensor_view_name);
+  void BindVarToMemRef(const ir::VarPtr& var, const ir::Var* base_ptr);
+
+  /**
+   * @brief Emit make_tensor_view for all tensor parameters
+   */
+  void EmitMakeTensorViews(const ir::FunctionPtr& func);
+
+  /**
+   * @brief Bundle of fields needed to emit a `pto.alloc_tile` op.
+   *
+   * `pto.alloc_tile` is always emitted in dynamic form: the type string carries
+   * `v_row=?, v_col=?`, and `valid_row` / `valid_col` operands carry the
+   * actual extent (constant SSA when the IR-level extent is a constant,
+   * runtime SSA otherwise).
+   *
+   * Returned by ComputeAllocTileFields and consumed by EmitAllocTileForVar
+   * (single-statement allocs) and the IfStmt return-tile path
+   * (deferred allocs via AllocNewTileBuf).
+   */
+  struct AllocTileFields {
+    std::string type_str;       ///< pto.tile_buf<...> type string
+    std::string addr_ssa;       ///< Optional addr operand SSA value
+    std::string valid_row_ssa;  ///< valid_row operand SSA value (always emitted)
+    std::string valid_col_ssa;  ///< valid_col operand SSA value (always emitted)
+  };
+
+  /**
+   * @brief Compute the type string and (addr, valid_row, valid_col) operands
+   *        for a `pto.alloc_tile` op.
+   *
+   * The result is always dynamic (`v_row=?, v_col=?`) and carries explicit
+   * `valid_row` / `valid_col` operands lowered from `tile_type->tile_view_.valid_shape`
+   * when present, falling back to `tile_type->shape_` otherwise.
+   *
+   * @param tile_type Tile type carrying shape/tile_view/memref metadata.
+   */
+  AllocTileFields ComputeAllocTileFields(const std::shared_ptr<const ir::TileType>& tile_type);
+
+  /**
+   * @brief The tile_buf handle already bound to the buffer `memref` denotes.
+   *
+   * Only meaningful under the PTOAS memory planner (`emit_tile_addr_ == false`),
+   * where variables denoting the same buffer must share one handle because
+   * there is no baked `addr` to alias through. Returns "" when addresses are
+   * baked, when `memref` is null, or when no handle is bound yet.
+   */
+  [[nodiscard]] std::string TryGetSharedTileBufHandle(const ir::MemRefPtr& memref) const;
+
+  /**
+   * @brief Declare `ssa_name`'s `pto.alloc_tile` in the function head.
+   *
+   * The head prologue is rendered after the body and prepended, so a handle
+   * declared here dominates every use — including uses inside `scf.if` branches
+   * and reads after the region. Returns false (and declares nothing) when the
+   * handle already has an `alloc_tile`.
+   */
+  bool DeclareTileBufAtHead(const std::string& ssa_name, const AllocTileFields& fields);
+
+  /**
+   * @brief Emit alloc_tile for dynamically allocated tile buffers (e.g., reshape outputs)
+   */
+  void EmitExtraAllocTiles();
+
+  /**
+   * @brief Get indent string for current level
+   */
+  std::string GetIndent() const;
+
+  /**
+   * @brief Get tile_buf name for a MemRef
+   */
+  std::string GetTileBufForMemRef(const ir::MemRefPtr& memref) const;
+
+  /// Per-function mutable state that is reset at the start of each GenerateFunction call.
+  struct FunctionState {
+    std::ostringstream constants_section;
+    std::ostringstream body_section;
+    std::string constants_indent;  ///< Fixed indent for constants_section (set once per function)
+
+    std::map<const ir::Var*, std::string> var_to_mlir;
+    std::map<const ir::Var*, std::string> tensor_to_view;
+    std::map<const ir::Var*, std::string> tensor_to_base_ptr;  ///< tensor var → base ptr SSA
+    std::map<std::string, std::string>
+        view_ssa_to_base_ptr;  ///< tensor_view SSA → base ptr SSA (for rebinding IfStmt phi return_vars)
+    std::map<std::string, std::string>
+        view_ssa_to_comm_ctx;  ///< tensor_view SSA → CommContext SSA (for distributed IfStmt phi return_vars)
+    std::map<const ir::Var*, std::string> memref_to_mlir;    ///< keyed by base_ Ptr
+    std::map<const ir::Var*, const ir::Var*> var_to_memref;  ///< maps tile var → base_ Ptr
+    std::map<const ir::Var*, std::shared_ptr<const ir::TileType>>
+        memref_to_tile_type;  ///< keyed by base_ Ptr
+
+    std::map<std::pair<int64_t, uint8_t>, std::string> emitted_numeric_constants;
+
+    struct ExtraAllocTile {
+      std::string name;
+      std::string type_string;
+      std::string addr_ssa;
+      std::string valid_row_ssa;
+      std::string valid_col_ssa;
+    };
+    std::vector<ExtraAllocTile> extra_alloc_tiles;
+    std::map<std::string, std::string> ssa_to_tile_buf_type;
+    std::map<std::string, SubviewMaterializationInfo> subview_materializations;
+
+    int temp_counter = 0;
+    std::set<std::string> used_ssa_names;
+
+    std::map<const ir::Var*, std::string> memref_to_var_name;  ///< keyed by base_ Ptr
+    std::vector<std::pair<ir::VarPtr, std::shared_ptr<const ir::TileType>>> tile_var_allocs;
+    std::set<const ir::Var*> emitted_tile_alloc_vars;
+    /// PTOAS memory-planner mode only (no addr baked): full-MemRef-identity key
+    /// (base+offset+size) -> canonical tile_buf SSA. Variables that resolve to
+    /// the same buffer (e.g. a loop-carried accumulator coalesced by
+    /// MemoryReuse) share one handle so the op writes in place and ptoas
+    /// PlanMemory keeps them one buffer. Views (same base, different
+    /// offset/size) get distinct keys and are never merged.
+    std::map<std::string, std::string> memref_identity_to_mlir;
+    /// MemRef-identity key -> the tile_buf type of the first var bound to it.
+    std::map<std::string, std::string> memref_identity_type;
+    /// MemRef-identity keys whose vars do NOT all share one tile_buf type — e.g.
+    /// a `[1, N]` row-major op result and its `[N, 1]` col-major reshape view,
+    /// which occupy the same bytes. Their shared handle carries exactly one type
+    /// (differently-typed reads become `pto.treshape` views of it), so it must
+    /// never be re-typed to suit another var. `TryGetSharedTileBufHandle` refuses
+    /// these identities.
+    std::set<std::string> memref_identity_mixed_types;
+    /// alloc_tile SSA handles already emitted — dedups the alloc when several
+    /// vars share one handle (PTOAS in-place aliasing).
+    std::set<std::string> emitted_tile_alloc_names;
+
+    ir::FunctionPtr current_function;
+    ir::VarPtr current_result_var;
+    std::string current_result_buf;
+    std::shared_ptr<const ir::TileType> current_result_tile_type;
+
+    std::string gm_slot_buffer_ssa;
+    DataType gm_slot_buffer_dtype = DataType::FP32;
+    std::map<std::pair<int, int>, std::string> gm_slot_buffer_region_by_pipe;
+
+    /// SSA names of the synthetic SPMD block_idx/block_num params, appended at
+    /// the func.func signature tail. Empty when the current function does not
+    /// use tile.get_block_idx / tile.get_block_num.
+    std::string spmd_block_idx_arg;
+    std::string spmd_block_num_arg;
+
+    /// SSA name of the synthetic SPMD subblock_idx (AIV lane) param.
+    /// Empty when the current function does not use tile.get_subblock_idx.
+    std::string spmd_subblock_idx_arg;
+
+    /// Mapping from DistributedTensor parameter Var → CommContext pointer
+    /// arg SSA name. Populated in GenerateFunction when appending the
+    /// trailing ``!pto.ptr<i64>`` ctx params. Consumed by
+    /// pld.system.get_comm_ctx / pld.tile.remote_load / pld.tensor.put /
+    /// pld.system.notify / pld.system.wait codegen
+    /// to recover the per-tensor CommContext pointer.
+    std::map<const ir::Var*, std::string> dist_tensor_to_ctx;
+
+    std::string current_expr_value;
+    std::vector<std::string> yield_buffer;
+
+    void Reset() {
+      constants_section.str("");
+      constants_section.clear();
+      body_section.str("");
+      body_section.clear();
+      constants_indent.clear();
+
+      var_to_mlir.clear();
+      tensor_to_view.clear();
+      tensor_to_base_ptr.clear();
+      view_ssa_to_base_ptr.clear();
+      view_ssa_to_comm_ctx.clear();
+      memref_to_mlir.clear();
+      var_to_memref.clear();
+      memref_to_tile_type.clear();
+
+      emitted_numeric_constants.clear();
+
+      extra_alloc_tiles.clear();
+      ssa_to_tile_buf_type.clear();
+      subview_materializations.clear();
+
+      temp_counter = 0;
+      used_ssa_names.clear();
+
+      memref_to_var_name.clear();
+      tile_var_allocs.clear();
+      emitted_tile_alloc_vars.clear();
+      memref_identity_to_mlir.clear();
+      memref_identity_type.clear();
+      memref_identity_mixed_types.clear();
+      emitted_tile_alloc_names.clear();
+
+      current_function.reset();
+      current_result_var.reset();
+      current_result_buf.clear();
+      current_result_tile_type = nullptr;
+
+      gm_slot_buffer_ssa.clear();
+      gm_slot_buffer_dtype = DataType::FP32;
+      gm_slot_buffer_region_by_pipe.clear();
+
+      spmd_block_idx_arg.clear();
+      spmd_block_num_arg.clear();
+      spmd_subblock_idx_arg.clear();
+      dist_tensor_to_ctx.clear();
+
+      current_expr_value.clear();
+      yield_buffer.clear();
+    }
+  };
+
+  /// Function-level mutable state, reset per GenerateFunction call.
+  FunctionState fs_;
+
+  // Module-level output stream (persists across functions)
+  std::ostringstream stream_;
+  int indent_level_ = 0;
+  std::map<std::pair<int, int>, int64_t> gm_slot_buffer_offsets_;
+
+  /// Element DataTypes of DistributedTensors that need a
+  /// ``@CommRemoteOffset_<dtype>`` helper. Populated lazily by
+  /// :func:`RegisterCommRemoteOffsetHelper` as op lowering emits
+  /// ``func.call`` sites; flushed at module end by
+  /// :func:`EmitCommRemoteOffsetHelpers`. Storing the DataType (not the
+  /// MLIR string) lets the emitter derive both the MLIR type name and
+  /// the element byte size via ``DataType`` accessors.
+  std::set<DataType, DtypeCodeLess> remote_offset_dtypes_;
+
+  const backend::Backend* backend_;  ///< Backend instance for querying op info
+
+  /// When false, `pto.alloc_tile` omits the physical `addr` operand so the
+  /// ptoas PlanMemory pass owns allocation (--pto-level=level2). Set by Generate.
+  bool emit_tile_addr_ = true;
+
+  /// Emit an arith binary op, return SSA result name
+  std::string EmitArithBinaryOp(const std::string& mlir_op, const std::string& lhs, const std::string& rhs,
+                                const std::string& result_type);
+
+  /// Emit an arith.cmpi comparison, return SSA result name (i1)
+  std::string EmitArithCmpi(const std::string& predicate, const std::string& lhs, const std::string& rhs,
+                            const std::string& operand_type);
+
+  /// Emit @p expr as an SSA suitable for arith.*i with result/operand type @p wanted_mlir_type
+  /// (e.g. "index", "i64"): integer literals use typed constants; index↔int uses arith.index_cast.
+  std::string EmitArithOperand(const ir::ExprPtr& expr, const std::string& wanted_mlir_type);
+
+  /// Helper for binary expression visitors
+  void VisitBinaryArithExpr(const ir::BinaryExprPtr& op, const std::string& int_op,
+                            const std::string& float_op);
+
+  /// Helper for comparison expression visitors
+  void VisitCmpExpr(const ir::BinaryExprPtr& op, const std::string& predicate);
+
+  /// Get MLIR type string for a scalar iter_arg/return_var (e.g., "index", "i1", "f32")
+  std::string GetScalarIterArgTypeString(const std::shared_ptr<const ir::ScalarType>& scalar_type) const;
+};
+
+}  // namespace codegen
+}  // namespace pypto
+
+#endif  // PYPTO_CODEGEN_PTO_PTO_CODEGEN_H_

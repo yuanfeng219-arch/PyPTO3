@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern · training-metrics-chart</title>
+<script>
+  (() => {
+    const params = new URLSearchParams(window.location.search);
+    const applyTheme = (theme) => {
+      if (theme === 'light' || theme === 'dark' || theme === 'glass') {
+        document.documentElement.dataset.theme = theme;
+      }
+    };
+    applyTheme(params.get('theme') || 'dark');
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'pto-preview-theme') {
+        applyTheme(event.data.theme);
+      }
+    });
+  })();
+</script>
+<link rel="stylesheet" href="../../tokens/foundation.css">
+<link rel="stylesheet" href="../../tokens/semantic.css">
+<link rel="stylesheet" href="../../tokens/components.css">
+<link rel="stylesheet" href="./pattern.css">
+<style>
+  body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  p { color: var(--foreground-secondary); margin: 0 0 20px; }
+  .card { background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px; }
+  .card + .card { margin-top: 12px; }
+  .cap { font-size: 12px; color: var(--foreground-secondary); margin-bottom: 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .scrub-row { display: flex; align-items: center; gap: 12px; padding: 8px 5% 0 0; }
+  .scrub-cap { flex: 0 0 auto; font-size: 12px; color: var(--foreground-secondary); white-space: nowrap; }
+  .scrubber-full { flex: 1 1 auto; width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>training-metrics-chart</h1>
+  <p>多 series · 双轴 · 异常尖峰 · 框选兴趣窗口 · step 游标。曲线=viz 色带，异常=--danger，框选=--primary。</p>
+
+  <div class="card">
+    <div class="cap">大尺寸 · 双轴 · 框选拖动 / 游标</div>
+    <div id="chart" class="pto-tmchart"></div>
+    <div class="scrub-row"><div class="scrub-cap">step 游标</div><input type="range" id="cursor" min="0" max="200" value="98" class="scrubber-full"></div>
+  </div>
+
+  <div class="grid" style="margin-top:12px">
+    <div class="card"><div class="cap">紧凑 sparkline A</div><div id="mini1" class="pto-tmchart"></div></div>
+    <div class="card"><div class="cap">紧凑 sparkline B</div><div id="mini2" class="pto-tmchart"></div></div>
+  </div>
+</div>
+
+<script src="./pattern.js"></script>
+<script>
+  const steps = []; for (let i = 0; i <= 200; i++) steps.push(i);
+  const rnd = (s => () => (s = (s * 9301 + 49297) % 233280) / 233280)(7);
+  const a = [], b = [], c = [];
+  steps.forEach(i => { const base = 2 - i * 0.004; a.push(base + (rnd() - .5) * .04); b.push(i < 100 ? base + .08 + (rnd() - .5) * .05 : base + .08 + Math.abs(Math.sin((i - 100) * 1.2)) * (.4 + (i - 100) * .01)); c.push(Math.min(.9, .55 + i * .0016)); });
+  const anomalies = []; steps.forEach((s, i) => { if (s >= 100 && b[i] > 2.2) anomalies.push({ step: s, seriesId: 'val' }); });
+
+  const ctrl = PtoTrainingMetricsChart.render('#chart', {
+    steps,
+    series: [
+      { id: 'train', label: 'train', key: 'a', colorVar: '--highlight-copy-blue-source', axis: 'left' },
+      { id: 'val', label: 'val', key: 'b', colorVar: '--highlight-l0a-violet-source', axis: 'left', emphasis: true },
+      { id: 'eval', label: 'eval', key: 'c', colorVar: '--highlight-ub-green-source', axis: 'right' },
+    ],
+    data: { a, b, c }, anomalies, cursor: 98,
+    onBrush: (w) => console.log('brush', w),
+  });
+  const cur = document.getElementById('cursor');
+  cur.addEventListener('input', () => ctrl.setCursor(+cur.value));
+
+  PtoTrainingMetricsChart.render('#mini1', { steps, series: [{ id: 'g', label: 'grad', key: 'g', colorVar: '--highlight-accum-orange-source' }], data: { g: b.map(v => v * 1.5) }, anomalies: [{ step: 110, seriesId: 'g' }], options: { compact: true }, legend: false });
+  PtoTrainingMetricsChart.render('#mini2', { steps, series: [{ id: 'lb', label: 'lb', key: 'lb', colorVar: '--highlight-l0b-deep-violet-source' }], data: { lb: steps.map(i => i < 100 ? .42 : Math.max(0, .42 - (i - 100) * .02)) }, anomalies: [{ step: 105, seriesId: 'lb' }], options: { compact: true }, legend: false });
+</script>
+</body>
+</html>

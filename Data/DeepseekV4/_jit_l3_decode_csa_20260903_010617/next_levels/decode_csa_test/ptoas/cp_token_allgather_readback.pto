@@ -1,0 +1,64 @@
+module attributes {pto.target_arch = "a2a3"} {
+  func.func @cp_token_allgather_readback(%arg0: !pto.ptr<bf16>, %arg1: !pto.ptr<bf16>, %arg2: !pto.ptr<i32>, %arg3: index, %arg4: index, %arg5: i32, %arg6: i32, %arg7: !pto.ptr<i64>, %arg8: !pto.ptr<i64>, %arg9: index, %__pypto_spmd_block_idx: i32, %__pypto_spmd_block_num: i32) attributes {pto.kernel_kind = #pto.kernel_kind<vector>} {
+  %c0_i64 = arith.constant 0 : i64
+  %c4096_index = arith.constant 4096 : index
+  %c1_index = arith.constant 1 : index
+  %c512_index = arith.constant 512 : index
+  %c2_index = arith.constant 2 : index
+  %c16_index = arith.constant 16 : index
+  %c256_index = arith.constant 256 : index
+  %c0_index = arith.constant 0 : index
+  %c4_index = arith.constant 4 : index
+  %c4_i64 = arith.constant 4 : i64
+  %c1_i32 = arith.constant 1 : i32
+  %x_normed_full_inline1240__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%arg9, %c4096_index], strides = [%c4096_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":136:5)
+  %gather_window__ssa_v0_view = pto.make_tensor_view %arg1, shape = [%c512_index, %c4096_index], strides = [%c4096_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":136:5)
+  %gather_signal__ssa_v0_view = pto.make_tensor_view %arg2, shape = [%c2_index, %c1_index], strides = [%c1_index, %c2_index] {layout = #pto.layout<dn>} : !pto.tensor_view<?x?xi32> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":136:5)
+  %worker_v1_inline1638__ssa_v0 = arith.index_cast %__pypto_spmd_block_idx : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":141:9)
+  %0 = arith.muli %worker_v1_inline1638__ssa_v0, %c16_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":142:9)
+  scf.for %tile_row_inline1632__idx_v0 = %0 to %arg3 step %c256_index {
+    %window_tile_inline1650__tile = pto.alloc_tile addr = %c0_i64 valid_row = %c16_index valid_col = %c4096_index : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":143:13)
+    %1 = arith.maxsi %tile_row_inline1632__idx_v0, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":143:13)
+    %gather_window__ssa_v0_pview = pto.partition_view %gather_window__ssa_v0_view, offsets = [%1, %c0_index], sizes = [%c16_index, %c4096_index] : !pto.tensor_view<?x?xbf16> -> !pto.partition_tensor_view<16x4096xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":143:13)
+    pto.tload ins(%gather_window__ssa_v0_pview : !pto.partition_tensor_view<16x4096xbf16>) outs(%window_tile_inline1650__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":143:13)
+    %2 = arith.maxsi %tile_row_inline1632__idx_v0, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":144:13)
+    %x_normed_full_inline1240__iter_v1_pview = pto.partition_view %x_normed_full_inline1240__ssa_v0_view, offsets = [%2, %c0_index], sizes = [%c16_index, %c4096_index] : !pto.tensor_view<?x?xbf16> -> !pto.partition_tensor_view<16x4096xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":144:13)
+    pto.tstore ins(%window_tile_inline1650__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%x_normed_full_inline1240__iter_v1_pview : !pto.partition_tensor_view<16x4096xbf16>) loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":144:13)
+  }
+  %3 = arith.addi %arg3, %worker_v1_inline1638__ssa_v0 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":145:9)
+  scf.for %tail_row_inline1629__idx_v0 = %3 to %arg4 step %c16_index {
+    %window_row_inline1631__tile = pto.alloc_tile addr = %c0_i64 valid_row = %c1_index valid_col = %c4096_index : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":146:13)
+    %4 = arith.maxsi %tail_row_inline1629__idx_v0, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":146:13)
+    %5 = pto.partition_view %gather_window__ssa_v0_view, offsets = [%4, %c0_index], sizes = [%c1_index, %c4096_index] : !pto.tensor_view<?x?xbf16> -> !pto.partition_tensor_view<1x4096xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":146:13)
+    pto.tload ins(%5 : !pto.partition_tensor_view<1x4096xbf16>) outs(%window_row_inline1631__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":146:13)
+    %7 = arith.maxsi %tail_row_inline1629__idx_v0, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":147:13)
+    %x_normed_full_inline1240__iter_v4_pview = pto.partition_view %x_normed_full_inline1240__ssa_v0_view, offsets = [%7, %c0_index], sizes = [%c1_index, %c4096_index] : !pto.tensor_view<?x?xbf16> -> !pto.partition_tensor_view<1x4096xbf16> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":147:13)
+    pto.tstore ins(%window_row_inline1631__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%x_normed_full_inline1240__iter_v4_pview : !pto.partition_tensor_view<1x4096xbf16>) loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":147:13)
+  }
+  scf.for %peer_tp_inline1628__idx_v0 = %c0_index to %c2_index step %c1_index {
+    %8 = arith.index_cast %arg5 : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":149:13)
+    %9 = arith.cmpi ne, %peer_tp_inline1628__idx_v0, %8 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":149:13)
+    scf.if %9 {
+      %10 = arith.index_cast %arg6 : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %11 = arith.addi %10, %peer_tp_inline1628__idx_v0 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %12 = pto.load_scalar %arg8[%c2_index] : !pto.ptr<i64> -> i64 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %13 = arith.trunci %12 : i64 to i32 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %14 = arith.index_cast %13 : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %15 = arith.addi %c4_index, %14 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %16 = pto.load_scalar %arg8[%15] : !pto.ptr<i64> -> i64 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %17 = arith.addi %c4_index, %11 : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %18 = pto.load_scalar %arg8[%17] : !pto.ptr<i64> -> i64 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %19 = arith.subi %18, %16 : i64 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %20 = arith.divsi %19, %c4_i64 : i64 loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %21 = arith.index_cast %20 : i64 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %22 = pto.addptr %arg2, %21 : !pto.ptr<i32> -> !pto.ptr<i32> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %23 = pto.make_tensor_view %22, shape = [%c2_index, %c1_index], strides = [%c1_index, %c2_index] {layout = #pto.layout<dn>} : !pto.tensor_view<?x?xi32> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %tp_rank__ssa_v0_idx = arith.index_cast %arg5 : i32 to index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %24 = arith.maxsi %tp_rank__ssa_v0_idx, %c0_index : index loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      %gather_signal__ssa_v0_peer_pview = pto.partition_view %23, offsets = [%24, %c0_index], sizes = [%c1_index, %c1_index] : !pto.tensor_view<?x?xi32> -> !pto.partition_tensor_view<1x1xi32> loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+      pto.comm.tnotify(%gather_signal__ssa_v0_peer_pview, %c1_i32 : !pto.partition_tensor_view<1x1xi32>, i32) {notifyOp = #pto<notify_op atomic_add>} loc("/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_cp_token_allgather.py":150:17)
+    }
+  }
+  return
+  }
+}

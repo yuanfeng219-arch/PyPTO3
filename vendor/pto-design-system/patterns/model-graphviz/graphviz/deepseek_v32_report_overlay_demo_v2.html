@@ -1,0 +1,2735 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSeek V3.2 Profiling Workbench V2</title>
+  <link rel="stylesheet" href="../../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../../tokens/components.css">
+  <link rel="stylesheet" href="../../../css/style.css">
+  <link rel="stylesheet" href="../../workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../floating-playback-control/pattern.css">
+  <link rel="stylesheet" href="../../ide-frame/pattern.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --report-p0: #ff2d7a;
+      --report-p1: #ff9d00;
+      --report-p2: #ffe600;
+      --runtime-main: var(--primary);
+      --runtime-aux: var(--accent);
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body.source-report-v2 {
+      margin: 0;
+      overflow: hidden;
+      background: var(--surface-3);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+    }
+
+    .source-report-v2 .pto-ide-frame {
+      width: 100vw;
+      height: 100vh;
+      aspect-ratio: auto;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .dsv32-topbar-title,
+    .dsv32-topbar-meta,
+    .dsv32-toolbar-title,
+    .dsv32-status-item {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dsv32-topbar-title {
+      color: var(--foreground);
+      font: var(--ide-frame-title-font);
+    }
+
+    .dsv32-topbar-meta,
+    .dsv32-status-item {
+      color: var(--foreground-muted);
+      font: var(--ide-frame-meta-font);
+    }
+
+    .dsv32-toolbar-title {
+      color: var(--foreground-secondary);
+      font: var(--ide-frame-meta-font);
+    }
+
+    .source-report-v2 .pto-ide-frame__topbar-center {
+      display: none;
+    }
+
+    .source-report-v2 .pto-ide-frame__domain-toolbar {
+      display: none;
+    }
+
+    .dsv32-main-split {
+      padding-top: 0;
+    }
+
+    .source-report-v2 .home-link svg {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+    }
+
+    .source-report-v2 .pto-ide-frame__status-strip {
+      display: none;
+    }
+
+    .source-report-v2 .dsv32-pane-header--tabs,
+    .source-report-v2 .dsv32-pane-header--architecture {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .dsv32-pane-tabs {
+      justify-self: center;
+      white-space: nowrap;
+    }
+
+    .dsv32-pane-tabs .btn {
+      min-height: var(--button-height-sm);
+      min-width: 64px;
+    }
+
+    .dsv32-pane-header-meta {
+      justify-self: end;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .dsv32-architecture-controls {
+      min-width: 0;
+      justify-self: end;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .dsv32-pane-body {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .dsv32-pane-scroll {
+      min-width: 0;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: auto;
+    }
+
+    .dsv32-tab-panel {
+      display: none;
+      min-width: 0;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: auto;
+      padding: var(--space-3);
+    }
+
+    .dsv32-tab-panel.is-active {
+      display: block;
+    }
+
+    .timeline-summary-grid,
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-2);
+    }
+
+    .timeline-stat,
+    .metric-tile {
+      min-width: 0;
+      padding: var(--space-3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+    }
+
+    .timeline-stat-label,
+    .metric-label {
+      color: var(--foreground-muted);
+      font: var(--text-label);
+      letter-spacing: var(--letter-spacing-label);
+      text-transform: uppercase;
+    }
+
+    .timeline-stat-value,
+    .metric-value {
+      margin-top: 4px;
+      color: var(--foreground);
+      font: var(--text-mono);
+    }
+
+    .metric-tile[data-tone="critical"] {
+      border-color: color-mix(in srgb, var(--danger) 34%, var(--border-subtle));
+    }
+
+    .metric-tile[data-tone="warning"] {
+      border-color: color-mix(in srgb, var(--warning) 32%, var(--border-subtle));
+    }
+
+    .metric-tile[data-tone="success"] {
+      border-color: color-mix(in srgb, var(--success) 28%, var(--border-subtle));
+    }
+
+    .metric-bar {
+      height: 4px;
+      margin-top: var(--space-2);
+      overflow: hidden;
+      border-radius: var(--radius-pill);
+      background: var(--border-subtle);
+    }
+
+    .metric-bar span {
+      display: block;
+      width: var(--metric-bar-width, 0%);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--foreground-secondary);
+    }
+
+    .step-timeline,
+    .stream-lane-chart {
+      display: grid;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+
+    .step-row,
+    .stream-lane-row {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-2);
+      padding: var(--space-2) 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .step-row {
+      grid-template-columns: minmax(88px, 0.8fr) minmax(140px, 1.6fr) minmax(88px, 0.9fr);
+      align-items: center;
+    }
+
+    .step-name,
+    .stream-name,
+    .node-name {
+      color: var(--foreground);
+      font: var(--text-body-sm);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .step-meta,
+    .stream-meta,
+    .node-metric,
+    .node-id,
+    .section-copy {
+      color: var(--foreground-muted);
+      font: var(--text-body-sm);
+    }
+
+    .step-stack,
+    .stream-axis,
+    .stream-lane-track {
+      position: relative;
+      min-width: 0;
+      height: 18px;
+      overflow: hidden;
+      border-radius: var(--radius-pill);
+      background: var(--surface-1);
+    }
+
+    .step-stack span {
+      display: block;
+      float: left;
+      height: 100%;
+    }
+
+    .step-stack-compute {
+      background: var(--success);
+    }
+
+    .step-stack-comm {
+      background: var(--warning);
+    }
+
+    .step-stack-free {
+      background: var(--danger);
+    }
+
+    .step-values,
+    .stream-lane-values {
+      color: var(--foreground-secondary);
+      font: var(--text-mono);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .timeline-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+      color: var(--foreground-muted);
+      font: var(--text-label);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-pill);
+      background: var(--legend-color);
+    }
+
+    .stream-axis-wrap {
+      display: grid;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+    }
+
+    .stream-axis {
+      height: 28px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .stream-axis-segment,
+    .stream-lane-segment {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      opacity: 0.84;
+      background: var(--axis-color, var(--primary));
+      cursor: pointer;
+    }
+
+    .stream-axis-segment {
+      left: var(--axis-left);
+      width: var(--axis-width);
+    }
+
+    .stream-lane-segment {
+      left: var(--lane-left);
+      width: var(--lane-width);
+      background: var(--lane-color, var(--primary));
+    }
+
+    .stream-axis-segment[data-hot="true"],
+    .stream-lane-segment[data-hot="true"] {
+      background: var(--danger);
+    }
+
+    .stream-axis-segment.is-active,
+    .stream-lane-segment.is-active {
+      opacity: 1;
+      box-shadow: inset 0 0 0 2px var(--foreground);
+    }
+
+    .stream-axis-segment.is-disabled,
+    .stream-lane-segment.is-disabled,
+    .stream-lane-op-chip.is-disabled {
+      opacity: 0.22;
+      cursor: not-allowed;
+    }
+
+    .stream-lane-row {
+      grid-template-columns: minmax(108px, 128px) minmax(0, 1fr);
+      align-items: center;
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+    }
+
+    .stream-label {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+      align-content: center;
+    }
+
+    .stream-lane-cell {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .stream-lane-track {
+      height: 20px;
+      background: transparent;
+    }
+
+    .stream-lane-ops {
+      min-width: 0;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .stream-lane-ops::-webkit-scrollbar {
+      display: none;
+    }
+
+    .stream-lane-op-chip {
+      min-height: var(--tag-height);
+      flex: 0 0 auto;
+      border: 1px solid var(--comp-tag-border);
+      border-radius: var(--tag-radius);
+      background: var(--comp-tag-bg);
+      color: var(--foreground-secondary);
+      padding: 0 var(--space-2);
+      font: var(--text-label);
+      cursor: pointer;
+    }
+
+    .stream-lane-op-chip.is-active {
+      border-color: var(--foreground);
+      color: var(--foreground);
+      background: var(--state-selected);
+    }
+
+    .architecture-pane-root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--background);
+    }
+
+    .architecture-loading {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--foreground-muted);
+      font: var(--text-mono);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .architecture-pane-root #graph-container_8738e552-e764-4a57-839a-6321bc3ae7d3 {
+      width: 100% !important;
+      min-width: 0 !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      background: transparent !important;
+    }
+
+    .architecture-pane-root #graph_8738e552-e764-4a57-839a-6321bc3ae7d3 {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 0 !important;
+    }
+
+    .architecture-pane-root .popup_8738e552-e764-4a57-839a-6321bc3ae7d3 {
+      width: min(520px, calc(100% - 32px)) !important;
+      min-width: min(320px, calc(100% - 32px)) !important;
+      max-height: min(calc(100% - 24px), 720px) !important;
+    }
+
+    .architecture-pane-root .node_8738e552-e764-4a57-839a-6321bc3ae7d3,
+    .architecture-pane-root .boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3,
+    .architecture-pane-root .edge-group_8738e552-e764-4a57-839a-6321bc3ae7d3,
+    .architecture-pane-root .report-source-overlay {
+      transition: opacity 120ms ease, filter 120ms ease;
+    }
+
+    .architecture-pane-root.report-has-selection .node_8738e552-e764-4a57-839a-6321bc3ae7d3:not(.report-source-selected),
+    .architecture-pane-root.report-has-selection .boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3:not(.report-source-selected),
+    .architecture-pane-root.report-has-selection .edge-group_8738e552-e764-4a57-839a-6321bc3ae7d3:not(.report-source-edge-selected) {
+      opacity: 0.08 !important;
+    }
+
+    .architecture-pane-root.report-has-selection .report-source-selected,
+    .architecture-pane-root.report-has-selection .report-source-edge-selected {
+      opacity: 1 !important;
+      filter: none !important;
+    }
+
+    .architecture-pane-root .node_8738e552-e764-4a57-839a-6321bc3ae7d3.report-source-hit,
+    .architecture-pane-root .boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3.report-source-hit {
+      cursor: pointer;
+    }
+
+    .architecture-pane-root .node_8738e552-e764-4a57-839a-6321bc3ae7d3.report-priority-p0 > rect:first-of-type,
+    .architecture-pane-root .boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3.report-priority-p0 > rect:first-of-type {
+      stroke: var(--report-p0) !important;
+      stroke-width: 2px !important;
+    }
+
+    .architecture-pane-root .node_8738e552-e764-4a57-839a-6321bc3ae7d3.report-priority-p1 > rect:first-of-type,
+    .architecture-pane-root .boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3.report-priority-p1 > rect:first-of-type {
+      stroke: var(--report-p1) !important;
+      stroke-width: 2px !important;
+    }
+
+    .architecture-pane-root .node_8738e552-e764-4a57-839a-6321bc3ae7d3.report-priority-p2 > rect:first-of-type,
+    .architecture-pane-root .boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3.report-priority-p2 > rect:first-of-type {
+      stroke: var(--report-p2) !important;
+      stroke-width: 2px !important;
+    }
+
+    .architecture-pane-root .report-source-selected > rect:first-of-type {
+      stroke-width: 3.2px !important;
+    }
+
+    .report-source-overlay {
+      font-family: var(--font-sans);
+      pointer-events: none;
+    }
+
+    .report-source-badge {
+      stroke: none;
+    }
+
+    .report-priority-p0 .report-source-badge {
+      fill: var(--report-p0);
+    }
+
+    .report-priority-p1 .report-source-badge {
+      fill: var(--report-p1);
+    }
+
+    .report-priority-p2 .report-source-badge {
+      fill: var(--report-p2);
+    }
+
+    .report-source-badge-text {
+      fill: var(--foreground);
+      font-size: 9.5px;
+      font-weight: var(--font-weight-bold);
+      letter-spacing: 0;
+      text-rendering: geometricPrecision;
+    }
+
+    .report-priority-p1 .report-source-badge-text,
+    .report-priority-p2 .report-source-badge-text {
+      fill: var(--background);
+    }
+
+    .inspector-rail {
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: auto;
+      padding: 0 var(--space-3) var(--space-3);
+    }
+
+    .source-report-v2 [data-ide-pane="inspector"] > .pto-ide-frame__pane-header {
+      min-height: auto;
+      align-items: flex-start;
+      padding: var(--space-3) var(--space-3) var(--space-2);
+      overflow: visible;
+    }
+
+    .inspector-title-group,
+    .inspector-section,
+    .node-list,
+    .related-list {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .inspector-kicker {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-width: 0;
+    }
+
+    .priority-badge,
+    .status-chip {
+      min-height: var(--tag-height);
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--comp-tag-border);
+      border-radius: var(--tag-radius);
+      background: var(--comp-tag-bg);
+      color: var(--comp-tag-fg);
+      padding: 0 var(--space-2);
+      font: var(--text-label);
+      white-space: nowrap;
+    }
+
+    .priority-badge[data-priority="P0"] {
+      border-color: color-mix(in srgb, var(--report-p0) 62%, transparent);
+      color: var(--report-p0);
+    }
+
+    .priority-badge[data-priority="P1"] {
+      border-color: color-mix(in srgb, var(--report-p1) 62%, transparent);
+      color: var(--report-p1);
+    }
+
+    .priority-badge[data-priority="P2"] {
+      border-color: color-mix(in srgb, var(--report-p2) 62%, transparent);
+      color: var(--report-p2);
+    }
+
+    .inspector-title {
+      margin: 0;
+      color: var(--foreground);
+      font: var(--text-title-2);
+      letter-spacing: 0;
+    }
+
+    .inspector-section {
+      padding: var(--space-4) 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .section-title {
+      margin: 0;
+      color: var(--foreground-secondary);
+      font: var(--text-label);
+      letter-spacing: var(--letter-spacing-label);
+      text-transform: uppercase;
+    }
+
+    .fact-list,
+    .action-list {
+      display: grid;
+      gap: var(--space-2);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .fact-list li,
+    .action-list li {
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+    }
+
+    .operator-list,
+    .node-list,
+    .related-list {
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .operator-row,
+    .node-list button,
+    .related-list button {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--space-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+      color: var(--foreground-secondary);
+      padding: var(--space-2);
+      font: var(--text-body-sm);
+      text-align: left;
+    }
+
+    .node-list button {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      cursor: pointer;
+    }
+
+    .node-list button:hover,
+    .related-list button:hover {
+      border-color: var(--border-default);
+      background: var(--state-hover);
+    }
+
+    .node-list button.is-active,
+    .related-list button.is-active {
+      border-color: var(--primary);
+      background: var(--state-selected);
+      color: var(--foreground);
+    }
+
+    .operator-name,
+    .operator-value {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .operator-value {
+      color: var(--foreground);
+      font: var(--text-mono);
+      text-align: right;
+    }
+
+    .empty-state {
+      color: var(--foreground-muted);
+      font: var(--text-body-sm);
+    }
+
+    .dsv32-error {
+      display: none;
+      padding: var(--space-2) var(--space-3);
+      color: var(--danger);
+      font: var(--text-body-sm);
+    }
+
+    .dsv32-error.is-visible {
+      display: block;
+    }
+
+    .source-report-v2 .pto-ide-frame__floating-playback-mount .pto-floating-playback {
+      position: static;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      transform: none;
+      pointer-events: none;
+    }
+
+    .source-report-v2 .pto-ide-frame__floating-playback-mount .pto-floating-playback__shell {
+      pointer-events: all;
+    }
+
+    .source-report-v2 .pto-ide-frame__pane-header {
+      min-height: 54px;
+      padding: var(--space-2) var(--space-3);
+    }
+
+    .dsv32-pane-header--source {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .dsv32-source-select {
+      min-width: 0;
+      height: var(--button-height-sm);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--surface-1);
+      color: var(--foreground);
+      font: var(--text-body-sm);
+      padding: 0 var(--space-2);
+    }
+
+    .dsv32-source-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      justify-self: end;
+    }
+
+    .dsv32-source-subbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      padding: 6px var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--foreground-muted);
+      font: var(--text-label);
+    }
+
+    .dsv32-source-link {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--primary-hover);
+      text-decoration: none;
+    }
+
+    .dsv32-source-link:hover {
+      text-decoration: underline;
+    }
+
+    .dsv32-source-scroll {
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: auto;
+      padding: var(--space-2) 0 var(--space-4);
+      background: var(--background);
+    }
+
+    .source-line {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      gap: var(--space-2);
+      align-items: baseline;
+      padding: 0 var(--space-3) 0 0;
+    }
+
+    .source-line.is-key {
+      cursor: pointer;
+    }
+
+    .source-line.is-key:hover {
+      background: var(--state-hover);
+    }
+
+    .source-line.is-selected {
+      background: var(--state-selected);
+    }
+
+    .source-line-no {
+      color: var(--foreground-muted);
+      font: var(--text-mono);
+      text-align: right;
+      user-select: none;
+      opacity: 0.45;
+      padding-right: var(--space-2);
+    }
+
+    .source-line.is-key .source-line-no {
+      opacity: 0.9;
+      color: var(--foreground-secondary);
+    }
+
+    .source-line-code {
+      font: 500 12px / 1.65 var(--font-mono);
+      white-space: pre;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: color-mix(in srgb, var(--foreground) 86%, transparent);
+    }
+
+    .source-line-tag {
+      align-self: center;
+      min-height: var(--tag-height);
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--comp-tag-border);
+      border-radius: var(--tag-radius);
+      background: var(--comp-tag-bg);
+      color: var(--foreground-secondary);
+      padding: 0 var(--space-2);
+      font: var(--text-label);
+      white-space: nowrap;
+    }
+
+    .source-line-tag[data-priority="P0"] {
+      border-color: color-mix(in srgb, var(--report-p0) 60%, transparent);
+      color: var(--report-p0);
+    }
+
+    .source-line-tag[data-priority="P1"] {
+      border-color: color-mix(in srgb, var(--report-p1) 60%, transparent);
+      color: var(--report-p1);
+    }
+
+    .source-line-tag[data-priority="P2"] {
+      border-color: color-mix(in srgb, var(--report-p2) 60%, transparent);
+      color: var(--report-p2);
+    }
+
+    .tk-keyword { color: #c792ea; }
+    .tk-type { color: #82aaff; }
+    .tk-fn { color: #82aaff; }
+    .tk-string { color: #c3e88d; }
+    .tk-doc { color: #c3e88d; font-style: italic; opacity: 0.82; }
+    .tk-number { color: #f78c6c; }
+    .tk-comment { color: var(--foreground-muted); font-style: italic; }
+    .tk-decorator { color: #ffcb6b; }
+
+    .line-detail {
+      margin: 4px var(--space-3) var(--space-2) 46px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--surface-1);
+      padding: var(--space-3);
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .line-detail-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .line-detail-title {
+      color: var(--foreground);
+      font: var(--text-body-sm);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .line-detail-text {
+      margin: 0;
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+      line-height: 1.6;
+    }
+
+    .line-detail-link {
+      justify-self: start;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+      color: var(--foreground);
+      padding: 4px var(--space-2);
+      font: var(--text-label);
+      cursor: pointer;
+    }
+
+    .line-detail-link:hover {
+      border-color: var(--primary);
+      background: var(--state-selected);
+    }
+
+    .line-detail-link:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .source-empty {
+      padding: var(--space-4);
+      color: var(--foreground-muted);
+      font: var(--text-body-sm);
+    }
+
+    .dsv32-inspector-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dsv32-inspector-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .dsv32-inspector-dock {
+      position: absolute;
+      z-index: 30;
+      top: var(--space-2);
+      right: var(--space-2);
+      bottom: var(--space-2);
+      width: 380px;
+      max-width: calc(100% - 32px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg, 12px);
+      background: var(--surface-2);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+    }
+
+    .dsv32-inspector-dock[hidden] {
+      display: none;
+    }
+
+    .dsv32-inspector-dock-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .dsv32-inspector-dock-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 980px) {
+      .source-report-v2 .pto-ide-frame {
+        min-width: 760px;
+      }
+
+      .metric-grid,
+      .timeline-summary-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .step-row,
+      .stream-lane-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .step-values {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body class="source-report-v2">
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" aria-label="DeepSeek profiling workbench">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="dsv32-topbar-title">DeepSeek V3.2 Trace Workbench</div>
+      </div>
+      <div class="pto-ide-frame__topbar-right">
+        <div class="dsv32-topbar-meta">step 15 trace slice</div>
+        <button id="inspectorToggle" class="btn btn-sm dsv32-inspector-toggle" type="button" aria-pressed="false" title="切换 Inspector 面板">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="5" y="5" width="14" height="14" rx="1.5"></rect>
+            <path d="M14 5v14"></path>
+          </svg>
+          <span>Inspector</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <div class="pto-ide-frame__workarea">
+        <div class="dsv32-error" id="loadError"></div>
+
+        <div class="pto-ide-frame__split dsv32-main-split" data-ide-split="dsv32-main-v3" data-split-direction="horizontal" data-sizes="34,26,40" data-min-size="300,240,360">
+          <section class="pto-ide-frame__pane" data-ide-pane="operator-source">
+            <header class="pto-ide-frame__pane-header dsv32-pane-header--source">
+              <h2 class="pto-ide-frame__pane-title">算子源码</h2>
+              <select id="sourceFileSelect" class="dsv32-source-select" aria-label="选择源码文件"></select>
+              <div class="dsv32-source-controls">
+                <button id="sourceAnnToggle" class="btn btn-sm is-selected" type="button" aria-pressed="true">标注</button>
+              </div>
+            </header>
+            <div class="dsv32-source-subbar">
+              <span id="sourceLineMeta">— 行</span>
+              <a id="sourceLink" class="dsv32-source-link" target="_blank" rel="noreferrer">source</a>
+            </div>
+            <div class="dsv32-pane-body">
+              <div id="sourceBody" class="dsv32-source-scroll" role="list" aria-label="算子源码"></div>
+            </div>
+          </section>
+
+          <section class="pto-ide-frame__pane" data-ide-pane="profiling-visual">
+            <header class="pto-ide-frame__pane-header dsv32-pane-header--tabs">
+              <h2 class="pto-ide-frame__pane-title">Profiling Visual</h2>
+              <div class="segmented-control dsv32-pane-tabs" role="tablist" aria-label="Profiling views">
+                <button class="btn btn-sm" type="button" role="tab" data-left-tab="steps" aria-selected="false">Steps</button>
+                <button class="btn btn-sm is-selected" type="button" role="tab" data-left-tab="streams" aria-selected="true">Streams</button>
+              </div>
+              <span id="profilingMeta" class="pto-ide-frame__pane-meta dsv32-pane-header-meta">JSON pending</span>
+            </header>
+            <div class="dsv32-pane-body">
+              <div id="stepsPanel" class="dsv32-tab-panel"></div>
+              <div id="streamsPanel" class="dsv32-tab-panel is-active"></div>
+            </div>
+          </section>
+
+          <section class="pto-ide-frame__pane" data-ide-pane="architecture">
+            <header class="pto-ide-frame__pane-header dsv32-pane-header--architecture">
+              <h2 class="pto-ide-frame__pane-title">Trace Architecture Overlay</h2>
+              <span id="graphMeta" class="pto-ide-frame__pane-meta">inline graph pending</span>
+              <div class="dsv32-architecture-controls">
+                <span id="overlayCount" class="status-chip">0 / 0 overlays</span>
+                <button id="overlayToggle" class="btn btn-sm is-selected" type="button" aria-pressed="true">Overlay</button>
+                <button id="realignButton" class="btn btn-sm" type="button" hidden>Realign</button>
+              </div>
+            </header>
+            <div class="pto-ide-frame__pane-body">
+              <div id="architectureRoot" class="architecture-pane-root" aria-label="DeepSeek V3.2 architecture graph">
+                <div class="architecture-loading" id="architectureLoading">loading source graph fragment</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="dsv32-inspector-dock" id="inspectorDock" aria-label="Inspector" hidden>
+          <header class="dsv32-inspector-dock-header">
+            <div class="inspector-title-group">
+              <div class="inspector-kicker">
+                <span id="priorityBadge" class="priority-badge" data-priority="P0">P0</span>
+                <span id="reportDimension" class="status-chip">Decoder Block</span>
+              </div>
+              <h1 id="inspectorTitle" class="inspector-title">Loading</h1>
+              <div id="inspectorNodeId" class="node-id">profiling json</div>
+            </div>
+            <div class="dsv32-inspector-dock-actions">
+              <span id="inspectorMode" class="status-chip">Node</span>
+              <button id="inspectorClose" class="btn btn-sm btn-ghost" type="button" aria-label="关闭 Inspector">✕</button>
+            </div>
+          </header>
+          <div class="inspector-rail">
+            <section class="inspector-section">
+              <h2 class="section-title">Diagnosis</h2>
+              <p id="inspectorSummary" class="section-copy"></p>
+              <div id="metricGrid" class="metric-grid"></div>
+            </section>
+
+            <section class="inspector-section">
+              <h2 class="section-title">Evidence</h2>
+              <ul id="factList" class="fact-list"></ul>
+            </section>
+
+            <section class="inspector-section">
+              <h2 class="section-title">Operators</h2>
+              <div id="operatorList" class="operator-list"></div>
+            </section>
+
+            <section class="inspector-section">
+              <h2 class="section-title">Actions</h2>
+              <ul id="actionList" class="action-list"></ul>
+            </section>
+
+            <section class="inspector-section">
+              <h2 class="section-title">Node Navigation</h2>
+              <div id="nodeList" class="node-list"></div>
+            </section>
+
+            <section class="inspector-section">
+              <h2 class="section-title">Related Children</h2>
+              <div id="relatedList" class="related-list"></div>
+            </section>
+          </div>
+        </aside>
+
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" data-ide-slot="status">
+          <span id="statusLeft" class="dsv32-status-item">profiling_json input expected</span>
+          <span id="statusRight" class="dsv32-status-item">v2 · source-validated trace slice</span>
+        </footer>
+      </div>
+    </div>
+
+    <div id="playbackMount" class="pto-ide-frame__floating-playback-mount" data-ide-slot="playback"></div>
+  </section>
+
+  <script src="../../workbench-shell/pattern.js"></script>
+  <script src="../../floating-playback-control/pattern.js"></script>
+  <script src="../../ide-frame/pattern.js"></script>
+  <script>
+    (() => {
+      const NODE_CLASS = "node_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const BOUNDARY_CLASS = "boundary-box_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const EDGE_GROUP_CLASS = "edge-group_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const LABEL_CLASS = "node-label_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const COLLAPSE_CLASS = "collapse-button_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const COLLAPSE_ICON_CLASS = "collapse-icon_8738e552-e764-4a57-839a-6321bc3ae7d3";
+      const POPUP_ID = "popup_8738e552-e764-4a57-839a-6321bc3ae7d3";
+
+      const state = {
+        data: null,
+        activeFilter: "all",
+        overlayEnabled: true,
+        selectedNodeId: "",
+        selectedSegmentIndex: -1,
+        selectionKind: "node",
+        decorated: 0,
+        sourceNodes: 0,
+        graphReady: false,
+        sourceDimEnabled: false,
+        observer: null,
+        decorateTimer: 0,
+        focusRequestToken: 0,
+        activeLeftTab: "streams",
+        playbackPlaying: false,
+        playbackTimer: 0,
+        playbackControl: null,
+        playbackHover: null,
+        sourceData: null,
+        activeFileId: "model",
+        annotationsVisible: true,
+        selectedSourceLine: -1,
+        inspectorOpen: false
+      };
+
+      const playbackIds = {
+        shell: "dsv32-playback-shell",
+        toggle: "dsv32-playback-toggle",
+        collapsedButton: "dsv32-playback-collapsed-btn",
+        collapsedIcon: "dsv32-playback-collapsed-icon",
+        controls: "dsv32-playback-controls",
+        stepBack: "dsv32-step-back",
+        play: "dsv32-play",
+        stepForward: "dsv32-step-forward",
+        replay: "dsv32-replay",
+        scrubber: "dsv32-scrubber",
+        scrubberLabel: "dsv32-scrubber-label",
+        scrubberOpname: "dsv32-scrubber-opname",
+        scrubberHover: "dsv32-scrubber-hover"
+      };
+
+      const els = {
+        sourceStatus: document.getElementById("sourceStatus"),
+        sourceValidationDetail: document.getElementById("sourceValidationDetail"),
+        sourceValidationFacts: document.getElementById("sourceValidationFacts"),
+        graphMeta: document.getElementById("graphMeta"),
+        profilingMeta: document.getElementById("profilingMeta"),
+        overlayCount: document.getElementById("overlayCount"),
+        overlayToggle: document.getElementById("overlayToggle"),
+        realignButton: document.getElementById("realignButton"),
+        loadError: document.getElementById("loadError"),
+        architectureRoot: document.getElementById("architectureRoot"),
+        architectureLoading: document.getElementById("architectureLoading"),
+        stepsPanel: document.getElementById("stepsPanel"),
+        streamsPanel: document.getElementById("streamsPanel"),
+        priorityBadge: document.getElementById("priorityBadge"),
+        reportDimension: document.getElementById("reportDimension"),
+        inspectorTitle: document.getElementById("inspectorTitle"),
+        inspectorNodeId: document.getElementById("inspectorNodeId"),
+        inspectorMode: document.getElementById("inspectorMode"),
+        inspectorSummary: document.getElementById("inspectorSummary"),
+        metricGrid: document.getElementById("metricGrid"),
+        factList: document.getElementById("factList"),
+        operatorList: document.getElementById("operatorList"),
+        actionList: document.getElementById("actionList"),
+        nodeList: document.getElementById("nodeList"),
+        relatedList: document.getElementById("relatedList"),
+        playbackMount: document.getElementById("playbackMount"),
+        statusLeft: document.getElementById("statusLeft"),
+        statusRight: document.getElementById("statusRight"),
+        sourceFileSelect: document.getElementById("sourceFileSelect"),
+        sourceAnnToggle: document.getElementById("sourceAnnToggle"),
+        sourceBody: document.getElementById("sourceBody"),
+        sourceLineMeta: document.getElementById("sourceLineMeta"),
+        sourceLink: document.getElementById("sourceLink"),
+        inspectorDock: document.getElementById("inspectorDock"),
+        inspectorToggle: document.getElementById("inspectorToggle"),
+        inspectorClose: document.getElementById("inspectorClose")
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function reportById(nodeId) {
+        return state.data?.reports?.[nodeId] || null;
+      }
+
+      function segmentByIndex(index) {
+        return state.data?.playback?.segments?.[index] || null;
+      }
+
+      function isReportInFilter(report) {
+        if (!report) return false;
+        return state.activeFilter === "all" || report.priority === state.activeFilter;
+      }
+
+      function visibleReportIds() {
+        const order = state.data?.reportOrder || [];
+        return order.filter((id) => isReportInFilter(reportById(id)));
+      }
+
+      function isSegmentEnabled(segment) {
+        if (!segment) return false;
+        if (state.activeFilter === "all") return true;
+        return isReportInFilter(reportById(segment.nodeId));
+      }
+
+      function formatDuration(us) {
+        const value = Number(us) || 0;
+        if (value >= 1000) {
+          const ms = value / 1000;
+          return `${ms >= 10 ? ms.toFixed(1) : ms.toFixed(2)} ms`;
+        }
+        return `${value < 10 ? value.toFixed(1) : value.toFixed(0)} us`;
+      }
+
+      function metricPercent(value) {
+        const match = String(value).match(/(\d+(?:\.\d+)?)\s*%/);
+        if (!match) return null;
+        return Math.max(0, Math.min(100, Number(match[1])));
+      }
+
+      function renderList(container, items) {
+        container.innerHTML = (items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+      }
+
+      function renderMetrics(metrics) {
+        els.metricGrid.innerHTML = (metrics || []).map((metric) => {
+          const label = Array.isArray(metric) ? metric[0] : metric.label;
+          const value = Array.isArray(metric) ? metric[1] : metric.value;
+          const tone = Array.isArray(metric) ? "info" : (metric.tone || "info");
+          const percent = metricPercent(value);
+          const bar = percent == null
+            ? ""
+            : `<div class="metric-bar" style="--metric-bar-width:${percent}%"><span></span></div>`;
+          return `
+            <div class="metric-tile" data-tone="${escapeHtml(tone)}">
+              <div class="metric-label">${escapeHtml(label)}</div>
+              <div class="metric-value">${escapeHtml(value)}</div>
+              ${bar}
+            </div>
+          `;
+        }).join("");
+      }
+
+      function renderOperators(operators) {
+        if (!operators || !operators.length) {
+          els.operatorList.innerHTML = `<div class="empty-state">No operator evidence.</div>`;
+          return;
+        }
+
+        els.operatorList.innerHTML = operators.map((item) => {
+          const name = Array.isArray(item) ? item[0] : item.name;
+          const value = Array.isArray(item) ? item[1] : item.value;
+          return `
+            <div class="operator-row">
+              <div class="operator-name">${escapeHtml(name)}</div>
+              <div class="operator-value">${escapeHtml(value)}</div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function createStageView(segment, index) {
+        const mappedReport = reportById(segment.nodeId);
+        const waitDominant = Number(segment.waitUs) > Number(segment.opUs);
+        const priority = mappedReport?.priority || (waitDominant ? "P2" : "P1");
+        const mappedTitle = mappedReport ? mappedReport.title : "unmapped graph node";
+        const streamText = (segment.streams || []).join(" / ");
+        return {
+          priority,
+          dimension: segment.category === "main" ? "Runtime Main Segment" : "Runtime Auxiliary Segment",
+          title: segment.name,
+          nodeId: segment.nodeId || "unmapped runtime segment",
+          summary: `${segment.name} is playback segment ${index + 1}. Wall ${formatDuration(segment.wallUs)}, op ${formatDuration(segment.opUs)}, wait ${formatDuration(segment.waitUs)}; mapped architecture anchor: ${mappedTitle}.`,
+          metrics: [
+            { label: "wall", value: formatDuration(segment.wallUs), tone: waitDominant ? "critical" : "info" },
+            { label: "op", value: formatDuration(segment.opUs), tone: "success" },
+            { label: "wait", value: formatDuration(segment.waitUs), tone: waitDominant ? "critical" : "warning" },
+            { label: "kernels", value: String(segment.kernels), tone: "warning" }
+          ],
+          facts: [
+            `Dominant stream: ${segment.dominant || "unknown"}.`,
+            `Participating streams: ${streamText || "none"}.`,
+            segment.nodeId ? `Mapped node: ${segment.nodeId}.` : "This runtime segment has no explicit architecture node mapping in the bridge JSON."
+          ],
+          operators: [
+            ["category", segment.category || "unknown"],
+            ["dominant stream", segment.dominant || "unknown"],
+            ["stream count", String((segment.streams || []).length)]
+          ],
+          actions: waitDominant
+            ? [
+                "Treat this stage as a wait-heavy playback segment, not a standalone compute hotspot.",
+                "Trace upstream host dispatch, dependency wait, or communication overlap before optimizing the visible anchor."
+              ]
+            : [
+                "Use this stage to align runtime timing with the mapped architecture node.",
+                "Drill into the mapped node before making operator-level optimization calls."
+              ]
+        };
+      }
+
+      function currentInspectorView() {
+        if (state.selectionKind === "segment" && state.selectedSegmentIndex >= 0) {
+          const segment = segmentByIndex(state.selectedSegmentIndex);
+          if (segment) return createStageView(segment, state.selectedSegmentIndex);
+        }
+
+        if (!state.selectedNodeId || state.selectionKind === "none") {
+          return null;
+        }
+
+        let report = reportById(state.selectedNodeId);
+        if (!report || !isReportInFilter(report)) {
+          const fallback = visibleReportIds()[0] || state.data?.reportOrder?.[0];
+          state.selectedNodeId = fallback || "";
+          report = reportById(state.selectedNodeId);
+        }
+        if (!report) return null;
+        return {
+          ...report,
+          nodeId: state.selectedNodeId
+        };
+      }
+
+      function renderNodeNavigation() {
+        const ids = visibleReportIds();
+        els.nodeList.innerHTML = ids.map((id) => {
+          const report = reportById(id);
+          const active = id === state.selectedNodeId && state.selectionKind === "node";
+          return `
+            <button type="button" class="${active ? "is-active" : ""}" data-node-id="${escapeHtml(id)}">
+              <span class="priority-badge" data-priority="${escapeHtml(report.priority)}">${escapeHtml(report.priority)}</span>
+              <span class="node-name">${escapeHtml(report.title)}</span>
+              <span class="node-metric">${escapeHtml(report.metricShort)}</span>
+            </button>
+          `;
+        }).join("");
+      }
+
+      function renderRelatedChildren(nodeId) {
+        const children = state.data?.descendantNodeIds?.[nodeId] || [];
+        const reportChildren = children.filter((id) => reportById(id));
+        if (!reportChildren.length) {
+          els.relatedList.innerHTML = `<div class="empty-state">No mapped child reports for this node.</div>`;
+          return;
+        }
+
+        els.relatedList.innerHTML = reportChildren.map((id) => {
+          const report = reportById(id);
+          return `
+            <button type="button" class="${id === state.selectedNodeId ? "is-active" : ""}" data-related-node-id="${escapeHtml(id)}">
+              <span class="node-name">${escapeHtml(report.title)}</span>
+              <span class="node-metric">${escapeHtml(report.metricShort)}</span>
+            </button>
+          `;
+        }).join("");
+      }
+
+      function renderInspector() {
+        if (!state.data) return;
+        const view = currentInspectorView();
+        if (!view) {
+          els.priorityBadge.textContent = "—";
+          els.priorityBadge.dataset.priority = "";
+          els.reportDimension.textContent = "Selection";
+          els.inspectorTitle.textContent = "No selection";
+          els.inspectorNodeId.textContent = "none";
+          els.inspectorMode.textContent = "Node";
+          els.inspectorSummary.textContent = "";
+          renderMetrics([]);
+          renderList(els.factList, []);
+          renderOperators([]);
+          renderList(els.actionList, []);
+          renderNodeNavigation();
+          els.relatedList.innerHTML = `<div class="empty-state">No mapped child reports.</div>`;
+          return;
+        }
+
+        els.priorityBadge.textContent = view.priority;
+        els.priorityBadge.dataset.priority = view.priority;
+        els.reportDimension.textContent = view.dimension;
+        els.inspectorTitle.textContent = view.title;
+        els.inspectorNodeId.textContent = view.nodeId;
+        els.inspectorMode.textContent = state.selectionKind === "segment" ? "Stage" : "Node";
+        els.inspectorSummary.textContent = view.summary;
+        renderMetrics(view.metrics);
+        renderList(els.factList, view.facts);
+        renderOperators(view.operators);
+        renderList(els.actionList, view.actions);
+        renderNodeNavigation();
+        renderRelatedChildren(view.nodeId);
+      }
+
+      function renderSteps() {
+        const steps = state.data?.steps || [];
+        const normalSteps = steps.filter((step) => step.kind === "normal");
+        const mean = (key) => normalSteps.reduce((sum, step) => sum + Number(step[key] || 0), 0) / Math.max(1, normalSteps.length);
+        const summary = [
+          ["normal stage", formatDuration(mean("stageUs"))],
+          ["Computing", `${mean("compute").toFixed(1)}%`],
+          ["CommNO", `${mean("comm").toFixed(1)}%`],
+          ["Free", `${mean("free").toFixed(1)}%`]
+        ].map(([label, value]) => `
+          <div class="timeline-stat">
+            <div class="timeline-stat-label">${escapeHtml(label)}</div>
+            <div class="timeline-stat-value">${escapeHtml(value)}</div>
+          </div>
+        `).join("");
+
+        const rows = steps.map((step) => `
+          <div class="step-row" data-kind="${escapeHtml(step.kind)}">
+            <div class="step-label">
+              <div class="step-name">Step ${escapeHtml(step.step)}</div>
+              <div class="step-meta">${step.kind === "warmup" ? "warmup excluded" : "normal"}</div>
+            </div>
+            <div class="step-stack" title="Computing ${step.compute}%, CommNO ${step.comm}%, Free ${step.free}%">
+              <span class="step-stack-compute" style="width:${step.compute}%"></span>
+              <span class="step-stack-comm" style="width:${step.comm}%"></span>
+              <span class="step-stack-free" style="width:${step.free}%"></span>
+            </div>
+            <div class="step-values">${formatDuration(step.stageUs)} · O ${escapeHtml(step.overlap)}</div>
+          </div>
+        `).join("");
+
+        els.stepsPanel.innerHTML = `
+          <div class="timeline-summary-grid">${summary}</div>
+          <div class="timeline-legend" aria-label="step color legend">
+            <span class="legend-item"><span class="legend-swatch" style="--legend-color:var(--success)"></span>Computing</span>
+            <span class="legend-item"><span class="legend-swatch" style="--legend-color:var(--warning)"></span>CommNO</span>
+            <span class="legend-item"><span class="legend-swatch" style="--legend-color:var(--danger)"></span>Free</span>
+          </div>
+          <div class="step-timeline">${rows}</div>
+        `;
+      }
+
+      function streamBounds() {
+        const segments = state.data?.playback?.segments || [];
+        const minStart = Math.min(...segments.map((item) => item.startUs));
+        const maxEnd = Math.max(...segments.map((item) => item.endUs));
+        return { minStart, maxEnd, span: maxEnd - minStart };
+      }
+
+      function renderStreams() {
+        const segments = (state.data?.playback?.segments || []).map((item, index) => ({ ...item, index }));
+        const streams = state.data?.streamSummary || [];
+        if (!segments.length) {
+          els.streamsPanel.innerHTML = `<div class="empty-state">No stream timeline in profiling JSON.</div>`;
+          return;
+        }
+
+        const { minStart, span } = streamBounds();
+        const sortedSegments = segments.slice().sort((a, b) => a.startUs - b.startUs);
+        const axisSegments = sortedSegments.map((segment) => {
+          const left = ((segment.startUs - minStart) / span) * 100;
+          const width = Math.max(0.6, (segment.wallUs / span) * 100);
+          const hot = segment.waitUs > segment.opUs;
+          const disabled = !isSegmentEnabled(segment);
+          const active = state.selectedSegmentIndex === segment.index;
+          return `
+            <span
+              class="stream-axis-segment ${active ? "is-active" : ""} ${disabled ? "is-disabled" : ""}"
+              data-segment-index="${segment.index}"
+              data-hot="${hot ? "true" : "false"}"
+              data-disabled="${disabled ? "true" : "false"}"
+              style="--axis-left:${left.toFixed(2)}%;--axis-width:${width.toFixed(2)}%;--axis-color:${escapeHtml(segment.color)}"
+              title="${escapeHtml(segment.name)} · wall ${formatDuration(segment.wallUs)}"></span>
+          `;
+        }).join("");
+
+        const maxStreamCost = Math.max(...streams.map((item) => Number(item.opUs || 0) + Number(item.waitUs || 0)), 1);
+        const streamRows = streams.map((stream) => {
+          const cost = Number(stream.opUs || 0) + Number(stream.waitUs || 0);
+          const laneSegments = sortedSegments
+            .filter((segment) => (segment.streams || []).includes(stream.stream) || segment.dominant === stream.stream)
+            .map((segment) => {
+              const left = ((segment.startUs - minStart) / span) * 100;
+              const width = Math.max(0.6, (segment.wallUs / span) * 100);
+              const hot = segment.waitUs > segment.opUs;
+              const disabled = !isSegmentEnabled(segment);
+              const active = state.selectedSegmentIndex === segment.index;
+              return `
+                <span
+                  class="stream-lane-segment ${active ? "is-active" : ""} ${disabled ? "is-disabled" : ""}"
+                  data-segment-index="${segment.index}"
+                  data-hot="${hot ? "true" : "false"}"
+                  data-disabled="${disabled ? "true" : "false"}"
+                  style="--lane-left:${left.toFixed(2)}%;--lane-width:${width.toFixed(2)}%;--lane-color:${escapeHtml(segment.color)}"
+                  title="${escapeHtml(segment.name)} · stream ${escapeHtml(stream.stream)}"></span>
+              `;
+            }).join("");
+
+          const chips = sortedSegments
+            .filter((segment) => (segment.streams || []).includes(stream.stream) || segment.dominant === stream.stream)
+            .map((segment) => {
+              const disabled = !isSegmentEnabled(segment);
+              const active = state.selectedSegmentIndex === segment.index;
+              return `
+                <button
+                  type="button"
+                  class="stream-lane-op-chip ${active ? "is-active" : ""} ${disabled ? "is-disabled" : ""}"
+                  data-segment-index="${segment.index}"
+                  data-disabled="${disabled ? "true" : "false"}">
+                  ${escapeHtml(segment.name)}
+                </button>
+              `;
+            }).join("");
+
+          const widthPct = Math.max(8, Math.min(100, cost / maxStreamCost * 100));
+          return `
+            <div class="stream-lane-row" data-stream="${escapeHtml(stream.stream)}" style="--stream-width:${widthPct.toFixed(1)}%">
+              <div class="stream-label">
+                <div class="stream-name">Stream ${escapeHtml(stream.stream)}</div>
+                <div class="stream-meta">${escapeHtml(stream.ops)} ops · ${formatDuration(cost)}</div>
+              </div>
+              <div class="stream-lane-cell">
+                <div class="stream-lane-track">${laneSegments}</div>
+                <div class="stream-lane-ops">${chips}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        els.streamsPanel.innerHTML = `
+          <div class="stream-axis-wrap">
+            <div class="stream-axis" aria-label="module segment axis">${axisSegments}</div>
+          </div>
+          <div class="stream-lane-chart">${streamRows}</div>
+        `;
+      }
+
+      function renderTimelineSelection() {
+        document.querySelectorAll("[data-segment-index]").forEach((item) => {
+          item.classList.toggle("is-active", Number(item.dataset.segmentIndex) === state.selectedSegmentIndex);
+        });
+      }
+
+      function renderProfiling() {
+        renderSteps();
+        renderStreams();
+        renderTimelineSelection();
+        const segmentCount = state.data?.playback?.segments?.length || 0;
+        const stepCount = state.data?.steps?.length || 0;
+        els.profilingMeta.textContent = `${stepCount} steps · ${segmentCount} segments`;
+      }
+
+      function updateCounts() {
+        const visibleTotal = visibleReportIds().length;
+        const suffix = state.overlayEnabled ? "overlays" : "overlay off";
+        els.overlayCount.textContent = `${state.decorated} / ${visibleTotal} ${suffix}`;
+        els.graphMeta.textContent = state.graphReady
+          ? `${state.sourceNodes} graph objects · ${state.decorated} mapped`
+          : "inline graph pending";
+      }
+
+      function setStatus(message) {
+        els.statusLeft.textContent = message;
+      }
+
+      function setError(error) {
+        els.loadError.textContent = error ? String(error) : "";
+        els.loadError.classList.toggle("is-visible", Boolean(error));
+      }
+
+      function renderSourceValidation() {
+        const validation = state.data?.sourceValidation;
+        if (!validation) return;
+
+        if (els.sourceStatus) {
+          els.sourceStatus.textContent = validation.title || "source validation";
+        }
+        if (els.sourceValidationDetail) {
+          els.sourceValidationDetail.textContent = validation.summary || "";
+        }
+        if (els.sourceValidationFacts) {
+          const facts = [
+            ["full model", validation.fullMainLayers ? `${validation.fullMainLayers} main layers` : ""],
+            ["trace coverage", validation.traceMainLayers ? `${validation.traceMainLayers} / ${validation.fullMainLayers}` : ""],
+            ["dense", validation.denseLayers || ""],
+            ["moe", validation.moeLayers || ""],
+            ["mtp", validation.mtp || ""]
+          ].filter((item) => item[1]);
+          els.sourceValidationFacts.innerHTML = facts.map(([label, value]) =>
+            `<span class="status-chip" title="${escapeHtml(label)}">${escapeHtml(value)}</span>`
+          ).join("");
+        }
+      }
+
+      function selectNode(nodeId, options = {}) {
+        const report = reportById(nodeId);
+        if (!report) return;
+        if (!isReportInFilter(report)) {
+          setStatus(`Filtered out: ${report.title}`);
+          return;
+        }
+
+        state.selectedNodeId = nodeId;
+        state.selectionKind = "node";
+        state.sourceDimEnabled = true;
+
+        const segmentIndex = (state.data?.playback?.segments || []).findIndex((segment) => segment.nodeId === nodeId && isSegmentEnabled(segment));
+        state.selectedSegmentIndex = segmentIndex;
+
+        renderInspector();
+        renderTimelineSelection();
+        renderPlayback();
+        decorateSourceGraph();
+        applySelectedState();
+        if (options.focusSource && state.overlayEnabled) focusSourceNode(nodeId, { expand: options.expandSource });
+        syncOperatorSourceSelection(nodeId);
+        setStatus(`Selected node: ${report.title}`);
+      }
+
+      function clearSelection(message = "Selection cleared") {
+        stopPlayback();
+        state.selectedNodeId = "";
+        state.selectedSegmentIndex = -1;
+        state.selectionKind = "none";
+        state.sourceDimEnabled = false;
+        state.selectedSourceLine = -1;
+        hideSourcePopup();
+        renderInspector();
+        renderTimelineSelection();
+        renderPlayback();
+        renderOperatorSource();
+        applySelectedState();
+        setStatus(message);
+      }
+
+      function selectSegment(index, options = {}) {
+        const segment = segmentByIndex(index);
+        if (!segment) return;
+        if (!isSegmentEnabled(segment) && !options.force) {
+          setStatus(`Segment filtered out: ${segment.name}`);
+          return;
+        }
+
+        state.selectedSegmentIndex = index;
+        state.selectionKind = "segment";
+        state.sourceDimEnabled = true;
+        if (segment.nodeId && reportById(segment.nodeId)) {
+          state.selectedNodeId = segment.nodeId;
+        }
+
+        renderInspector();
+        renderTimelineSelection();
+        renderPlayback();
+        decorateSourceGraph();
+        applySelectedState();
+        if (options.focusSource && segment.nodeId && state.overlayEnabled) focusSourceNode(segment.nodeId, { expand: true });
+        if (segment.nodeId) syncOperatorSourceSelection(segment.nodeId);
+        setStatus(`Selected segment ${index + 1}: ${segment.name}`);
+      }
+
+      function activateLeftTab(tabName) {
+        state.activeLeftTab = tabName;
+        document.querySelectorAll("[data-left-tab]").forEach((button) => {
+          const active = button.dataset.leftTab === tabName;
+          button.classList.toggle("is-selected", active);
+          button.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        els.stepsPanel.classList.toggle("is-active", tabName === "steps");
+        els.streamsPanel.classList.toggle("is-active", tabName === "streams");
+      }
+
+      function stopPlayback() {
+        if (state.playbackTimer) {
+          window.clearInterval(state.playbackTimer);
+          state.playbackTimer = 0;
+        }
+        state.playbackPlaying = false;
+        renderPlayback();
+      }
+
+      function nextPlayableIndex(fromIndex, delta) {
+        const segments = state.data?.playback?.segments || [];
+        if (!segments.length) return -1;
+        for (let step = 1; step <= segments.length; step += 1) {
+          const index = (fromIndex + delta * step + segments.length) % segments.length;
+          if (isSegmentEnabled(segments[index])) return index;
+        }
+        return -1;
+      }
+
+      function playNextSegment() {
+        const current = state.selectedSegmentIndex >= 0 ? state.selectedSegmentIndex : -1;
+        const next = nextPlayableIndex(current, 1);
+        if (next < 0) {
+          stopPlayback();
+          return;
+        }
+        selectSegment(next, { focusSource: true });
+      }
+
+      function startPlayback() {
+        stopPlayback();
+        state.playbackPlaying = true;
+        playNextSegment();
+        state.playbackTimer = window.setInterval(playNextSegment, 1100);
+        renderPlayback();
+      }
+
+      function renderPlayback() {
+        const control = state.playbackControl?.control;
+        const segments = state.data?.playback?.segments || [];
+        if (!control || !segments.length) return;
+
+        const index = Math.max(0, state.selectedSegmentIndex);
+        const segment = segments[index];
+        const scrubber = control.querySelector(`#${playbackIds.scrubber}`);
+        const label = control.querySelector(`#${playbackIds.scrubberLabel}`);
+        const opname = control.querySelector(`#${playbackIds.scrubberOpname}`);
+        const play = control.querySelector(`#${playbackIds.play}`);
+        if (scrubber) {
+          scrubber.max = String(Math.max(0, segments.length - 1));
+          scrubber.value = String(index);
+        }
+        if (label) label.textContent = `${index + 1} / ${segments.length}`;
+        if (opname) opname.textContent = segment ? segment.name : "-";
+        if (play) play.innerHTML = state.playbackPlaying ? "&#10074;&#10074; Pause" : "&#9654; Play";
+        state.playbackControl.playback?.sync?.({ playing: state.playbackPlaying });
+      }
+
+      function initPlayback() {
+        const helper = window.PtoFloatingPlaybackControl;
+        if (!helper?.createControl || !els.playbackMount) return;
+
+        const control = helper.createControl({
+          ids: playbackIds,
+          className: "pto-floating-playback--dsv32"
+        });
+        els.playbackMount.appendChild(control);
+        const playback = helper.init({
+          root: control,
+          isPlaying: () => state.playbackPlaying
+        });
+        const hover = helper.initScrubberHover({
+          root: control,
+          getTotalSteps: () => state.data?.playback?.segments?.length || 1,
+          getLabelForStep: (step) => {
+            const segment = segmentByIndex(step);
+            return segment ? `${step + 1} · ${segment.name}` : `Segment ${step + 1}`;
+          }
+        });
+
+        state.playbackControl = { control, playback };
+        state.playbackHover = hover;
+
+        control.querySelector(`#${playbackIds.play}`)?.addEventListener("click", () => {
+          if (state.playbackPlaying) stopPlayback();
+          else startPlayback();
+        });
+        control.querySelector(`#${playbackIds.stepBack}`)?.addEventListener("click", () => {
+          stopPlayback();
+          const next = nextPlayableIndex(state.selectedSegmentIndex >= 0 ? state.selectedSegmentIndex : 0, -1);
+          if (next >= 0) selectSegment(next, { focusSource: true });
+        });
+        control.querySelector(`#${playbackIds.stepForward}`)?.addEventListener("click", () => {
+          stopPlayback();
+          const next = nextPlayableIndex(state.selectedSegmentIndex >= 0 ? state.selectedSegmentIndex : -1, 1);
+          if (next >= 0) selectSegment(next, { focusSource: true });
+        });
+        control.querySelector(`#${playbackIds.replay}`)?.addEventListener("click", () => {
+          stopPlayback();
+          const first = nextPlayableIndex(-1, 1);
+          if (first >= 0) selectSegment(first, { focusSource: true });
+        });
+        control.querySelector(`#${playbackIds.scrubber}`)?.addEventListener("input", (event) => {
+          stopPlayback();
+          selectSegment(Number(event.target.value), { focusSource: true });
+        });
+
+        renderPlayback();
+      }
+
+      const PY_KEYWORDS = new Set("def class return if elif else for while in and or not is import from as with try except finally raise lambda yield global nonlocal assert pass break continue del await async".split(" "));
+      const PY_LITERALS = new Set("None True False self torch nn dist".split(" "));
+
+      function pyTokenizeLine(line) {
+        let out = "";
+        let i = 0;
+        const firstNonSpace = line.length - line.trimStart().length;
+        const push = (cls, txt) => {
+          out += cls ? `<span class="${cls}">${escapeHtml(txt)}</span>` : escapeHtml(txt);
+        };
+        while (i < line.length) {
+          const ch = line[i];
+          if (ch === "#") { push("tk-comment", line.slice(i)); break; }
+          if (ch === '"' || ch === "'") {
+            let j = i + 1;
+            while (j < line.length && line[j] !== ch) {
+              if (line[j] === "\\") j += 1;
+              j += 1;
+            }
+            push("tk-string", line.slice(i, Math.min(j + 1, line.length)));
+            i = j + 1;
+            continue;
+          }
+          if (ch === "@" && i === firstNonSpace) {
+            let j = i + 1;
+            while (j < line.length && /[A-Za-z0-9_.]/.test(line[j])) j += 1;
+            push("tk-decorator", line.slice(i, j));
+            i = j;
+            continue;
+          }
+          if (/[A-Za-z_]/.test(ch)) {
+            let j = i;
+            while (j < line.length && /[A-Za-z0-9_]/.test(line[j])) j += 1;
+            const word = line.slice(i, j);
+            if (PY_KEYWORDS.has(word)) push("tk-keyword", word);
+            else if (PY_LITERALS.has(word)) push("tk-type", word);
+            else if (line[j] === "(") push("tk-fn", word);
+            else push(null, word);
+            i = j;
+            continue;
+          }
+          if (/[0-9]/.test(ch)) {
+            let j = i;
+            while (j < line.length && /[0-9._eExXa-fA-F]/.test(line[j])) j += 1;
+            push("tk-number", line.slice(i, j));
+            i = j;
+            continue;
+          }
+          push(null, ch);
+          i += 1;
+        }
+        return out;
+      }
+
+      function highlightPython(lines) {
+        let inDoc = false;
+        let docMark = '"""';
+        return lines.map((raw) => {
+          if (!raw) return "";
+          let out = "";
+          let rest = raw;
+          if (inDoc) {
+            const idx = rest.indexOf(docMark);
+            if (idx === -1) return `<span class="tk-doc">${escapeHtml(rest)}</span>`;
+            out += `<span class="tk-doc">${escapeHtml(rest.slice(0, idx + 3))}</span>`;
+            rest = rest.slice(idx + 3);
+            inDoc = false;
+          }
+          while (rest.length) {
+            const t3 = rest.indexOf('"""');
+            const s3 = rest.indexOf("'''");
+            let mark = null;
+            let pos = -1;
+            if (t3 !== -1 && (s3 === -1 || t3 < s3)) { mark = '"""'; pos = t3; }
+            else if (s3 !== -1) { mark = "'''"; pos = s3; }
+            if (pos === -1) { out += pyTokenizeLine(rest); break; }
+            out += pyTokenizeLine(rest.slice(0, pos));
+            const after = rest.slice(pos + 3);
+            const close = after.indexOf(mark);
+            if (close === -1) {
+              out += `<span class="tk-doc">${escapeHtml(rest.slice(pos))}</span>`;
+              inDoc = true;
+              docMark = mark;
+              break;
+            }
+            out += `<span class="tk-doc">${escapeHtml(rest.slice(pos, pos + 3 + close + 3))}</span>`;
+            rest = after.slice(close + 3);
+          }
+          return out;
+        });
+      }
+
+      function currentSourceFile() {
+        const files = state.sourceData?.files || [];
+        return files.find((file) => file.id === state.activeFileId) || files[0] || null;
+      }
+
+      function annotationForLine(file, lineNo) {
+        return (file?.annotations || []).find((ann) => ann.line === lineNo) || null;
+      }
+
+      function renderSourceFileSelect() {
+        const files = state.sourceData?.files || [];
+        els.sourceFileSelect.innerHTML = files.map((file) =>
+          `<option value="${escapeHtml(file.id)}"${file.id === state.activeFileId ? " selected" : ""}>${escapeHtml(file.name)}</option>`
+        ).join("");
+      }
+
+      function renderOperatorSource() {
+        if (!els.sourceBody) return;
+        const file = currentSourceFile();
+        if (!file) {
+          els.sourceBody.innerHTML = `<div class="source-empty">operator source JSON not loaded.</div>`;
+          return;
+        }
+        const highlighted = file._highlighted || (file._highlighted = highlightPython(file.lines));
+        const annByLine = {};
+        (file.annotations || []).forEach((ann) => { annByLine[ann.line] = ann; });
+
+        const rows = [];
+        highlighted.forEach((codeHtml, idx) => {
+          const lineNo = idx + 1;
+          const ann = state.annotationsVisible ? annByLine[lineNo] : null;
+          const report = ann ? reportById(ann.nodeId) : null;
+          const linkable = Boolean(report && isReportInFilter(report));
+          const priority = report ? report.priority : "";
+          const selected = linkable && state.selectedSourceLine === lineNo;
+          const tag = ann
+            ? `<span class="source-line-tag"${priority ? ` data-priority="${priority}"` : ""}>${escapeHtml(ann.tag)}</span>`
+            : "<span></span>";
+          rows.push(`
+            <div class="source-line ${linkable ? "is-key" : ""} ${selected ? "is-selected" : ""}" data-line-no="${lineNo}">
+              <span class="source-line-no">${lineNo}</span>
+              <span class="source-line-code">${codeHtml || " "}</span>
+              ${tag}
+            </div>
+          `);
+          if (selected && ann) {
+            rows.push(`
+              <div class="line-detail">
+                <div class="line-detail-head">
+                  ${priority ? `<span class="priority-badge" data-priority="${priority}">${priority}</span>` : ""}
+                  <span class="line-detail-title">${escapeHtml(report ? report.title : ann.tag)}</span>
+                </div>
+                <p class="line-detail-text">${escapeHtml(ann.semantic)}</p>
+                ${ann.nodeId
+                  ? `<button type="button" class="line-detail-link" data-jump-node="${escapeHtml(ann.nodeId)}"${linkable ? "" : " disabled"}>跳转架构节点 →</button>`
+                  : ""}
+              </div>
+            `);
+          }
+        });
+
+        els.sourceBody.innerHTML = rows.join("");
+        els.sourceLineMeta.textContent = `${file.lineCount} 行 · ${(file.annotations || []).length} 标注`;
+        els.sourceLink.textContent = String(file.url).replace(/^https?:\/\//, "");
+        els.sourceLink.href = file.url;
+      }
+
+      function scrollSourceToLine(lineNo) {
+        const row = els.sourceBody.querySelector(`.source-line[data-line-no="${lineNo}"]`);
+        if (row) row.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+
+      function syncOperatorSourceSelection(nodeId, options = {}) {
+        if (!state.sourceData || !nodeId) return;
+        const files = state.sourceData.files || [];
+        let foundFile = null;
+        let foundAnn = null;
+        const active = currentSourceFile();
+        if (active) {
+          foundAnn = (active.annotations || []).find((ann) => ann.nodeId === nodeId) || null;
+          if (foundAnn) foundFile = active;
+        }
+        if (!foundAnn) {
+          for (const file of files) {
+            const ann = (file.annotations || []).find((item) => item.nodeId === nodeId);
+            if (ann) { foundFile = file; foundAnn = ann; break; }
+          }
+        }
+        if (!foundFile || !foundAnn) {
+          state.selectedSourceLine = -1;
+          renderOperatorSource();
+          return;
+        }
+        state.activeFileId = foundFile.id;
+        state.selectedSourceLine = foundAnn.line;
+        renderSourceFileSelect();
+        renderOperatorSource();
+        if (options.scroll !== false) {
+          window.setTimeout(() => scrollSourceToLine(foundAnn.line), 40);
+        }
+      }
+
+      function selectSourceLine(lineNo) {
+        const file = currentSourceFile();
+        const ann = annotationForLine(file, lineNo);
+        if (!ann) return;
+        const report = ann.nodeId ? reportById(ann.nodeId) : null;
+        if (!report || !isReportInFilter(report)) {
+          state.selectedSourceLine = -1;
+          renderOperatorSource();
+          setStatus(`Source: ${ann.tag} has no mapped report`);
+          return;
+        }
+        if (state.sourceDimEnabled && state.selectionKind === "node" && state.selectedNodeId === ann.nodeId) {
+          clearSelection("Selection cleared");
+          return;
+        }
+        state.selectedSourceLine = lineNo;
+        renderOperatorSource();
+        selectNode(ann.nodeId, { focusSource: true });
+        setInspectorOpen(true);
+      }
+
+      function setInspectorOpen(open) {
+        state.inspectorOpen = open;
+        els.inspectorDock.hidden = !open;
+        els.inspectorToggle.classList.toggle("is-selected", open);
+        els.inspectorToggle.setAttribute("aria-pressed", open ? "true" : "false");
+      }
+
+      async function loadOperatorSource() {
+        const response = await fetch("./deepseek_v32_operator_source.json");
+        if (!response.ok) throw new Error(`operator source json fetch failed: ${response.status}`);
+        state.sourceData = await response.json();
+        state.activeFileId = state.sourceData.files?.[0]?.id || "model";
+        renderSourceFileSelect();
+        renderOperatorSource();
+      }
+
+      function nodeIdFromGroup(group) {
+        const data = group.__data__;
+        if (Array.isArray(data)) return data[0];
+        return group.dataset.reportNodeId || "";
+      }
+
+      function graphGroups() {
+        return Array.from(els.architectureRoot.querySelectorAll(`.${NODE_CLASS}, .${BOUNDARY_CLASS}`));
+      }
+
+      function graphEdges() {
+        return Array.from(els.architectureRoot.querySelectorAll(`.${EDGE_GROUP_CLASS}`));
+      }
+
+      function findSourceGroup(nodeId) {
+        if (!nodeId) return null;
+        return graphGroups().find((group) => nodeIdFromGroup(group) === nodeId) || null;
+      }
+
+      function collectRenderedDescendantIds(nodeId, ids) {
+        if (!nodeId || ids.has(`${nodeId}::visited`)) return;
+        ids.add(`${nodeId}::visited`);
+        const group = findSourceGroup(nodeId);
+        const data = group && Array.isArray(group.__data__) ? group.__data__[1] : null;
+        const children = Array.isArray(data?.nodes) ? data.nodes : [];
+        children.forEach((childId) => {
+          ids.add(childId);
+          collectRenderedDescendantIds(childId, ids);
+        });
+      }
+
+      function selectedSourceRootId() {
+        const nodeId = state.selectedNodeId;
+        if (!nodeId || findSourceGroup(nodeId)) return nodeId;
+
+        const descendantNodeIds = state.data?.descendantNodeIds || {};
+        const ancestors = Object.keys(descendantNodeIds)
+          .filter((key) => (descendantNodeIds[key] || []).includes(nodeId))
+          .sort((a, b) => descendantNodeIds[a].length - descendantNodeIds[b].length);
+        for (const ancestor of ancestors) {
+          if (findSourceGroup(ancestor)) return ancestor;
+        }
+
+        const guard = new Set();
+        let current = state.data?.focusFallbacks?.[nodeId];
+        while (current && !guard.has(current)) {
+          guard.add(current);
+          if (findSourceGroup(current)) return current;
+          current = state.data?.focusFallbacks?.[current];
+        }
+        return nodeId;
+      }
+
+      function selectedSourceIds() {
+        const ids = new Set();
+        const rootId = selectedSourceRootId();
+        if (!rootId) return ids;
+        ids.add(rootId);
+        collectRenderedDescendantIds(rootId, ids);
+        Array.from(ids).forEach((id) => {
+          if (id.endsWith("::visited")) ids.delete(id);
+        });
+        (state.data?.descendantNodeIds?.[rootId] || []).forEach((id) => ids.add(id));
+        return ids;
+      }
+
+      function getNodeBox(group, nodeData) {
+        const rect = group.querySelector("rect");
+        const width = Number(rect?.getAttribute("width")) || Number(nodeData?.width) || 120;
+        const height = Number(rect?.getAttribute("height")) || Number(nodeData?.height) || 36;
+        const x = Number(rect?.getAttribute("x"));
+        const y = Number(rect?.getAttribute("y"));
+        return {
+          x: Number.isFinite(x) ? x : -width / 2,
+          y: Number.isFinite(y) ? y : -height / 2,
+          width,
+          height
+        };
+      }
+
+      function getClusterBox(clusterData) {
+        const parts = String(clusterData?.bb || "").split(",").map(Number);
+        if (parts.length === 4 && parts.every(Number.isFinite)) {
+          const [x1, y1, x2, y2] = parts;
+          return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+        }
+        return { x: 0, y: 0, width: 120, height: 48 };
+      }
+
+      function groupBounds(group) {
+        if (!group || typeof group.getBBox !== "function") return null;
+        try {
+          const box = group.getBBox();
+          const transform = group.transform?.baseVal?.consolidate();
+          if (!transform) return box;
+          const matrix = transform.matrix;
+          return {
+            x: box.x + matrix.e,
+            y: box.y + matrix.f,
+            width: box.width,
+            height: box.height
+          };
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function selectedBoundaryBounds() {
+        const group = findSourceGroup(selectedSourceRootId());
+        if (!group || !group.classList.contains(BOUNDARY_CLASS)) return null;
+        return groupBounds(group);
+      }
+
+      function isGroupInsideBounds(group, bounds) {
+        const box = groupBounds(group);
+        if (!box || !bounds) return false;
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+        return centerX >= bounds.x
+          && centerX <= bounds.x + bounds.width
+          && centerY >= bounds.y
+          && centerY <= bounds.y + bounds.height;
+      }
+
+      function isEndpointSelected(endpoint, selectedIds, selectedBounds) {
+        if (!endpoint) return false;
+        if (selectedIds.has(endpoint)) return true;
+        const group = findSourceGroup(endpoint);
+        return Boolean(group && isGroupInsideBounds(group, selectedBounds));
+      }
+
+      function isEdgeSelected(edgeGroup, selectedIds, selectedBounds) {
+        const edge = edgeGroup.__data__ || {};
+        return isEndpointSelected(edge.source || edge.tail, selectedIds, selectedBounds)
+          || isEndpointSelected(edge.target || edge.head, selectedIds, selectedBounds);
+      }
+
+      function svgElement(tagName, attrs = {}, text = "") {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", tagName);
+        Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+        if (text) node.textContent = text;
+        return node;
+      }
+
+      function estimateTextWidth(text, minWidth, maxWidth) {
+        return Math.max(minWidth, Math.min(maxWidth, String(text).length * 5.8 + 18));
+      }
+
+      function getElementBoxInGroup(element, group) {
+        const box = element.getBBox();
+        const svg = element.ownerSVGElement;
+        const elementMatrix = element.getCTM?.();
+        const groupMatrix = group.getCTM?.();
+        if (!svg || !elementMatrix || !groupMatrix) return box;
+        const matrix = groupMatrix.inverse().multiply(elementMatrix);
+        const corners = [
+          [box.x, box.y],
+          [box.x + box.width, box.y],
+          [box.x + box.width, box.y + box.height],
+          [box.x, box.y + box.height]
+        ].map(([x, y]) => {
+          const point = svg.createSVGPoint();
+          point.x = x;
+          point.y = y;
+          return point.matrixTransform(matrix);
+        });
+        const xs = corners.map((point) => point.x);
+        const ys = corners.map((point) => point.y);
+        return {
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys)
+        };
+      }
+
+      function getBadgePlacement(bounds, badgeWidth) {
+        return {
+          x: bounds.x + bounds.width / 2 - badgeWidth / 2,
+          y: bounds.y - 8
+        };
+      }
+
+      function reserveBadgeSpace(group, report, box) {
+        const rect = group.querySelector("rect");
+        const label = group.querySelector(`.${LABEL_CLASS}`);
+        if (!rect || !label) return box;
+        try {
+          const badgeWidth = estimateTextWidth(report.priority, 30, 36);
+          const labelBox = getElementBoxInGroup(label, group);
+          const targetX = labelBox.x - badgeWidth - 6;
+          const requiredRectX = targetX - 8;
+          const rectX = Number(rect.getAttribute("x"));
+          const rectY = Number(rect.getAttribute("y"));
+          const rectWidth = Number(rect.getAttribute("width"));
+          const rectHeight = Number(rect.getAttribute("height"));
+          if (!Number.isFinite(rectX) || !Number.isFinite(rectWidth)) return box;
+          if (rectX > requiredRectX) {
+            const delta = rectX - requiredRectX;
+            if (!rect.dataset.reportOriginalX) {
+              rect.dataset.reportOriginalX = String(rectX);
+              rect.dataset.reportOriginalWidth = String(rectWidth);
+            }
+            rect.setAttribute("x", requiredRectX);
+            rect.setAttribute("width", rectWidth + delta);
+            return {
+              x: requiredRectX,
+              y: Number.isFinite(rectY) ? rectY : box.y,
+              width: rectWidth + delta,
+              height: Number.isFinite(rectHeight) ? rectHeight : box.height
+            };
+          }
+        } catch (_error) {
+          return box;
+        }
+        return box;
+      }
+
+      function restoreBadgeSpace(group) {
+        const rect = group.querySelector("rect");
+        if (!rect?.dataset.reportOriginalX) return;
+        rect.setAttribute("x", rect.dataset.reportOriginalX);
+        rect.setAttribute("width", rect.dataset.reportOriginalWidth);
+        delete rect.dataset.reportOriginalX;
+        delete rect.dataset.reportOriginalWidth;
+      }
+
+      function createPriorityBadge(report, x, y, width) {
+        const badge = svgElement("g", {
+          class: `report-source-badge-group report-priority-${report.priority.toLowerCase()}`,
+          "pointer-events": "none"
+        });
+        badge.appendChild(svgElement("rect", {
+          class: "report-source-badge",
+          x,
+          y,
+          width,
+          height: 20,
+          rx: 10,
+          ry: 10
+        }));
+        badge.appendChild(svgElement("text", {
+          class: "report-source-badge-text",
+          x: x + width / 2,
+          y: y + 13.5,
+          "text-anchor": "middle"
+        }, report.priority));
+        return badge;
+      }
+
+      function createSourceOverlay(group, report, box, isCluster) {
+        const overlay = svgElement("g", {
+          class: `report-source-overlay report-priority-${report.priority.toLowerCase()}`,
+          "pointer-events": "none"
+        });
+        const badgeWidth = estimateTextWidth(report.priority, 36, isCluster ? 48 : 42);
+        const placement = getBadgePlacement(box, badgeWidth);
+        overlay.appendChild(createPriorityBadge(report, placement.x, placement.y, badgeWidth));
+        return overlay;
+      }
+
+      function hideSourcePopup() {
+        const popup = els.architectureRoot.querySelector(`#${POPUP_ID}`);
+        if (popup) popup.style.display = "none";
+      }
+
+      function graphHitTarget(target) {
+        return target?.closest?.(
+          `.${NODE_CLASS}, .${BOUNDARY_CLASS}, .report-source-overlay, #${POPUP_ID}, .${COLLAPSE_CLASS}, .${COLLAPSE_ICON_CLASS}`
+        );
+      }
+
+      function onSourceNodeClick(event) {
+        if (!state.overlayEnabled) return;
+
+        const target = event.target;
+        if (target.closest?.(`.${COLLAPSE_CLASS}`) || target.closest?.(`.${COLLAPSE_ICON_CLASS}`)) return;
+
+        const group = event.currentTarget;
+        const nodeId = nodeIdFromGroup(group);
+        const report = reportById(nodeId);
+        if (!report || !isReportInFilter(report)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        hideSourcePopup();
+        if (state.selectionKind === "node" && state.selectedNodeId === nodeId && state.sourceDimEnabled) {
+          clearSelection("Selection cleared");
+          return;
+        }
+        selectNode(nodeId, { focusSource: false });
+      }
+
+      function decorateSourceGraph() {
+        if (!state.data || !state.graphReady) return;
+        const groups = graphGroups();
+        const selectedIds = selectedSourceIds();
+        const selectedBounds = selectedBoundaryBounds();
+        let decorated = 0;
+
+        groups.forEach((group) => {
+          const nodeId = nodeIdFromGroup(group);
+          const report = reportById(nodeId);
+          group.dataset.reportNodeId = nodeId;
+          group.removeEventListener("click", onSourceNodeClick, true);
+          group.addEventListener("click", onSourceNodeClick, true);
+
+          const shouldShow = Boolean(state.overlayEnabled && report && isReportInFilter(report));
+          const isSelected = selectedIds.has(nodeId) || isGroupInsideBounds(group, selectedBounds);
+          group.classList.remove("report-priority-p0", "report-priority-p1", "report-priority-p2");
+          group.classList.toggle("report-source-hit", shouldShow);
+          group.classList.toggle("report-source-selected", state.overlayEnabled && isSelected);
+          if (shouldShow) group.classList.add(`report-priority-${report.priority.toLowerCase()}`);
+
+          const oldOverlay = group.querySelector(".report-source-overlay");
+          if (!shouldShow) {
+            oldOverlay?.remove();
+            restoreBadgeSpace(group);
+            return;
+          }
+
+          decorated += 1;
+          const data = Array.isArray(group.__data__) ? group.__data__[1] : null;
+          const isCluster = group.classList.contains(BOUNDARY_CLASS);
+          restoreBadgeSpace(group);
+          const rawBox = isCluster ? getClusterBox(data) : getNodeBox(group, data);
+          const box = rawBox;
+          const signature = [report.priority, Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height), state.activeFilter, state.overlayEnabled].join("|");
+          if (oldOverlay?.dataset.signature === signature) return;
+          oldOverlay?.remove();
+          const overlay = createSourceOverlay(group, report, box, isCluster);
+          overlay.dataset.signature = signature;
+          group.appendChild(overlay);
+        });
+
+        state.decorated = decorated;
+        state.sourceNodes = groups.length;
+        updateCounts();
+      }
+
+      function clearSourceOverlayState() {
+        if (!els.architectureRoot) return;
+        els.architectureRoot.classList.remove("report-has-selection");
+        hideSourcePopup();
+        graphGroups().forEach((group) => {
+          group.classList.remove(
+            "report-source-hit",
+            "report-source-selected",
+            "report-priority-p0",
+            "report-priority-p1",
+            "report-priority-p2"
+          );
+          group.querySelector(".report-source-overlay")?.remove();
+          restoreBadgeSpace(group);
+        });
+        graphEdges().forEach((edge) => edge.classList.remove("report-source-edge-selected"));
+        state.decorated = 0;
+      }
+
+      function scheduleDecorate() {
+        window.clearTimeout(state.decorateTimer);
+        state.decorateTimer = window.setTimeout(() => {
+          decorateSourceGraph();
+          applySelectedState();
+        }, 80);
+      }
+
+      function applySelectedState() {
+        if (!state.graphReady) return;
+        if (!state.overlayEnabled) {
+          clearSourceOverlayState();
+          updateCounts();
+          return;
+        }
+
+        const selectedIds = selectedSourceIds();
+        const selectedBounds = selectedBoundaryBounds();
+        const hasSelection = selectedIds.size > 0 && state.sourceDimEnabled;
+        els.architectureRoot.classList.toggle("report-has-selection", hasSelection);
+
+        graphGroups().forEach((group) => {
+          const nodeId = nodeIdFromGroup(group);
+          const isSelected = selectedIds.has(nodeId) || isGroupInsideBounds(group, selectedBounds);
+          group.classList.toggle("report-source-selected", isSelected);
+        });
+        graphEdges().forEach((edge) => {
+          edge.classList.toggle("report-source-edge-selected", isEdgeSelected(edge, selectedIds, selectedBounds));
+        });
+      }
+
+      function getSourceTargetPoint(group) {
+        if (!group) return null;
+        const data = Array.isArray(group.__data__) ? group.__data__[1] : null;
+        if (group.classList.contains(BOUNDARY_CLASS)) {
+          const box = getClusterBox(data);
+          return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        }
+        if (data?.position && Number.isFinite(Number(data.position.x)) && Number.isFinite(Number(data.position.y))) {
+          return { x: Number(data.position.x), y: Number(data.position.y) };
+        }
+        try {
+          const box = group.getBBox();
+          return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function readSourceGraphGlobal(name) {
+        try {
+          return window.eval?.(name);
+        } catch (_error) {
+          return undefined;
+        }
+      }
+
+      function sourceGraphAncestorPath(nodeId) {
+        const ancestorMap = readSourceGraphGlobal("ancestor_map");
+        if (!nodeId || !ancestorMap) return [];
+        const path = [];
+        const seen = new Set([nodeId]);
+        let current = nodeId;
+        while (ancestorMap[current] && !seen.has(ancestorMap[current])) {
+          current = ancestorMap[current];
+          seen.add(current);
+          path.push(current);
+        }
+        return path;
+      }
+
+      function expandSourceGraphToNode(nodeId) {
+        if (!nodeId) return false;
+        const collapsed = readSourceGraphGlobal("collapsedContainers");
+        const reloadGraph = readSourceGraphGlobal("reloadGraph");
+        if (!(collapsed instanceof Set) || typeof reloadGraph !== "function") return false;
+        if (!collapsed.has(nodeId) && findSourceGroup(nodeId)) return false;
+
+        const toExpand = [nodeId, ...sourceGraphAncestorPath(nodeId)].filter((ancestor) => collapsed.has(ancestor));
+        if (!toExpand.length) return false;
+        toExpand.forEach((ancestor) => collapsed.delete(ancestor));
+        reloadGraph();
+        scheduleDecorate();
+        return true;
+      }
+
+      function focusSourceNode(nodeId, options = {}) {
+        const requestToken = ++state.focusRequestToken;
+        if (options.expand === true && expandSourceGraphToNode(nodeId)) {
+          window.setTimeout(() => {
+            if (requestToken === state.focusRequestToken) {
+              focusSourceNode(nodeId, { expand: false });
+            }
+          }, 160);
+          return;
+        }
+
+        const fallback = state.data?.focusFallbacks?.[nodeId];
+        const group = findSourceGroup(nodeId) || findSourceGroup(fallback);
+        const point = getSourceTargetPoint(group);
+        const svg = els.architectureRoot.querySelector("#graph_8738e552-e764-4a57-839a-6321bc3ae7d3 svg");
+        const inner = svg?.querySelector(":scope > g");
+        const d3 = window.d3;
+        if (!group || !point || !svg || !inner || !d3) return;
+
+        const rect = els.architectureRoot.getBoundingClientRect();
+        const current = svg.__zoom || d3.zoomTransform(svg);
+        const scale = Math.max(0.72, Math.min(1.7, Number(current.k) || 1.05));
+        const transform = d3.zoomIdentity
+          .translate(rect.width / 2 - point.x * scale, rect.height / 2 - point.y * scale)
+          .scale(scale);
+
+        svg.__zoom = transform;
+        inner.setAttribute("transform", transform.toString());
+        applySelectedState();
+      }
+
+      function installSourceObserver() {
+        state.observer?.disconnect();
+        state.observer = new MutationObserver(scheduleDecorate);
+        state.observer.observe(els.architectureRoot, {
+          childList: true,
+          subtree: true
+        });
+      }
+
+      function waitForSourceGraph(attempt = 0) {
+        const nodes = graphGroups();
+        if (nodes.length) {
+          state.graphReady = true;
+          els.architectureLoading?.remove();
+          installSourceObserver();
+          decorateSourceGraph();
+          applySelectedState();
+          updateCounts();
+          setStatus("inline architecture graph ready");
+          if (state.overlayEnabled) window.setTimeout(() => focusSourceNode(state.selectedNodeId), 120);
+          return;
+        }
+        if (attempt > 160) {
+          els.graphMeta.textContent = "graph not ready";
+          setStatus("source graph did not render in time");
+          els.realignButton.hidden = false;
+          return;
+        }
+        window.setTimeout(() => waitForSourceGraph(attempt + 1), 120);
+      }
+
+      async function executeEmbeddedScripts(root) {
+        const scripts = Array.from(root.querySelectorAll("script"));
+        for (const script of scripts) {
+          await new Promise((resolve, reject) => {
+            const next = document.createElement("script");
+            Array.from(script.attributes).forEach((attr) => next.setAttribute(attr.name, attr.value));
+            if (script.src) {
+              next.onload = resolve;
+              next.onerror = reject;
+              next.src = script.src;
+            } else {
+              next.textContent = script.textContent;
+            }
+            script.replaceWith(next);
+            if (!script.src) resolve();
+          });
+        }
+      }
+
+      async function loadArchitectureGraph() {
+        const response = await fetch("./deepseek_v32_source_graph.html");
+        if (!response.ok) throw new Error(`source graph fetch failed: ${response.status}`);
+        const html = await response.text();
+        els.architectureRoot.innerHTML = html;
+        await executeEmbeddedScripts(els.architectureRoot);
+        waitForSourceGraph();
+      }
+
+      async function loadProfilingData() {
+        const response = await fetch("./deepseek_v32_profiling.json");
+        if (!response.ok) throw new Error(`profiling json fetch failed: ${response.status}`);
+        state.data = await response.json();
+        state.selectedNodeId = state.data.defaultSelection?.nodeId || state.data.reportOrder?.[0] || "";
+        state.selectionKind = "node";
+        state.sourceDimEnabled = true;
+        renderSourceValidation();
+        const validationSuffix = state.data.sourceValidation?.traceMainLayers
+          ? ` · ${state.data.sourceValidation.traceMainLayers}/${state.data.sourceValidation.fullMainLayers} main layers`
+          : "";
+        els.statusRight.textContent = `${Object.keys(state.data.reports || {}).length} mapped reports · ${state.data.playback?.segments?.length || 0} playback segments${validationSuffix}`;
+        renderProfiling();
+        renderInspector();
+        renderPlayback();
+        updateCounts();
+      }
+
+      function bindEvents() {
+        document.querySelectorAll("[data-filter]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.activeFilter = button.dataset.filter;
+            document.querySelectorAll("[data-filter]").forEach((item) => {
+              const active = item === button;
+              item.classList.toggle("is-selected", active);
+              item.setAttribute("aria-pressed", active ? "true" : "false");
+            });
+            stopPlayback();
+            if (state.selectedNodeId && !isReportInFilter(reportById(state.selectedNodeId))) {
+              state.selectedNodeId = visibleReportIds()[0] || state.data?.reportOrder?.[0] || "";
+              state.selectionKind = "node";
+              state.selectedSegmentIndex = -1;
+            }
+            renderProfiling();
+            renderInspector();
+            decorateSourceGraph();
+            applySelectedState();
+            renderPlayback();
+          });
+        });
+
+        els.overlayToggle.addEventListener("click", () => {
+          state.overlayEnabled = !state.overlayEnabled;
+          els.overlayToggle.classList.toggle("is-selected", state.overlayEnabled);
+          els.overlayToggle.setAttribute("aria-pressed", state.overlayEnabled ? "true" : "false");
+          decorateSourceGraph();
+          applySelectedState();
+          updateCounts();
+        });
+
+        els.realignButton.addEventListener("click", () => {
+          decorateSourceGraph();
+          applySelectedState();
+          if (state.overlayEnabled && state.selectedNodeId) focusSourceNode(state.selectedNodeId);
+        });
+
+        els.architectureRoot.addEventListener("click", (event) => {
+          if (!state.sourceDimEnabled) return;
+          const target = graphHitTarget(event.target);
+          if (!target || (!target.classList?.contains("report-source-hit") && !target.closest?.(".report-source-hit"))) {
+            clearSelection("Selection cleared");
+          }
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape" || !state.sourceDimEnabled) return;
+          const tagName = event.target?.tagName?.toLowerCase();
+          if (["input", "select", "textarea"].includes(tagName)) return;
+          clearSelection("Selection cleared");
+        });
+
+        document.querySelectorAll("[data-left-tab]").forEach((button) => {
+          button.addEventListener("click", () => activateLeftTab(button.dataset.leftTab));
+        });
+
+        els.nodeList.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-node-id]");
+          if (!button) return;
+          if (state.sourceDimEnabled && state.selectionKind === "node" && state.selectedNodeId === button.dataset.nodeId) {
+            clearSelection("Selection cleared");
+            return;
+          }
+          selectNode(button.dataset.nodeId, { focusSource: true });
+        });
+
+        els.relatedList.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-related-node-id]");
+          if (!button) return;
+          if (state.sourceDimEnabled && state.selectionKind === "node" && state.selectedNodeId === button.dataset.relatedNodeId) {
+            clearSelection("Selection cleared");
+            return;
+          }
+          selectNode(button.dataset.relatedNodeId, { focusSource: true });
+        });
+
+        els.streamsPanel.addEventListener("click", (event) => {
+          const target = event.target.closest("[data-segment-index]");
+          if (!target) return;
+          if (target.dataset.disabled === "true") {
+            const segment = segmentByIndex(Number(target.dataset.segmentIndex));
+            setStatus(`Filtered out segment: ${segment?.name || "unknown"}`);
+            return;
+          }
+          stopPlayback();
+          selectSegment(Number(target.dataset.segmentIndex), { focusSource: true });
+        });
+
+        els.sourceFileSelect.addEventListener("change", () => {
+          state.activeFileId = els.sourceFileSelect.value;
+          state.selectedSourceLine = -1;
+          renderOperatorSource();
+        });
+
+        els.sourceAnnToggle.addEventListener("click", () => {
+          state.annotationsVisible = !state.annotationsVisible;
+          els.sourceAnnToggle.classList.toggle("is-selected", state.annotationsVisible);
+          els.sourceAnnToggle.setAttribute("aria-pressed", state.annotationsVisible ? "true" : "false");
+          renderOperatorSource();
+        });
+
+        els.sourceBody.addEventListener("click", (event) => {
+          const jump = event.target.closest("[data-jump-node]");
+          if (jump) {
+            if (jump.disabled) return;
+            selectNode(jump.dataset.jumpNode, { focusSource: true });
+            if (!state.inspectorOpen) setInspectorOpen(true);
+            return;
+          }
+          const row = event.target.closest(".source-line.is-key");
+          if (row) selectSourceLine(Number(row.dataset.lineNo));
+        });
+
+        els.inspectorToggle.addEventListener("click", () => setInspectorOpen(!state.inspectorOpen));
+        els.inspectorClose.addEventListener("click", () => setInspectorOpen(false));
+      }
+
+      async function boot() {
+        try {
+          bindEvents();
+          initPlayback();
+          await loadProfilingData();
+          await loadOperatorSource();
+          syncOperatorSourceSelection(state.selectedNodeId);
+          await loadArchitectureGraph();
+        } catch (error) {
+          console.error(error);
+          setError(error.message || error);
+          setStatus("load failed; use a local server so fetch() can read JSON and graph fragments");
+        }
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>

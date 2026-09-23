@@ -1,0 +1,220 @@
+.pto-hw-viewport {
+  --pto-hw-viewport-bg: var(--background, #101010);
+  --pto-hw-viewport-dot: color-mix(in srgb, var(--foreground, rgba(255, 255, 255, 0.9)) 14%, transparent);
+  --pto-hw-viewport-top-glow: color-mix(in srgb, var(--foreground, rgba(255, 255, 255, 0.9)) 4%, transparent);
+  --pto-hw-viewport-toolbar-height: 52px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, var(--pto-hw-viewport-dot) 1px, transparent 1.5px),
+    linear-gradient(180deg, var(--pto-hw-viewport-top-glow), transparent 46%),
+    var(--pto-hw-viewport-bg);
+  background-size: 26px 26px, auto, auto;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+.pto-hw-viewport.pto-hw-viewport,
+.pto-hw-viewport.panel-shell,
+.pto-hw-viewport.workbench-pane,
+.pto-hw-viewport.right-pane {
+  background:
+    radial-gradient(circle, var(--pto-hw-viewport-dot) 1px, transparent 1.5px),
+    linear-gradient(180deg, var(--pto-hw-viewport-top-glow), transparent 46%),
+    var(--pto-hw-viewport-bg);
+  background-size: 26px 26px, auto, auto;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+:root[data-theme='light'] .pto-hw-viewport {
+  --pto-hw-viewport-bg: #ffffff;
+  --pto-hw-viewport-dot: rgba(17, 24, 39, 0.13);
+  --pto-hw-viewport-top-glow: transparent;
+}
+
+.pto-hw-viewport__toolbar {
+  box-sizing: border-box;
+  height: var(--pto-hw-viewport-toolbar-height);
+  min-height: var(--pto-hw-viewport-toolbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+  padding: 6px 14px;
+  border-bottom: 0;
+}
+
+.pto-hw-viewport .pto-hw-viewport__toolbar {
+  box-sizing: border-box;
+  height: var(--pto-hw-viewport-toolbar-height);
+  min-height: var(--pto-hw-viewport-toolbar-height);
+  padding: 6px 14px;
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+
+.pto-hw-viewport__title {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2, 8px);
+  color: var(--foreground, rgba(255, 255, 255, 0.9));
+  font: var(--type-title-2, 600 16px / 1.3 var(--font-sans, sans-serif));
+}
+
+.pto-hw-viewport__title small,
+.pto-hw-viewport__meta {
+  color: var(--foreground-muted, rgba(255, 255, 255, 0.4));
+  font: var(--type-label, 500 12px / 1.2 var(--font-sans, sans-serif));
+  letter-spacing: 0;
+}
+
+.pto-hw-viewport__controls,
+.pto-hw-viewport__tools,
+.pto-hw-viewport__segmented {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.pto-hw-viewport__controls {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.pto-hw-viewport .pto-hw-viewport__select {
+  box-sizing: border-box;
+  width: min(100%, 320px);
+  min-height: 30px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--surface-2, #1c1c1c) 78%, transparent);
+  color: var(--foreground, rgba(255, 255, 255, 0.9));
+  font: var(--type-title-2, 600 16px / 1.3 var(--font-sans, sans-serif));
+  letter-spacing: 0;
+  padding: 0 34px 0 var(--space-2, 8px);
+  appearance: none;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pto-hw-viewport .pto-hw-viewport__tools,
+.pto-hw-viewport .pto-hw-viewport__segmented {
+  box-sizing: border-box;
+  min-height: 36px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-1, #111111) 86%, transparent);
+  padding: 3px;
+}
+
+.pto-hw-viewport .pto-hw-viewport__tools {
+  gap: 2px;
+}
+
+.pto-hw-viewport .pto-hw-viewport__segmented {
+  gap: 3px;
+}
+
+.pto-hw-viewport .pto-hw-viewport__segmented .btn,
+.pto-hw-viewport .pto-hw-viewport__tool {
+  appearance: none;
+  box-sizing: border-box;
+  height: 28px;
+  min-height: 28px;
+  min-width: 30px;
+  max-width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground-secondary, rgba(255, 255, 255, 0.6));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 800 12px / 1 var(--font-sans, Inter, sans-serif);
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pto-hw-viewport .pto-hw-viewport__segmented .btn:hover,
+.pto-hw-viewport .pto-hw-viewport__segmented .btn:focus-visible,
+.pto-hw-viewport .pto-hw-viewport__tool:hover:not(:disabled),
+.pto-hw-viewport .pto-hw-viewport__tool:focus-visible {
+  background: var(--surface-3, #252525);
+  color: var(--foreground, rgba(255, 255, 255, 0.9));
+  outline: none;
+}
+
+.pto-hw-viewport .pto-hw-viewport__segmented .is-selected,
+.pto-hw-viewport .pto-hw-viewport__tool.is-selected,
+.pto-hw-viewport .pto-hw-viewport__tool[aria-pressed="true"] {
+  background: var(--surface-4, #333333);
+  color: var(--foreground, rgba(255, 255, 255, 0.9));
+}
+
+.pto-hw-viewport .pto-hw-viewport__tool:disabled {
+  color: var(--foreground-muted, rgba(255, 255, 255, 0.4));
+  cursor: default;
+  opacity: 0.42;
+}
+
+.pto-hw-viewport .pto-hw-viewport__readout {
+  box-sizing: border-box;
+  height: 28px;
+  min-height: 28px;
+  min-width: 48px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-secondary, rgba(255, 255, 255, 0.6));
+  font: 800 12px / 1 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.pto-hw-viewport__stage {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  position: relative;
+  cursor: grab;
+  overscroll-behavior: contain;
+  touch-action: none;
+  user-select: none;
+}
+
+.pto-hw-viewport .pto-hw-viewport__stage {
+  background: transparent !important;
+}
+
+.pto-hw-viewport__stage.is-panning {
+  cursor: grabbing;
+}
+
+.pto-hw-viewport__scale {
+  width: max-content;
+  height: max-content;
+  transform-origin: top left;
+  position: relative;
+  place-self: center;
+}
+
+.pto-hw-viewport__frame {
+  display: block;
+  border: 0;
+  background: transparent;
+  transform-origin: top left;
+  pointer-events: none;
+}

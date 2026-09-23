@@ -1,0 +1,851 @@
+<title>PyPTO 对位 TileLang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600&display=swap">
+<style>
+:root{
+  --ground:#f2f5f6;
+  --surface:#ffffff;
+  --surface-2:#e8eef0;
+  --line:#ccd8db;
+  --line-strong:#9db0b5;
+  --ink:#0f1c1f;
+  --ink-2:#3c4e52;
+  --muted:#6a7e83;
+  --pypto:#0d6068;
+  --pypto-soft:#dcecec;
+  --tile:#93551c;
+  --tile-soft:#f3e6d4;
+  --alert:#9d271f;
+  --alert-soft:#f6e2df;
+
+  --font-display:"Chivo","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --font-quote:"Noto Serif SC","Songti SC",serif;
+  --font-mono:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0b1315;
+    --surface:#111c1f;
+    --surface-2:#17262a;
+    --line:#233337;
+    --line-strong:#3b5257;
+    --ink:#dfeaeb;
+    --ink-2:#b2c3c6;
+    --muted:#7d9498;
+    --pypto:#52bab2;
+    --pypto-soft:#123230;
+    --tile:#d99a4e;
+    --tile-soft:#33240f;
+    --alert:#e07d70;
+    --alert-soft:#341814;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0b1315;
+  --surface:#111c1f;
+  --surface-2:#17262a;
+  --line:#233337;
+  --line-strong:#3b5257;
+  --ink:#dfeaeb;
+  --ink-2:#b2c3c6;
+  --muted:#7d9498;
+  --pypto:#52bab2;
+  --pypto-soft:#123230;
+  --tile:#d99a4e;
+  --tile-soft:#33240f;
+  --alert:#e07d70;
+  --alert-soft:#341814;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:16px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- layout grid ---------- */
+main,header.page{
+  display:grid;
+  grid-template-columns:
+    [full-start] minmax(1.25rem,1fr)
+    [wide-start] minmax(0,7rem)
+    [text-start] minmax(0,68ch)
+    [text-end] minmax(0,7rem)
+    [wide-end] minmax(1.25rem,1fr)
+    [full-end];
+}
+main>*,header.page>*{grid-column:text}
+.wide{grid-column:wide}
+.full{grid-column:full}
+
+/* ---------- header ---------- */
+header.page{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  padding:clamp(2.5rem,6vw,4.5rem) 0 2.5rem;
+  row-gap:1.1rem;
+}
+.kicker{
+  font-family:var(--font-display);
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--pypto);
+  display:flex;
+  gap:.9rem;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.kicker span.sep{width:2.2rem;height:1px;background:var(--line-strong)}
+h1{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(2.15rem,5.5vw,3.4rem);
+  line-height:1.08;
+  letter-spacing:-.015em;
+  margin:0;
+  text-wrap:balance;
+}
+h1 em{font-style:normal;color:var(--muted)}
+.deck{
+  font-size:1.075rem;
+  color:var(--ink-2);
+  margin:0;
+  max-width:60ch;
+}
+.provenance{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.4rem 1.6rem;
+  font-family:var(--font-mono);
+  font-size:.76rem;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+  padding-top:1rem;
+  margin-top:.6rem;
+}
+.provenance b{color:var(--ink-2);font-weight:500}
+
+/* ---------- rhythm ---------- */
+main{padding-bottom:5rem;row-gap:0}
+main>*+*{margin-top:1.15rem}
+p{margin:0}
+section{display:contents}
+
+.part{
+  margin-top:4.5rem;
+  padding-top:1.4rem;
+  border-top:2px solid var(--ink);
+  display:flex;
+  align-items:baseline;
+  gap:1rem;
+  flex-wrap:wrap;
+}
+.part .no{
+  font-family:var(--font-display);
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.part h2{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(1.5rem,3.4vw,2rem);
+  line-height:1.2;
+  letter-spacing:-.01em;
+  margin:0;
+  flex:1 1 20ch;
+  text-wrap:balance;
+}
+h3{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:1.12rem;
+  line-height:1.35;
+  margin:2.6rem 0 0;
+  text-wrap:balance;
+}
+h3 .ref{
+  font-family:var(--font-mono);
+  font-size:.78rem;
+  font-weight:400;
+  color:var(--muted);
+  margin-right:.55rem;
+}
+h4{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:.95rem;
+  margin:2rem 0 0;
+  color:var(--ink-2);
+}
+
+code{
+  font-family:var(--font-mono);
+  font-size:.855em;
+  background:var(--surface-2);
+  padding:.1em .34em;
+  border-radius:2px;
+  word-break:break-word;
+}
+strong{font-weight:700}
+a{color:var(--pypto);text-decoration-thickness:1px;text-underline-offset:2px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--pypto);outline-offset:3px}
+
+ul{margin:0;padding-left:1.15rem}
+ul li{margin-top:.35rem}
+ul li::marker{color:var(--line-strong)}
+
+/* ---------- callouts ---------- */
+.note{
+  border-left:3px solid var(--alert);
+  background:var(--alert-soft);
+  padding:1rem 1.15rem;
+  font-size:.95rem;
+}
+.note .tag{
+  display:block;
+  font-family:var(--font-display);
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--alert);
+  margin-bottom:.3rem;
+}
+blockquote.thesis{
+  font-family:var(--font-quote);
+  font-size:1.2rem;
+  line-height:1.6;
+  margin:2.2rem 0 0;
+  padding:1.4rem 0 1.4rem 1.5rem;
+  border-left:3px solid var(--pypto);
+  color:var(--ink);
+}
+.pull{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:1.05rem;
+  line-height:1.55;
+  color:var(--pypto);
+  margin-top:1.6rem;
+}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;margin-top:1.5rem;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.87rem;line-height:1.55}
+th,td{padding:.62rem .8rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+thead th{
+  font-family:var(--font-display);
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--muted);
+  background:var(--surface-2);
+  border-bottom:1px solid var(--line-strong);
+  white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--font-mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td code,th code{background:transparent;padding:0}
+tr.grp td{
+  background:var(--surface-2);
+  font-family:var(--font-display);
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.col-p{color:var(--pypto)}
+.col-t{color:var(--tile)}
+th.col-p,th.col-t{color:inherit}
+th .who{display:block;font-size:.66rem;letter-spacing:.1em}
+th.hp{border-top:3px solid var(--pypto)}
+th.ht{border-top:3px solid var(--tile)}
+
+/* ---------- code ---------- */
+figure.code{margin:1.5rem 0 0;border:1px solid var(--line);background:var(--surface)}
+figure.code figcaption{
+  font-family:var(--font-display);
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+  padding:.5rem .85rem;
+  border-bottom:1px solid var(--line);
+  background:var(--surface-2);
+  color:var(--muted);
+  display:flex;
+  justify-content:space-between;
+  gap:1rem;
+  align-items:baseline;
+}
+figure.code.p figcaption{color:var(--pypto)}
+figure.code.t figcaption{color:var(--tile)}
+figcaption .src{font-family:var(--font-mono);font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted);font-size:.72rem}
+pre{
+  margin:0;
+  padding:.9rem .95rem;
+  overflow-x:auto;
+  font-family:var(--font-mono);
+  font-size:.79rem;
+  line-height:1.62;
+  color:var(--ink-2);
+}
+pre b{color:var(--ink);font-weight:500}
+pre i{color:var(--muted);font-style:normal}
+.codepair{display:grid;gap:1rem;grid-template-columns:1fr}
+@media (min-width:900px){.codepair{grid-template-columns:1fr 1fr}.codepair figure.code{margin-top:0}}
+
+/* ---------- pipeline diagram ---------- */
+.diagram{
+  margin-top:1.75rem;
+  border:1px solid var(--line);
+  background:var(--surface);
+  padding:1.5rem 1.25rem;
+  display:grid;
+  gap:.55rem;
+  justify-items:center;
+}
+.dnode{
+  border:1px solid var(--line-strong);
+  background:var(--ground);
+  padding:.55rem .9rem;
+  text-align:center;
+  min-width:11rem;
+  max-width:100%;
+}
+.dnode .n{font-family:var(--font-mono);font-size:.82rem;font-weight:500;color:var(--ink)}
+.dnode .d{font-size:.74rem;color:var(--muted);line-height:1.4}
+.dnode.head{border-color:var(--pypto);border-width:2px;background:var(--pypto-soft);min-width:16rem}
+.dnode.term{border-style:dashed}
+.dsplit{display:grid;gap:.9rem;width:100%;grid-template-columns:1fr;justify-items:center}
+.spacer{display:none}
+@media (min-width:640px){.dsplit{grid-template-columns:1fr 1fr}.spacer{display:block;visibility:hidden}}
+.dbranch{display:grid;gap:.5rem;justify-items:center;width:100%}
+.dbranch .lane{
+  font-family:var(--font-display);
+  font-size:.66rem;
+  font-weight:700;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.arr{color:var(--line-strong);font-size:.9rem;line-height:1}
+.dcap{
+  font-size:.78rem;
+  color:var(--muted);
+  text-align:center;
+  max-width:44ch;
+  margin-top:.4rem;
+  line-height:1.5;
+}
+
+/* ---------- maturity funnel ---------- */
+.funnel{margin-top:1.6rem;border:1px solid var(--line);background:var(--surface);padding:1.35rem 1.25rem}
+.funnel h4{margin:0 0 1rem;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-family:var(--font-display)}
+.frow{display:grid;grid-template-columns:minmax(9rem,13rem) 1fr auto;gap:.75rem;align-items:center;margin-top:.55rem}
+.flabel{font-size:.83rem;color:var(--ink-2);line-height:1.4}
+.ftrack{background:var(--surface-2);height:1.35rem;position:relative}
+.fbar{height:100%;background:var(--pypto);opacity:.85}
+.fbar.warn{background:var(--alert)}
+.fval{font-family:var(--font-mono);font-size:.85rem;font-variant-numeric:tabular-nums;color:var(--ink);min-width:2.6rem;text-align:right}
+.funnel .foot{margin-top:1rem;font-size:.78rem;color:var(--muted);line-height:1.55;border-top:1px solid var(--line);padding-top:.75rem}
+
+/* ---------- verdict ---------- */
+.verdict{display:grid;gap:1rem;grid-template-columns:1fr;margin-top:1.75rem}
+@media (min-width:820px){.verdict{grid-template-columns:repeat(3,1fr)}}
+.vcol{border:1px solid var(--line);background:var(--surface);padding:1.1rem;display:flex;flex-direction:column;gap:.7rem}
+.vcol h4{
+  margin:0;
+  font-family:var(--font-display);
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.vcol.p{border-top:3px solid var(--pypto)}
+.vcol.p h4{color:var(--pypto)}
+.vcol.e{border-top:3px solid var(--line-strong)}
+.vcol.e h4{color:var(--muted)}
+.vcol.t{border-top:3px solid var(--tile)}
+.vcol.t h4{color:var(--tile)}
+.vcol ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:.45rem;font-size:.87rem;line-height:1.5}
+.vcol li{padding-left:.9rem;position:relative;margin:0}
+.vcol li::before{content:"";position:absolute;left:0;top:.62em;width:.4rem;height:1px;background:var(--line-strong)}
+
+/* ---------- calls ---------- */
+.calls{counter-reset:call;margin-top:1.75rem;display:flex;flex-direction:column;gap:1.1rem}
+.call{display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start}
+.call .cn{
+  counter-increment:call;
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:.95rem;
+  color:var(--surface);
+  background:var(--ink);
+  width:1.9rem;height:1.9rem;
+  display:grid;place-items:center;
+  line-height:1;
+}
+.call .cn::before{content:counter(call)}
+.call .cb{font-size:.95rem;line-height:1.65}
+.call .cb b{display:block;font-family:var(--font-display);font-size:1rem;margin-bottom:.15rem}
+
+footer.page{
+  border-top:1px solid var(--line);
+  margin-top:4rem;
+  padding:1.6rem 0 0;
+  font-size:.78rem;
+  color:var(--muted);
+  line-height:1.65;
+}
+@media (prefers-reduced-motion:no-preference){
+  a{transition:color .15s ease}
+}
+</style>
+
+<header class="page">
+  <div class="kicker">技术对位分析<span class="sep"></span>Ascend Tile 编译栈</div>
+  <h1>PyPTO 对位 TileLang</h1>
+  <p class="deck">两者常被当作"同一类 Tile DSL"来比较。读完 <code>repo/pto</code> 下的一手开发文档后，更准确的说法是：它们赌的是两件不同的事，而只在其中一层真正短兵相接。</p>
+  <div class="provenance">
+    <span><b>PyPTO 依据</b> repo/pto @ main，160 篇开发文档</span>
+    <span><b>TileLang 依据</b> 官方仓库，核实于 2026-09</span>
+    <span><b>成文</b> 2026-09-07</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="note">
+    <span class="tag">先校准一个前提</span>
+    <strong>代码库里没有"3.0"这个版本号。</strong><code>pyproject.toml</code> 写的是 <code>version = "0.1.0"</code>，全部 docs 里 "3.0" 零命中。"3.0" 是产品与规划层的叙事标签；本文分析的是 <code>repo/pto</code> 当前 main 分支的开发文档所描述的那个 PyPTO。
+  </div>
+
+  <!-- ══════════════ PART 1 ══════════════ -->
+  <div class="part">
+    <div class="no">Part 01 / 03</div>
+    <h2>PyPTO 的整体形态</h2>
+  </div>
+
+  <h3><span class="ref">1.1</span>它不是一个 DSL，是一条五仓库的编译–运行时栈</h3>
+  <p><code>docs/zh-cn/dev/00-ecosystem.md</code> 给出的不是模块划分，而是带契约的仓库边界——每一条边界都规定了格式、提供者和消费者。</p>
+
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th>仓库</th><th>角色</th><th>对外契约</th></tr></thead>
+      <tbody>
+        <tr><td><code>pypto</code></td><td>编译器框架（Python DSL → IR → Pass → CodeGen）</td><td>—</td></tr>
+        <tr><td><code>pypto-lib</code></td><td>模型库与原语（DeepSeek / LLaMA / FFN）</td><td>Python imports</td></tr>
+        <tr><td><code>PTOAS</code></td><td>基于 MLIR 的汇编器与优化器</td><td><code>.pto</code> MLIR 方言</td></tr>
+        <tr><td><code>pto-isa</code></td><td>tile 级虚拟 ISA（C++ 头文件）</td><td>C++ <code>#include</code></td></tr>
+        <tr><td><code>simpler</code></td><td>设备上的任务图运行时</td><td>PTO2 runtime API</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin-top:1.5rem">整个设计的枢纽是：<strong>pypto 有两条并行的 codegen 路径</strong>。一条编译"算子里面"，一条编译"算子之间"，两者出自同一个程序、同一棵 IR。</p>
+
+  <div class="diagram wide">
+    <div class="dnode head">
+      <div class="n">pypto</div>
+      <div class="d">Python DSL → IR → 40+ Passes → CodeGen</div>
+    </div>
+    <div class="arr">▼</div>
+    <div class="dsplit">
+      <div class="dbranch">
+        <div class="lane">InCore 路径 · tile 级计算</div>
+        <div class="dnode"><div class="n">.pto</div><div class="d">PTO-ISA MLIR 方言</div></div>
+        <div class="arr">▼</div>
+        <div class="dnode"><div class="n">PTOAS</div><div class="d">同步插入 · 内存规划 · 降为 C++</div></div>
+        <div class="arr">▼</div>
+        <div class="dnode"><div class="n">pto-isa</div><div class="d">tile 指令 C++ 头文件</div></div>
+        <div class="arr">▼</div>
+        <div class="dnode term"><div class="n">AICore</div><div class="d">Cube + Vector 核</div></div>
+      </div>
+      <div class="dbranch">
+        <div class="lane">Orchestration 路径 · 任务调度</div>
+        <div class="dnode"><div class="n">Orchestration C++</div><div class="d">PTO2 runtime API 调用</div></div>
+        <div class="arr">▼</div>
+        <div class="dnode spacer"><div class="n">·</div><div class="d">·</div></div>
+        <div class="arr spacer">▼</div>
+        <div class="dnode spacer"><div class="n">·</div><div class="d">·</div></div>
+        <div class="arr spacer">▼</div>
+        <div class="dnode term"><div class="n">AICPU</div><div class="d">任务图执行</div></div>
+      </div>
+    </div>
+    <div class="arr">▼</div>
+    <div class="dnode head" style="border-color:var(--line-strong);background:var(--surface-2)">
+      <div class="n">simpler</div>
+      <div class="d">Host ↔ AICPU ↔ AICore 协调 · 任务依赖图</div>
+    </div>
+    <p class="dcap">这条右侧支路是 TileLang 结构上没有对应物的部分——它把"算子之间的编排"变成了编译产物，而不是留给外部框架。</p>
+  </div>
+
+  <h3><span class="ref">1.2</span>编程模型：三层分发 + 五级 JIT</h3>
+  <p>操作分发分三层：<code>pl.*</code>（统一层，按输入类型自动分发）、<code>pl.tensor.*</code>（DDR 级）、<code>pl.tile.*</code>（片上）。语言指南里明确写着"<strong>推荐尽量使用 <code>pl.*</code></strong>"——这句话分量很重，它意味着官方推荐的写法是<em>不写内存层次</em>。</p>
+  <p><code>@pl.jit</code> 家族提供五个入口，一个程序可以横跨 host、chip、core 三级：</p>
+
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th>装饰器</th><th>对应 IR</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><code>@pl.jit</code></td><td><code>FunctionType.Orchestration</code></td><td>芯片级入口，分发 InCore 工作</td></tr>
+        <tr><td><code>@pl.jit.host</code></td><td><code>level=HOST, role=Orchestrator</code></td><td>分布式（L3+）入口，分配窗口缓冲、按 rank 分发</td></tr>
+        <tr><td><code>@pl.jit.incore</code></td><td><code>FunctionType.InCore</code></td><td>独立 InCore 子函数</td></tr>
+        <tr><td><code>@pl.jit.inline</code></td><td><code>FunctionType.Inline</code></td><td>调用点由 <code>InlineFunctions</code> pass 展开</td></tr>
+        <tr><td><code>@pl.jit.opaque</code></td><td><code>FunctionType.Opaque</code></td><td>包裹编排循环与 <code>pl.at</code> 作用域</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin-top:1.5rem">子函数依赖从入口函数体自动发现，因此<strong>一个完整的分布式程序可以不依赖任何 <code>@pl.program</code> 类写出来</strong>。<code>examples/models/qwen3_jit/</code> 就是这个形态：<code>kernels/</code> 下按 scope 拆分的 inline/incore 工具，加一个 <code>@pl.jit</code> 入口组合，跨文件用普通 Python import。</p>
+  <p>作用域体系有六种一等 <code>ScopeStmt</code>（InCore / Cluster / Hierarchy / Spmd / SplitAiv / Runtime），每种只携带对该类型合法的字段——<strong>非法组合在构造时即不可表达</strong>。</p>
+
+  <h3><span class="ref">1.3</span>自动化：这是 PyPTO 押下的核心赌注</h3>
+  <p>看 flash attention 示例的实际写法。没有 shared memory 声明、没有 copy、没有 fragment、没有 <code>num_stages</code>、没有 grid/threads——全程 Tensor 语义加 online softmax 的数学表达：</p>
+
+  <figure class="code p wide">
+    <figcaption><span>PyPTO — flash attention</span><span class="src">examples/models/03_flash_attention.py</span></figcaption>
+<pre><b>@pl.jit</b>
+<b>def</b> flash_attention(q_13: pl.Tensor, k_16: pl.Tensor, v_19: pl.Tensor):
+    <b>with</b> pl.at(level=pl.Level.CORE_GROUP):
+        <b>for</b> i, (mi_update, li_update, attn_update, oi_update) <b>in</b> pl.range(
+                16, init_values=(...)):
+            kj    = pl.slice(k_16, [64, 128], [i * 64, 0])
+            sij   = pl.matmul(q_13, kj, out_dtype=pl.FP16, b_trans=<b>True</b>)
+            row_max = pl.row_max(sij_1)
+            p_ij  = pl.exp(pl.sub(sij_1, row_max))
+            l_ij  = pl.row_sum(p_ij)
+            <i># ... online 修正、if/else + pl.yield_ 构成 SSA phi</i>
+</pre>
+  </figure>
+
+  <p>这段代码到硬件之间的全部距离，由 pass 管线承担：</p>
+
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th>Pass</th><th>替用户做出的决策</th></tr></thead>
+      <tbody>
+        <tr><td><code>ConvertTensorToTileOps</code></td><td>Tensor → Tile 切分</td></tr>
+        <tr><td><code>InferTileMemorySpace</code></td><td>每个 tile 落 Vec / Mat / Left / Right / Acc 哪一级</td></tr>
+        <tr><td><code>AutoTileMatmulL0</code></td><td>matmul 的 L0 分块与双缓冲累加器</td></tr>
+        <tr><td><code>ExpandMixedKernel</code></td><td>混合 kernel 自动拆 AIC/AIV 双核；CV 边界自动生成 <code>tpush</code>/<code>tpop</code> 对与 fractal 布局适配</td></tr>
+        <tr><td><code>SkewCrossCorePipeline</code></td><td>跨核软流水——cube 提前 D 步生产，vector 滞后消费</td></tr>
+        <tr><td><code>LowerPipelineLoops</code></td><td>同核 ping-pong 复制 + <code>pipeline_membership</code> 标记</td></tr>
+        <tr><td><code>MemoryReuse</code></td><td>片上缓冲全局"最大优先 + first-fit"装箱复用</td></tr>
+        <tr><td><code>AllocateMemoryAddr</code></td><td>具体地址分配与容量校验</td></tr>
+        <tr><td><code>AutoDeriveTaskDependencies</code></td><td>任务图依赖边推导，并改写 call-site direction 省去运行时查询</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin-top:1.5rem">这些 pass 文档的深度值得单说一句。<code>25-lower_pipeline_loops.md</code> 里"为什么 cube 累加器<em>不</em>打 <code>pipeline_membership</code> 标记"有整段因果推理：累加器由串行化的 MAD 写入、drain-before-next、打标记会让嵌套 N 层 pipeline 的缓冲申请膨胀到 2<sup>N</sup> 块并触发虚假的 <code>PH-MR-001</code>。<code>19-expand_mixed_kernel.md</code> 里"切分轴上的 transpose 必须 fail-loud 而非静默降级"也写了完整论证和两条修改方向。这不是自动生成的 API 文档。</p>
+
+  <h3><span class="ref">1.4</span>编译器工程：IRProperty 契约与每 pass 前后验证</h3>
+  <p>这是我认为最被低估、也最难被复制的资产。每个 pass 都声明三组属性：</p>
+
+  <figure class="code wide">
+    <figcaption><span>Pass 契约</span><span class="src">include/pypto/ir/transforms/ir_property.h</span></figcaption>
+<pre><b>struct</b> PassProperties {
+  IRPropertySet required;      <i>// 前置条件</i>
+  IRPropertySet produced;      <i>// 运行后保证成立</i>
+  IRPropertySet invalidated;   <i>// 本 pass 会破坏的</i>
+};
+</pre>
+  </figure>
+
+  <p><code>VerificationInstrument</code> 在<strong>每个 pass 执行前检查 required、执行后检查 produced 加上全部结构性属性</strong>（<code>TypeChecked</code>、<code>UseAfterDef</code>、<code>InOutUseValid</code>、<code>PipelineLoopValid</code>、<code>ManualDepsOnSubmitOnly</code> 等）。配合 IR 本身的设计——不可变、<code>shared_ptr&lt;const T&gt;</code>、<code>Var</code> 以指针而非名字为标识、每个节点带 <code>Span</code> 源位置、反射字段系统区分 Ignore/Def/Usual——编译器中间任何一步破坏不变量，都会立刻在带源位置的诊断里炸出来。</p>
+  <p><code>Submit</code> 被做成与 <code>Call</code> 并列的一等 IR kind：异步任务启动对同步调用，有独立的 <code>deps_</code> / <code>core_num_</code> / <code>sync_start_</code> 字段，贯穿全流水线不下沉，并由 <code>ManualDepsOnSubmitOnly</code> verifier 保证依赖 attr 永不落到普通 <code>Call</code> 上。</p>
+  <p class="pull">整个 IR 层是一致的："用类型系统而非约定来防错"。</p>
+
+  <h3><span class="ref">1.5</span>分布式是一等公民</h3>
+  <p>12 个 <code>pld.*</code> 算子 + 4 个 append-only ABI 枚举，全部作用于<strong>窗口绑定的 <code>DistributedTensorType</code></strong>——由 <code>pld.alloc_window_buffer</code> 分配的对称、按 rank 划分的通信窗口的切片。verifier 用严格 kind-trait 拒绝普通 <code>TensorType</code> 进入跨 rank 槽位：<em>非窗口绑定的 tensor 永远不会被误传入跨 rank 槽位</em>，这是类型系统保证的，不是文档约定。</p>
+  <p>覆盖 <code>remote_load</code>/<code>remote_store</code>（TLOAD/TSTORE）、<code>get</code>/<code>put</code>（TGET/TPUT）、<code>allreduce</code>/<code>broadcast</code>/<code>reduce_scatter</code>/<code>allgather</code>/<code>all_to_all</code>/<code>barrier</code>，以及 <code>notify</code>/<code>wait</code> 控制面。运行时侧有 <code>DistributedWorker</code>、<code>alloc_stacked_tensor</code>（权重按卡切分常驻）和 <code>prepare()</code>（跨 dispatch 复用 setup）。</p>
+
+  <h3><span class="ref">1.6</span>DFX 与可观测性</h3>
+  <p>五个完全正交的运行时开关（L2 swimlane、args dump、PMU、dep gen、scope stats），1:1 映射到 simpler 的 <code>CallConfig</code>，产物路径契约固定。文档甚至解释了为什么 onboard 平台开 swimlane 要<strong>跑两趟</strong>：抓图趟必须在独立子进程里跑，因为 runtime 无法可靠回收 DFX collector 申请的 SVM host-register 映射，同进程第二趟会撞上 <code>halHostRegister</code> 返回 8 的注册上限。</p>
+  <p>加上编译期分阶段耗时 profiling、<code>dump_passes=True</code> 的每 pass IR 快照，以及 <code>pypto-skills</code> 里独立发布的 <code>generate-ir-trace</code> / <code>incore-profiling</code> / <code>setup-and-run</code> 插件（Claude Code 与 Codex 双支持）。</p>
+
+  <h3><span class="ref">1.7</span>成熟度实况——文档自己给的数字</h3>
+  <p><code>ptoas-op-status.md</code> 是我见过最诚实的状态表，判定原则写得很硬：<strong>一个 op 是否"完成"以是否有 ST 测试为准</strong>；"前端已写 + 无 ST" 一律判为未完成。</p>
+
+  <div class="funnel wide">
+    <h4>Op 覆盖漏斗 · 文档自述快照 2026-06-23</h4>
+    <div class="frow">
+      <div class="flabel">PTOAS op 总数</div>
+      <div class="ftrack"><div class="fbar" style="width:100%"></div></div>
+      <div class="fval">148</div>
+    </div>
+    <div class="frow">
+      <div class="flabel">PTOAS 提供接口</div>
+      <div class="ftrack"><div class="fbar" style="width:96.6%"></div></div>
+      <div class="fval">143</div>
+    </div>
+    <div class="frow">
+      <div class="flabel">pypto 前端已注册</div>
+      <div class="ftrack"><div class="fbar" style="width:66.2%"></div></div>
+      <div class="fval">98</div>
+    </div>
+    <div class="frow">
+      <div class="flabel"><strong>有真机 ST 测试</strong></div>
+      <div class="ftrack"><div class="fbar warn" style="width:45.3%"></div></div>
+      <div class="fval">67</div>
+    </div>
+    <p class="foot">缺口分布：<strong>卷积整族</strong>（TIMG2COL / TSETFMATRIX / TSET_IMG2COL_*）PTOAS 未实现；MX / 量化路径部分标 MISSING；<code>tpartargmax/min</code> 等 21 项 MISSING；a2a3 已知 ISA 缺陷导致部分 ST 下架（如 <code>pto.tsubc</code> 误算 <code>a-b-c</code>）。</p>
+  </div>
+
+  <p style="margin-top:1.5rem">另一个明确的空白：<strong>全仓库 grep 不到任何 autotuner / auto_tune / tuner。</strong>调优依赖用户给出 <code>pl.pipeline(stage=F)</code>、<code>pl.split(...)</code> 和 tile 常量，加上编译器的固定策略。</p>
+
+  <!-- ══════════════ PART 2 ══════════════ -->
+  <div class="part">
+    <div class="no">Part 02 / 03</div>
+    <h2>TileLang 的现状</h2>
+  </div>
+
+  <p>下面这一栏核实于 2026-09，分上游与 Ascend 分支两条线——它们是两个仓库、两套社区规模、两种成熟度。</p>
+
+  <div class="tablewrap wide">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th class="ht col-t">TileLang<span class="who">上游</span></th>
+          <th class="ht col-t">TileLang-Ascend</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>版本</td><td>v0.1.13（2026-08）</td><td>—</td></tr>
+        <tr><td>社区</td><td class="num">7.4k ★ / 732 forks</td><td class="num">363 ★ / 164 forks</td></tr>
+        <tr><td>基础设施</td><td colspan="2">TVM / TIR</td></tr>
+        <tr><td>后端</td><td>CUDA (SM70–SM120) 主战场、ROCm/HIP (CDNA/RDNA, gfx942/950)、Apple Metal；<em>实验性</em> LLVM CPU / CuTe DSL / WebGPU</td><td>Ascend <strong>A2 / A3 实测</strong>；未提及 A5</td></tr>
+        <tr><td>其他硬件</td><td>Ascend、MetaX MACA、Moore Threads MUSA、HYGON、Sunrise-AI TANG——<strong>均在独立 repo</strong></td><td>PTO backend 作为可选 codegen 目标</td></tr>
+        <tr><td>编程模型</td><td><code>T.Kernel(grid, threads)</code> / <code>T.alloc_shared</code> / <code>T.alloc_fragment</code> / <code>T.copy</code> / <code>T.gemm</code> / <code>T.Pipelined</code> / <code>T.Parallel</code> + layout inference</td><td>同上，另加 Developer / Expert 双模式（<code>T.Scope("C")/("V")</code>）、自动同步、自动 buffer reuse、workspace reduction</td></tr>
+        <tr><td>调优</td><td><strong>eager-mode autotuning</strong>：pipelined compilation、grouped compilation、multi-GPU benchmarking</td><td>继承上游</td></tr>
+        <tr><td>算子样例</td><td>大量；BitBLAS、AttentionEngine 为生产用户</td><td>GEMM / BatchGEMM / FlashAttn / SparseFlashAttn / linear attn / softmax / norm / reduce / sort / <strong>conv</strong> / CE loss / LightningIndexer / TopK / ACLGraph</td></tr>
+        <tr><td>分布式</td><td>README 无明确多卡声明</td><td><strong>无任何多卡或模型级编排</strong></td></tr>
+        <tr><td>许可</td><td>开放</td><td>MIT</td></tr>
+        <tr><td>安装</td><td>pip wheel</td><td>预构建 wheel 或脚本源码构建</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════ PART 3 ══════════════ -->
+  <div class="part">
+    <div class="no">Part 03 / 03</div>
+    <h2>八个维度的深度对比</h2>
+  </div>
+
+  <h3><span class="ref">3.1</span>抽象起点：这是根本分歧，不是程度差异</h3>
+  <p>TileLang 的起点是<strong>"一个 kernel 的内部"</strong>：先 <code>T.Kernel(bx, by, threads=128)</code> 声明网格，再手工声明 shared / fragment buffer、手工 <code>T.copy</code> 搬运、手工 <code>T.Pipelined(K, num_stages=3)</code>。编译器做的是 layout inference、向量化、同步插入——<em>它优化你写好的 schedule，但 schedule 是你给的</em>。</p>
+  <p>PyPTO 的起点是<strong>"一段张量计算"</strong>：<code>pl.matmul</code> / <code>pl.exp</code> / <code>pl.row_max</code>，用 <code>with pl.at(level=CORE_GROUP)</code> 圈出在哪一级执行，其余交给 pass 管线。<em>它自己产生 schedule。</em></p>
+
+  <div class="codepair wide">
+    <figure class="code t">
+      <figcaption><span>TileLang 典型形态</span><span class="src">示意，非逐字引用</span></figcaption>
+<pre><b>with</b> T.Kernel(N/BN, M/BM, threads=128) <b>as</b> (bx, by):
+    A_s = T.alloc_shared((BM, BK), dtype)
+    B_s = T.alloc_shared((BK, BN), dtype)
+    C_l = T.alloc_fragment((BM, BN), accum)
+    T.clear(C_l)
+    <b>for</b> k <b>in</b> T.Pipelined(K/BK, num_stages=3):
+        T.copy(A[by*BM, k*BK], A_s)
+        T.copy(B[k*BK, bx*BN], B_s)
+        T.gemm(A_s, B_s, C_l)
+    T.copy(C_l, C[by*BM, bx*BN])
+</pre>
+    </figure>
+    <figure class="code p">
+      <figcaption><span>PyPTO 推荐形态</span><span class="src">pl.* 统一层</span></figcaption>
+<pre><b>with</b> pl.at(level=pl.Level.CORE_GROUP):
+    <b>for</b> i, (acc,) <b>in</b> pl.range(K, init_values=(init,)):
+        ak  = pl.slice(a, [BM, BK], [0, i*BK])
+        bk  = pl.slice(b, [BK, BN], [i*BK, 0])
+        <i># 无 buffer 声明、无 copy、无 stage、无 threads</i>
+        <i># 内存空间 / L0 分块 / 双缓冲 / AIC-AIV 拆分</i>
+        <i># 全部由 pass 管线推导</i>
+        prod = pl.matmul(ak, bk, out_dtype=pl.FP32)
+        out  = pl.yield_(pl.add(acc, prod))
+</pre>
+    </figure>
+  </div>
+
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th>决策</th><th class="hp col-p">PyPTO</th><th class="ht col-t">TileLang</th></tr></thead>
+      <tbody>
+        <tr><td>网格 / 线程数</td><td>不暴露；<code>pl.spmd(N)</code> 是任务级</td><td>用户写 <code>T.Kernel(..., threads=)</code></td></tr>
+        <tr><td>片上 buffer 声明</td><td><code>InitMemRef</code> 自动</td><td>用户 <code>T.alloc_shared/fragment</code></td></tr>
+        <tr><td>数据搬运</td><td>自动（可用 <code>pl.load/move</code> 手工接管）</td><td>用户 <code>T.copy</code></td></tr>
+        <tr><td>buffer 复用</td><td><code>MemoryReuse</code> 自动装箱</td><td>Ascend 侧自动（<code>TL_ASCEND_MEMORY_PLANNING</code>）</td></tr>
+        <tr><td>Cube / Vector 分核</td><td><code>ExpandMixedKernel</code> 自动 + <code>pl.split</code> 提示</td><td>Developer 自动 / Expert 手工 <code>T.Scope</code></td></tr>
+        <tr><td>流水深度</td><td>用户 <code>stage=F</code> + 编译器 skew</td><td>用户 <code>num_stages=</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin-top:1.5rem"><strong>结论：</strong>在"kernel 内部"这一层，两者的自动化能力其实是<em>同一量级</em>的——TileLang-Ascend 的 Developer 模式 + auto sync + memory planning，对应 PyPTO 的 InferTileMemorySpace + ExpandMixedKernel + MemoryReuse。PyPTO 的抽象高一格，这既是优势也是风险：<strong>抽象越高，编译器猜错时用户越无处下手。</strong></p>
+
+  <h3><span class="ref">3.2</span>控制权：TileLang 有明确的逃生舱，PyPTO 的更窄</h3>
+  <p>TileLang 的 Expert 模式是<em>同一套语法内的降级</em>——把 <code>T.Scope("C")</code> 写出来即可，其他代码不动。这是一条连续谱。</p>
+  <p>PyPTO 的分层是 <code>pl.*</code> → <code>pl.tile.*</code>：从 Tensor 掉到 Tile 要重写数据流（显式 <code>pl.load(..., target_memory=pl.Mem.Mat)</code> → <code>pl.move(..., Mem.Left)</code> → <code>pl.matmul</code> → <code>pl.store</code>）。手工模式确实存在，但<strong>这是换一套写法，不是加一个标注</strong>。</p>
+  <p class="pull">这是 PyPTO 开发者体验上最实际的一个弱点：性能不达标时，从自动降到手动的迁移成本是重写，而非微调。</p>
+
+  <h3><span class="ref">3.3</span>并行模型：SPMD 对 MPMD——PyPTO 的真正护城河</h3>
+  <p>TileLang 是纯 <strong>SPMD</strong>：一个 kernel、一个网格、所有 block 跑同一段代码。跨 kernel 的编排交给外部框架（PyTorch / ACLGraph）。</p>
+  <p>PyPTO 是 <strong>MPMD</strong>：Orchestration 函数编译到 AICPU 上运行，用 <code>pl.submit</code> / <code>pl.spmd_submit</code> 提交任务，任务间有一等的 <code>deps_</code> 依赖边；<code>AutoDeriveTaskDependencies</code> 还能自动推导依赖，并把 <code>Input→NoDep</code>、<code>InOut→OutputExisting</code> 改写掉以省去运行时的 overlap 查询。</p>
+  <p>这意味着 PyPTO 能表达 TileLang <em>结构上</em>表达不了的东西：</p>
+  <ul>
+    <li>一个程序里同时描述 Q/K/V projection、attention、MLP 三个 scope，让它们在 AICPU 的任务图里按真实依赖并发（<code>qwen3_jit</code> 就是这个形态）</li>
+    <li>计算–通信深度融合：<code>pld.tensor.put</code> + <code>pld.system.notify</code> 与本地计算重叠</li>
+    <li>跨核软流水：<code>SkewCrossCorePipeline</code> 让 cube 领先 vector D 个迭代</li>
+  </ul>
+  <p>TileLang-Ascend 的官方描述里完全没有多卡、没有模型级编排。<strong>这不是它做得差，是它不在这个赛道上。</strong></p>
+
+  <h3><span class="ref">3.4</span>分布式：不对称竞争</h3>
+  <p>PyPTO 有 <code>@pl.jit.host</code>、12 个 <code>pld.*</code> 算子、window buffer 类型系统、<code>DistributedWorker</code>、<code>alloc_stacked_tensor</code>，且分布式 comm op 的 ST 覆盖相对完整——<code>test_l3_allreduce</code> 含 ring / host / parallel / intrinsic 四种实现，<code>broadcast</code> / <code>allgather</code> / <code>reduce_scatter</code> / <code>get</code> / <code>put</code> / <code>notify_wait</code> 均有覆盖。</p>
+  <p>TileLang 两侧都没有。<strong>这一维度上没有竞争，只有空白。</strong></p>
+
+  <h3><span class="ref">3.5</span>调优路径：TileLang 明确领先</h3>
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th></th><th class="hp col-p">PyPTO</th><th class="ht col-t">TileLang</th></tr></thead>
+      <tbody>
+        <tr><td>Autotuner</td><td><strong>不存在</strong></td><td>eager-mode；pipelined / grouped compilation，multi-GPU benchmarking</td></tr>
+        <tr><td>手工 schedule 空间</td><td>中——stage、split、tile 常量</td><td>大——threads、num_stages、layout annotate、swizzle</td></tr>
+        <tr><td>编译器自动决策</td><td>大</td><td>中</td></tr>
+        <tr><td>性能不达标时的路径</td><td>读 IR dump → 理解 pass 决策 → 改 tile 常量或降到 tile 级重写</td><td>调参 → autotune 扫 → 降到 Expert 模式</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:1.5rem"><strong>这是 PyPTO 最该补的一块。</strong>没有 autotuner，意味着"编译器自动决策"这个赌注的收益完全依赖固定启发式的质量；一旦启发式在某个 shape 上失手，用户拿不到"多试几组"的廉价出路，只能进 IR dump。PyPTO 的 IR trace 与 DFX 工具链做得很好，但那是<em>诊断</em>工具，不是<em>搜索</em>工具——它降低理解成本，不降低试错成本。</p>
+
+  <h3><span class="ref">3.6</span>编译器工程质量：PyPTO 明确领先</h3>
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th></th><th class="hp col-p">PyPTO</th><th class="ht col-t">TileLang</th></tr></thead>
+      <tbody>
+        <tr><td>IR 基础</td><td>自研不可变树 + Kind O(1) 分派 + 反射字段系统</td><td>TVM / TIR——成熟，但是别人的地基，语义受 TIR 约束</td></tr>
+        <tr><td>Pass 契约</td><td><code>PassProperties{required, produced, invalidated}</code></td><td>TVM pass 体系，无逐 pass 属性声明</td></tr>
+        <tr><td>不变量强制</td><td><code>VerificationInstrument</code> 每 pass 前后验证结构性属性</td><td>靠 pass 自身</td></tr>
+        <tr><td>错误定位</td><td><code>Span</code> 从架构起点贯穿，双路径（verifier 诊断 + <code>INTERNAL_CHECK_SPAN</code>）</td><td>v0.1.13 <strong>新增</strong> source-location diagnostics</td></tr>
+        <tr><td>设计文档</td><td>48 篇 pass 文档，含决策因果与反例</td><td>以使用文档为主</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:1.5rem">值得注意：TileLang v0.1.13 才把 "source-location compiler diagnostics" 当作新特性发布——<strong>这恰好是 PyPTO 从 day 1 就有的东西</strong>。这既说明 PyPTO 在"可诊断的编译器"这条线上确实走在前面，也说明这条线正在被对手识别为价值点。</p>
+
+  <h3><span class="ref">3.7</span>生态与可移植性：结构性劣势</h3>
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th></th><th class="hp col-p">PyPTO</th><th class="ht col-t">TileLang</th></tr></thead>
+      <tbody>
+        <tr><td>许可</td><td><strong>CANN OSL 2.0</strong>——仅可用于开发运行在华为 AI 处理器上的软件</td><td>MIT（Ascend 侧）/ 开放</td></tr>
+        <tr><td>硬件覆盖</td><td>Ascend 910B / 950</td><td>NVIDIA + AMD + Metal + 五家国产（外挂 repo）</td></tr>
+        <tr><td>社区</td><td>组织内为主</td><td>7.4k ★，BitBLAS / AttentionEngine 为生产用户</td></tr>
+        <tr><td>安装</td><td><code>pip install -e .</code> 源码构建（CMake + nanobind + scikit-build-core）</td><td>pip wheel</td></tr>
+        <tr><td>心智迁移</td><td>需重新学习 Tensor/Tile/Block + Level/Role + scope 体系</td><td>Triton / TVM 用户几乎零成本</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:1.5rem">许可证是硬约束：<strong>PyPTO 不可能靠"多后端"来打，它的分发面被法律条款钉死在华为硬件上。</strong>这反过来说明它唯一可行的战略，是把"硬件专用深度"做到 TileLang 靠通用抽象够不到的地方——恰好就是 3.3 与 3.4 说的 MPMD 与分布式。</p>
+
+  <h3><span class="ref">3.8</span>成熟度：残酷但清晰</h3>
+  <div class="tablewrap wide">
+    <table>
+      <thead><tr><th></th><th class="hp col-p">PyPTO</th><th class="ht col-t">TileLang-Ascend</th></tr></thead>
+      <tbody>
+        <tr><td>硬件实测</td><td>a2a3 + a5（a5 覆盖更弱）</td><td>A2 / A3</td></tr>
+        <tr><td>算子覆盖</td><td><strong>卷积整族 PTOAS 未实现</strong>；148 op 中 67 个有真机 ST</td><td>含 conv、sort、CE loss、LightningIndexer、TopK</td></tr>
+        <tr><td>框架集成</td><td><code>ChipWorker</code> / <code>DeviceTensor</code>；无框架层集成描述</td><td>PyTorch / ACLGraph</td></tr>
+        <tr><td>安装门槛</td><td>源码构建</td><td>wheel</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:1.5rem">PyPTO 在"能跑的 op 数量"这个最直白的维度上落后。45% 的 ST 覆盖率意味着接近一半的 op 是"写了但没在真机上验证过"，而文档自己把这类明确判为未完成——<strong>这份诚实很宝贵，但它同时是一张明牌。</strong></p>
+
+  <!-- ══════════════ 结论 ══════════════ -->
+  <div class="part">
+    <div class="no">结论</div>
+    <h2>它们不是同一类产品</h2>
+  </div>
+
+  <blockquote class="thesis">TileLang 是<strong>一个 kernel 编译器</strong>，赌的是"覆盖足够多硬件 + autotune 帮你找到好 schedule"。PyPTO 是<strong>一条从模型到多卡执行的整栈</strong>，赌的是"编译器自己产生 schedule + 用 IR 契约保证这个过程可信 + 把编排和通信也编译进来"。</blockquote>
+
+  <p style="margin-top:1.5rem">把它们放在同一张雷达图上比"谁的 tile DSL 更好"，会得出错误结论。</p>
+
+  <div class="verdict wide">
+    <div class="vcol p">
+      <h4>PyPTO 明确领先</h4>
+      <ul>
+        <li>MPMD 任务编排</li>
+        <li>分布式 / 通信原语</li>
+        <li>编译器 IR 工程与验证体系</li>
+        <li>抽象层级（Tensor 起手）</li>
+        <li>DFX 与可观测性</li>
+      </ul>
+    </div>
+    <div class="vcol e">
+      <h4>势均力敌</h4>
+      <ul>
+        <li>kernel 内自动化</li>
+        <li>Cube / Vector 分核</li>
+        <li>软流水</li>
+      </ul>
+    </div>
+    <div class="vcol t">
+      <h4>TileLang 明确领先</h4>
+      <ul>
+        <li>Autotuner（PyPTO 为零）</li>
+        <li>算子覆盖与真机验证率</li>
+        <li>多后端可移植性</li>
+        <li>社区与生产用户</li>
+        <li>安装与上手门槛</li>
+        <li>手工调优的逃生舱设计</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top:3rem">三条判断</h3>
+  <div class="calls">
+    <div class="call">
+      <div class="cn"></div>
+      <div class="cb">
+        <b>不要在"tile DSL 好不好用"上跟 TileLang 正面比。</b>
+        那个战场上 PyPTO 的抽象更高但逃生舱更窄，且缺 autotuner，赢面不大。真正无法被复制的是 MPMD + 分布式 + IRProperty 验证体系——<strong>这三样 TileLang 在架构上根本没有位置放</strong>。
+      </div>
+    </div>
+    <div class="call">
+      <div class="cn"></div>
+      <div class="cb">
+        <b>Autotuner 是当前最高优先级的能力缺口。</b>
+        它是"编译器自动决策"这个赌注的必要保险。没有它，自动化的每一次失手都要用户付出读 IR 的代价；有了它，自动化的失手可以用机器时间兑换。
+      </div>
+    </div>
+    <div class="call">
+      <div class="cn"></div>
+      <div class="cb">
+        <b>45% 的真机 ST 覆盖率与卷积整族缺失，是任何性能叙事的前置条件。</b>
+        在这个数字上去之前，"整栈协同"的故事很难在开发者那里兑现成信任——TileLang-Ascend 的样例列表里有 conv、sort、CE loss、TopK，那是一份可以直接拿来对照的清单。
+      </div>
+    </div>
+  </div>
+
+  <footer class="page">
+    <p>PyPTO 侧全部结论来自 <code>repo/pto</code> 当前 main 分支的一手开发文档（README、00-ecosystem、IR 概述与层次、48 篇 pass 文档、语言指南、运行时 / DFX、ptoas-op-status 矩阵）与 <code>examples/</code>，未采用仓库内已有的洞察或竞品分析材料。TileLang 与 TileLang-Ascend 的版本、后端、社区规模与特性于 2026-09 联网核实；文中 TileLang 代码块为典型形态示意，非逐字引用。op 覆盖数字取自 <code>ptoas-op-status.md</code> 自述统计（快照 2026-06-23）。</p>
+  </footer>
+
+</main>

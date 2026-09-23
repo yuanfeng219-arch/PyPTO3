@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PyPTO GDR 整网内存预算、优化模拟与 Profiling 对账 UX Demo">
+  <title>PyPTO Memory Optimizer</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/training-metrics-chart/pattern.css">
+  <link rel="stylesheet" href="./styles/demo.css?v=20260805-1">
+</head>
+<body>
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" aria-label="PyPTO Memory Optimizer 工作台">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip" aria-hidden="true">
+          <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24">
+            <path d="M4 5h16v14H4zM7 15h2V9H7zm4 0h2V6h-2zm4 0h2v-4h-2z"/>
+          </svg>
+        </div>
+        <div class="pto-ide-frame__workspace"><span class="mo-brand">Memory Optimizer</span></div>
+      </div>
+      <div class="pto-ide-frame__topbar-center">
+        <button class="pto-ide-frame__search mo-command" type="button" id="commandTrigger" aria-label="搜索内存组件">
+          <span>搜索组件、申请入口或需求编号</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="pto-ide-frame__topbar-right">
+        <span class="mo-runtime-state"><i></i>A3 / 910C · CANN 9.0.0</span>
+        <div class="pto-ide-frame__window-actions" aria-label="窗口操作">
+          <button class="pto-ide-frame__window-action" id="resetDemo" type="button" aria-label="重置 Demo" title="重置 Demo">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" aria-label="Activity rail">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="切换场景栏" aria-controls="memory-explorer" aria-expanded="true" aria-pressed="true" title="Explorer">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="ledger" aria-label="打开分配账本" title="Search">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="profiling" aria-label="打开 Profiling 对账" title="Source control">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" id="consoleAction" aria-label="查看模拟日志" title="Terminal">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg>
+        </button>
+      </nav>
+
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="gdr-memory-main" data-split-direction="horizontal" data-sizes="20,55,25" data-pixel-sizes="276" data-min-size="230,560,300" data-storage-key="gdr-memory-optimizer-v1">
+          <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="memory-explorer">
+            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">分析场景</span><span class="pto-ide-frame__pane-meta">Issue #2880</span></header>
+            <div class="pto-ide-frame__pane-body mo-explorer">
+              <section class="mo-explorer-section">
+                <span class="mo-section-label">WORKLOAD</span>
+                <label class="mo-field">Kernel
+                  <select id="kernelSelect"><option value="bwd">gdr_bwd · varlen64</option><option value="fwd">gdr_fwd · T32K_H8</option></select>
+                </label>
+                <label class="mo-field">执行模式
+                  <select id="modeSelect"><option value="eager">Eager</option><option value="aclgraph">ACLGraph</option></select>
+                </label>
+                <label class="mo-field">硬件 Profile
+                  <select id="hardwareSelect"><option value="a3">A3 / 910C</option><option value="a2">A2 / 910B</option><option value="a5">A5 / 950B</option></select>
+                </label>
+              </section>
+
+              <section class="mo-explorer-section">
+                <div class="mo-section-head"><span class="mo-section-label">BASELINE</span><span id="baselineState" class="mo-state-text success">已复现</span></div>
+                <button class="mo-tree-row is-selected" type="button" data-open-tab="overview"><span>◫</span><b>内存总览</b><small id="treePeak">5.02 GB</small></button>
+                <button class="mo-tree-row" type="button" data-open-tab="ledger"><span>≡</span><b>分配账本</b><small>9 项</small></button>
+                <button class="mo-tree-row" type="button" data-open-tab="profiling"><span>⌁</span><b>Profiling 对账</b><small id="treeCoverage">58%</small></button>
+              </section>
+
+              <section class="mo-explorer-section">
+                <div class="mo-section-head"><span class="mo-section-label">ACCEPTANCE</span><span class="mo-state-text warning">3 / 8</span></div>
+                <ul class="mo-check-list">
+                  <li><span class="is-done">✓</span>GDR fwd/bwd PASS</li>
+                  <li><span class="is-done">✓</span>申请入口可采集</li>
+                  <li><span class="is-done">✓</span>Workspace 可拆解</li>
+                  <li><span>○</span>Perf 缓冲门控</li>
+                  <li><span>○</span>Ctrlflow 精确化</li>
+                </ul>
+              </section>
+            </div>
+          </aside>
+
+          <main class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+            <div class="pto-ide-frame__tabstrip">
+              <div class="tab-control" role="tablist" aria-label="分析视图">
+                <button class="tab-control-item is-selected" type="button" role="tab" aria-selected="true" data-tab="overview">Overview</button>
+                <button class="tab-control-item" type="button" role="tab" aria-selected="false" data-tab="ledger">Allocation Ledger</button>
+                <button class="tab-control-item" type="button" role="tab" aria-selected="false" data-tab="profiling">Profiling</button>
+              </div>
+            </div>
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title" id="viewTitle">内存预算与优化模拟</span>
+              <span class="pto-ide-frame__pane-meta" id="viewMeta">gdr_bwd · eager · a3</span>
+              <div class="mo-pane-actions">
+                <button class="btn btn-sm" type="button" id="exportReport">导出预算</button>
+                <button class="btn btn-solid btn-sm" type="button" id="runSimulation">运行预算模拟</button>
+              </div>
+            </header>
+
+            <div class="pto-ide-frame__pane-body mo-main">
+              <section class="mo-view is-active" data-view="overview" aria-labelledby="overviewTitle">
+                <div class="mo-view-heading">
+                  <div><span class="mo-eyebrow">MEMORY BUDGET</span><h1 id="overviewTitle">把固定预留变成可解释的按需分配</h1><p>基于 Issue #2880 实测数据，先消除确定性固定开销，再治理 Workspace 与 metadata 放大项。</p></div>
+                  <span class="mo-confidence"><b>高置信</b> 2 项确定性收益</span>
+                </div>
+
+                <div class="mo-metrics" aria-label="内存关键指标">
+                  <div><span>HBM 基线</span><strong id="metricBaseline">5.02</strong><small>GB · npu-smi</small></div>
+                  <div><span>优化后预估</span><strong id="metricProjected">4.15</strong><small>GB · simulation</small></div>
+                  <div><span>确定性节省</span><strong id="metricSaving">878.3</strong><small>MB · P0</small></div>
+                  <div><span>Torch Workspace</span><strong id="metricWorkspace">519.69</strong><small>MB · launch</small></div>
+                </div>
+
+                <div class="mo-overview-grid">
+                  <section class="panel-shell panel-shell-quiet mo-impact-panel">
+                    <header class="panel-shell-header"><div><h2 class="panel-shell-title">峰值 HBM 变化</h2><span class="panel-shell-meta">按已选优化项累计模拟</span></div><span id="impactDelta" class="mo-state-text success">-17.5%</span></header>
+                    <div class="panel-shell-body"><div id="impactChart" class="pto-tmchart mo-chart" aria-label="峰值 HBM 优化趋势图"></div></div>
+                  </section>
+
+                  <section class="panel-shell panel-shell-quiet mo-plan-panel">
+                    <header class="panel-shell-header"><div><h2 class="panel-shell-title">优化计划</h2><span class="panel-shell-meta">点击项目查看证据</span></div><span id="enabledCount" class="mo-state-text">2 / 5</span></header>
+                    <div class="panel-shell-body mo-rec-list" id="recommendationList"></div>
+                  </section>
+                </div>
+
+                <section class="panel-shell panel-shell-quiet mo-lifecycle-panel">
+                  <header class="panel-shell-header"><div><h2 class="panel-shell-title">生命周期内存构成</h2><span class="panel-shell-meta">Process / Operator / Launch</span></div><div class="mo-legend"><span><i class="process"></i>进程级</span><span><i class="operator"></i>算子级</span><span><i class="launch"></i>Launch</span></div></header>
+                  <div class="panel-shell-body" id="lifecycleBars"></div>
+                </section>
+              </section>
+
+              <section class="mo-view" data-view="ledger" aria-labelledby="ledgerTitle" hidden>
+                <div class="mo-view-heading compact"><div><span class="mo-eyebrow">UNIFIED LEDGER</span><h1 id="ledgerTitle">统一分配账本</h1><p>用同一套字段对齐 Host 预算、Runtime 请求、Torch 保留与 Device 实际值。</p></div><div class="mo-ledger-tools"><input id="ledgerSearch" type="search" placeholder="筛选 component / source"><select id="lifecycleFilter"><option value="all">全部生命周期</option><option value="process">Process</option><option value="operator">Operator</option><option value="launch">Launch</option></select></div></div>
+                <div class="mo-table-wrap">
+                  <table class="mo-table">
+                    <thead><tr><th>Component</th><th>Lifecycle</th><th>Source</th><th>Estimated</th><th>Requested</th><th>Delta</th><th>状态</th></tr></thead>
+                    <tbody id="ledgerBody"></tbody>
+                  </table>
+                </div>
+                <div class="mo-ledger-summary"><span>同口径未归因</span><strong>0 MB</strong><span>口径疑点</span><strong class="warning">约 100 MB</strong><p>Issue 汇总“约 885 MB”与列项总和约 785.25 MB 不一致，保留为待核实项。</p></div>
+              </section>
+
+              <section class="mo-view" data-view="profiling" aria-labelledby="profilingTitle" hidden>
+                <div class="mo-view-heading compact"><div><span class="mo-eyebrow">PROFILING CONTRACT</span><h1 id="profilingTitle">从 atten::empty 到 PyPTO 可归因内存</h1><p>统一覆盖 Runtime 直接申请、Torch Workspace、I/O、metadata 与进程级共享项。</p></div><div class="segmented-control segmented-control-muted" role="group" aria-label="Profiling 视图"><button class="btn btn-sm is-selected" type="button" data-profile-mode="current">当前</button><button class="btn btn-sm" type="button" data-profile-mode="adapted">适配后</button></div></div>
+                <div class="mo-profile-grid">
+                  <section class="panel-shell panel-shell-quiet">
+                    <header class="panel-shell-header"><div><h2 class="panel-shell-title">字段覆盖率</h2><span class="panel-shell-meta">ASCEND_PROFILER_OUTPUT</span></div><strong id="profileCoverage">58%</strong></header>
+                    <div class="panel-shell-body"><div class="mo-coverage-track"><span id="coverageBar"></span></div><div class="mo-coverage-list" id="coverageList"></div></div>
+                  </section>
+                  <section class="panel-shell panel-shell-quiet">
+                    <header class="panel-shell-header"><div><h2 class="panel-shell-title">归因预览</h2><span class="panel-shell-meta">operator_memory</span></div><span id="profileState" class="mo-state-text warning">缺少标识</span></header>
+                    <div class="panel-shell-body"><pre class="mo-code" id="profilePreview"></pre></div>
+                  </section>
+                </div>
+                <section class="panel-shell panel-shell-quiet mo-contract-panel">
+                  <header class="panel-shell-header"><div><h2 class="panel-shell-title">目标字段契约</h2><span class="panel-shell-meta">MEM-007</span></div></header>
+                  <div class="panel-shell-body mo-field-contract"><code>allocation_source</code><code>lifecycle</code><code>component</code><code>operator_id</code><code>bytes_estimated</code><code>bytes_requested</code><code>bytes_reserved</code><code>fallback_reason</code></div>
+                </section>
+              </section>
+            </div>
+          </main>
+
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">证据检查器</span><span class="pto-ide-frame__pane-meta" id="inspectorId">MEM-001</span></header>
+            <div class="pto-ide-frame__pane-body mo-inspector" id="inspector"></div>
+          </aside>
+        </div>
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" aria-live="polite"><span><i class="mo-status-dot"></i> PYPTO_MEM_LOG 已加载</span><span id="statusText">GDR bwd 基线已就绪</span><span>Issue #2880 · PRD V1.0</span></footer>
+      </div>
+    </div>
+  </section>
+
+  <div class="mo-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/training-metrics-chart/pattern.js"></script>
+  <script src="./js/demo.js?v=20260805-1"></script>
+</body>
+</html>

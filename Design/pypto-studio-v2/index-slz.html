@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PyPTO Studio V2 · Decode Layer 调试调优回放</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="./styles/demo.css">
+</head>
+<body class="pto-ide-frame-preview-page pypto-demo-page">
+  <script type="application/json" id="demo-spec">{
+  "scenarios": [
+    {
+      "scenarioId": "correctness",
+      "title": "logits 全零并不是 LM Head 算错——post-RMS 倒数缺 dcci 导致跨任务读到旧值",
+      "capability": "CAP-CORRECT",
+      "category": "全零输出 / 确定性 Wrong Output",
+      "platform": "Qwen3-14B decode_layer · Ascend 950B onboard，device_count=2",
+      "status": "已解决（PR #1245 · Trusted Baseline 4d9a1c6）",
+      "lead": "Host 最终读到正确值，不代表设备消费者在执行时看到正确值；跨任务 raw scalar store 必须显式 flush。",
+      "symptom": [
+        "Toolkit 签发的基线 7c31e2a onboard 3/3 PASS",
+        "融合 MLP 调度改动后 current onboard 3/3 FAIL",
+        "simulator PASS",
+        "无 507018、timeout、deadlock 或 stall",
+        "最终 logits 几乎全零"
+      ],
+      "firstAnomaly": "post_rms_reduce → silu（silu 输出全零）；down_proj 与 rms_lm_head 只是传播零值",
+      "rootCause": "post_rms_reduce 用 AICore scalar raw GM store 写 post_inv_rms，仅 pipe_barrier(PIPE_ALL) 未把 cache line flush 到 HBM，跨任务消费者 silu 读陈旧 post_inv_rms=0，deferred RMS scale 把整段乘成 0，需 dcci(..., CACHELINE_OUT)。",
+      "impactChain": [
+        "post_rms_reduce raw scalar store 写 post_inv_rms 后仅 pipe_barrier，未 flush cache line",
+        "silu 执行时读到陈旧 post_inv_rms=0",
+        "deferred RMS scale 把 gate/up 结果整段乘成 0",
+        "silu 输出全零，down_proj 输入全零",
+        "rms_lm_head 正确传播零值",
+        "logits 全零"
+      ],
+      "fix": "写完 post_inv_rms 后，对相应范围执行 dcci flush（dcci(..., CACHELINE_OUT)）。",
+      "regression": "onboard Ascend 950B 修复后 3/3 PASS；原失败输入通过，Trusted Baseline 重新签发为 4d9a1c6。",
+      "reusableRules": [
+        "最终全零时按 producer→consumer 顺序检查，不要从最后一个 Kernel 反向猜。",
+        "Host 最终状态正确，不证明设备消费者在当时读到正确值。",
+        "simulator 没有真实 cache 行为，PASS 不能排除 onboard 可见性问题。",
+        "raw scalar GM store 与 vector TSTORE 的可见性语义不同。",
+        "时序改动暴露问题，不等于时序改动就是根因。",
+        "优先做能区分假设的 host-visible 中间量检查，避免脆弱的内核临时探针。"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "phase": "Define",
+          "view": "ide",
+          "title": "记录症状，不先写根因",
+          "agentId": "lead",
+          "userAction": "在 IDE 里运行 examples/models/qwen3_14b/decode_layer.py，记录 Toolkit 签发的基线 7c31e2a onboard 3/3 PASS、current onboard 3/3 FAIL、simulator PASS、无 507018/timeout/deadlock、最终 logits 几乎全零；只写症状，不写根因。",
+          "agentAction": "lead 把「融合 MLP 调度改动（移除 post-RMS local staging buffer）后 current 全零」登记为确定性的 wrong result（不是 hang），并标注 simulator PASS 提示可能存在硬件 cache/时序差异。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --platform ascend950b",
+          "artifact": "run.log",
+          "evidenceLevel": "E1",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "症状确定为确定性的 wrong result，不是 hang；进入分诊。"
+        },
+        {
+          "id": "s2",
+          "phase": "Preflight",
+          "view": "both",
+          "title": "排除不可比条件：唯一变量=移除 post-RMS staging buffer",
+          "agentId": "triage",
+          "userAction": "在 IDE 核对 baseline 7c31e2a 与 current 的仓库 SHA、命令、环境变量、平台 Ascend 950B 与 device_count=2、batch/seq_len 是否一致，确认唯一代码变量是移除 PTO2LocalReadyBuffer。",
+          "agentAction": "triage 检查环境/版本漂移、平台不匹配、stale install、device busy、输入变化、采集等级变化与并发差异，确认无不可比条件。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --runtime-dir build_output/decode_layer",
+          "artifact": "build_output/decode_layer/（build artifacts）",
+          "evidenceLevel": "E1",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "确认唯一变量为移除 post-RMS staging buffer；时序改动暴露问题不等于它就是根因，进入固定现场。"
+        },
+        {
+          "id": "s3",
+          "phase": "Baseline",
+          "view": "ide",
+          "title": "固定输入与 Golden（golden_decode_layer）",
+          "agentId": "correctness",
+          "userAction": "在 IDE 用固定 seed、输入分布与 Toolkit 的 CPU oracle golden_decode_layer 建立确定性现场，确保 baseline 与 current 使用完全相同的数据。",
+          "agentAction": "correctness 用 save_data=True 保存 build_output/decode_layer/data/{in,out}/*.pt，供后续 --golden-data 复用，避免每次随机数据改变问题。",
+          "toolCall": "run_jit(fn=decode_layer, specs=specs, golden_fn=golden_decode_layer, save_data=True, rtol=1e-3, atol=1e-3)",
+          "artifact": "data/in/*.pt、data/out/*.pt",
+          "evidenceLevel": "E1",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "确定固定输入与 Golden，为逐中间量对拍做准备。"
+        },
+        {
+          "id": "s4",
+          "phase": "Execute",
+          "view": "both",
+          "title": "保存失败现场（save_data + 独立 device log）",
+          "agentId": "correctness",
+          "userAction": "在 IDE 以固定输入重跑 current，确认 3/3 FAIL 可稳定复现，并保存完整 log 而非只复制最后一条错误。",
+          "agentAction": "correctness 开启独立设备日志目录 ASCEND_PROCESS_LOG_PATH，保留 host log + device log；因无 5xxxxx/hang，主要留数值现场（data/in、data/out）与运行日志。",
+          "toolCall": "LOGDIR=\"$PWD/build_output/device_logs\"; mkdir -p \"$LOGDIR\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "artifact": "device-<id>/device-*.log、data/in、data/out、run.log",
+          "evidenceLevel": "E2",
+          "gate": "warn",
+          "confirmCard": null,
+          "conclusion": "失败现场固定且可复现（current 3/3 FAIL），进入定界。"
+        },
+        {
+          "id": "s5",
+          "phase": "Judge",
+          "view": "both",
+          "title": "第一层定界：attention 段验证通过 vs MLP 段全零",
+          "agentId": "triage",
+          "userAction": "在 IDE 看到例子有 attention 与 MLP 两个验证阶段：attn_out 验证通过，最终 logits 全零；不急于把根因归到 rms_lm_head。",
+          "agentAction": "triage 用 deps_viewer 看 producer→consumer 任务图，确认 fa_fused → out_proj → residual_rms_cast → post_rms_reduce → silu → down_proj → rms_lm_head 依赖顺序，明确「最后输出错误」只说明症状在那里被观察到。",
+          "toolCall": "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text -o deps_viewer.txt",
+          "artifact": "deps.json、deps_viewer.txt",
+          "evidenceLevel": "E1",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "把怀疑范围从「rms_lm_head 算错」打开到 post_rms_reduce→silu→down_proj 全链路，按 producer→consumer 顺序查。"
+        },
+        {
+          "id": "s6",
+          "phase": "Judge",
+          "view": "both",
+          "title": "否定假设1：silu 读不到 gate/up 输出",
+          "agentId": "correctness",
+          "userAction": "在 IDE 加临时探针：把 silu 读取的整个 gate_out/up_out 求和并写入 host 可见输出，重跑后查看结果。",
+          "agentAction": "correctness 修改生成的 kernel 加 gate/up 求和探针，经 run.py 重跑；读到 host-visible 求和为非零，证明 gate_proj/up_proj→silu 的 scratch 数据可见，该 edge 不是根因。",
+          "toolCall": "python build_output/decode_layer/debug/run.py",
+          "artifact": "host-visible gate/up 求和输出（非零）",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "否定假设1：gate_proj/up_proj→silu scratch 数据可见，silu 读不到 gate/up 输出不成立。"
+        },
+        {
+          "id": "s7",
+          "phase": "Judge",
+          "view": "both",
+          "title": "否定假设2：silu/down_proj 计算错误 + 定位首个异常",
+          "agentId": "correctness",
+          "userAction": "在 IDE 用 Python 侧逐 producer 检查中间产物：attn_out、residual、mlp_norm_in、gate_out、up_out 均正确，silu 输出全零、logits 全零。",
+          "agentAction": "correctness 用 dump_viewer 按依赖顺序对拍各中间量，确认 attn_out/residual/mlp_norm_in 正确而 silu 输出全零；结论：down_proj 与 rms_lm_head 只是传播已全零的中间量，首个异常发生在 post_rms_reduce→silu。",
+          "toolCall": "python -m simpler_setup.tools.dump_viewer build_output/decode_layer/dfx_outputs/args_dump",
+          "artifact": "args_dump.json",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "否定假设2；定位首个异常 = post_rms_reduce → silu（silu 输出全零，logits 全零），down_proj 只是传播者。"
+        },
+        {
+          "id": "s8",
+          "phase": "Judge",
+          "view": "both",
+          "title": "最小确认实验：silu 忽略 post_inv_rms",
+          "agentId": "correctness",
+          "userAction": "在 IDE 把 silu 改为忽略 post_inv_rms、在核内即时重算 RMS 倒数，单变量重跑。",
+          "agentAction": "correctness 修改生成 kernel 后经 run.py 重跑，测试恢复 PASS；证明 gate_out/up_out 可见且正确，silu 唯一错误输入是它在执行时读到的 post_inv_rms=0。",
+          "toolCall": "python build_output/decode_layer/debug/run.py",
+          "artifact": "单变量实验重跑结果（恢复 PASS）",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "单变量实验确认根因在 post_inv_rms 的跨任务可见性；锁定 dcci 缺失。"
+        },
+        {
+          "id": "s9",
+          "phase": "Recover",
+          "view": "both",
+          "title": "修复：写 post_inv_rms 后执行 dcci flush",
+          "agentId": "correctness",
+          "userAction": "在 IDE 修改 post_rms_reduce kernel：写完 post_inv_rms 后对相应范围执行 dcci flush；形成 Candidate，不覆盖 Baseline。",
+          "agentAction": "correctness 应用 dcci(..., CACHELINE_OUT) flush；说明 pipe_barrier 只保证核内 pipeline 顺序，不会把 cache line 刷到 HBM，跨任务消费者需要显式 flush。",
+          "toolCall": "python build_output/decode_layer/debug/run.py",
+          "artifact": "修复后 kernel 与重跑结果",
+          "evidenceLevel": "E2",
+          "gate": "warn",
+          "confirmCard": "确认修复为 dcci(..., CACHELINE_OUT) flush，且未改变 post_inv_rms 的写入语义；该修复需经 onboard Ascend 950B 全量回归 3/3 PASS 后签发。",
+          "conclusion": "修复形成 Candidate；待 onboard 回归验证。"
+        },
+        {
+          "id": "s10",
+          "phase": "Deliver",
+          "view": "both",
+          "title": "回归 3/3 + 签发 Trusted Baseline 回写 Toolkit",
+          "agentId": "lead",
+          "userAction": "在 IDE 用原 Contract 与固定现场（--golden-data）重跑 onboard Ascend 950B，确认修复后 3/3 PASS；删除临时插桩后再跑一次生产形态。",
+          "agentAction": "lead 汇总 Finding（事实/推断/首个异常/影响链/证据强度 RUN+CODE/责任域/建议动作），签发 Trusted Baseline 4d9a1c6 并回写 Toolkit Studio 的基线记录，归档案例。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "artifact": "onboard Ascend 950B 3/3 PASS 回归结果、Trusted Baseline 4d9a1c6、案例归档",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": "确认将 Candidate 4d9a1c6 签发为 decode_layer 的 Trusted Baseline，并回写 Toolkit Studio 基线记录（替换 7c31e2a）。",
+          "conclusion": "回归通过并签发 Trusted Baseline；案例可复用规则入库。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "name": "baseline 7c31e2a onboard 3/3 PASS",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "Toolkit 签发的 decode_layer 基线，移除 post-RMS staging buffer 前通过，作为对照基线。"
+        },
+        {
+          "id": "e2",
+          "name": "current onboard 3/3 FAIL",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "移除 post-RMS staging buffer 后确定性 wrong result，无 507018/timeout/deadlock。"
+        },
+        {
+          "id": "e3",
+          "name": "simulator PASS",
+          "level": "E1",
+          "layer": "runtime",
+          "note": "simulator 没有真实 cache 行为，PASS 不能排除 onboard 可见性问题。"
+        },
+        {
+          "id": "e4",
+          "name": "gate/up 求和 host-visible 非零",
+          "level": "E2",
+          "layer": "kernel",
+          "note": "临时探针求和 gate_out/up_out 写入 host 可见输出且非零，证明 gate_proj/up_proj→silu scratch 数据可见，否定假设1。"
+        },
+        {
+          "id": "e5",
+          "name": "attn_out 正确/residual 正确/mlp_norm_in 正确",
+          "level": "E2",
+          "layer": "kernel",
+          "note": "逐 producer 检查：attention 段与 residual_rms_cast 输出均正确，post_inv_rms host 最终读取正确。"
+        },
+        {
+          "id": "e6",
+          "name": "silu 输出全零",
+          "level": "E2",
+          "layer": "kernel",
+          "note": "silu 的 deferred RMS scale 把整段乘成 0，为首个异常发生点。"
+        },
+        {
+          "id": "e7",
+          "name": "最小确认实验恢复 PASS",
+          "level": "E3",
+          "layer": "kernel",
+          "note": "silu 忽略 post_inv_rms、核内即时重算 RMS 倒数后测试恢复 PASS。"
+        },
+        {
+          "id": "e8",
+          "name": "根因：缺失 dcci（CODE）",
+          "level": "E3",
+          "layer": "kernel",
+          "note": "post_rms_reduce 用 AICore scalar raw GM store 写 post_inv_rms，仅 pipe_barrier(PIPE_ALL)，未把 cache line flush 到 HBM。"
+        }
+      ],
+      "tools": [
+        {
+          "name": "run_jit save_data",
+          "command": "run_jit(fn=decode_layer, specs=specs, golden_fn=golden_decode_layer, save_data=True, rtol=1e-3, atol=1e-3)",
+          "artifact": "data/in/*.pt、data/out/*.pt"
+        },
+        {
+          "name": "golden-data 复用",
+          "command": "python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "artifact": "确定性重放（固定输入/Golden）"
+        },
+        {
+          "name": "设备日志",
+          "command": "LOGDIR=\"$PWD/build_output/device_logs\"; mkdir -p \"$LOGDIR\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "device-<id>/device-*.log"
+        },
+        {
+          "name": "deps_viewer",
+          "command": "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text -o deps_viewer.txt",
+          "artifact": "deps.json、deps_viewer.txt"
+        },
+        {
+          "name": "dump_viewer",
+          "command": "python -m simpler_setup.tools.dump_viewer build_output/decode_layer/dfx_outputs/args_dump",
+          "artifact": "args_dump.json"
+        },
+        {
+          "name": "runtime replay",
+          "command": "python build_output/decode_layer/debug/run.py",
+          "artifact": "修改生成的 .cpp/.pto 后重跑（探针/最小实验/修复验证）"
+        }
+      ]
+    },
+    {
+      "scenarioId": "perf",
+      "title": "Qwen3-14B Decode Layer 为什么占用设备 406 秒",
+      "capability": "CAP-PERF",
+      "category": "性能异常 / Host 线程过订阅",
+      "platform": "decode_layer · Ascend 950B · 320-core Host + NPU",
+      "status": "已解决（接手 Toolkit「Decode Attention 延迟回归」未完成线）",
+      "lead": "最大对象不是必然瓶颈，必须先分解 wall time。",
+      "symptom": [
+        "decode_layer CI scene test 的设备占用约 406 秒",
+        "case 有 38 GiB fixture、40 fused layers、36 个 Kernel 和大型 vendor tree，整体约 5 分钟",
+        "直觉会先怀疑最大的数据、最多的 Kernel 或设备执行",
+        "设备被锁住的大部分时间实际在做 Host Golden（CPU oracle golden_decode_layer），而不是 NPU 计算"
+      ],
+      "firstAnomaly": "阶段：40 层 Host golden_decode_layer（359s）——设备被锁时间的主导阶段，而非设备计算",
+      "rootCause": "Golden 每层执行 3584 个小 slice，Torch 按 320 核 Host 把 intra-op pool 开到 320 线程，每个小操作付出大量 fork/join 与调度成本。",
+      "impactChain": [
+        "320 核 Host 使 Torch 把 intra-op pool 开到 320 线程",
+        "Golden 每层执行 3584 个小 slice",
+        "每个小操作付出大量 fork/join 与调度成本（320 线程每层 6.35s）",
+        "40 层 golden_decode_layer 累计 359s",
+        "设备被锁期间大部分时间在做 Host Golden（CPU oracle golden_decode_layer）",
+        "case 整体 wall time 膨胀到约 406s 级设备占用"
+      ],
+      "fix": "将 Golden 限制为 8 线程，Golden 降至约 38–43 秒，case 降至约 115 秒。",
+      "regression": "Golden 约 38–43s、case 约 115s；torch.equal 验证关键输出 bit-identical。",
+      "reusableRules": [
+        "性能分析先区分 Queue、Host、Device，再讨论 Kernel。",
+        "设备锁占用不等于设备计算时间。",
+        "大 fixture、大模型和多 Kernel 都只是候选假设。",
+        "优先选择不改变参考语义、能同时修复同类 case 的最小方案。",
+        "调整线程数也可能改变浮点归约顺序，必须验证结果不变。",
+        "记录「未采用方案及原因」可以避免团队反复重做同一实验。"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "phase": "Define",
+          "view": "both",
+          "title": "定义 Performance Contract",
+          "agentId": "lead",
+          "userAction": "在 IDE 确认 workload 为 decode_layer CI scene test，平台 a2a3、320 核 Host + NPU，指标为 device effective 与 case wall time，目标是把 406s 级设备占用归因并降下来。",
+          "agentAction": "lead 智能体起草 Performance Contract：固定 workload/平台/拓扑/指标/目标/warmup/rounds/统计口径与资源边界，标注 TTFT、device effective、task duration 与 simulator cycles 不可混用。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py -p ascend950b -d 0",
+          "artifact": "performance-contract.md",
+          "evidenceLevel": "E0",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "Contract 确立，性能问题以「分解 wall time」为主线，先不分入单 Kernel 微调。"
+        },
+        {
+          "id": "s2",
+          "phase": "Preflight",
+          "view": "ide",
+          "title": "固定输入与排除不可比条件",
+          "agentId": "perf",
+          "userAction": "在 IDE 固定输入、代码版本与环境：复用 Golden data 固定输入，核对平台 a2a3、warmup 与 rounds 一致。",
+          "agentAction": "perf 智能体校验环境/版本漂移、平台不匹配、stale install、device busy 与并发差异，确认无可比性干扰。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "artifact": "data/in/*.pt、data/out/*.pt",
+          "evidenceLevel": "E1",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "现场固定，具备可重复测量条件。"
+        },
+        {
+          "id": "s3",
+          "phase": "Baseline",
+          "view": "both",
+          "title": "PYPTO_BENCH 复测 + 原始样本",
+          "agentId": "perf",
+          "userAction": "在 IDE 运行基准命令，观察 [RUN] effective_us 输出行。",
+          "agentAction": "perf 智能体开启 PYPTO_BENCH 设备计时循环，保留 raw samples，检查方差、冷启动、队列等待与设备锁时间。",
+          "toolCall": "PYPTO_BENCH=1 PYPTO_BENCH_ROUNDS=100 PYPTO_BENCH_WARMUP=5 PYPTO_BENCH_RAW=1 python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "[RUN] effective_us 原始样本",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "Baseline 可复现，得到 device-domain effective 与原始样本。"
+        },
+        {
+          "id": "s4",
+          "phase": "Execute",
+          "view": "agent",
+          "title": "采集 Actions step / npu-lock / 阶段计时",
+          "agentId": "perf",
+          "userAction": "（IDE 无操作）等待 Agent 完成采集。",
+          "agentAction": "perf 智能体采集 Actions step 时间、npu-lock 日志与各阶段计时，把 host 阶段和 device 阶段分开。",
+          "toolCall": "python -m simpler_setup.tools.strace_timing <run.log> --rounds-table",
+          "artifact": "strace_timing rounds-table + npu-lock 日志",
+          "evidenceLevel": "E2",
+          "gate": "null",
+          "confirmCard": null,
+          "conclusion": "获得 CI Job 与 case 各阶段 wall time 明细，供分解。"
+        },
+        {
+          "id": "s5",
+          "phase": "Judge",
+          "view": "agent",
+          "title": "分解 CI Job（Queue/Host/Device）",
+          "agentId": "triage",
+          "userAction": "（IDE 无操作）观察 triage 给出的分解结论。",
+          "agentAction": "triage 智能体利用 Actions step 时间与 npu-lock 日志区分等待设备锁/实际持有设备/checkout·venv·install：一个 2297s Job 中约 52% 是等待设备锁；但 Qwen case 自己请求设备时没有等待。",
+          "toolCall": "LOGDIR=\"$PWD/build_output/device_logs\"; mkdir -p \"$LOGDIR\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "device-<id>/device-*.log + host log",
+          "evidenceLevel": "E2",
+          "gate": "warn",
+          "confirmCard": null,
+          "conclusion": "「整个 Job 的主要问题」与「单个 case 的主要问题」不能混淆：本 case 的问题在 Host，不在队列。"
+        },
+        {
+          "id": "s6",
+          "phase": "Judge",
+          "view": "agent",
+          "title": "case 阶段分解：定位 Host Golden（CPU oracle golden_decode_layer）",
+          "agentId": "perf",
+          "userAction": "（IDE 无操作）等待阶段分解表。",
+          "agentAction": "perf 智能体按阶段分解：37 个编译单元 59s（否）、38GiB fixture 13s（否）、40 层 golden_decode_layer 359s（否·占主导）、upload/device run 毫秒级（是·但很短）。",
+          "toolCall": "python -m simpler_setup.tools.strace_timing <run.log> --rounds-table",
+          "artifact": "case 阶段计时表",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "设备被锁住的大部分时间实际在做 Host Golden（CPU oracle golden_decode_layer）（359s），不是 NPU 计算。"
+        },
+        {
+          "id": "s7",
+          "phase": "Judge",
+          "view": "agent",
+          "title": "否定四个候选假设",
+          "agentId": "perf",
+          "userAction": "（IDE 无操作）等待否定证据。",
+          "agentAction": "perf 智能体逐条测量否定：38GiB fixture 主导（generate_inputs 仅 13s）、Kernel 编译主导（59s 是真实成本但非多数）、Worker 启动主导（固定成本不能解释 406s）、320 线程只是本机异常（分阶段总和与 CI wall 在约 6% 内闭合）。",
+          "toolCall": "ir.compile(program, profiling=True)",
+          "artifact": "report/pipeline_profile.txt",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "四个直觉假设被测量否定，瓶颈指向 Host Golden（CPU oracle golden_decode_layer） 的小 slice 执行。"
+        },
+        {
+          "id": "s8",
+          "phase": "Judge",
+          "view": "both",
+          "title": "thread curve 单变量定位根因",
+          "agentId": "perf",
+          "userAction": "在 IDE 查看 thread curve 表：320→6.35s、64→1.31s、16→1.13s、8→1.07s、4→1.05s、2→1.59s、1→1.82s，看到 4–16 线程平坦区。",
+          "agentAction": "perf 智能体一次只改线程数这一个维度，重测每层耗时，确认 Golden 每层 3584 小 slice 在 320 线程池下付出大量 fork/join 与调度成本。",
+          "toolCall": "PYPTO_BENCH=1 PYPTO_BENCH_RAW=1 python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "thread curve 原始样本表",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "根因成立：320 线程 intra-op pool 过订阅，4–16 线程为平坦区。"
+        },
+        {
+          "id": "s9",
+          "phase": "Recover",
+          "view": "both",
+          "title": "Golden 限 8 线程（人工确认）",
+          "agentId": "perf",
+          "userAction": "在 IDE 应用修复，并把确认卡提交给人工复核。",
+          "agentAction": "perf 智能体将 Golden 限制为 8 线程，Golden 降至约 38–43s，case 降至约 115s，并准备 torch.equal bit-identical 验证。",
+          "toolCall": "PYPTO_BENCH=1 PYPTO_BENCH_ROUNDS=100 PYPTO_BENCH_WARMUP=5 python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "effective_us（8 线程上限）",
+          "evidenceLevel": "E3",
+          "gate": "warn",
+          "confirmCard": "确认 Golden 限 8 线程不改变参考语义：torch.equal 验证关键输出 bit-identical，且 case 约 115s、Golden 约 38–43s 可接受。",
+          "conclusion": "修复生效，等待人工确认正确性后再交付。"
+        },
+        {
+          "id": "s10",
+          "phase": "Deliver",
+          "view": "both",
+          "title": "bit-identical 回归 + 发布 Recipe",
+          "agentId": "lead",
+          "userAction": "在 IDE 复核 bit-identical 回归结果与未采用方案记录。",
+          "agentAction": "lead 智能体用固定现场重跑正确性门禁（torch.equal bit-identical），发布 Recipe，并记录未采用方案：Golden cache（cache key 需纳入 reference 实现）、vectorize（降低参考实现可读性）、拆 nightly（丢失 PR owner 且把唯一 40 层组合检查延迟一天）、skip_golden（失去正确性覆盖）。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "artifact": "recipe.md（含未采用方案与否定证据）",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "回归通过，Recipe 交付，案例闭合。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "name": "Actions step 时间 + npu-lock 日志",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "区分等待设备锁/实际持有设备/checkout·venv·install；2297s Job 约 52% 等待设备锁，但 case 自己未等待。"
+        },
+        {
+          "id": "e2",
+          "name": "case 阶段计时表",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "37 编译单元 59s、38GiB fixture 13s、40 层 golden_decode_layer 359s、device wall 毫秒级。"
+        },
+        {
+          "id": "e3",
+          "name": "thread curve 实测",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "320→6.35s、64→1.31s、16→1.13s、8→1.07s、4→1.05s、2→1.59s、1→1.82s；4–16 平坦区。"
+        },
+        {
+          "id": "e4",
+          "name": "generate_inputs 计时",
+          "level": "E2",
+          "layer": "memory",
+          "note": "38GiB fixture 仅 13s，大量数据是复制，否定 fixture 主导。"
+        },
+        {
+          "id": "e5",
+          "name": "pipeline_profile 编译计时",
+          "level": "E2",
+          "layer": "codegen",
+          "note": "编译 59s 是真实成本但非多数，否定 Kernel 编译主导。"
+        },
+        {
+          "id": "e6",
+          "name": "torch.equal 验证",
+          "level": "E3",
+          "layer": "kernel",
+          "note": "Golden 限 8 线程后关键输出 bit-identical，正确性门禁通过。"
+        }
+      ],
+      "tools": [
+        {
+          "name": "PYPTO_BENCH 基准",
+          "command": "PYPTO_BENCH=1 PYPTO_BENCH_ROUNDS=100 PYPTO_BENCH_WARMUP=5 PYPTO_BENCH_RAW=1 python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "[RUN] effective_us 原始样本"
+        },
+        {
+          "name": "strace_timing 时序分析",
+          "command": "python -m simpler_setup.tools.strace_timing <run.log> --rounds-table",
+          "artifact": "rounds-table"
+        },
+        {
+          "name": "Compile Profiling",
+          "command": "ir.compile(program, profiling=True)",
+          "artifact": "report/pipeline_profile.txt"
+        },
+        {
+          "name": "Golden 复用",
+          "command": "python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "artifact": "data/in/*.pt、data/out/*.pt"
+        },
+        {
+          "name": "设备日志采集",
+          "command": "LOGDIR=\"$PWD/build_output/device_logs\"; mkdir -p \"$LOGDIR\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "device-<id>/device-*.log"
+        }
+      ]
+    },
+    {
+      "scenarioId": "runtime",
+      "title": "fa_fused 一次 AICore op-timeout 如何污染复用 Worker",
+      "capability": "CAP-RUNTIME",
+      "category": "Hang / 5xxxxx / 设备错误（Worker 污染）",
+      "platform": "decode_layer paged attention · Ascend 950B（后续也完成 a2a3 硬件验证）",
+      "status": "已建立 fail-fast、force-reset recovery 和 fallback",
+      "lead": "复用 Worker/连接池时，失败恢复是产品主流程：先标记 device_unusable_ 并重建 Worker，别让一次真实失败放大成错误风暴。",
+      "symptom": [
+        "一个测试先触发 AICore timeout/launch failure",
+        "之后同一 xdist worker 上多个测试连续出现 rtMalloc 507899、halResMap 等看似不同错误",
+        "另一张卡上的 worker 正常",
+        "真正的问题是：前一次失败是否改变了共享执行上下文"
+      ],
+      "firstAnomaly": "任务（task）层：HANG task 触发 op-timeout",
+      "rootCause": "被污染的持久化 device/driver context（sticky-error 状态）被 Worker pool 复用同一 ChipWorker。",
+      "impactChain": [
+        "HANG task 触发 op-timeout",
+        "device/driver context 进入 sticky-error 状态",
+        "Worker pool 继续复用同一 ChipWorker",
+        "后续 NOOP 在 register mapping / malloc 等更早阶段失败",
+        "一个真实失败放大成整组错误风暴"
+      ],
+      "fix": "driver fail-fast（标记 device_unusable_）+ Worker 重建（fixture 关闭丢弃 pooled Worker，Golden mismatch 不触发）+ force reset recovery（aclrtResetDeviceForce）+ fallback（skip/新进程重跑）。",
+      "regression": "修复后在原现场重跑：不可恢复时后续 run() 立即给出可操作错误，不再在 halResMap/rtMalloc 制造二次症状；force reset 后新 Worker init 继续执行；未触发时 skip/新进程重跑保留覆盖率。",
+      "reusableRules": [
+        "5xxxxx 是表面错误码，先恢复 device-side mechanism 和共享上下文",
+        "复用 Worker、连接池、缓存时，失败恢复是产品主流程，不是边缘异常",
+        "必须区分 trigger failure、cascade victims 和 recovery result",
+        "“跳过后续测试”只是在控制污染，不等于验证成功",
+        "破坏性恢复操作必须绑定独占资源所有权",
+        "完成态应显示“原失败仍存在，但后续环境已恢复”，不能整体标绿"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "phase": "Define",
+          "view": "both",
+          "title": "记录症状，不先写根因",
+          "agentId": "lead",
+          "userAction": "在 IDE 中记录症状：一个测试先触发 AICore timeout/launch failure，之后同一 xdist worker 上多个测试连续出现 rtMalloc 507899、halResMap 等看似不同错误，另一张卡正常。",
+          "agentAction": "lead 智能体把 507899 记为症状而非“死锁”，建立任务目标与验收门（找到首个异常或明确证据缺口），并确认证据来源为 RUN + CODE。",
+          "toolCall": "",
+          "artifact": "",
+          "evidenceLevel": "E0",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "任务建立；问题定义为“前一次失败是否改变了共享执行上下文”，而非“每个后续测试为何单独失败”。"
+        },
+        {
+          "id": "s2",
+          "phase": "Preflight",
+          "view": "both",
+          "title": "环境预检与设备日志隔离",
+          "agentId": "triage",
+          "userAction": "在 IDE 查看环境指纹与平台（最初 a5，后续 a2a3），确认非平台不匹配、device busy 等不可比条件。",
+          "agentAction": "triage 智能体排除环境/版本漂移、平台不匹配、stale install、device busy、输入变化、采集等级变化和并发差异；设备错误使用独立日志目录。",
+          "toolCall": "LOGDIR=\"$PWD/build_output/device_logs\"; mkdir -p \"$LOGDIR\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "device-<id>/device-*.log",
+          "evidenceLevel": "E1",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "环境可用、不可比条件已排除；设备日志重定向到本次 run 的独立目录。"
+        },
+        {
+          "id": "s3",
+          "phase": "Baseline",
+          "view": "both",
+          "title": "建立 Failed Run 复现错误风暴",
+          "agentId": "runtime",
+          "userAction": "在 IDE 固定输入与现场，重复运行复现：HANG 触发 op-timeout 后同 worker 多个测试连续报 507899。",
+          "agentAction": "runtime 智能体保存所有相关 SHA、命令、环境变量和拓扑，重定向设备日志并复现，确认频率与边界。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --runtime-dir build_output/decode_layer",
+          "artifact": "build_output/decode_layer/ run artifacts + device-<id>/device-*.log",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "Failed Run 建立，同 worker 复用稳定复现错误风暴；另一张卡 worker 正常，排除全局硬件故障。"
+        },
+        {
+          "id": "s4",
+          "phase": "Execute",
+          "view": "both",
+          "title": "实验1：timeout 独立进程 → 下一个测试",
+          "agentId": "runtime",
+          "userAction": "在 IDE 触发实验1，观察进程退出能否清理污染。",
+          "agentAction": "runtime 智能体在独立进程触发 timeout 后运行下一个测试，记录 cascade 结果。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --runtime-dir build_output/decode_layer",
+          "artifact": "run log（实验1）",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "结果 0/10 cascade：独立进程退出可清理，问题不在进程退出路径，而在进程内复用。"
+        },
+        {
+          "id": "s5",
+          "phase": "Execute",
+          "view": "both",
+          "title": "实验2：fa_fused paged attention 单独运行",
+          "agentId": "triage",
+          "userAction": "在 IDE 单独运行 fa_fused paged attention case。",
+          "agentAction": "triage 智能体排除 case 自身不稳定，单独跑 fa_fused paged attention 验证。",
+          "toolCall": "pytest tests/models/qwen3_14b/test_decode_layer.py --platform ascend950b",
+          "artifact": "run log（实验2）",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "结果 0/10 failure：case 自身稳定，排除 case 顺序/自身不稳定因素。"
+        },
+        {
+          "id": "s6",
+          "phase": "Execute",
+          "view": "both",
+          "title": "实验3：同一 Worker 内 HANG → NOOP",
+          "agentId": "runtime",
+          "userAction": "在 IDE 复现共享 Worker 污染：同 worker 内先 HANG 再 NOOP。",
+          "agentAction": "runtime 智能体在同一 Worker 内先注入 HANG task 再跑 NOOP，稳定复现共享上下文污染。",
+          "toolCall": "pytest tests/models/qwen3_14b/test_decode_layer.py --platform ascend950b",
+          "artifact": "run log（实验3）",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "结果 10/10 failure：只有同进程、同 Worker 复用稳定复现，证明问题与持久化 device context 有关。"
+        },
+        {
+          "id": "s7",
+          "phase": "Judge",
+          "view": "both",
+          "title": "定位首个异常与影响链",
+          "agentId": "triage",
+          "userAction": "在 IDE 查看 First Anomaly Card 与影响链，确认首个异常不是最终错误码。",
+          "agentAction": "triage 智能体关联 host/device 证据，还原 507899 为具体 device-side mechanism，定位首个异常 task。",
+          "toolCall": "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text -o deps_viewer.txt",
+          "artifact": "deps_viewer.txt",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "首个异常 = HANG task op-timeout；影响链定位到被污染的持久化 device context，排除依赖缺失假设。"
+        },
+        {
+          "id": "s8",
+          "phase": "Recover",
+          "view": "both",
+          "title": "修正 reset 判断并验证 force reset 恢复",
+          "agentId": "runtime",
+          "userAction": "在 IDE 审阅破坏性 reset 的确认卡：只影响目标物理卡、破坏性、需独占 task-submit 锁。",
+          "agentAction": "runtime 智能体修正“reset 无效”判断：普通 rtDeviceReset 后同进程重建仍失败；实测 aclrtResetDeviceForce 可在同进程、同一物理卡恢复。",
+          "toolCall": "# 同进程 finalize：持有独占 task-submit 锁\naclrtResetDeviceForce(device)",
+          "artifact": "恢复事件记录（影响设备、清理范围、独占锁）",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": "将对目标物理卡执行破坏性 force reset（aclrtResetDeviceForce）：仅影响该卡、破坏性且不可逆，必须持有独占 task-submit 锁。是否继续？",
+          "conclusion": "“reset 无效”不能泛化：soft reset 结果不能推广到 force reset；force reset 可在同进程同卡恢复。"
+        },
+        {
+          "id": "s9",
+          "phase": "Recover",
+          "view": "both",
+          "title": "driver fail-fast 与 Worker 重建落地",
+          "agentId": "runtime",
+          "userAction": "在 IDE 查看 Recovery Panel：原 Run 只读封存，恢复动作创建独立事件并记录影响设备与清理范围。",
+          "agentAction": "runtime 智能体落地 driver fail-fast（标记 device_unusable_）与 pytest fixture（设备 RuntimeError 后关闭并丢弃 pooled Worker；Golden mismatch 不触发该恢复）。",
+          "toolCall": "pytest tests/models/qwen3_14b/test_decode_layer.py --platform ascend950b",
+          "artifact": "回归 run log",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "后续 run() 立即给出可操作错误，不再在 halResMap/rtMalloc 制造二次症状；数值问题不误判为设备污染。"
+        },
+        {
+          "id": "s10",
+          "phase": "Deliver",
+          "view": "both",
+          "title": "fallback 与可复用规则沉淀",
+          "agentId": "lead",
+          "userAction": "在 IDE 生成诊断报告与证据包，确认完成态显示“原失败仍存在，但后续环境已恢复”，不整体标绿。",
+          "agentAction": "lead 智能体汇总 Gate、命令、版本和 Artifact，沉淀可复用规则并交付，配置 fallback（force reset 未触发或失败时 skip/新进程重跑）。",
+          "toolCall": "",
+          "artifact": "诊断报告 / 证据包",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "fallback 保留覆盖率信息，防止错误风暴；交付成果可重放、可验收，原失败不被改绿。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "name": "host log error detail",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "看 host log 的 error detail / orch_error_code / sched_error_code / sub_class，把 507899 还原为具体 device-side mechanism"
+        },
+        {
+          "id": "e2",
+          "name": "device-<id>/device-*.log",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "独立日志目录中的真实 device log，找最后 dispatch 的 task 与卡住的 core"
+        },
+        {
+          "id": "e3",
+          "name": "三组最小实验记录",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "timeout 独立进程 0/10 cascade；fa_fused paged attention 单独 0/10 failure；同 Worker 内 HANG→NOOP 10/10 failure"
+        },
+        {
+          "id": "e4",
+          "name": "sticky-error 传播链",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "HANG op-timeout → sticky-error device context → ChipWorker 复用 → register mapping / malloc 更早阶段失败"
+        },
+        {
+          "id": "e5",
+          "name": "force reset 实测",
+          "level": "E2",
+          "layer": "runtime",
+          "note": "aclrtResetDeviceForce 可在同进程同物理卡恢复；仅影响目标卡、破坏性、需独占 task-submit 锁"
+        },
+        {
+          "id": "e6",
+          "name": "分层修复代码",
+          "level": "E3",
+          "layer": "runtime",
+          "note": "driver fail-fast（device_unusable_）+ fixture Worker 重建 + force reset recovery + fallback"
+        }
+      ],
+      "tools": [
+        {
+          "name": "设备日志重定向",
+          "command": "LOGDIR=\"$PWD/build_output/device_logs\"; mkdir -p \"$LOGDIR\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "device-<id>/device-*.log"
+        },
+        {
+          "name": "Golden 复现复用",
+          "command": "python examples/models/qwen3_14b/decode_layer.py --runtime-dir build_output/decode_layer",
+          "artifact": "build_output/decode_layer/ run artifacts"
+        },
+        {
+          "name": "Runtime replay",
+          "command": "python -m pypto.runtime.debug.replay build_output/decode_layer/ --pmu 2 --swimlane --log-level debug",
+          "artifact": "dfx_outputs/pmu.csv / swimlane records"
+        },
+        {
+          "name": "L2 Swimlane 采集",
+          "command": "pytest tests/models/qwen3_14b/test_decode_layer.py --platform ascend950b --enable-l2-swimlane",
+          "artifact": "l2_swimlane_records.json / deps.json / merged_swimlane_*.json"
+        },
+        {
+          "name": "Dependency Graph",
+          "command": "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text -o deps_viewer.txt",
+          "artifact": "deps.json / deps_viewer.txt"
+        },
+        {
+          "name": "Scope Stats",
+          "command": "python -m simpler_setup.tools.scope_stats_plot build_output/decode_layer/dfx_outputs/scope_stats/scope_stats.jsonl",
+          "artifact": "scope_stats.jsonl / scope_stats.html"
+        },
+        {
+          "name": "Benchmark",
+          "command": "PYPTO_BENCH=1 PYPTO_BENCH_ROUNDS=100 PYPTO_BENCH_WARMUP=5 python examples/models/qwen3_14b/decode_layer.py ...",
+          "artifact": "benchmark samples"
+        }
+      ]
+    },
+    {
+      "scenarioId": "schedule",
+      "title": "2.3× 差距不在 Attention Core——依赖距离（producer lead）才是可区分变量",
+      "capability": "CAP-SCHEDULE",
+      "category": "性能归因 / 调度依赖距离（已定位未解决）",
+      "platform": "decode_layer · a2a3 / 910B · batch 16 · seq_len 3584 · L2 level 4",
+      "status": "已定位未解决（localized_not_resolved · issue pypto#2040）",
+      "lead": "端到端只差 1% 而单点差 2.3×，说明差距藏在边界；能区分假设的最小实验，比更多的整体 profiling 更值钱。",
+      "symptom": [
+        "同场景下 PyPTO 相对 CCE 慢 2.3×",
+        "配对 L2 端到端却只差约 1%（1004.74 vs 1014.66 μs）",
+        "两侧 Golden 均 PASS",
+        "直觉会先怀疑 GM transport 或核内算力"
+      ],
+      "firstAnomaly": "边界/调度层：producer→consumer 的 sync 迭代距离（same-step 等待）",
+      "rootCause": "隔离场景下已定位到依赖距离：same-step 的 produce→set→wait→consume 在同一迭代内串行等待，而 distance-2 预产 2 个 slot 后可边产边消费；真实 Attention Loop 中是否为唯一主因尚未验证。",
+      "impactChain": [
+        "same-step 在同一迭代内 produce 后立即 wait",
+        "consumer 等待期间 producer 无法继续预产",
+        "每轮多付一次同步等待",
+        "额外 launch 延迟累积 57.78 μs",
+        "隔离 reproducer 27.9 μs vs 18.8 μs"
+      ],
+      "fix": "候选：显式表达 distance-2 依赖（producer lead = 2）。仅隔离验证，未在真实 Attention Loop 回归。",
+      "regression": "pending-run —— 真实 Attention Loop 回归未执行；L0C/FIX overlap 边界未关闭。",
+      "reusableRules": [
+        "端到端差距小不等于没有问题，先看单点与边界。",
+        "旧 profiling 与新 profiling 不可混用，先建立 Performance Contract 再谈责任。",
+        "能区分两个假设的最小实验，价值高于更大规模的整体 profiling。",
+        "隔离 Reproducer 的收益不可直接外推为全层收益。",
+        "「已定位未解决」是合法的交付状态，把未关闭边界写清楚比强行收口更有用。"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "phase": "Define",
+          "view": "ide",
+          "title": "接收现象：把 2.3× 回退变成调查对象",
+          "agentId": "lead",
+          "userAction": "在 IDE 打开 issue pypto#2040：同一 decode 场景下 PyPTO 相对 CCE 慢 2.3×，只有现象与初始诊断，没有本地复现。",
+          "agentAction": "lead 建立调查会话 INV-2040，把当前结论标为 hypothesis，明确「不能直接进入修复」。",
+          "toolCall": "python -m simpler_setup.tools.issue_import hw-native-sys/pypto#2040",
+          "artifact": "issue-02040.md、inv-2040 会话",
+          "evidenceLevel": "E0",
+          "gate": "not-evaluated",
+          "confirmCard": null,
+          "conclusion": "现象登记为调查对象；当前证据强度 hypothesis，2.3× 差距发生在哪一层未知。"
+        },
+        {
+          "id": "s2",
+          "phase": "Preflight",
+          "view": "both",
+          "title": "锁定比较：两批数字不能混用",
+          "agentId": "triage",
+          "userAction": "在 IDE 核对新旧两批 profiling 的平台、输入与采集级别，剔除不可横比的历史数据。",
+          "agentAction": "triage 建立 Performance Contract：平台 a2a3/910B、batch 16、seq_len 3584、seed 1234、采集 L2 level 4；旧数据降级为背景。",
+          "toolCall": "python -m simpler_setup.tools.paired_run --platform a2a3 --batch 16 --seq-len 3584 --seed 1234 --capture l2:4",
+          "artifact": "paired-run-contract.json",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "配对 L2 Run 已锁定：CCE 1004.74 μs vs PyPTO 1014.66 μs，Golden PASS/PASS；端到端只差约 1%。"
+        },
+        {
+          "id": "s3",
+          "phase": "Baseline",
+          "view": "ide",
+          "title": "固定现场：配对 L2 trace 作为对照基线",
+          "agentId": "perf",
+          "userAction": "在 IDE 用同设备、同输入、同采集级别重跑两侧，确认配对数据可重复。",
+          "agentAction": "perf 保存配对 L2 trace 与 Golden 报告，作为后续所有责任判断唯一可引用的对照组。",
+          "toolCall": "python -m simpler_setup.tools.strace_timing run.log --rounds-table",
+          "artifact": "l2-compare.json、golden reports",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "对照基线固定；端到端 1% 的差距说明 2.3× 不在整层，而在某个更小的边界上。"
+        },
+        {
+          "id": "s4",
+          "phase": "Execute",
+          "view": "both",
+          "title": "采集执行段：AIC / AIV / launch 分解",
+          "agentId": "perf",
+          "userAction": "在 IDE 展开配对 trace 的执行段，分别读 Attention Core 的 AIC、AIV 执行时间与额外 launch 开销。",
+          "agentAction": "perf 从 merged L2 trace 读出 AIC exec 266.42 μs、AIV exec 266.48 μs、extra launch 57.78 μs latency。",
+          "toolCall": "python -m simpler_setup.tools.scope_stats_plot build_output/decode_layer/dfx_outputs/scope_stats/scope_stats.jsonl",
+          "artifact": "merged L2 trace、scope_stats.jsonl",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "Attention Core 本身两侧几乎相同（266.42 vs 266.48 μs）；差异集中在边界与调度，不在核内算力。"
+        },
+        {
+          "id": "s5",
+          "phase": "Judge",
+          "view": "both",
+          "title": "责任定界：否定「GM transport 主导」",
+          "agentId": "triage",
+          "userAction": "在 IDE 对照 transport 开销与 launch 开销，检查旧结论「GM transport alone is dominant」是否成立。",
+          "agentAction": "triage 用配对比较否定旧假设：transport 不足以解释差距，责任层收敛到边界/调度；下一步验证 wait 的迭代距离。",
+          "toolCall": "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text -o deps_viewer.txt",
+          "artifact": "hypothesis history、deps_viewer.txt",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "旧假设 rejected：责任层在边界/调度；怀疑 producer→consumer 的 sync 迭代距离。"
+        },
+        {
+          "id": "s6",
+          "phase": "Judge",
+          "view": "both",
+          "title": "最小 Reproducer：same-step vs distance-2",
+          "agentId": "perf",
+          "userAction": "在 IDE 打开 issue reproducer：同一 workspace、同一组 sync 事件，唯一变量是 producer lead（依赖距离）。",
+          "agentAction": "perf 构造两条路径 —— same_step（produce→set→wait→consume 同一迭代）与 distance2（先预产 2 个 slot，再边产边消费），其余完全一致。",
+          "toolCall": "python examples/models/qwen3_14b/issue2040_cross_core.py --variant same_step --rounds 100",
+          "artifact": "examples/models/qwen3_14b/issue2040_cross_core.py",
+          "evidenceLevel": "E2",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "区分实验就绪：唯一变量=依赖距离，transport 与 sync 事件均不变。"
+        },
+        {
+          "id": "s7",
+          "phase": "Judge",
+          "view": "both",
+          "title": "区分实验结果：distance-2 快 1.48×",
+          "agentId": "perf",
+          "userAction": "在 IDE 跑满 100 轮两条路径，读 median 与 Golden。",
+          "agentAction": "perf 得到 same-step 27.9 μs、distance-2 18.8 μs，两侧 Golden 均 PASS；相同 workspace 下改变依赖距离即产生稳定差异。",
+          "toolCall": "python examples/models/qwen3_14b/issue2040_cross_core.py --variant distance2 --rounds 100",
+          "artifact": "reproducer-results.json、task_...13208、task_...25070",
+          "evidenceLevel": "E3",
+          "gate": "pass",
+          "confirmCard": null,
+          "conclusion": "Finding 成立：隔离场景下显式 distance-2 依赖比 same-step 快 1.48×（27.9 → 18.8 μs）。"
+        },
+        {
+          "id": "s8",
+          "phase": "Recover",
+          "view": "both",
+          "title": "审阅改动：只改依赖距离表达",
+          "agentId": "perf",
+          "userAction": "在 IDE 审阅候选改动，确认它只改变依赖距离的表达方式，不动 transport、不动 sync 事件语义。",
+          "agentAction": "perf 形成 Candidate（1 个文件），并明确标注：隔离收益 1.48× 不可外推为整层收益，真实 Attention Loop 未验证。",
+          "toolCall": "python examples/models/qwen3_14b/issue2040_cross_core.py --variant distance2 --emit-candidate",
+          "artifact": "candidate.diff、decision-record.json",
+          "evidenceLevel": "E1",
+          "gate": "warn",
+          "confirmCard": "确认候选只改变依赖距离表达（producer lead = 2），且不把最小 Reproducer 的 1.48× 外推为全层收益；接受后仍需真实 Attention Loop 回归。",
+          "conclusion": "Candidate 可复核；证据强度 E1 candidate + E3 basis。"
+        },
+        {
+          "id": "s9",
+          "phase": "Recover",
+          "view": "both",
+          "title": "回归受阻：真实 Attention Loop 未验证",
+          "agentId": "triage",
+          "userAction": "在 IDE 尝试把候选放进真实 decode Attention Loop 回归，确认能否给出全层结论。",
+          "agentAction": "triage 记录未解决边界：真实循环回归尚未执行，且 L0C/FIX overlap 会与依赖距离相互影响，隔离结论不足以覆盖。",
+          "toolCall": "python examples/models/qwen3_14b/decode_layer.py --platform ascend950b --regression attention-loop",
+          "artifact": "regression-plan.md（pending-run）",
+          "evidenceLevel": "E1",
+          "gate": "warn",
+          "confirmCard": null,
+          "conclusion": "回归未执行，L0C/FIX overlap 边界未关闭；本案例不能声称已解决。"
+        },
+        {
+          "id": "s10",
+          "phase": "Deliver",
+          "view": "both",
+          "title": "结论移交：Localized · Not resolved",
+          "agentId": "lead",
+          "userAction": "在 IDE 检查证据包是否足以让下一位工程师直接在真实 Attention Loop 上继续，而无需重建调查上下文。",
+          "agentAction": "lead 打包 evidence.json（含 Finding、候选、被否定的假设与未解决边界），状态标为 localized_not_resolved —— 不签发 Trusted Baseline。",
+          "toolCall": "python -m simpler_setup.tools.evidence_bundle inv-2040 --status localized_not_resolved",
+          "artifact": "evidence.json、candidate.diff、repro.yaml、open-boundaries.md",
+          "evidenceLevel": "E3",
+          "gate": "warn",
+          "confirmCard": "确认以「已定位 / 未解决」移交：Finding 与候选可复核，但真实 Attention Loop 回归与 L0C/FIX overlap 仍为未关闭边界，不签发 Trusted Baseline。",
+          "conclusion": "已定位未解决：责任层与候选清楚，回归与 overlap 边界明确留给下一棒。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "name": "issue pypto#2040 初始诊断",
+          "level": "E0",
+          "layer": "runtime",
+          "note": "只有现象与初始诊断，无本地复现；证据强度 hypothesis。"
+        },
+        {
+          "id": "e2",
+          "name": "配对 L2：CCE 1004.74 μs / PyPTO 1014.66 μs",
+          "level": "E3",
+          "layer": "runtime",
+          "note": "同设备、同输入（batch 16 / seq_len 3584 / seed 1234）、同采集级别 L2 level 4，Golden PASS/PASS。"
+        },
+        {
+          "id": "e3",
+          "name": "AIC 266.42 μs / AIV 266.48 μs",
+          "level": "E3",
+          "layer": "kernel",
+          "note": "Attention Core 两侧几乎相同，核内算力不是差距来源。"
+        },
+        {
+          "id": "e4",
+          "name": "extra launch 57.78 μs latency",
+          "level": "E3",
+          "layer": "runtime",
+          "note": "额外 launch 延迟落在边界/调度层，指向 producer→consumer 的等待结构。"
+        },
+        {
+          "id": "e5",
+          "name": "same-step 27.9 μs / distance-2 18.8 μs",
+          "level": "E3",
+          "layer": "kernel",
+          "note": "task_20260723_185303_98293513208 与 task_20260723_185321_99325022870，各 100 轮 median，Golden 均 PASS。"
+        },
+        {
+          "id": "e6",
+          "name": "候选：显式 distance-2 依赖",
+          "level": "E1",
+          "layer": "kernel",
+          "note": "1 个文件的候选改动，只改变依赖距离表达；隔离收益 1.48×，全层未验证。"
+        },
+        {
+          "id": "e7",
+          "name": "未关闭边界：真实循环回归 + L0C/FIX overlap",
+          "level": "E1",
+          "layer": "runtime",
+          "note": "真实 Attention Loop 回归 pending-run；L0C/FIX overlap 会与依赖距离相互影响。"
+        }
+      ],
+      "tools": [
+        {
+          "name": "paired run contract",
+          "command": "python -m simpler_setup.tools.paired_run --platform a2a3 --batch 16 --seq-len 3584 --seed 1234 --capture l2:4",
+          "artifact": "paired-run-contract.json"
+        },
+        {
+          "name": "L2 对照",
+          "command": "python -m simpler_setup.tools.strace_timing run.log --rounds-table",
+          "artifact": "l2-compare.json"
+        },
+        {
+          "name": "scope stats",
+          "command": "python -m simpler_setup.tools.scope_stats_plot build_output/decode_layer/dfx_outputs/scope_stats/scope_stats.jsonl",
+          "artifact": "merged L2 trace"
+        },
+        {
+          "name": "issue reproducer",
+          "command": "python examples/models/qwen3_14b/issue2040_cross_core.py --variant {same_step|distance2} --rounds 100",
+          "artifact": "reproducer-results.json"
+        },
+        {
+          "name": "evidence bundle",
+          "command": "python -m simpler_setup.tools.evidence_bundle inv-2040 --status localized_not_resolved",
+          "artifact": "evidence.json、open-boundaries.md"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "objects": [
+      {
+        "id": "Task",
+        "question": "要解决哪一次问题？",
+        "fields": [
+          "症状",
+          "目标",
+          "owner",
+          "状态",
+          "风险",
+          "关联 Runs"
+        ],
+        "value": "保留主线和协作责任"
+      },
+      {
+        "id": "Run",
+        "question": "这一次具体执行了什么？",
+        "fields": [
+          "Run ID",
+          "代码 / 模型 / 环境指纹",
+          "输入",
+          "配置",
+          "产物"
+        ],
+        "value": "把散落目录变成可比较对象"
+      },
+      {
+        "id": "Comparison",
+        "question": "Baseline 与 Candidate 差在哪里？",
+        "fields": [
+          "可比性检查",
+          "维度 Diff",
+          "首个异常",
+          "结论"
+        ],
+        "value": "让比较成为默认行为"
+      },
+      {
+        "id": "Evidence",
+        "question": "哪条材料支持哪个判断？",
+        "fields": [
+          "类型",
+          "来源层",
+          "时间 / 坐标",
+          "强度",
+          "原始链接"
+        ],
+        "value": "让结论可核验而非黑盒"
+      },
+      {
+        "id": "Finding",
+        "question": "当前可复核结论是什么？",
+        "fields": [
+          "结论",
+          "影响",
+          "证据",
+          "置信度",
+          "建议实验",
+          "责任域"
+        ],
+        "value": "把日志转成可行动判断"
+      },
+      {
+        "id": "Baseline",
+        "question": "可信的对照起点是什么？",
+        "fields": [
+          "验收规则",
+          "适用边界",
+          "签发者",
+          "过期条件"
+        ],
+        "value": "为后续优化和回归提供安全起点"
+      },
+      {
+        "id": "Report",
+        "question": "如何移交与验收？",
+        "fields": [
+          "变更",
+          "结果",
+          "风险",
+          "证据",
+          "复现步骤",
+          "准入状态"
+        ],
+        "value": "支持跨团队移交与发布决策"
+      }
+    ],
+    "phases": [
+      {
+        "id": "Define",
+        "judge": "到底要证明什么？",
+        "system": "选择任务模板、目标平台、指标与约束",
+        "exit": "条件可判定"
+      },
+      {
+        "id": "Preflight",
+        "judge": "环境和组合是否可用？",
+        "system": "检查 pin、依赖、资源与 smoke test",
+        "exit": "前置门通过"
+      },
+      {
+        "id": "Baseline",
+        "judge": "比较对象是否可信？",
+        "system": "固定输入、Golden、版本和统计口径",
+        "exit": "Golden/基线冻结"
+      },
+      {
+        "id": "Execute",
+        "judge": "这次执行实际发生了什么？",
+        "system": "调用真实工具并收集 Artifact",
+        "exit": "Run 完成或明确失败"
+      },
+      {
+        "id": "Judge",
+        "judge": "第一处异常或瓶颈在哪里？",
+        "system": "关联并解释多层证据",
+        "exit": "得到可行动判断"
+      },
+      {
+        "id": "Recover",
+        "judge": "失败后如何安全继续？",
+        "system": "清理最小状态、重建 Worker/缓存或降级",
+        "exit": "环境可重试或升级"
+      },
+      {
+        "id": "Deliver",
+        "judge": "下一位如何复核？",
+        "system": "汇总 Gate、命令、版本和 Artifact",
+        "exit": "可重放、可验收"
+      }
+    ],
+    "gates": {
+      "运行状态": [
+        "queued",
+        "collecting",
+        "running",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "可比性": [
+        "comparable",
+        "comparable-with-caveat",
+        "not-comparable"
+      ],
+      "诊断强度": [
+        "fact",
+        "strong-signal",
+        "hypothesis",
+        "unknown"
+      ],
+      "门禁": [
+        "pass",
+        "warn",
+        "block",
+        "not-evaluated"
+      ],
+      "数据来源": [
+        "live",
+        "imported",
+        "simulated",
+        "mock"
+      ],
+      "Agent 状态": [
+        "planned",
+        "executing",
+        "waiting-for-user",
+        "paused",
+        "handed-over",
+        "done"
+      ]
+    },
+    "agents": [
+      {
+        "id": "lead",
+        "name": "主责编排智能体",
+        "role": "定义目标与验收门、拆分并分发任务、汇总各仓结论，生成可交付报告与证据包；不替代责任域专家。",
+        "owns": [
+          "Define",
+          "Deliver"
+        ],
+        "tools": [
+          "汇总 Gate/命令/版本/Artifact（报告与证据包）"
+        ]
+      },
+      {
+        "id": "triage",
+        "name": "分诊定界智能体",
+        "role": "从症状出发排除不可比条件，确定责任层/责任仓，形成首个异常 Finding 并给出建议实验。",
+        "owns": [
+          "Define",
+          "Preflight",
+          "Judge"
+        ],
+        "tools": [
+          "python examples/models/qwen3_14b/decode_layer.py --golden-data build_output/decode_layer/data",
+          "python -m pypto.tools.ir_trace build_output/decode_layer/passes_dump --context 3",
+          "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text",
+          "LOGDIR=\"$PWD/build_output/device_logs\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ..."
+        ]
+      },
+      {
+        "id": "correctness",
+        "name": "数值正确性智能体",
+        "role": "对齐 pypto-lib / pypto / PTOAS / pto-isa：固定输入与 Golden 对拍、逐 Pass 数值校验、内存地址/生命周期核对，判定“算的是不是同一件事”。",
+        "owns": [
+          "Baseline",
+          "Execute",
+          "Judge"
+        ],
+        "tools": [
+          "run_jit(fn, specs, golden_fn=golden_fn, save_data=True, rtol=1e-3, atol=1e-3)",
+          "python -m pypto.tools.ir_trace build_output/decode_layer/passes_dump --context 3 -o build_output/decode_layer/ir_trace.html",
+          "python -m pypto.tools.memory_map build_output/decode_layer/ -p AllocateMemoryAddr -b Ascend950B",
+          "build-llvm21/tools/ptoas/ptoas --pto-arch=a5 --pto-backend=vpto --emit-vpto"
+        ]
+      },
+      {
+        "id": "runtime",
+        "name": "Runtime 与 DFX 智能体",
+        "role": "对齐 simpler：任务何时运行、依赖是否缺失、设备为何超时、资源是否耗尽，解释 5xxxxx 并执行设备恢复（fail-fast / Worker 重建 / force reset）。",
+        "owns": [
+          "Execute",
+          "Judge",
+          "Recover"
+        ],
+        "tools": [
+          "LOGDIR=\"$PWD/build_output/device_logs\"; export ASCEND_PROCESS_LOG_PATH=\"$LOGDIR\"; python examples/models/qwen3_14b/decode_layer.py ...",
+          "python -m pypto.runtime.debug.replay build_output/decode_layer/ --pmu 2 --swimlane --log-level debug",
+          "python -m simpler_setup.tools.deps_viewer build_output/decode_layer/dfx_outputs/deps.json --format text",
+          "python -m simpler_setup.tools.scope_stats_plot build_output/decode_layer/dfx_outputs/scope_stats/scope_stats.jsonl",
+          "pytest tests/models/qwen3_14b/test_decode_layer.py --platform ascend950b --enable-l2-swimlane"
+        ]
+      },
+      {
+        "id": "perf",
+        "name": "性能调优智能体",
+        "role": "对齐 simpler + pypto-serving：回答“时间花在哪里”，端到端基线、L2 调度泳道、PMU、In-Core 流水线与服务链路 trace 归因。",
+        "owns": [
+          "Baseline",
+          "Execute",
+          "Judge"
+        ],
+        "tools": [
+          "PYPTO_BENCH=1 PYPTO_BENCH_ROUNDS=100 PYPTO_BENCH_WARMUP=5 python examples/models/qwen3_14b/decode_layer.py ...",
+          "python examples/models/qwen3_14b/decode_layer.py ... --enable-pmu 2",
+          "python -m simpler_setup.tools.swimlane_converter <chip_swimlane_records.json>",
+          "python -m simpler_setup.tools.strace_timing <run.log> --rounds-table",
+          "python <pypto-skills>/incore_profile.py --build-dir build_output/decode_layer --target ascend950b"
+        ]
+      }
+    ]
+  },
+  "ui": {
+    "schemaVersion": "1.0",
+    "product": "PyPTO Studio",
+    "layout": "dual-view workbench",
+    "topbar": {
+      "brand": "PyPTO Studio",
+      "modeSwitch": {
+        "label": "模式切换",
+        "options": [
+          "IDE VIEW",
+          "Agent Windows"
+        ],
+        "default": "IDE VIEW",
+        "statefulAcrossSwitch": true
+      },
+      "caseSwitch": {
+        "label": "案例切换",
+        "kind": "dropdown",
+        "options": [
+          "correctness",
+          "perf",
+          "runtime",
+          "schedule"
+        ],
+        "default": "correctness"
+      },
+      "envFingerprintChip": {
+        "display": "Ascend 950B · pypto 3.0.0-dev · CANN 9.0 · device_count=2",
+        "fields": {
+          "platform": "Ascend 950B",
+          "pypto": "3.0.0-dev",
+          "cann": "9.0",
+          "device_count": 2
+        }
+      },
+      "resetButton": {
+        "label": "重置",
+        "action": "reset-case"
+      }
+    },
+    "taskBar": {
+      "sharedAcrossViews": true,
+      "preserveOnModeSwitch": true,
+      "task": {
+        "id": "T-2040",
+        "title": "decode_layer logits 全零回退定界"
+      },
+      "runs": {
+        "baseline": "run:c4b2",
+        "candidate": "run:c4c1"
+      },
+      "comparison": {
+        "status": "comparable-with-caveat"
+      },
+      "phaseGates": {
+        "count": 7,
+        "phases": [
+          "Define",
+          "Preflight",
+          "Baseline",
+          "Execute",
+          "Judge",
+          "Recover",
+          "Deliver"
+        ]
+      },
+      "evidenceLegend": {
+        "levels": [
+          "E0",
+          "E1",
+          "E2",
+          "E3"
+        ],
+        "note": "证据等级由弱到强：E0 观察 → E3 单变量确认/回归"
+      }
+    },
+    "stepper": {
+      "count": 7,
+      "phases": [
+        {
+          "id": "Define",
+          "label": "Define",
+          "judge": "到底要证明什么？"
+        },
+        {
+          "id": "Preflight",
+          "label": "Preflight",
+          "judge": "环境和组合是否可用？"
+        },
+        {
+          "id": "Baseline",
+          "label": "Baseline",
+          "judge": "比较对象是否可信？"
+        },
+        {
+          "id": "Execute",
+          "label": "Execute",
+          "judge": "这次执行实际发生了什么？"
+        },
+        {
+          "id": "Judge",
+          "label": "Judge",
+          "judge": "第一处异常或瓶颈在哪里？"
+        },
+        {
+          "id": "Recover",
+          "label": "Recover",
+          "judge": "失败后如何安全继续？"
+        },
+        {
+          "id": "Deliver",
+          "label": "Deliver",
+          "judge": "下一位如何复核？"
+        }
+      ],
+      "playback": {
+        "prev": "上一步",
+        "autoplay": "自动播放",
+        "next": "下一步"
+      }
+    },
+    "views": {
+      "ide": {
+        "id": "ide-view",
+        "title": "IDE VIEW",
+        "columns": {
+          "left": {
+            "title": "文件树 + DSL 源码编辑器",
+            "fileTree": {
+              "root": "examples/models/qwen3_14b",
+              "active": "decode_layer.py",
+              "entries": [
+                "decode_layer.py",
+                "golden_decode_layer.py",
+                "build_output/decode_layer/",
+                "build_output/device_logs/"
+              ]
+            },
+            "editor": {
+              "language": "pto-dsl",
+              "target": "decode_layer",
+              "font": "monospace",
+              "lineNumberGutter": true,
+              "diffHighlight": "dcci(..., CACHELINE_OUT) 修复 diff 高亮"
+            }
+          },
+          "center": {
+            "title": "当前证据面板",
+            "syncsToStep": true,
+            "panels": [
+              {
+                "step": "s1",
+                "kind": "symptom-card",
+                "label": "症状卡"
+              },
+              {
+                "step": "s7",
+                "kind": "per-producer-tensor-table",
+                "label": "逐 producer tensor 表"
+              },
+              {
+                "step": "impact-chain",
+                "kind": "impact-chain",
+                "label": "影响链"
+              },
+              {
+                "step": "cache-visibility",
+                "kind": "cache-visibility-schematic",
+                "label": "缓存可见性示意"
+              },
+              {
+                "step": "fix-diff",
+                "kind": "fix-diff",
+                "label": "修复 diff"
+              },
+              {
+                "step": "regression",
+                "kind": "regression-result",
+                "label": "回归结果"
+              }
+            ]
+          },
+          "right": {
+            "title": "证据检查器",
+            "findingCard": true,
+            "evidenceList": {
+              "levels": [
+                "E0",
+                "E1",
+                "E2",
+                "E3"
+              ],
+              "filterable": true
+            },
+            "terminalToolLog": true
+          }
+        }
+      },
+      "agentWindows": {
+        "id": "agent-windows",
+        "title": "Agent Windows",
+        "columns": {
+          "left": {
+            "title": "5 智能体花名册",
+            "roster": [
+              {
+                "id": "lead",
+                "duty": "定义目标与验收门、分发任务、汇总报告与证据包",
+                "status": "live"
+              },
+              {
+                "id": "triage",
+                "duty": "分诊定界：排除不可比条件、定位首个异常",
+                "status": "live"
+              },
+              {
+                "id": "correctness",
+                "duty": "数值正确性：Golden 对拍、逐 Pass 校验",
+                "status": "live"
+              },
+              {
+                "id": "runtime",
+                "duty": "Runtime/DFX：解释 5xxxxx、设备恢复",
+                "status": "live"
+              },
+              {
+                "id": "perf",
+                "duty": "性能归因：wall time 分解、PMU/泳道",
+                "status": "live"
+              }
+            ]
+          },
+          "center": {
+            "title": "计划 + 实时步骤时间线",
+            "plan": true,
+            "timeline": {
+              "chain": [
+                "agent",
+                "toolCall",
+                "artifact",
+                "conclusion",
+                "gate"
+              ],
+              "live": true
+            }
+          },
+          "right": {
+            "title": "人工确认卡 + 交接/证据包",
+            "confirmCard": true,
+            "handoffEvidencePackage": true
+          }
+        }
+      }
+    },
+    "dataSourceLabel": {
+      "kind": "honest-data-source",
+      "mode": "CASE 回放",
+      "source": "数据来自 simpler investigation",
+      "basis": "RUN + CODE"
+    },
+    "design": {
+      "system": "PTO dark-first design system",
+      "tokens": "../../vendor/pto-design-system/tokens",
+      "patterns": [
+        "ide-frame",
+        "workbench-shell"
+      ],
+      "typography": {
+        "code": {
+          "font": "monospace",
+          "lineNumberGutter": true
+        }
+      },
+      "color": {
+        "rule": "语义色只用于状态（status）"
+      }
+    }
+  }
+}</script>
+
+  <main class="pto-ide-frame pypto-demo-frame" data-ide-frame data-host="standalone" data-surface="solid" aria-label="PyPTO Studio 双视图工作台">
+    <!-- IDE 顶栏（精简）：品牌 + 视图切换 | 当前任务 | 案例 + 面板开关 -->
+    <header class="ide-topbar" aria-label="IDE 顶栏">
+      <div class="ide-topbar__left">
+        <span class="ide-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="ide-brand">PyPTO Studio <em class="ide-brand__version">V2</em></span>
+        <div class="ide-mode-tabs" role="tablist" aria-label="视图切换">
+          <button type="button" class="demo-mode-btn ide-mode-tab is-selected" data-mode="ide" role="tab" aria-selected="true">IDE</button>
+          <button type="button" class="demo-mode-btn ide-mode-tab" data-mode="agent" role="tab" aria-selected="false">Agent</button>
+        </div>
+      </div>
+
+      <div class="ide-crumb" aria-label="当前诊断任务">
+        <span class="ide-crumb__task" id="task-id">T-2040</span>
+        <span class="ide-crumb__sep">›</span>
+        <span class="ide-crumb__title" id="task-title"></span>
+        <button type="button" id="view-cue" class="view-cue" hidden></button>
+      </div>
+
+      <div class="ide-topbar__right">
+        <select id="case-switch" class="demo-select demo-select--case" aria-label="案例切换"></select>
+        <span class="ide-wincontrols" role="group" aria-label="面板开关">
+          <button type="button" id="wc-left" class="ide-wbtn is-on" title="左侧面板" aria-pressed="true" aria-label="左侧面板">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><rect class="p-fill" x="4" y="4" width="4.5" height="16" rx="1"/></svg>
+          </button>
+          <button type="button" id="wc-bottom" class="ide-wbtn is-on" title="底部面板（终端）" aria-pressed="true" aria-label="底部面板">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18"/><rect class="p-fill" x="4" y="15.5" width="16" height="4.5" rx="1"/></svg>
+          </button>
+          <button type="button" id="wc-right" class="ide-wbtn is-on" title="右侧面板（工具）" aria-pressed="true" aria-label="右侧面板">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/><rect class="p-fill" x="15.5" y="4" width="4.5" height="16" rx="1"/></svg>
+          </button>
+        </span>
+        <button type="button" id="reset-btn" class="btn demo-reset-btn" title="重置当前案例">重置当前案例</button>
+      </div>
+    </header>
+
+    <!-- 双视图（共享同一状态机）：bento 视图区 -->
+    <div class="demo-views">
+      <!-- IDE VIEW：目录树 | 编辑器+终端 | 工具面板 -->
+      <section class="demo-view" id="ide-view" data-view="ide" aria-label="IDE VIEW">
+        <div class="ide-layout">
+          <aside class="ide-pane ide-pane--tree" aria-label="目录树">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">EXPLORER</span>
+              <span class="ide-pane__meta" id="explorer-meta">workspace</span>
+            </header>
+            <div class="ide-pane__body ide-pane__body--flush" id="file-tree"></div>
+          </aside>
+
+          <section class="ide-pane ide-pane--editor" aria-label="代码编辑器与终端">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title" id="editor-tab-title">decode_layer.py</span>
+              <span class="ide-pane__meta">pto-dsl</span>
+            </header>
+            <div class="ide-gate-slot" id="ide-gate-slot" hidden></div>
+            <div class="ide-editor" id="code-editor"></div>
+            <footer class="ide-statusstrip" id="ide-statusstrip" aria-label="编辑器状态">
+              <span class="ide-statusstrip__item"><i class="ide-statusstrip__dot"></i>Compiler Guard 已启用</span>
+              <span class="ide-statusstrip__item" id="status-diagnostic">DSL 即时诊断运行中</span>
+              <span class="ide-statusstrip__spacer"></span>
+              <span class="ide-statusstrip__item">UTF-8</span>
+              <span class="ide-statusstrip__item">Spaces: 4</span>
+              <span class="ide-statusstrip__item" id="status-lncol">Ln 1, Col 1</span>
+            </footer>
+            <div class="ide-terminal" id="ide-terminal">
+              <header class="ide-terminal__header" id="terminal-header" title="点击收起 / 展开终端">
+                <span class="ide-terminal__title">TERMINAL · 工具命令回放</span>
+                <button type="button" id="terminal-toggle" class="btn btn-icon" aria-expanded="true" aria-controls="terminal-log" title="收起 / 展开终端" aria-label="收起 / 展开终端">
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+                </button>
+              </header>
+              <div class="ide-terminal__body" id="terminal-log"></div>
+            </div>
+          </section>
+
+          <aside class="ide-pane ide-pane--tools" aria-label="工具面板">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">TOOLS · 洞察 / 分析 / 可视化</span>
+              <span class="ide-pane__meta" id="ide-tool-meta"></span>
+            </header>
+            <div class="ide-tools">
+              <div class="tool-tabs" id="ide-tool-tabs" role="tablist"></div>
+              <div class="tool-attr" id="ide-tool-attr"></div>
+              <div class="ide-tools__body" id="ide-tool-body" role="tabpanel"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Agent Windows：任务列表 | 对话流 | 工具面板 -->
+      <section class="demo-view" id="agent-view" data-view="agent" aria-label="Agent Windows" hidden>
+        <div class="ide-layout">
+          <aside class="ide-pane ide-pane--tree" aria-label="任务列表">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">TASKS · 任务列表</span>
+            </header>
+            <div class="ide-pane__body" id="task-list"></div>
+          </aside>
+
+          <section class="ide-pane ide-pane--chat" aria-label="Agent Team 对话流">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">AGENT TEAM · 对话流</span>
+              <span class="ide-pane__meta">CASE REPLAY</span>
+            </header>
+            <div class="ide-chat">
+              <div class="chat-team" id="chat-team" aria-label="Agent 协作态势"></div>
+              <div class="chat-confirm" id="chat-confirm"></div>
+              <div class="chat-flow" id="agent-chat"></div>
+              <form class="chat-composer" id="chat-composer" autocomplete="off">
+                <div class="chat-composer__suggest" id="chat-suggest" aria-label="快捷追问"></div>
+                <div class="chat-composer__row">
+                  <div class="chat-composer__targets" id="chat-targets" role="group" aria-label="选择接收 Agent"></div>
+                  <textarea id="chat-input" class="chat-composer__input" rows="1"
+                            placeholder="向 Agent 追问 / 补充线索…" aria-label="向 Agent 发送消息"></textarea>
+                  <button type="submit" id="chat-send" class="btn btn-solid chat-composer__send" title="发送（Enter）">发送</button>
+                </div>
+                <p class="chat-composer__hint" id="chat-composer-hint"></p>
+              </form>
+            </div>
+          </section>
+
+          <aside class="ide-pane ide-pane--tools" aria-label="工具面板">
+            <header class="ide-pane__header">
+              <span class="ide-pane__title">TOOLS · Agent 工具产出</span>
+              <span class="ide-pane__meta" id="agent-tool-meta"></span>
+              <div class="tool-view-switch" role="group" aria-label="工具视图切换">
+                <button type="button" id="tool-view-tile" class="btn btn-icon" aria-pressed="true" title="多工具平铺（一行最多 2 个）" aria-label="多工具平铺">
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+                </button>
+                <button type="button" id="tool-view-full" class="btn btn-icon" aria-pressed="false" title="单工具全屏" aria-label="单工具全屏">
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H4.5A1.5 1.5 0 0 0 3 4.5V9"/><path d="M15 3h4.5A1.5 1.5 0 0 1 21 4.5V9"/><path d="M9 21H4.5A1.5 1.5 0 0 1 3 19.5V15"/><path d="M15 21h4.5a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+                </button>
+              </div>
+            </header>
+            <div class="tool-agentbar" id="tool-agent-filter" aria-label="按 Agent 过滤工具"></div>
+            <div class="ide-tools ide-tools--grid" id="agent-tool-grid"></div>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <!-- 底部回放轨道（transport bar）：阶段 stepper + 播放控制 + 状态读数 -->
+    <footer class="demo-transport" aria-label="回放轨道">
+      <div class="demo-transport__flow">
+        <div class="demo-transport__stepper" id="stepper-track" role="tablist" aria-label="7 阶段门禁"></div>
+      </div>
+      <div class="demo-transport__ctrl">
+        <span class="demo-transport__gate" id="transport-gate"></span>
+        <div class="demo-playback" aria-label="播放控制">
+          <button type="button" id="step-prev" class="btn btn-icon" aria-label="上一步" title="上一步（←）">◀</button>
+          <button type="button" id="step-play" class="btn btn-icon btn-solid" aria-label="自动播放" title="自动播放（空格）">▶</button>
+          <button type="button" id="step-next" class="btn btn-icon" aria-label="下一步" title="下一步（→）">▶</button>
+          <span class="demo-playback__counter" id="playback-counter"></span>
+        </div>
+      </div>
+      <div class="demo-transport__meta" id="status-readout"></div>
+    </footer>
+    <div class="demo-toast" id="demo-toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="./js/decode-layer-source.js"></script>
+  <script src="./js/demo.js"></script>
+</body>
+</html>

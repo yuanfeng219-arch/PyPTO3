@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="昇腾 Mind 系列如何把芯片计算能力转化为训练、推理、开发与生产运营能力。">
+  <title>昇腾 Mind 系列构成 AI 平台的价值实现层｜PTO Whitepaper</title>
+  <link rel="stylesheet" href="./shared.css">
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+  <header class="topnav">
+    <div class="brand">ASCEND MIND SERIES <small>体系价值白皮书</small></div>
+    <nav class="reading-path" aria-label="章节目录">
+      <span class="index-label">INDEX</span>
+      <div class="index-links">
+        <a href="#cover"><i>00</i><span>核心判断</span></a>
+        <a href="#platform-stack"><i>01</i><span>平台结构</span></a>
+        <a href="#lifecycle"><i>02</i><span>生命周期</span></a>
+        <a href="#value-conversion"><i>03</i><span>价值转化</span></a>
+        <a href="#dual-path"><i>04</i><span>双路径</span></a>
+        <a href="#critical-path"><i>05</i><span>性能路径</span></a>
+        <a href="#workload-optimization"><i>06</i><span>负载优化</span></a>
+        <a href="#observability"><i>07</i><span>工程可信</span></a>
+        <a href="#traceability"><i>08</i><span>跨层追踪</span></a>
+        <a href="#trust-loop"><i>09</i><span>证据闭环</span></a>
+        <a href="#platform-moat"><i>10</i><span>平台能力</span></a>
+        <a href="#evaluation"><i>11</i><span>评价框架</span></a>
+        <a href="#value-layer"><i>12</i><span>价值实现</span></a>
+        <a href="#references"><i>13</i><span>证据边界</span></a>
+      </div>
+    </nav>
+  </header>
+
+  <button class="pager pager-prev" type="button" aria-label="上一楼层">←<span>上一层</span></button>
+  <button class="pager pager-next" type="button" aria-label="下一楼层"><span>下一层</span>→</button>
+
+  <main>
+    <section class="floor" id="cover">
+      <div class="inner">
+        <div class="cover-grid">
+          <div>
+            <div class="kicker">PTO Whitepaper · Ascend Platform Value</div>
+            <h1>昇腾 Mind 系列构成 AI 平台的价值实现层</h1>
+            <p class="lead">MindSpore、MindSpeed、MindIE 与 MindStudio 在不同抽象层把 CANN 提供的异构计算能力转化为模型表达、训练效率、推理服务和工程可运维性。</p>
+          </div>
+          <div class="cover-meta">
+            <div class="meta-card"><b>研究对象</b><span>MindSpore · MindSpeed · MindIE · MindStudio · CANN</span></div>
+            <div class="meta-card"><b>核心视角</b><span>AI Workload Enablement Layer · AI 工作负载使能层</span></div>
+            <div class="meta-card"><b>目标读者</b><span>AI 基础设施负责人、昇腾生态与产品团队、训练与推理架构师</span></div>
+          </div>
+        </div>
+        <div class="thesis-grid cols-3" style="margin-top:64px">
+          <article class="card"><span class="num">01 · CONVERSION</span><h3>软件链路决定理论算力向有效 AI 性能的转化效率</h3><p>训练速度、推理吞吐、服务 SLA 与总体拥有成本均取决于框架、图、算子、通信、内存和运行时的共同效率。</p></article>
+          <article class="card"><span class="num">02 · COVERAGE</span><h3>原生框架与主流生态兼容共同扩大工作负载覆盖</h3><p>MindSpore 提供原生框架能力，TorchNPU、MindSpeed、TorchAir 与 vLLM-Ascend 连接已有产业软件资产。</p></article>
+          <article class="card"><span class="num">03 · TRUST</span><h3>执行证据把平台能力推进到可解释和可运营阶段</h3><p>MindStudio 与跨层追踪能力有助于建立迁移信任、性能信任和优化信任。</p></article>
+        </div>
+        <div class="evidence-key" aria-label="证据类型">
+          <span><span class="status">官方资料</span> 产品定位与公开能力</span>
+          <span><span class="status source">本文分析</span> 跨产品结构归纳</span>
+          <span><span class="status risk">战略推论</span> 下一阶段产品方向</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="floor" id="platform-stack">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">01 · PLATFORM STRUCTURE</div><h2>昇腾平台由硬件、CANN 与工作负载层共同构成</h2><p class="deck">CANN 位于 AI 框架与 Ascend 处理器之间，提供图、算子、通信、编译和运行时能力；Mind 系列进一步将这些底层能力组织成模型开发者和系统工程师能够直接使用的工作负载能力。</p></header>
+        <p class="figure-intro">五层结构将用户软件资产、工作负载使能能力、异构计算底座和硬件资源放入同一产品坐标系。</p>
+        <figure class="figure" id="fig-01">
+          <div class="figbar"><span class="fig-title-bi"><b>Five-layer Ascend Platform Structure</b><small>Ascend 平台能力由五层软件与硬件结构共同承载</small></span><span class="figid">FIG-01</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <p class="viz-note"><b>结构口径：</b>该图描述产品和能力层级。本文所称 AI Workload Enablement Layer 是跨越框架、适配、训练、推理与工程工具的分析性总称，不对应单一运行时层级；PyTorch Eager、TorchAir Graph、MindSpore 与 MindIE 的具体执行路径存在差异。</p>
+            <div class="stack">
+              <div class="layer"><div class="layer-label">L4 · AI Workload<small>模型与业务应用</small></div><div class="layer-main">Transformer · MoE · Multimodal · RL · AI Service</div><div class="layer-side">业务指标：训练速度、时延、吞吐、SLA</div></div>
+              <div class="layer"><div class="layer-label">L3 · Ecosystem<small>框架与引擎</small></div><div class="layer-main">PyTorch · Megatron · vLLM · MindSpore</div><div class="layer-side">用户资产：模型代码、Checkpoint、工作流</div></div>
+              <div class="layer adapt"><div class="layer-label">L2 · Enablement<small>工作负载使能</small></div><div class="layer-main">MindSpeed · MindIE · MindStudio · TorchNPU · TorchAir · Plugins</div><div class="layer-side">训练、推理、迁移、调试与调优</div></div>
+              <div class="layer foundation"><div class="layer-label">L1 · CANN<small>异构计算架构</small></div><div class="layer-main">GE · AOL · HCCL · Runtime · BiSheng Compiler · Ascend C</div><div class="layer-side">可编程执行、图优化、通信与算子</div></div>
+              <div class="layer hardware"><div class="layer-label">L0 · Ascend NPU<small>物理计算资源</small></div><div class="layer-main">Device · Server · Cluster · Interconnect</div><div class="layer-side">算力、内存与互联资源</div></div>
+            </div>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>CANN 负责释放 Ascend 硬件能力，工作负载使能体系负责让用户以训练、推理和工程任务的语言消费这些能力。<div class="figcap-note"><span class="status">官方资料</span> CANN 组件依据 [R1]；五层结构与工作负载使能体系属于本文结构化归纳。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="lifecycle">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">02 · WORKLOAD LIFECYCLE</div><h2>Mind 系列覆盖 AI 工作负载生命周期的不同抽象层</h2><p class="deck">MindSpore 提供模型表达与框架能力，MindSpeed 聚焦大模型训练优化，MindIE 聚焦推理执行与服务，MindStudio 横跨迁移、精度、性能、算子和内存工程闭环。</p></header>
+        <p class="figure-intro">将四类产品映射到同一生命周期后，各自面向的用户对象、工程产出和共同底座可以清晰区分。</p>
+        <figure class="figure" id="fig-02">
+          <div class="figbar"><span class="fig-title-bi"><b>Complementary Roles across the AI Lifecycle</b><small>Mind 系列在 AI 工作负载生命周期中形成互补分工</small></span><span class="figid">FIG-02</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <div class="lifecycle">
+              <div class="node">模型表达<small>MindSpore · Tensor / Operator / Autograd / Compiler</small></div>
+              <div class="node adapt">大模型训练<small>MindSpeed · 计算 / 内存 / 通信 / 并行</small></div>
+              <div class="node">模型产物<small>Checkpoint · Model Artifact · Deployment Config</small></div>
+              <div class="node diff">推理与服务<small>MindIE · Scheduling / Batching / KV / Serving</small></div>
+            </div>
+            <div class="support-rail"><b>MindStudio · 工程闭环</b><span>迁移分析 · 精度调试 · Profiling · 服务调优 · 算子开发 · 内存检测</span></div>
+            <div class="base-rail"><b>CANN · 共同执行底座</b><span>Graph · Operator · Collective Communication · Runtime · Compiler</span></div>
+            <div class="product-grid" style="margin-top:16px">
+              <article class="product framework"><b>MindSpore</b><em>AI Framework</em><p>输出模型表达、自动微分、并行计算、编译与运行时能力。</p></article>
+              <article class="product training"><b>MindSpeed</b><em>Training Workload</em><p>输出面向大模型的训练效率、内存效率和集群扩展能力。</p></article>
+              <article class="product inference"><b>MindIE</b><em>Inference Workload</em><p>输出请求调度、模型推理、服务接入、时延与吞吐能力。</p></article>
+              <article class="product tooling"><b>MindStudio</b><em>Development Lifecycle</em><p>输出可迁移、可验证、可诊断和可持续优化的工程闭环。</p></article>
+            </div>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>四类产品面向不同生命周期任务，CANN 为它们提供共同的异构计算基础。<div class="figcap-note"><span class="status">官方资料</span> 产品能力依据 MindSpore、MindSpeed、MindIE 与 MindStudio 官方文档；“Mind 系列”是本文分析用统称。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="value-conversion">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">03 · VALUE CONVERSION</div><h2>软件链路决定理论算力向有效 AI 性能的转化效率</h2><p class="deck">Peak FLOPS 描述硬件资源上限。模型实际获得的训练吞吐和推理服务能力，还取决于框架表达、图优化、算子实现、运行时调度、集合通信和内存管理。</p></header>
+        <p class="figure-intro">端到端价值链把硬件资源经过软件层转换为可观测业务指标，并标出可能造成效率损失的技术节点。</p>
+        <figure class="figure" id="fig-03">
+          <div class="figbar"><span class="fig-title-bi"><b>End-to-end Conversion into Effective AI Performance</b><small>有效 AI 性能由端到端软件链路共同决定</small></span><span class="figid">FIG-03</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <p class="viz-note"><b>数值边界：</b>本图只表达定性依赖关系，不提供缺乏实测依据的利用率或性能损失比例。</p>
+            <div class="loss-map">
+              <div class="loss-stage"><b>硬件资源</b><span>Compute · Memory · Interconnect</span></div>
+              <div class="loss-stage"><b>图与编译</b><span>Graph Capture · Transformation · Fusion</span></div>
+              <div class="loss-stage"><b>算子与 Kernel</b><span>Coverage · Tiling · Hardware Affinity</span></div>
+              <div class="loss-stage"><b>系统执行</b><span>Runtime · Communication · Memory · Scheduling</span></div>
+              <div class="loss-stage output"><b>用户获得的性能</b><span>Training Throughput · Latency · Serving SLA</span></div>
+            </div>
+            <table class="matrix" style="margin-top:18px"><thead><tr><th>工作负载</th><th>关键软件转换</th><th>用户可见结果</th></tr></thead><tbody><tr><td>大模型训练</td><td>并行策略、显存/内存策略、通信编排、融合算子、集群执行</td><td>样本吞吐、Step Time、扩展效率、稳定性</td></tr><tr><td>大模型推理</td><td>请求调度、Continuous Batching、KV 管理、Decode 优化、服务治理</td><td>首 Token 时延、单 Token 时延、吞吐、SLA</td></tr></tbody></table>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>芯片提供计算资源，CANN 提供可编程计算能力，Mind 系列进一步形成面向训练、推理与工程任务的工作负载能力。<div class="figcap-note"><span class="status source">本文分析</span> 价值转换关系用于连接官方组件能力与用户结果，不构成性能承诺。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="dual-path">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">04 · ECOSYSTEM COVERAGE</div><h2>原生框架与主流生态兼容共同扩大工作负载覆盖</h2><p class="deck">MindSpore 提供 Ascend 亲和的完整框架选择；TorchNPU、MindSpeed、TorchAir 与 vLLM-Ascend 让 PyTorch、Megatron 和 vLLM 等既有软件资产进入 Ascend。两类路径共同服务平台覆盖，而不要求所有用户采用同一上层入口。</p></header>
+        <p class="figure-intro">同尺度双路径展示原生框架入口与上游生态入口如何共享 CANN 和 Ascend 硬件底座。</p>
+        <figure class="figure" id="fig-04">
+          <div class="figbar"><span class="fig-title-bi"><b>Native and Upstream-compatible Workload Paths</b><small>原生栈与主流生态兼容形成两条工作负载进入路径</small></span><span class="figid">FIG-04</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <div class="comparison">
+              <div class="lane"><h4>原生框架路径服务端到端 Ascend 场景</h4><div class="lane-stack"><div class="node">模型与算法</div><div class="node">MindSpore<small>框架、自动并行、编译与 Runtime</small></div><div class="node adapt">CANN 接入</div><div class="node deep">Ascend NPU</div></div></div>
+              <div class="lane"><h4>兼容路径复用主流开源软件资产</h4><div class="lane-stack"><div class="node">PyTorch · Megatron · vLLM</div><div class="node adapt">TorchNPU · MindSpeed · TorchAir · vLLM-Ascend</div><div class="node diff">CANN 接入</div><div class="node deep">Ascend NPU</div></div></div>
+            </div>
+            <div class="passport-grid" style="margin-top:18px">
+              <article class="passport blue"><header><b>TorchNPU 复用 PyTorch 编程资产</b><small>[R8] Framework Extension</small></header><dl><div><dt>接入机制</dt><dd>让 PyTorch 通过 torch_npu 调用 Ascend NPU，并维护框架、CANN、Python 与驱动的版本配套关系。</dd></div><div><dt>保留资产</dt><dd>模型代码、PyTorch API 习惯与分布式训练工作流。</dd></div></dl></article>
+              <article class="passport cyan"><header><b>MindSpeed 接入 Megatron 训练体系</b><small>[R5] Training Adaptor</small></header><dl><div><dt>接入机制</dt><dd>通过 mindspeed.megatron_adaptor 注入 Ascend 训练优化能力。</dd></div><div><dt>保留资产</dt><dd>Megatron-LM 的模型定义、训练组织与并行语义。</dd></div></dl></article>
+              <article class="passport violet"><header><b>vLLM-Ascend 遵循后端插件机制</b><small>[R10] Hardware-pluggable Backend</small></header><dl><div><dt>接入机制</dt><dd>将 Ascend 后端与 vLLM 主体解耦，在上游服务框架内承载 Transformer、MoE 与多模态模型。</dd></div><div><dt>保留资产</dt><dd>vLLM 的服务接口、调度语义与社区工作流。</dd></div></dl></article>
+            </div>
+            <table class="matrix" style="margin-top:18px"><thead><tr><th>比较维度</th><th>原生框架路径</th><th>主流生态兼容路径</th></tr></thead><tbody><tr><td>主要资产</td><td>MindSpore 模型、编程抽象与部署体系</td><td>PyTorch 模型、Megatron 训练、vLLM 服务</td></tr><tr><td>主要价值</td><td>统一框架与软硬件协同</td><td>保留已有资产并接入 Ascend</td></tr><tr><td>工程约束</td><td>需要采用对应框架语义</td><td>需要维护适配层与版本兼容关系</td></tr></tbody></table>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>双路径扩大了 Ascend 可承载的工作负载范围，同时保留 MindSpore 的原生框架价值。<div class="figcap-note"><span class="status">官方资料</span> TorchNPU、MindSpeed 和 vLLM-Ascend 的集成方式依据官方或上游项目文档。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="critical-path">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">05 · PERFORMANCE-CRITICAL PATH</div><h2>开放上层接口与掌握性能关键路径可以同时成立</h2><p class="deck">硬件差异化主要通过图、算子、Kernel、并行、通信、内存、调度和 Runtime 持续实现。上层遵循产业接口能够降低切换成本，中下层的深度优化则保证 Ascend 特性进入实际执行。</p></header>
+        <p class="figure-intro">三段结构明确区分行业接口、性能关键路径和硬件底座，并以 TorchAir 展示上层语义进入 Ascend 图执行的方式。</p>
+        <figure class="figure" id="fig-05">
+          <div class="figbar"><span class="fig-title-bi"><b>Hardware Differentiation along the Critical Path</b><small>性能关键路径承载 Ascend 的主要硬件差异化</small></span><span class="figid">FIG-05</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <div class="critical-band">
+              <div class="band-side"><b>行业接口</b><p>PyTorch API<br>torch.compile<br>Megatron<br>vLLM Plugin</p></div>
+              <div class="band-core"><b>Ascend 性能关键路径</b><div class="arch-boxes"><span class="arch-box">Graph</span><span class="arch-box">Operator</span><span class="arch-box">Kernel</span><span class="arch-box">Parallelism</span><span class="arch-box">Communication</span><span class="arch-box">Memory</span><span class="arch-box">Scheduling</span><span class="arch-box">Runtime</span></div></div>
+              <div class="band-side deep"><b>硬件底座</b><p>CANN<br>Ascend NPU<br>Cluster Topology</p></div>
+            </div>
+            <h3>TorchAir 在 PyTorch 编程模型下连接 Ascend 图执行</h3>
+            <div class="flow"><div class="node">PyTorch Program</div><div class="node">torch.compile</div><div class="node adapt">FX Graph</div><div class="node adapt">Ascend IR</div><div class="node diff">GE Compile & Execute</div><div class="node deep">Ascend NPU</div></div>
+            <div class="grid cols-2" style="margin-top:18px">
+              <article class="card"><span class="num">LOW SWITCHING COST</span><h3>上层兼容性控制工作负载迁移成本</h3><p>模型代码、框架接口和社区工作流的保留程度，决定用户接入 Ascend 所需的修改范围与学习成本。</p></article>
+              <article class="card"><span class="num">HIGH HARDWARE AFFINITY</span><h3>中下层优化深度决定硬件价值兑现程度</h3><p>图转换、算子、Kernel、通信、内存、调度与 Runtime 共同把 Ascend 特性带入实际执行。</p></article>
+            </div>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>平台可以保留上层开发习惯，并在执行路径中持续注入 Ascend 亲和优化，形成低切换成本与高硬件亲和性的组合。<div class="figcap-note"><span class="status">官方资料</span> TorchAir 的 FX Graph → Ascend IR → GE 路径依据 [R9]；双目标模型属于本文分析。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="workload-optimization">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">06 · SYSTEM OPTIMIZATION</div><h2>MindSpeed 与 MindIE 将硬件优化扩展到工作负载优化</h2><p class="deck">大模型时代的性能由模型结构、并行策略、通信、内存和系统调度共同决定。MindSpeed 按计算、内存、通信和并行组织训练优化；MindIE LLM 将推理能力延伸到请求调度、批处理、KV 管理与服务接口。</p></header>
+        <p class="figure-intro">训练和推理采用同一系统级尺度进行对齐，能够识别单个 Kernel 之外的性能决定因素。</p>
+        <figure class="figure" id="fig-06">
+          <div class="figbar"><span class="fig-title-bi"><b>System-level Workload Optimization</b><small>训练与推理优化已经扩展为系统级工作负载优化</small></span><span class="figid">FIG-06</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <div class="comparison">
+              <div class="lane"><h4>训练性能由六类系统因素共同决定</h4><div class="lane-stack"><div class="node">Model Architecture</div><div class="node adapt">Parallel · Memory · Communication</div><div class="node diff">Kernel · Cluster</div></div><div class="legend"><span><i class="dot cyan"></i>MindSpeed：计算、内存、通信、并行</span></div></div>
+              <div class="lane"><h4>推理性能由请求与执行协同决定</h4><div class="lane-stack"><div class="node">Model · Request Pattern</div><div class="node adapt">Batching · KV Cache · Scheduling</div><div class="node diff">Parallelism · Communication · Kernel</div></div><div class="legend"><span><i class="dot amber"></i>MindIE：调度、批处理、KV 与执行优化</span></div></div>
+            </div>
+            <table class="matrix" style="margin-top:18px"><thead><tr><th>系统层级</th><th>MindSpeed 训练侧</th><th>MindIE 推理侧</th><th>价值输出</th></tr></thead><tbody><tr><td>工作负载语义</td><td>长序列、MoE、LLM、MM、RL 等训练场景</td><td>模型、请求模式、并发与服务策略</td><td>优化对象从单一算子扩展到完整工作负载</td></tr><tr><td>资源组织</td><td>计算、内存、通信与并行协同</td><td>Batching、KV Cache、调度、并行与通信协同</td><td>减少局部最优对端到端性能的限制</td></tr><tr><td>系统能力</td><td>训练加速、显存/内存效率与集群扩展</td><td>PD 分离、模型管理、请求调度与服务化</td><td>把 NPU 执行转化为训练吞吐或推理 SLA</td></tr></tbody></table>
+            <div class="flow" style="margin-top:20px"><div class="node">Chip Optimization</div><div class="node">Kernel Optimization</div><div class="node adapt">Graph Optimization</div><div class="node adapt">Model Optimization</div><div class="node diff">Workload Optimization</div><div class="node deep">AI System Optimization</div></div>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>MindSpeed 与 MindIE 的主要价值对象已经覆盖训练系统和推理服务系统，并把局部执行能力组织为端到端工作负载结果。<div class="figcap-note"><span class="status">官方资料</span> MindSpeed 的优化维度与场景依据 [R4]；MindIE 的推理和服务能力依据 [R6–R7]；抽象阶梯属于本文归纳。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="observability">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">07 · ENGINEERING TRUST</div><h2>MindStudio 为异构计算建立可信使用基础设施</h2><p class="deck">用户以模型、Layer、Attention、MoE 和并行策略描述意图，硬件以图、算子、Kernel、Task、Stream、通信和内存完成执行。可观察性负责连接两套语义，并支持精度、性能和稳定性诊断。</p></header>
+        <p class="figure-intro">语义映射与诊断任务矩阵展示 MindStudio 如何减少异构执行的认知距离，并把问题归属落实到可检查对象。</p>
+        <figure class="figure" id="fig-07">
+          <div class="figbar"><span class="fig-title-bi"><b>Bridging User and Hardware Execution Semantics</b><small>MindStudio 缩短用户语义与硬件执行语义之间的距离</small></span><span class="figid">FIG-07</span></div>
+          <div class="figbody">
+            <div class="semantic-map"><div class="semantic-domain"><h4>用户语义描述模型与系统意图</h4><div class="semantic-items"><span class="semantic-item">Transformer</span><span class="semantic-item">MoE</span><span class="semantic-item">Attention</span><span class="semantic-item">TP / PP / EP</span><span class="semantic-item">Request</span></div></div><div class="semantic-bridge">Profiling<br>Accuracy<br>Debug<br>↔</div><div class="semantic-domain hardware"><h4>执行语义描述设备上的实际行为</h4><div class="semantic-items"><span class="semantic-item">Graph</span><span class="semantic-item">Operator</span><span class="semantic-item">Kernel</span><span class="semantic-item">Task / Stream</span><span class="semantic-item">Collective / Memory</span></div></div></div>
+            <div class="criteria-grid" style="margin-top:16px">
+              <div class="criterion"><b>迁移分析定位接口差异</b><span>MIGRATION</span><small>识别设备、API、算子与环境适配范围。</small></div>
+              <div class="criterion"><b>精度调试定位数值分歧</b><span>CORRECTNESS</span><small>比较 API 或模块级前后向数据，缩小故障边界。</small></div>
+              <div class="criterion"><b>性能分析定位执行瓶颈</b><span>PERFORMANCE</span><small>关联 Host API、CANN 与 NPU Task 时间。</small></div>
+              <div class="criterion"><b>通信分析定位慢节点</b><span>COMMUNICATION</span><small>分析计算通信重叠、链路性能和 Rank 不均衡。</small></div>
+              <div class="criterion"><b>内存分析定位容量风险</b><span>MEMORY</span><small>观察算子内存趋势、泄漏和异常占用。</small></div>
+              <div class="criterion"><b>算子工具定位微观执行问题</b><span>OPERATOR</span><small>结合流水、源码、负载、真实硬件与仿真调试。</small></div>
+            </div>
+            <div class="example-strip" aria-label="典型工程症状">
+              <b>典型工程症状</b><span class="chip">迁移后结果不一致</span><span class="chip">相同模型性能下降</span><span class="chip">部分 Rank 明显变慢</span><span class="chip">AllToAll 时间升高</span><span class="chip">目标 Operator 未融合</span><span class="chip">NPU 利用率偏低</span>
+            </div>
+            <div class="table-scroll"><table class="matrix"><thead><tr><th>诊断任务</th><th>首先检查的证据</th><th>需要跨越的归属层</th><th>形成的工程结论</th></tr></thead><tbody><tr><td>迁移与精度</td><td>API 变更、输入输出差异、前后向数值、算子替换</td><td>模型 → 框架 → Ascend 适配层 → 图与算子</td><td>定位语义变化发生的位置与影响范围</td></tr><tr><td>计算性能</td><td>图转换、融合状态、Kernel 时间、Task 与 Stream 排布</td><td>Layer → Graph → Operator → Kernel → AI Core</td><td>区分模型结构、编译优化与设备执行问题</td></tr><tr><td>分布式通信</td><td>Collective 时间、计算通信重叠、Rank 等待与链路差异</td><td>并行策略 → HCCL → Rank → Device / Network</td><td>识别通信不均衡及其对 Step Time 的贡献</td></tr><tr><td>内存与服务</td><td>算子内存趋势、泄漏、KV 占用、请求调度与批处理</td><td>Request → Runtime → Memory → Device</td><td>解释容量风险、时延抖动与吞吐损失</td></tr></tbody></table></div>
+          </div>
+          <figcaption class="figcap"><b>关键结论：</b>异构平台的规模化采用需要把用户症状映射到明确的技术归属层，并提供可复现的执行证据。<div class="figcap-note"><span class="status">官方资料</span> MindStudio 的工程工具范围依据 [R11]；MindStudio Insight 的系统、算子、服务、内存与集群分析能力依据 [R12]。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="traceability">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">08 · EXECUTION TRACEABILITY</div><h2>跨层可追踪性连接用户对象与硬件执行证据</h2><p class="deck">现有生态已经在模型、框架、图、算子、通信、内存、Task、Stream、Rank 和 Device 等层面产生数据。下一阶段的产品机会是用稳定标识将这些对象连接成可双向追踪的执行 lineage。</p></header>
+        <p class="figure-intro">正向路径解释用户代码如何转化为硬件执行，反向路径把 NPU 瓶颈定位回 Kernel、算子、Layer 和源代码。</p>
+        <figure class="figure" id="fig-08">
+          <div class="figbar"><span class="fig-title-bi"><b>Bidirectional Model-to-Hardware Lineage</b><small>跨层 Execution Traceability 支持正向映射与反向归因</small></span><span class="figid">FIG-08</span></div>
+          <div class="figbody figure-scroll"><div class="min-1060">
+            <p class="viz-note"><b>证据边界：</b>官方资料能够支持多层数据采集与部分 Host—Device 关联；统一、稳定、覆盖全部执行模式的 Model→Hardware lineage 在本文中定义为产品机会。</p>
+            <div class="comparison">
+              <div class="lane"><h4>现有数据通常按照技术组件生成和呈现</h4><div class="semantic-items"><span class="semantic-item">MindSpeed</span><span class="semantic-item">MindIE</span><span class="semantic-item">TorchNPU</span><span class="semantic-item">Profiler</span><span class="semantic-item">CANN / GE</span><span class="semantic-item">HCCL</span><span class="semantic-item">Kernel / NPU</span></div><p class="lane-note">数据存在于多个工具和执行层中，标识、时间基准与对象粒度可能不同。</p></div>
+              <div class="lane"><h4>用户按照工作负载对象提出诊断任务</h4><div class="semantic-items"><span class="semantic-item">My Model</span><span class="semantic-item">My Layer</span><span class="semantic-item">My Request</span><span class="semantic-item">My Operator</span><span class="semantic-item">My Tensor</span><span class="semantic-item">My Parallel Strategy</span><span class="semantic-item">My Bottleneck</span></div><p class="lane-note">诊断结果需要回到用户能够修改、验证和负责的对象。</p></div>
+            </div>
+            <div class="divider"><b>产品缺口：用统一身份与父子关系连接两种组织方式</b></div>
+            <div class="trace-grid"><div class="trace-stack"><div class="node">User Code<small>Model / Layer</small></div><div class="node">Framework Object</div><div class="node adapt">Graph / IR</div><div class="node adapt">Operator / Fusion</div><div class="node diff">Kernel / Collective</div><div class="node diff">Task / Stream</div><div class="node deep">NPU / Memory / Network</div></div><div class="reverse-rail"><span>反向归因</span><strong>←</strong><span>Bottleneck → User Code</span></div></div>
+            <div class="passport-grid" style="margin-top:18px">
+              <article class="passport blue"><header><b>已有数据基础</b><small>Available Evidence</small></header><dl><div><dt>Objects</dt><dd>API、Graph、Operator、Kernel、Task、Stream、Device</dd></div><div><dt>Status</dt><dd><span class="status">官方能力</span></dd></div></dl></article>
+              <article class="passport cyan"><header><b>需要统一的关联契约</b><small>Identity Contract</small></header><dl><div><dt>Fields</dt><dd>Stable ID、Parent、Timestamp、Rank、Device、Source</dd></div><div><dt>Rules</dt><dd>转换时继承来源标识；融合与拆分显式记录多对多关系；跨 Rank 对齐时钟与拓扑。</dd></div><div><dt>Status</dt><dd><span class="status verify">需要验证</span></dd></div></dl></article>
+              <article class="passport violet"><header><b>目标诊断体验</b><small>Diagnostic Outcome</small></header><dl><div><dt>Result</dt><dd>从用户对象下钻，并从设备瓶颈反向回溯</dd></div><div><dt>Status</dt><dd><span class="status risk">产品机会</span></dd></div></dl></article>
+            </div>
+            <table class="matrix" style="margin-top:18px"><thead><tr><th>关联难点</th><th>契约要求</th><th>缺失后的影响</th></tr></thead><tbody><tr><td>Eager、Graph 与服务路径对象不同</td><td>为每种执行模式定义可持续的对象身份与来源链</td><td>相同模型在不同路径下无法统一比较</td></tr><tr><td>图融合、算子拆分形成多对多关系</td><td>同时记录 Source、Parent、Transformation 与版本</td><td>底层瓶颈无法可靠回溯到唯一上层对象</td></tr><tr><td>分布式执行跨 Rank、Device 与网络</td><td>统一时钟、拓扑、通信组与请求/Step 上下文</td><td>局部慢节点与全局延迟之间缺少因果链</td></tr><tr><td>组件独立演进并维护不同版本</td><td>关联数据携带 schema 与软件版本并支持兼容校验</td><td>升级后历史证据不可比较或关联失效</td></tr></tbody></table>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>Execution Traceability 是跨框架、编译、运行时、通信和设备的数据契约，其价值在于把技术组件产生的数据重新组织为面向用户对象的证据链。<div class="figcap-note"><span class="status">部分官方能力</span> [R8]、[R11–R12] 支持多层数据与部分 Host—Device 关联；跨全部执行模式的统一映射仍需验证。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="trust-loop">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">09 · EVIDENCE LOOP</div><h2>统一执行证据支撑迁移、性能与优化三类信任</h2><p class="deck">企业采用异构平台时，需要审查迁移后发生的转换、解释性能差异的因果链，并确定能够改善结果的优化动作。三类任务共享同一套执行证据和对象关联基础。</p></header>
+        <p class="figure-intro">三段证据链分别面向迁移审查、性能归因和优化决策，并通过执行证据形成闭环。</p>
+        <figure class="figure" id="fig-09">
+          <div class="figbar"><span class="fig-title-bi"><b>Evidence-based Trust and Optimization Loop</b><small>统一执行证据将三类信任连接为优化闭环</small></span><span class="figid">FIG-09</span></div>
+          <div class="figbody">
+            <div class="trust-grid">
+              <article class="trust-card"><b>Migration Trust · 迁移信任</b><ol><li>PyTorch Op</li><li>Ascend Adaptation</li><li>Graph Transformation</li><li>Kernel Execution</li></ol></article>
+              <article class="trust-card"><b>Performance Trust · 性能信任</b><ol><li>Layer / Request</li><li>Operator / Collective</li><li>Rank Waiting / Memory Pressure</li><li>Latency Impact</li></ol></article>
+              <article class="trust-card"><b>Optimization Trust · 优化信任</b><ol><li>Problem</li><li>Root Cause</li><li>Execution Evidence</li><li>Action & Expected Impact</li></ol></article>
+            </div>
+            <div class="example-strip" aria-label="性能信任的完整归因示例"><b>完整归因示例</b><span class="chip">Layer 27</span><span>→</span><span class="chip">MoE</span><span>→</span><span class="chip">EP AllToAll</span><span>→</span><span class="chip">通信不均衡</span><span>→</span><span class="chip">Rank 等待</span><span>→</span><span class="chip">Step Time 上升</span></div>
+            <p class="viz-note"><b>Agent 边界：</b>AI Agent 可以负责解释证据、生成优化建议和编排验证步骤；根因结论仍应绑定具体执行对象、时间范围和可复现实验，避免只依据指标异常或经验规则进行概率判断。</p>
+            <div class="flow" style="margin-top:20px"><div class="node">可观察问题</div><div class="node adapt">可定位根因</div><div class="node adapt">可审查证据</div><div class="node diff">可执行优化</div><div class="node deep">可验证结果</div></div>
+          </div>
+          <figcaption class="figcap"><b>关键结论：</b>AI Agent 可以承担诊断交互和建议生成，可靠的跨层执行证据仍是建议可信与效果可验证的基础。<div class="figcap-note"><span class="status risk">战略推论</span> 三类信任和证据闭环属于本文产品分析框架。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="platform-moat">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">10 · PLATFORM CAPABILITY</div><h2>兼容性、亲和性与可运维性共同支撑生产采用</h2><p class="deck">平台能力呈递进关系：兼容性让工作负载进入 Ascend，硬件亲和性把理论资源转化为有效性能，可解释性与可运维性降低生产环境中的定位和运营成本。</p></header>
+        <p class="figure-intro">三层阶梯把产品组件、用户结果与生产采用放在同一递进模型中。</p>
+        <figure class="figure" id="fig-10">
+          <div class="figbar"><span class="fig-title-bi"><b>Three Progressive Layers of Platform Capability</b><small>三层平台能力按递进关系支撑生产采用</small></span><span class="figid">FIG-10</span></div>
+          <div class="figbody">
+            <div class="stair">
+              <div class="stair-step"><b>Compatibility · 兼容性</b><span>MindSpore · TorchNPU · MindSpeed Adapter · vLLM-Ascend · 模型与 API 兼容</span><strong>形成可运行性</strong></div>
+              <div class="stair-step"><b>Affinity · 硬件亲和性</b><span>MindSpeed · MindIE · TorchAir · CANN · GE · AOL · HCCL · Ascend C</span><strong>形成有效性能</strong></div>
+              <div class="stair-step"><b>Explainability & Operability · 可解释与可运维</b><span>MindStudio · Profiler · Accuracy Debug · Performance Analysis · Traceability</span><strong>形成长期可运营性</strong></div>
+            </div>
+            <div class="adoption">Production Adoption · 企业生产采用</div>
+          </div>
+          <figcaption class="figcap"><b>关键结论：</b>三层能力同时成立时，Ascend 才能从可执行硬件升级为企业能够长期运营的生产计算平台。<div class="figcap-note"><span class="status source">本文分析</span> 三层价值体系用于组织产品能力，不代表官方产品分类。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="evaluation">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">11 · ASSESSMENT FRAMEWORK</div><h2>平台评价应覆盖工作负载可达性与生产可用性</h2><p class="deck">API、算子和工具数量只能描述供给规模。平台竞争力还需要评估迁移范围、性能映射、硬件亲和、负载覆盖、达到合理性能的时间，以及大规模生产环境中的诊断和运营能力。</p></header>
+        <p class="figure-intro">九项评价维度按工作负载进入、性能实现、工程优化和生产运营四类任务组织，每项维度均需要可核验的工程证据。</p>
+        <figure class="figure" id="fig-11">
+          <div class="figbar"><span class="fig-title-bi"><b>Workload Reachability and Production Readiness</b><small>九项评价维度共同反映 Ascend 的平台竞争力</small></span><span class="figid">FIG-11</span></div>
+          <div class="figbody">
+            <div class="criteria-grid">
+              <div class="criterion"><b>Compatibility 衡量迁移范围</b><span>工作负载进入</span><small>记录模型、代码、API 与依赖所需修改。</small></div>
+              <div class="criterion"><b>Performance Portability 衡量优化映射</b><span>工作负载进入</span><small>核对既有并行与性能意图在 Ascend 上的保留程度。</small></div>
+              <div class="criterion"><b>Hardware Affinity 衡量特性利用</b><span>性能实现</span><small>核对硬件独有能力是否进入图、算子、通信和运行时。</small></div>
+              <div class="criterion"><b>Workload Coverage 衡量场景范围</b><span>性能实现</span><small>覆盖 Dense、MoE、多模态、长上下文、RL 与 Serving。</small></div>
+              <div class="criterion"><b>Time-to-Performance 衡量优化周期</b><span>性能实现</span><small>记录模型可运行至达到目标性能所需的工程时间。</small></div>
+              <div class="criterion"><b>Debuggability 衡量定位效率</b><span>工程优化</span><small>验证精度、性能、通信和内存问题的定位路径。</small></div>
+              <div class="criterion"><b>Traceability 衡量跨层关联</b><span>工程优化</span><small>验证模型对象与底层执行对象能否双向映射。</small></div>
+              <div class="criterion"><b>Operability 衡量集群运营能力</b><span>生产运营</span><small>验证百卡、千卡及更大规模的数据处理和诊断能力。</small></div>
+              <div class="criterion"><b>Ecosystem Velocity 衡量创新同步</b><span>生产运营</span><small>记录新模型、新框架和新算法进入 Ascend 的周期。</small></div>
+            </div>
+            <h3>每项评价都需要可复核的测量口径与工程证据</h3>
+            <div class="table-scroll"><table class="matrix assessment-matrix"><thead><tr><th>维度</th><th>建议测量口径</th><th>最低证据要求</th><th>决策用途</th></tr></thead><tbody><tr><td>Compatibility</td><td>代码/API 修改量、未支持依赖、定制算子与 Graph Break 数量</td><td>迁移 diff、兼容性扫描、实际运行日志</td><td>估算接入范围与持续维护成本</td></tr><tr><td>Performance Portability</td><td>既有并行、精度与优化策略的保留程度；同等语义下的吞吐和时延</td><td>基线配置、Ascend 配置、Profiler 与正确性结果</td><td>判断已有优化资产能否继续产生价值</td></tr><tr><td>Hardware Affinity</td><td>图融合、亲和算子、通信入图、内存与调度能力的实际启用情况</td><td>编译图、算子/Kernel 清单、执行 Trace</td><td>判断性能来源及硬件特性利用深度</td></tr><tr><td>Workload Coverage</td><td>模型类型、训练/推理模式、序列长度、并行规模与精度组合的覆盖范围</td><td>按版本维护的场景矩阵与验证结果</td><td>识别平台可达范围及待补齐能力</td></tr><tr><td>Time-to-Performance</td><td>首次运行至达到项目目标所需的人日、迭代次数和阻塞时长</td><td>迁移日志、调优记录、问题单与性能曲线</td><td>评估工程投入和交付可预测性</td></tr><tr><td>Debuggability</td><td>问题复现率、根因定位时间、跨团队转交次数</td><td>问题案例、诊断路径、证据快照与修复验证</td><td>评估工具链是否降低问题闭环成本</td></tr><tr><td>Traceability</td><td>用户对象到执行对象的映射覆盖率、未关联事件比例与反向回溯成功率</td><td>对象身份表、关联图、版本与时间上下文</td><td>判断诊断结论是否具备跨层可审查性</td></tr><tr><td>Operability</td><td>集群规模、Trace 数据量、采集开销、分析时延与多租户隔离能力</td><td>规模测试、开销报告、长稳运行与故障演练</td><td>判断能力能否进入长期生产运营</td></tr><tr><td>Ecosystem Velocity</td><td>上游发布至 Ascend 可用的时间差、适配缺口和问题关闭周期</td><td>版本时间线、兼容矩阵、仓库 Issue 与发布记录</td><td>评估平台跟随模型和框架创新的速度</td></tr></tbody></table></div>
+            <p class="viz-note"><b>评价边界：</b>原始研究材料没有提供统一测试环境、实测样本或竞品基准，因此本页给出评价方法，不生成总分、排名或缺乏依据的性能数字。项目落地时应按目标模型、硬件、软件版本和 SLA 单独设定阈值。</p>
+          </div>
+          <figcaption class="figcap"><b>关键结论：</b>平台评价需要同时覆盖接入成本、性能兑现和生产运营，避免用单一功能数量代替工作负载结果。<div class="figcap-note"><span class="status source">本文分析</span> 本框架不合成总分，以避免不同工作负载之间的伪精确比较。</div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="floor" id="value-layer">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">12 · VALUE REALIZATION</div><h2>Mind 系列承担 Ascend 的价值实现层职责</h2><p class="deck">Ascend Silicon 提供物理算力，CANN 将其转化为可编程计算能力，Mind 与相关 Ascend 软件将计算能力转化为 AI 工作负载能力，模型、服务和业务系统再把这些能力转化为客户价值。</p></header>
+        <p class="figure-intro">端到端价值链与双语义映射共同说明 Mind 系列在硬件资源和业务结果之间承担的转译职责。</p>
+        <figure class="figure" id="fig-12">
+          <div class="figbar"><span class="fig-title-bi"><b>Continuous Conversion from Silicon to Customer Value</b><small>Mind 系列完成从物理算力到客户价值的连续转化</small></span><span class="figid">FIG-12</span></div>
+          <div class="figbody figure-scroll"><div class="min-940">
+            <div class="hero-chain"><div class="node deep">Ascend Silicon<small>物理算力、内存与互联</small></div><div class="node diff">CANN<small>可编程计算能力</small></div><div class="node adapt">Mind / Ascend Software<small>AI 工作负载能力</small></div><div class="node">Framework · Model · Service<small>用户工作流</small></div><div class="node">Customer Value<small>效率、SLA 与总体成本</small></div></div>
+            <div class="value-translation"><div class="value-side"><b>用户以 AI 工作负载对象组织任务</b><div class="semantic-items"><span class="semantic-item">Model</span><span class="semantic-item">Layer</span><span class="semantic-item">Attention</span><span class="semantic-item">MoE</span><span class="semantic-item">TP / PP / EP</span><span class="semantic-item">Request</span></div></div><div class="value-arrow">→</div><div class="value-side"><b>平台将意图转化为硬件执行对象</b><div class="semantic-items"><span class="semantic-item">Graph</span><span class="semantic-item">Operator</span><span class="semantic-item">Kernel</span><span class="semantic-item">Communication</span><span class="semantic-item">Memory</span><span class="semantic-item">Runtime</span></div></div></div>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>成熟的平台体验默认隐藏大部分底层复杂度，并在迁移、调试和性能诊断时按需展开执行证据。<div class="figcap-note"><span class="status risk">综合判断</span> 长期方向可以概括为减少用户感知的硬件复杂度，同时提高硬件能力对业务结果的贡献。</div></figcaption>
+        </figure>
+        <div class="grid cols-2">
+          <article class="card"><span class="num">PLATFORM OUTCOME</span><h3>平台价值通过主流 AI 工作流持续触达用户</h3><p>Mind 系列与相关适配组件需要同时服务原生框架场景和主流开源生态，扩大 Ascend 的工作负载覆盖。</p></article>
+          <article class="card"><span class="num">ENGINEERING OUTCOME</span><h3>执行复杂度在默认隐藏与按需展开之间保持平衡</h3><p>日常开发面向模型和服务对象，诊断阶段则能够沿稳定证据链下钻到图、算子、Kernel、通信和设备。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="floor" id="references">
+      <div class="inner">
+        <header class="section-head"><div class="section-no">13 · EVIDENCE & BOUNDARIES</div><h2>证据边界确保事实、分析与战略推论可追溯</h2><p class="deck">产品能力和集成机制优先依据华为昇腾、MindSpore、官方开源仓及 vLLM 上游文档；跨产品价值模型与下一阶段机会均以本文分析或战略推论标识。资料核对日期：2026-09-04。</p></header>
+        <div class="glossary">
+          <div><b>AI Workload Enablement Layer</b><span>将异构计算能力转化为模型开发、训练、推理和工程能力的分析层。</span></div>
+          <div><b>Low Switching Cost</b><span>保留既有模型代码、框架接口和工程工作流，控制迁移与后续维护成本。</span></div>
+          <div><b>Hardware Affinity</b><span>软件利用特定硬件图、算子、通信、内存和运行时能力的深度。</span></div>
+          <div><b>Execution Traceability</b><span>用户对象与底层执行对象之间可双向追踪的 lineage。</span></div>
+          <div><b>Migration Trust</b><span>迁移转换范围、语义变化和执行结果能够被审查。</span></div>
+          <div><b>Performance Trust</b><span>性能差异能够由跨层执行证据解释。</span></div>
+          <div><b>Optimization Trust</b><span>优化动作具备明确根因、证据和预期影响。</span></div>
+          <div><b>Explainability & Operability</b><span>执行行为能够被解释，并能在规模化生产环境中持续诊断和运营。</span></div>
+        </div>
+        <h3>官方与上游资料支持产品事实</h3>
+        <div class="refs">
+          <article class="ref"><b>[R1] 昇腾社区 · CANN 产品文档</b><p>CANN 位于 AI 框架与处理器之间，并提供 GE、算子库、HCCL、Runtime、编译与 Ascend C 等能力。<a href="https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/920beta1/index/index.html" target="_blank" rel="noreferrer">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R2–R3] MindSpore 2.7.1 · Design Overview</b><p>MindSpore 的模型套件、Python 接口、Tensor、Operator、Autograd、Parallel、Compiler、Runtime 与全场景设计目标。<a href="https://www.mindspore.cn/docs/en/r2.7.1/features/overview.html" target="_blank" rel="noreferrer">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R4] Ascend / MindSpeed · 产品概览</b><p>MindSpeed Core、LLM、MM、RL 的定位，以及计算、内存、通信、并行四类优化。<a href="https://github.com/Ascend/MindSpeed/blob/master/docs/zh/overview.md" target="_blank" rel="noreferrer">官方仓库 ↗</a></p></article>
+          <article class="ref"><b>[R5] Ascend / MindSpeed · Quick Start</b><p>通过 `mindspeed.megatron_adaptor` 将 MindSpeed 能力集成到 Megatron-LM。<a href="https://github.com/Ascend/MindSpeed/blob/master/docs/zh/user-guide/quickstart.md" target="_blank" rel="noreferrer">官方仓库 ↗</a></p></article>
+          <article class="ref"><b>[R6] 昇腾社区 · MindIE 产品概览</b><p>MindIE 作为多场景推理加速套件的定位、主流框架兼容与多层编程接口。<a href="https://www.hiascend.com/document/detail/en/mindie/300/quickstart/MindIE/26.0.0/en/what_is_mindie.md" target="_blank" rel="noreferrer">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R7] 昇腾社区 · MindIE LLM 3.0 Introduction</b><p>并发请求调度、Continuous Batching、PagedAttention、FlashDecoding 与服务接口。<a href="https://www.hiascend.com/document/detail/en/mindie/300/LLMframe/llmdev/user_guide/user_manual/introduction.md" target="_blank" rel="noreferrer">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R8] Ascend Extension for PyTorch · torch_npu</b><p>PyTorch 通过 torch_npu 使用 Ascend NPU，并以兼容矩阵维护 PyTorch、TorchNPU、CANN、Python 和驱动关系。<a href="https://github.com/Ascend/pytorch" target="_blank" rel="noreferrer">官方仓库 ↗</a></p></article>
+          <article class="ref"><b>[R9] Ascend / TorchAir · Ascend IR Quick Start</b><p>TorchAir 将 FX 图转换为 Ascend IR，并通过 GE 图引擎完成编译和执行。<a href="https://github.com/Ascend/torchair/blob/master/docs/zh/ascend_ir/quick_start.md" target="_blank" rel="noreferrer">官方仓库 ↗</a></p></article>
+          <article class="ref"><b>[R10] vLLM Project · vLLM Ascend</b><p>vLLM-Ascend 采用 hardware-pluggable interface，将 Ascend NPU 集成与 vLLM 主体解耦。<a href="https://docs.vllm.ai/projects/ascend/en/main/" target="_blank" rel="noreferrer">上游文档 ↗</a></p></article>
+          <article class="ref"><b>[R11] 昇腾社区 · MindStudio 8.3</b><p>覆盖训练、推理与算子开发，并提供迁移、精度、性能、内存、算子调试和真实硬件验证工具。<a href="https://www.hiascend.com/document/detail/en/mindstudio/830/progressiveknowledge/index.html" target="_blank" rel="noreferrer">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R12] 昇腾社区 · MindStudio Insight 8.3</b><p>支持系统、算子、服务和内存调优，以及大规模集群 Timeline 与真实软硬件运行数据可视化。<a href="https://www.hiascend.com/document/detail/en/mindstudio/830/GUI_baseddevelopmenttool/MindStudioInsight/Insight_userguide_0002.html" target="_blank" rel="noreferrer">官方文档 ↗</a></p></article>
+        </div>
+        <h3>本文分析框架具有明确适用边界</h3>
+        <div class="callout boundary"><strong>分析框架：</strong>AI Workload Enablement Layer、Compatibility / Affinity / Operability 三层能力模型、Ascend“价值实现层”、Execution Traceability、“Low Switching Cost + High Hardware Affinity”以及“减少用户感知的硬件复杂度，同时提高硬件能力对业务结果的贡献”均用于解释产品关系与战略方向，不属于华为官方产品定义。</div>
+        <div class="callout warning"><strong>版本边界：</strong>CANN、TorchNPU、MindSpeed、MindIE、vLLM-Ascend 与上游框架存在明确版本配套关系。生产采用前应按目标硬件、框架和软件版本重新核对官方兼容矩阵。</div>
+        <div class="callout"><strong>实证边界：</strong>本文基于官方产品资料与开源项目文档建立结构化分析，没有引入统一环境下的性能基准、客户部署样本或竞品对照实验。涉及平台效果的结论用于提出验证框架，不构成性能、成本或生产规模承诺。</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">PTO Visual Whitepaper · Source: Ascend-ecosystem2.md · Mind Series Value Layer</footer>
+  <button class="backtop" type="button" aria-label="返回顶部">↑</button>
+  <script>
+    const progress = document.querySelector('.progress');
+    const backtop = document.querySelector('.backtop');
+    const footer = document.querySelector('.footer');
+    const prevButton = document.querySelector('.pager-prev');
+    const nextButton = document.querySelector('.pager-next');
+    const links = [...document.querySelectorAll('.reading-path a')];
+    const sections = links.map(link => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+    let current = Math.max(0, sections.findIndex(section => `#${section.id}` === location.hash));
+
+    function showFloor(index, updateHistory = true){
+      current = Math.max(0, Math.min(index, sections.length - 1));
+      sections.forEach((section, sectionIndex) => {
+        section.classList.toggle('is-active', sectionIndex === current);
+        section.classList.toggle('is-before', sectionIndex < current);
+        section.classList.toggle('is-after', sectionIndex > current);
+        section.toggleAttribute('inert', sectionIndex !== current);
+        section.setAttribute('aria-hidden', sectionIndex === current ? 'false' : 'true');
+      });
+      links.forEach((link, linkIndex) => {
+        const active = linkIndex === current;
+        link.classList.toggle('active', active);
+        link.toggleAttribute('aria-current', active);
+        if(active) link.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+      });
+      progress.style.setProperty('--progress', `${(current + 1) / sections.length * 100}%`);
+      prevButton.disabled = current === 0;
+      nextButton.disabled = current === sections.length - 1;
+      footer.classList.toggle('show', current === sections.length - 1);
+      onFloorScroll();
+      if(updateHistory && location.hash !== `#${sections[current].id}`){
+        history.pushState({floor:current}, '', `#${sections[current].id}`);
+      }
+    }
+
+    function onFloorScroll(){
+      backtop.classList.toggle('show', sections[current].scrollTop > innerHeight * .55);
+    }
+
+    links.forEach((link, index) => link.addEventListener('click', event => {
+      event.preventDefault();
+      showFloor(index);
+    }));
+    sections.forEach(section => section.addEventListener('scroll', onFloorScroll, {passive:true}));
+    prevButton.addEventListener('click', () => showFloor(current - 1));
+    nextButton.addEventListener('click', () => showFloor(current + 1));
+    backtop.addEventListener('click', () => sections[current].scrollTo({top:0, behavior:'smooth'}));
+    addEventListener('popstate', () => {
+      const index = sections.findIndex(section => `#${section.id}` === location.hash);
+      showFloor(index < 0 ? 0 : index, false);
+    });
+    addEventListener('keydown', event => {
+      if(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if(event.key === 'ArrowLeft') showFloor(current - 1);
+      if(event.key === 'ArrowRight') showFloor(current + 1);
+    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    document.querySelector('main').addEventListener('touchstart', event => {
+      touchStartX = event.changedTouches[0].screenX;
+      touchStartY = event.changedTouches[0].screenY;
+    }, {passive:true});
+    document.querySelector('main').addEventListener('touchend', event => {
+      const deltaX = event.changedTouches[0].screenX - touchStartX;
+      const deltaY = event.changedTouches[0].screenY - touchStartY;
+      if(Math.abs(deltaX) > 64 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4){
+        showFloor(current + (deltaX < 0 ? 1 : -1));
+      }
+    }, {passive:true});
+    showFloor(current, false);
+  </script>
+</body>
+</html>

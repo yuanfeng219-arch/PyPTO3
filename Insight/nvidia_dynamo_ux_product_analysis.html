@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NVIDIA Dynamo｜UX / 产品视角全景分析｜更新版</title>
+<style>
+  :root{
+    --bg:#f6f7f8; --panel:#ffffff; --ink:#17191d; --muted:#667085; --line:#e5e7eb;
+    --soft:#f1f3f5; --green:#76b900; --green-dark:#3d6900; --amber:#b26a00; --blue:#2757c7;
+    --purple:#6b4eff; --red:#c4392f; --nav:#111316; --nav-ink:#d9dde4;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;line-height:1.65}
+  a{color:inherit}
+  .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+  aside{position:sticky;top:0;height:100vh;background:var(--nav);color:var(--nav-ink);padding:28px 20px;overflow:auto}
+  .brand{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#9ba3af;margin-bottom:8px}
+  .brand-title{font-size:20px;font-weight:750;color:#fff;line-height:1.25;margin-bottom:24px}
+  .nav-group{margin-top:18px;font-size:11px;color:#7e8794;text-transform:uppercase;letter-spacing:.08em}
+  nav a{display:block;text-decoration:none;color:#c8ced8;padding:7px 9px;border-radius:8px;font-size:13px;margin:2px 0}
+  nav a:hover{background:#20242a;color:#fff}
+  main{padding:44px 56px 84px;max-width:1500px;width:100%}
+  .hero{background:linear-gradient(135deg,#111316,#1b2027 62%,#22330e);color:#fff;border-radius:22px;padding:42px 44px;margin-bottom:24px;position:relative;overflow:hidden}
+  .hero:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;right:-70px;top:-90px;background:rgba(118,185,0,.18);filter:blur(2px)}
+  .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:#b7c0cb;margin-bottom:12px}
+  h1{font-size:42px;line-height:1.12;margin:0 0 16px;letter-spacing:-.025em}
+  .hero p{font-size:17px;color:#d3d9e1;max-width:900px;margin:0}
+  .hero-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+  .pill{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);padding:6px 10px;border-radius:999px;font-size:12px;color:#e9edf2}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px 32px;margin:18px 0}
+  h2{font-size:26px;line-height:1.25;margin:0 0 18px;letter-spacing:-.018em}
+  h3{font-size:18px;margin:24px 0 10px}
+  p{margin:10px 0;color:#363a41}
+  .lead{font-size:18px;color:#252a31;max-width:980px}
+  .kicker{font-size:12px;font-weight:700;color:var(--green-dark);text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px}
+  .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .card{border:1px solid var(--line);border-radius:14px;padding:18px;background:#fff}
+  .card h3,.card h4{margin:0 0 8px}
+  .card p{font-size:14px;color:#555d68;margin:0}
+  .metric{font-size:28px;font-weight:760;letter-spacing:-.03em;margin-bottom:4px}
+  .label{font-size:12px;color:var(--muted)}
+  .callout{border-left:4px solid var(--green);background:#f6faee;border-radius:10px;padding:16px 18px;margin:14px 0}
+  .callout strong{color:#2e4d00}
+  .warn{border-left-color:#e39a24;background:#fff8ed}
+  .warn strong{color:#7a4700}
+  .insight{border-left-color:var(--purple);background:#f7f5ff}
+  .insight strong{color:#4937b8}
+  .facttag,.infertag,.designtag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px}
+  .facttag{background:#eaf5db;color:#466f00}.infertag{background:#eef3ff;color:#3156a6}.designtag{background:#f1ebff;color:#6744b8}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+  th{text-align:left;background:#f7f8fa;color:#3d4652;font-weight:700;border-bottom:1px solid var(--line);padding:11px 12px;vertical-align:top}
+  td{border-bottom:1px solid var(--line);padding:12px;vertical-align:top;color:#414750}
+  tr:last-child td{border-bottom:0}
+  .journey{display:grid;grid-template-columns:repeat(7,minmax(155px,1fr));gap:9px;overflow-x:auto;padding-bottom:6px}
+  .step{min-width:155px;border:1px solid var(--line);border-radius:13px;padding:14px;background:#fff;position:relative}
+  .step .num{width:24px;height:24px;border-radius:50%;background:#111316;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700;margin-bottom:9px}
+  .step h4{margin:0 0 7px;font-size:14px}.step p{font-size:12px;color:#626b76;margin:0}
+  .step:after{content:"→";position:absolute;right:-9px;top:50%;transform:translate(50%,-50%);color:#b0b6bf;font-weight:700}
+  .step:last-child:after{display:none}
+  .arch{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:12px;align-items:stretch}
+  .arch-col{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fafbfc}
+  .arch-head{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#69727e;margin-bottom:10px;font-weight:700}
+  .arch-item{border:1px solid #dfe3e8;border-radius:10px;background:white;padding:11px 12px;margin:8px 0}
+  .arch-item b{font-size:13px;display:block}.arch-item span{font-size:12px;color:#667085}
+  .object-map{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+  .object{padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:#fafafa;font-size:13px}
+  .flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:15px;border-radius:12px;background:#f7f8fa;border:1px solid var(--line)}
+  .flow span{background:#fff;border:1px solid #dfe2e6;border-radius:9px;padding:8px 10px;font-size:13px}.flow i{font-style:normal;color:#9aa2ad}
+  .score{display:grid;grid-template-columns:180px 1fr 70px;gap:10px;align-items:center;margin:10px 0}
+  .bar{height:9px;background:#edf0f2;border-radius:999px;overflow:hidden}.bar>i{display:block;height:100%;background:linear-gradient(90deg,#76b900,#b5dc72);border-radius:999px}
+  .score b{font-size:13px}.score em{font-style:normal;font-size:12px;color:#68707b;text-align:right}
+  .quote{font-size:21px;line-height:1.45;letter-spacing:-.015em;font-weight:650;padding:8px 0 4px;max-width:1020px;color:#20242a}
+  .small{font-size:12px;color:#737c87}
+  .source-list{padding-left:20px}.source-list li{margin:8px 0;color:#525a65;font-size:13px}.source-list a{color:#325da7;word-break:break-all}
+  .sticky-note{display:inline-block;background:#fff4ab;padding:8px 11px;border:1px solid #e8dc87;border-radius:7px;transform:rotate(-1deg);font-size:13px;margin:3px 4px 3px 0}
+  footer{color:#777f89;font-size:12px;text-align:center;padding:24px}
+  @media(max-width:1100px){.layout{grid-template-columns:1fr}aside{display:none}main{padding:24px}.grid-4{grid-template-columns:repeat(2,1fr)}.arch{grid-template-columns:1fr}.hero{padding:32px}.hero h1{font-size:34px}}
+  @media(max-width:720px){main{padding:14px}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}section{padding:22px 18px}.hero{border-radius:14px;padding:26px 20px}.hero h1{font-size:30px}.score{grid-template-columns:120px 1fr 55px}}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .status{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#eef2f6;color:#52606d}
+  .status.now{background:#eaf5db;color:#466f00}.status.old{background:#fff0df;color:#8a5100}
+  .decision{border:1px solid var(--line);border-radius:14px;padding:18px;background:linear-gradient(180deg,#fff,#fafbfc)}
+  .decision h4{margin:0 0 8px;font-size:15px}.decision p{margin:0;font-size:13px;color:#5c6673}
+  @media(max-width:720px){.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">UX / Product Study</div>
+  <div class="brand-title">NVIDIA Dynamo<br/>产品全景分析</div>
+  <nav>
+    <a href="#summary">01 一页结论</a>
+    <a href="#positioning">02 产品定位</a>
+    <a href="#model">03 产品对象模型</a>
+    <a href="#surfaces">04 产品触点</a>
+    <a href="#journey">05 端到端旅程</a>
+    <a href="#autodeploy">06 DGDR / Auto Deploy</a>
+    <a href="#profiler">07 Profiler</a>
+    <a href="#aiperf">08 AIPerf</a>
+    <a href="#overlap">09 Profiler × AIPerf</a>
+    <a href="#experiment">10 Experiment 模型</a>
+    <a href="#runtime">11 Observe / Planner</a>
+    <a href="#ia">12 当前 IA</a>
+    <a href="#gaps">13 体验缺口</a>
+    <a href="#trajectory">14 产品演进判断</a>
+    <a href="#sources">15 Sources</a>
+  </nav>
+</aside>
+<main>
+  <div class="hero">
+    <div class="eyebrow">NVIDIA Dynamo · UX / Product Perspective · Updated 2026-08-29</div>
+    <h1>Dynamo 的核心产品价值，正在从“部署框架”走向“意图驱动的推理系统优化闭环”。</h1>
+    <p>本材料只保留 NVIDIA / Dynamo 产品分析。技术细节仅用于解释产品边界、用户旅程和交互逻辑，不展开底层实现原理。</p>
+    <div class="hero-meta">
+      <span class="pill">Auto Deployment / DGDR</span>
+      <span class="pill">Profiler: Rapid / Thorough</span>
+      <span class="pill">AIPerf: Benchmark / Dashboard</span>
+      <span class="pill">Observability / Planner</span>
+      <span class="pill">CLI / YAML / Kubernetes-first</span>
+    </div>
+  </div>
+
+  <section id="summary">
+    <div class="kicker">Executive summary</div>
+    <h2>一页结论</h2>
+    <div class="grid-4">
+      <div class="card"><div class="metric">Intent</div><div class="label">DGDR 把用户输入从完整部署参数上移到 model / workload / SLA / hardware constraints。</div></div>
+      <div class="card"><div class="metric">Search</div><div class="label">Profiler 负责生成、评估、排序并选择部署方案，最终生成 DGD。</div></div>
+      <div class="card"><div class="metric">Measure</div><div class="label">AIPerf 负责对真实 deployment 发压、sweep、重复实验与结果分析。</div></div>
+      <div class="card"><div class="metric">Operate</div><div class="label">Observability + Planner 把部署前选型延伸到运行时监控与容量调整。</div></div>
+    </div>
+    <div class="callout insight"><strong>当前最重要的产品判断：</strong>Dynamo 已经形成“Intent → Search → Deploy → Measure → Observe → Adjust”的工程闭环，但用户体验仍由 DGDR YAML、Profiler、AIPerf、Grafana、Kubernetes 等多个触点共同完成。</div>
+    <p class="quote">Profiler 与 AIPerf 的重叠不是功能重复，而是同一“Configuration Evaluation”任务在不同阶段、不同自动化程度下的两种入口。</p>
+  </section>
+
+  <section id="positioning">
+    <div class="kicker">Product positioning</div>
+    <h2>Dynamo 是什么产品？</h2>
+    <p class="lead"><span class="facttag">事实</span>Dynamo 是面向生成式 AI 推理的分布式 serving 平台。它不替代 vLLM、SGLang、TensorRT-LLM 等 inference engine，而是在它们之上组织部署拓扑、请求路由、KV 相关能力、容量与运行时管理。</p>
+    <div class="grid-3">
+      <div class="card"><h3>部署层</h3><p>把模型、硬件和后端组织成真正可运行的 serving deployment。</p></div>
+      <div class="card"><h3>优化层</h3><p>通过 Profiler / AIConfigurator / AIPerf 找到更适合 workload 与 SLA 的配置。</p></div>
+      <div class="card"><h3>运营层</h3><p>通过 metrics、traces、Planner 等能力理解并调整运行中的服务。</p></div>
+    </div>
+    <div class="callout"><strong>产品定位：</strong>不是“配置一个模型”，而是“让一个模型在指定 workload、SLA 和硬件条件下形成可部署、可验证、可持续调节的推理系统”。</div>
+  </section>
+
+  <section id="model">
+    <div class="kicker">Product object model</div>
+    <h2>更适合 UX 的产品对象模型</h2>
+    <div class="object-map">
+      <span class="object"><b>Intent</b> Model / Workload / SLA / Hardware</span>
+      <span class="object"><b>DGDR</b> Deployment Request</span>
+      <span class="object"><b>Candidate</b> 可行配置</span>
+      <span class="object"><b>Evidence</b> Estimated / Measured</span>
+      <span class="object"><b>DGD</b> 可执行部署方案</span>
+      <span class="object"><b>Deployment</b> 真实运行实例</span>
+      <span class="object"><b>Benchmark Run</b> AIPerf 实验</span>
+      <span class="object"><b>Runtime State</b> 服务状态与指标</span>
+      <span class="object"><b>Planner Decision</b> 运行时容量调整</span>
+    </div>
+    <div class="flow"><span>Intent / DGDR</span><i>→</i><span>Candidate Configurations</span><i>→</i><span>Evidence</span><i>→</i><span>DGD</span><i>→</i><span>Deployment</span><i>→</i><span>Benchmark / Observe</span><i>→</i><span>Adjust</span></div>
+    <p class="small">从产品分析角度，DGD 是“执行层 artifact”，而 DGDR 更接近用户意图层；Profiler 与 AIPerf 则是为 Candidate 积累证据的两种机制。</p>
+  </section>
+
+  <section id="surfaces">
+    <div class="kicker">Interaction surfaces</div>
+    <h2>当前主要产品触点</h2>
+    <table>
+      <thead><tr><th>触点</th><th>主要任务</th><th>产品特征</th></tr></thead>
+      <tbody>
+        <tr><td><b>Docs / Recipes</b></td><td>发现能力、找到已验证起点、理解推荐流程。</td><td>文档承担了大量导航和 onboarding 功能。</td></tr>
+        <tr><td><b>DGDR YAML</b></td><td>表达 deployment intent。</td><td>比完整 DGD 抽象层更高，但仍是 CRD / YAML 交互。</td></tr>
+        <tr><td><b>Profiler Job / Artifacts</b></td><td>生成并评估候选配置、自动 pick、输出 DGD。</td><td>当前主路径是自动化 pipeline，而不是成熟的候选决策 WebUI。</td></tr>
+        <tr><td><b>DGD YAML</b></td><td>表示最终可执行 deployment plan。</td><td>适合 version control、review、override，是系统 source of truth。</td></tr>
+        <tr><td><b>AIPerf CLI / TUI</b></td><td>执行 benchmark，查看实时进度与 metrics。</td><td>面向实验执行。</td></tr>
+        <tr><td><b>AIPerf Web Dashboard</b></td><td>单 run 分析、多 run 比较、Pareto / uncertainty / config drill-down。</td><td>当前 NVIDIA 体系里最明确的交互式实验结果分析界面。</td></tr>
+        <tr><td><b>Grafana / Prometheus / Logs / Traces</b></td><td>运行时 observability。</td><td>数据能力强，但主要依赖通用运维工具。</td></tr>
+        <tr><td><b>Kubernetes / Operator</b></td><td>部署生命周期、资源和状态管理。</td><td>基础设施视角强，仍是当前产品的核心执行环境。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>修正：</strong>早期 Dynamo / AI Configurator 曾出现过 Profiler candidate-selection WebUI，但当前正式文档主线已经转向 DGDR + 自动 ranking/picking；不应把它描述成今天成熟、稳定的核心产品入口。</div>
+  </section>
+
+  <section id="journey">
+    <div class="kicker">End-to-end journey</div>
+    <h2>当前 Dynamo 的端到端产品旅程</h2>
+    <div class="journey">
+      <div class="step"><div class="num">1</div><h4>Describe Intent</h4><p>model、workload、SLA、hardware / backend constraints。</p></div>
+      <div class="step"><div class="num">2</div><h4>Search</h4><p>Profiler 生成和筛选 candidate configurations。</p></div>
+      <div class="step"><div class="num">3</div><h4>Evaluate</h4><p>Rapid 估算或 Thorough 真实 benchmark。</p></div>
+      <div class="step"><div class="num">4</div><h4>Pick / Review</h4><p>系统 pick rank-1；可选择 review 最终 DGD。</p></div>
+      <div class="step"><div class="num">5</div><h4>Deploy</h4><p>Operator 落实 DGD 并启动 serving。</p></div>
+      <div class="step"><div class="num">6</div><h4>Measure</h4><p>AIPerf 对真实 deployment 做 benchmark / sweep。</p></div>
+      <div class="step"><div class="num">7</div><h4>Operate</h4><p>Observability + Planner 支持运行监控与容量调节。</p></div>
+    </div>
+    <div class="callout insight"><strong>产品结构：</strong>部署前由 Profiler 回答“怎么配”；部署后由 AIPerf 回答“真实表现如何”；上线后由 Observability / Planner 回答“运行中是否满足目标、是否需要调整”。</div>
+  </section>
+
+  <section id="autodeploy">
+    <div class="kicker">Deploy by intent</div>
+    <h2>DGDR / Auto Deployment：把用户输入从 Configuration 上移到 Intent</h2>
+    <p><span class="facttag">事实</span>DGDR 是 Dynamo 的 deploy-by-intent 路径。用户描述 model、workload、可选 latency targets、hardware limits、backend 等要求，Profiler 再生成真正的 DGD。用户不必从一开始手工决定所有 worker、parallelism 和 replica count。</p>
+    <div class="split">
+      <div class="decision"><h4>DGDR：需求表达</h4><p>关注“我要跑什么、面对怎样的流量、希望达到什么目标、资源边界是什么”。</p></div>
+      <div class="decision"><h4>DGD：执行方案</h4><p>关注“最终 worker topology、parallelism、replicas、resources 和 platform features 应该是什么”。</p></div>
+    </div>
+    <div class="flow" style="margin-top:14px"><span>DGDR</span><i>→</i><span>Profiler</span><i>→</i><span>Selected Configuration</span><i>→</i><span>DGD</span><i>→</i><span>Serving</span></div>
+    <div class="callout"><strong>产品价值：</strong>这是 Dynamo 最明确的抽象层升级：用户表达“目标与约束”，系统负责推导“实现配置”。</div>
+  </section>
+
+  <section id="profiler">
+    <div class="kicker">Configuration search</div>
+    <h2>Profiler：当前更像自动化 Configuration Search Engine，而不是可视配置比较器</h2>
+    <p><span class="facttag">事实</span>Profiler 是 DGDR Auto Deployment 背后的核心 engine：验证请求、搜索候选配置、评估、pick 最佳配置、生成 DGD。</p>
+    <h3>Rapid vs Thorough：本质是 Evidence Quality 的选择</h3>
+    <table>
+      <thead><tr><th></th><th>Rapid</th><th>Thorough</th></tr></thead>
+      <tbody>
+        <tr><td><b>候选来源</b></td><td>Profiler / AIConfigurator 生成。</td><td>Profiler 枚举候选 parallelization mappings。</td></tr>
+        <tr><td><b>评估方式</b></td><td>性能模型 / simulation 估算。</td><td>把候选部署成真实 Kubernetes workload，并用 AIPerf benchmark。</td></tr>
+        <tr><td><b>证据类型</b></td><td><span class="status">Estimated</span></td><td><span class="status now">Measured</span></td></tr>
+        <tr><td><b>成本</b></td><td>约几十秒，无 profiling GPU。</td><td>通常 2–4 小时，需要真实 GPU capacity。</td></tr>
+        <tr><td><b>定位</b></td><td>快速 sizing、迭代、CI。</td><td>生产调优或需要真实数据时。</td></tr>
+      </tbody>
+    </table>
+    <h3>Profiler 的“选择”当前主要由系统完成</h3>
+    <p>Profiler 会根据 DGDR 中的 workload / SLA 等信息决定 picking mode，并自动选择配置。生成 DGD 后，`autoApply` 再决定是否把最终方案自动部署；它与 Rapid / Thorough 是正交控制。</p>
+    <div class="flow"><span>Generate Candidates</span><i>→</i><span>Score / Measure</span><i>→</i><span>Rank</span><i>→</i><span>Pick #1</span><i>→</i><span>Generate DGD</span><i>→</i><span>Review or Auto Apply</span></div>
+    <div class="callout insight"><strong>UX 判断：</strong>Profiler 当前已经非常“自动决策化”，但 candidate → ranking → selected plan 之间的解释与人工比较体验相对弱。这是自动化能力领先于 decision UX 的典型状态。</div>
+  </section>
+
+  <section id="aiperf">
+    <div class="kicker">Benchmark & analysis</div>
+    <h2>AIPerf：真实 Deployment 的实验执行与结果分析层</h2>
+    <p><span class="facttag">事实</span>AIPerf 会向 OpenAI-compatible endpoint 发送真实负载，测量 live deployment；它不负责像 AIConfigurator 一样预测配置。Dynamo 的 Thorough Profiler 也会把 AIPerf 当作真实测量 engine。</p>
+    <div class="grid-3">
+      <div class="card"><h3>Profile / Load</h3><p>定义 request shape、request rate / concurrency、重复次数等 benchmark 条件。</p></div>
+      <div class="card"><h3>Sweep / Multi-run</h3><p>对多个 workload intensity 或实验条件重复运行，并计算 confidence / variance。</p></div>
+      <div class="card"><h3>Plot / Dashboard</h3><p>把单 run 与多 run 结果转成时序、Pareto、trade-off 与 configuration comparison。</p></div>
+    </div>
+    <h3>AIPerf Web Dashboard 当前能做什么</h3>
+    <table>
+      <thead><tr><th>能力</th><th>用户价值</th></tr></thead>
+      <tbody>
+        <tr><td><b>Multi-run comparison</b></td><td>同时比较多个实验或多个 deployment 结果。</td></tr>
+        <tr><td><b>TTFT vs Throughput</b></td><td>查看交互时延与吞吐之间的 trade-off。</td></tr>
+        <tr><td><b>Throughput/GPU vs Latency / Interactivity</b></td><td>观察资源效率与体验之间的 Pareto frontier。</td></tr>
+        <tr><td><b>Joint uncertainty</b></td><td>用置信区间而不是单一平均值表达实验可信度。</td></tr>
+        <tr><td><b>Run filtering</b></td><td>控制哪些实验进入比较。</td></tr>
+        <tr><td><b>Metric switching</b></td><td>在 avg / p50 / p90 / p95 / p99 等统计口径间切换。</td></tr>
+        <tr><td><b>Config viewer</b></td><td>点击 datapoint 回看对应的完整 run configuration。</td></tr>
+        <tr><td><b>Custom plots / export</b></td><td>支持专家进一步探索与输出分析结果。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>产品定位：</strong>AIPerf Dashboard 是“Experiment Result Explorer”，不是 production observability dashboard，也不是 configuration generator。</div>
+  </section>
+
+  <section id="overlap">
+    <div class="kicker">Profiler × AIPerf</div>
+    <h2>两个工具为什么看起来重叠？因为 Thorough 已经把 AIPerf 编排进了 Profiler</h2>
+    <table>
+      <thead><tr><th></th><th>Profiler Rapid</th><th>Profiler Thorough</th><th>独立 AIPerf</th></tr></thead>
+      <tbody>
+        <tr><td><b>用户任务</b></td><td>快速找到合适配置</td><td>用真实证据找到合适配置</td><td>验证 / 比较真实 deployment</td></tr>
+        <tr><td><b>候选方案</b></td><td>系统生成</td><td>系统生成</td><td>用户已有或自己组织</td></tr>
+        <tr><td><b>是否真实部署候选</b></td><td>否</td><td>是，临时实验 deployment</td><td>是，针对现有 deployment</td></tr>
+        <tr><td><b>评估数据</b></td><td>Estimated</td><td>Measured by AIPerf</td><td>Measured by AIPerf</td></tr>
+        <tr><td><b>自动化程度</b></td><td>高</td><td>高</td><td>更自由、可自定义实验</td></tr>
+        <tr><td><b>最终输出</b></td><td>Selected DGD</td><td>Selected DGD</td><td>Benchmark evidence / comparison</td></tr>
+      </tbody>
+    </table>
+    <div class="callout insight"><strong>产品判断：</strong>两者共享“Evaluate Configurations”这一核心任务。Profiler 面向 <b>Search</b>，AIPerf 面向 <b>Measurement / Validation</b>。Thorough 正是它们在工程层的融合点。</div>
+    <h3>如果按产品任务而不是工具名看</h3>
+    <div class="flow"><span>Generate Plans</span><i>→</i><span>Estimate or Measure</span><i>→</i><span>Compare / Rank</span><i>→</i><span>Select</span><i>→</i><span>Deploy</span><i>→</i><span>Validate Again</span></div>
+  </section>
+
+  <section id="experiment">
+    <div class="kicker">Experiment model</div>
+    <h2>NVIDIA 当前实际上已经形成“两层实验空间”</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Configuration Space</h3>
+        <p>topology、parallelism、replicas、backend / runtime settings 等决定“系统以什么方式提供服务”。Profiler 主要负责这一层的搜索与选型。</p>
+      </div>
+      <div class="card">
+        <h3>Workload Space</h3>
+        <p>input/output shape、request rate、concurrency、arrival behavior 等决定“如何给这个系统施加负载”。AIPerf 主要负责这一层的实验与 sweep。</p>
+      </div>
+    </div>
+    <div class="flow" style="margin-top:14px"><span>Configuration A</span><i>×</i><span>Workload Sweep</span><i>→</i><span>Performance Curve</span><i>→</i><span>SLA / Pareto Evidence</span></div>
+    <div class="flow" style="margin-top:8px"><span>Configuration B</span><i>×</i><span>Same Workload Sweep</span><i>→</i><span>Performance Curve</span><i>→</i><span>Compare with A</span></div>
+    <p class="small">AIPerf 支持 parameter sweep、multi-run statistics、confidence reporting；因此它已经不只是“测一个点”，而是在形成较完整的实验基础设施。</p>
+    <div class="callout"><strong>产品意义：</strong>NVIDIA 的工具边界目前是“Profiler 搜 Configuration，AIPerf 测 Workload 与真实表现”；从用户任务看，这两层天然属于同一个 optimization experiment。</div>
+  </section>
+
+  <section id="runtime">
+    <div class="kicker">Runtime loop</div>
+    <h2>Observability 与 Planner：部署后的运行时闭环</h2>
+    <div class="grid-3">
+      <div class="card"><h3>Observability</h3><p>回答服务状态、请求、worker、latency、errors 等“现在发生了什么”。</p></div>
+      <div class="card"><h3>Planner</h3><p>根据运行时负载与目标动态调整 capacity，例如 prefill / decode worker 数量。</p></div>
+      <div class="card"><h3>Operator</h3><p>把期望状态落实到 Kubernetes deployment lifecycle。</p></div>
+    </div>
+    <div class="callout insight"><strong>产品缺口：</strong>当前运行时自动化更强的是“做出调整”，相对较弱的是“把触发信号 → 决策原因 → 资源变化 → SLA 影响”组织成统一、可解释的 decision history。</div>
+  </section>
+
+  <section id="ia">
+    <div class="kicker">Current product IA</div>
+    <h2>如果按用户任务重新理解当前 NVIDIA / Dynamo 工具组合</h2>
+    <div class="arch">
+      <div class="arch-col">
+        <div class="arch-head">Design / Search</div>
+        <div class="arch-item"><b>DGDR</b><span>表达 deployment intent</span></div>
+        <div class="arch-item"><b>Profiler / AIConfigurator</b><span>搜索与评估 configuration</span></div>
+        <div class="arch-item"><b>DGD</b><span>生成可执行 deployment plan</span></div>
+      </div>
+      <div class="arch-col">
+        <div class="arch-head">Experiment / Validate</div>
+        <div class="arch-item"><b>AIPerf Profile</b><span>对真实 endpoint 发压</span></div>
+        <div class="arch-item"><b>Sweep / Multi-run</b><span>建立性能曲线与置信度</span></div>
+        <div class="arch-item"><b>AIPerf Dashboard</b><span>比较、Pareto、drill-down</span></div>
+      </div>
+      <div class="arch-col">
+        <div class="arch-head">Operate</div>
+        <div class="arch-item"><b>Observability</b><span>运行状态与诊断信号</span></div>
+        <div class="arch-item"><b>Planner</b><span>运行时容量调整</span></div>
+        <div class="arch-item"><b>Kubernetes / Operator</b><span>部署执行与生命周期</span></div>
+      </div>
+    </div>
+    <div class="callout warn"><strong>当前 IA 特征：</strong>能力链条完整，但产品触点仍以工程模块为边界；同一个 optimization context 会跨 YAML、job log、benchmark artifact、dashboard 和 Grafana。</div>
+  </section>
+
+  <section id="gaps">
+    <div class="kicker">UX gap analysis</div>
+    <h2>Dynamo 当前最值得关注的产品体验缺口</h2>
+    <p class="small">以下是基于当前公开产品形态的 UX / 产品推断，不代表 NVIDIA 官方 roadmap。</p>
+    <div class="score"><b>Intent abstraction</b><div class="bar"><i style="width:88%"></i></div><em>强</em></div>
+    <div class="score"><b>Automated config search</b><div class="bar"><i style="width:90%"></i></div><em>强</em></div>
+    <div class="score"><b>Measured benchmarking</b><div class="bar"><i style="width:90%"></i></div><em>强</em></div>
+    <div class="score"><b>Experiment visualization</b><div class="bar"><i style="width:78%"></i></div><em>AIPerf</em></div>
+    <div class="score"><b>Candidate decision UX</b><div class="bar"><i style="width:46%"></i></div><em>偏自动</em></div>
+    <div class="score"><b>Cross-stage context</b><div class="bar"><i style="width:40%"></i></div><em>分散</em></div>
+    <div class="score"><b>Decision explainability</b><div class="bar"><i style="width:38%"></i></div><em>较弱</em></div>
+    <div class="grid-3" style="margin-top:18px">
+      <div class="card"><h3>1. Search 与 Compare 之间缺少统一决策层</h3><p>Profiler 能自动 pick，AIPerf 能比较真实结果，但“候选、证据、推荐理由、人工取舍”并没有被统一成一个产品对象。</p></div>
+      <div class="card"><h3>2. Estimated 与 Measured 证据分散</h3><p>Rapid prediction、Thorough benchmark、独立 AIPerf、生产 metrics 属于不同触点，尚未自然累积到同一个 configuration history。</p></div>
+      <div class="card"><h3>3. Profiler 自动化强于解释</h3><p>系统可以 rank / pick，但用户对“为什么这个配置最好、哪些约束最关键、替代方案代价是什么”的可视解释有限。</p></div>
+      <div class="card"><h3>4. AIPerf 强分析、弱决策</h3><p>Dashboard 擅长展示曲线与 Pareto，但仍主要是 data exploration，而不是直接生成 recommendation / next action。</p></div>
+      <div class="card"><h3>5. Runtime decision history 不完整</h3><p>Planner 做动态 capacity 调整后，缺少与实验阶段一致的“原因—变化—结果”可追溯体验。</p></div>
+      <div class="card"><h3>6. 工具间 context switching 高</h3><p>用户需要在 DGDR、DGD、AIPerf artifact、Dashboard、Grafana、kubectl 之间保持同一个 mental model。</p></div>
+    </div>
+  </section>
+
+  <section id="trajectory">
+    <div class="kicker">Product trajectory</div>
+    <h2>从当前产品可以看到的几个明确演进方向</h2>
+    <div class="grid-2">
+      <div class="card"><h3>从 Configure 到 Intent</h3><p>DGDR 明确降低了用户直接操作 topology / parallelism / replicas 的必要性。</p></div>
+      <div class="card"><h3>从 Estimate 到 Evidence</h3><p>Rapid / Thorough 把“快但估算”和“慢但真实”变成正式的产品选择。</p></div>
+      <div class="card"><h3>从单点 Benchmark 到 Experiment</h3><p>AIPerf 的 sweep、multi-run、confidence、dashboard 让 benchmark 开始具备实验管理雏形。</p></div>
+      <div class="card"><h3>从人工配置到自动决策</h3><p>Profiler 自动 rank / pick、Planner 动态调整，都在减少人工逐项配置。</p></div>
+      <div class="card"><h3>从独立工具到编排</h3><p>Thorough 直接调用 AIPerf，说明 NVIDIA 已经开始把独立工具能力组合为自动化 workflow。</p></div>
+      <div class="card"><h3>下一阶段可能是统一 Decision Experience</h3><p class="small"><span class="infertag">推断</span>如果继续产品化，最自然的下一层不是更多参数，而是把 candidate、evidence、recommendation、validation、runtime outcome 串起来。</p></div>
+    </div>
+    <p class="quote">Dynamo 的竞争力越来越不只是“能部署”，而是“能把一个复杂的推理系统从意图、搜索、验证一路推到运行时自适应”。</p>
+  </section>
+
+  <section>
+    <div class="kicker">Final product judgment</div>
+    <h2>最终判断</h2>
+    <p>Dynamo 已经具备一个较完整的推理优化系统骨架：DGDR 负责意图表达，Profiler 负责配置搜索，DGD 负责方案落地，AIPerf 负责真实实验，Observability / Planner 负责运行时闭环。</p>
+    <p>它目前更像一组高度协同的专业工程能力，而不是统一的一站式产品。最明显的体验机会集中在三个连接处：<b>Search → Decision、Estimated → Measured、Experiment → Runtime</b>。</p>
+    <div>
+      <span class="sticky-note">Intent → Configuration</span>
+      <span class="sticky-note">Candidate → Evidence</span>
+      <span class="sticky-note">Evidence → Recommendation</span>
+      <span class="sticky-note">Deploy → Validation</span>
+      <span class="sticky-note">Runtime → Decision History</span>
+    </div>
+  </section>
+
+  <section id="sources">
+    <div class="kicker">Sources</div>
+    <h2>主要一手资料</h2>
+    <p class="small">基于 2026-08-29 可访问的 NVIDIA Dynamo / AIPerf 官方文档。正文中的“产品判断 / 推断”与官方事实分开表达。</p>
+    <ol class="source-list">
+      <li>Dynamo Auto Deployment Overview — <a href="https://docs.nvidia.com/dynamo/kubernetes/auto-deployment/overview" target="_blank">docs.nvidia.com/dynamo/kubernetes/auto-deployment/overview</a></li>
+      <li>Auto Deploy with DGDR — <a href="https://docs.nvidia.com/dynamo/dev/kubernetes/auto-deployment/dgdr-walkthrough" target="_blank">docs.nvidia.com/dynamo/dev/kubernetes/auto-deployment/dgdr-walkthrough</a></li>
+      <li>Dynamo Profiler — <a href="https://docs.nvidia.com/dynamo/kubernetes/auto-deployment/dynamo-profiler" target="_blank">docs.nvidia.com/dynamo/kubernetes/auto-deployment/dynamo-profiler</a></li>
+      <li>AIPerf — Benchmark a Local Deployment — <a href="https://docs.nvidia.com/dynamo/dev/cli/operations/benchmarking-with-ai-perf" target="_blank">docs.nvidia.com/dynamo/dev/cli/operations/benchmarking-with-ai-perf</a></li>
+      <li>AIPerf Visualization & Plotting — <a href="https://docs.nvidia.com/aiperf/tutorials/metrics-analysis/visualization-and-plotting-with-ai-perf" target="_blank">docs.nvidia.com/aiperf/tutorials/metrics-analysis/visualization-and-plotting-with-ai-perf</a></li>
+      <li>AIPerf Parameter Sweeps & Multi-run — <a href="https://docs.nvidia.com/aiperf/tutorials/metrics-analysis/parameter-sweeps" target="_blank">docs.nvidia.com/aiperf/tutorials/metrics-analysis/parameter-sweeps</a></li>
+      <li>AIPerf User Interface — <a href="https://docs.nvidia.com/aiperf/tutorials/configuration/user-interface" target="_blank">docs.nvidia.com/aiperf/tutorials/configuration/user-interface</a></li>
+      <li>Dynamo Observability — <a href="https://docs.nvidia.com/dynamo/kubernetes/operations/observability" target="_blank">docs.nvidia.com/dynamo/kubernetes/operations/observability</a></li>
+      <li>Dynamo Planner — <a href="https://docs.nvidia.com/dynamo/dev/knowledge-base/modular-components/planner/planner-guide" target="_blank">docs.nvidia.com/dynamo/dev/knowledge-base/modular-components/planner/planner-guide</a></li>
+    </ol>
+  </section>
+
+  <footer>Updated NVIDIA Dynamo UX / Product analysis · 2026-08-29 · Technical detail intentionally limited to product understanding.</footer>
+</main>
+</div>
+</body>
+</html>

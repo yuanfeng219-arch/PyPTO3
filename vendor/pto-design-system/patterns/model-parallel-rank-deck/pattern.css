@@ -1,0 +1,702 @@
+.pto-model-rank-deck {
+  --rank-shell-width: 196px;
+  --rank-shell-height: 310px;
+  --rank-content-scale: .22;
+  --rank-focus-scale: 3.25;
+  --rank-accent: var(--primary);
+  --rank-link: var(--primary);
+  --rank-perspective: 5200px;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 46% 42%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--background) 94%, var(--surface-1)), var(--background));
+}
+
+.pto-model-rank-deck__header {
+  position: absolute;
+  z-index: 80;
+  inset: 0 344px auto 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(180px,1fr) auto minmax(180px,1fr);
+  align-items: center;
+  gap: var(--space-4);
+  padding: 10px 12px 8px 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.pto-model-rank-deck__identity {
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pto-model-rank-deck__identity b {
+  color: var(--foreground);
+  font: 800 14px/1 var(--font-sans);
+}
+
+.pto-model-rank-deck__identity span {
+  color: var(--foreground-muted);
+  font: 700 11px/1 var(--font-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.pto-model-rank-deck__toolbar,
+.pto-model-rank-deck__control {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pto-model-rank-deck__toolbar { justify-content: flex-end; flex-wrap: wrap; }
+
+.pto-model-rank-deck__grouping-panel {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px 4px 9px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--background-elevated) 86%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb,#000 10%,transparent);
+}
+
+.pto-model-rank-deck__grouping-panel > i {
+  width: 1px;
+  height: 22px;
+  flex: 0 0 auto;
+  background: color-mix(in srgb, var(--foreground) 13%, transparent);
+}
+
+.pto-model-rank-deck__scope,
+.pto-model-rank-deck__grouping-actions button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pto-model-rank-deck__scope {
+  min-width: 118px;
+  display: grid;
+  gap: 3px;
+  padding: 2px 5px;
+  text-align: left;
+}
+
+.pto-model-rank-deck__scope span {
+  color: var(--foreground-muted);
+  font: 700 9px/1 var(--font-sans);
+  letter-spacing: .08em;
+}
+
+.pto-model-rank-deck__scope b {
+  color: var(--foreground);
+  font: 800 11px/1 var(--font-mono);
+}
+
+.pto-model-rank-deck__scope.is-resettable:hover b,
+.pto-model-rank-deck__scope.is-resettable:focus-visible b { color: var(--primary); }
+.pto-model-rank-deck__scope:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-md); }
+
+.pto-model-rank-deck__grouping-prompt {
+  flex: 0 0 auto;
+  color: var(--foreground-muted);
+  font: 700 10px/1 var(--font-sans);
+}
+
+.pto-model-rank-deck__grouping-actions { display: flex; align-items: center; gap: 3px; }
+
+.pto-model-rank-deck__grouping-actions button {
+  position: relative;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  color: var(--foreground-muted);
+}
+
+.pto-model-rank-deck__grouping-actions button b { font: 800 11px/1 var(--font-sans); }
+.pto-model-rank-deck__grouping-actions button small { color: currentColor; font: 700 10px/1 var(--font-mono); opacity: .72; }
+
+.pto-model-rank-deck__control {
+  min-height: 34px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+}
+
+.pto-model-rank-deck__control button,
+.pto-model-rank-deck__inspector button {
+  appearance: none;
+  border: 0;
+  color: var(--foreground-muted);
+  background: transparent;
+  font: 750 11px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.pto-model-rank-deck__control button {
+  position: relative;
+  min-width: 38px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+}
+
+.pto-model-rank-deck__control button[data-tip]::after,
+.pto-model-rank-deck__grouping-actions button[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 140;
+  left: 50%;
+  top: calc(100% + 10px);
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  transform: translateX(-50%) translateY(-3px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--background-elevated);
+  color: var(--foreground-secondary);
+  box-shadow: 0 10px 30px color-mix(in srgb,#000 26%,transparent);
+  font: 600 11px/1.45 var(--font-sans);
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease,transform 120ms ease,visibility 120ms ease;
+}
+
+.pto-model-rank-deck__control button[data-tip]:hover::after,
+.pto-model-rank-deck__control button[data-tip]:focus-visible::after,
+.pto-model-rank-deck__grouping-actions button[data-tip]:hover::after,
+.pto-model-rank-deck__grouping-actions button[data-tip]:focus-visible::after {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.pto-model-rank-deck__control button:hover,
+.pto-model-rank-deck__control button:focus-visible,
+.pto-model-rank-deck__control button.is-active,
+.pto-model-rank-deck__grouping-actions button:hover,
+.pto-model-rank-deck__grouping-actions button:focus-visible,
+.pto-model-rank-deck__grouping-actions button.is-active {
+  outline: none;
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.pto-model-rank-deck__control button:disabled,
+.pto-model-rank-deck__grouping-actions button:disabled { opacity: .32; cursor: not-allowed; }
+.pto-model-rank-deck__grouping-actions button:disabled:hover { color: var(--foreground-muted); background: transparent; }
+.pto-model-rank-deck__control [data-rank-zoom] { min-width: 42px; color: var(--foreground-secondary); font: var(--type-mono); text-align: center; }
+
+.pto-model-rank-deck__viewport {
+  position: absolute;
+  z-index: 1;
+  inset: 59px 344px 0 0;
+  overflow: hidden;
+  perspective: var(--rank-perspective);
+  perspective-origin: 50% 50%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.pto-model-rank-deck__canvas,
+.pto-model-rank-deck__canvas canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pto-model-rank-deck__canvas canvas { outline: none; }
+
+.pto-model-rank-deck__a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pto-model-rank-deck__viewport:focus { outline: none; }
+.pto-model-rank-deck__viewport.is-grabbing { cursor: grabbing; }
+
+.pto-model-rank-deck__world {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform-origin: 0 0 0;
+  will-change: transform;
+}
+
+.pto-rank-volume {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 0;
+  opacity: .78;
+  transform-style: preserve-3d;
+  transform: translate3d(var(--rank-x),var(--rank-y),var(--rank-z)) scale3d(1,1,1);
+  transition: transform 620ms cubic-bezier(.2,.8,.2,1), opacity 220ms ease, filter 220ms ease;
+  will-change: transform;
+  cursor: pointer;
+}
+
+.pto-rank-volume:focus-visible { outline: none; }
+.pto-rank-volume:hover,
+.pto-rank-volume:focus-visible,
+.pto-rank-volume.is-active { opacity: 1; z-index: 4; }
+.pto-rank-volume.is-muted { opacity: .055; filter: saturate(.24); }
+.pto-rank-volume.is-group-member { opacity: 1; }
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume { opacity: .018; pointer-events: none; }
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 10;
+  transform: translate3d(var(--rank-x),var(--rank-y),var(--rank-z)) scale3d(var(--rank-focus-scale),var(--rank-focus-scale),var(--rank-focus-scale));
+}
+
+.pto-rank-volume__shell,
+.pto-rank-volume__content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+
+.pto-rank-volume__shell { pointer-events: none; }
+
+.pto-rank-volume__shell i {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--rank-accent) 44%, var(--border-default));
+  background: color-mix(in srgb, var(--rank-accent) 4%, transparent);
+  backface-visibility: visible;
+  transform-style: preserve-3d;
+  transition: border-color 180ms ease, background 180ms ease, opacity 180ms ease;
+}
+
+.pto-rank-volume__shell [data-face="front"],
+.pto-rank-volume__shell [data-face="back"] {
+  left: calc(var(--rank-shell-width) / -2);
+  top: calc(var(--rank-shell-height) / -2);
+  width: var(--rank-shell-width);
+  height: var(--rank-shell-height);
+}
+
+.pto-rank-volume__shell [data-face="front"] { transform: translateZ(calc(var(--rank-shell-depth) / 2)); }
+.pto-rank-volume__shell [data-face="back"] { transform: rotateY(180deg) translateZ(calc(var(--rank-shell-depth) / 2)); }
+
+.pto-rank-volume__shell [data-face="left"],
+.pto-rank-volume__shell [data-face="right"] {
+  left: calc(var(--rank-shell-depth) / -2);
+  top: calc(var(--rank-shell-height) / -2);
+  width: var(--rank-shell-depth);
+  height: var(--rank-shell-height);
+}
+
+.pto-rank-volume__shell [data-face="left"] { transform: rotateY(-90deg) translateZ(calc(var(--rank-shell-width) / 2)); }
+.pto-rank-volume__shell [data-face="right"] { transform: rotateY(90deg) translateZ(calc(var(--rank-shell-width) / 2)); }
+
+.pto-rank-volume__shell [data-face="top"],
+.pto-rank-volume__shell [data-face="bottom"] {
+  left: calc(var(--rank-shell-width) / -2);
+  top: calc(var(--rank-shell-depth) / -2);
+  width: var(--rank-shell-width);
+  height: var(--rank-shell-depth);
+}
+
+.pto-rank-volume__shell [data-face="top"] { transform: rotateX(90deg) translateZ(calc(var(--rank-shell-height) / 2)); }
+.pto-rank-volume__shell [data-face="bottom"] { transform: rotateX(-90deg) translateZ(calc(var(--rank-shell-height) / 2)); }
+
+.pto-rank-volume:hover .pto-rank-volume__shell i,
+.pto-rank-volume:focus-visible .pto-rank-volume__shell i,
+.pto-rank-volume.is-group-member .pto-rank-volume__shell i {
+  border-color: color-mix(in srgb, var(--rank-accent) 76%, var(--foreground));
+  background: color-mix(in srgb, var(--rank-accent) 7%, transparent);
+}
+
+.pto-rank-volume.is-active .pto-rank-volume__shell i {
+  border-color: var(--rank-accent);
+  background: color-mix(in srgb, var(--rank-accent) 9%, transparent);
+}
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-rank-volume__shell i {
+  background: color-mix(in srgb, var(--rank-accent) 2%, transparent);
+  opacity: .72;
+}
+
+.pto-rank-volume__content {
+  pointer-events: none;
+  transform: scale3d(var(--rank-content-scale),var(--rank-content-scale),var(--rank-content-scale)) translate3d(0,0,var(--rank-content-z-offset));
+}
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-rank-volume__content { pointer-events: auto; }
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-model-deck__node,
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-model-deck__experts { pointer-events: auto; }
+
+/* Overview keeps the exact node DOM and accessible name, but skips glyph layout/paint. */
+.pto-model-rank-deck:not([data-scene-mode="rank"]) .pto-rank-volume__content .pto-model-deck__node {
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-shadow: none !important;
+}
+
+.pto-rank-volume__label {
+  position: absolute;
+  left: calc(var(--rank-shell-width) / -2);
+  top: calc(var(--rank-shell-height) / -2 - 48px);
+  width: var(--rank-shell-width);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 9px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--rank-accent) 34%, var(--border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background-elevated) 92%, transparent);
+  color: var(--foreground);
+  font: 750 11px/1 var(--font-sans);
+  transform: translateZ(calc(var(--rank-shell-depth) / 2 + 2px));
+  transform-style: preserve-3d;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pto-rank-volume__label b { color: var(--rank-accent); font: 850 13px/1 var(--font-sans); }
+.pto-rank-volume__label span { color: var(--foreground-secondary); }
+.pto-rank-volume__label small { color: var(--foreground-muted); font: 700 9px/1 var(--font-mono); }
+.pto-model-rank-deck[data-scene-mode="packed"] .pto-rank-volume:not(:hover):not(.is-active):not(.is-group-member) .pto-rank-volume__label span,
+.pto-model-rank-deck[data-scene-mode="packed"] .pto-rank-volume:not(:hover):not(.is-active):not(.is-group-member) .pto-rank-volume__label small { opacity: .18; }
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-rank-volume__label {
+  transform: translateZ(calc(var(--rank-shell-depth) / 2 + 2px)) scale(.4);
+  transform-origin: left bottom;
+}
+
+.pto-model-rank-deck[data-topology-mode="pp"] .pto-rank-volume[data-pp="0"] { --rank-accent: var(--viz-series-1,#38BDF8); }
+.pto-model-rank-deck[data-topology-mode="pp"] .pto-rank-volume[data-pp="1"] { --rank-accent: var(--viz-series-2,#A855F7); }
+.pto-model-rank-deck[data-topology-mode="pp"] .pto-rank-volume[data-pp="2"] { --rank-accent: var(--viz-series-3,#14B8A6); }
+.pto-model-rank-deck[data-topology-mode="pp"] .pto-rank-volume[data-pp="3"] { --rank-accent: var(--viz-series-4,#F59E0B); }
+.pto-model-rank-deck[data-topology-mode="tp"] .pto-rank-volume[data-tp="0"] { --rank-accent: #38BDF8; }
+.pto-model-rank-deck[data-topology-mode="tp"] .pto-rank-volume[data-tp="1"] { --rank-accent: #A855F7; }
+.pto-model-rank-deck[data-topology-mode="ep"] .pto-rank-volume { --rank-accent: var(--pto-model-deck-moe); }
+.pto-model-rank-deck[data-topology-mode="replica"] .pto-rank-volume { --rank-accent: var(--pto-model-deck-state); }
+
+.pto-model-rank-deck__links {
+  position: absolute;
+  z-index: 34;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pto-model-rank-deck__link {
+  fill: none;
+  stroke: var(--rank-link);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 5 5;
+  vector-effect: non-scaling-stroke;
+  opacity: .86;
+}
+
+.pto-model-rank-deck__link.is-pp { --rank-link: #38BDF8; }
+.pto-model-rank-deck__link.is-tp { --rank-link: #A855F7; }
+.pto-model-rank-deck__link.is-ep { --rank-link: #F97316; }
+.pto-model-rank-deck__link.is-edp { --rank-link: #8B5CF6; }
+.pto-model-rank-deck__link-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: pointer; }
+
+.pto-model-rank-deck__group-badge {
+  position: absolute;
+  z-index: 42;
+  left: 14px;
+  bottom: 14px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 13%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--background-elevated) 90%, transparent);
+  color: var(--foreground-secondary);
+  font: 750 11px/1 var(--font-mono);
+  pointer-events: none;
+}
+.pto-model-rank-deck__group-badge:empty { display: none; }
+
+.pto-model-rank-deck__loading {
+  position: absolute;
+  z-index: 70;
+  left: 50%;
+  top: 50%;
+  width: min(360px,calc(100% - 48px));
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 16px;
+  padding: 18px;
+  box-sizing: border-box;
+  transform: translate(-50%,-50%);
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--background-elevated) 94%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 16px 48px color-mix(in srgb, #000 24%, transparent);
+}
+.pto-model-rank-deck__loading[hidden] { display: none; }
+.pto-model-rank-deck__loading b { font: 800 13px/1 var(--font-sans); }
+.pto-model-rank-deck__loading span { color: var(--foreground-muted); font: 700 11px/1 var(--font-mono); }
+.pto-model-rank-deck__loading i { grid-column: 1/-1; height: 4px; overflow: hidden; border-radius: 4px; background: var(--surface-2); }
+.pto-model-rank-deck__loading em { display: block; width: 0; height: 100%; background: var(--primary); transition: width 120ms linear; }
+
+.pto-model-rank-deck__tooltip {
+  position: absolute;
+  z-index: 90;
+  max-width: 280px;
+  display: none;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--background-elevated);
+  color: var(--foreground-secondary);
+  font: 700 11px/1.35 var(--font-sans);
+  pointer-events: none;
+}
+.pto-model-rank-deck__tooltip.is-visible { display: block; }
+.pto-model-rank-deck__tooltip b,
+.pto-model-rank-deck__tooltip span,
+.pto-model-rank-deck__tooltip small { display: block; }
+.pto-model-rank-deck__tooltip b { margin-bottom: 5px; color: var(--foreground); font-size: 12px; }
+.pto-model-rank-deck__tooltip small { margin-top: 4px; color: var(--foreground-muted); font-family: var(--font-mono); }
+
+.pto-model-rank-deck__inspector {
+  position: absolute;
+  z-index: 72;
+  inset: 0 0 0 auto;
+  width: 344px;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--foreground) 11%, transparent);
+  background: color-mix(in srgb, var(--background-elevated) 94%, var(--background));
+  color: var(--foreground-secondary);
+}
+
+.pto-model-rank-deck__inspector-head {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+  font: 850 16px/1 var(--font-sans);
+}
+
+.pto-model-rank-deck__inspector-head b { color: var(--primary); font: 800 12px/1 var(--font-mono); }
+.pto-model-rank-deck__inspector-head button { min-height: 28px; padding: 0 10px; border: 1px solid var(--primary); border-radius: var(--radius-pill); color: var(--primary); }
+.pto-model-rank-deck__inspector-head button:hover,.pto-model-rank-deck__inspector-head button:focus-visible { outline: none; color: var(--primary-foreground); background: var(--primary); }
+
+.pto-model-rank-deck__coordinate,
+.pto-model-rank-deck__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pto-model-rank-deck__coordinate span,
+.pto-model-rank-deck__stat-grid span {
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 10px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--foreground-muted);
+  font: 700 11px/1 var(--font-sans);
+}
+
+.pto-model-rank-deck__coordinate b,
+.pto-model-rank-deck__stat-grid b { color: var(--foreground); font: 850 14px/1 var(--font-mono); }
+
+.pto-model-rank-deck__inspector section {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+.pto-model-rank-deck__inspector h3 { margin: 0 0 8px; color: var(--foreground); font: 800 12px/1 var(--font-sans); }
+.pto-model-rank-deck__inspector h3 small { margin-left: 5px; color: var(--foreground-muted); font: 700 11px/1 var(--font-mono); }
+.pto-model-rank-deck__inspector p { margin: 0; color: var(--foreground-secondary); font: 500 11px/1.5 var(--font-sans); overflow-wrap: anywhere; }
+.pto-model-rank-deck__inspector em { color: var(--warning); font-style: normal; }
+.pto-model-rank-deck__inspector code { display: block; padding: 8px; border-radius: var(--radius-md); background: var(--surface-1); color: var(--foreground-secondary); font: 600 11px/1.45 var(--font-mono); overflow-wrap: anywhere; }
+
+.pto-model-rank-deck__layer-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.pto-model-rank-deck__layer-list button { min-width: 36px; height: 26px; padding: 0 7px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); border-radius: var(--radius-md); font-family: var(--font-mono); }
+.pto-model-rank-deck__layer-list button:hover,.pto-model-rank-deck__layer-list button:focus-visible,.pto-model-rank-deck__layer-list button.is-active { outline: none; border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+
+.pto-model-rank-deck__node-list {
+  max-height: 292px;
+  display: grid;
+  gap: 5px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.pto-model-rank-deck__node-list button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  text-align: left;
+}
+
+.pto-model-rank-deck__node-list button:hover,
+.pto-model-rank-deck__node-list button:focus-visible,
+.pto-model-rank-deck__node-list button.is-active {
+  outline: none;
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-1));
+}
+
+.pto-model-rank-deck__node-list span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground-secondary);
+  font: 700 11px/1.2 var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pto-model-rank-deck__node-list small {
+  color: var(--foreground-muted);
+  font: 650 9px/1 var(--font-mono);
+}
+
+.pto-model-rank-three[data-scene-mode="rank"] .pto-model-rank-deck__viewport {
+  background: radial-gradient(circle at 50% 46%,color-mix(in srgb,var(--primary) 7%,transparent),transparent 54%);
+}
+
+.pto-model-rank-deck__node-detail { border-color: color-mix(in srgb, var(--primary) 42%, transparent) !important; }
+.pto-model-rank-deck__node-detail > b { color: var(--primary); font: 800 12px/1 var(--font-mono); }
+.pto-model-rank-deck__source { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 18px; color: var(--foreground-muted); font: 650 11px/1.3 var(--font-sans); }
+.pto-model-rank-deck__source i { width: 7px; height: 7px; border-radius: 50%; background: var(--foreground-muted); }
+.pto-model-rank-deck__source i[data-source="official"] { background: var(--success); }
+.pto-model-rank-deck__source i[data-source="derived"] { background: var(--primary); }
+.pto-model-rank-deck__source i[data-source="demo"] { background: var(--warning); }
+
+.pto-model-rank-deck .pto-model-deck__layer.is-rank-layer-selected {
+  --deck-opacity: 1;
+  outline: 3px solid color-mix(in srgb, var(--primary) 76%, transparent);
+  outline-offset: 7px;
+  border-radius: 12px;
+}
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active [data-ownership="sharded"]::after {
+  content: attr(data-shard-axis) " " attr(data-shard-index) "/" attr(data-shard-count);
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  padding: 2px 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, #000 58%, transparent);
+  color: #fff;
+  font: 800 7px/1 var(--font-mono);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active [data-ownership="replicated"]::before {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 50%;
+  background: var(--pto-model-deck-state);
+  pointer-events: none;
+}
+
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-model-deck__experts.is-expanded {
+  grid-template-columns: repeat(8,1fr);
+}
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-model-deck__experts.is-expanded::before { content: attr(data-rank-expert-label); }
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-model-deck__node.is-selected,
+.pto-model-rank-deck[data-scene-mode="rank"] .pto-rank-volume.is-active .pto-model-deck__experts.is-selected { outline: 3px solid #fff; outline-offset: 2px; }
+
+:root[data-theme="light"] .pto-model-rank-deck { --pto-model-deck-input:#D7D7D7;--pto-model-deck-output:#D7D7D7;--pto-model-deck-parameter:#D7D7D7;--pto-model-deck-state:#8B5CF6; }
+:root[data-theme="light"] .pto-rank-volume__shell i { background: color-mix(in srgb, var(--rank-accent) 3%, transparent); }
+:root[data-theme="light"] .pto-model-rank-deck__header { background: color-mix(in srgb, var(--background) 94%, transparent); }
+
+@media (max-width: 1050px) {
+  .pto-model-rank-deck__header { right: 300px; grid-template-columns: auto minmax(130px,1fr); }
+  .pto-model-rank-deck__viewport { right: 300px; }
+  .pto-model-rank-deck__inspector { width: 300px; }
+  .pto-model-rank-deck__identity { display: none; }
+}
+
+@media (max-width: 760px) {
+  .pto-model-rank-deck__header { right: 0; min-height: 92px; grid-template-columns: 1fr auto; align-items: center; overflow-x: auto; }
+  .pto-model-rank-deck__grouping-panel { min-width: 490px; }
+  .pto-model-rank-deck__viewport { inset: 93px 0 220px; }
+  .pto-model-rank-deck__inspector { inset: auto 0 0; width: 100%; height: 220px; border-left: 0; border-top: 1px solid var(--border-default); }
+  .pto-model-rank-deck__toolbar { flex-wrap: nowrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pto-rank-volume { transition-duration: 80ms; }
+  .pto-model-rank-deck__loading em { transition: none; }
+}

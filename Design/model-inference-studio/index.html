@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PyPTO Model Inference Studio · 模型接入与兼容性分析交互 Demo">
+  <title>PyPTO Model Inference Studio</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="./styles/demo.css?v=20260805-1">
+</head>
+<body>
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" aria-label="PyPTO Model Inference Studio 工作台">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip" aria-hidden="true">
+          <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24">
+            <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 3v18M4 7.5l8 4.5 8-4.5"/>
+          </svg>
+        </div>
+        <div class="pto-ide-frame__workspace"><span class="mis-brand">Model Inference Studio</span></div>
+      </div>
+      <div class="pto-ide-frame__topbar-center">
+        <button class="pto-ide-frame__search mis-command" type="button" id="commandTrigger" aria-label="搜索模型节点或 Recipe">
+          <span>搜索模型节点、算子或 Recipe</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="pto-ide-frame__topbar-right">
+        <span class="mis-runtime-state"><i></i><span id="runtimeLabel">A3 / 910C · CANN 9.0.0</span></span>
+        <div class="pto-ide-frame__window-actions" aria-label="窗口操作">
+          <button class="pto-ide-frame__window-action" id="resetDemo" type="button" aria-label="重置 Demo" title="重置 Demo">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" aria-label="Activity rail">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="切换模型栏" aria-controls="model-explorer" aria-expanded="true" aria-pressed="true" title="Model Importer">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="architecture" aria-label="打开架构图" title="Architecture Detector">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M6.5 10v4a3 3 0 0 0 3 3h4.5"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="coverage" aria-label="打开算子覆盖报告" title="Operator Coverage">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 15V9m4 6V7m4 8v-4"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="recipe" aria-label="打开 Model Recipe" title="Model Recipe">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="2.5"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-open-tab="skeleton" aria-label="打开实现骨架" title="Implementation Skeleton">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="m9 8-5 4 5 4M15 8l5 4-5 4"/></svg>
+        </button>
+      </nav>
+
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="mis-main" data-split-direction="horizontal" data-sizes="21,54,25" data-pixel-sizes="286" data-min-size="248,560,320" data-storage-key="model-inference-studio-v1">
+          <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="model-explorer">
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title">Model Importer</span>
+              <span class="pto-ide-frame__pane-meta" id="explorerMeta">未导入</span>
+            </header>
+            <div class="pto-ide-frame__pane-body mis-explorer">
+              <section class="mis-explorer-section">
+                <div class="mis-section-head"><span class="mis-section-label">SOURCE</span><span class="mis-state-text" id="sourceState">HuggingFace</span></div>
+                <label class="mis-field">模型仓库
+                  <select id="modelSelect">
+                    <option value="qwen3-moe">Qwen3-30B-A3B · MoE</option>
+                    <option value="qwen3-dense">Qwen3-8B · Dense</option>
+                    <option value="deepseek-v3">DeepSeek-V3.2 · MLA+MoE</option>
+                  </select>
+                </label>
+                <label class="mis-field">目标硬件
+                  <select id="hardwareSelect">
+                    <option value="a3">A3 / 910C</option>
+                    <option value="a2">A2 / 910B</option>
+                    <option value="a5">A5 / 950B</option>
+                  </select>
+                </label>
+                <label class="mis-field">推理阶段
+                  <select id="phaseSelect">
+                    <option value="decode">Decode · bs=32 / seq=1</option>
+                    <option value="prefill">Prefill · bs=1 / seq=4096</option>
+                  </select>
+                </label>
+              </section>
+
+              <section class="mis-explorer-section">
+                <div class="mis-section-head"><span class="mis-section-label">ARTIFACTS</span><span class="mis-state-text" id="artifactCount">0 / 5</span></div>
+                <ul class="mis-artifact-list" id="artifactList"></ul>
+                <button class="btn btn-solid btn-sm mis-import-btn" type="button" id="importBtn">导入并解析模型</button>
+              </section>
+
+              <section class="mis-explorer-section">
+                <div class="mis-section-head"><span class="mis-section-label">PIPELINE</span><span class="mis-state-text" id="stepState">0 / 5</span></div>
+                <ol class="mis-steps" id="stepList"></ol>
+              </section>
+
+              <section class="mis-explorer-section">
+                <div class="mis-section-head"><span class="mis-section-label">STRUCTURES</span><span class="mis-state-text" id="structureCount">—</span></div>
+                <div class="mis-structure-tags" id="structureTags"><span class="mis-empty-hint">导入后由 Architecture Detector 识别</span></div>
+              </section>
+            </div>
+          </aside>
+
+          <main class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+            <div class="pto-ide-frame__tabstrip">
+              <div class="tab-control" role="tablist" aria-label="分析视图">
+                <button class="tab-control-item is-selected" type="button" role="tab" aria-selected="true" data-tab="architecture">Architecture</button>
+                <button class="tab-control-item" type="button" role="tab" aria-selected="false" data-tab="coverage">Operator Coverage</button>
+                <button class="tab-control-item" type="button" role="tab" aria-selected="false" data-tab="precision">Precision &amp; Quant</button>
+                <button class="tab-control-item" type="button" role="tab" aria-selected="false" data-tab="recipe">Model Recipe</button>
+                <button class="tab-control-item" type="button" role="tab" aria-selected="false" data-tab="skeleton">Skeleton</button>
+              </div>
+            </div>
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title" id="viewTitle">模型结构识别</span>
+              <span class="pto-ide-frame__pane-meta" id="viewMeta">未导入模型</span>
+              <div class="mis-pane-actions" id="paneActions"></div>
+            </header>
+
+            <div class="pto-ide-frame__pane-body mis-main" id="mainBody">
+              <!-- views injected by demo.js -->
+            </div>
+          </main>
+
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title">证据检查器</span>
+              <span class="pto-ide-frame__pane-meta" id="inspectorId">—</span>
+            </header>
+            <div class="pto-ide-frame__pane-body mis-inspector" id="inspector"></div>
+          </aside>
+        </div>
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" aria-live="polite">
+          <span><i class="mis-status-dot" id="statusDot"></i> <span id="statusPhase">等待导入</span></span>
+          <span id="statusText">选择模型仓库后点击「导入并解析模型」</span>
+          <span>PyPTO 3.0 · §5.9 Model Inference Studio</span>
+        </footer>
+      </div>
+    </div>
+  </section>
+
+  <div class="mis-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="./js/data.js?v=20260805-1"></script>
+  <script src="./js/demo.js?v=20260805-1"></script>
+</body>
+</html>

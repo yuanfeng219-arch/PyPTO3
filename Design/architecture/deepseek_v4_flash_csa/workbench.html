@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="DeepSeek V4 CSA 从模型架构、计算语义、PyPTO 执行到 Kernel/Hardware 的四层映射工作台。">
+  <title>DeepSeek V4 · CSA Mapping Explorer</title>
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/patterns/workbench-shell/pattern.css?v=pages-v1">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=pages-v1">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=pages-v1">
+  <link rel="stylesheet" href="./workbench.css?v=lineage-011">
+</head>
+<body>
+  <main class="pto-ide-frame csa-workbench" data-ide-frame data-host="standalone" data-surface="solid" data-hide-activity-rail="true" aria-label="DeepSeek V4 CSA operator workbench">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__workspace"> Mapping Explorer </div>
+        <div class="csa-workbench__route" aria-label="当前映射链路">
+          <span>DeepSeek V4</span><span>Layer 2</span><span>mHC-Attention</span><strong>CSA</strong><span>decode_csa.py</span>
+        </div>
+      </div>
+      <div class="pto-ide-frame__topbar-right">
+        <button class="btn btn-sm btn-ghost" type="button" data-csa-theme-toggle aria-pressed="false" aria-label="切换为浅色模式" title="切换为浅色模式">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-csa-theme-icon>
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <span data-csa-theme-label>浅色模式</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="csa-three-pane" data-storage-key="deepseek-v4-csa-three-pane-ablated-v1" data-split-direction="horizontal" data-sizes="36,36,28" data-min-size="320,320,300">
+          <section class="pto-ide-frame__pane" data-ide-pane="model-architecture">
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title" data-csa-model-title>整网模型架构图  DeepSeek V4</span>
+              <div class="csa-workbench__pane-controls">
+                <details class="csa-workbench__level-dropdown" data-csa-model-dropdown>
+                  <summary aria-label="开源模型层级"><span>开源模型层级</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                  <div class="csa-workbench__level-menu csa-workbench__viewport-menu" role="menu" aria-label="开源模型层级">
+                    <div class="csa-workbench__popover-title">
+                      <strong>模型层级</strong>
+                      <span data-csa-scope-label>当前 scope · CSA</span>
+                    </div>
+                    <button type="button" data-csa-model-level="l0" role="menuitemradio" aria-checked="false"><span>L0 整网概览</span><small>保留主干，折叠 Attention / FFN</small></button>
+                    <button type="button" data-csa-model-level="l1" role="menuitemradio" aria-checked="true"><span>L1 模型架构</span><small>收起当前 scope</small></button>
+                    <button type="button" data-csa-model-level="l2" role="menuitemradio" aria-checked="false"><span>L2 计算语义</span><small>展开 CSA</small></button>
+                    <button class="csa-workbench__auto-expand" type="button" data-csa-auto-expand aria-pressed="false" role="menuitemcheckbox" aria-checked="false"><span>自动展开映射命中</span><i aria-hidden="true"></i></button>
+                  </div>
+                </details>
+              </div>
+            </header>
+            <div class="pto-ide-frame__pane-body csa-workbench__pane-body">
+              <iframe class="csa-workbench__viewport" data-csa-semantic-frame title="官方模型整网 · CSA L1/L2 原位展开"></iframe>
+            </div>
+          </section>
+
+          <section class="pto-ide-frame__pane" data-ide-pane="operator-implementation">
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title" data-csa-level-title>PyPTO 3.0算子源码 decode_csa.py</span>
+              <div class="csa-workbench__pane-controls">
+                <button class="csa-workbench__diff-button" type="button" role="switch" data-csa-diff-toggle aria-checked="false" title="启用差异染色" hidden>
+                  <span>Diff</span>
+                  <span class="csa-workbench__switch-track" aria-hidden="true"><span></span></span>
+                </button>
+                <button class="csa-workbench__diff-filter-button" type="button" data-csa-diff-filter aria-expanded="false" aria-controls="csa-diff-menu" title="筛选差异类型" hidden>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M2 4h12M4 8h8M6 12h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                  <span>筛选</span>
+                </button>
+              </div>
+            </header>
+            <div class="pto-ide-frame__pane-body csa-workbench__pane-body">
+              <div class="pto-ide-frame__slot csa-workbench__loading" data-csa-implementation-empty><span>在左侧选中 CSA 以查看 PyPTO 实现</span></div>
+              <iframe class="csa-workbench__viewport" data-csa-operator-frame title="CSA PyPTO 程序实现 L3" hidden></iframe>
+              <aside class="csa-workbench__diff-legend csa-workbench__viewport-menu" id="csa-diff-menu" data-csa-diff-legend hidden aria-label="差异类型多选菜单">
+                <div class="csa-workbench__diff-legend-title csa-workbench__popover-title"><strong>差异类型</strong><span>可同时选择多项；未选类型保留节点并去色。</span></div>
+                <div class="csa-workbench__diff-legend-items">
+                  <label class="csa-workbench__diff-option"><input type="checkbox" data-csa-diff-category="expanded" checked><i data-diff-color="expanded"></i><span class="csa-workbench__diff-copy"><span>展开的计算步骤</span><small>将 L2 计算进一步拆解为实现步骤。</small></span><b data-csa-diff-count="expanded">0</b></label>
+                  <label class="csa-workbench__diff-option"><input type="checkbox" data-csa-diff-category="state" checked><i data-diff-color="state"></i><span class="csa-workbench__diff-copy"><span>显式缓存／状态／索引</span><small>将逻辑状态落实为缓存、读写与寻址资源。</small></span><b data-csa-diff-count="state">0</b></label>
+                  <label class="csa-workbench__diff-option"><input type="checkbox" data-csa-diff-category="deploy" checked><i data-diff-color="deploy"></i><span class="csa-workbench__diff-copy"><span>新增通信／重分布</span><small>由部署方案引入通信和数据重分布。</small></span><b data-csa-diff-count="deploy">0</b></label>
+                </div>
+              </aside>
+              <section class="csa-workbench__l4" data-csa-l4 hidden aria-label="qkv_proj_rope.py 编译证据待验证">
+                <header class="csa-workbench__l4-header">
+                  <div>
+                    <span class="csa-workbench__eyebrow">COMPILATION EVIDENCE</span>
+                    <strong>qkv_proj_rope.py</strong>
+                  </div>
+                  <span class="pto-ide-frame__pane-meta">源码快照待匹配</span>
+                </header>
+                <div class="csa-workbench__l4-flow" data-csa-l4-flow></div>
+                <div class="csa-workbench__artifact-tabs" role="tablist" aria-label="L4 编译证据" hidden>
+                  <button type="button" class="is-active" data-csa-artifact-tab="source" role="tab" aria-selected="true">Source</button>
+                  <button type="button" data-csa-artifact-tab="ir" role="tab" aria-selected="false">IR</button>
+                  <button type="button" data-csa-artifact-tab="diff" role="tab" aria-selected="false">Pass Diff</button>
+                  <button type="button" data-csa-artifact-tab="generated" role="tab" aria-selected="false">Generated Code</button>
+                </div>
+                <div class="csa-workbench__artifact-view" data-csa-artifact-view></div>
+                <p class="csa-workbench__evidence-note">发现历史编译目录，但未确认其源码和配置与当前 L3 匹配。暂不声明 Tile、Memory/Core 或 kernel 对应；L4 新交互需单独预览验收。</p>
+              </section>
+              <aside class="csa-workbench__mapping-card" data-csa-mapping-card hidden aria-live="polite">
+                <div class="csa-workbench__mapping-card-title">
+                  <span class="csa-map-code" data-csa-mapping-code></span>
+                  <strong data-csa-mapping-label></strong>
+                </div>
+                <p data-csa-mapping-reason></p>
+              </aside>
+            </div>
+          </section>
+
+          <section class="pto-ide-frame__pane" data-ide-pane="python-source">
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title" data-csa-source-title>源码</span>
+             
+              <details class="csa-workbench__level-dropdown" data-csa-evidence-dropdown>
+                <summary aria-label="选择证据"><span>证据</span></summary>
+                <div class="csa-workbench__level-menu" role="menu" aria-label="源与实现证据" data-csa-evidence-menu></div>
+              </details>
+              <button class="csa-workbench__info-button" type="button" data-csa-legend-toggle aria-label="查看来源编码图例" aria-expanded="false" aria-controls="csa-source-legend" title="来源编码图例">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 11v5"></path>
+                  <path d="M12 8h.01"></path>
+                </svg>
+              </button>
+            </header>
+            <aside class="csa-workbench__legend-panel" id="csa-source-legend" data-csa-legend-panel hidden aria-label="来源编码图例">
+              <div class="csa-workbench__legend-panel-title">来源编码</div>
+              <p class="pto-ide-frame__pane-meta" data-csa-source-meta>loading</p>
+              <div class="csa-workbench__legend-list">
+                <div><span class="csa-map-code">Op</span><span><strong>计算步骤</strong><small>胶囊表示计算；Scope 内的函数分组不等于单个 kernel。</small></span></div>
+                <div><span class="csa-map-code">Value</span><span><strong>张量 / 值</strong><small>灰色圆角矩形表示值，不计入算子数量。</small></span></div>
+                <div><span class="csa-map-code">State</span><span><strong>逻辑状态</strong><small>灰色矩形、虚线边框；生命周期在 Explorer 注释中说明。</small></span></div>
+                <div><span class="csa-map-code">Scope</span><span><strong>组织与范围</strong><small>灰色包围框。官方语义、开发者实现和编译结果分别标明来源。</small></span></div>
+              </div>
+            </aside>
+            <div class="pto-ide-frame__pane-header" data-csa-file-tab-row>
+              <div class="csa-workbench__source-tabs" role="tablist" aria-label="已打开源码文件" data-csa-file-tabs></div>
+            </div>
+            <div class="pto-ide-frame__pane-body csa-workbench__pane-body">
+              <div class="pto-ide-frame__slot csa-workbench__loading" data-csa-source-loading><span>正在读取真实源码…</span></div>
+              <div class="pto-ide-frame__code-surface csa-workbench__source" data-csa-source hidden role="region" aria-label="当前节点的源码与语义证据"></div>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="../../../vendor/pto-design-system/patterns/workbench-shell/pattern.js?v=pages-v1"></script>
+  <script src="../../../vendor/pto-design-system/patterns/ide-frame/pattern.js?v=pages-v1"></script>
+  <script src="./source-manifest.js?v=lineage-004"></script>
+  <script src="./implementation-programs.js?v=lineage-009"></script>
+  <script src="./mapping-registry.js?v=lineage-009"></script>
+  <script src="./workbench.js?v=lineage-009"></script>
+</body>
+</html>

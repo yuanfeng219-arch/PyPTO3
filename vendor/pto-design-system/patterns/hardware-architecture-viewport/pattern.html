@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hardware Architecture Viewport Pattern</title>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const applyTheme = (theme) => {
+        if (theme === 'light' || theme === 'dark' || theme === 'glass') {
+          document.documentElement.dataset.theme = theme;
+          window.dispatchEvent(new CustomEvent('pto-hw-theme-change', { detail: { theme } }));
+        }
+      };
+      if (params.has('embed')) {
+        document.documentElement.dataset.embedPreview = 'true';
+      }
+      applyTheme(params.get('theme'));
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'pto-preview-theme') {
+          applyTheme(event.data.theme);
+        }
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../aic-core-object/pattern.css?v=stable-theme-toggle-16">
+  <link rel="stylesheet" href="../aiv-core-object/pattern.css?v=stable-theme-toggle-16">
+  <link rel="stylesheet" href="../memory-architecture/pattern.css?v=stable-theme-toggle-16">
+  <link rel="stylesheet" href="./pattern.css?v=stable-theme-toggle-16">
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      overflow: hidden;
+    }
+
+    .hw-demo-page {
+      width: 100vw;
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .hw-demo-copy {
+      display: grid;
+      gap: 4px;
+    }
+
+    .hw-demo-copy h1 {
+      margin: 0;
+      color: var(--foreground);
+      font: var(--text-title-1);
+      letter-spacing: 0;
+    }
+
+    .hw-demo-copy p {
+      max-width: 920px;
+      margin: 0;
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+      line-height: 1.6;
+    }
+
+    .hw-demo-shell {
+      height: min(760px, calc(100vh - 124px));
+      min-height: 520px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+    }
+
+    .hw-demo-stage {
+      position: relative;
+      padding: 12px;
+    }
+
+    .hw-demo-stage .pto-hw-viewport__scale {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      place-self: auto;
+    }
+
+    .hw-demo-graph {
+      width: max-content;
+      min-width: max-content;
+    }
+
+    .hw-demo-arch-toggle {
+      flex-wrap: nowrap;
+    }
+
+    html[data-embed-preview='true'] body {
+      min-height: 0;
+      background: transparent;
+    }
+
+    html[data-embed-preview='true'] .hw-demo-page {
+      height: 100vh;
+      min-height: 0;
+      padding: 0;
+      display: block;
+    }
+
+    html[data-embed-preview='true'] .hw-demo-copy {
+      display: none;
+    }
+
+    html[data-embed-preview='true'] .hw-demo-shell {
+      width: 100%;
+      height: 100vh;
+      min-height: 0;
+      border: 0;
+      border-radius: 0;
+    }
+
+    @media (max-width: 860px) {
+      .hw-demo-page {
+        padding: 12px;
+      }
+
+      .hw-demo-shell {
+        height: calc(100vh - 112px);
+      }
+
+      .pto-hw-viewport__toolbar {
+        height: auto;
+        min-height: var(--pto-hw-viewport-toolbar-height);
+        align-items: flex-start;
+      }
+
+      .pto-hw-viewport__controls {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="hw-demo-page">
+    <div class="hw-demo-copy">
+      <h1>Hardware Architecture Viewport</h1>
+      <p>Shared architecture-map host controls wrapped around the real memory-architecture renderer. The viewport owns architecture switching, detail visibility, zoom readout, and pan gestures; memory-architecture owns the generated hardware graph and route overlay.</p>
+    </div>
+
+    <section class="pto-hw-viewport hw-demo-shell" id="demoViewport">
+      <header class="pto-hw-viewport__toolbar">
+        <div class="pto-hw-viewport__title">硬件架构图 <small data-current-arch-label>Ascend 950B</small></div>
+        <div class="pto-hw-viewport__controls">
+          <div class="pto-hw-viewport__segmented hw-demo-arch-toggle" aria-label="Architecture switch">
+            <button class="btn btn-sm" type="button" data-arch-id="ascend910b" aria-pressed="false">910B</button>
+            <button class="btn btn-sm is-selected" type="button" data-arch-id="ascend950b" aria-pressed="true">950B</button>
+          </div>
+          <div class="pto-hw-viewport__tools">
+            <button class="btn btn-sm btn-ghost pto-hw-viewport__tool" type="button" data-theme-toggle aria-pressed="false" title="切换浅色模式">浅色</button>
+            <button class="btn btn-sm btn-ghost pto-hw-viewport__tool" type="button" data-detail aria-pressed="true" title="隐藏细节数据">细节开</button>
+            <button class="btn btn-sm btn-ghost pto-hw-viewport__tool" type="button" data-zoom-out title="缩小">−</button>
+            <span class="pto-hw-viewport__readout" data-readout>60%</span>
+            <button class="btn btn-sm btn-ghost pto-hw-viewport__tool" type="button" data-zoom-in title="放大">+</button>
+          </div>
+        </div>
+      </header>
+      <div class="pto-hw-viewport__stage hw-demo-stage" data-stage>
+        <div class="pto-hw-viewport__scale" data-scale>
+          <div class="hw-demo-graph" id="pattern-hw-arch-stage"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../aiv-core-object/pattern.js?v=stable-theme-toggle-16"></script>
+  <script src="../aic-core-object/pattern.js?v=stable-theme-toggle-16"></script>
+  <script src="../memory-architecture/pattern.js?v=stable-theme-toggle-16"></script>
+  <script src="./pattern.js?v=stable-theme-toggle-16"></script>
+  <script>
+    (function renderHardwareArchitectureViewportPattern() {
+      const viewportHelper = window.PtoHardwareArchitectureViewport;
+      const memoryHelper = window.PtoMemoryArchitecturePattern;
+      const stage = document.getElementById('pattern-hw-arch-stage');
+      const labelNode = document.querySelector('[data-current-arch-label]');
+      const archButtons = Array.from(document.querySelectorAll('[data-arch-id]'));
+      const themeButton = document.querySelector('[data-theme-toggle]');
+      if (!viewportHelper || !memoryHelper || !stage) return;
+
+      const ARCHES = {
+        ascend910b: {
+          label: 'Ascend 910B',
+        },
+        ascend950b: {
+          label: 'Ascend 950B',
+        },
+      };
+
+      const requestedArchId = new URLSearchParams(window.location.search).get('arch');
+      let activeArchId = ARCHES[requestedArchId] ? requestedArchId : 'ascend950b';
+      let viewportApi = null;
+      let routeOverlay = null;
+      let hoverInteractions = null;
+      let pathFocusInteractions = null;
+      let routeRefreshFrame = 0;
+      let routeRefreshToken = 0;
+      const routeRefreshTimers = new Map();
+
+      const destroyArchitectureHelpers = () => {
+        routeOverlay?.destroy?.();
+        hoverInteractions?.destroy?.();
+        pathFocusInteractions?.destroy?.();
+        routeOverlay = null;
+        hoverInteractions = null;
+        pathFocusInteractions = null;
+      };
+
+      const naturalFrameSize = () => {
+        const graph = stage.querySelector('.pto-mem950') || stage.firstElementChild || stage;
+        const rect = graph.getBoundingClientRect();
+        return {
+          width: Math.max(1, graph.offsetWidth || graph.scrollWidth || rect.width || 1),
+          height: Math.max(1, graph.offsetHeight || graph.scrollHeight || rect.height || 1),
+        };
+      };
+
+      const normalizedTheme = () => (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+
+      const updateThemeButton = () => {
+        if (!themeButton) return;
+        const isLight = normalizedTheme() === 'light';
+        themeButton.textContent = isLight ? '深色' : '浅色';
+        themeButton.title = isLight ? '切换深色模式' : '切换浅色模式';
+        themeButton.setAttribute('aria-label', themeButton.title);
+        themeButton.setAttribute('aria-pressed', String(isLight));
+      };
+
+      const setTheme = (theme) => {
+        const nextTheme = theme === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = nextTheme;
+        updateThemeButton();
+        scheduleRouteRefresh();
+      };
+
+      const routeSignature = () => Array
+        .from(routeOverlay?.svg?.querySelectorAll?.('[data-route-id] path') || [])
+        .map((path) => path.getAttribute('d') || '')
+        .join('|');
+
+      const refreshRoutesUntilStable = () => {
+        const token = ++routeRefreshToken;
+        let previousSignature = '';
+        let stableFrames = 0;
+        let passes = 0;
+
+        const tick = () => {
+          if (token !== routeRefreshToken || !routeOverlay) return;
+          routeOverlay.render?.();
+          const signature = routeSignature();
+          stableFrames = signature && signature === previousSignature ? stableFrames + 1 : 0;
+          previousSignature = signature;
+          passes += 1;
+          if (passes < 24 && stableFrames < 3) {
+            window.requestAnimationFrame(tick);
+          }
+        };
+
+        window.requestAnimationFrame(tick);
+      };
+
+      const scheduleRouteRefresh = () => {
+        routeOverlay?.render?.();
+        refreshRoutesUntilStable();
+
+        if (!routeRefreshFrame) {
+          routeRefreshFrame = window.requestAnimationFrame(() => {
+            routeRefreshFrame = 0;
+            routeOverlay?.render?.();
+            window.requestAnimationFrame(() => routeOverlay?.render?.());
+          });
+        }
+
+        [80, 180].forEach((delay) => {
+          const previous = routeRefreshTimers.get(delay);
+          if (previous) window.clearTimeout(previous);
+          routeRefreshTimers.set(delay, window.setTimeout(() => {
+            routeRefreshTimers.delete(delay);
+            routeOverlay?.render?.();
+          }, delay));
+        });
+      };
+
+      const syncFrameSize = ({ fit = false } = {}) => {
+        const size = naturalFrameSize();
+        viewportApi?.setFrameSize(size.width, size.height);
+        scheduleRouteRefresh();
+        if (fit) {
+          if (viewportApi?.state?.pan) {
+            viewportApi.state.pan.x = 0;
+            viewportApi.state.pan.y = 0;
+            viewportApi.applyPan?.();
+          }
+          viewportApi?.fit();
+        }
+        scheduleRouteRefresh();
+      };
+
+      const updateArchControls = () => {
+        const activeArch = ARCHES[activeArchId];
+        if (labelNode) labelNode.textContent = activeArch.label;
+        archButtons.forEach((button) => {
+          const active = button.dataset.archId === activeArchId;
+          button.classList.toggle('is-selected', active);
+          button.setAttribute('aria-pressed', String(active));
+        });
+      };
+
+      const renderArchitecture = (archId, options = {}) => {
+        if (!ARCHES[archId]) return;
+        activeArchId = archId;
+        destroyArchitectureHelpers();
+        updateArchControls();
+
+        memoryHelper.renderArchitecture(stage, activeArchId);
+        routeOverlay = memoryHelper.createRouteOverlay(stage, activeArchId);
+        memoryHelper.setBufferBlocks?.(stage, ARCHES[activeArchId].bufferBlocks || []);
+        memoryHelper.setDetailVisibility?.(stage, viewportApi?.state?.detailsVisible !== false);
+        scheduleRouteRefresh();
+        hoverInteractions = memoryHelper.attachHoverInteractions?.(stage, activeArchId, {
+          viewportScale: viewportApi?.state?.scale || 1,
+        });
+        pathFocusInteractions = memoryHelper.attachPathFocusInteractions?.(stage, activeArchId);
+
+        window.requestAnimationFrame(() => {
+          syncFrameSize({ fit: options.fit !== false });
+          window.requestAnimationFrame(() => syncFrameSize({ fit: false }));
+        });
+      };
+
+      renderArchitecture(activeArchId, { fit: false });
+
+      viewportApi = viewportHelper.mount('#demoViewport', {
+        mode: 'inline',
+        viewport: '[data-stage]',
+        scaleEl: '[data-scale]',
+        inlineHost: '#pattern-hw-arch-stage',
+        detailToggle: '[data-detail]',
+        zoomOut: '[data-zoom-out]',
+        zoomIn: '[data-zoom-in]',
+        readout: '[data-readout]',
+        frameSize: naturalFrameSize(),
+        scale: 0.6,
+        defaultScale: 0.6,
+        fitOnMount: true,
+        fitPaddingX: 32,
+        fitPaddingY: 64,
+        onDetailChange: () => {
+          scheduleRouteRefresh();
+        },
+        onScaleChange: (scale) => {
+          hoverInteractions?.setViewportScale?.(scale);
+          scheduleRouteRefresh();
+        },
+        onPanChange: () => {
+          scheduleRouteRefresh();
+        },
+      });
+
+      archButtons.forEach((button) => {
+        button.addEventListener('click', () => renderArchitecture(button.dataset.archId, { fit: true }));
+      });
+
+      themeButton?.addEventListener('click', () => {
+        setTheme(normalizedTheme() === 'light' ? 'dark' : 'light');
+      });
+      window.addEventListener('pto-hw-theme-change', () => {
+        updateThemeButton();
+        scheduleRouteRefresh();
+      });
+      updateThemeButton();
+
+      window.addEventListener('resize', () => syncFrameSize({ fit: viewportApi?.state?.fitted === true }));
+      window.requestAnimationFrame(() => syncFrameSize({ fit: true }));
+    })();
+  </script>
+</body>
+</html>

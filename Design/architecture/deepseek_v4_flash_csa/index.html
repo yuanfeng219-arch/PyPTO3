@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="DeepSeek V4 Flash CSA 可折叠语义图与分布式算子实现图。">
+  <title>DeepSeek V4 Flash · CSA Layered Mapping Graph</title>
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=pages-v1">
+  <link rel="stylesheet" href="../../../vendor/pto-design-system/patterns/model-architecture-training-sidecar/pattern.dv4.css?v=pages-v1">
+  <link rel="stylesheet" href="./implementation.css?v=lineage-010">
+</head>
+<body>
+  <main class="dv4-pattern-page" id="patternPage">
+    <section id="csaImplementationPattern" aria-label="DeepSeek V4 Flash CSA distributed operator implementation"></section>
+  </main>
+  <script src="../../../vendor/pto-design-system/patterns/model-graphviz/pattern.js?v=pages-v1"></script>
+  <script src="./source-manifest.js?v=lineage-004"></script>
+  <script src="./implementation-programs.js?v=lineage-009"></script>
+  <script src="./mapping-registry.js?v=lineage-009"></script>
+  <script src="../../../vendor/pto-design-system/patterns/model-architecture-training-sidecar/pattern.dv4-architecture-data.js?v=pages-v1"></script>
+  <script src="../../../vendor/pto-design-system/patterns/model-architecture-training-sidecar/pattern.dv4.js?v=pages-v1"></script>
+  <script src="./json-architecture.js?v=lineage-009"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const theme = params.get('theme') === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    document.getElementById('patternPage').dataset.embed = String(params.get('embed') === '1');
+    document.getElementById('patternPage').dataset.surface = params.get('surface') || '';
+    window.csaImplementationController = window.PtoCsaImplementationPattern.render(
+      '#csaImplementationPattern',
+      { initialTheme: theme, modelGraph: params.get('modelGraph') === '1', level: ['l1', 'l2'].includes(params.get('level')) ? params.get('level') : 'l3' }
+    );
+    window.csaImplementationController = Promise.resolve(window.csaImplementationController).catch(error => {
+      const message = document.createElement('p');
+      message.className = 'pto-dv4-architecture__readout';
+      message.setAttribute('role', 'alert');
+      message.textContent = '图数据加载失败，请检查本地服务后刷新：' + error.message;
+      document.getElementById('csaImplementationPattern').replaceChildren(message);
+      return null;
+    });
+    window.csaImplementationController.then(controller => {
+      if (controller) window.parent.postMessage({ type: 'csa-operator-ready' }, '*');
+    });
+    window.addEventListener('message', event => {
+      if (event.source !== window.parent) return;
+      if (event.data?.type === 'csa-lineage-focus') {
+        Promise.resolve(window.csaImplementationController).then(controller => controller?.focusLineage(event.data.nodeIds || [], { autoExpand: Boolean(event.data.autoExpand) }));
+      }
+      if (event.data?.type === 'csa-increments') {
+        Promise.resolve(window.csaImplementationController).then(controller => controller?.setIncrements(event.data.enabled));
+      }
+      if (event.data?.type === 'csa-programs-expand') {
+        Promise.resolve(window.csaImplementationController).then(controller => controller?.setAllPrograms(event.data.expanded));
+      }
+      if (event.data?.type === 'csa-root-fold') {
+        Promise.resolve(window.csaImplementationController).then(controller => controller?.setRootFolded(event.data.folded));
+      }
+      if (event.data?.type === 'pto-preview-theme') {
+        Promise.resolve(window.csaImplementationController).then(controller => {
+          controller?.setTheme(event.data.theme === 'light' ? 'light' : 'dark');
+        });
+      }
+      if (event.data?.type === 'csa-source-focus') {
+        Promise.resolve(window.csaImplementationController).then(controller => {
+          controller?.selectNode(event.data.nodeId);
+        });
+      }
+      if (event.data?.type === 'csa-source-clear') {
+        Promise.resolve(window.csaImplementationController).then(controller => {
+          controller?.clearSelection({ notifyParent: false });
+        });
+      }
+      if (event.data?.type === 'csa-model-focus') {
+        Promise.resolve(window.csaImplementationController).then(controller => {
+          controller?.focusModelBoundary();
+        });
+      }
+      if (event.data?.type === 'csa-mapping-diff') {
+        Promise.resolve(window.csaImplementationController).then(controller => {
+          controller?.setMappingDiff(Boolean(event.data.enabled), event.data.categories);
+        });
+      }
+      if (event.data?.type === 'csa-semantic-collapse-all') {
+        Promise.resolve(window.csaImplementationController).then(controller => controller?.setAllCompounds(false));
+      }
+      if (event.data?.type === 'csa-semantic-expand-all') {
+        Promise.resolve(window.csaImplementationController).then(controller => controller?.setAllCompounds(true));
+      }
+      if (event.data?.type === 'csa-compound-focus') {
+        Promise.resolve(window.csaImplementationController).then(controller => {
+          controller?.focusCompound(event.data.nodeId, { autoExpand: Boolean(event.data.autoExpand) });
+        });
+      }
+    });
+  </script>
+</body>
+</html>

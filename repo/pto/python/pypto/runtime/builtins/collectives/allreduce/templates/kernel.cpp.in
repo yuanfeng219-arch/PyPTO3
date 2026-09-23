@@ -1,0 +1,138 @@
+/*
+ * Copyright (c) PyPTO Contributors.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
+ */
+
+// Generated from {{template_package}}.
+
+#include <cstdint>
+#include <pto/pto-inst.hpp>
+
+#include "platform_comm/comm_context.h"
+#include "pto/comm/comm_types.hpp"
+#include "pto/comm/pto_comm_inst.hpp"
+#include "tensor.h"
+
+#ifndef __gm__
+#define __gm__
+#endif
+
+#ifndef __aicore__
+#define __aicore__ [aicore]
+#endif
+
+namespace {
+
+static constexpr int64_t kTileCount = 256;
+static constexpr int kMaxSupportedRanks = 16;
+
+template <typename T>
+AICORE inline __gm__ T *CommRemotePtr(__gm__ CommContext *ctx, __gm__ T *local_ptr, int pe) {
+  uint64_t local_base = ctx->windowsIn[ctx->rankId];
+  uint64_t offset = reinterpret_cast<uint64_t>(local_ptr) - local_base;
+  return reinterpret_cast<__gm__ T *>(ctx->windowsIn[pe] + offset);
+}
+
+}  // namespace
+
+extern "C" __aicore__ __attribute__((always_inline)) void kernel_entry(__gm__ int64_t *args) {
+  __gm__ Tensor *data_tensor = reinterpret_cast<__gm__ Tensor *>(args[0]);
+  __gm__ Tensor *signal_tensor = reinterpret_cast<__gm__ Tensor *>(args[1]);
+  int nranks = static_cast<int>(args[2]);
+  __gm__ CommContext *comm_ctx = reinterpret_cast<__gm__ CommContext *>(args[3]);
+
+  int64_t numel = 1;
+  for (uint32_t dim = 0; dim < data_tensor->ndims; ++dim) {
+    numel *= static_cast<int64_t>(data_tensor->shapes[dim]);
+  }
+
+  __gm__ {{dtype_cpp}} *data =
+      reinterpret_cast<__gm__ {{dtype_cpp}} *>(data_tensor->buffer.addr) + data_tensor->start_offset;
+  __gm__ int32_t *signal_base =
+      reinterpret_cast<__gm__ int32_t *>(signal_tensor->buffer.addr) + signal_tensor->start_offset;
+
+  if (nranks <= 0 || nranks > kMaxSupportedRanks || numel <= 0) {
+    pipe_barrier(PIPE_ALL);
+    return;
+  }
+
+  int my_rank = static_cast<int>(comm_ctx->rankId);
+
+  for (int peer = 0; peer < nranks; ++peer) {
+    if (peer == my_rank) continue;
+    __gm__ int32_t *remote_signal = CommRemotePtr(comm_ctx, signal_base + my_rank, peer);
+    pto::comm::Signal sig(remote_signal);
+    pto::comm::TNOTIFY(sig, static_cast<int32_t>(1), pto::comm::NotifyOp::AtomicAdd);
+  }
+  for (int peer = 0; peer < nranks; ++peer) {
+    if (peer == my_rank) continue;
+    pto::comm::Signal sig(signal_base + peer);
+    pto::comm::TWAIT(sig, static_cast<int32_t>(1), pto::comm::WaitCmp::GE);
+  }
+  pipe_barrier(PIPE_ALL);
+
+  using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
+  using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
+  using Global = pto::GlobalTensor<{{dtype_cpp}}, ShapeDyn, StrideDyn, pto::Layout::ND>;
+  using TileData = pto::Tile<pto::TileType::Vec, {{dtype_cpp}}, 1, kTileCount, pto::BLayout::RowMajor, -1, -1>;
+
+  TileData acc_tile(1, kTileCount);
+  TileData recv_tile(1, kTileCount);
+  TASSIGN(acc_tile, 0x0);
+  TASSIGN(recv_tile, 0x10000);
+
+  int32_t read_done_expected = 2;
+  for (int64_t base = 0; base < numel; base += kTileCount) {
+    int64_t chunk64 = numel - base;
+    if (chunk64 > kTileCount) chunk64 = kTileCount;
+    int chunk = static_cast<int>(chunk64);
+
+    ShapeDyn shape(1, 1, 1, 1, chunk);
+    StrideDyn stride(chunk, chunk, chunk, chunk, 1);
+
+    Global data_g(data + base, shape, stride);
+    TLOAD(acc_tile, data_g);
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+
+    for (int peer = 0; peer < nranks; ++peer) {
+      if (peer == my_rank) continue;
+      __gm__ {{dtype_cpp}} *remote_data = CommRemotePtr(comm_ctx, data + base, peer);
+      Global remote_g(remote_data, shape, stride);
+      TLOAD(recv_tile, remote_g);
+      set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+      wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+      TADD(acc_tile, acc_tile, recv_tile);
+      set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+      wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    }
+
+    for (int peer = 0; peer < nranks; ++peer) {
+      if (peer == my_rank) continue;
+      __gm__ int32_t *remote_signal = CommRemotePtr(comm_ctx, signal_base + my_rank, peer);
+      pto::comm::Signal sig(remote_signal);
+      pto::comm::TNOTIFY(sig, static_cast<int32_t>(1), pto::comm::NotifyOp::AtomicAdd);
+    }
+    for (int peer = 0; peer < nranks; ++peer) {
+      if (peer == my_rank) continue;
+      pto::comm::Signal sig(signal_base + peer);
+      pto::comm::TWAIT(sig, read_done_expected, pto::comm::WaitCmp::GE);
+    }
+    ++read_done_expected;
+    pipe_barrier(PIPE_ALL);
+
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    TSTORE(data_g, acc_tile);
+    set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+  }
+
+  pipe_barrier(PIPE_ALL);
+}

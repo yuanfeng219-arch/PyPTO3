@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PyPTO3 算子开发可视化基础作业对象样例">
+  <title>PyPTO3 Object Workbench</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M7.5 11.2c3.5-1 5.2-4.2 9-5M7.5 12.8c3.5 1 5.2 4.2 9 5"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></symbol>
+    <symbol id="i-memory" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.7 20h18.6z"/><path d="M12 9v5M12 17.5v.2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 6 9 6-9 6z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6M12 7v5l3 2"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="../../launch.html">
+        <span class="brand-mark"><svg><use href="#i-cube"/></svg></span>
+        <span class="brand-copy"><strong>PyPTO3</strong><small>OBJECT WORKBENCH</small></span>
+      </a>
+      <div class="breadcrumb"><span>Projects</span><svg><use href="#i-chevron"/></svg><span>flash_attention</span><svg><use href="#i-chevron"/></svg><strong>matmul_fwd</strong></div>
+      <div class="top-actions">
+        <label class="search"><svg><use href="#i-search"/></svg><input id="objectSearch" type="search" placeholder="搜索对象 / ID" aria-label="搜索对象"></label>
+        <button class="button secondary" id="historyButton"><svg><use href="#i-history"/></svg>历史</button>
+        <button class="button primary" id="runButton"><svg><use href="#i-play"/></svg>运行验证</button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <section class="project-card">
+        <div class="project-icon">FA</div>
+        <div><strong>Flash Attention</strong><small>算子项目 · v0.8.2</small></div>
+        <span class="live-dot"></span>
+      </section>
+      <nav class="nav-list" aria-label="工作台导航">
+        <button class="nav-item active"><svg><use href="#i-grid"/></svg>对象图谱<span>12</span></button>
+        <button class="nav-item"><svg><use href="#i-code"/></svg>代码与 IR<span>3</span></button>
+        <button class="nav-item"><svg><use href="#i-check"/></svg>验证与问题<span class="warn-count">2</span></button>
+        <button class="nav-item"><svg><use href="#i-history"/></svg>运行与证据<span>8</span></button>
+      </nav>
+      <div class="sidebar-heading"><span>MVP 对象域</span><span class="mono">12 OBJECTS</span></div>
+      <div class="domain-list" id="domainList"></div>
+      <section class="workflow-card">
+        <div class="workflow-head"><span>对象状态</span><strong>5 / 8</strong></div>
+        <div class="workflow-bar"><i></i></div>
+        <div class="workflow-labels"><span>draft</span><span>validated</span><span>optimized</span></div>
+        <p>当前 Run 已编译并通过精度验证，等待性能基线。</p>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <section class="workspace-head">
+        <div>
+          <div class="eyebrow"><span class="status-dot"></span>OBJECT GRAPH <span class="divider">/</span> RUN 003</div>
+          <div class="title-row"><h1>Matmul Forward <span class="title-id">op_spec_001</span></h1><span class="state-chip validated"><svg><use href="#i-check"/></svg> validated</span></div>
+          <p class="subtitle">一个可观察、可解释、可修改、可验证的算子作业对象图谱</p>
+        </div>
+        <div class="head-meta"><span><b>Target</b> Ascend 910B</span><span><b>Env</b> PyPTO 0.6.1</span><span><b>Updated</b> just now</span></div>
+      </section>
+
+      <nav class="view-tabs" role="tablist" aria-label="对象视图">
+        <button class="view-tab active" data-view="graph" role="tab" aria-selected="true"><svg><use href="#i-flow"/></svg>计算图</button>
+        <button class="view-tab" data-view="memory" role="tab" aria-selected="false"><svg><use href="#i-memory"/></svg>内存与 Tile</button>
+        <button class="view-tab" data-view="pipeline" role="tab" aria-selected="false"><svg><use href="#i-history"/></svg>Pipeline</button>
+        <button class="view-tab" data-view="validation" role="tab" aria-selected="false"><svg><use href="#i-check"/></svg>验证与问题 <span>2</span></button>
+        <button class="view-tab" data-view="evidence" role="tab" aria-selected="false"><svg><use href="#i-code"/></svg>证据链</button>
+      </nav>
+
+      <section class="view active" id="view-graph" data-panel="graph">
+        <div class="view-toolbar"><div><strong>GraphNode / DataMovement / ComputeOp</strong><span>显式关系 · 输入输出 · lowered_to</span></div><div class="toolbar-actions"><button class="tool-chip active">全部对象</button><button class="tool-chip">只看数据流</button><button class="tool-chip"><svg><use href="#i-more"/></svg></button></div></div>
+        <div class="graph-card">
+          <div class="canvas-grid"></div>
+          <div class="graph-legend"><span><i class="legend-input"></i>Tensor</span><span><i class="legend-move"></i>DataMovement</span><span><i class="legend-compute"></i>ComputeOp</span><span><i class="legend-tile"></i>Tile</span></div>
+          <svg class="graph-lines" viewBox="0 0 1000 430" preserveAspectRatio="none" aria-hidden="true">
+            <defs><marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7897ff"/></marker><marker id="arrowViolet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#b497ff"/></marker></defs>
+            <path class="edge blue" d="M183 110 C220 110 222 110 270 110" marker-end="url(#arrowBlue)"/><path class="edge blue" d="M183 322 C220 322 222 322 270 322" marker-end="url(#arrowBlue)"/>
+            <path class="edge violet" d="M435 110 C467 110 468 186 495 186" marker-end="url(#arrowViolet)"/><path class="edge violet" d="M435 322 C467 322 468 244 495 244" marker-end="url(#arrowViolet)"/>
+            <path class="edge violet" d="M673 214 C690 214 700 115 722 115" marker-end="url(#arrowViolet)"/><path class="edge violet" d="M673 214 C690 214 700 322 722 322" marker-end="url(#arrowViolet)"/>
+            <path class="edge blue" d="M887 115 C900 115 900 214 905 214" marker-end="url(#arrowBlue)"/><path class="edge blue" d="M887 322 C900 322 900 214 905 214" marker-end="url(#arrowBlue)"/>
+          </svg>
+          <div class="graph-node tensor node-a" data-object="tensor_a"><small>TENSOR · tensor_a</small><strong>A · [4096, 4096]</strong><em>FP16 · GM</em></div>
+          <div class="graph-node movement node-load-a" data-object="move_load_a"><small>DATA MOVEMENT</small><strong>tile.load</strong><em>GM → UB · 1.0 MB</em></div>
+          <div class="graph-node movement node-load-b" data-object="move_load_b"><small>DATA MOVEMENT</small><strong>tile.load</strong><em>GM → UB · 1.0 MB</em></div>
+          <div class="graph-node tensor node-b" data-object="tensor_b"><small>TENSOR · tensor_b</small><strong>B · [4096, 4096]</strong><em>FP16 · GM</em></div>
+          <div class="graph-node compute node-matmul selected" data-object="matmul"><small>COMPUTE OP · node_03</small><strong>tile.matmul</strong><em>Tile × Tile → Accumulator</em><span class="node-badge">selected</span></div>
+          <div class="graph-node tile node-tile-c" data-object="tile_c"><small>TILE · tile_004</small><strong>output_tile</strong><em>[32, 128] · UB</em></div>
+          <div class="graph-node movement node-store" data-object="move_store"><small>DATA MOVEMENT</small><strong>tile.store</strong><em>UB → GM · 512 KB</em></div>
+          <div class="graph-node tensor node-c" data-object="tensor_c"><small>TENSOR · tensor_c</small><strong>O · [4096, 4096]</strong><em>FP16 · GM</em></div>
+          <div class="edge-label label-in">inputs</div><div class="edge-label label-lowered">lowered_to</div><div class="edge-label label-out">outputs</div>
+          <div class="zoom-controls"><button id="zoomOut">−</button><span id="zoomValue">100%</span><button id="zoomIn">＋</button><button id="fitGraph">Fit</button></div>
+        </div>
+        <div class="bottom-grid">
+          <section class="signal-card"><div class="signal-icon green"><svg><use href="#i-check"/></svg></div><div><strong>编译检查通过</strong><p>12 个对象均已生成稳定 ID，关系图无孤立节点。</p></div><span class="signal-link">查看 IR <svg><use href="#i-arrow"/></svg></span></section>
+          <section class="signal-card warning"><div class="signal-icon amber"><svg><use href="#i-alert"/></svg></div><div><strong>1 个待处理问题</strong><p>UB 使用率 92%，建议评估 Tile 从 [64, 128] 缩小为 [32, 128]。</p></div><span class="signal-link">定位 Tile <svg><use href="#i-arrow"/></svg></span></section>
+        </div>
+      </section>
+
+      <section class="view" id="view-memory" data-panel="memory"><div class="view-toolbar"><div><strong>MemoryObject / Tile / Constraint</strong><span>内存层级 · buffer 占用 · 对齐约束</span></div><button class="button secondary small">导出内存报告</button></div><div class="memory-layout"><div class="memory-stack" id="memoryStack"></div><div class="tile-preview"><div class="tile-head"><div><strong>Tile 分块预览</strong><span>tile_001 · valid region highlighted</span></div><span class="state-chip warning">92% UB</span></div><div class="matrix"><div class="matrix-label top">N →</div><div class="matrix-label left">M<br>↓</div><div class="matrix-grid" id="matrixGrid"></div></div><div class="tile-note"><span class="note-marker"></span><div><strong>当前 Tile</strong><p>[32, 128] 满足 M 对齐，N 维 valid shape 为 [32, 100]。剩余 28 列由 mask 处理。</p></div></div></div></div></section>
+
+      <section class="view" id="view-pipeline" data-panel="pipeline"><div class="view-toolbar"><div><strong>PipelineStage / SyncObject / Timeline</strong><span>load、compute、store 的重叠关系</span></div><div class="run-summary"><span class="status-dot"></span>Run 003 · 12.4 μs</div></div><div class="pipeline-card"><div class="pipeline-ruler"><span>0 μs</span><span>4</span><span>8</span><span>12</span><span>16</span></div><div class="lane" id="pipelineLane"></div></div><div class="pipeline-foot"><div class="mini-metric"><small>LATENCY</small><strong>12.4 <em>μs</em></strong><span class="positive">↓ 8.4% vs baseline</span></div><div class="mini-metric"><small>STALL</small><strong>1.8 <em>μs</em></strong><span class="negative">sync wait · 14.5%</span></div><div class="mini-metric"><small>OCCUPANCY</small><strong>76 <em>%</em></strong><span>Ascend 910B · AIC</span></div></div></section>
+
+      <section class="view" id="view-validation" data-panel="validation"><div class="view-toolbar"><div><strong>TestCase / CheckResult / Issue</strong><span>验证输入、Golden 对比与质量门禁</span></div><button class="button primary small" id="rerunButton"><svg><use href="#i-play"/></svg>重新验证</button></div><div class="validation-grid"><div class="check-list" id="checkList"></div><div class="issue-panel"><div class="panel-title"><strong>Issues</strong><span>1 open</span></div><div class="issue-item"><span class="issue-mark">!</span><div><strong>ISSUE-014 · UB capacity pressure</strong><p>Tile `tile_001` 占用 UB 92%，接近 96% 硬件阈值。</p><small>source: memory_report.json:48 · created by Optimizer</small></div><button class="button secondary small" data-select-object="tile_a">查看对象</button></div></div></div></section>
+
+      <section class="view" id="view-evidence" data-panel="evidence"><div class="view-toolbar"><div><strong>Provenance / Evidence Chain</strong><span>对象来源、运行证据与修改历史</span></div><button class="button secondary small">导出对象 JSON</button></div><div class="evidence-view"><div class="evidence-flow" id="evidenceFlow"></div><div class="history-card"><div class="panel-title"><strong>最近变更</strong><span>version 3</span></div><div class="history-item"><i class="history-line"></i><div><strong>Tile shape changed</strong><small>tile_001 · [64,128] → [32,128]</small></div><time>2m</time></div><div class="history-item"><i class="history-line"></i><div><strong>Precision check passed</strong><small>Run 003 · max error 0.00098</small></div><time>5m</time></div><div class="history-item"><i class="history-line"></i><div><strong>Object graph imported</strong><small>designer_agent · kernel.py:42</small></div><time>12m</time></div></div></div></section>
+    </main>
+
+    <aside class="inspector" aria-label="对象详情">
+      <div class="inspector-head"><div><span class="eyebrow">SELECTED OBJECT</span><h2 id="inspectorTitle">tile.matmul</h2><code id="inspectorId">compute_op_003</code></div><button class="icon-button"><svg><use href="#i-more"/></svg></button></div>
+      <div class="inspector-body" id="inspectorBody"></div>
+      <div class="inspector-footer"><button class="button secondary full" id="checkButton"><svg><use href="#i-check"/></svg>检查约束</button><button class="button primary full" id="profileButton"><svg><use href="#i-play"/></svg>运行 Profile</button></div>
+    </aside>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

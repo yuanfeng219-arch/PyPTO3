@@ -1,0 +1,2215 @@
+{
+  "schema_version": "model_architecture_graph.v1",
+  "metadata": {
+    "modelId": "DeepSeek-V4-Flash-CSA-PyPTO",
+    "sourceScope": "distributed_operator_implementation",
+    "profilingOverlay": false,
+    "graphRole": "stage_2_operator_implementation",
+    "parentGraph": "DeepSeek V4 source-model architecture / CSA module"
+  },
+  "roots": [
+    {
+      "id": "section/distributed_operator_implementation",
+      "label": "Stage 2 · CSA Distributed Operator Implementation",
+      "kind": "section",
+      "typeLabel": "Implementation graph",
+      "synthetic": true,
+      "children": [
+        {
+          "id": "decoder_layer_group",
+          "label": "DeepSeek-V4 Flash Decoder Layer Template",
+          "kind": "module",
+          "typeLabel": "Module",
+          "colorKey": "module:decoder",
+          "synthetic": true,
+          "children": [
+            {
+              "id": "hc_input",
+              "label": "HC State Input",
+              "kind": "tensor",
+              "typeLabel": "Input",
+              "colorKey": "io:input",
+              "origin": "implementation",
+              "dataState": "implementation_only",
+              "attrs": {
+                "streams": 4,
+                "hidden_size_symbol": "D"
+              },
+              "sourceRefs": [
+                {
+                  "source_id": "decode_csa",
+                  "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                  "line_start": 153,
+                  "line_end": 153,
+                  "symbol": "HC State Input",
+                  "evidence": "source",
+                  "fact": "x_hc is the four-stream FP32 input"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "csa_operator_group",
+              "label": "decode_csa Operator Coverage",
+              "kind": "module",
+              "typeLabel": "Module",
+              "colorKey": "sem:attention",
+              "synthetic": true,
+              "children": [
+                {
+                  "id": "hc_pre",
+                  "label": "HC Pre Mix",
+                  "kind": "op",
+                  "typeLabel": "HyperConnectionMix",
+                  "colorKey": "sem:linear",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "input_streams": 4,
+                    "output_streams": 1,
+                    "sinkhorn_iterations": 20
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 215,
+                      "line_end": 215,
+                      "symbol": "HyperConnectionMix",
+                      "evidence": "source",
+                      "fact": "hc_pre produces x_mixed, post_t, and comb_t"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "attention_norm",
+                  "label": "Attention RMSNorm",
+                  "kind": "op",
+                  "typeLabel": "RMSNorm",
+                  "colorKey": "sem:norm",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "epsilon": 0.000001
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 273,
+                      "line_end": 273,
+                      "symbol": "RMSNorm",
+                      "evidence": "source",
+                      "fact": "x_mixed is normalized before attention branches"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "q_projection",
+                  "label": "Query Projection",
+                  "kind": "op",
+                  "typeLabel": "LowRankLinearRoPE",
+                  "colorKey": "sem:linear",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "heads": 64,
+                    "head_dim": 512,
+                    "lora_rank": 1024,
+                    "weight_dtype": "int8"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 307,
+                      "line_end": 307,
+                      "symbol": "LowRankLinearRoPE",
+                      "evidence": "source",
+                      "fact": "q_proj_rope produces q plus reusable quantized qr"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "tp_allgather",
+                  "label": "Token All-Gather",
+                  "kind": "op",
+                  "typeLabel": "AllGather",
+                  "colorKey": "sem:comm",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "observed_tp": 2
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 277,
+                      "line_end": 277,
+                      "symbol": "AllGather",
+                      "evidence": "source",
+                      "fact": "post-norm rows are gathered across the TP group for KV and compressors"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "kv_projection",
+                  "label": "Shared KV Projection",
+                  "kind": "op",
+                  "typeLabel": "LinearRoPE",
+                  "colorKey": "sem:attention",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "head_dim": 512
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 313,
+                      "line_end": 313,
+                      "symbol": "LinearRoPE",
+                      "evidence": "source",
+                      "fact": "kv_proj_rope consumes the gathered token stream"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "raw_kv_cache",
+                  "label": "Raw KV Cache",
+                  "kind": "tensor",
+                  "typeLabel": "State",
+                  "colorKey": "io:state",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "page_size": 32,
+                    "dtype": "bf16"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 319,
+                      "line_end": 319,
+                      "symbol": "Raw KV Cache",
+                      "evidence": "source",
+                      "fact": "ori_slot_mapping controls incremental KV cache writeback"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "main_compressor",
+                  "label": "Main KV Compressor",
+                  "kind": "op",
+                  "typeLabel": "OnlineSoftmaxPool",
+                  "colorKey": "sem:attention",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "ratio": 4,
+                    "overlap": true,
+                    "state_slots": 8
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "compressor_ratio4",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_compressor_ratio4.py",
+                      "line_start": 75,
+                      "line_end": 75,
+                      "symbol": "OnlineSoftmaxPool",
+                      "evidence": "source",
+                      "fact": "ratio-4 overlapping compressor writes pooled KV"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "compressor_state",
+                  "label": "Compressor State",
+                  "kind": "tensor",
+                  "typeLabel": "State",
+                  "colorKey": "io:state",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "state_slots": 8,
+                    "dtype": "fp32"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "compressor_ratio4",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_compressor_ratio4.py",
+                      "line_start": 138,
+                      "line_end": 138,
+                      "symbol": "Compressor State",
+                      "evidence": "source",
+                      "fact": "persistent ring state participates in online pooling"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "compressed_kv_cache",
+                  "label": "Compressed KV Cache",
+                  "kind": "tensor",
+                  "typeLabel": "State",
+                  "colorKey": "io:state",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "compression_ratio": 4,
+                    "page_size": 32,
+                    "dtype": "bf16"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "compressor_ratio4",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_compressor_ratio4.py",
+                      "line_start": 240,
+                      "line_end": 240,
+                      "symbol": "Compressed KV Cache",
+                      "evidence": "source",
+                      "fact": "normalized compressed KV rows are written to cmp_kv_cache"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "indexer_compressor",
+                  "label": "Indexer Compressor",
+                  "kind": "op",
+                  "typeLabel": "CompressedIndexEncode",
+                  "colorKey": "sem:linear",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "ratio": 4,
+                    "index_dim": 128
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 364,
+                      "line_end": 364,
+                      "symbol": "CompressedIndexEncode",
+                      "evidence": "source",
+                      "fact": "the inner compressor builds the per-request index cache"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "indexer_state",
+                  "label": "Indexer State",
+                  "kind": "tensor",
+                  "typeLabel": "State",
+                  "colorKey": "io:state",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "dtype": "fp32"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 367,
+                      "line_end": 367,
+                      "symbol": "Indexer State",
+                      "evidence": "source",
+                      "fact": "inner compressor state is distinct from main compressor state"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "index_cache",
+                  "label": "Index KV Cache",
+                  "kind": "tensor",
+                  "typeLabel": "State",
+                  "colorKey": "io:state",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "index_dim": 128,
+                    "dtype": "int8",
+                    "scale_dtype": "fp32"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_indexer",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_indexer.py",
+                      "line_start": 635,
+                      "line_end": 635,
+                      "symbol": "Index KV Cache",
+                      "evidence": "source",
+                      "fact": "C8 index cache stores INT8 vectors and per-position scales"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "lightning_indexer",
+                  "label": "Lightning Indexer",
+                  "kind": "op",
+                  "typeLabel": "RetrievalScore",
+                  "colorKey": "sem:linear",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "index_heads": 64,
+                    "index_dim": 128,
+                    "query_transform": "RoPE + Hadamard + INT8"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_indexer",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_indexer.py",
+                      "line_start": 626,
+                      "line_end": 626,
+                      "symbol": "RetrievalScore",
+                      "evidence": "source",
+                      "fact": "indexer scores the visible compressed history"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "exact_topk",
+                  "label": "Exact TopK Select",
+                  "kind": "op",
+                  "typeLabel": "TopK",
+                  "colorKey": "sem:gate",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "k": 512,
+                    "leaf_candidates": 8192
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_indexer",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_indexer.py",
+                      "line_start": 429,
+                      "line_end": 429,
+                      "symbol": "TopK",
+                      "evidence": "source",
+                      "fact": "exact TopK forest merges scored leaves into selected indices"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "window_gather",
+                  "label": "Sliding Window Gather",
+                  "kind": "op",
+                  "typeLabel": "Gather",
+                  "colorKey": "sem:linear",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "window": 128
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "sparse_attention",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py",
+                      "line_start": 223,
+                      "line_end": 223,
+                      "symbol": "Gather",
+                      "evidence": "source",
+                      "fact": "recent raw KV rows are gathered from paged cache"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "compressed_gather",
+                  "label": "Selected KV Gather",
+                  "kind": "op",
+                  "typeLabel": "Gather",
+                  "colorKey": "sem:attention",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "selected_positions": 512
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "sparse_attention",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py",
+                      "line_start": 260,
+                      "line_end": 260,
+                      "symbol": "Gather",
+                      "evidence": "source",
+                      "fact": "TopK compressed slots gather rows from cmp_kv"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "sparse_attention",
+                  "label": "Sparse Shared-KV Attention",
+                  "kind": "op",
+                  "typeLabel": "OnlineSoftmaxAttention",
+                  "colorKey": "sem:attention",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "raw_window": 128,
+                    "compressed_topk": 512,
+                    "candidate_rows": 640,
+                    "attention_sink": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "sparse_attention",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py",
+                      "line_start": 105,
+                      "line_end": 105,
+                      "symbol": "OnlineSoftmaxAttention",
+                      "evidence": "source",
+                      "fact": "CSA QK/PV merges the raw window with selected compressed positions"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "head_merge",
+                  "label": "Block Merge and Inverse RoPE",
+                  "kind": "op",
+                  "typeLabel": "AttentionNormalize",
+                  "colorKey": "sem:rope",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "online_softmax_merge": true,
+                    "inverse_rope": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 410,
+                      "line_end": 410,
+                      "symbol": "AttentionNormalize",
+                      "evidence": "source",
+                      "fact": "block statistics are merged and the RoPE section is rotated back"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "attention_alltoall",
+                  "label": "Attention All-to-All",
+                  "kind": "op",
+                  "typeLabel": "AllToAll",
+                  "colorKey": "sem:comm",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "group_ownership_exchange": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 446,
+                      "line_end": 446,
+                      "symbol": "AllToAll",
+                      "evidence": "source",
+                      "fact": "head groups are published to their output-projection owner rank"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "grouped_output_projection",
+                  "label": "Grouped Output Projection",
+                  "kind": "op",
+                  "typeLabel": "LowRankLinear",
+                  "colorKey": "sem:linear",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "groups": 8,
+                    "lora_rank": 1024,
+                    "second_stage_weight_dtype": "int8"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 487,
+                      "line_end": 487,
+                      "symbol": "LowRankLinear",
+                      "evidence": "source",
+                      "fact": "grouped attention rows enter the sharded output projection"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "output_reduce_scatter",
+                  "label": "Output Reduce-Scatter",
+                  "kind": "op",
+                  "typeLabel": "ReduceScatter",
+                  "colorKey": "sem:comm",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "returns_token_owner_rows": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 489,
+                      "line_end": 489,
+                      "symbol": "ReduceScatter",
+                      "evidence": "source",
+                      "fact": "output projection contributions are reduced and scattered to token owners"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "attention_hc_post",
+                  "label": "Attention HC Post and Merge",
+                  "kind": "op",
+                  "typeLabel": "HyperConnectionMerge",
+                  "colorKey": "sem:attention",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "input_streams": 1,
+                    "output_streams": 4
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "decode_csa",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                      "line_start": 495,
+                      "line_end": 495,
+                      "symbol": "HyperConnectionMerge",
+                      "evidence": "source",
+                      "fact": "hc_post injects attention output and mixes the four residual streams"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "attention_hc_output",
+              "label": "Attention HC State",
+              "kind": "tensor",
+              "typeLabel": "Output",
+              "colorKey": "io:output",
+              "origin": "implementation",
+              "dataState": "implementation_only",
+              "attrs": {
+                "streams": 4,
+                "operator_boundary": "decode_csa"
+              },
+              "sourceRefs": [
+                {
+                  "source_id": "decode_csa",
+                  "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py",
+                  "line_start": 496,
+                  "line_end": 496,
+                  "symbol": "Attention HC State",
+                  "evidence": "source",
+                  "fact": "decode_csa returns x_out after the attention HC merge"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "moe_context_group",
+              "label": "MoE FFN Context — Outside decode_csa",
+              "kind": "module",
+              "typeLabel": "Module",
+              "colorKey": "sem:moe",
+              "synthetic": true,
+              "children": [
+                {
+                  "id": "ffn_hc_pre",
+                  "label": "FFN HC Pre Mix",
+                  "kind": "op",
+                  "typeLabel": "HyperConnectionMix",
+                  "colorKey": "sem:mlp",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "outside_decode_csa": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "moe",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/moe.py",
+                      "line_start": 545,
+                      "line_end": 545,
+                      "symbol": "HyperConnectionMix",
+                      "evidence": "source",
+                      "fact": "the MoE sublayer begins with its own hc_pre"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "ffn_norm",
+                  "label": "FFN RMSNorm",
+                  "kind": "op",
+                  "typeLabel": "RMSNorm",
+                  "colorKey": "sem:norm",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "fused_into_moe_path": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "moe",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/moe.py",
+                      "line_start": 548,
+                      "line_end": 548,
+                      "symbol": "RMSNorm",
+                      "evidence": "source",
+                      "fact": "norm_w is consumed by the MoE tile after HC pre"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "router_select",
+                  "label": "Router Select",
+                  "kind": "op",
+                  "typeLabel": "ConditionalRouter",
+                  "colorKey": "sem:gate",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "hash_layers": "0-2",
+                    "learned_layers": "3-42",
+                    "learned_score": "sqrt(softplus)",
+                    "selected_experts": 6
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "flash_config",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/config.py",
+                      "line_start": 164,
+                      "line_end": 164,
+                      "symbol": "ConditionalRouter",
+                      "evidence": "config",
+                      "fact": "the first three layers use hash routing; later layers use learned routing"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "routed_experts",
+                  "label": "Routed Experts",
+                  "kind": "module",
+                  "typeLabel": "Module",
+                  "colorKey": "sem:moe",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "global_experts": 256,
+                    "experts_per_token": 6,
+                    "weight_dtype": "fp4"
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "flash_config",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/config.py",
+                      "line_start": 158,
+                      "line_end": 158,
+                      "symbol": "expert_bank",
+                      "evidence": "config",
+                      "fact": "FLASH config defines 256 routed experts and six selected per token"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "shared_expert",
+                  "label": "Shared Expert",
+                  "kind": "module",
+                  "typeLabel": "Module",
+                  "colorKey": "sem:moe",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "count": 1
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "flash_config",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/config.py",
+                      "line_start": 159,
+                      "line_end": 159,
+                      "symbol": "shared_expert",
+                      "evidence": "config",
+                      "fact": "FLASH config defines one shared expert"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "moe_combine",
+                  "label": "MoE Combine",
+                  "kind": "op",
+                  "typeLabel": "ExpertCombine",
+                  "colorKey": "sem:moe",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "expert_parallel": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "moe",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/moe.py",
+                      "line_start": 391,
+                      "line_end": 391,
+                      "symbol": "ExpertCombine",
+                      "evidence": "source",
+                      "fact": "shared and routed expert outputs are accumulated"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "ffn_hc_post",
+                  "label": "FFN HC Post and Merge",
+                  "kind": "op",
+                  "typeLabel": "HyperConnectionMerge",
+                  "colorKey": "sem:mlp",
+                  "origin": "implementation",
+                  "dataState": "implementation_only",
+                  "attrs": {
+                    "outside_decode_csa": true
+                  },
+                  "sourceRefs": [
+                    {
+                      "source_id": "moe",
+                      "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/moe.py",
+                      "line_start": 561,
+                      "line_end": 561,
+                      "symbol": "HyperConnectionMerge",
+                      "evidence": "source",
+                      "fact": "MoE output returns to four HC streams through hc_post"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "layer_output",
+              "label": "Decoder Layer Output",
+              "kind": "tensor",
+              "typeLabel": "Output",
+              "colorKey": "io:output",
+              "origin": "implementation",
+              "dataState": "implementation_only",
+              "attrs": {
+                "streams": 4
+              },
+              "sourceRefs": [
+                {
+                  "source_id": "decode_layer",
+                  "path": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark/decode_layer.py",
+                  "line_start": 1469,
+                  "line_end": 1469,
+                  "symbol": "Decoder Layer Output",
+                  "evidence": "source",
+                  "fact": "the attention output is followed by the MoE sublayer"
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_input_pre",
+      "source": "hc_input",
+      "target": "hc_pre",
+      "tensor": {
+        "name": "x_hc",
+        "shape": "[T,HC,D]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 153,
+          "fact": "four HC streams enter hc_pre"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_pre_norm",
+      "source": "hc_pre",
+      "target": "attention_norm",
+      "tensor": {
+        "name": "x_mixed",
+        "shape": "[T,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 273,
+          "fact": "x_mixed is normalized"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_norm_q",
+      "source": "attention_norm",
+      "target": "q_projection",
+      "tensor": {
+        "name": "x_normed_local",
+        "shape": "[T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 307,
+          "fact": "Q stays token-local"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_norm_gather",
+      "source": "attention_norm",
+      "target": "tp_allgather",
+      "tensor": {
+        "name": "x_normed_local",
+        "shape": "[T_local,D]",
+        "dtype": "bf16",
+        "parallel": "tp_shard"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 277,
+          "fact": "KV-side consumers require the TP-group stream"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_gather_kv",
+      "source": "tp_allgather",
+      "target": "kv_projection",
+      "tensor": {
+        "name": "x_normed_full",
+        "shape": "[TP*T_local,D]",
+        "dtype": "bf16",
+        "parallel": "tp_replicated"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 313,
+          "fact": "gathered rows enter KV projection"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_kv_cache",
+      "source": "kv_projection",
+      "target": "raw_kv_cache",
+      "tensor": {
+        "name": "kv_full",
+        "shape": "[TP*T_local,D_h]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 319,
+          "fact": "raw KV is written by ori_slot_mapping"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_gather_cmp",
+      "source": "tp_allgather",
+      "target": "main_compressor",
+      "tensor": {
+        "name": "x_normed_full",
+        "shape": "[TP*T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 351,
+          "fact": "main compressor consumes the gathered stream"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_cmp_state_read",
+      "source": "compressor_state",
+      "target": "main_compressor",
+      "tensor": {
+        "name": "compress_state",
+        "dtype": "fp32",
+        "constraints": [
+          "persistent ring"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "compressor_ratio4",
+          "line": 138,
+          "fact": "old ring rows contribute to the compression pool"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_cmp_state_write",
+      "source": "main_compressor",
+      "target": "compressor_state",
+      "tensor": {
+        "name": "compress_state_update",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "compressor_ratio4",
+          "line": 217,
+          "fact": "current rows commit after pooling"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_cmp_cache",
+      "source": "main_compressor",
+      "target": "compressed_kv_cache",
+      "tensor": {
+        "name": "cmp_kv",
+        "shape": "[N_cmp,D_h]",
+        "dtype": "bf16",
+        "constraints": [
+          "one row per four source positions"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "compressor_ratio4",
+          "line": 240,
+          "fact": "pooled normalized rows update compressed cache"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_gather_idxcmp",
+      "source": "tp_allgather",
+      "target": "indexer_compressor",
+      "tensor": {
+        "name": "x_normed_full",
+        "shape": "[TP*T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 367,
+          "fact": "inner compressor consumes the gathered stream"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_idx_state_read",
+      "source": "indexer_state",
+      "target": "indexer_compressor",
+      "tensor": {
+        "name": "inner_compress_state",
+        "dtype": "fp32",
+        "constraints": [
+          "persistent ring"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 369,
+          "fact": "indexer compressor has distinct recurrent state"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_idx_state_write",
+      "source": "indexer_compressor",
+      "target": "indexer_state",
+      "tensor": {
+        "name": "inner_state_update",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 369,
+          "fact": "inner state is updated incrementally"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_idx_cache",
+      "source": "indexer_compressor",
+      "target": "index_cache",
+      "tensor": {
+        "name": "idx_kv_cache",
+        "shape": "[N_cmp,index_dim]",
+        "dtype": "int8"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 371,
+          "fact": "inner compressor writes the quantized index cache"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_q_indexer",
+      "source": "q_projection",
+      "target": "lightning_indexer",
+      "tensor": {
+        "name": "qr",
+        "shape": "[T_local,Q_lora]",
+        "dtype": "int8"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 378,
+          "fact": "the Q low-rank intermediate is reused by the indexer"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_norm_indexer",
+      "source": "attention_norm",
+      "target": "lightning_indexer",
+      "tensor": {
+        "name": "x_normed_local",
+        "shape": "[T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_indexer",
+          "line": 766,
+          "fact": "hidden rows produce dynamic index-head weights"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_cache_indexer",
+      "source": "index_cache",
+      "target": "lightning_indexer",
+      "tensor": {
+        "name": "index_vectors",
+        "shape": "[N_cmp,index_dim]",
+        "dtype": "int8"
+      },
+      "provenance": [
+        {
+          "source": "decode_indexer",
+          "line": 429,
+          "fact": "visible index cache rows are scored"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_indexer_topk",
+      "source": "lightning_indexer",
+      "target": "exact_topk",
+      "tensor": {
+        "name": "retrieval_scores",
+        "shape": "[T_local,N_visible]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "decode_indexer",
+          "line": 429,
+          "fact": "scored leaves feed exact TopK merge"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_raw_window",
+      "source": "raw_kv_cache",
+      "target": "window_gather",
+      "tensor": {
+        "name": "recent_kv",
+        "shape": "[T_local,window,D_h]",
+        "dtype": "bf16",
+        "constraints": [
+          "causal positions only"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "sparse_attention",
+          "line": 223,
+          "fact": "window metadata gathers recent raw positions"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_cmp_selected",
+      "source": "compressed_kv_cache",
+      "target": "compressed_gather",
+      "tensor": {
+        "name": "compressed_kv",
+        "shape": "[N_cmp,D_h]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "sparse_attention",
+          "line": 260,
+          "fact": "selected compressed slots address cmp_kv"
+        }
+      ],
+      "semanticEdgeType": "state",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_topk_selected",
+      "source": "exact_topk",
+      "target": "compressed_gather",
+      "tensor": {
+        "name": "selected_indices",
+        "shape": "[T_local,index_topk]",
+        "dtype": "int32",
+        "constraints": [
+          "index_topk=512"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "decode_indexer",
+          "line": 622,
+          "fact": "TopK indices control compressed KV selection"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "left",
+      "targetAnchor": "right",
+      "curve": "horizontal"
+    },
+    {
+      "id": "e_q_attention",
+      "source": "q_projection",
+      "target": "sparse_attention",
+      "tensor": {
+        "name": "q",
+        "shape": "[T_local,N_h,D_h]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 388,
+          "fact": "Q enters sparse CSA attention"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_window_attention",
+      "source": "window_gather",
+      "target": "sparse_attention",
+      "tensor": {
+        "name": "window_kv",
+        "shape": "[T_local,window,D_h]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "sparse_attention",
+          "line": 223,
+          "fact": "raw window forms the first sparse block"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_cmp_attention",
+      "source": "compressed_gather",
+      "target": "sparse_attention",
+      "tensor": {
+        "name": "selected_compressed_kv",
+        "shape": "[T_local,index_topk,D_h]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "sparse_attention",
+          "line": 260,
+          "fact": "selected compressed rows form remaining sparse blocks"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_attention_merge",
+      "source": "sparse_attention",
+      "target": "head_merge",
+      "tensor": {
+        "name": "block_softmax_statistics",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 410,
+          "fact": "per-block maxima, denominators, and numerators are merged"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_merge_a2a",
+      "source": "head_merge",
+      "target": "attention_alltoall",
+      "tensor": {
+        "name": "packed_head_groups",
+        "shape": "[O_groups,T_local,O_group_in]",
+        "dtype": "bf16",
+        "parallel": "group_owner_shard"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 446,
+          "fact": "normalized heads are packed for owner ranks"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_a2a_oproj",
+      "source": "attention_alltoall",
+      "target": "grouped_output_projection",
+      "tensor": {
+        "name": "owned_attention_groups",
+        "dtype": "bf16",
+        "parallel": "tp_group_owner"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 480,
+          "fact": "each rank projects its owned groups"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_oproj_rs",
+      "source": "grouped_output_projection",
+      "target": "output_reduce_scatter",
+      "tensor": {
+        "name": "output_group_partials",
+        "shape": "[TP*T_local,D]",
+        "dtype": "fp32/int32",
+        "parallel": "tp_partial"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 489,
+          "fact": "projection partials enter reduce-scatter"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_rs_hcpost",
+      "source": "output_reduce_scatter",
+      "target": "attention_hc_post",
+      "tensor": {
+        "name": "attn_out",
+        "shape": "[T_local,D]",
+        "dtype": "bf16",
+        "parallel": "token_owner"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 495,
+          "fact": "local reduced output enters hc_post"
+        }
+      ],
+      "semanticEdgeType": "communication",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_input_residual",
+      "source": "hc_input",
+      "target": "attention_hc_post",
+      "tensor": {
+        "name": "attention_residual",
+        "shape": "[T_local,HC,D]",
+        "dtype": "fp32"
+      },
+      "dashed": true,
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 495,
+          "fact": "original HC streams bypass attention into hc_post"
+        }
+      ],
+      "semanticEdgeType": "residual",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_hcpost_boundary",
+      "source": "attention_hc_post",
+      "target": "attention_hc_output",
+      "tensor": {
+        "name": "x_out",
+        "shape": "[T_local,HC,D]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "decode_csa",
+          "line": 496,
+          "fact": "decode_csa returns the four-stream state"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_attn_ffnpre",
+      "source": "attention_hc_output",
+      "target": "ffn_hc_pre",
+      "tensor": {
+        "name": "attention_hc_state",
+        "shape": "[T_local,HC,D]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "decode_layer",
+          "line": 1469,
+          "fact": "attention output becomes MoE input"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_ffnpre_norm",
+      "source": "ffn_hc_pre",
+      "target": "ffn_norm",
+      "tensor": {
+        "name": "ffn_x_mixed",
+        "shape": "[T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 545,
+          "fact": "MoE HC pre emits one mixed stream"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_norm_router",
+      "source": "ffn_norm",
+      "target": "router_select",
+      "tensor": {
+        "name": "normalized_hidden",
+        "shape": "[T_local,D]",
+        "dtype": "bf16/int8"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 455,
+          "fact": "normalized rows feed gate routing"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_router_routed",
+      "source": "router_select",
+      "target": "routed_experts",
+      "tensor": {
+        "name": "expert_indices_and_weights",
+        "shape": "[T_local,experts_per_token]",
+        "dtype": "int32/fp32",
+        "constraints": [
+          "experts_per_token=6"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "flash_config",
+          "line": 160,
+          "fact": "six routed experts are selected"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_norm_shared",
+      "source": "ffn_norm",
+      "target": "shared_expert",
+      "tensor": {
+        "name": "normalized_hidden",
+        "shape": "[T_local,D]",
+        "dtype": "bf16/int8"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 461,
+          "fact": "shared expert runs for every token"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_routed_combine",
+      "source": "routed_experts",
+      "target": "moe_combine",
+      "tensor": {
+        "name": "weighted_routed_outputs",
+        "shape": "[T_local,experts_per_token,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 391,
+          "fact": "routed results are returned and accumulated"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_shared_combine",
+      "source": "shared_expert",
+      "target": "moe_combine",
+      "tensor": {
+        "name": "shared_output",
+        "shape": "[T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 401,
+          "fact": "shared output seeds the expert combination"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_combine_ffnpost",
+      "source": "moe_combine",
+      "target": "ffn_hc_post",
+      "tensor": {
+        "name": "ffn_out",
+        "shape": "[T_local,D]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 561,
+          "fact": "combined MoE result enters FFN hc_post"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_ffn_residual",
+      "source": "attention_hc_output",
+      "target": "ffn_hc_post",
+      "tensor": {
+        "name": "ffn_residual",
+        "shape": "[T_local,HC,D]",
+        "dtype": "fp32"
+      },
+      "dashed": true,
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 561,
+          "fact": "attention HC state bypasses the MoE branch into hc_post"
+        }
+      ],
+      "semanticEdgeType": "residual",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    },
+    {
+      "id": "e_ffn_output",
+      "source": "ffn_hc_post",
+      "target": "layer_output",
+      "tensor": {
+        "name": "next_hc_state",
+        "shape": "[T_local,HC,D]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "moe",
+          "line": 562,
+          "fact": "the decoder layer returns four HC streams"
+        }
+      ],
+      "semanticEdgeType": "activation",
+      "sourceAnchor": "bottom",
+      "targetAnchor": "top",
+      "curve": "vertical"
+    }
+  ],
+  "width": 1486,
+  "height": 2844,
+  "model": {
+    "name": "DeepSeek-V4 Flash CSA Distributed Operator Implementation",
+    "framework": "PyPTO",
+    "source_root": "/Users/yin/PyPTO3-main/Data/DeepseekV4/deepseek_v4_flash_dspark"
+  },
+  "extraction_scope": {
+    "kind": "hybrid",
+    "full_main_layers": 43,
+    "trace_main_layers": 1,
+    "notes": [
+      "This is a stage-2 distributed operator implementation graph derived from PyPTO decode_csa.py, not a stage-1 DeepSeek source-model architecture graph.",
+      "The canonical graph covers one ratio-4 CSA operator plus a collapsed decoder-layer FFN context.",
+      "The captured _jit_l3_decode_csa artifact is a standalone two-rank operator trace, not a complete-model trace.",
+      "CSA resolves for layers 2,4,...,42; layer 3 resolves to HCA and does not execute this branch."
+    ]
+  },
+  "nodes": [
+    {
+      "id": "hc_input",
+      "label": "HC State Input",
+      "kind": "tensor",
+      "typeLabel": "Input",
+      "colorKey": "io:input",
+      "width": 230,
+      "height": 48,
+      "x": 671,
+      "y": 132,
+      "parent": "decoder_layer_group"
+    },
+    {
+      "id": "hc_pre",
+      "label": "HC Pre Mix",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMix",
+      "colorKey": "sem:linear",
+      "width": 230,
+      "height": 56,
+      "x": 671,
+      "y": 242,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_norm",
+      "label": "Attention RMSNorm",
+      "kind": "op",
+      "typeLabel": "RMSNorm",
+      "colorKey": "sem:norm",
+      "width": 230,
+      "height": 56,
+      "x": 671,
+      "y": 352,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "q_projection",
+      "label": "Query Projection",
+      "kind": "op",
+      "typeLabel": "LowRankLinearRoPE",
+      "colorKey": "sem:linear",
+      "width": 230,
+      "height": 56,
+      "x": 281,
+      "y": 492,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "tp_allgather",
+      "label": "Token All-Gather",
+      "kind": "op",
+      "typeLabel": "AllGather",
+      "colorKey": "sem:comm",
+      "width": 230,
+      "height": 56,
+      "x": 751,
+      "y": 492,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "kv_projection",
+      "label": "Shared KV Projection",
+      "kind": "op",
+      "typeLabel": "LinearRoPE",
+      "colorKey": "sem:attention",
+      "width": 230,
+      "height": 56,
+      "x": 471,
+      "y": 622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "raw_kv_cache",
+      "label": "Raw KV Cache",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210,
+      "height": 48,
+      "x": 471,
+      "y": 752,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "main_compressor",
+      "label": "Main KV Compressor",
+      "kind": "op",
+      "typeLabel": "OnlineSoftmaxPool",
+      "colorKey": "sem:attention",
+      "width": 230,
+      "height": 56,
+      "x": 751,
+      "y": 622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "compressor_state",
+      "label": "Compressor State",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210,
+      "height": 48,
+      "x": 215,
+      "y": 626,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "compressed_kv_cache",
+      "label": "Compressed KV Cache",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 220,
+      "height": 48,
+      "x": 751,
+      "y": 752,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "indexer_compressor",
+      "label": "Indexer Compressor",
+      "kind": "op",
+      "typeLabel": "CompressedIndexEncode",
+      "colorKey": "sem:linear",
+      "width": 230,
+      "height": 56,
+      "x": 1031,
+      "y": 622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "indexer_state",
+      "label": "Indexer State",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210,
+      "height": 48,
+      "x": 1271,
+      "y": 626,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "index_cache",
+      "label": "Index KV Cache",
+      "kind": "tensor",
+      "typeLabel": "State",
+      "colorKey": "io:state",
+      "width": 210,
+      "height": 48,
+      "x": 1031,
+      "y": 752,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "lightning_indexer",
+      "label": "Lightning Indexer",
+      "kind": "op",
+      "typeLabel": "RetrievalScore",
+      "colorKey": "sem:linear",
+      "width": 230,
+      "height": 56,
+      "x": 1031,
+      "y": 882,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "exact_topk",
+      "label": "Exact TopK Select",
+      "kind": "op",
+      "typeLabel": "TopK",
+      "colorKey": "sem:gate",
+      "width": 230,
+      "height": 56,
+      "x": 1031,
+      "y": 1002,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "window_gather",
+      "label": "Sliding Window Gather",
+      "kind": "op",
+      "typeLabel": "Gather",
+      "colorKey": "sem:linear",
+      "width": 230,
+      "height": 56,
+      "x": 471,
+      "y": 922,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "compressed_gather",
+      "label": "Selected KV Gather",
+      "kind": "op",
+      "typeLabel": "Gather",
+      "colorKey": "sem:attention",
+      "width": 230,
+      "height": 56,
+      "x": 751,
+      "y": 1002,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "sparse_attention",
+      "label": "Sparse Shared-KV Attention",
+      "kind": "op",
+      "typeLabel": "OnlineSoftmaxAttention",
+      "colorKey": "sem:attention",
+      "width": 270,
+      "height": 56,
+      "x": 621,
+      "y": 1142,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "head_merge",
+      "label": "Block Merge and Inverse RoPE",
+      "kind": "op",
+      "typeLabel": "AttentionNormalize",
+      "colorKey": "sem:rope",
+      "width": 270,
+      "height": 56,
+      "x": 621,
+      "y": 1262,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_alltoall",
+      "label": "Attention All-to-All",
+      "kind": "op",
+      "typeLabel": "AllToAll",
+      "colorKey": "sem:comm",
+      "width": 250,
+      "height": 56,
+      "x": 621,
+      "y": 1382,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "grouped_output_projection",
+      "label": "Grouped Output Projection",
+      "kind": "op",
+      "typeLabel": "LowRankLinear",
+      "colorKey": "sem:linear",
+      "width": 280,
+      "height": 56,
+      "x": 621,
+      "y": 1502,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "output_reduce_scatter",
+      "label": "Output Reduce-Scatter",
+      "kind": "op",
+      "typeLabel": "ReduceScatter",
+      "colorKey": "sem:comm",
+      "width": 260,
+      "height": 56,
+      "x": 621,
+      "y": 1622,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_hc_post",
+      "label": "Attention HC Post and Merge",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMerge",
+      "colorKey": "sem:attention",
+      "width": 280,
+      "height": 56,
+      "x": 621,
+      "y": 1742,
+      "parent": "csa_operator_group"
+    },
+    {
+      "id": "attention_hc_output",
+      "label": "Attention HC State",
+      "kind": "tensor",
+      "typeLabel": "Output",
+      "colorKey": "io:output",
+      "width": 250,
+      "height": 48,
+      "x": 621,
+      "y": 1862,
+      "parent": "decoder_layer_group"
+    },
+    {
+      "id": "ffn_hc_pre",
+      "label": "FFN HC Pre Mix",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMix",
+      "colorKey": "sem:mlp",
+      "width": 240,
+      "height": 56,
+      "x": 621,
+      "y": 2032,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "ffn_norm",
+      "label": "FFN RMSNorm",
+      "kind": "op",
+      "typeLabel": "RMSNorm",
+      "colorKey": "sem:norm",
+      "width": 230,
+      "height": 56,
+      "x": 621,
+      "y": 2142,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "router_select",
+      "label": "Router Select",
+      "kind": "op",
+      "typeLabel": "ConditionalRouter",
+      "colorKey": "sem:gate",
+      "width": 230,
+      "height": 56,
+      "x": 401,
+      "y": 2262,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "routed_experts",
+      "label": "Routed Experts",
+      "kind": "module",
+      "typeLabel": "Module",
+      "colorKey": "sem:moe",
+      "width": 230,
+      "height": 56,
+      "x": 401,
+      "y": 2382,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "shared_expert",
+      "label": "Shared Expert",
+      "kind": "module",
+      "typeLabel": "Module",
+      "colorKey": "sem:moe",
+      "width": 230,
+      "height": 56,
+      "x": 841,
+      "y": 2382,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "moe_combine",
+      "label": "MoE Combine",
+      "kind": "op",
+      "typeLabel": "ExpertCombine",
+      "colorKey": "sem:moe",
+      "width": 230,
+      "height": 56,
+      "x": 621,
+      "y": 2502,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "ffn_hc_post",
+      "label": "FFN HC Post and Merge",
+      "kind": "op",
+      "typeLabel": "HyperConnectionMerge",
+      "colorKey": "sem:mlp",
+      "width": 270,
+      "height": 56,
+      "x": 621,
+      "y": 2622,
+      "parent": "moe_context_group"
+    },
+    {
+      "id": "layer_output",
+      "label": "Decoder Layer Output",
+      "kind": "tensor",
+      "typeLabel": "Output",
+      "colorKey": "io:output",
+      "width": 240,
+      "height": 48,
+      "x": 621,
+      "y": 2742,
+      "parent": "decoder_layer_group"
+    }
+  ],
+  "clusters": [
+    {
+      "id": "decoder_layer_group",
+      "label": "DeepSeek-V4 Flash Decoder Layer Template",
+      "x": 44,
+      "y": 44,
+      "width": 1398,
+      "height": 2756,
+      "parent": null,
+      "nodes": [
+        "hc_input",
+        "attention_hc_output",
+        "layer_output"
+      ],
+      "children": [
+        "csa_operator_group",
+        "moe_context_group"
+      ],
+      "colorKey": "module:decoder",
+      "repeat": "43 decoder layers"
+    },
+    {
+      "id": "csa_operator_group",
+      "label": "decode_csa Operator Coverage",
+      "x": 82,
+      "y": 158,
+      "width": 1322,
+      "height": 1640,
+      "parent": "decoder_layer_group",
+      "nodes": [
+        "hc_pre",
+        "attention_norm",
+        "q_projection",
+        "tp_allgather",
+        "kv_projection",
+        "raw_kv_cache",
+        "main_compressor",
+        "compressor_state",
+        "compressed_kv_cache",
+        "indexer_compressor",
+        "indexer_state",
+        "index_cache",
+        "lightning_indexer",
+        "exact_topk",
+        "window_gather",
+        "compressed_gather",
+        "sparse_attention",
+        "head_merge",
+        "attention_alltoall",
+        "grouped_output_projection",
+        "output_reduce_scatter",
+        "attention_hc_post"
+      ],
+      "children": [],
+      "colorKey": "sem:attention",
+      "repeat": "21 CSA layers"
+    },
+    {
+      "id": "moe_context_group",
+      "label": "MoE FFN Context — Outside decode_csa",
+      "x": 258,
+      "y": 1948,
+      "width": 726,
+      "height": 730,
+      "parent": "decoder_layer_group",
+      "nodes": [
+        "ffn_hc_pre",
+        "ffn_norm",
+        "router_select",
+        "routed_experts",
+        "shared_expert",
+        "moe_combine",
+        "ffn_hc_post"
+      ],
+      "children": [],
+      "colorKey": "sem:moe"
+    }
+  ]
+}

@@ -1,0 +1,1450 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-22T06:14:53.473Z",
+  "inputContract": "profiling_json",
+  "sourceType": "step15_trace_slice_with_source_validation",
+  "sourceValidation": {
+    "title": "Source validated trace slice",
+    "summary": "Complete DeepSeek V3.2 source/config defines 61 main decoder layers; this profiling bridge visualizes the step 15 trace slice that observed 6 main layers plus 3 MTP iterations.",
+    "fullMainLayers": 61,
+    "traceMainLayers": 6,
+    "missingMainLayers": 55,
+    "denseLayers": "0-2",
+    "moeLayers": "3-60; trace 3-5",
+    "mtp": "1 MTP layer, next_n=3",
+    "validationFile": "/Users/yin/gitcode/perf-breakdown-skill-optimize2/run_1/ds3.2/outputs/source_architecture_validation.md"
+  },
+  "sources": [
+    {
+      "path": "patterns/model-graphviz/graphviz/deepseek_v32_report_overlay_demo.html",
+      "constants": [
+        "REPORTS",
+        "REPORT_ORDER",
+        "FOCUS_FALLBACKS",
+        "DESCENDANT_NODE_IDS",
+        "STEP_TIMELINE",
+        "MODULE_TIMELINE",
+        "STREAM_SUMMARY",
+        "COVERAGE_AUDIT"
+      ]
+    }
+  ],
+  "defaultSelection": {
+    "nodeId": "dsv32arch_block_0214b4b3"
+  },
+  "reports": {
+    "dsv32arch_transformer_9236e026": {
+      "priority": "P0",
+      "dimension": "整体 Bound",
+      "title": "Trace Slice (6 / 61 main layers)",
+      "metricShort": "Free 34.4%",
+      "summary": "源码校验显示完整模型有 61 个 main decoder layer；当前视图是 step 15 trace 切片，只覆盖 main layers 0-5 和 3 次 MTP 迭代。正常步均值显示 HOST_BOUND：Free Time 34.4%，underfeed 32.1%。",
+      "metrics": [
+        {
+          "label": "free_ratio",
+          "value": "34.4%",
+          "tone": "critical"
+        },
+        {
+          "label": "underfeed",
+          "value": "32.1%",
+          "tone": "critical"
+        },
+        {
+          "label": "comm_not_overlap",
+          "value": "9.7%",
+          "tone": "warning"
+        },
+        {
+          "label": "normal stage",
+          "value": "22,569 us",
+          "tone": "success"
+        }
+      ],
+      "facts": [
+        "Step 11-19 正常步均值：Computing 55.9%，CommNO 9.7%，Free 34.4%。",
+        "架构完整口径：61 个 main decoder layer，其中 dense 0-2、MoE 3-60。",
+        "当前 trace 口径：main layers 0-5；缺失的 6-60 不是模型不存在，而是这份 trace 未覆盖。"
+      ],
+      "operators": [
+        [
+          "GroupedMatmul",
+          "29,903 us"
+        ],
+        [
+          "MatMul",
+          "17,347 us"
+        ],
+        [
+          "QuantBatchMatmulV3",
+          "15,285 us"
+        ]
+      ],
+      "actions": [
+        "优先补 host events / launch 间隔证据，把 free time 拆到真实 host wait。",
+        "把这一层作为 trace 切片入口，向下钻到 MLA、MoE、MTP 和 logits 等节点。"
+      ]
+    },
+    "dsv32arch_block_0214b4b3": {
+      "priority": "P0",
+      "dimension": "Decoder Block",
+      "title": "Decoder Layers Observed (0-5 of 0-60)",
+      "metricShort": "HOST_BOUND",
+      "summary": "Block.forward 对应主要耗时段：fused residual RMSNorm -> MLA -> FFN。此 trace 只观测到 main layers 0-5；完整模型包含 61 个 main decoder layer。",
+      "metrics": [
+        {
+          "label": "free_ratio",
+          "value": "34.4%",
+          "tone": "critical"
+        },
+        {
+          "label": "underfeed",
+          "value": "32.1%",
+          "tone": "critical"
+        },
+        {
+          "label": "comm_not_overlap",
+          "value": "9.7%",
+          "tone": "warning"
+        },
+        {
+          "label": "confidence",
+          "value": "medium",
+          "tone": "critical"
+        }
+      ],
+      "facts": [
+        "报告维度判定为 HOST_BOUND / DEVICE_MEMORY_BOUND secondary。",
+        "trace 中 dense layer 0-2、MoE layer 3-5；完整 MoE 范围是 3-60。",
+        "预热步 Step 10 的 CommNO 68.7% 不纳入正常步均值。"
+      ],
+      "operators": [
+        [
+          "GroupedMatmul",
+          "21.84%"
+        ],
+        [
+          "MatMul",
+          "12.67%"
+        ],
+        [
+          "QuantBatchMatmulV3",
+          "11.16%"
+        ]
+      ],
+      "actions": [
+        "对 Block 内 MLA 与 MoE 分别看 kernel 排名，避免只按全局 top 算子下结论。",
+        "把 Free Time 与 kernel busy union 对齐到同一 step 粒度。"
+      ]
+    },
+    "dsv32arch_attention_call_612a5ae9": {
+      "priority": "P1",
+      "dimension": "MLA",
+      "title": "MLA attention",
+      "metricShort": "26.1%",
+      "summary": "MLA 对应 QuantBatchMatmulV3、MlaPrologV3、KvQuantSparseFlashAttention 与 sparse indexer 路径。",
+      "metrics": [
+        {
+          "label": "QBM total",
+          "value": "15,285 us",
+          "tone": "warning"
+        },
+        {
+          "label": "QBM ratio",
+          "value": "11.16%",
+          "tone": "warning"
+        },
+        {
+          "label": "KV sparse",
+          "value": "9,222 us",
+          "tone": "warning"
+        },
+        {
+          "label": "MlaPrologV3",
+          "value": "7,470 us",
+          "tone": "warning"
+        }
+      ],
+      "facts": [
+        "QuantBatchMatmulV3 同时出现在 MIX_AIC 与 AI_CORE，合计在 top 算子中占比显著。",
+        "KvQuantSparseFlashAttention 在报告中判定正常，但仍是 attention 路径显著耗时。",
+        "MlaPrologV3 90 次，总耗时 7,470 us，平均 83.0 us。"
+      ],
+      "operators": [
+        [
+          "QuantBatchMatmulV3",
+          "15,285 us"
+        ],
+        [
+          "KvQuantSparseFlashAttention",
+          "9,222 us"
+        ],
+        [
+          "MlaPrologV3",
+          "7,470 us"
+        ]
+      ],
+      "actions": [
+        "分开观察 prefill/decode attention 的 sparse top-k 与 cache 访问。",
+        "关注 Q path 与 sparse attention 之间是否存在 host 下发碎片。"
+      ]
+    },
+    "dsv32arch_sparse_attn_f5c98e92": {
+      "priority": "P2",
+      "dimension": "Sparse Attention",
+      "title": "sparse prefill/decode attention",
+      "metricShort": "6.74%",
+      "summary": "KvQuantSparseFlashAttention 总耗时 9,222 us，占 top 算子 6.74%，报告标注为正常但仍是路径关键段。",
+      "metrics": [
+        {
+          "label": "kernel",
+          "value": "KvQuantSparseFlashAttention",
+          "tone": "warning"
+        },
+        {
+          "label": "count",
+          "value": "90",
+          "tone": "warning"
+        },
+        {
+          "label": "total",
+          "value": "9,222 us",
+          "tone": "info"
+        },
+        {
+          "label": "avg",
+          "value": "102.5 us",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "核心类型是 MIX_AIC。",
+        "它连接 Indexer top-k 结果和 O projection，是 sparse attention 主计算段。",
+        "报告未将该 kernel 判定为异常热点。"
+      ],
+      "operators": [
+        [
+          "KvQuantSparseFlashAttention",
+          "9,222 us"
+        ],
+        [
+          "LightningIndexerQuant",
+          "6,370 us"
+        ]
+      ],
+      "actions": [
+        "保留为观察点，用于解释 attention 路径成本构成。",
+        "优先级低于全局 HOST_BOUND 和 logits wait anchor。"
+      ]
+    },
+    "dsv32arch_q_path_b399f580": {
+      "priority": "P1",
+      "dimension": "Q Path",
+      "title": "Q path: q_lora=1536",
+      "metricShort": "QBM 11.16%",
+      "summary": "Q path 与 QuantBatchMatmulV3 对齐；MatMul 平均 cube_utilization 13.0%，需要区分小 shape 低利用率与真实异常。",
+      "metrics": [
+        {
+          "label": "QBM MIX_AIC",
+          "value": "15,285 us",
+          "tone": "warning"
+        },
+        {
+          "label": "QBM AI_CORE",
+          "value": "8,604 us",
+          "tone": "warning"
+        },
+        {
+          "label": "MatMul",
+          "value": "17,347 us",
+          "tone": "warning"
+        },
+        {
+          "label": "avg cube util",
+          "value": "13.0%",
+          "tone": "success"
+        }
+      ],
+      "facts": [
+        "报告中 QuantBatchMatmulV3 MIX_AIC 270 次，平均 56.6 us。",
+        "QuantBatchMatmulV3 AI_CORE 90 次，平均 95.6 us，标注正常。",
+        "MatMul cube utilization 偏低，但 GroupedMatmul cube utilization 约 84-89%。"
+      ],
+      "operators": [
+        [
+          "QuantBatchMatmulV3",
+          "11.16%"
+        ],
+        [
+          "MatMul",
+          "12.67%"
+        ]
+      ],
+      "actions": [
+        "拆分 Q path projection 与后续 sparse attention 的贡献。",
+        "核对小 batch / token shape 下低 cube utilization 是否符合预期。"
+      ]
+    },
+    "dsv32arch_indexer_dfa17da7": {
+      "priority": "P2",
+      "dimension": "Indexer",
+      "title": "Indexer Q/K 64x128",
+      "metricShort": "4.65%",
+      "summary": "Indexer 与 LightningIndexerQuant 对齐，总耗时 6,370 us，占 4.65%，报告判定正常。",
+      "metrics": [
+        {
+          "label": "kernel",
+          "value": "LightningIndexerQuant",
+          "tone": "warning"
+        },
+        {
+          "label": "count",
+          "value": "90",
+          "tone": "warning"
+        },
+        {
+          "label": "total",
+          "value": "6,370 us",
+          "tone": "info"
+        },
+        {
+          "label": "avg",
+          "value": "70.8 us",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "Indexer 负责生成 sparse attention 的 top-k index。",
+        "该段不是主要异常，但解释了 sparse attention 前置索引成本。",
+        "top-k index 上限在架构图中标注 <= 2048。"
+      ],
+      "operators": [
+        [
+          "LightningIndexerQuant",
+          "6,370 us"
+        ]
+      ],
+      "actions": [
+        "作为 sparse attention 子路径的辅助指标保留。",
+        "需要逐步 trace 时可和 dsv32arch_topk_e1fd5d33 联动观察。"
+      ]
+    },
+    "dsv32arch_topk_e1fd5d33": {
+      "priority": "P2",
+      "dimension": "Sparse Index",
+      "title": "top-k index <= 2048",
+      "metricShort": "top-k",
+      "summary": "top-k index 是 Indexer 到 sparse attention 的中间结果，报告里更适合作为路径锚点而不是单独瓶颈。",
+      "metrics": [
+        {
+          "label": "source",
+          "value": "Indexer.forward",
+          "tone": "info"
+        },
+        {
+          "label": "target",
+          "value": "sparse attention",
+          "tone": "info"
+        },
+        {
+          "label": "limit",
+          "value": "<= 2048",
+          "tone": "info"
+        },
+        {
+          "label": "priority",
+          "value": "P2",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "架构图显示 Q path 的 qr 分支进入 Indexer，再产出 top-k index。",
+        "性能证据主要来自 LightningIndexerQuant 6,370 us。"
+      ],
+      "operators": [
+        [
+          "LightningIndexerQuant",
+          "6,370 us"
+        ]
+      ],
+      "actions": [
+        "和 Indexer 节点共享同一组报告证据。",
+        "用于解释 sparse attention 的输入依赖。"
+      ]
+    },
+    "dsv32arch_dense_c8e834d8": {
+      "priority": "P2",
+      "dimension": "Dense FFN",
+      "title": "Dense FFN (layers 0-2 observed)",
+      "metricShort": "812 us",
+      "summary": "完整模型 dense 层是 0-2；当前 trace 的 dense segment 折叠为 DeepseekV3DecoderLayer_dense x3，代表 3 个 dense decoder layer。",
+      "metrics": [
+        {
+          "label": "layer",
+          "value": "0-2",
+          "tone": "info"
+        },
+        {
+          "label": "duration",
+          "value": "812 us",
+          "tone": "warning"
+        },
+        {
+          "label": "kernel count",
+          "value": "34",
+          "tone": "warning"
+        },
+        {
+          "label": "inter_dim",
+          "value": "18432",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "Dense FFN 覆盖完整模型的 layers 0-2，也是当前 trace 实际观测到的 dense 范围。",
+        "对应 W1/W3 7168->18432 与 W2 18432->7168。"
+      ],
+      "operators": [
+        [
+          "MatMul",
+          "17,347 us"
+        ],
+        [
+          "QuantBatchMatmulV3",
+          "15,285 us"
+        ]
+      ],
+      "actions": [
+        "不要把 dense layer 与 MoE grouped matmul 混作同一类瓶颈。",
+        "需要更细定位时展开 W1/W3、activation、W2 子节点。"
+      ]
+    },
+    "dsv32arch_moe_63e885ca": {
+      "priority": "P1",
+      "dimension": "MoE FFN",
+      "title": "MoE FFN (full 3-60, trace 3-5)",
+      "metricShort": "21.84%",
+      "summary": "MoE 的 GroupedMatmul 是全局 top-1 算子，总耗时 29,903 us，占 21.84%，报告同时标注 MoE 正常。",
+      "metrics": [
+        {
+          "label": "GroupedMatmul",
+          "value": "29,903 us",
+          "tone": "warning"
+        },
+        {
+          "label": "ratio",
+          "value": "21.84%",
+          "tone": "warning"
+        },
+        {
+          "label": "count",
+          "value": "120",
+          "tone": "warning"
+        },
+        {
+          "label": "avg",
+          "value": "249.2 us",
+          "tone": "warning"
+        }
+      ],
+      "facts": [
+        "完整模型 MoE 范围是 layers 3-60，共 58 层；当前 trace 只观测到 layers 3-5。",
+        "GroupedMatmul cube utilization 多数在 84-89%，报告判定正常。",
+        "MoE 正常并不代表成本低，只是它符合该模型路径的主计算特征。"
+      ],
+      "operators": [
+        [
+          "GroupedMatmul",
+          "29,903 us"
+        ],
+        [
+          "MoeDistributeDispatchV2",
+          "2,972 us"
+        ],
+        [
+          "MoeDistributeCombineV2",
+          "15 us segment"
+        ]
+      ],
+      "actions": [
+        "把 MoE 作为成本解释节点，而不是 P0 异常节点。",
+        "继续看 router dispatch 和 experts grouped matmul 的比例。"
+      ]
+    },
+    "dsv32arch_router_77eb1db6": {
+      "priority": "P2",
+      "dimension": "MoE Router",
+      "title": "Gate logits -> 256",
+      "metricShort": "2.17%",
+      "summary": "Router 对应 top-8 expert routing 与 MoeDistributeDispatchV2，总耗时 2,972 us，占 2.17%，报告判定正常。",
+      "metrics": [
+        {
+          "label": "kernel",
+          "value": "MoeDistributeDispatchV2",
+          "tone": "warning"
+        },
+        {
+          "label": "count",
+          "value": "60",
+          "tone": "warning"
+        },
+        {
+          "label": "total",
+          "value": "2,972 us",
+          "tone": "info"
+        },
+        {
+          "label": "avg",
+          "value": "49.5 us",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "架构图中 Gate logits -> top-8 experts -> routed/shared experts。",
+        "Router 不是主瓶颈，但影响 experts 的输入组织和通信形态。"
+      ],
+      "operators": [
+        [
+          "MoeDistributeDispatchV2",
+          "2,972 us"
+        ]
+      ],
+      "actions": [
+        "和 experts 节点一起解释 MoE dispatch/compute/combine 三段。",
+        "若出现专家负载不均，再把 router 作为重点追踪。"
+      ]
+    },
+    "dsv32arch_experts_cfbede3c": {
+      "priority": "P1",
+      "dimension": "Routed Experts",
+      "title": "256 routed experts",
+      "metricShort": "GM 29.9ms",
+      "summary": "Routed experts 对齐 GroupedMatmul 主计算，报告显示总耗时最高但 cube utilization 正常。",
+      "metrics": [
+        {
+          "label": "experts",
+          "value": "256",
+          "tone": "warning"
+        },
+        {
+          "label": "top-k",
+          "value": "8",
+          "tone": "warning"
+        },
+        {
+          "label": "GroupedMatmul",
+          "value": "29,903 us",
+          "tone": "warning"
+        },
+        {
+          "label": "cube util",
+          "value": "84-89%",
+          "tone": "success"
+        }
+      ],
+      "facts": [
+        "Expert inter_dim=2048。",
+        "GroupedMatmul input shape 样本为 512,7168;16,128,448,16,32。",
+        "该路径是 MoE 主成本，不是报告中的根因异常。"
+      ],
+      "operators": [
+        [
+          "GroupedMatmul",
+          "21.84%"
+        ]
+      ],
+      "actions": [
+        "用于解释 MoE 成本峰值来源。",
+        "如果要优化，优先验证 batch/token/expert 分布而不是单看 total us。"
+      ]
+    },
+    "dsv32arch_shared_d18aac96": {
+      "priority": "P2",
+      "dimension": "Shared Experts",
+      "title": "1 shared expert",
+      "metricShort": "shared",
+      "summary": "Shared experts 是 MoE 的常驻 FFN 分支，报告未给出独立异常，更多作为 routed experts 的对照路径。",
+      "metrics": [
+        {
+          "label": "shared experts",
+          "value": "1",
+          "tone": "info"
+        },
+        {
+          "label": "width",
+          "value": "2816",
+          "tone": "info"
+        },
+        {
+          "label": "branch",
+          "value": "MoE",
+          "tone": "info"
+        },
+        {
+          "label": "priority",
+          "value": "P2",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "架构图中 shared experts 与 routed experts 一起进入 weighted routed + shared。",
+        "报告主要耗时仍归在 GroupedMatmul 和 dispatch。"
+      ],
+      "operators": [
+        [
+          "GroupedMatmul",
+          "29,903 us"
+        ]
+      ],
+      "actions": [
+        "展开 MoE 时保留该节点，避免把所有 FFN 成本都归给 routed experts。",
+        "若 shared 分支单独变慢，再补充 per-branch kernel 切分。"
+      ]
+    },
+    "dsv32arch_lm_head_2b98b847": {
+      "priority": "P2",
+      "dimension": "LM Head",
+      "title": "LM head -> vocab 129280",
+      "metricShort": "192 us",
+      "summary": "LM head 末端映射到 vocab-parallel logits，报告中对应小段约 192 us、7 个 kernel。",
+      "metrics": [
+        {
+          "label": "duration",
+          "value": "192 us",
+          "tone": "warning"
+        },
+        {
+          "label": "kernel count",
+          "value": "7",
+          "tone": "warning"
+        },
+        {
+          "label": "vocab",
+          "value": "129280",
+          "tone": "info"
+        },
+        {
+          "label": "dim",
+          "value": "7168",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "该节点不是主要性能风险。",
+        "它连接 final RMSNorm 和 logits，适合作为输出阶段的边界。"
+      ],
+      "operators": [
+        [
+          "MatMul / head kernels",
+          "192 us"
+        ]
+      ],
+      "actions": [
+        "用于和 logits wait anchor 分离：head 计算本身不是报告中的 P2 假热点。",
+        "检查 logits 后处理和 speculative verify 时不要误归因到 lm_head。"
+      ]
+    },
+    "dsv32arch_logits_c7d6c722": {
+      "priority": "P2",
+      "dimension": "Wait Anchor",
+      "title": "logits [B,129280]",
+      "metricShort": "wait 99.7%",
+      "summary": "报告中的 WAIT_ANCHOR_FALSE_HOTSPOT 更接近 logits 后处理 / speculative verify 附近的等待锚点，而不是真实 compute hotspot。",
+      "metrics": [
+        {
+          "label": "OnesLike wait",
+          "value": "99.7%",
+          "tone": "critical"
+        },
+        {
+          "label": "total_cost",
+          "value": "464.1 us",
+          "tone": "critical"
+        },
+        {
+          "label": "verify main",
+          "value": "5,523.75 us",
+          "tone": "info"
+        },
+        {
+          "label": "verify mtp",
+          "value": "1,612.0 us",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "aclnnInplaceOne_OnesLikeAiCore_OnesLike duration 约 1.4 us，但 wait 约 462.7 us。",
+        "spec_token_verify_main 是 runtime timeline 阶段段：约 5.5 ms、45 个 kernel，dominant stream=47。",
+        "spec_token_verify_mtp 是 runtime timeline 阶段段：约 1.6 ms、15 个 kernel，dominant stream=47。"
+      ],
+      "operators": [
+        [
+          "OnesLike",
+          "wait_ratio 99.7%"
+        ]
+      ],
+      "actions": [
+        "把 OnesLike 标为等待锚点，避免当作真实计算热点优化。",
+        "需要补 trace 依赖链，找到它等待的 Cast / communication / host launch 上游。"
+      ]
+    },
+    "dsv32arch_embedding_2f81ba1b": {
+      "priority": "P2",
+      "dimension": "Embedding",
+      "title": "ParallelEmbedding [129280,7168]",
+      "metricShort": "46 us",
+      "summary": "Embedding 段在报告中很小，约 46 us、10 个 kernel，主要用于说明输入边界和 all_reduce 恢复 hidden state。",
+      "metrics": [
+        {
+          "label": "duration",
+          "value": "46 us",
+          "tone": "warning"
+        },
+        {
+          "label": "kernel count",
+          "value": "10",
+          "tone": "warning"
+        },
+        {
+          "label": "streams",
+          "value": "186 / 189 / None",
+          "tone": "info"
+        },
+        {
+          "label": "vocab",
+          "value": "129280",
+          "tone": "info"
+        }
+      ],
+      "facts": [
+        "Vocabulary-parallel embedding 在 world_size > 1 时通过 all_reduce 恢复 hidden state。",
+        "该段不是主要性能风险。"
+      ],
+      "operators": [
+        [
+          "embedding segment",
+          "46 us"
+        ]
+      ],
+      "actions": [
+        "保留为输入阶段锚点。",
+        "不要把整体 underfeed 归因到 embedding。"
+      ]
+    }
+  },
+  "reportOrder": [
+    "dsv32arch_transformer_9236e026",
+    "dsv32arch_block_0214b4b3",
+    "dsv32arch_attention_call_612a5ae9",
+    "dsv32arch_q_path_b399f580",
+    "dsv32arch_sparse_attn_f5c98e92",
+    "dsv32arch_indexer_dfa17da7",
+    "dsv32arch_topk_e1fd5d33",
+    "dsv32arch_moe_63e885ca",
+    "dsv32arch_experts_cfbede3c",
+    "dsv32arch_router_77eb1db6",
+    "dsv32arch_shared_d18aac96",
+    "dsv32arch_dense_c8e834d8",
+    "dsv32arch_lm_head_2b98b847",
+    "dsv32arch_logits_c7d6c722",
+    "dsv32arch_embedding_2f81ba1b"
+  ],
+  "focusFallbacks": {
+    "dsv32arch_q_path_b399f580": "dsv32arch_attention_call_612a5ae9",
+    "dsv32arch_sparse_attn_f5c98e92": "dsv32arch_attention_call_612a5ae9",
+    "dsv32arch_indexer_dfa17da7": "dsv32arch_attention_call_612a5ae9",
+    "dsv32arch_topk_e1fd5d33": "dsv32arch_attention_call_612a5ae9",
+    "dsv32arch_dense_c8e834d8": "dsv32arch_block_0214b4b3",
+    "dsv32arch_moe_63e885ca": "dsv32arch_block_0214b4b3",
+    "dsv32arch_experts_cfbede3c": "dsv32arch_moe_63e885ca",
+    "dsv32arch_router_77eb1db6": "dsv32arch_moe_63e885ca",
+    "dsv32arch_shared_d18aac96": "dsv32arch_moe_63e885ca"
+  },
+  "descendantNodeIds": {
+    "dsv32arch_transformer_9236e026": [
+      "dsv32arch_embedding_2f81ba1b",
+      "dsv32arch_block_0214b4b3",
+      "dsv32arch_block_entry_90eb6882",
+      "dsv32arch_attn_norm_9eedf758",
+      "dsv32arch_attention_call_612a5ae9",
+      "dsv32arch_attention_d0278de5",
+      "dsv32arch_q_path_b399f580",
+      "dsv32arch_kv_path_a69fbb2b",
+      "dsv32arch_cache_b0359280",
+      "dsv32arch_indexer_dfa17da7",
+      "dsv32arch_topk_e1fd5d33",
+      "dsv32arch_sparse_attn_f5c98e92",
+      "dsv32arch_o_proj_652c0be4",
+      "dsv32arch_ffn_norm_6d0e622d",
+      "dsv32arch_ffn_a2b90028",
+      "dsv32arch_ffn_choice_710c2f62",
+      "dsv32arch_dense_c8e834d8",
+      "dsv32arch_dense_w1w3_0b7a312e",
+      "dsv32arch_dense_act_88b5a19d",
+      "dsv32arch_dense_w2_8e01455d",
+      "dsv32arch_moe_63e885ca",
+      "dsv32arch_router_77eb1db6",
+      "dsv32arch_top_experts_dedfd965",
+      "dsv32arch_experts_cfbede3c",
+      "dsv32arch_shared_d18aac96",
+      "dsv32arch_moe_sum_50118d9a",
+      "dsv32arch_block_out_821a34da",
+      "dsv32arch_final_norm_2010d80f",
+      "dsv32arch_lm_head_2b98b847",
+      "dsv32arch_logits_c7d6c722"
+    ],
+    "dsv32arch_block_0214b4b3": [
+      "dsv32arch_block_entry_90eb6882",
+      "dsv32arch_attn_norm_9eedf758",
+      "dsv32arch_attention_call_612a5ae9",
+      "dsv32arch_attention_d0278de5",
+      "dsv32arch_q_path_b399f580",
+      "dsv32arch_kv_path_a69fbb2b",
+      "dsv32arch_cache_b0359280",
+      "dsv32arch_indexer_dfa17da7",
+      "dsv32arch_topk_e1fd5d33",
+      "dsv32arch_sparse_attn_f5c98e92",
+      "dsv32arch_o_proj_652c0be4",
+      "dsv32arch_ffn_norm_6d0e622d",
+      "dsv32arch_ffn_a2b90028",
+      "dsv32arch_ffn_choice_710c2f62",
+      "dsv32arch_dense_c8e834d8",
+      "dsv32arch_dense_w1w3_0b7a312e",
+      "dsv32arch_dense_act_88b5a19d",
+      "dsv32arch_dense_w2_8e01455d",
+      "dsv32arch_moe_63e885ca",
+      "dsv32arch_router_77eb1db6",
+      "dsv32arch_top_experts_dedfd965",
+      "dsv32arch_experts_cfbede3c",
+      "dsv32arch_shared_d18aac96",
+      "dsv32arch_moe_sum_50118d9a",
+      "dsv32arch_block_out_821a34da"
+    ],
+    "dsv32arch_attention_call_612a5ae9": [
+      "dsv32arch_attention_d0278de5",
+      "dsv32arch_q_path_b399f580",
+      "dsv32arch_kv_path_a69fbb2b",
+      "dsv32arch_cache_b0359280",
+      "dsv32arch_indexer_dfa17da7",
+      "dsv32arch_topk_e1fd5d33",
+      "dsv32arch_sparse_attn_f5c98e92",
+      "dsv32arch_o_proj_652c0be4"
+    ],
+    "dsv32arch_dense_c8e834d8": [
+      "dsv32arch_dense_w1w3_0b7a312e",
+      "dsv32arch_dense_act_88b5a19d",
+      "dsv32arch_dense_w2_8e01455d"
+    ],
+    "dsv32arch_moe_63e885ca": [
+      "dsv32arch_router_77eb1db6",
+      "dsv32arch_top_experts_dedfd965",
+      "dsv32arch_experts_cfbede3c",
+      "dsv32arch_shared_d18aac96",
+      "dsv32arch_moe_sum_50118d9a"
+    ]
+  },
+  "steps": [
+    {
+      "step": 10,
+      "stageUs": 64444,
+      "compute": 17.4,
+      "comm": 68.7,
+      "free": 13.9,
+      "overlap": 0.03,
+      "kind": "warmup"
+    },
+    {
+      "step": 11,
+      "stageUs": 23738,
+      "compute": 58.4,
+      "comm": 9.1,
+      "free": 32.5,
+      "overlap": 0.47,
+      "kind": "normal"
+    },
+    {
+      "step": 12,
+      "stageUs": 21272,
+      "compute": 52.5,
+      "comm": 13,
+      "free": 34.5,
+      "overlap": 0.38,
+      "kind": "normal"
+    },
+    {
+      "step": 13,
+      "stageUs": 23012,
+      "compute": 60.2,
+      "comm": 9.6,
+      "free": 30.2,
+      "overlap": 0.47,
+      "kind": "normal"
+    },
+    {
+      "step": 14,
+      "stageUs": 20503,
+      "compute": 54.5,
+      "comm": 10.6,
+      "free": 34.9,
+      "overlap": 0.48,
+      "kind": "normal"
+    },
+    {
+      "step": 15,
+      "stageUs": 23287,
+      "compute": 59.4,
+      "comm": 6.1,
+      "free": 34.5,
+      "overlap": 0.76,
+      "kind": "normal"
+    },
+    {
+      "step": 16,
+      "stageUs": 24443,
+      "compute": 56.7,
+      "comm": 9,
+      "free": 34.3,
+      "overlap": 0.48,
+      "kind": "normal"
+    },
+    {
+      "step": 17,
+      "stageUs": 21758,
+      "compute": 51.4,
+      "comm": 11.4,
+      "free": 37.2,
+      "overlap": 0.52,
+      "kind": "normal"
+    },
+    {
+      "step": 18,
+      "stageUs": 21414,
+      "compute": 52.1,
+      "comm": 10.6,
+      "free": 37.3,
+      "overlap": 0.48,
+      "kind": "normal"
+    },
+    {
+      "step": 19,
+      "stageUs": 23694,
+      "compute": 58.4,
+      "comm": 7.4,
+      "free": 34.2,
+      "overlap": 0.61,
+      "kind": "normal"
+    }
+  ],
+  "moduleTimeline": [
+    {
+      "name": "step_start_init",
+      "nodeId": "dsv32arch_logits_c7d6c722",
+      "startUs": 1773295061394254.8,
+      "endUs": 1773295061395828.2,
+      "wallUs": 1573.5,
+      "opUs": 958.1,
+      "waitUs": 1157.67,
+      "kernels": 17,
+      "streams": [
+        "47",
+        "186",
+        "43",
+        "None"
+      ],
+      "dominant": "47",
+      "category": "auxiliary",
+      "color": "#61afef"
+    },
+    {
+      "name": "embedding",
+      "nodeId": "dsv32arch_embedding_2f81ba1b",
+      "startUs": 1773295061395829.5,
+      "endUs": 1773295061395875.5,
+      "wallUs": 46,
+      "opUs": 71.48,
+      "waitUs": 1.49,
+      "kernels": 10,
+      "streams": [
+        "186",
+        "189",
+        "None"
+      ],
+      "dominant": "189",
+      "category": "auxiliary",
+      "color": "#4fc1ff"
+    },
+    {
+      "name": "DeepseekV3DecoderLayer_dense x3",
+      "nodeId": "dsv32arch_dense_c8e834d8",
+      "startUs": 1773295061396682,
+      "endUs": 1773295061397494,
+      "wallUs": 812,
+      "opUs": 853.8,
+      "waitUs": 15.17,
+      "kernels": 34,
+      "streams": [
+        "189",
+        "191",
+        "192"
+      ],
+      "dominant": "189",
+      "category": "main",
+      "color": "#7ec699"
+    },
+    {
+      "name": "DeepseekV3DecoderLayer_moe x3",
+      "nodeId": "dsv32arch_moe_63e885ca",
+      "startUs": 1773295061398287,
+      "endUs": 1773295061399431.5,
+      "wallUs": 1144.5,
+      "opUs": 1278.48,
+      "waitUs": 23.22,
+      "kernels": 42,
+      "streams": [
+        "189",
+        "190",
+        "191",
+        "192"
+      ],
+      "dominant": "189",
+      "category": "main",
+      "color": "#61afef"
+    },
+    {
+      "name": "main_final_norm",
+      "nodeId": "",
+      "startUs": 1773295061401686.8,
+      "endUs": 1773295061401690.2,
+      "wallUs": 3.5,
+      "opUs": 3.54,
+      "waitUs": 0.87,
+      "kernels": 1,
+      "streams": [
+        "189"
+      ],
+      "dominant": "189",
+      "category": "auxiliary",
+      "color": "#e06c75"
+    },
+    {
+      "name": "lm_head x4",
+      "nodeId": "dsv32arch_lm_head_2b98b847",
+      "startUs": 1773295061401707.2,
+      "endUs": 1773295061401899.2,
+      "wallUs": 192,
+      "opUs": 250.4,
+      "waitUs": 20.29,
+      "kernels": 7,
+      "streams": [
+        "186",
+        "189",
+        "None"
+      ],
+      "dominant": "189",
+      "category": "auxiliary",
+      "color": "#61afef"
+    },
+    {
+      "name": "spec_token_verify_main",
+      "nodeId": "dsv32arch_logits_c7d6c722",
+      "startUs": 1773295061402205.8,
+      "endUs": 1773295061407729.5,
+      "wallUs": 5523.75,
+      "opUs": 3180.88,
+      "waitUs": 2730.18,
+      "kernels": 45,
+      "streams": [
+        "176",
+        "43",
+        "47",
+        "None"
+      ],
+      "dominant": "47",
+      "category": "auxiliary",
+      "color": "#98c379"
+    },
+    {
+      "name": "DeepseekV3MTPLayer x3",
+      "nodeId": "dsv32arch_logits_c7d6c722",
+      "startUs": 1773295061407702.5,
+      "endUs": 1773295061409206.5,
+      "wallUs": 1504,
+      "opUs": 1978.26,
+      "waitUs": 70.1,
+      "kernels": 60,
+      "streams": [
+        "176",
+        "179",
+        "180",
+        "181",
+        "182",
+        "None"
+      ],
+      "dominant": "179",
+      "category": "main",
+      "color": "#4fc1ff"
+    },
+    {
+      "name": "spec_token_verify_mtp",
+      "nodeId": "dsv32arch_logits_c7d6c722",
+      "startUs": 1773295061409737,
+      "endUs": 1773295061411349,
+      "wallUs": 1612,
+      "opUs": 267.68,
+      "waitUs": 1755.13,
+      "kernels": 15,
+      "streams": [
+        "43",
+        "47",
+        "None"
+      ],
+      "dominant": "47",
+      "category": "auxiliary",
+      "color": "#d19a66"
+    },
+    {
+      "name": "post_verify_dispatch_gap",
+      "nodeId": "dsv32arch_logits_c7d6c722",
+      "startUs": 1773295061411349,
+      "endUs": 1773295061417274,
+      "wallUs": 5925,
+      "opUs": 0,
+      "waitUs": 5925,
+      "kernels": 0,
+      "streams": [
+        "None"
+      ],
+      "dominant": "None",
+      "category": "wait",
+      "color": "#f4b860"
+    },
+    {
+      "name": "final_step_sample",
+      "nodeId": "dsv32arch_logits_c7d6c722",
+      "startUs": 1773295061417274,
+      "endUs": 1773295061417542,
+      "wallUs": 268,
+      "opUs": 69.72,
+      "waitUs": 472.22,
+      "kernels": 6,
+      "streams": [
+        "47"
+      ],
+      "dominant": "47",
+      "category": "auxiliary",
+      "color": "#c678dd"
+    }
+  ],
+  "streamSummary": [
+    {
+      "stream": "47",
+      "opUs": 3297.6,
+      "waitUs": 5819.12,
+      "ops": 72
+    },
+    {
+      "stream": "179",
+      "opUs": 1371.7,
+      "waitUs": 65.05,
+      "ops": 42
+    },
+    {
+      "stream": "189",
+      "opUs": 2037.92,
+      "waitUs": 31.89,
+      "ops": 66
+    },
+    {
+      "stream": "None",
+      "opUs": 752.18,
+      "waitUs": 211.69,
+      "ops": 9
+    },
+    {
+      "stream": "43",
+      "opUs": 459.64,
+      "waitUs": 61.95,
+      "ops": 3
+    },
+    {
+      "stream": "180",
+      "opUs": 379.28,
+      "waitUs": 0.16,
+      "ops": 4
+    },
+    {
+      "stream": "186",
+      "opUs": 200.3,
+      "waitUs": 2.12,
+      "ops": 6
+    },
+    {
+      "stream": "192",
+      "opUs": 112.9,
+      "waitUs": 9.69,
+      "ops": 16
+    },
+    {
+      "stream": "190",
+      "opUs": 99.72,
+      "waitUs": 1.39,
+      "ops": 4
+    },
+    {
+      "stream": "176",
+      "opUs": 87.96,
+      "waitUs": 38.63,
+      "ops": 4
+    },
+    {
+      "stream": "182",
+      "opUs": 58.42,
+      "waitUs": 4.65,
+      "ops": 8
+    },
+    {
+      "stream": "191",
+      "opUs": 37.08,
+      "waitUs": 0,
+      "ops": 2
+    },
+    {
+      "stream": "181",
+      "opUs": 17.64,
+      "waitUs": 0,
+      "ops": 1
+    }
+  ],
+  "coverageAudit": {
+    "covered": [
+      "Analysis context: Ascend 910B3, V2 schema, Step 10-19, Device_id=3",
+      "P0 HOST_BOUND / P2 WAIT_ANCHOR_FALSE_HOTSPOT diagnosis",
+      "Step 10-19 iteration split, including warmup step 10",
+      "Step 15 top-level module wall timeline and stream summary",
+      "Architecture mappings for embedding, attention, dense FFN, MoE, lm_head and logits",
+      "Optimization direction: 降低 Host Dispatch / Free Time and trace the wait-anchor upstream"
+    ],
+    "partial": [
+      "Top-10 operator list is distributed across mapped nodes, not shown as one complete global table",
+      "Hardware MFU is summarized for GroupedMatmul and MatMul; individual sample rows are not all tabulated",
+      "Operator-bound counts include OP_MEMORY_BOUND/AivKernel signals, but rows are not reproduced one by one",
+      "Communication efficiency includes comm_not_overlap and stream lanes; AllReduce/AllGather counts and the zero-bandwidth media table are not visualized as a table",
+      "Device bubble summary includes underfeed; internal_bubble_total is noted but not plotted"
+    ],
+    "missing": [
+      "Raw 548 kernel records and tooltip fields from ds3.2_report are not embedded",
+      "All 88 timeline nodes and expandable child tree are not reproduced; the demo shows the 10 top-level nodes",
+      "Full wait-anchor ranking list is not rendered; only the leading OnesLike false-hotspot evidence is surfaced",
+      "Host trace event overlap is unavailable in the report, so it cannot be mapped to source nodes",
+      "Multi-card balance is unavailable because the report only has Device_id=3"
+    ]
+  },
+  "playback": {
+    "mode": "module_segment_stepper",
+    "segments": [
+      {
+        "name": "step_start_init",
+        "nodeId": "dsv32arch_logits_c7d6c722",
+        "startUs": 1773295061394254.8,
+        "endUs": 1773295061395828.2,
+        "wallUs": 1573.5,
+        "opUs": 958.1,
+        "waitUs": 1157.67,
+        "kernels": 17,
+        "streams": [
+          "47",
+          "186",
+          "43",
+          "None"
+        ],
+        "dominant": "47",
+        "category": "auxiliary",
+        "color": "#61afef"
+      },
+      {
+        "name": "embedding",
+        "nodeId": "dsv32arch_embedding_2f81ba1b",
+        "startUs": 1773295061395829.5,
+        "endUs": 1773295061395875.5,
+        "wallUs": 46,
+        "opUs": 71.48,
+        "waitUs": 1.49,
+        "kernels": 10,
+        "streams": [
+          "186",
+          "189",
+          "None"
+        ],
+        "dominant": "189",
+        "category": "auxiliary",
+        "color": "#4fc1ff"
+      },
+      {
+        "name": "DeepseekV3DecoderLayer_dense x3",
+        "nodeId": "dsv32arch_dense_c8e834d8",
+        "startUs": 1773295061396682,
+        "endUs": 1773295061397494,
+        "wallUs": 812,
+        "opUs": 853.8,
+        "waitUs": 15.17,
+        "kernels": 34,
+        "streams": [
+          "189",
+          "191",
+          "192"
+        ],
+        "dominant": "189",
+        "category": "main",
+        "color": "#7ec699"
+      },
+      {
+        "name": "DeepseekV3DecoderLayer_moe x3",
+        "nodeId": "dsv32arch_moe_63e885ca",
+        "startUs": 1773295061398287,
+        "endUs": 1773295061399431.5,
+        "wallUs": 1144.5,
+        "opUs": 1278.48,
+        "waitUs": 23.22,
+        "kernels": 42,
+        "streams": [
+          "189",
+          "190",
+          "191",
+          "192"
+        ],
+        "dominant": "189",
+        "category": "main",
+        "color": "#61afef"
+      },
+      {
+        "name": "main_final_norm",
+        "nodeId": "",
+        "startUs": 1773295061401686.8,
+        "endUs": 1773295061401690.2,
+        "wallUs": 3.5,
+        "opUs": 3.54,
+        "waitUs": 0.87,
+        "kernels": 1,
+        "streams": [
+          "189"
+        ],
+        "dominant": "189",
+        "category": "auxiliary",
+        "color": "#e06c75"
+      },
+      {
+        "name": "lm_head x4",
+        "nodeId": "dsv32arch_lm_head_2b98b847",
+        "startUs": 1773295061401707.2,
+        "endUs": 1773295061401899.2,
+        "wallUs": 192,
+        "opUs": 250.4,
+        "waitUs": 20.29,
+        "kernels": 7,
+        "streams": [
+          "186",
+          "189",
+          "None"
+        ],
+        "dominant": "189",
+        "category": "auxiliary",
+        "color": "#61afef"
+      },
+      {
+        "name": "spec_token_verify_main",
+        "nodeId": "dsv32arch_logits_c7d6c722",
+        "startUs": 1773295061402205.8,
+        "endUs": 1773295061407729.5,
+        "wallUs": 5523.75,
+        "opUs": 3180.88,
+        "waitUs": 2730.18,
+        "kernels": 45,
+        "streams": [
+          "176",
+          "43",
+          "47",
+          "None"
+        ],
+        "dominant": "47",
+        "category": "auxiliary",
+        "color": "#98c379"
+      },
+      {
+        "name": "DeepseekV3MTPLayer x3",
+        "nodeId": "dsv32arch_logits_c7d6c722",
+        "startUs": 1773295061407702.5,
+        "endUs": 1773295061409206.5,
+        "wallUs": 1504,
+        "opUs": 1978.26,
+        "waitUs": 70.1,
+        "kernels": 60,
+        "streams": [
+          "176",
+          "179",
+          "180",
+          "181",
+          "182",
+          "None"
+        ],
+        "dominant": "179",
+        "category": "main",
+        "color": "#4fc1ff"
+      },
+      {
+        "name": "spec_token_verify_mtp",
+        "nodeId": "dsv32arch_logits_c7d6c722",
+        "startUs": 1773295061409737,
+        "endUs": 1773295061411349,
+        "wallUs": 1612,
+        "opUs": 267.68,
+        "waitUs": 1755.13,
+        "kernels": 15,
+        "streams": [
+          "43",
+          "47",
+          "None"
+        ],
+        "dominant": "47",
+        "category": "auxiliary",
+        "color": "#d19a66"
+      },
+      {
+        "name": "post_verify_dispatch_gap",
+        "nodeId": "dsv32arch_logits_c7d6c722",
+        "startUs": 1773295061411349,
+        "endUs": 1773295061417274,
+        "wallUs": 5925,
+        "opUs": 0,
+        "waitUs": 5925,
+        "kernels": 0,
+        "streams": [
+          "None"
+        ],
+        "dominant": "None",
+        "category": "wait",
+        "color": "#f4b860"
+      },
+      {
+        "name": "final_step_sample",
+        "nodeId": "dsv32arch_logits_c7d6c722",
+        "startUs": 1773295061417274,
+        "endUs": 1773295061417542,
+        "wallUs": 268,
+        "opUs": 69.72,
+        "waitUs": 472.22,
+        "kernels": 6,
+        "streams": [
+          "47"
+        ],
+        "dominant": "47",
+        "category": "auxiliary",
+        "color": "#c678dd"
+      }
+    ],
+    "notes": [
+      "Current bridge extracted 10 named module timeline segments from the report HTML.",
+      "The 11th playback segment is the explicit post-verify dispatch wait gap between spec_token_verify_mtp and final_step_sample.",
+      "A native profiling JSON source should provide this wait/gap segment directly when available."
+    ]
+  }
+}

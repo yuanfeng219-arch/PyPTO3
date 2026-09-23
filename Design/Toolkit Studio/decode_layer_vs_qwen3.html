@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="逐阶段对照 Qwen3-14B 标准 decoder layer 与 decode_layer.py 内核实际发出的 task，标出四类变化。">
+<style>
+/* minimal reset */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+h1, h2, h3, p, pre, ul, figure { margin: 0; }
+ul { padding: 0; }
+table { border-collapse: collapse; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+<title>Qwen3 解码层重写对照</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+
+<style>
+:root {
+  --bg:        #F4F6F8;
+  --surface:   #FFFFFF;
+  --surface-2: #EDF0F4;
+  --ink:       #12171E;
+  --ink-2:     #3A4552;
+  --muted:     #5B6674;
+  --faint:     #8A94A2;
+  --line:      #DCE1E8;
+  --line-2:    #C6CDD7;
+
+  --reorder:   #3B5BDB;
+  --reorder-bg:#E7EBFB;
+  --fuse:      #D9480F;
+  --fuse-bg:   #FBE8DE;
+  --split:     #9C36B5;
+  --split-bg:  #F6E5FA;
+  --prec:      #087F5B;
+  --prec-bg:   #DFF3EC;
+
+  --ref-ink:   #4A5462;
+  --ref-bg:    #EFF1F4;
+
+  --r: 3px;
+  --shadow: 0 1px 0 rgba(18,23,30,.04), 0 1px 3px rgba(18,23,30,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #0C1015;
+    --surface:   #141A21;
+    --surface-2: #1B222B;
+    --ink:       #E6EAF0;
+    --ink-2:     #C3CBD6;
+    --muted:     #8E99A7;
+    --faint:     #6B7684;
+    --line:      #232B35;
+    --line-2:    #2F3945;
+
+    --reorder:   #8CA3FF;
+    --reorder-bg:#1A2140;
+    --fuse:      #FF9351;
+    --fuse-bg:   #3A1E10;
+    --split:     #DC8CF0;
+    --split-bg:  #331A3C;
+    --prec:      #4FD1A5;
+    --prec-bg:   #10312A;
+
+    --ref-ink:   #7C8794;
+    --ref-bg:    #171D25;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --bg:        #0C1015;
+  --surface:   #141A21;
+  --surface-2: #1B222B;
+  --ink:       #E6EAF0;
+  --ink-2:     #C3CBD6;
+  --muted:     #8E99A7;
+  --faint:     #6B7684;
+  --line:      #232B35;
+  --line-2:    #2F3945;
+
+  --reorder:   #8CA3FF;
+  --reorder-bg:#1A2140;
+  --fuse:      #FF9351;
+  --fuse-bg:   #3A1E10;
+  --split:     #DC8CF0;
+  --split-bg:  #331A3C;
+  --prec:      #4FD1A5;
+  --prec-bg:   #10312A;
+
+  --ref-ink:   #7C8794;
+  --ref-bg:    #171D25;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
+  padding: 0 20px 96px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+code, .mono, kbd {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── masthead ─────────────────────────────────────────── */
+.mast { padding: 64px 0 34px; border-bottom: 1px solid var(--line); }
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--faint);
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.eyebrow span.sep { color: var(--line-2); }
+h1 {
+  font-size: clamp(29px, 4.4vw, 44px);
+  line-height: 1.14; font-weight: 700; letter-spacing: -.022em;
+  margin: 16px 0 0; text-wrap: balance;
+}
+.dek {
+  color: var(--muted); font-size: 16.5px; max-width: 63ch;
+  margin: 14px 0 0; line-height: 1.7;
+}
+.dek b { color: var(--ink-2); font-weight: 600; }
+
+/* ─── stat strip ───────────────────────────────────────── */
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+  margin: 32px 0 0; border-radius: var(--r); overflow: hidden;
+}
+.stat { background: var(--surface); padding: 15px 17px; }
+.stat .k {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 500;
+  letter-spacing: .11em; text-transform: uppercase; color: var(--faint);
+}
+.stat .v {
+  font-family: "IBM Plex Mono", monospace; font-size: 22px; font-weight: 600;
+  letter-spacing: -.02em; margin-top: 5px; color: var(--ink);
+}
+.stat .v em { font-style: normal; color: var(--faint); font-size: 13px; font-weight: 400; }
+.stat .n { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+
+/* ─── section headers ──────────────────────────────────── */
+section { margin-top: 64px; }
+h2 {
+  font-size: 21px; font-weight: 600; letter-spacing: -.014em;
+  margin: 0 0 6px; display: flex; align-items: baseline; gap: 11px;
+}
+h2 .num {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 500;
+  color: var(--faint); letter-spacing: .06em;
+}
+.sub { color: var(--muted); font-size: 14.5px; margin: 0 0 22px; max-width: 70ch; }
+
+/* ─── legend ───────────────────────────────────────────── */
+.legend {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(214px, 1fr));
+  gap: 10px; margin-bottom: 26px;
+}
+.lg {
+  border: 1px solid var(--line); border-left-width: 3px;
+  background: var(--surface); border-radius: var(--r);
+  padding: 11px 13px;
+}
+.lg .t {
+  font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px;
+}
+.lg .t code { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; opacity: .75; font-weight: 500; }
+.lg .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+.lg.reorder { border-left-color: var(--reorder); } .lg.reorder .t { color: var(--reorder); }
+.lg.fuse    { border-left-color: var(--fuse); }    .lg.fuse .t    { color: var(--fuse); }
+.lg.split   { border-left-color: var(--split); }   .lg.split .t   { color: var(--split); }
+.lg.prec    { border-left-color: var(--prec); }    .lg.prec .t    { color: var(--prec); }
+
+/* ─── stage blocks ─────────────────────────────────────── */
+.flow { display: flex; flex-direction: column; }
+.stage {
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface); overflow: hidden; box-shadow: var(--shadow);
+}
+.stage-hd {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.stage-hd .sn {
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+  color: var(--faint); letter-spacing: .06em;
+}
+.stage-hd .st { font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.chip {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  padding: 2.5px 7px; border-radius: 2px; white-space: nowrap;
+}
+.chip.reorder { color: var(--reorder); background: var(--reorder-bg); }
+.chip.fuse    { color: var(--fuse);    background: var(--fuse-bg); }
+.chip.split   { color: var(--split);   background: var(--split-bg); }
+.chip.prec    { color: var(--prec);    background: var(--prec-bg); }
+
+.lanes { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.35fr); }
+.lane { padding: 14px 16px 16px; min-width: 0; }
+.lane + .lane { border-left: 1px solid var(--line); }
+.lane-hd {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 500;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--faint);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+}
+.lane-hd .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); flex: none; }
+.lane.kern .lane-hd .dot { background: var(--ink-2); }
+
+/* reference lane — deliberately monochrome */
+.op {
+  background: var(--ref-bg); border: 1px solid var(--line);
+  border-radius: 2px; padding: 8px 10px; margin-bottom: 7px;
+}
+.op:last-child { margin-bottom: 0; }
+.op .nm {
+  font-family: "IBM Plex Mono", monospace; font-size: 12.5px;
+  font-weight: 500; color: var(--ref-ink);
+}
+.op .fx {
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px;
+  color: var(--faint); margin-top: 3px; line-height: 1.55; word-break: break-word;
+}
+.op.none { background: transparent; border-style: dashed; }
+.op.none .nm { color: var(--faint); font-style: italic; font-family: inherit; font-size: 12.5px; }
+
+/* kernel lane */
+.task {
+  border: 1px solid var(--line); border-left-width: 3px;
+  border-radius: 2px; padding: 8px 10px; margin-bottom: 7px; background: var(--surface);
+}
+.task:last-child { margin-bottom: 0; }
+.task .nm {
+  font-family: "IBM Plex Mono", monospace; font-size: 12.5px; font-weight: 600;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.task .ct {
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 500;
+  color: var(--faint); background: var(--surface-2); padding: 1px 5px; border-radius: 2px;
+}
+.task .d { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.55; }
+.task .d code { font-size: 11.5px; color: var(--ink-2); }
+.task.reorder { border-left-color: var(--reorder); } .task.reorder .nm { color: var(--reorder); }
+.task.fuse    { border-left-color: var(--fuse); }    .task.fuse .nm    { color: var(--fuse); }
+.task.split   { border-left-color: var(--split); }   .task.split .nm   { color: var(--split); }
+.task.prec    { border-left-color: var(--prec); }    .task.prec .nm    { color: var(--prec); }
+.task.plain   { border-left-color: var(--line-2); }  .task.plain .nm   { color: var(--ink-2); }
+
+.link {
+  height: 20px; margin: 0 auto; width: 1px; background: var(--line-2);
+  position: relative; flex: none;
+}
+.link::after {
+  content: ""; position: absolute; bottom: 0; left: -3px;
+  border-left: 3.5px solid transparent; border-right: 3.5px solid transparent;
+  border-top: 5px solid var(--line-2);
+}
+
+/* ─── figure blocks ────────────────────────────────────── */
+.fig {
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface); box-shadow: var(--shadow);
+  padding: 20px 22px; margin-bottom: 14px;
+}
+.fig-t { font-size: 15px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em; }
+.fig-d { font-size: 13.5px; color: var(--muted); margin: 0 0 16px; max-width: 72ch; }
+.math {
+  overflow-x: auto; border-radius: 2px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  padding: 13px 15px; margin: 0 0 12px;
+}
+.math pre {
+  margin: 0; font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px; line-height: 1.8; white-space: pre; color: var(--ink-2);
+}
+.math .lbl {
+  display: block; font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--faint); font-weight: 500; margin-bottom: 7px;
+}
+.math .hl-r { color: var(--reorder); font-weight: 600; }
+.math .hl-f { color: var(--fuse); font-weight: 600; }
+.math .hl-p { color: var(--prec); font-weight: 600; }
+.math .cm { color: var(--faint); }
+.note {
+  font-size: 13px; color: var(--muted); line-height: 1.65;
+  border-left: 2px solid var(--line-2); padding-left: 12px; margin: 0;
+}
+.note b { color: var(--ink-2); font-weight: 600; }
+.note code { font-size: 12px; color: var(--ink-2); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; }
+
+/* ─── table ────────────────────────────────────────────── */
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+  background: var(--surface-2); white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.m { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+td.num { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.eq { color: var(--prec); font-weight: 600; }
+.ne { color: var(--fuse); font-weight: 600; }
+
+ul.plain { margin: 0; padding-left: 18px; }
+ul.plain li { margin-bottom: 7px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+ul.plain li b { color: var(--ink-2); font-weight: 600; }
+ul.plain li code { font-size: 12px; color: var(--ink-2); }
+
+footer {
+  margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--faint); line-height: 1.7;
+}
+footer code { font-size: 12px; }
+
+@media (max-width: 720px) {
+  .lanes { grid-template-columns: 1fr; }
+  .lane + .lane { border-left: none; border-top: 1px solid var(--line); }
+  .chips { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">
+    <span>decode_layer.py</span><span class="sep">/</span>
+    <span>PyPTO · CANN</span><span class="sep">/</span>
+    <span>Qwen3-14B · Decode</span>
+  </div>
+  <h1>标准结构 vs 内核实际计算过程</h1>
+  <p class="dek">
+    右侧内核跟 HuggingFace 参考实现<b>数学上等价</b>，但没有一个算子是照搬的。
+    变化集中在四件事：把归一化的标量除法<b>推迟</b>到矩阵乘之后、把相邻算子<b>融进同一个 task</b>、
+    把每个 GEMM <b>炸成几十个 split-K task</b>、以及把 BF16 精度边界从每层一次<b>收缩到整网两次</b>。
+    下面按 10 个阶段逐段对照。
+  </p>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="k">Kernel 下发</div>
+      <div class="v">1 <em>次</em></div>
+      <div class="n">标准实现 40 层约 700 次 launch</div>
+    </div>
+    <div class="stat">
+      <div class="k">Task 声明 / 层</div>
+      <div class="v">≈ 419</div>
+      <div class="n">整网约 1.7 万，全在一张依赖图里</div>
+    </div>
+    <div class="stat">
+      <div class="k">GEMM 拆分</div>
+      <div class="v">7 <em>→</em> 375</div>
+      <div class="n">split-K + 原子累加，先 seed 清零</div>
+    </div>
+    <div class="stat">
+      <div class="k">BF16 边界</div>
+      <div class="v">40 <em>→</em> 2</div>
+      <div class="n">层间进位全程 FP32</div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">图例</span>四类变化</h2>
+  <p class="sub">左栏（标准实现）刻意保持单色——它是参照物。右栏每个 task 的左边框颜色标注它相对标准实现发生了什么。</p>
+
+  <div class="legend">
+    <div class="lg reorder">
+      <div class="t">代数重排 <code>reorder</code></div>
+      <div class="d">数学恒等，但执行位置变了。几乎全部是"延迟除法"：标量因子穿过矩阵乘，挪到下游补乘。</div>
+    </div>
+    <div class="lg fuse">
+      <div class="t">融合 <code>fuse</code></div>
+      <div class="d">多个标准算子合进一个 task，中间结果留在寄存器，不走全局内存往返。</div>
+    </div>
+    <div class="lg split">
+      <div class="t">并行拆分 <code>split</code></div>
+      <div class="d">一个标准算子展开成 N 个并行 task；GEMM 走 split-K + 原子加，注意力走块级负载均衡。</div>
+    </div>
+    <div class="lg prec">
+      <div class="t">精度边界 <code>precision</code></div>
+      <div class="d">dtype 变了。层间残差从 BF16 改为 FP32 承载，只在整网首尾各转一次。</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">主对照</span>一个 decoder layer，逐阶段</h2>
+  <p class="sub">
+    左：<code>Qwen3DecoderLayer.forward</code> 的算子序列。右：<code>_decode_layer</code>（<code>decode_layer.py:304</code>）实际发出的 task。
+    <code>×N</code> 是该 task 的实例个数。
+  </p>
+
+  <div class="flow">
+
+    <!-- 1 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">01</span><span class="st">input_layernorm</span>
+        <span class="chips"><span class="chip reorder">代数重排</span><span class="chip fuse">跨层融合</span><span class="chip prec">精度</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op">
+            <div class="nm">RMSNorm(x) · γ_in</div>
+            <div class="fx">inv = rsqrt(mean(x²)+ε)<br>x₁ = (x · inv) ⊙ γ_in</div>
+          </div>
+          <div class="op none"><div class="nm">一个融合算子，一次搞定</div></div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核 — 拆成三处</div>
+          <div class="task reorder">
+            <div class="nm"><span>rms_recip</span><span class="ct">×1</span></div>
+            <div class="d">只算 <code>inv_rms[b]</code> 这个每行标量，不碰数据。和 QKV 投影并行跑，不再挡住下游。</div>
+          </div>
+          <div class="task fuse">
+            <div class="nm"><span>x⊙γ 来自上一层</span><span class="ct">已就绪</span></div>
+            <div class="d">乘 γ_in 这一步在<b>上一层末尾</b>的 <code>dcr_xgamma</code> 里就做完了，作为 <code>normed_in</code> 参数传进来。层 0 由 <code>x_gamma0</code> 单独补。</div>
+          </div>
+          <div class="task reorder">
+            <div class="nm"><span>inv_rms 延后补乘</span><span class="ct">下游</span></div>
+            <div class="d">Q/K 在 <code>qk_norm</code> 里补，V 在 <code>rope_qkv</code> 里补。见下方推导。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 2 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">02</span><span class="st">q_proj / k_proj / v_proj</span>
+        <span class="chips"><span class="chip split">并行拆分</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op">
+            <div class="nm">3 × Linear</div>
+            <div class="fx">q = x₁ @ Wq  [16, 5120]<br>k = x₁ @ Wk  [16, 1024]<br>v = x₁ @ Wv  [16, 1024]</div>
+          </div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task plain">
+            <div class="nm"><span>q_seed / k_seed / v_seed</span><span class="ct">×3</span></div>
+            <div class="d">把累加器清零，供后面的原子加落点。无对应标准算子。</div>
+          </div>
+          <div class="task split">
+            <div class="nm"><span>q_proj</span><span class="ct">×50</span></div>
+            <div class="d">10 个 N-tile（512 宽）× 5 路 split-K（每路 K=1280），各自 <code>matmul_acc</code> 后原子加进 <code>q_proj</code>。</div>
+          </div>
+          <div class="task split">
+            <div class="nm"><span>k_proj / v_proj</span><span class="ct">×10 / ×10</span></div>
+            <div class="d">同样 split-K=5，N-tile 只有 2 个（KV hidden = 1024，GQA 8 头）。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 3 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">03</span><span class="st">q_norm / k_norm（Qwen3 特有的 per-head QK-Norm）</span>
+        <span class="chips"><span class="chip fuse">融合</span><span class="chip reorder">代数重排</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op">
+            <div class="nm">q_norm(q) · γ_q</div>
+            <div class="fx">按 head_dim=128 做 RMSNorm</div>
+          </div>
+          <div class="op">
+            <div class="nm">k_norm(k) · γ_k</div>
+            <div class="fx">两个独立算子，各读一遍数据</div>
+          </div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task fuse">
+            <div class="nm"><span>qk_norm</span><span class="ct">×8</span></div>
+            <div class="d">
+              每个 KV-head 一个 task，<b>Q 和 K 合并</b>，且 γ 缩放与 rsqrt 归约<b>共用同一次读取</b>——
+              原本 16 个 task、每份数据读两遍，现在 8 个 task、读一遍。
+            </div>
+          </div>
+          <div class="task reorder">
+            <div class="nm"><span>q_inv / k_inv 再次延后</span><span class="ct">→ rope</span></div>
+            <div class="d">这里只算出 head-norm 的倒数标量存起来，真正相乘挪到 <code>rope_qkv</code>。第 01 阶段欠的 <code>inv_rms</code> 在这里补上。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 4 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">04</span><span class="st">RoPE + KV cache 写入</span>
+        <span class="chips"><span class="chip fuse">五合一</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op">
+            <div class="nm">apply_rotary_pos_emb(q, k)</div>
+            <div class="fx">按 lo/hi 半维旋转</div>
+          </div>
+          <div class="op">
+            <div class="nm">cache.update(k, v)</div>
+            <div class="fx">追加到 KV cache</div>
+          </div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task fuse">
+            <div class="nm"><span>rope_qkv</span><span class="ct">spmd ×32</span></div>
+            <div class="d">
+              单次 spmd 下发，每个 <code>(kv_head, batch)</code> 项一口气做完五件事：<br>
+              ① 补乘欠下的 <code>q_inv / k_inv / inv_rms</code>　② RoPE 旋转
+              ③ 转 BF16　④ 按 <code>slot_mapping</code> 写<b>分页</b> KV cache
+              ⑤ 把 5 个 Q 头补零成 16 行（矩阵乘 M 维分形对齐）
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 5 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">05</span><span class="st">attention（GQA，causal）</span>
+        <span class="chips"><span class="chip split">拆成三段</span><span class="chip fuse">QK·softmax·SV 融合</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op">
+            <div class="nm">scaled_dot_product_attention</div>
+            <div class="fx">s = q @ kᵀ / √128<br>p = softmax(s)<br>o = p @ v</div>
+          </div>
+          <div class="op none"><div class="nm">调度由框架负责，模型代码里看不见</div></div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核 — Flash-Decoding 结构</div>
+          <div class="task split">
+            <div class="nm"><span>fa_work_build</span><span class="ct">×1</span></div>
+            <div class="d">
+              <b>无对应标准算子。</b>把 ragged batch 里所有真实 seq-block 压成一张无空洞的工作表
+              <code>fa_work_table[w] = b·32 + p</code>，让长度倾斜不再造成核间空转。
+            </div>
+          </div>
+          <div class="task fuse">
+            <div class="nm"><span>fa_fused</span><span class="ct">spmd ×24</span></div>
+            <div class="d">
+              Cube 与 Vector <b>混在同一个 root task</b>：QK 矩阵乘 → 局部 softmax → SV 矩阵乘。
+              按 <code>w % 24</code> grid-stride 领取工作项，输出每块的局部 <code>(o, m, l)</code> 三元组。
+            </div>
+          </div>
+          <div class="task split">
+            <div class="nm"><span>online_softmax</span><span class="ct">spmd ×48</span></div>
+            <div class="d">
+              跨块归约：按 <code>(batch, kv_head)</code> 128 条 lane，用 online-softmax 递推把各块局部结果合并成最终 context。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 6 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">06</span><span class="st">o_proj</span>
+        <span class="chips"><span class="chip split">并行拆分</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op"><div class="nm">Linear</div><div class="fx">o = attn @ Wo  [16, 5120]</div></div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task plain"><div class="nm"><span>out_seed</span><span class="ct">×1</span></div><div class="d">清零 FP32 累加器。</div></div>
+          <div class="task split">
+            <div class="nm"><span>out_proj</span><span class="ct">×50</span></div>
+            <div class="d">10 路 N 拆分 × 5 路 split-K，内层 K 步长 64。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 7 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">07</span><span class="st">残差 ①　h₁ = h + o</span>
+        <span class="chips"><span class="chip fuse">并入下一阶段</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op"><div class="nm">h1 = residual + attn_out</div><div class="fx">独立的逐元素加</div></div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task fuse">
+            <div class="nm"><span>并入 residual_rms_cast</span><span class="ct">见 08</span></div>
+            <div class="d">残差加不单独存在——它是下一阶段那个 task 的第一步，加完的 FP32 结果直接在寄存器里继续用。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 8 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">08</span><span class="st">post_attention_layernorm</span>
+        <span class="chips"><span class="chip fuse">融合</span><span class="chip reorder">代数重排</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op">
+            <div class="nm">RMSNorm(h₁) · γ_post</div>
+            <div class="fx">inv' = rsqrt(mean(h₁²)+ε)<br>x₂ = (h₁ · inv') ⊙ γ_post</div>
+          </div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核 — 又是拆开</div>
+          <div class="task fuse">
+            <div class="nm"><span>residual_rms_cast</span><span class="ct">×5</span></div>
+            <div class="d">
+              残差加 + 乘 γ_post + 转 BF16，一次读取全部完成。同时留一份<b>未缩放</b>的 FP32 <code>h₁</code>
+              给第 10 阶段的第二个残差用。<br>
+              γ_post 沿 K 维（矩阵乘的收缩维），<b>不能</b>像 inv 那样穿过 matmul，所以必须就地乘。
+            </div>
+          </div>
+          <div class="task reorder">
+            <div class="nm"><span>post_rms_reduce</span><span class="ct">×1</span></div>
+            <div class="d">单独算 <code>inv'</code> 标量，与 gate/up 投影并行；相乘推迟到 <code>silu</code>。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 9 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">09</span><span class="st">MLP　SiLU(gate) · up → down</span>
+        <span class="chips"><span class="chip split">并行拆分</span><span class="chip reorder">代数重排</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op"><div class="nm">gate = x₂ @ W_gate</div><div class="fx">[16, 17408]</div></div>
+          <div class="op"><div class="nm">up = x₂ @ W_up</div><div class="fx">[16, 17408]</div></div>
+          <div class="op"><div class="nm">m = SiLU(gate) · up</div><div class="fx">逐元素</div></div>
+          <div class="op"><div class="nm">d = m @ W_down</div><div class="fx">[16, 5120]</div></div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task split">
+            <div class="nm"><span>gate_proj / up_proj</span><span class="ct">×85 / ×85</span></div>
+            <div class="d">17 个 N-tile（1024 宽）× 5 路 split-K，两者<b>交错发射</b>，共享同一份 <code>mlp_norm_in</code> 输入切片。</div>
+          </div>
+          <div class="task reorder">
+            <div class="nm"><span>silu</span><span class="ct">×17</span></div>
+            <div class="d">
+              先补乘第 08 阶段欠下的 <code>inv'</code>，<b>再</b>做 SiLU——SiLU 是非线性的，标量必须在它之前落地：
+              <code>SiLU(inv'·g) · (inv'·u)</code>。
+            </div>
+          </div>
+          <div class="task split">
+            <div class="nm"><span>down_proj</span><span class="ct">×85</span></div>
+            <div class="d">5 个 N-tile × <b>17 路 split-K</b>（K=17408 是全模型最长的收缩维）。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link"></div>
+
+    <!-- 10 -->
+    <div class="stage">
+      <div class="stage-hd">
+        <span class="sn">10</span><span class="st">残差 ②　out = h₁ + d　＋ 层边界</span>
+        <span class="chips"><span class="chip fuse">跨层融合</span><span class="chip prec">精度</span></span>
+      </div>
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-hd"><span class="dot"></span>标准实现</div>
+          <div class="op"><div class="nm">out = h1 + down_out</div><div class="fx">→ 写回 BF16，交给下一层</div></div>
+          <div class="op none"><div class="nm">层边界干净利落：一进一出</div></div>
+        </div>
+        <div class="lane kern">
+          <div class="lane-hd"><span class="dot"></span>PyPTO 内核</div>
+          <div class="task fuse">
+            <div class="nm"><span>dcr_xgamma</span><span class="ct">spmd ×5</span></div>
+            <div class="d">
+              同一块寄存器里的 FP32 数据<b>产出两个东西</b>：<br>
+              ① <code>out</code>（FP32 残差，本层输出）<br>
+              ② <code>normed_out = out ⊙ γ_in[layer+1]</code>（BF16，<b>下一层</b>的 QKV 输入）<br>
+              下一层的归一化因此提前在这里完成了一半，省掉一次全局内存往返。
+            </div>
+          </div>
+          <div class="task prec">
+            <div class="nm"><span>FP32 层间进位</span><span class="ct">40 层</span></div>
+            <div class="d">残差流不再每层 round-trip 到 BF16。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">推导</span>为什么可以把除法推迟</h2>
+  <p class="sub">这是全文件最核心的一个变换，出现了两次（前置 norm 一次、后置 norm 一次），但两次的处理方式并不一样。</p>
+
+  <div class="two">
+    <div class="fig">
+      <div class="fig-t">前置 norm：整个标量都能穿过去</div>
+      <p class="fig-d"><code>inv_rms</code> 是每行一个标量，矩阵乘是列变换，二者可交换。</p>
+      <div class="math">
+        <span class="lbl">标准</span>
+<pre>x₁ = (x · <span class="hl-r">inv</span>) ⊙ γ
+q  = x₁ @ Wq</pre>
+      </div>
+      <div class="math">
+        <span class="lbl">内核</span>
+<pre>n  = x ⊙ γ          <span class="cm">← 上一层 dcr_xgamma</span>
+q' = n @ Wq         <span class="cm">← q_proj</span>
+q  = <span class="hl-r">inv</span> · q'        <span class="cm">← qk_norm 里补</span>
+
+<span class="cm">成立因为  (inv·n) @ Wq  ≡  inv·(n @ Wq)</span></pre>
+      </div>
+      <p class="note">
+        <b>额外收获：</b>Q/K 紧接着还要做 per-head QK-Norm，<code>inv_rms</code> 在那个归一化的分子分母里
+        <b>自行抵消</b>，所以 RoPE 阶段不必再乘它。只有 V 路径需要真正乘上——代码里正是
+        <code>v_proj[b] · inv_rms_b</code> 这一处。
+      </p>
+    </div>
+
+    <div class="fig">
+      <div class="fig-t">后置 norm：只有一半能穿过去</div>
+      <p class="fig-d">γ 沿 K 维分布，被矩阵乘吃掉；标量 inv′ 可以穿，但会撞上非线性。</p>
+      <div class="math">
+        <span class="lbl">标准</span>
+<pre>x₂ = (h₁ · <span class="hl-r">inv′</span>) ⊙ γ_post
+g  = x₂ @ Wg ;  u = x₂ @ Wu
+m  = SiLU(g) · u</pre>
+      </div>
+      <div class="math">
+        <span class="lbl">内核</span>
+<pre><span class="hl-f">γ_post</span> 就地乘  <span class="cm">← residual_rms_cast（K 维，穿不过）</span>
+g′ = (h₁⊙γ) @ Wg ; u′ = …
+m  = SiLU(<span class="hl-r">inv′</span>·g′) · (<span class="hl-r">inv′</span>·u′)
+                    <span class="cm">↑ 必须在 SiLU 之前，它是非线性的</span></pre>
+      </div>
+      <p class="note">
+        <b>收益：</b><code>post_rms_reduce</code>（全 hidden 的归约）不再挡在 gate/up 投影前面，
+        两者可以并行；代价是 <code>silu</code> task 多做一次逐元素缩放。
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">精度</span>层间进位从 BF16 改成 FP32</h2>
+  <p class="sub">这是唯一一处让数值<b>不再</b>与参考实现逐位一致的改动——而且是往更精确的方向偏。</p>
+
+  <div class="fig">
+    <div class="math" style="margin-bottom:14px">
+      <span class="lbl">标准 · 每层一次舍入</span>
+<pre>embed ─BF16→ L0 ─<span class="hl-f">BF16</span>→ L1 ─<span class="hl-f">BF16</span>→ … ─<span class="hl-f">BF16</span>→ L39 ─BF16→ lm_head
+              └─ 层内 FP32 计算，出口截回 BF16 ──┘   <span class="cm">共 40 次舍入</span></pre>
+    </div>
+    <div class="math">
+      <span class="lbl">内核 · 整网两次转换</span>
+<pre>embed ─BF16→ <span class="hl-p">copy_hidden</span> ─FP32→ L0 → L1 → … → L39 ─FP32→ <span class="hl-p">cast_lmhead_in</span> ─BF16→ lm_head
+                                └── 残差流全程 FP32 ──┘   <span class="cm">共 2 次舍入</span></pre>
+    </div>
+    <p class="note" style="margin-top:14px">
+      注意 <code>normed</code>（<code>x⊙γ</code>）仍然是 BF16——它是矩阵乘的输入，必须是 BF16 才能走 Cube 单元。
+      变成 FP32 的只有<b>残差流本身</b>。<br>
+      因此文件的验收标准不是逐位相等，而是 <b>argmax 匹配</b> + 2% 容忍的 ratio-allclose
+      （<code>rtol=atol=3e-3</code>）——BF16 在数值 1 附近一个 ULP 就有 0.0039，严格 allclose 本来也过不去。
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">汇总</span>算子映射表</h2>
+  <p class="sub">「语义」一列回答的是：这一步的数学结果还和参考实现一样吗。</p>
+
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>标准算子</th><th>内核 task</th><th style="text-align:right">实例数</th><th>主要变化</th><th>语义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="m">input_layernorm</td>
+          <td class="m">rms_recip + 上层 dcr_xgamma</td>
+          <td class="num" style="text-align:right">1 + 跨层</td>
+          <td>拆成标量归约 / γ 缩放 / 延迟补乘三处，γ 缩放上移到前一层</td>
+          <td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">q_proj</td><td class="m">q_seed + q_proj</td>
+          <td class="num" style="text-align:right">1 + 50</td>
+          <td>N 拆 10 × split-K 5，原子累加</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">k_proj / v_proj</td><td class="m">k_seed/v_seed + k_proj/v_proj</td>
+          <td class="num" style="text-align:right">2 + 20</td>
+          <td>N 拆 2 × split-K 5</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">q_norm + k_norm</td><td class="m">qk_norm</td>
+          <td class="num" style="text-align:right">8</td>
+          <td>Q/K 合并、γ 与 rsqrt 共用一次读取，倒数再次延后</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">rotary_emb + cache.update</td><td class="m">rope_qkv</td>
+          <td class="num" style="text-align:right">spmd 32</td>
+          <td>RoPE + 三处延迟补乘 + 分页写入 + Q 补零，五合一</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">— <span style="color:var(--faint)">（无）</span></td><td class="m">fa_work_build</td>
+          <td class="num" style="text-align:right">1</td>
+          <td>纯调度：构建稠密块工作表，消除 ragged batch 的核间空转</td>
+          <td class="eq">不改数值</td>
+        </tr>
+        <tr>
+          <td class="m">sdpa</td><td class="m">fa_fused + online_softmax</td>
+          <td class="num" style="text-align:right">spmd 24 + 48</td>
+          <td>Flash-Decoding：分块局部 softmax → 跨块 online 归约；Cube/Vector 同 task 融合</td>
+          <td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">o_proj</td><td class="m">out_seed + out_proj</td>
+          <td class="num" style="text-align:right">1 + 50</td>
+          <td>N 拆 10 × split-K 5</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">residual ①</td><td class="m">并入 residual_rms_cast</td>
+          <td class="num" style="text-align:right">—</td>
+          <td>不再是独立算子</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">post_attention_layernorm</td><td class="m">residual_rms_cast + post_rms_reduce</td>
+          <td class="num" style="text-align:right">5 + 1</td>
+          <td>γ 就地乘（K 维），inv′ 延后到 silu</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">gate_proj / up_proj</td><td class="m">gate_proj / up_proj</td>
+          <td class="num" style="text-align:right">85 + 85</td>
+          <td>N 拆 17 × split-K 5，交错发射</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">SiLU(g)·u</td><td class="m">silu</td>
+          <td class="num" style="text-align:right">17</td>
+          <td>顺带补乘 inv′（必须在非线性之前）</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">down_proj</td><td class="m">down_seed + down_proj</td>
+          <td class="num" style="text-align:right">1 + 85</td>
+          <td>N 拆 5 × split-K 17</td><td class="eq">等价</td>
+        </tr>
+        <tr>
+          <td class="m">residual ②</td><td class="m">dcr_xgamma</td>
+          <td class="num" style="text-align:right">spmd 5</td>
+          <td>残差加 + <b>下一层的 x⊙γ</b> 同 task 产出；层间改走 FP32</td>
+          <td class="ne">更精确</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">边界</span>没有动的部分</h2>
+  <p class="sub">对照时容易误判，先划清楚。</p>
+  <div class="two">
+    <div class="fig">
+      <div class="fig-t">模型结构本身，一个数都没改</div>
+      <ul class="plain">
+        <li><b>40 层 / 40 Q 头 / 8 KV 头 / head_dim 128</b>，hidden 5120，intermediate 17408 —— 与 Qwen3-14B 完全一致</li>
+        <li><b>GQA 比例 5:1</b>、causal 掩码、RoPE 的 lo/hi 半维旋转方式，都是标准的</li>
+        <li><b>Qwen3 特有的 per-head QK-Norm</b> 保留（这正是 Qwen3 区别于 Qwen2 的地方）</li>
+        <li><b>两处残差、两处 RMSNorm</b> 的拓扑没变，只是被切碎重新分配到不同 task</li>
+        <li>权重张量的形状与语义一致，只是按 <code>layer_idx</code> 做了堆叠切片</li>
+      </ul>
+    </div>
+    <div class="fig">
+      <div class="fig-t">不在这个文件里的部分</div>
+      <ul class="plain">
+        <li><b>Embedding 查表</b> —— 外部传入 BF16 <code>hidden_states [16, 5120]</code></li>
+        <li><b>采样 / argmax</b> —— 内核出 <code>[16, 151936]</code> FP32 logits，host 侧再采样</li>
+        <li><b>Prefill</b> —— 有一个配对的 prefill 内核在别处；两者共用同一个分页 KV 池，页大小 128</li>
+        <li><code>final_norm + lm_head</code> 由 <code>rms_lm_head</code> 提供，只在 <code>decode_fwd</code>（整网入口）里接上</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  对照对象：<code>Design/Toolkit Studio/decode_layer.py</code>（1767 行）中的 <code>_decode_layer</code>（第 304 行）、
+  <code>decode_fwd</code>（第 1112 行）、<code>decode_fwd_layers</code>（第 1224 行）。<br>
+  task 实例数按 <code>BATCH=16 · MAX_SEQ=4096 · NUM_CORES=24</code> 的默认配置推算；spmd 项标注的是 grid 宽度而非声明数。<br>
+  文件头注明：此版本因 <code>fa_work_build</code> 中数据依赖的标量索引触发 PTO codegen 限制（<code>index vs i64</code>）而<b>无法在当前工具链编译</b>，
+  可编译的 affine 退化版在 <code>qwen3_manual_scope_fused_kvsplit_static.py</code>。
+</footer>
+
+</div>
+</body>
+</html>

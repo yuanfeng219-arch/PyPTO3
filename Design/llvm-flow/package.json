@@ -1,0 +1,13 @@
+{
+  "name": "llvmcfg-local-workbench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Canonical LLVM CFG static application; no frontend rebuild required",
+  "scripts": {
+    "start": "rtk python3 -m http.server 8790 --bind 127.0.0.1",
+    "check": "rtk node docs/evidence/check-ui-contract.cjs",
+    "test": "rtk node docs/evidence/check-ui-contract.cjs",
+    "verify:migration": "rtk node docs/evidence/check-asset-migration.cjs"
+  },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTO Pattern - AIV Core Object</title>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const applyTheme = (theme) => {
+        if (theme === 'light' || theme === 'dark' || theme === 'glass') {
+          document.documentElement.dataset.theme = theme;
+        }
+      };
+      if (params.has('embed')) {
+        document.documentElement.dataset.embedPreview = 'true';
+      }
+      applyTheme(params.get('theme'));
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'pto-preview-theme') {
+          applyTheme(event.data.theme);
+        }
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="./pattern.css?v=aiv-variants-v1">
+</head>
+<body class="pto-aiv-core-pattern-page">
+  <main class="pto-aiv-core-pattern-main">
+    <h1 class="pto-aiv-core-pattern-title">AIV Core Object</h1>
+    <p class="pto-aiv-core-pattern-subtitle">
+      Design-driven AIV internal object pattern with separate 910B and 950B presets. 910B uses the simplified
+      Scalar + UB + Vector topology; 950B keeps the full DCache, ICache, ND-DMA Cache, SIMT, SIMD, and Vector topology.
+    </p>
+    <div class="pto-aiv-core-pattern-meta">
+      <span class="pto-aiv-core-pattern-badge">pattern id: aiv-core-object</span>
+      <span class="pto-aiv-core-pattern-badge">presets: ascend910b / ascend950b</span>
+      <span class="pto-aiv-core-pattern-badge">contract: config-driven DOM + JS grid + SVG routes</span>
+    </div>
+    <section class="pto-aiv-core-pattern-stage pto-aiv-core-pattern-variants">
+      <article class="pto-aiv-core-pattern-variant">
+        <h2 class="pto-aiv-core-pattern-variant-title">Ascend 910B AIV</h2>
+        <div id="pattern-aiv-core-stage-910"></div>
+      </article>
+      <article class="pto-aiv-core-pattern-variant">
+        <h2 class="pto-aiv-core-pattern-variant-title">Ascend 950B AIV</h2>
+        <div id="pattern-aiv-core-stage-950"></div>
+      </article>
+    </section>
+  </main>
+
+  <script src="./pattern.js?v=aiv-variants-v1"></script>
+  <script>
+    (function renderAivCorePattern() {
+      const helper = window.PtoAivCorePattern;
+      const mount910 = document.getElementById('pattern-aiv-core-stage-910');
+      const mount950 = document.getElementById('pattern-aiv-core-stage-950');
+      if (!helper || !mount910 || !mount950) return;
+      const isEmbedPreview = document.documentElement.dataset.embedPreview === 'true';
+
+      const embedRootNode = document.querySelector('.pto-aiv-core') || document.querySelector('.pto-aiv-core-pattern-main') || document.body;
+      let lastReportedHeight = 0;
+      const syncFrameHeight = () => {
+        if (!isEmbedPreview || window.parent === window) return;
+        const nextHeight = Math.ceil(Math.max(
+          embedRootNode.scrollHeight,
+          embedRootNode.getBoundingClientRect().height
+        ));
+        if (nextHeight > 0) {
+          const resolvedHeight = nextHeight + 4;
+          if (Math.abs(resolvedHeight - lastReportedHeight) <= 1) return;
+          lastReportedHeight = resolvedHeight;
+          if (window.frameElement) {
+            window.frameElement.style.height = `${resolvedHeight}px`;
+          }
+          window.parent.postMessage({
+            type: 'pto-pattern-preview-height',
+            pathname: window.location.pathname,
+            height: resolvedHeight,
+          }, '*');
+        }
+      };
+
+      helper.render(mount910, 'ascend910b');
+      helper.setBufferBlocks?.(mount910, [
+        { buffer: 'UB', label: 'xLocal', state: 'enqueued', tone: 'input', cellRange: [0, 15], sourceTile: 'x[block0,:]' },
+      ]);
+
+      helper.render(mount950, 'ascend950b');
+      helper.setBufferBlocks?.(mount950, [
+        { buffer: 'UB', label: 'xLocal', state: 'enqueued', tone: 'input', cellRange: [0, 15], sourceTile: 'x[block0,progress0,:]' },
+        { buffer: 'UB', label: 'zLocal', state: 'committed', tone: 'output', cellRange: [38, 53], sourceTile: 'z[block0,progress0,:]' },
+      ]);
+
+      if (isEmbedPreview && 'ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(() => syncFrameHeight());
+        resizeObserver.observe(embedRootNode);
+      }
+
+      window.requestAnimationFrame(syncFrameHeight);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(syncFrameHeight));
+      window.setTimeout(syncFrameHeight, 120);
+      window.setTimeout(syncFrameHeight, 260);
+    })();
+  </script>
+</body>
+</html>

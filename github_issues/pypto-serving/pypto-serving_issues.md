@@ -1,0 +1,6225 @@
+﻿# Issues for hw-native-sys/pypto-serving
+
+Downloaded: 2026-08-17T19:39:43.5522024+08:00
+Total issues: 39
+
+## #5 Add basic serving support for PYPTO
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/5
+- Created: 2026-05-19T03:27:20Z
+- Updated: 2026-05-26T02:10:25Z
+- Closed: 2026-05-26T02:10:25Z
+
+### Body
+
+# PyPTO Serving End-to-End Flow Description
+
+---
+
+## 1. Design Goals and Process Model
+
+### 1.1 Goals
+
+- Provide HTTP APIs similar to the **OpenAI API style** (`/v1/completions`, `/v1/chat/completions`, etc.).
+- The main process handles **scheduling, batch decision-making, and HTTP**, while worker subprocesses exclusively own **NPU + model forward pass**, avoiding cross-process large Tensor transfers and device thread affinity issues.
+- Support **continuous batching**, **chunked prefill**, **prefix caching**, and **preemption**.
+
+### 1.2 Dual-Process Architecture (default NPU path)
+
+| Role | Responsibilities |
+|------|-----------------|
+| **Main Process** | FastAPI service, `AsyncLLMEngine`, `Scheduler`, `BlockPool`, Tokenizer (vocabulary encoding/decoding only), communicates with Worker via queues |
+| **Worker Subprocess** | `WorkerProcess`: loads model and executor, `KvCacheManager`, Prefill/Decode kernels, `Sampler` |
+
+Queue direction:
+
+```text
+Main Process --[input_queue: WorkerCommand]--> Worker
+Worker --[output_queue: StepOutput]--> Main Process
+```
+
+### 1.3 Sequence Diagrams (Mermaid)
+
+#### Diagram A: Uvicorn startup/shutdown and collaboration with Engine and Worker
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UV as Uvicorn
+    participant APP as FastAPI
+    participant ENG as AsyncLLMEngine (Main Process)
+    participant WK as Worker Subprocess
+
+    rect rgb(245, 250, 255)
+        Note over UV,WK: Startup (lifespan)
+        UV->>APP: lifespan startup
+        APP->>ENG: await start()
+        ENG->>WK: spawn_worker / Process.start
+        WK->>WK: init_device_and_model()
+        WK-->>ENG: ready_event.set()
+        ENG->>ENG: create_task(_engine_loop)
+        ENG-->>APP: start returns
+        APP-->>UV: startup complete
+    end
+
+    rect rgb(255, 250, 245)
+        Note over UV,WK: Shutdown (lifespan)
+        UV->>APP: lifespan shutdown
+        APP->>ENG: await stop()
+        ENG->>ENG: _running=False, await _loop_task
+        ENG->>WK: WorkerCommand(shutdown)
+        WK->>WK: busy_loop exits
+        ENG->>WK: join / terminate
+        ENG-->>APP: stop returns
+    end
+```
+
+#### Diagram B: Concurrent relationship of one HTTP generation and "schedule → Worker → enqueue response"
+
+In a single request, the **routing coroutine** awaits `ctx.queue.get()` in `add_request`; the **`_engine_loop`** coroutine runs independently, handling `schedule`, exchanging one step of results with the Worker, and writing `TokenOutput` to that request's `ctx.queue`. Both share `AsyncLLMEngine` and `Scheduler`, with asyncio interleaving execution.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant S as ServingServer
+    participant E as AsyncLLMEngine
+    participant W as Worker Subprocess
+
+    C->>S: POST /v1/completions (or chat)
+    S->>E: add_request (encode, scheduler.add_request)
+
+    loop until TokenOutput.finished
+        par Coroutine handling this HTTP
+            E->>E: await ctx.queue.get (suspended until output)
+        and Background _engine_loop
+            E->>E: scheduler.schedule()
+            E->>W: WorkerCommand(step) + input_queue
+            W->>W: free completed req (if any) / prefill / decode / sample
+            W-->>E: StepOutput → output_queue
+            E->>E: update_from_output, decode, stop detection
+            E->>E: ctx.queue.put_nowait(TokenOutput)
+        end
+        E-->>S: yield TokenOutput
+        S-->>C: JSON or SSE data frame
+    end
+```
+
+#### Diagram C: Difference between non-streaming and streaming on the ServingServer side (engine side is the same)
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as ServingServer
+    participant E as AsyncLLMEngine
+
+    alt stream=false
+        C->>S: POST ... stream=false
+        loop async for until finished
+            S->>E: add_request
+            E-->>S: TokenOutput
+        end
+        S->>C: Single JSON (full text + finish_reason)
+    else stream=true
+        C->>S: POST ... stream=true
+        S->>C: StreamingResponse starts
+        loop async for until finished
+            S->>E: add_request
+            E-->>S: TokenOutput
+            S->>C: SSE: delta = incremental text relative to previous frame
+        end
+        S->>C: data: [DONE]
+    end
+```
+
+---
+
+## 2. Startup Phase (from command line to listening port)
+
+### Step 1: Parse CLI
+
+Entry point: `llm/cli/main.py` `build_parser()` defines `pypto-serving`.
+
+- Must specify **exactly one** mode: `--prompt`, `--interactive`, or **`--serve`** (mutually exclusive).
+- Serving-related parameters include: `--config`, `--host`, `--port`, `--max-num-running-reqs`, `--max-num-scheduled-tokens`, `--long-prefill-token-threshold`, etc.
+
+### Step 2: Load JSON config `load_serving_config`
+
+- Reads sections like `model`, `runtime`, `generation`, `npu`, constructs CLI-side `ServingConfig` (different name from `async_engine.ServingConfig`, do not confuse).
+- **Note**: When using `--serve`, the main process does **not** call `create_engine` / `init_engine` to load the full model weights locally (see `main()` branch), to reduce main process burden and avoid duplicate GPU usage with Worker.
+
+### Step 3: `run_serve()` assembles async engine
+
+1. **Tokenizer**: Main process uses `TransformersTokenizerAdapter.from_pretrained(model_dir)` to load only the tokenizer, for `encode` / `decode`.
+2. **`WorkerConfig`**: Write `model_id`, `model_dir`, `platform`, `device_id`, `runtime_config`, `executor_cls` (NPU is `PyptoQwen14BExecutor`, CPU is `ModelExecutor`), `executor_kwargs` (such as `l3_mode`, etc.).
+3. **`AsyncServingConfig`** (`ServingConfig` in `llm/core/async_engine.py`): Maps CLI concurrency and scheduling limits, for example:
+   - `max_num_running_reqs`: Upper limit for concurrent running requests;
+   - `max_num_scheduled_tokens`: Maximum token budget per `schedule()` call (dynamic batch size upper bound);
+   - `long_prefill_token_threshold`: Maximum tokens for a single prefill of long prompts (chunked prefill);
+   - `max_seq_len`, `block_size` (usually consistent with `runtime.page_size`).
+4. Construct **`AsyncLLMEngine`**, and **`create_serving_app(async_engine, model_id)`** to get FastAPI `app`.
+
+### Step 4: FastAPI lifecycle hooks
+
+- **`startup`**: `await async_engine.start()`
+  - If not `in_process`: `spawn_worker()` starts subprocess, inside subprocess `_worker_entry` → `init_device_and_model()` → `ready_event.set()` → `busy_loop()`; main process `await asyncio.to_thread(ready_event.wait, timeout=600)` waits for model readiness.
+  - Then `asyncio.create_task(self._engine_loop())` starts engine main loop.
+- **`shutdown`**: `await async_engine.stop()`: stops loop, sends `shutdown` command, joins/terminates subprocess.
+
+### Step 5: `uvicorn.run`
+
+Binds `--host` / `--port`, starts accepting HTTP requests.
+
+---
+
+## 3. HTTP Request Handling (OpenAI-style API)
+
+Implementation: `ServingServer` in `llm/core/server.py`.
+
+### Step 1: Routes and model metadata
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/health` | Health check |
+| GET | `/v1/models` | Returns current `model_id` |
+| POST | `/v1/completions` | Text completion |
+| POST | `/v1/chat/completions` | Chat completion (assembles prompt first) |
+
+### Step 2: Chat template `_apply_chat_template`
+
+Current implementation is a **simple placeholder template** (`<|system|>` / `<|user|>` / `<|assistant|>` concatenation), **not** HuggingFace `tokenizer.apply_chat_template`. Production environments can replace with model-consistent template.
+
+### Step 3: Construct `GenerateConfig`
+
+Maps HTTP fields to `GenerateConfig`: `max_new_tokens` ← `max_tokens`, `temperature`, `top_p`, `top_k`, `stop`, `stream`.
+
+### Step 4: Non-streaming response
+
+- **`async for`** on `self.engine.add_request(request_id, prompt, config)`, accumulates the last non-empty `output.text` as full text, at the end takes `finish_reason` and maps to OpenAI style (`_map_finish_reason`).
+- Returns JSON.
+
+### Step 5: Streaming response (SSE)
+
+- Returns `StreamingResponse`, `media_type="text/event-stream"`.
+- Each time a `TokenOutput` is received from the engine, uses **incremental delta relative to previous frame** `delta = output.text[len(prev_text):]` as chunk content (avoids re-sending entire text).
+- At the end, sends `data: [DONE]\n\n`.
+
+---
+
+## 4. Single request enters engine: `AsyncLLMEngine.add_request`
+
+Implementation: `llm/core/async_engine.py`.
+
+1. **Generate `request_id`**: Passed from routing layer (e.g., `cmpl-xxxx` / `chatcmpl-xxxx`).
+2. **Tokenization**: `prompt_token_ids = tokenizer.encode(prompt)`; if empty and `bos_token_id` is configured, insert BOS; still empty then error.
+3. **Construct `Request`**: Write `max_new_tokens`, `stop_strings`, `eos_token_id`, sampling parameters, etc.
+4. **Register context**: `_RequestContext(request, asyncio.Queue)` stored in `_request_contexts[request_id]`.
+5. **`scheduler.add_request(request)`**: Request enters waiting queue and participates in subsequent continuous batch scheduling.
+6. **Async consumption**: `while True: output = await ctx.queue.get(); yield output; if output.finished: break`.
+7. **`finally`**: Remove from `_request_contexts` (request ends or generator exits with exception).
+
+---
+
+## 5. Engine main loop: `_engine_loop` (each iteration)
+
+Main process loops while `_running` is true.
+
+### Step 1: Idle wait
+
+- If `not scheduler.has_work()`: `await asyncio.sleep(engine_loop_interval)` (default ~1ms), avoids busy-spinning on CPU.
+
+### Step 2: Schedule `scheduler.schedule()`
+
+- If `scheduler_output.is_empty`: also briefly sleep.
+- Otherwise, gets list of **`ScheduledRequest`** to execute this step (may mix prefill and decode) and token statistics.
+
+### Step 3: Send Worker command
+
+- Packs **`finished_request_ids`** (`_pending_free_ids`) from previous step with current **`scheduler_output`** into:
+
+  `WorkerCommand(type="step", scheduler_output=..., finished_request_ids=...)`
+
+- `input_queue.put(...)`.
+
+### Step 4: Blocking wait for Worker result
+
+- `step_output = await asyncio.to_thread(output_queue.get, timeout=300)`
+  Uses thread wait for multiprocessing queue in async context to avoid blocking event loop for too long while still waiting for NPU step completion.
+
+### Step 5: Error handling
+
+- If `step_output.error`: logs, `_handle_step_error` calls `abort_request` for this batch and pushes `finished=True, finish_reason="error"` to each `ctx.queue`.
+
+### Step 6: Process normal results `_process_step_output`
+
+See next section.
+
+---
+
+## 6. Scheduler `Scheduler.schedule()` two phases (dynamic batching)
+
+Implementation: `llm/core/scheduler.py`.
+
+**Global constraint**: `token_budget = max_num_scheduled_tokens`.
+
+### Phase A: Requests already in `running` (decode or chunked prefill continuation)
+
+For each `running` request:
+
+1. Calculate `num_new_tokens` needed this step (limited by `long_prefill_token_threshold` and remaining `token_budget`).
+2. Calculate **`_blocks_needed`** based on `block_pool`, attempt **`_try_allocate_blocks`**.
+3. If blocks insufficient: attempt **`_preempt_lowest_priority`** (preempts requests with latest arrival time first, resets to `PREEMPTED` and returns to front of `waiting` queue), then retry allocation.
+4. On success, append `ScheduledRequest(request, num_new_tokens, is_prefill=request.is_prefill)`, and deduct `token_budget`.
+
+### Phase B: New requests in `waiting` queue (new prefill)
+
+When `token_budget` still has capacity and `len(running) < max_num_running_reqs`:
+
+1. Take request from left side of `waiting`.
+2. **Prefix caching**: If `block_pool.get_computed_blocks(prompt)` hits, set `cached_block_ids` and `num_computed_tokens` (skips length corresponding to cached prefix blocks).
+3. Also subject to chunk threshold and block allocation constraints; on success, move to `running` and add to `scheduled_requests` this step.
+
+**Key point**: Single-step `SchedulerOutput` can contain **multiple requests' prefill fragments + multiple decodes**, implementing **continuous batching**; long prefill split across multiple steps is **chunked prefill**.
+
+---
+
+## 7. Worker-side step execution: `WorkerProcess.busy_loop` / `_execute_step`
+
+Implementation: `llm/core/worker.py`.
+
+### Step 1: Process command
+
+- `shutdown`: exits loop.
+- `step`: If `finished_request_ids` present, first **`free_allocation`** (releases pages for that request in `KvCacheManager`).
+
+### Step 2: Split prefill / decode
+
+- `prefill_requests`: where `sr.is_prefill` is true.
+- `decode_requests`: otherwise.
+
+### Step 3: Execute inside `executor.session()`
+
+1. **If prefill present**: `_batch_prefill`
+   - Batch tensors, lookup embedding, `executor.run_prefill`; for requests **whose entire prompt was just computed this step**, sample the first generated token from the prefill's last layer logits and write to `new_tokens[request_id]`.
+2. **If decode present**: `_batch_decode`
+   - Take last token from previous step (or prompt's last token), expand KV slot, `executor.run_decode`, sample for each sequence's logits and write to `new_tokens`.
+
+### Step 4: Return `StepOutput`
+
+- `StepOutput(new_tokens={req_id: token_id, ...})`; if exception, `error` field is non-empty.
+
+---
+
+## 8. Scheduler state update and external push: `update_from_output` + `_process_step_output`
+
+### Step 1: `scheduler.update_from_output(scheduler_output, step_output.new_tokens)`
+
+- For each `ScheduledRequest` this step: increment `num_computed_tokens += num_new_tokens`, and **`_cache_completed_blocks`** updates prefix cache metadata.
+- **Prefill incomplete**: no new token output (continue).
+- **Prefill complete or decode**: take token from `new_token_ids`, append to `request.output_token_ids`, and produce `RequestOutput`.
+- Then **`_check_finish`**: EOS, `max_new_tokens` limit reached marks `FINISHED_EOS` / `FINISHED_LENGTH`, remove from `running` and **`_free_request_blocks`**.
+
+### Step 2: Main process `_process_step_output`
+
+1. Use **`tokenizer.decode(request.output_token_ids)`** again to get current **complete generated text** (used for HTTP layer full or delta computation).
+2. **`stop_strings`**: Scheduler doesn't handle string stops; if decoded text ends with some `stop`, force end, `FINISHED_STOP`, release blocks, remove from `running` (synchronized with scheduler internal list).
+3. If this step determines **request ended**: `request_id` added to **`_pending_free_ids`**, and in the **next step** Worker command, notify subprocess **`free_allocation`** (avoids conflict with this step's KV usage).
+4. Construct **`TokenOutput`** (`token_id`, full `text`, `finished`, `finish_reason`), **`ctx.queue.put_nowait`**, wakes `await ctx.queue.get()` in `add_request`.
+
+---
+
+## 9. End to cleanup
+
+- **Normal end**: Streaming/non-streaming client reads generator to completion; `add_request`'s `finally` removes `_request_contexts` entry.
+- **`abort_request`**: Scheduler aborts + pushes `FINISHED_ABORTED` to queue.
+- **Process exit**: `stop()` sends shutdown, Worker exits, `join`/`terminate`.
+
+---
+
+## 10. In-process mode in tests and benchmarks
+
+`AsyncLLMEngine(..., in_process=True)` uses **threads + `queue.Queue`** to run `WorkerProcess` in the same process, convenient for no-NPU or unit tests; logic is consistent with multiprocess path, only queue and startup method differ.
+
+---
+
+## 11. Key Configuration Reference
+
+| Config item (Async ServingConfig) | Meaning |
+|-----------------------------------|---------|
+| `max_num_running_reqs` | Upper limit of concurrent running requests |
+| `max_num_scheduled_tokens` | Per-scheduling-round token total budget (batch size) |
+| `long_prefill_token_threshold` | Max tokens per single prefill (chunk size) |
+| `max_seq_len` | Sequence length upper limit (related to block count estimation) |
+| `block_size` | Aligned with KV page / `BlockPool` block size, usually equals `runtime.page_size` |
+| `engine_loop_interval` | Main loop sleep interval when idle |
+
+---
+
+## 12. Source Code Index (for reference reading)
+
+| Module | Path |
+|--------|------|
+| CLI entry and `run_serve` | `python/cli/main.py` |
+| Async engine and engine loop | `python/core/async_engine.py` |
+| HTTP and SSE | `python/core/server.py` |
+| Scheduling and preemption | `python/core/scheduler.py` |
+| Worker and subprocess entry | `python/core/worker.py` |
+| Queue message structures | `python/core/types.py` (`WorkerCommand`, `StepOutput`) |
+| E2E tests | `tests/test_serving_e2e.py` |
+| Performance test script | `tests/bench_serving.py` |
+
+---
+
+## 13. Dependencies
+
+- Serving mode requires **`fastapi`, `uvicorn`, `pydantic`**; streaming depends on SSE response format consistency (code directly writes `data: ...` lines).
+- If dependencies are missing, `server.py` / `run_serve` throws clear hints at import time.
+
+The above is a complete step-by-step description from **startup → HTTP → enqueue scheduling → Worker execution → return decode → SSE/JSON response**, which can be cross-referenced with source code section by section.
+
+---
+
+## #7 pypto-serving vs vLLM feature support comparison
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/7
+- Created: 2026-05-19T07:32:56Z
+- Updated: 2026-05-25T02:32:25Z
+- Closed: 
+
+### Body
+
+# pypto-serving vs vLLM Feature Comparison
+
+## Overview
+
+This document compares the current implementation of pypto-serving with vLLM's serving features, and annotates Ascend NPU support status for each feature (confirmed based on vllm-ascend repository).
+
+**Legend:**
+- pypto column: Supported / Not Supported
+- Ascend column: Supported / Experimental / Not Supported / N/A
+
+---
+
+## 1. Implemented Features (current pypto-serving capabilities)
+
+| Feature | Description |
+|---------|-------------|
+| Continuous Batching | Dynamically add/remove requests each iteration |
+| Chunked Prefill | Split long prompts into chunks to avoid starving decode requests |
+| Paged KV Cache (Paged Attention) | Physical page management with block table mapping |
+| Prefix Caching | Hash-based block reuse + LRU eviction |
+| Preemption | Preempt low-priority requests when blocks are insufficient |
+| SSE Streaming | Token-by-token streaming response |
+| OpenAI-Compatible API | /v1/completions, /v1/chat/completions, /v1/models, /health |
+| Multi-process Worker | Spawn subprocess to isolate NPU device |
+| Sampling Strategies | Greedy, temperature, top-k, top-p |
+
+Note: Chunked Prefill and Prefix Caching are not fully complete yet — implementation is in progress.
+
+---
+
+## 2. Feature Comparison (pending support)
+
+### 2.1 API Layer
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| Embeddings API (`/v1/embeddings`) | Yes | Experimental | Medium | Vectorization model inference interface |
+| Tokenize/Detokenize API | Yes | Yes | Low | Standalone tokenization interface for debugging |
+| Batch API (offline batch processing) | Yes | Yes | Medium | JSONL batch request handling |
+| Model Management API (LoRA load/unload) | Yes | Experimental | Low | Runtime dynamic adapter loading |
+| Metrics (Prometheus) | Yes | Yes | High | Production observability essentials |
+| Token Usage Statistics | Yes | Yes | High | Return prompt_tokens/completion_tokens |
+
+### 2.2 Scheduling and Memory Management
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| Priority Queue | Yes | Yes | Medium | Priority-based request ordering, VIP request support |
+| Async Scheduler | Yes | Yes | Medium | Scheduling and execution overlap, reduces GPU idle time |
+| KV Cache Quantization (FP8/INT8) | Yes | Yes (C8) | High | Reduce KV cache VRAM usage, increase throughput |
+| KV Cache CPU Offload | Yes | Not Supported | Low | Offload cold KV blocks to CPU memory |
+| Sliding Window Attention | Yes | Yes | Medium | Window attention for long-context models |
+| Parallel Sampling (n>1) | Yes | Yes | Low | Generate multiple candidates for single request |
+
+### 2.3 Parallelism and Distribution
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| Tensor Parallelism | Yes | Yes | High | Single-node multi-GPU model sharding, essential for large models |
+| Pipeline Parallelism | Yes | Yes | Medium | Cross-node layer-wise deployment |
+| Data Parallelism | Yes | Yes | Medium | Multi-replica load balancing |
+| Expert Parallelism | Yes | Yes | Medium | MoE model expert sharding |
+| Prefill-Decode Disaggregation | Yes | Yes | Low | Separate prefill and decode across different nodes |
+
+### 2.4 Speculative Decoding
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| Draft Model | Yes | Yes | High | Small draft model + large model verification, accelerate decode |
+| EAGLE/EAGLE3 | Yes | Yes | High | Tree-based speculation using hidden states |
+| Medusa | Yes | Yes | Medium | Multi-head speculative decoding |
+| N-gram Proposer | Yes | Yes | Medium | N-gram matching based on prompt |
+| MTP (Multi-Token Prediction) | Yes | Yes | High | Multi-token prediction for DeepSeek/Qwen3 models |
+
+### 2.5 Model Capability Enhancements
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| LoRA Multi-adapter Serving | Yes | Experimental | Medium | Load multiple LoRAs simultaneously, switch per request |
+| Quantized Inference (W8A8/W4A16 etc.) | Yes | Yes | High | Weight quantization reduces VRAM, improves throughput |
+| Multimodal (Image/Video/Audio) | Yes | Yes | Medium | VL/Audio model inference support |
+| Structured Output (Guided Decoding) | Yes | Yes | High | JSON Schema/regex constrained generation |
+| Tool Calling | Yes | Yes | Medium | Function call parsing and streaming output |
+| Reasoning/Thinking Models | Yes | Yes | Medium | DeepSeek-R1/Qwen3 thinking chain parsing |
+| Beam Search | Yes | Experimental | Low | Beam search decoding |
+
+### 2.6 Production Features
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| Request Cancellation | Yes | Yes | High | Release resources when client disconnects |
+| Auth Middleware (Bearer Token) | Yes | Yes | Medium | API authentication |
+| SSL/TLS | Yes | Yes | Medium | HTTPS encrypted transmission |
+| Prometheus Metrics | Yes | Yes | High | Latency/throughput/queue depth metrics |
+| OpenTelemetry Tracing | Yes | Yes | Low | Distributed链路追踪 |
+| Logprobs Return | Yes | Yes | High | Return log probabilities of tokens |
+| Stop Sequences | Yes | Yes | High | Custom stop conditions (partially supported) |
+| Frequency/Presence Penalty | Yes | Yes | Medium | Repetition penalty parameters |
+| Graceful Shutdown | Yes | Yes | Medium | Shutdown after processing in-flight requests |
+| Sleep/Wake (VRAM Release) | Yes | Yes | Low | Release VRAM for serverless scenarios |
+
+### 2.7 Performance Optimization
+
+| Feature | vLLM | Ascend | Priority | Description |
+|---------|------|--------|----------|-------------|
+| CUDA Graph / ACL Graph | Yes | Yes | High | Graph mode reduces kernel launch overhead |
+| torch.compile | Yes | Not Supported | N/A | Ascend uses ACL Graph instead |
+| Dual Batch Overlap (DBO) | Yes | Not Supported | N/A | Compute-communication overlap (not aligned on Ascend) |
+
+---
+
+## 3. Recommended Priority Ordering
+
+### P0 — Production-ready Basics (Recommended First)
+
+1. **Tensor Parallelism (TP)** — Foundation for multi-GPU deployment of 14B+ models
+2. **Prometheus Metrics** — Essential for production monitoring (TTFT, throughput, queue depth, KV cache utilization)
+3. **Request Cancellation** — Release compute and VRAM resources promptly on client disconnect
+4. **Token Usage Statistics** — Foundation for API billing and usage tracking
+5. **Logprobs Return** — Commonly used by downstream applications (reranking, evaluation)
+6. **Structured Output** — Essential for Agent/tool-calling scenarios (JSON Schema constraints)
+
+### P1 — Performance and Efficiency
+
+7. **Speculative Decoding (EAGLE/MTP)** — 2-3x decode acceleration, Ascend already supported
+8. **KV Cache Quantization (INT8)** — Increase batch size / sequence length with same VRAM
+9. **Weight Quantized Inference (W8A8)** — Reduce VRAM usage, improve compute throughput
+10. **ACL Graph Mode** — Reduce kernel launch overhead, improve small batch performance
+11. **Async Scheduler** — Overlap scheduling and execution, reduce NPU idle time
+
+### P2 — Feature Completeness
+
+12. **Priority Queue** — Differentiate request priorities
+13. **Multimodal Support** — VL model inference
+14. **LoRA Multi-adapter** — Multi-tenant scenarios
+15. **Tool Calling** — Agent applications
+16. **Reasoning Model Support** — Thinking chain parsing
+17. **Pipeline Parallelism** — Cross-node deployment for very large models
+18. **Frequency/Presence Penalty** — Complete sampling parameters
+
+### P3 — Long-term Evolution
+
+19. **Data Parallelism / Load Balancing** — Multi-replica horizontal scaling
+20. **Prefill-Decode Disaggregation** — Large-scale deployment optimization
+21. **Beam Search** — Specific scenario requirements
+22. **Sleep/Wake** — Serverless elasticity
+23. **Embeddings API** — Vectorization serving
+
+---
+
+## 4. Summary
+
+pypto-serving has implemented the core LLM serving pipeline (continuous batching + paged KV cache + prefix caching + streaming output + OpenAI API), which is a usable foundation. The main gaps compared to vLLM are:
+
+1. **Distributed Capabilities**: Lack of tensor parallelism limits large model deployment
+2. **Inference Acceleration**: Lack of speculative decoding and graph-mode optimization
+3. **Production-readiness**: Lack of monitoring metrics, request cancellation, usage statistics, and other operational essentials
+4. **Model Capabilities**: Lack of structured output, quantized inference, multimodal and other extended capabilities
+
+Most of the above features have been validated by vllm-ascend on the Ascend platform, confirming technical feasibility. It is recommended to fill these gaps progressively in the order P0 → P1 → P2 → P3.
+
+---
+
+## #11 [Feature] Track KV cache block management unification
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/11
+- Created: 2026-05-26T02:33:21Z
+- Updated: 2026-05-28T12:35:21Z
+- Closed: 2026-05-28T12:35:21Z
+
+### Body
+
+### Feature Summary
+
+Track the KV cache block management refactor proposed in PR #10.
+
+This change unifies the standalone block pool ownership into `KvCacheManager`, decouples the serving worker from `LLMEngine` and `KvCacheManager`, and moves KV cache tensor creation into `ModelRunner`.
+
+### Target Area
+
+Scheduler / KV cache / runtime block management / Worker architecture.
+
+### Motivation
+
+The previous serving-v2 implementation split physical block ownership between `BlockPool` and `KvCacheManager`. The worker held `LLMEngine` solely for a single `init_model()` call, and held `KvCacheManager` only for pure block table / slot mapping computation. These unnecessary couplings made scheduler changes and multi-card scaling harder to pursue.
+
+Following the vLLM v1 architecture: the worker does not hold an engine or kv_cache_manager; KV cache tensors are created inside ModelRunner; the scheduler only sends block IDs, and the worker constructs block tables and slot mappings on its own.
+
+### Proposed Behavior (Completed)
+
+- [x] Remove the standalone `python/core/block_pool.py` module
+- [x] Move block metadata, free queue, ref counts, and prefix-cache hash lookup into `KvCacheManager`
+- [x] Update `AsyncLLMEngine` and `Scheduler` to use `KvCacheManager` as the single block/page manager
+- [x] Remove `self.engine` from worker: inline ModelLoader.load() + executor.register_model()
+- [x] Remove `self.kv_cache_manager` from worker: extract block table / slot mapping as module-level utility functions
+- [x] Move KV cache tensor creation into `ModelRunner` (init_kv_cache / materialize_*_cache)
+- [x] Make `ModelExecutor` kv_cache_manager parameter optional
+- [x] Make `PrefillBatch` / `DecodeBatch` kv_allocations optional
+- [x] Delegate `KvCacheManager` methods to module-level functions, eliminating duplicate logic
+- [x] Sync path (LLMEngine generate/generate_batch) remains unchanged
+- [x] All 18 tests passing
+
+### Related PR
+
+- #10
+
+---
+
+## #13 [Discussion] Serving as a mixture of Platform + Model Support Submodules
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/13
+- Created: 2026-05-26T13:13:42Z
+- Updated: 2026-06-08T12:57:40Z
+- Closed: 
+
+### Body
+
+### Summary
+
+This is an opinion I brought to a discussion in VNL and Jiawei told me to explain it as an issue here. My point is:
+
+A serving module should be roughly comprised of two submodules:
+
+- Platform: This is in charge of ramping up the distributed system (.e.g., requesting new nodes to a cloud service and replicating itself onto them), establishing the initial control communication channels, setting up replication and fault-tolerance mechanisms (e.g., heartbeat), and launching the main model controller. 
+
+- Model Support: It provides the structures necessary for any online (LLM) service. This includes user/session management, distributed kv-cache management and eviction policy, resource and prioritization usage policy (i.e., is it a paid or free user?). 
+
+The platform submodule takes ownership immediately upon launch and relinquishes it to the model support submodule once initialization is ready. The platform submodule then waits passively for requests from the model support module, such as:
+
+- Ramping up/down computational resources based on demand
+- Creation/deletion of data channels between nodes
+-  Setting up services (e.g., periodic execution of functions: e.g., is user connected], and resource ramp up/down based on demand).
+
+We (SW group at VNL) have worked extensively on the platform aspect during our work with [hLLM](https://github.com/Algebraic-Programming/hLLM/), providing some of these functions for MPI or cloud (simulated) environments. We will look into bringing these to pypto-serving, having in mind these should target the Lingqu infrastructure.
+
+### Area
+
+Serving API
+
+### Motivation / Use Case
+
+Simply discussion early design of pypto-serving
+
+### Proposed API / Behavior
+
+N/A
+
+### Alternatives Considered
+
+N/A
+
+### Additional Context
+
+N/A
+
+---
+
+## #16 [Bug] NPU-Memory-Aware KV Cache Auto-Sizing
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/16
+- Created: 2026-05-29T04:11:37Z
+- Updated: 2026-05-29T04:11:37Z
+- Closed: 
+
+### Body
+
+### Diagnosis
+
+_No response_
+
+### Description
+
+Problem
+
+num_pages = max_batch_size * ceil(max_seq_len / page_size) — static, ignores device memory → OOM or waste.
+
+NPU Constraint
+
+Kernel stride has num_pages baked in at compile time. Can't reduce freely. Solution: derive effective max_batch_size from
+memory, keep num_pages = effective_batch * max_blocks_per_seq.
+
+Priority
+
+1. total_kv_pages set         → use it (skip auto-sizing)
+2. gpu_memory_utilization > 0 → auto-size from device memory
+3. gpu_memory_utilization = 0 → static formula (unchanged)
+
+Algorithm
+
+snapshot = torch.npu.mem_get_info()
+budget = total * gpu_memory_utilization
+available = (budget - allocated) * 0.95
+effective_batch = available // (max_blocks_per_seq * bytes_per_page)
+effective_batch = clamp(1, effective_batch, user_max_batch)
+num_pages = effective_batch * max_blocks_per_seq
+
+Interactive Flow
+
+init_model(backend="npu")
+  → load weights
+  → compute_kv_cache_plan()    # snapshot + auto-size
+  → print_memory_summary()
+  → replace(runtime, max_batch_size=plan.max_batch_size)
+  → register_model(memory_plan=plan)
+  → executor.register_model()
+
+Serving Flow (two-phase)
+
+__init__(): defer BlockPool if gpu_memory_utilization > 0
+spawn_worker():
+  → worker loads model, profiles memory
+  → sends profiled num_pages via queue
+  → sets ready_event
+start():
+  → await ready_event
+  → num_blocks = profile_queue.get()
+  → _finalize_block_pool(num_blocks)
+Files
+  ┌────────────────────┬────────────────────────────────────────────────┐
+  │        File        │                     Change                     │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ types.py           │ Add gpu_memory_utilization: float = 0.0        │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ main.py            │ Parse config, pass backend to init_model()     │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ memory_profiler.py │ New: snapshot, plan, compute, logging          │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ kv_cache.py        │ register_model(memory_plan=)                   │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ engine.py          │ Profile between load & register, backend param │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ async_engine.py    │ Defer BlockPool → finalize in start()          │
+  ├────────────────────┼────────────────────────────────────────────────┤
+  │ serving_worker.py  │ Send num_pages via queue, pass backend         │
+  └────────────────────┴────────────────────────────────────────────────┘
+
+### Command or Request
+
+_No response_
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving| main |
+| pypto-lib | 3834f3d |
+| pypto | main |
+| simpler | 324df3d6 |
+| ptoas | v0.38 |
+| CANN | 9.0.0 |
+| torch / torch-npu | ... |
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+_No response_
+
+### Model
+
+_No response_
+
+### Logs
+
+```text
+
+```
+
+### Additional Context
+
+_No response_
+
+---
+
+## #18 [Feature] L3 Serving Runtime Design
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/18
+- Created: 2026-06-01T06:33:10Z
+- Updated: 2026-06-01T06:36:01Z
+- Closed: 
+
+### Body
+
+### Summary
+
+## Goal
+
+Move the current serving execution path to a Simpler L3 structure while
+preserving the public HTTP/OpenAI-compatible API and the existing serving
+scheduler semantics.
+
+The target split is:
+
+- The outer serving engine owns request lifecycle, continuous batching, prefix
+  cache metadata, KV block allocation, streaming output, and cancellation.
+- The L3 runtime owns one scheduled step's execution DAG: chip tasks, host
+  sub-worker tasks, tensor dependencies, and task completion.
+
+This keeps the service boundary stable and moves device execution into the
+hierarchical runtime model already used by Simpler.
+
+## Current Structure
+
+The current serving path is:
+
+```text
+FastAPI
+  -> AsyncLLMEngine.add_request()
+    -> Scheduler.schedule()
+      -> WorkerProcess._execute_step()
+        -> _batch_prefill() / _batch_decode()
+          -> executor.run_prefill() / executor.run_decode()
+            -> L2 worker, or one-shot L3 generate fast path
+```
+
+Important files:
+
+- `python/core/server.py`: HTTP/OpenAI-compatible API.
+- `python/core/async_engine.py`: async request loop and scheduler dispatch.
+- `python/core/scheduler.py`: continuous batching, prefix cache lookup,
+  preemption, KV block allocation.
+- `python/core/serving_worker.py`: worker process that executes scheduled
+  prefill/decode batches.
+- `python/runtime/worker.py`: thin wrapper over `simpler.worker.Worker` for
+  L2 and L3.
+- `examples/model/qwen3_14b/runner/npu_runner.py`: Qwen3 NPU runner, including
+  the existing one-shot `run_generate_l3()` path.
+
+The current serving worker executes prefill first, then decode, by calling
+Python executor methods directly. That means serving has an outer scheduler,
+but the per-step execution is not yet represented as an L3 DAG.
+
+## Target Structure
+
+The desired serving path is:
+
+```text
+FastAPI
+  -> AsyncLLMEngine.add_request()
+    -> Scheduler.schedule()
+      -> WorkerProcess._execute_step()
+        -> L3ServingRuntime.run_step()
+          -> Worker(level=3).run(orchestrator)
+            -> orch.submit_next_level(prefill/decode chip callable)
+            -> orch.submit_sub(sample / prepare / stop-check)
+            -> drain
+        -> StepOutput(new_tokens)
+```
+
+`AsyncLLMEngine` and `Scheduler` should not know Simpler details. They continue
+to exchange `SchedulerOutput` and `StepOutput` with the worker process.
+
+The new L3-specific logic should live behind a small runtime facade:
+
+```text
+python/core/l3_serving_runtime.py
+  L3ServingRuntime
+    init()
+    close()
+    run_step(scheduler_output) -> StepOutput
+    run_prefill_step(...)
+    run_decode_step(...)
+```
+
+`WorkerProcess` owns one `L3ServingRuntime` for its lifetime. It initializes it
+after model loading and closes it when the worker process shuts down.
+
+## Level Responsibilities
+
+### Serving API Layer
+
+Files: `python/core/server.py`, `python/cli/main.py`.
+
+Responsibilities stay unchanged:
+
+- Parse OpenAI-compatible completion/chat requests.
+- Create `GenerateConfig`.
+- Stream or aggregate token outputs.
+- Start/stop `AsyncLLMEngine`.
+
+No L3-specific code should be added here.
+
+### Serving Engine Layer
+
+Files: `python/core/async_engine.py`, `python/core/scheduler.py`,
+`python/core/kv_cache.py`.
+
+Responsibilities stay mostly unchanged:
+
+- Tokenize prompts.
+- Maintain request states.
+- Run continuous batching.
+- Decide which requests are prefill vs decode in each iteration.
+- Allocate and release KV block ids.
+- Track prefix cache metadata.
+- Produce streaming token outputs.
+
+The scheduler remains the owner of request lifecycle. L3 does not decide which
+requests run or when a request is finished globally.
+
+### Worker Process Layer
+
+File: `python/core/serving_worker.py`.
+
+`WorkerProcess` becomes a lifecycle shell around the L3 runtime:
+
+- Load model and tokenizer-side metadata as today.
+- Construct the executor.
+- Register model artifacts with the executor.
+- Build and initialize `L3ServingRuntime`.
+- On each `WorkerCommand(type="step")`, call `l3_runtime.run_step()`.
+- Return `StepOutput`.
+
+This replaces `_batch_prefill()` and `_batch_decode()` as the primary NPU path.
+The old methods can stay as a fallback while the L3 runtime is being rolled out.
+
+### L3 Runtime Layer
+
+New file: `python/core/l3_serving_runtime.py`.
+
+Responsibilities:
+
+- Own a long-lived `simpler.worker.Worker(level=3)`.
+- Register chip callables before `worker.init()`.
+- Register sub-worker callables before `worker.init()`.
+- Own reusable shared-memory tensors for step inputs/outputs.
+- Own child-memory device buffers for static weights and KV pages when possible.
+- Build the per-step L3 orchestrator.
+- Convert scheduler output into L3 task arguments.
+- Return sampled token ids as `StepOutput`.
+
+The L3 runtime should support two execution styles:
+
+- `prefill` step: scheduled requests whose prompt is not fully computed.
+- `decode` step: scheduled requests that already have at least one generated
+  token or have completed prefill.
+
+The scheduler may output both prefill and decode requests in the same iteration.
+The first implementation may serialize these two groups inside one L3 run:
+
+```text
+L3 run:
+  submit all prefill chip tasks
+  submit sample tasks for completed-prefill rows
+  submit all decode chip tasks
+  submit sample tasks for decode rows
+```
+
+Later, if the underlying generated program supports it, prefill and decode can
+be fused into a single compiled L3 program.
+
+### L2 Chip Layer
+
+The L2 chip layer remains Simpler-managed. L3 submits chip callables via
+`orch.submit_next_level()`.
+
+The L3 runtime should not reimplement chip dispatch. It should use the same
+registered callable ids and `CallConfig` model used by Simpler's hierarchical
+runtime.
+
+## Why Not Reuse `run_generate_l3()` Directly
+
+`run_generate_l3()` currently runs full generation inside one
+`Worker(level=3).run()` call. That is good for one-shot CLI generation, but it
+does not match serving requirements:
+
+- Serving needs one token output at a time for streaming.
+- Serving needs cancellation and abort handling.
+- Serving needs continuous batching across many requests.
+- Serving needs the scheduler to own prefix cache and KV block allocation.
+- Serving may schedule prefill chunks and decode rows together.
+
+Therefore serving should use L3 for a scheduled step, not for the whole request
+lifecycle.
+
+The existing `run_generate_l3()` is still valuable as a source of reusable
+implementation pieces:
+
+- Generated L3 artifact extraction.
+- `Worker(level=3)` construction.
+- Chip callable registration.
+- Sub-worker registration.
+- Static weight pre-upload using child-memory tensors.
+- KV cache device pointer handling.
+- Sampling and next-token preparation sub-worker logic.
+
+## Proposed API
+
+### WorkerProcess
+
+Add one optional member:
+
+```python
+self.l3_runtime: L3ServingRuntime | None = None
+```
+
+Initialization:
+
+```python
+self.l3_runtime = L3ServingRuntime(
+    model_record=self.model_record,
+    executor=self.executor,
+    platform=self.config.platform,
+    device_ids=[self.config.device_id],
+)
+self.l3_runtime.init()
+```
+
+Step execution:
+
+```python
+if self.l3_runtime is not None:
+    return self.l3_runtime.run_step(scheduler_output)
+return self._execute_step_legacy(scheduler_output)
+```
+
+### L3ServingRuntime
+
+Suggested shape:
+
+```python
+class L3ServingRuntime:
+    def __init__(self, model_record, executor, platform, device_ids):
+        ...
+
+    def init(self) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def run_step(self, scheduler_output) -> StepOutput:
+        prefill = [sr for sr in scheduler_output.scheduled_requests if sr.is_prefill]
+        decode = [sr for sr in scheduler_output.scheduled_requests if not sr.is_prefill]
+        new_tokens = {}
+        if prefill:
+            new_tokens.update(self.run_prefill_step(prefill))
+        if decode:
+            new_tokens.update(self.run_decode_step(decode))
+        return StepOutput(new_tokens=new_tokens)
+```
+
+The public contract should remain `StepOutput(new_tokens={request_id: token})`.
+That keeps `AsyncLLMEngine._process_step_output()` unchanged.
+
+## Data Flow
+
+### Inputs From Scheduler
+
+Each `ScheduledRequest` provides:
+
+- `request_id`
+- `num_new_tokens`
+- `num_computed_tokens`
+- `is_prefill`
+- `block_ids`
+- request prompt tokens and generated tokens through `scheduled.request`
+
+The L3 runtime must build:
+
+- token id tensors
+- embedding tensors
+- position tensors
+- sequence length tensors
+- block table tensors
+- slot mapping tensors
+
+These are currently assembled in `WorkerProcess._batch_prefill()` and
+`WorkerProcess._batch_decode()`. That code should move behind the L3 runtime,
+with the output buffers converted to shared memory because L3 child processes
+need to see them.
+
+### Outputs To Scheduler
+
+The L3 runtime returns:
+
+```python
+StepOutput(new_tokens={request_id: token_id})
+```
+
+The scheduler then:
+
+- Increments `num_computed_tokens`.
+- Caches completed prefix blocks.
+- Appends new output token ids.
+- Checks EOS and length stop conditions.
+- Releases blocks for finished requests.
+
+This logic should remain in `Scheduler.update_from_output()`.
+
+## KV Cache Ownership
+
+Keep a strict boundary:
+
+- Main process scheduler owns KV metadata: block ids, prefix hashes, allocation,
+  release, preemption, and cache hits.
+- Worker/L3 runtime owns physical device buffers and per-step block tables.
+
+Do not let the L3 orchestrator allocate serving KV blocks. It may allocate
+temporary device buffers and child-memory mirrors, but request KV block ids must
+come from the outer scheduler. Otherwise prefix cache and preemption will drift.
+
+The L3 runtime receives block ids through `ScheduledRequest.block_ids` and
+materializes the corresponding block table and slot mapping for chip tasks.
+
+## Static Buffers And Reuse
+
+Serving should avoid creating and destroying a `Worker(level=3)` for every
+request or every step.
+
+Long-lived state:
+
+- L3 worker.
+- Registered chip callables.
+- Registered sub-worker callables.
+- Compiled L3 metadata.
+- Static model weights in shared memory.
+- Optional child-memory device pointers for static weights.
+- KV cache device buffers if their lifetime matches the worker.
+
+Per-step state:
+
+- Scheduled request view.
+- Token tensors.
+- Position tensors.
+- Block table and slot mapping.
+- Output logits or sampled-token buffers.
+- Temporary task args.
+
+The first implementation can be conservative and allocate per-step shared
+memory tensors. Optimization can later move common buffers into reusable pools.
+
+## Sub-Worker Tasks
+
+Use SUB workers for host-side work that must run inside the L3 DAG:
+
+- Sampling from logits.
+- Preparing next decode input for a scheduled step.
+- Writing sampled token ids into a shared result buffer.
+- Lightweight stop checks that only need token ids.
+
+Do not put request lifecycle decisions in SUB workers. Final request completion
+still belongs to the outer scheduler.
+
+## Migration Plan
+
+### Phase 1: L3 Runtime Skeleton
+
+- Add `python/core/l3_serving_runtime.py`.
+- Add `L3ServingRuntime.init()/close()` with long-lived
+  `Worker(level=3)`.
+- Register placeholder sub-worker callables.
+- Wire `WorkerProcess` to create/close the runtime when `executor_kwargs`
+  requests L3 serving.
+- Keep legacy `_batch_prefill()` and `_batch_decode()` fallback.
+
+Acceptance:
+
+- Unit tests still pass with default non-L3 serving.
+- L3 serving can start and stop without running a request.
+
+### Phase 2: Decode Step Through L3
+
+- Implement `run_decode_step()` for scheduled decode rows.
+- Reuse current decode input preparation from `_batch_decode()`.
+- Submit decode chip callable via L3 orchestrator.
+- Submit sampling as SUB worker.
+- Return `StepOutput`.
+
+Acceptance:
+
+- A request with prefill already completed can generate one decode token.
+- Streaming path receives the token through unchanged `AsyncLLMEngine` logic.
+
+### Phase 3: Prefill Step Through L3
+
+- Implement `run_prefill_step()` for prompt chunks.
+- Reuse current prefill input preparation from `_batch_prefill()`.
+- Submit prefill chip callable via L3 orchestrator.
+- Only sample when the scheduled chunk completes the prompt.
+
+Acceptance:
+
+- Non-chunked prefill produces the first generated token.
+- Chunked prefill returns no token until the final prompt chunk.
+
+### Phase 4: Mixed Prefill And Decode
+
+- Support scheduler outputs containing both prefill and decode requests.
+- Serialize prefill and decode groups inside one `run_step()` initially.
+- Later optimize by submitting a single combined DAG if generated programs
+  support it.
+
+Acceptance:
+
+- Continuous batching works with one request in prefill and another in decode.
+
+### Phase 5: Restore Serving Features
+
+Re-enable and test:
+
+- Prefix cache.
+- Chunked prefill.
+- Preemption.
+- Batch size greater than one.
+- Stop strings at API level.
+- EOS and length stopping.
+- Streaming and non-streaming completions.
+
+### Phase 6: Performance Work
+
+- Keep L3 worker alive for process lifetime.
+- Pre-upload static weights once per worker lifetime.
+- Reuse shared-memory buffers by max serving batch shape.
+- Keep KV cache device buffers resident where possible.
+- Add timing around scheduler, L3 orchestrator, chip task, sub-worker, and
+  result processing.
+
+## Compatibility Strategy
+
+Use a feature flag during migration:
+
+```json
+{
+  "npu": {
+    "l3": true,
+    "l3_serving": true
+  }
+}
+```
+
+Interpretation:
+
+- `l3=true`: compile/register L3-capable artifacts.
+- `l3_serving=true`: route serving steps through `L3ServingRuntime`.
+
+This keeps the existing one-shot `--l3` path and the new serving L3 path
+separate while the serving path matures.
+
+## Risks
+
+### Two Schedulers Can Conflict
+
+The outer serving scheduler and Simpler L3 scheduler operate at different
+levels. The outer scheduler must own request lifecycle; the L3 scheduler must
+own only per-step task dependencies. Avoid moving request admission, prefix
+cache lookup, or KV block allocation into L3.
+
+### Worker Lifetime And Registration
+
+Simpler L3 requires chip and sub callables to be registered before
+`worker.init()`. Serving initialization must compile/extract all callables
+before starting the L3 worker.
+
+### Shared Memory Requirements
+
+L3 child processes see tensors through shared memory or child-memory device
+pointers. Any tensor passed to L3 child/sub tasks must be explicitly placed in
+shared memory or converted to a valid `ContinuousTensor`.
+
+### Batch Shape Drift
+
+Current one-shot L3 generation supports batch size 1. Serving uses dynamic
+batching. The first L3 serving milestone should either enforce a known batch
+tile or explicitly pad to the compiled tile shape.
+
+### KV Sync Cost
+
+Copying full KV state back to host after every step defeats serving
+performance. The design should aim for worker-resident KV pages and only sync
+metadata to the host scheduler. Host-visible KV materialization should be a
+debug/fallback path.
+
+---
+
+## #20 [Feature] TurboQuant NPU Kernel Integration
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/20
+- Created: 2026-06-02T07:05:36Z
+- Updated: 2026-07-24T03:26:17Z
+- Closed: 
+
+### Body
+
+# TurboQuant KV-Cache Compression
+
+TurboQuant (TQ) is an online KV-cache quantization path for Qwen3-14B on
+Ascend NPU (910B/C, 950). It uses **PolarQuant** — random rotation followed
+by optimal scalar (Lloyd-Max) quantization — to compress the K and V caches
+from BF16 (~16 bits/value) to **4 bits/value** while the model runs. The
+method is adapted from [TurboQuant (ICLR 2026)](https://arxiv.org/abs/2504.19874).
+
+TQ is an **opt-in branch alongside the default FP (BF16) path**. It is
+enabled with `--tq`; without the flag, serving is byte-for-byte identical to
+the non-TQ path. TQ decode returns raw logits, so device sampling and
+embedding are disabled in TQ mode and the engine samples on the host.
+
+**Key choice:** pure 4-bit PolarQuant is used. The paper's 1-bit QJL
+residual correction (Algorithm 2) is excluded — at the same 4-bit rate,
+4-bit PolarQuant alone beats 3-bit PolarQuant + 1-bit QJL, and QJL's
+amplified variance turns into attention noise after softmax.
+
+## Usage
+
+Offline generation (`examples/model/qwen3_14b/npu_generate.py`):
+
+```bash
+python examples/model/qwen3_14b/npu_generate.py \
+  --model-dir /path/to/Qwen3-14B \
+  --platform a2a3 \
+  --tq \
+  --max-seq-len 512 \
+  --max-new-tokens 128
+```
+
+Serving:
+
+```bash
+pypto-serving \
+  --model /path/to/Qwen3-14B \
+  --backend npu \
+  --platform a2a3 \
+  --tq \
+  --max-model-len 512 \
+  --port 8899
+```
+
+Drop `--tq` to run the unchanged FP path.
+
+## Architecture
+
+The FP path is untouched. Every TQ addition is gated behind
+`RuntimeConfig.kv_quant_config` (`KvQuantConfig`) and `tq_mode`:
+
+```
+--tq  →  RuntimeConfig.kv_quant_config (KvQuantConfig | None)
+      →  model_runner:   enabled ? allocate UINT8 + FP32-scale pools
+                                  : BF16 pools              (unchanged)
+      →  npu_executor:   tq_mode ? _compile_tq_kernels (26-param kernels)
+                                : existing FP compile     (unchanged)
+      →  npu_runner:     TQ-aware _kv_bytes_per_page + 26-element arg tuples
+```
+
+Serving-repo files:
+
+| File | Role |
+| --- | --- |
+| `config/types.py` | `KvQuantConfig` frozen dataclass; `RuntimeConfig.kv_quant_config`. |
+| `model/common/runner/model_runner.py` | TQ KV-cache allocation (nibble-packed UINT8 + FP32 scales). |
+| `model/qwen/npu_executor.py` | `tq_mode`; `supports_device_* = not tq_mode`; `_compile_tq_kernels` (rotation matrix + codebook, 26-param compile, shape validation). |
+| `model/qwen/npu_runner.py` | TQ kernel-arg tuples; `_kv_bytes_per_page`; rot/codebook static uploads. |
+| `model/qwen/qwen3_l3_dispatch.py` | `prefill_fwd_tq` / `decode_fwd_tq` bindings + host wrappers. |
+| `cli/main.py`, `examples/model/qwen3_14b/npu_generate.py` | `--tq` / `--tq-mode` flag. |
+
+The quantization kernels are vendored from pypto-lib under
+`pypto-lib/models/qwen3/14b/` and loaded at compile time:
+
+| File | Role |
+| --- | --- |
+| `turboquant_kv.py` | Lloyd-Max codebook; shared quantize/dequant primitives. |
+| `qwen3_14b_prefill_tq_draft.py` | Full prefill forward with inline TQ compression. |
+| `qwen3_14b_decode_tq_draft.py` | Decode forward with TQ dequant attention. |
+
+Per-layer pipeline (prefill and decode share the same shape):
+
+```
+RMSNorm → Q/K/V proj → per-head Q/K RMSNorm
+K/V: RoPE (K only) → L2 norm + normalize → rotate (R) → Lloyd-Max quantize
+                                                   → store UINT8 idx + FP32 scale
+Q:   per-head RMSNorm → RoPE
+Attention: dequant K/V from cache (gather codebook × scale, unrotate) →
+           QK matmul → softmax → SV matmul
+out_proj + residual → RMSNorm → SwiGLU MLP + residual
+```
+
+## Algorithm
+
+### Core idea
+
+Multiplying a vector by a random Haar-orthogonal matrix `R` spreads its energy
+evenly: once `x̂` is unit-norm, each coordinate of `y = x̂ @ R` is
+(asymptotically) i.i.d. `N(0, 1/d)`. Independent, identically distributed
+coordinates are exactly the case a 1-D scalar quantizer handles optimally —
+and for a Gaussian source the optimal scalar quantizer is the Lloyd-Max
+codebook. So PolarQuant reduces vector quantization to: pull off the L2 norm,
+rotate, and independently scalar-quantize every coordinate with one shared
+Gaussian-optimal codebook.
+
+Two consequences drive the design:
+
+- The norm `γ = ‖x‖` is stored in FP32, so quantization error only perturbs the
+  *direction* of the vector, never its magnitude. Attention scores `QKᵀ` are
+  inner products, so low angular error preserves them.
+- Because every coordinate shares one distribution, a single fixed 16-level
+  codebook serves all dimensions, heads, and layers — no per-channel fitting.
+
+V is consumed by a `softmax · V` weighted sum, where low mean-squared
+reconstruction error is the right target; the same MSE-optimal PolarQuant
+reconstruction serves it. This implementation applies pure 4-bit PolarQuant to
+both K and V.
+
+### Quantize
+
+```
+x ∈ R^d                      (post-RoPE for K, raw for V)
+γ = sqrt(‖x‖² + ε)           L2 norm
+x̂ = x / γ                    normalize
+y = x̂ @ R                    random rotation (Haar orthogonal, BF16)
+idx[j] = Σ 𝟙(y[j] ≥ b_i)    15 boundary comparisons → index ∈ [0, 15]
+store (idx as nibble-packed UINT8, γ as FP32 scale)
+```
+
+### Dequantize
+
+```
+ŷ = codebook[idx]            FP32 centroids in rotated domain
+ŷ = ŷ / ‖ŷ‖                  renormalize (correct quantization norm drift)
+ŷ = ŷ · γ                    restore magnitude
+x̂ = ŷ @ R^T                  inverse rotation back to original space
+```
+
+### Lloyd-Max codebook
+
+After rotation, coordinates are i.i.d. `N(0, 1/d)`. Optimal 4-bit centroids
+(16 levels) are solved analytically via Gaussian conditional expectation at
+module load (`turboquant_kv.solve_lloyd_max()`); the 15 quantization
+boundaries are the midpoints between adjacent centroids.
+
+### Rotation matrix
+
+- Per-layer dense orthogonal matrix (128×128, BF16), stacked as
+  `[num_layers * head_dim, head_dim]`.
+- Built via QR of a Gaussian matrix with consistent column signs:
+  `Q = qr(randn)[0] * sign(diag(R))`.
+- Seed `42 + layer * 1000` per layer (deterministic; must match between the
+  CPU reference and the NPU).
+
+### Scope of this implementation
+
+The full TurboQuant paper offers more than is used here:
+
+- **QJL residual (Algorithm 2):** (b−1)-bit PolarQuant plus 1-bit QJL for
+  unbiased inner products. Excluded — see the top of this doc.
+- **Fast rotation:** `D₁ H D₂` (random ±1 diagonals + Walsh-Hadamard),
+  `O(d log d)` instead of `O(d²)`. Not used; a per-layer dense QR matrix is
+  applied instead (cheap relative to the attention it feeds).
+- **Mixed bit-rates:** outlier channels at higher bits (e.g. 2.5/3.5-bit).
+  Not used; a flat 4-bit rate is applied to all coordinates.
+
+## Cache layout
+
+Per token, per KV head, one row for K and one for V:
+
+| Field | Dtype | Bytes |
+| --- | --- | --- |
+| Nibble-packed indices (`head_dim // 2`) | UINT8 | 64 |
+| L2 scale | FP32 | 4 |
+| **Total per row** | | **68** |
+
+Versus 256 bytes for a BF16 row (`head_dim × 2`), this is **~3.76×** per-row
+compression. Allocation in `model_runner.init_kv_cache`:
+
+```python
+quant_shape = (cache_rows, config.head_dim // 2)   # UINT8, nibble-packed
+scale_shape = (cache_rows, 1)                       # FP32
+# quant_k/v_pages (UINT8) + k/v_scales_pages (FP32): four tensors
+```
+
+where `cache_rows = num_layers * num_pages * num_kv_heads * page_size`. Bytes
+per page (all layers, K + V) is
+`rows_per_page * 2 * (head_dim // 2 + 4)` (`npu_runner._kv_bytes_per_page`).
+TQ requires `page_size = 128`, enforced by `_validate_supported_shape`.
+
+## Constants
+
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `N_LEVELS` | 16 | 4-bit quantization levels |
+| `HEAD_DIM` | 128 | Attention head dimension |
+| `NUM_KV_HEADS` | 8 | KV heads (GQA) |
+| `NUM_HEADS` | 40 | Query heads |
+| `BLOCK_SIZE` / `page_size` | 128 | KV cache page size |
+| `TOK_TILE` | 16 | Prefill token block |
+| `SEQ_TILE` | 128 | Prefill attention sequence tile |
+| `CMP_TILE` | 64 | Fused dequant tile (A2A3 memory limit) |
+| `CMP_CHUNK` | 32 | Dequant gather sub-tile (32-byte aligned) |
+| `SB_BATCH` | 128 | Sequence-block batch for parallel attention |
+| `Q_HEAD_BATCH` | 5 | Decode Q heads per attention group |
+| `Q_HEAD_PAD` | 16 | Padded Q rows (cube alignment) |
+
+## Attention dequant path
+
+Both prefill and decode dequantize K/V inline in BF16 to match the FP path:
+
+```
+UINT8 idx → FP16 → INT32 → gather(codebook) → FP32 centroids
+         → cast BF16 → rsqrt renorm → row_expand_mul(scale) → BF16
+         → matmul(R^T) → FP32 → cast BF16       (unrotate)
+         → copy to BF16 GM buffer → QK matmul (BF16 @ BF16^T)
+```
+
+K is unrotated via `ctx @ R^T` after attention; Q is **not** pre-rotated
+(the Q pre-rotation block is disabled), matching the pure-PolarQuant strategy.
+
+## Known issues & fixes
+
+**Rotation matrix seed mismatch (NPU vs CPU).** The NPU used
+`torch.manual_seed(42)` sequentially; the CPU reference used
+`42 + layer * 1000` per layer with independent generators and normalized
+`Q * sign(diag(R))`. Layer 0 matched, the rest diverged. Fixed by matching
+the CPU exactly on both sides; after the fix prefill `quant_k` matches 99.3%
+across all 40 layers and the rotation matrices are identical (max diff 0).
+
+**Ascend BF16 matmul layout mismatch.** `matmul(q_padded, k_dequant^T)`
+returned garbage even though Q and K each matched CPU individually. The cube
+engine miscomputes when one input is a GM-slice BF16 tile and the other is a
+register-format `cast(FP32→BF16)` tile. Fixed by copying the dequantized K
+to a BF16 GM buffer in a separate scope, then slicing from it — both inputs
+are now GM-slice BF16, matching the FP prefill pattern. Score self-consistency
+went from cos ≈ 0 to ≈ 1.0.
+
+**Decode Q RoPE batch-slice corruption.** Slicing a `[5, 128]` Q tile into a
+`[5, 64]` half corrupts rows 0–1 (a pypto compiler bug), giving heads 0–1
+scores of ~−1000 while heads 2–4 were correct. Fixed by processing each Q
+head individually as `[1, HEAD_DIM]`, matching prefill. After the fix all Q
+heads reach cos ≈ 1.0.
+
+Two pypto kernel pitfalls to keep in mind: `pl.write` must capture its return
+value or the write is dead-code-eliminated, and `pl.assemble` of a `[T, 1]`
+ColMajor tensor only fills row 0 — flatten and write per-row.
+
+## Validation
+
+Accuracy validation against the FP / CPU reference is still in progress;
+results will be filled in once testing completes.
+
+Output quality (greedy):
+
+> **FP:** "a Chinese multinational technology company that designs and sells
+> consumer electronics, telecommunications equipment, and services. It is one
+> of the world's largest and most valuable technology companies. Huawei was
+> founded in 1987 by Ren Zhengfei…"
+>
+> **TQ:** "a Chinese multinational technology company headquartered in
+> Shenzhen, Guangdong, China. It is the world's second-largest smartphone
+> manufacturer by unit sales and the second-largest provider of
+> telecommunications equipment…"
+
+Both are factually correct and coherent; the wording difference is normal
+sampling variation between independent runs.
+
+## Performance
+
+End-to-end TQ performance is currently **far below the FP path — under 1/3 of
+FP throughput** — so TQ makes serving *slower* today, not faster. The expected
+bandwidth win from the smaller KV cache has not shown up because the
+quantize/dequant work added on every attention step dominates. This is a known
+gap **pending operator-side (kernel) optimization** (fusing the
+rotate/gather/unrotate dequant into the attention kernels), not a correctness
+or algorithm problem: TQ is functionally correct but not yet
+performance-competitive.
+
+## Reference
+
+- Paper: "TurboQuant: Online Vector Quantization with Near-optimal
+  Distortion", ICLR 2026 — <https://arxiv.org/abs/2504.19874>.
+
+
+---
+
+## #25 [Feature] Replace L2 kernel runtime and old L3 generate path with unified L3 worker dispatch
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/25
+- Created: 2026-06-05T03:27:22Z
+- Updated: 2026-06-05T03:58:52Z
+- Closed: 2026-06-05T03:58:52Z
+
+### Body
+
+### Summary
+
+Replace the current non-L3 compiled-kernel execution path, which uses `Worker(level=2)`, with an L3-worker based dispatch path using `Worker(level=3)` and `orch.submit_next_level(...)`.
+
+As part of this migration, remove the old dedicated `run_generate_l3()` generation path. L3 execution should become the unified runtime mechanism for prefill/decode kernel dispatch instead of maintaining a separate one-shot L3 generation path.
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+The current non-L3 path directly runs compiled chip callables through an L2 worker, while the repository also carries a separate one-shot L3 generation path. This creates two runtime models for generation:
+
+- the normal prefill/decode path based on L2 worker dispatch
+- the dedicated `run_generate_l3()` path with separate generated L3 artifacts and control flow
+
+Newer Simpler/PyPTO runtime features, dependency tagging, child-memory handling, and future serving orchestration are centered around L3 worker execution. Moving the normal prefill/decode kernel path to L3 worker dispatch provides a migration bridge and removes the need to maintain a second L3-specific generation implementation.
+
+This enables:
+
+- serving to keep its existing prefill/decode scheduler semantics
+- compiled `@pl.jit` prefill/decode kernels to run through the same hierarchical runtime model as future L3 serving
+- tensor dependencies to be expressed through `TaskArgs` and `TensorArgType`
+- one unified runtime path for offline generation and HTTP serving
+- removal of duplicated one-shot L3 generation code once the L3-worker dispatch path covers the same workflows
+
+Related: #18
+
+### Proposed API / Behavior
+
+For non-L3 compiled kernels:
+
+- construct `Worker(level=3, device_ids=[device_id], num_sub_workers=0)`
+- register chip callables before `worker.init()`
+- build `TaskArgs` with explicit tensor dependency tags
+- submit chip callables inside an orchestration callback using `orch.submit_next_level(...)`
+- keep full KV tensors as host `INOUT` tensors for correctness unless a later optimization explicitly introduces resident KV handling
+- pre-share CPU tensors before L3 worker initialization so child processes can access host mappings
+- provide runtime wrapper methods for `submit_next_level`, orchestrator-scoped memory operations, and cleanup
+- remove the old one-shot `run_generate_l3()` path and its dedicated generated-L3 artifacts from the serving runner once the L3-worker dispatch path covers offline and HTTP generation
+- keep one runtime path for offline generation and serving, with feature flags only for rollout/debugging rather than permanent separate implementations
+
+The first implementation may need conservative one-shot L3 worker cleanup while Simpler worker lifecycle behavior is being fixed. The Simpler-side lifecycle issue is tracked in:
+
+- hw-native-sys/simpler#980
+
+### Alternatives Considered
+
+Keep the current `Worker(level=2)` runtime for non-L3 kernels and only use L3 for the dedicated `run_generate_l3()` path.
+
+That avoids L3 lifecycle complexity in the short term, but it keeps two separate runtime models in serving, duplicates generation control flow, and makes it harder to migrate scheduled prefill/decode execution into L3 DAG form.
+
+Another alternative is to keep `run_generate_l3()` as a permanent fast path while adding L3-worker dispatch for serving. That would still leave long-term maintenance cost: separate artifacts, separate sampling/prepare logic, separate KV handling, and separate correctness/performance validation.
+
+### Additional Context
+
+A prototype implementation exists in PR #22:
+
+- https://github.com/hw-native-sys/pypto-serving/pull/22
+
+The prototype rewrites non-L3 Qwen3 kernel dispatch through `Worker(level=3)` + `orch.submit_next_level(...)` while keeping full KV tensors and adding focused tests for worker submission, KV dependency tags, and cleanup behavior.
+
+The prototype passed offline generation with larger ring settings:
+
+```bash
+task-submit --device auto --max-time 0 --run \
+  "PTO2_RING_HEAP=4294967296 PTO2_RING_TASK_WINDOW=1048576 PTO2_RING_DEP_POOL=1048576 \
+   python examples/model/qwen3_14b/npu_generate.py \
+     --model-dir /data/linyifan/models/Qwen3-14B \
+     --prompt 'Huawei is' \
+     --platform a2a3 \
+     --max-seq-len 512 \
+     --max-new-tokens 5"
+```
+
+Observed output:
+
+```text
+text:  a Chinese company. The
+token_ids: [264, 8453, 2813, 13, 576]
+finish_reason: length
+```
+
+The smaller default ring settings still fail in prefill with AICPU `507018`, so the feature should document required runtime settings or reduce the resource requirement before becoming the default:
+
+```bash
+PTO2_RING_HEAP=536870912 PTO2_RING_TASK_WINDOW=131072 PTO2_RING_DEP_POOL=131072
+```
+
+
+---
+
+## #26 [Feature] Replace L2 kernel runtime and old L3 generate path with unified L3 worker dispatch
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/26
+- Created: 2026-06-05T03:58:42Z
+- Updated: 2026-06-11T01:52:16Z
+- Closed: 
+
+### Body
+
+### Summary
+
+Replace the current non-L3 compiled-kernel execution path, which uses `Worker(level=2)`, with an L3-worker based dispatch path using `Worker(level=3)` and `orch.submit_next_level(...)`.
+
+As part of this migration, remove the old dedicated `run_generate_l3()` generation path. L3 execution should become the unified runtime mechanism for prefill/decode kernel dispatch instead of maintaining a separate one-shot L3 generation path.
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+The current non-L3 path directly runs compiled chip callables through an L2 worker, while the repository also carries a separate one-shot L3 generation path. This creates two runtime models for generation:
+
+- the normal prefill/decode path based on L2 worker dispatch
+- the dedicated `run_generate_l3()` path with separate generated L3 artifacts and control flow
+
+Newer Simpler/PyPTO runtime features, dependency tagging, child-memory handling, and future serving orchestration are centered around L3 worker execution. Moving the normal prefill/decode kernel path to L3 worker dispatch provides a migration bridge and removes the need to maintain a second L3-specific generation implementation.
+
+This enables:
+
+- serving to keep its existing prefill/decode scheduler semantics
+- compiled `@pl.jit` prefill/decode kernels to run through the same hierarchical runtime model as future L3 serving
+- tensor dependencies to be expressed through `TaskArgs` and `TensorArgType`
+- one unified runtime path for offline generation and HTTP serving
+- removal of duplicated one-shot L3 generation code once the L3-worker dispatch path covers the same workflows
+
+Related: #18
+
+Implementation PR: #29
+
+### Blockers
+
+The current implementation depends on PyPTO runtime/codegen fixes that are tracked as blockers:
+
+- https://github.com/hw-native-sys/pypto/issues/1698 - Support multi-program dispatch for `DistributedCompiledProgram`
+- https://github.com/hw-native-sys/pypto/issues/1707 - Distributed codegen misses `Submit` callees in next-level program extraction
+
+### Proposed API / Behavior
+
+For non-L3 compiled kernels:
+
+- construct `Worker(level=3, device_ids=[device_id], num_sub_workers=0)` or use PyPTO's `DistributedWorker` wrapper for shared L3 dispatch
+- register chip callables before worker initialization
+- build `TaskArgs` with explicit tensor dependency tags
+- submit chip callables inside an orchestration callback using `orch.submit_next_level(...)`
+- keep KV cache device-resident across prefill and decode dispatches where supported by PyPTO runtime tensors
+- pre-share CPU tensors before L3 worker initialization so child processes can access host mappings
+- provide runtime wrapper methods for `submit_next_level`, orchestrator-scoped memory operations, and cleanup
+- remove the old one-shot `run_generate_l3()` path and its dedicated generated-L3 artifacts from the serving runner once the L3-worker dispatch path covers offline and HTTP generation
+- keep one runtime path for offline generation and serving, with feature flags only for rollout/debugging rather than permanent separate implementations
+
+The first implementation needed conservative worker-lifecycle validation while Simpler behavior was being debugged. The Simpler-side lifecycle issue was tracked in hw-native-sys/simpler#980 and has been closed.
+
+### Alternatives Considered
+
+Keep the current `Worker(level=2)` runtime for non-L3 kernels and only use L3 for the dedicated `run_generate_l3()` path.
+
+That avoids L3 lifecycle complexity in the short term, but it keeps two separate runtime models in serving, duplicates generation control flow, and makes it harder to migrate scheduled prefill/decode execution into L3 DAG form.
+
+Another alternative is to keep `run_generate_l3()` as a permanent fast path while adding L3-worker dispatch for serving. That would still leave long-term maintenance cost: separate artifacts, separate sampling/prepare logic, separate KV handling, and separate correctness/performance validation.
+
+### Additional Context
+
+The current implementation is PR #29:
+
+- https://github.com/hw-native-sys/pypto-serving/pull/29
+
+PR #29 rewrites non-L3 Qwen3 prefill/decode dispatch through a shared PyPTO L3 `DistributedWorker`, keeps the KV cache device-resident, and removes the old dedicated one-shot `run_generate_l3()` path.
+
+The earlier prototype was PR #22:
+
+- https://github.com/hw-native-sys/pypto-serving/pull/22
+
+The Simpler worker lifecycle issue previously referenced by this feature has been closed:
+
+- https://github.com/hw-native-sys/simpler/issues/980
+
+PR #29 passed offline generation with larger ring settings:
+
+```bash
+task-submit --device auto --max-time 1200 --run \
+  "cd /data/liuxu/pypto-serving && \
+   PTO2_RING_HEAP=4294967296 PTO2_RING_TASK_WINDOW=1048576 PTO2_RING_DEP_POOL=1048576 \
+   SA_PROFILE_OUTPUT=offline_128_l3_worker_prefork_decode_buffers_trace.json \
+   SA_PROFILE_LEVEL=kernel \
+   python examples/model/qwen3_14b/npu_generate.py \
+     --model-dir /data/linyifan/models/Qwen3-14B \
+     --prompt 'Huawei is' \
+     --platform a2a3 \
+     --max-seq-len 512 \
+     --max-new-tokens 128 \
+     --profile \
+     --device-id {}"
+```
+
+Observed output from the 128-token run:
+
+```text
+text:  a Chinese multinational technology company, and the Huawei Mate 60 is one of its flagship smartphones. The Huawei Mate 60 is equipped with the Kirin 9000 chip, which is a system-on-chip (SoC) developed by Huawei's in-house semiconductor division. The Kirin 9000 is a 5nm process technology, 5G capable SoC that integrates the CPU, GPU, NPU, and other components into a single chip. The Kirin 900 is a powerful processor that offers excellent performance and efficiency for various tasks, including gaming, multimedia, and artificial intelligence
+finish_reason: length
+```
+
+Timing from that run:
+
+```text
+[perf] generated 128 tokens in 31.024s -> 4.13 tok/s (overall, incl. prefill)
+[perf] prefill/TTFT 18.172s | decode 11.542s over 127 steps -> 11.00 tok/s (90.9 ms/token)
+```
+
+---
+
+## #27 [Feature] KV Cache NPU-to-SSD Offload Plan
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/27
+- Created: 2026-06-05T08:07:49Z
+- Updated: 2026-06-09T13:37:48Z
+- Closed: 
+
+### Body
+
+## Goal
+
+Support KV cache offload for the serving path, with the final target being direct NPU memory <-> on-card SSD transfer. Before the NPU <-> SSD transfer API is ready, PR #31 implements a conservative CPU offload path as Phase 0 so the scheduler, block metadata, transfer jobs, and load-back flow can be validated first.
+
+```mermaid
+flowchart LR
+    subgraph host["Host Side"]
+        cpu["CPU / Host Memory"]
+    end
+
+    subgraph card["NPU Card Side"]
+        npu["NPU KV Cache"]
+        ssd["On-card SSD"]
+        npu <--> ssd
+    end
+
+    npu -. "Phase 0 fallback" .-> cpu
+    npu --> ssd
+```
+
+The main process owns request scheduling and KV block metadata. The worker process owns the real NPU KV tensors and executes transfer jobs. The scheduler therefore only creates load/store jobs and updates metadata after completion; the transfer backend performs the actual data movement.
+
+## Current PR Scope
+
+PR #31 adds the CPU offload version of this flow:
+
+- Split logical KV block identity from NPU physical page id.
+- Add KV block residency states: `NPU`, `CPU`, `MOVING_TO_CPU`, `MOVING_TO_NPU`, and future SSD states.
+- Add transfer job abstractions and a CPU transfer backend.
+- Add a CLI switch through `--max-cpu-offload-blocks`; `0` disables CPU offload.
+- Integrate load/store job handling into the serving worker and async engine.
+- Keep the policy conservative: no background offload, no proactive eviction.
+
+This PR is intended to validate the serving scheduler and state machine. Later, the CPU backend can be replaced by an NPU <-> SSD backend while keeping the same scheduler-facing contract.
+
+## Scheduling Strategy
+
+The serving scheduler follows the existing `run_prefill` / `run_decode` path, not the L3 generate path.
+
+### Phase 1: Running Queue
+
+1. Iterate over currently running requests.
+2. Compute how many new tokens can be scheduled under the token budget.
+3. Allocate extra KV blocks if the request needs more pages.
+4. If allocation succeeds, resolve all logical block ids to resident NPU physical page ids and schedule the request.
+5. If allocation fails, preempt the lowest-priority running request.
+
+Preemption is the only trigger for offload in the current conservative design.
+
+### Preemption With CPU Offload Enabled
+
+When `--max-cpu-offload-blocks > 0`, the scheduler tries to offload the victim request's KV blocks to CPU:
+
+1. Pick only victim-owned resident NPU blocks.
+2. Do not offload shared prefix-cache blocks, because other requests may still depend on them being resident on NPU.
+3. Create an NPU -> CPU store job.
+4. Mark the victim as `PREEMPTED` and move it to the front of the waiting queue.
+5. The current scheduling round stops after the preemption, matching the conservative vLLM-style behavior.
+
+If CPU offload capacity is exhausted, or no exclusive resident block can be offloaded, the scheduler falls back to recomputation:
+
+1. Release the victim request's block references.
+2. Clear `cached_block_ids`, `allocated_block_ids`, and `num_computed_tokens`.
+3. Move the victim back to the waiting queue.
+
+This keeps scheduling correct even when the offload medium is unavailable or full.
+
+### Phase 2: Waiting Queue
+
+Waiting requests are scheduled only when the current round did not preempt a running request.
+
+For each waiting request:
+
+1. Try prefix-cache lookup if the request has no existing blocks.
+2. Compute the token budget and required new KV blocks.
+3. Check whether existing blocks are resident on NPU.
+4. If some blocks are on CPU, create CPU -> NPU load jobs and defer this request to a later scheduling round.
+5. Only after required old blocks are resident does the scheduler allocate new KV blocks.
+6. Once all blocks are resident, resolve logical block ids to physical page ids and schedule prefill/decode.
+
+This ordering avoids allocating new blocks before the scheduler knows whether load-back can reserve NPU pages.
+
+## Data Flow
+
+### Store On Preemption
+
+1. Scheduler selects a preemption victim.
+2. `KvCacheManager` builds a store job for exclusive resident blocks.
+3. Blocks are marked `MOVING_TO_CPU` in Phase 0, later `MOVING_TO_SSD` for the final design.
+4. Worker submits the transfer job.
+5. On completion, metadata is updated to `CPU` or `SSD`, and the old NPU physical page can be reused.
+
+### Load On Resume
+
+1. Scheduler sees a waiting request with non-resident blocks.
+2. It reserves target NPU physical pages.
+3. It creates CPU/SSD -> NPU load jobs.
+4. The request is deferred until the job completes.
+5. After completion, logical block ids resolve to the latest NPU physical page ids.
+6. `run_prefill` / `run_decode` receives only resident physical page ids.
+
+## Final SSD Direction
+
+The final target is to keep the same scheduler policy and replace the CPU transfer backend with direct NPU <-> on-card SSD transfer:
+
+- `CPU` states become `SSD` states for production offload.
+- `CPULoadStoreSpec` is replaced by `SSDLoadStoreSpec`.
+- The worker-side backend uses the future NPU <-> SSD transfer API.
+- Scheduler policy remains conservative at first: offload only on preemption caused by KV pressure.
+
+Because the SSD is directly attached to the NPU, the final SSD path is expected to be faster than CPU offload. The CPU path is mainly a correctness and integration milestone.
+
+## Risks
+
+- Reusing an NPU page while a store job is still in flight can corrupt offloaded KV data.
+- Offloading shared prefix-cache blocks can break other requests that still rely on those blocks.
+- If logical block id and physical page id diverge, `block_table` / `slot_mapping` can point to the wrong NPU page.
+- CPU/SSD capacity exhaustion must not crash the scheduler; it should fall back to recomputation.
+- Excessive proactive offload can cause IO thrashing, so background offload is intentionally not part of the current policy.
+- Main-process metadata and worker-side transfer completion must stay synchronized.
+
+## Validation Plan
+
+- Unit-test block residency transitions, load/store job rollback, and logical-to-physical page resolution.
+- Unit-test preemption fallback when CPU offload capacity is full.
+- Unit-test that shared prefix-cache blocks are not offloaded by a victim preemption.
+- Run serving-path NPU smoke tests for prefill/decode with offload enabled.
+- Run an accuracy comparison with and without offload for the same prompt and sampling configuration.
+
+
+---
+
+## #28 Profiling: report fine-grained TTFT / TPOT / output throughput instead of mixed e2e tok/s
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/28
+- Created: 2026-06-08T07:00:58Z
+- Updated: 2026-06-08T07:00:58Z
+- Closed: 
+
+### Body
+
+## Summary
+
+`npu_generate.py`'s `--profile` Timing Report collapses prefill and decode into a single mixed **`throughput (e2e)`** number (`total tokens / generate-phase wall-clock`). This metric mixes a one-time latency cost (prefill, including first-dispatch warmup) with steady-state decode, so it both **understates steady-state throughput** and **hides the latency/throughput distinction** that matters for deployment. We should report deployment-realistic, separated metrics: **TTFT / TPOT / output throughput**, with one-time warmup excluded.
+
+## Current behavior
+
+The report prints:
+
+```
+[phase] generate (e2e)       :    10.02s   (32 tokens generated)
+[phase] throughput (e2e)     :     3.19 tok/s
+[api]   run_prefill          :     7.99s   (1 call, TTFT-ish)
+[api]   run_decode total     :     1.66s   (31 steps, avg  53.5 ms/step, 18.69 step/s)
+  kernel.prefill_fwd  : n=1   avg=1915.74ms
+  kernel.decode_layer : n=31  avg=  45.51ms (min 43.73 / max 61.99)
+```
+
+`throughput (e2e) = 32 / 10.02s = 3.19 tok/s`.
+
+### Why this is misleading
+
+1. **Prefill warmup is folded in.** `run_prefill` API time is 7.99s but the prefill **kernel** is only ~1.9s — ~6s is one-time first-dispatch host-side warmup (orchestration first launch, runtime warmup). In real deployment this is paid once at startup, not per request.
+2. **Latency and throughput are mixed.** Prefill is a per-request *latency* (TTFT) cost; decode is a *throughput* (TPOT) cost. Averaging them into one tok/s is not actionable.
+3. **Decode step-0 warmup is included.** Step 0 = 62ms vs steady ~44–45ms.
+
+Steady-state decode is actually **~44.7 ms/step ≈ 22 tok/s**, but the headline number says 3.19 tok/s — a ~7x understatement of generation throughput.
+
+> Note: `init_model` (weight load + kernel compile, ~65s) is already correctly excluded from `throughput (e2e)`. This issue is about the *remaining* one-time costs inside the generate phase.
+
+## Proposed metrics (deployment口径)
+
+Report these separately (mirroring vLLM's TTFT / TPOT / output-throughput convention):
+
+- **TTFT (Time To First Token)** — prefill latency. Report both *first request* (with warmup) and *steady-state* (warmed-up prefill kernel), since they differ by ~6s here.
+- **TPOT (Time Per Output Token)** — steady-state decode per-token time, **excluding the step-0 warmup** (and ideally median/p50 + p99, not just mean).
+- **Output throughput** — decode-only steady-state `tok/s = 1000 / TPOT_ms`.
+- Keep the raw kernel aggregates (prefill_fwd / decode_layer) as-is.
+- Drop or clearly relabel the mixed `throughput (e2e)` so it isn't read as the serving throughput.
+
+### Suggested report shape
+
+```
+TTFT (first req)        :  7.99 s    (incl. one-time warmup)
+TTFT (steady, kernel)   :  1.92 s
+TPOT (steady, p50)      :  44.7 ms/token   (excl. step-0 warmup)
+Output throughput       :  22.4 tok/s      (decode-only, steady)
+```
+
+## Scope
+
+- `examples/model/qwen3_14b/npu_generate.py` — `PrintTimingReport` / the timing collector.
+- Exclude the first decode step (and document the choice) when computing TPOT/output-throughput.
+- Optionally surface p50/p99 for TPOT.
+
+## Environment
+
+- repo: `pypto-serving` @ `main` (970312c)
+- pypto-lib submodule: `30e2cfe`
+- pypto: `a8258003`, runtime/simpler: `48980572`
+- model: Qwen3-14B, platform a2a3, `PTO2_RING_HEAP=2GiB`, max-seq-len 512, max-new-tokens 32
+
+
+---
+
+## #32 [Feature] Platform Management Design
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/32
+- Created: 2026-06-10T11:20:50Z
+- Updated: 2026-07-07T09:52:38Z
+- Closed: 
+
+### Body
+
+### Summary
+
+## Purpose
+
+This document defines the platform-management design and its relationship with the existing PyPTO Serving layers.
+
+The goal is to add a platform-management part to PyPTO Serving without changing the repository's core design principle: keep the shortest path from request scheduling to PyPTO/Simpler execution. Platform management should make the system more scalable and robust, but it should not become another model-execution abstraction layer.
+
+## Context
+
+PyPTO Serving currently focuses on a minimal local inference path:
+
+```text
+HTTP / CLI
+  -> Async serving control plane
+  -> Scheduler and KV cache manager
+  -> Worker process
+  -> PyPTO executor
+  -> Simpler runtime
+  -> Ascend NPU kernels
+```
+
+The platform proposal adds a separate layer for distributed-system management. It addresses the problems that appear when a local inference path becomes a multi-instance service:
+
+- Workload spikes require dynamic resource scaling.
+- Placement should be aware of latency, topology, and application-specific traffic patterns.
+- Faults should be handled without restarting the whole service.
+- The deployment should be reconfigurable so model partitions and kernels can move to better resources.
+
+## Design Split
+
+Serving should be split into two major submodules:
+
+| Submodule | Owner | Responsibility |
+| --- | --- | --- |
+| Platform | VNL platform work | Start and scale the distributed system, create communication channels, manage replicas, monitor health, react to faults, and expose topology/resource changes to the model layer. |
+| Model support | PyPTO Serving model layer | Handle LLM-specific behavior: request lifecycle, batching, model partition execution, KV cache policy, prefix reuse, token scheduling, sampling, and model-specific PyPTO executor logic. |
+
+The platform submodule owns the process during bootstrap. After the initial deployment is ready, it hands request execution to the model-support submodule and becomes a passive management service. From that point on, it reacts to explicit model-support requests and health/resource events.
+
+Examples of platform requests from the model-support layer:
+
+- Spawn more replicas for a partition when demand exceeds capacity.
+- Remove or drain replicas when demand drops.
+- Create or delete data channels between partitions.
+- Reconfigure model partition placement based on topology or resource availability.
+- Start periodic services such as heartbeat, monitoring, and scaling decisions.
+- Repair unhealthy instances and publish updated channel/endpoint metadata to the model layer.
+
+## Target Architecture
+
+```text
+Client / API
+  |
+  v
+Service entry layer
+  |
+  v
+Async serving control plane
+  |
+  +-------------------- Platform management API --------------------+
+  |                                                                 |
+  |  Deployment manager                                             |
+  |    - owns desired deployment state                              |
+  |    - maps model partitions to instances                         |
+  |    - asks runtime/cloud/Lingqu backend to spawn or remove nodes  |
+  |                                                                 |
+  |  Channel manager                                                |
+  |    - creates device payload channels between model partitions    |
+  |    - creates control channels between coordinators and replicas  |
+  |                                                                 |
+  |  Health and monitoring                                          |
+  |    - heartbeat                                                  |
+  |    - replica status                                             |
+  |    - load and capacity signals                                  |
+  |                                                                 |
+  |  Scaling and placement policy                                   |
+  |    - ramp up/down replicas                                      |
+  |    - topology-aware placement                                   |
+  |    - fault response and replacement                             |
+  +-----------------------------------------------------------------+
+  |
+  v
+Scheduler / KV cache / model support
+  |
+  v
+Partition coordinators and replicas
+  |
+  v
+PyPTO executor -> Simpler -> Ascend NPU
+```
+
+The platform-management API sits beside the current async serving control plane. It should not sit between the scheduler and executor for every token step. Token-level execution should remain on the current minimal path.
+
+## Feature Overview
+
+Platform management has several responsibilities. This section keeps them at overview level so the first implementation can focus on one narrow feature without losing the larger design direction.
+
+### Host and Device Boundary
+
+The platform layer must keep a strict boundary between host-side orchestration and device-side execution.
+
+Host-side tasks are control tasks. A task running on the host should not execute model kernels or move tensors through host memory as the steady-state data path. Its responsibility is to launch, configure, supervise, and terminate a Simpler runtime instance for the assigned partition or replica.
+
+Device-side runtime instances do the actual model work:
+
+- The host task starts a Simpler runtime instance with the partition's model subset, device placement, and channel descriptors.
+- PyPTO operators execute on the Ascend device through that Simpler runtime instance.
+- Tensor payload channels between partitions should be created as device-side channels whenever they move activations, token tensors, logits, KV-related tensors, or other model data.
+- Host-side channels should be limited to control-plane traffic: lifecycle commands, readiness, health, monitoring, placement decisions, and error reporting.
+- Data should not bounce through host memory between model partitions unless there is an explicit fallback or debug mode.
+
+This means a platform task is not the model executor itself. It is the host-side launcher and supervisor for a device-side executor.
+
+### Deployment Model
+
+The platform layer should describe the service as a deployment graph:
+
+- A `deployment` is the desired distributed application.
+- A `partition` is a model or service stage that owns a subset of work.
+- A `task` is the host-side launcher/supervisor for the partition's Simpler runtime instance.
+- An `edge` is a data/control channel between partitions, with tensor payload channels placed on device when they carry model data.
+- A `replica` is an instance that can execute a partition's work.
+- A `coordinator` owns routing and load balancing for a partition.
+
+This maps to the platform configuration model:
+
+| Concept | Platform role | Meaning for PyPTO Serving |
+| --- | --- | --- |
+| Deployment | Top-level desired state | Whole serving application, including partitions, edges, request manager, heartbeat settings, and control-buffer settings. |
+| Partition | Logical execution stage | A shard/stage of model execution, for example a pipeline stage, expert group, prefill stage, or decode stage. |
+| Replica | Concrete runtime instance | A concrete instance assigned to run a partition. |
+| Task | Host-side launcher | The control function that starts and supervises a partition-local Simpler runtime instance. |
+| Edge | Communication link | A channel between producers and consumers. Tensor payload edges should be device-side; control edges can be host-side. |
+
+The deployment model needs enough metadata to describe where host control tasks run, which Simpler runtime instance they launch, where model execution happens, and where channels are placed. The detailed API proposal for this is in the deep dive below.
+
+### Coordinator and Replica Pattern
+
+The platform uses coordinator/replica roles to reduce deployment complexity when scaling out a partition.
+
+At a high level:
+
+- The coordinator receives jobs from upstream partitions or the serving control plane.
+- The coordinator tracks available replicas.
+- The coordinator sends ready jobs to replicas over host-side control channels.
+- A replica's host-side task launches or references the partition-local Simpler runtime instance.
+- The Simpler runtime instance executes the partition-local model function on the device.
+- Tensor outputs flow over device-side data channels when another model partition consumes them.
+- The coordinator marks the replica available again and forwards completion/status metadata.
+
+The coordinator should not inspect token-level model details or tensor payloads. It only sees requests, readiness, health, placement metadata, and channel metadata.
+
+### Channel Management
+
+The platform layer owns channel lifecycle. Model support should request channels by intent rather than constructing distributed transport directly.
+
+Channel placement follows the host/device boundary:
+
+- Tensor payload channels are device-side channels. They move activations, token tensors, logits, KV-related tensors, and partition outputs directly between device-side runtime instances.
+- Control channels are host-side channels. They move lifecycle commands, job metadata, readiness, health, monitoring, and errors.
+- Host-mediated tensor movement is a fallback/debug path, not the normal serving path.
+
+The channel controller should follow a desired-state reconciliation model: register desired producers and consumers, compare desired channels against actual channels, create missing channels through the selected backend's resource-exchange mechanism, and remove stale channels when they are no longer desired.
+
+### Health and Monitoring
+
+Reliability and zero-downtime fault response are core platform goals. Heartbeat provides liveness, while monitoring provides load and capacity signals.
+
+Recovery routing is owned by the platform:
+
+- If a replica becomes unhealthy, the coordinator stops assigning it new jobs.
+- The platform computes the replacement placement, requests a new instance if needed, and rebuilds the required host control channels and device tensor channels.
+- The platform updates model support with new channel handles, endpoint descriptors, or partition routing metadata.
+- Model support may pause, fail, or replay affected in-flight work according to model semantics, but it should not choose the replacement instance or reroute topology.
+
+Useful monitoring signals include queue depth, pending requests, decode-token throughput, prefill latency, NPU memory use, KV-cache pressure, and channel backpressure.
+
+### Scaling and Placement
+
+Dynamic scaling is a later capability built on the same deployment and channel metadata.
+
+Scale-up can be triggered by queue depth, latency targets, token-throughput saturation, KV-cache pressure, or failed capacity. Scale-down should be drain based: mark a replica draining, stop assigning new jobs, wait for in-flight work or timeout, unregister from the coordinator, delete channels, and release backend resources.
+
+Topology-aware placement should consider NPU topology, device memory, channel locality, partition type, and KV-cache locality. The model layer can provide pressure and locality hints, but the platform owns placement decisions.
+
+### Supported Parallelism
+
+The platform should be able to describe and place several forms of parallelism:
+
+- Pipeline parallelism: each pipeline stage is a partition connected by edges.
+- Expert parallelism: expert subsets can be placed as partitions and selected through model-support routing logic.
+- Batch parallelism: whole-model or stage replicas can be scaled and load-balanced by coordinators.
+- Tensor parallelism: model support owns tensor-level execution details; platform provides placement and channels for tensor-parallel groups.
+
+The boundary is important: platform describes placement, channels, and replica lifecycle; PyPTO Serving model support describes how a partition computes.
+
+## Deep Dive: Static Deployment API
+
+The first implementation target should be static deployment description and startup. This is the easiest useful feature because it defines the host/device boundary and the API shape without requiring dynamic scaling, failure replacement, or topology-aware reconfiguration.
+
+This deep dive is a proposed API shape, not an existing schema in the repository.
+
+### Goals
+
+- Describe partitions, replicas, host tasks, Simpler runtime instances, and channels.
+- Make host/device placement explicit.
+- Start a fixed deployment from a desired-state spec.
+- Launch one Simpler runtime instance per replica task.
+- Create host control channels and device tensor channels.
+- Publish runtime and channel descriptors to model support.
+
+### Non-Goals for the First API
+
+- No automatic scale-up or scale-down.
+- No automatic fault replacement.
+- No topology optimizer.
+- No model-layer rerouting policy.
+- No host-side tensor data path except explicit fallback/debug modes.
+
+### Proposed Deployment Shape
+
+A first proposed deployment shape can stay minimal:
+
+```json
+{
+  "name": "qwen3-14b-serving",
+  "partitions": [
+    {
+      "name": "prefill",
+      "model_range": {"layers": [0, 47]},
+      "task_placement": "host",
+      "runtime": "simpler",
+      "execution_placement": "device",
+      "parallelism": "batch",
+      "replicas": 1
+    },
+    {
+      "name": "decode",
+      "model_range": {"layers": [0, 47]},
+      "task_placement": "host",
+      "runtime": "simpler",
+      "execution_placement": "device",
+      "parallelism": "batch",
+      "replicas": 1
+    }
+  ],
+  "channels": [
+    {"name": "api_to_prefill", "producer": "api", "consumer": "prefill", "placement": "host", "kind": "control"},
+    {"name": "prefill_to_decode", "producer": "prefill", "consumer": "decode", "placement": "device", "kind": "tensor"},
+    {"name": "decode_to_api", "producer": "decode", "consumer": "api", "placement": "host", "kind": "control"}
+  ],
+  "heartbeat": {"enabled": true, "interval_ms": 1000, "tolerance_ms": 3000}
+}
+```
+
+The platform API should eventually support richer partition metadata for pipeline parallelism, expert parallelism, batch parallelism, tensor parallelism, KV-cache locality, and NPU topology.
+
+### Proposed Python API
+
+The Python API can mirror the deployment shape with typed data classes. Exact field names can change, but the placement concepts should remain explicit.
+
+```python
+from dataclasses import dataclass
+from typing import Literal
+
+
+Placement = Literal["host", "device"]
+ChannelKind = Literal["control", "health", "tensor"]
+
+
+@dataclass(frozen=True)
+class ModelRange:
+    layers: tuple[int, int]
+
+
+@dataclass(frozen=True)
+class PartitionSpec:
+    name: str
+    model_range: ModelRange
+    task_placement: Literal["host"]
+    runtime: Literal["simpler"]
+    execution_placement: Literal["device"]
+    parallelism: str
+    replicas: int
+
+
+@dataclass(frozen=True)
+class ChannelSpec:
+    name: str
+    producer: str
+    consumer: str
+    placement: Placement
+    kind: ChannelKind
+    capacity: int | None = None
+    payload_size: int | None = None
+
+
+@dataclass(frozen=True)
+class HeartbeatSpec:
+    enabled: bool
+    interval_ms: int
+    tolerance_ms: int
+
+
+@dataclass(frozen=True)
+class DeploymentSpec:
+    name: str
+    partitions: tuple[PartitionSpec, ...]
+    channels: tuple[ChannelSpec, ...]
+    heartbeat: HeartbeatSpec
+```
+
+### Platform Manager API
+
+The first platform manager API should focus on startup, shutdown, and publishing resolved descriptors:
+
+The Python-facing `PlatformManager` can be implemented as bindings over the existing C++ platform runtime, keeping Python as the serving/control API while C++ realizes deployment, host task launch, channel creation, and runtime supervision.
+
+```python
+class PlatformManager:
+    def start(self, deployment: DeploymentSpec) -> "RuntimePlan": ...
+    def stop(self) -> None: ...
+    def get_runtime_plan(self) -> "RuntimePlan": ...
+```
+
+`start()` should validate the deployment, launch host-side tasks, start Simpler runtime instances, create channels with the requested placement, and return a resolved runtime plan.
+
+`RuntimePlan` is the model layer's read-only view of what the platform created:
+
+```python
+@dataclass(frozen=True)
+class RuntimeEndpoint:
+    partition: str
+    replica_id: str
+    host_task_id: str
+    simpler_instance_id: str
+    device_id: str
+
+
+@dataclass(frozen=True)
+class ChannelHandle:
+    name: str
+    producer: str
+    consumer: str
+    placement: Placement
+    kind: ChannelKind
+    handle: object
+
+
+@dataclass(frozen=True)
+class RuntimePlan:
+    endpoints: tuple[RuntimeEndpoint, ...]
+    channels: tuple[ChannelHandle, ...]
+```
+
+Model support should consume `RuntimePlan` but should not mutate it. If a later platform version replaces a replica or channel, the platform publishes a new plan or an incremental update.
+
+### Channel Creation API
+
+For the static version, channel creation can be internal to `PlatformManager.start()`. If exposed, it should preserve placement:
+
+```text
+create_channel(source_partition, target_partition, channel_kind, placement, capacity, size)
+delete_channel(channel_id)
+subscribe(channel_id, message_type, handler)
+publish(channel_id, message)
+```
+
+Channel kinds and placement should distinguish:
+
+- Device payload channels for activations, token batches, logits, KV-related movement, and partition-to-partition tensor flow.
+- Host control channels for coordinator/replica commands and responses.
+- Host health channels for heartbeat and status events.
+
+## Relation to PyPTO Serving Layers
+
+### Service Entry Layer
+
+Current files:
+
+- `python/cli/main.py`
+
+Expected platform relation:
+
+- Add platform deployment configuration options.
+- Choose local-only mode or distributed platform mode.
+- Initialize the platform manager before starting model-serving traffic.
+
+The default should remain local and minimal. Distributed platform mode should be explicit.
+
+### HTTP API Layer
+
+Current files:
+
+- `python/core/server.py`
+
+Expected platform relation:
+
+- Continue handling OpenAI-compatible requests and health endpoints.
+- Expose high-level service health that includes platform status when enabled.
+- Avoid exposing internal platform controls through the public inference API unless explicitly needed.
+
+### Async Serving Control Plane
+
+Current files:
+
+- `python/core/async_engine.py`
+- `python/core/scheduler.py`
+- `python/core/kv_cache.py`
+
+Expected platform relation:
+
+- The async engine should call the platform manager for coarse-grained deployment changes, not for each token step.
+- The scheduler should keep deciding request batching and token budgets.
+- KV-cache policy should remain model support, but it may provide placement hints such as KV locality and memory pressure.
+
+### Model Execution Layer
+
+Current files:
+
+- `python/core/serving_worker.py`
+- `python/core/executor.py`
+- `python/core/pypto_executor.py`
+- `examples/model/qwen3_14b/runner/`
+
+Expected platform relation:
+
+- Workers become replicas when platform mode is enabled.
+- A partition replica owns a model subset and a local Simpler/PyPTO executor on the assigned device.
+- The host-side task for a replica starts and supervises the Simpler runtime instance.
+- Model execution happens on the Ascend device, not in the host platform task.
+- The platform manager starts and stops replicas, but does not own model execution logic.
+
+### Backend Runtime Layer
+
+Current files:
+
+- `pypto-lib/`
+- Simpler runtime integration
+
+Expected platform relation:
+
+- Simpler remains the runtime for NPU dispatch.
+- Platform code should not introduce a competing model runtime.
+- Platform backend adapters can target local processes, MPI-based launch, cloud-style emulation, or Lingqu infrastructure, but the model-execution path should still terminate in PyPTO/Simpler.
+- The Python platform API should call into the C++ platform runtime through bindings rather than reimplementing platform orchestration in Python.
+- Tensor data channels between model partitions should be created on the device side when they carry model data.
+- Host runtime code should only orchestrate Simpler instances and control-plane channels.
+
+## Static Bootstrap Flow
+
+Initial startup should follow this sequence:
+
+```text
+parse serving and deployment config
+  -> initialize platform backend
+  -> validate deployment graph
+  -> allocate initial instances
+  -> start partition coordinators
+  -> start initial replicas
+  -> create host-side control channels
+  -> launch Simpler runtime instances from host-side tasks
+  -> create device-side tensor payload channels
+  -> initialize heartbeat and monitoring on the host control plane
+  -> initialize PyPTO model executors inside device-side Simpler runtime instances
+  -> mark deployment ready
+  -> start accepting model requests
+```
+
+This matches the issue discussion: the platform submodule takes ownership immediately upon launch and relinquishes request execution to model support once initialization is ready.
+
+## Future Platform APIs
+
+Later platform work can extend the static API with coarse-grained management calls. These should remain outside the per-token hot path.
+
+Potential future calls:
+
+- `spawn_replica(partition, resources)` for dynamic scale-up or failure replacement.
+- `drain_replica(replica)` for controlled scale-down.
+- `remove_replica(replica)` after drain completes.
+- `get_topology()` for topology-aware placement.
+- `get_health()` for liveness snapshots.
+- `report_load(metrics)` for scheduler and worker load signals.
+
+The platform owns these decisions and publishes updated `RuntimePlan` data to model support after changes are applied.
+
+## Future Failure Handling
+
+Failure handling should build on the static deployment API. When a replica fails, the platform should mark it unhealthy, stop assigning work to it, create replacement capacity, rebuild host control channels and device tensor channels, and publish an updated `RuntimePlan` to model support. Model support can then resume, retry, or fail affected work according to model semantics.
+
+Coordinator failure requires stronger state handling and is a later milestone. A minimal first implementation can treat coordinator failure as partition-level failure and restart the partition's coordinator and replicas.
+
+## Non-Goals
+
+- Do not turn PyPTO Serving into a full production serving framework.
+- Do not put platform calls in the per-token execution hot path.
+- Do not duplicate model-specific scheduling, KV-cache, or sampling policy inside the platform layer.
+- Do not introduce a second NPU execution runtime alongside Simpler.
+- Do not require distributed platform mode for the current single-node reference path.
+
+## References
+
+- GitHub issue: <https://github.com/hw-native-sys/pypto-serving/issues/13>
+- PyPTO Serving architecture wiki: <https://github.com/hw-native-sys/pypto-serving/wiki/PyPTO-Serving-Architecture-Overview>
+- PyPTO Serving design philosophy wiki: <https://github.com/hw-native-sys/pypto-serving/wiki/PyPTO-Serving-%E2%80%94-Design-Philosophy>
+
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+Enhance PTO serving capabilities to support distributed execution
+
+### Proposed API / Behavior
+
+_No response_
+
+### Alternatives Considered
+
+_No response_
+
+### Additional Context
+
+_No response_
+
+---
+
+## #36 [Feature] Parallel Strategies Support
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/36
+- Created: 2026-06-16T12:32:30Z
+- Updated: 2026-06-18T07:27:05Z
+- Closed: 
+
+### Body
+
+### Summary
+
+Define a first-class parallel strategy model for PyPTO Serving, covering data parallelism (DP), tensor parallelism (TP), expert parallelism (EP), pipeline parallelism (PP), and hybrid layouts such as DP+TP, TP+EP, and DP+TP+EP.
+
+The design should follow the same high-level separation used by vLLM: one config object describes parallel dimensions, the runtime resolves rank groups/topology from it, and model runners consume group metadata without owning request routing or platform placement.
+
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+PyPTO Serving needs a clear contract for multi-device and distributed serving. Without an explicit parallel strategy model, scheduler behavior, KV-cache ownership, PyPTO executor setup, worker placement, and communication channels can become model-specific and hard to compose.
+
+  vLLM provides a useful reference:
+
+  - `ParallelConfig` owns `pipeline_parallel_size`, `tensor_parallel_size`, `data_parallel_size`, DP rank/backend/LB mode, `enable_expert_parallel`, expert placement, and all2all
+  backend choices.
+  - Runtime code derives TP, PP, DP, and EP groups from the configured world layout.
+  - DP is represented as independent engine/scheduler replicas, with a coordinator/load-balancing layer when needed.
+  - TP/PP are model-execution dimensions inside one logical model replica.
+  - EP is MoE-specific and depends on expert placement plus all2all communication backend selection.
+
+  PyPTO Serving should define an equivalent serving-facing contract adapted to PyPTO/Simpler/L3 execution.
+
+
+### Proposed API / Behavior
+
+Add a parallel strategy section to serving config and model registration.
+
+  Example shape:
+
+  ```json
+  {
+    "parallel": {
+      "data_parallel_size": 2,
+      "tensor_parallel_size": 4,
+      "pipeline_parallel_size": 1,
+      "enable_expert_parallel": true,
+      "expert_placement_strategy": "linear",
+      "all2all_backend": "pypto_default",
+      "data_parallel_backend": "local",
+      "data_parallel_load_balance": "internal"
+    }
+  }
+```
+
+  Expected behavior:
+
+  - DP creates multiple logical serving replicas. Each DP rank owns request scheduling, KV-cache state, prefix-cache metadata, and one executor group.
+  - TP is one logical model executor split across multiple device ranks. Scheduler sees one worker, while the executor/model runner handles tensor shards and collectives.
+  - PP splits model layers into ordered stages. Runtime/platform owns stage placement and activation channels; scheduler still owns request lifecycle.
+  - EP is enabled only for MoE models. Model support owns token-to-expert routing semantics, while runtime/platform owns expert placement and all2all channels.
+  - Hybrid layouts compose dimensions explicitly, for example DP replicas where each replica is a TP group.
+  - Runtime should expose resolved group metadata to model runners, similar to vLLM’s TP/PP/DP/EP group accessors.
+  - Platform code should own placement, process lifecycle, and channel creation, but should not own token scheduling or model-specific routing.
+
+  Acceptance criteria:
+
+  - A ParallelConfig or equivalent schema exists.
+  - DP, TP, PP, EP, and hybrid ownership boundaries are documented.
+  - Scheduler can route to logical workers without knowing tensor/expert sharding details.
+  - Executor can initialize rank groups and pass group metadata into PyPTO model runners.
+  - KV-cache and prefix-cache ownership are specified for DP, TP, PP, and EP.
+  - Initial implementation may support only one mode, but the schema should not block later hybrid strategies.
+
+
+### Alternatives Considered
+
+Keep adding multi-device behavior directly inside model runners. This is simple initially, but it makes request routing, KV ownership, profiling, and platform placement hard to reuse.
+
+Put all distributed behavior into the platform layer. This is too coarse: platform should manage lifecycle and placement, while model support owns scheduling, KV policy, sampling, and model-specific parallel execution.
+
+
+### Additional Context
+
+Related pypto-serving issues:
+
+  - #18: L3 serving runtime design
+  - #26: Replace L2 kernel runtime and old L3 generate path with unified L3 worker dispatch
+  - #32: Platform management design
+
+
+---
+
+## #38 [Feature] Add radix prefix cache backend for paged KV reuse
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/38
+- Created: 2026-06-18T02:27:51Z
+- Updated: 2026-06-18T02:27:51Z
+- Closed: 
+
+### Body
+
+### Summary
+
+Add an optional radix prefix cache backend to PyPTO Serving. The backend should reuse existing paged KV cache pages for requests that share long token prefixes, while keeping the current hash prefix cache as the default path.
+
+### Area
+
+Batching and scheduling
+
+### Motivation / Use Case
+
+Many serving workloads contain repeated long prefixes, such as system prompts, shared context, retrieved documents, or multi-turn prompt templates. The current prefix cache path is hash-block based. A radix tree is a more natural structure for longest-prefix matching and can reduce duplicated prefill work when requests share a large prefix but diverge near the end.
+
+The goal is to support this workflow:
+
+```text
+request A: shared long prefix + suffix A
+request B: shared long prefix + suffix B
+```
+
+After request A computes and stores its prefix KV pages, request B should reuse the matching prefix pages and only prefill the unmatched suffix.
+
+### Proposed API / Behavior
+
+Add a CLI option:
+
+```bash
+--prefix-cache-backend {hash,radix}
+```
+
+Default behavior should remain unchanged:
+
+```text
+default: hash
+```
+
+Expected behavior:
+
+- `hash` continues to use the existing prefix cache path.
+- `radix` enables a page-aligned radix prefix cache.
+- The radix key should include model namespace information, for example `(model_id, token_prefix)`, to avoid cross-model page reuse.
+- The radix cache should map page-aligned token prefixes to physical KV page IDs.
+- On a prefix hit, the scheduler should attach matched KV pages to the request and set `num_computed_tokens` to the matched prefix length.
+- The scheduler should only schedule prefill for the unmatched suffix.
+- After prefill/decode progresses, completed page-aligned prefixes should be inserted into the radix cache.
+- Request finish, abort, and preemption should release request references and radix locks correctly.
+- Existing page attention kernels and paged KV storage should remain unchanged.
+
+### Flow / Request Lifecycle
+
+The radix backend request lifecycle should be:
+
+```text
+1. Request enters serving
+   The OpenAI-compatible API receives a request. The engine tokenizes the
+   prompt and creates a Request carrying model_id, prompt_token_ids,
+   max_new_tokens, and sampling parameters.
+
+2. Scheduler receives a waiting request
+   The scheduler pops a new request from the waiting queue.
+   If prefix_cache_backend == "hash", it follows the existing hash prefix
+   cache path.
+   If prefix_cache_backend == "radix", it enters radix prefix lookup.
+
+3. Radix prefix lookup
+   The scheduler looks up radix cache by:
+     (model_id, prompt_token_ids[:prompt_len - 1])
+   The lookup should stop at prompt_len - 1 to avoid a full-prompt hit with
+   no token left for prefill/first-logits computation.
+
+4. Attach matched KV pages
+   If radix hits a page-aligned prefix:
+     - Set request.cached_block_ids to the matched physical page IDs.
+     - Set request.num_computed_tokens to matched_tokens.
+     - Retain matched pages for the active request.
+     - Lock the matched radix node/path to prevent eviction while the request
+       is running.
+
+5. Allocate pages for unmatched suffix
+   The scheduler allocates new KV pages only for the unmatched suffix tokens.
+   The worker still receives the normal paged KV layout:
+     block_ids = cached pages + newly allocated pages
+
+6. Worker runs prefill/decode
+   The worker uses the existing Qwen3 prefill/decode path and page attention
+   kernels. Radix should not change the kernel interface or the underlying
+   paged KV storage format.
+
+7. Insert completed prefixes
+   After worker execution, the scheduler updates request.num_computed_tokens.
+   Completed page-aligned prefixes are inserted into the radix cache:
+     (model_id, completed token prefix) -> physical page IDs
+
+8. Request finishes or is interrupted
+   On finish, abort, or preemption:
+     - Release active request page references.
+     - Release radix node locks.
+     - Keep radix cache-owned page references for future reuse.
+     - Eviction may reclaim only radix leaf pages without active request locks.
+```
+
+Simplified flow:
+
+```text
+HTTP request
+    |
+    v
+Tokenize prompt
+    |
+    v
+Scheduler waiting queue
+    |
+    +---------------- prefix_cache_backend == hash ----------------+
+    |                                                             |
+    v                                                             |
+Existing hash prefix cache path                                  |
+                                                                  |
+    +---------------- prefix_cache_backend == radix ---------------+
+                                  |
+                                  v
+                    Radix lookup by (model_id, token_prefix)
+                                  |
+                    +-------------+-------------+
+                    |                           |
+                    v                           v
+                 miss                         hit
+                    |                           |
+                    v                           v
+          allocate all needed pages     attach matched cached pages
+                    |                           |
+                    +-------------+-------------+
+                                  |
+                                  v
+                    allocate pages for unmatched suffix
+                                  |
+                                  v
+                    run existing prefill/decode kernels
+                                  |
+                                  v
+                    insert completed page-aligned prefix
+                                  |
+                                  v
+                    finish / abort / preempt cleanup
+```
+
+### Alternatives Considered
+
+Keep only the existing hash-block prefix cache. This is simpler but less expressive for longest-prefix reuse across prompts with shared long prefixes.
+
+Implement radix attention directly in lower-level kernels. This would be more invasive and would require changing the kernel/runtime interface. The proposed design keeps radix in the serving scheduler and KV cache management layer, reusing the existing paged KV cache and page attention kernels.
+
+### Additional Context
+
+A possible implementation plan:
+
+1. Add a backend selector in the serving CLI and config path.
+2. Add a `RadixPrefixCache` data structure for compressed radix-tree prefix matching.
+3. Store only page-aligned prefixes so the cache can safely reuse complete KV pages.
+4. Extend `KvCacheManager` with explicit request/cache page retain and release APIs.
+5. In the scheduler, add a radix branch parallel to the current hash prefix-cache branch.
+6. Track radix node locks while a request is using matched prefix pages.
+7. Insert completed page-aligned prefixes after worker execution.
+8. Add unit tests for tree insert/match/split, scheduler hit/miss behavior, default hash behavior, cleanup, and preemption.
+9. Add an HTTP-level validation script that sends cold/hit/miss requests and checks expected radix debug counters.
+
+Expected validation criteria:
+
+- Default startup without `--prefix-cache-backend radix` keeps the existing hash path.
+- Explicit `--prefix-cache-backend radix` enables radix lookup and insertion.
+- A second request with the same page-aligned prefix should reuse cached pages.
+- A request with a different prefix should miss and run normal prefill.
+- Request completion, abort, and preemption should not leak KV page references.
+- The implementation should work with Qwen3-14B serving using the existing paged attention path.
+
+
+---
+
+## #41 [Bug] Hash prefix cache cold-hit-miss sequence can crash Qwen3-14B prefill with 507018
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/41
+- Created: 2026-06-25T02:20:47Z
+- Updated: 2026-06-25T02:20:47Z
+- Closed: 
+
+### Body
+
+### Diagnosis
+
+pypto-serving / Qwen3-14B NPU prefill runtime - a hash prefix-cache cold-hit-miss sequence can schedule a later full-prefill miss into non-initial physical KV pages and crash with `507018`. This is not unique to the radix prefix-cache lookup path.
+
+### Description
+
+A Qwen3-14B serving process using the default `hash` prefix-cache backend can reproduce the same `507018` failure observed while validating radix prefix caching.
+
+Reproduction sequence:
+
+1. Start Qwen3-14B serving with `--prefix-cache-backend hash`.
+2. Run a cold/hit/miss probe with one repeated-prefix round.
+3. The cold request succeeds.
+4. The second request hits one cached prefix page and succeeds.
+5. The third request is a different-prefix miss, but it is scheduled as one 262-token full prefill with physical KV pages `[3, 4, 5]`.
+6. The prefill runtime fails with `aclrtSynchronizeStreamWithTimeout (AICPU) failed: 507018`, and the HTTP request returns 500.
+
+Important control checks:
+
+- A fresh service receiving only the same 262-token miss request succeeds.
+- A fresh service running only `cold -> miss` also succeeds.
+- The failure is reproducible with `cold -> hit -> miss`.
+- The failed third request has `hit_pages=0`, so this is not a wrong prefix-cache hit.
+- A radix-side workaround that caps radix prefill chunks to two pages avoids this specific trigger shape, but the underlying hash-path failure still indicates a prefill/runtime stability issue.
+
+### Command or Request
+
+Start service:
+
+```bash
+task-submit --device 2 --max-time 0 --run \
+"PATH=/usr/local/bin/ptoas-bin:\$PATH PTOAS_ROOT=/usr/local/bin/ptoas-bin \
+PYTHONUNBUFFERED=1 \
+PYPTO_PREFIX_CACHE_DEBUG=1 \
+PTO2_RING_HEAP=2147483648 PTO2_RING_TASK_WINDOW=1048576 PTO2_RING_DEP_POOL=1048576 \
+<PYTHON> -m python.cli.main \
+  --model <QWEN3_14B_MODEL_DIR> \
+  --backend npu \
+  --platform a2a3 \
+  --device 2 \
+  --max-model-len 512 \
+  --max-new-tokens 2 \
+  --prefix-cache-backend hash \
+  --port 8899 \
+  --show-startup-logs"
+```
+
+Run probe:
+
+```bash
+python test_radix_hit.py --rounds 1 --prefix-repeat 28 --max-model-len 512 --max-tokens 2
+```
+
+Minimal repro script:
+
+```python
+import json
+import time
+import urllib.request
+
+URL = "http://127.0.0.1:8899/v1/completions"
+REPEAT = 28
+
+
+def post(label, prompt):
+    payload = {
+        "prompt": prompt,
+        "max_tokens": 2,
+        "temperature": 0.0,
+    }
+    req = urllib.request.Request(
+        URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    start = time.perf_counter()
+    with urllib.request.urlopen(req, timeout=600) as resp:
+        body = resp.read().decode("utf-8")
+    print(label, round(time.perf_counter() - start, 3), body)
+
+
+hit_prefix = (
+    "Probe round 1. "
+    + "Huawei is a leading global technology company. " * REPEAT
+)
+miss_prefix = (
+    "Probe round 1 miss. "
+    + "The Forbidden City is an ancient imperial palace. " * REPEAT
+)
+
+post("cold", hit_prefix + " First answer:")
+post("hit", hit_prefix + " Second answer:")
+post("miss", miss_prefix + " Third answer:")
+```
+
+Observed client output from the full probe:
+
+```text
+cold-1        5.320s finish=length   chars= 10 text=' Huawei is'
+hit-1         0.582s finish=length   chars= 10 text=' Huawei is'
+miss-1        HTTP 500 Internal Server Error
+```
+
+The local validation script `test_radix_hit.py` contains the same sequence plus tokenizer/page accounting and summary output. The minimal script above is enough to reproduce the failure.
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `107db2d` plus local prefix-cache/radix validation branch |
+| pypto-lib | `3ef4931` |
+| pypto | `0.1.0` |
+| simpler | `0.1.0` |
+| ptoas | `0.46` |
+| CANN | `9.0.0` inferred from runtime path |
+| torch / torch-npu | `torch 2.6.0+cpu`, `torch-npu 2.6.0.post2` |
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+Ascend NPU, `a2a3`, reproduced on device 2.
+
+### Model
+
+Qwen3-14B
+
+### Logs
+
+```text
+[prefix_cache] backend=hash event=match request=cmpl-63a4aa1d model=Qwen3-14B prompt_tokens=233 hit_tokens=0 hit_pages=0 lookup_ms=0.009
+[prefix_cache] backend=hash event=schedule request=cmpl-63a4aa1d model=Qwen3-14B scheduled_prefill_tokens=233 computed_tokens=0 cached_pages=0 allocated_pages=2 block_ids=[0, 1]
+[timing] prefill: fused 40 layers, 5157.89 ms
+[prefix_cache] backend=hash event=insert request=cmpl-63a4aa1d model=Qwen3-14B total_tokens=128 pages=1 inserted_pages=1 insert_ms=0.007
+
+[prefix_cache] backend=hash event=match request=cmpl-2189b6d7 model=Qwen3-14B prompt_tokens=233 hit_tokens=128 hit_pages=1 lookup_ms=0.013
+[prefix_cache] backend=hash event=schedule request=cmpl-2189b6d7 model=Qwen3-14B scheduled_prefill_tokens=105 computed_tokens=128 cached_pages=1 allocated_pages=1 block_ids=[0, 2]
+[timing] prefill: fused 40 layers, 455.50 ms
+
+[prefix_cache] backend=hash event=match request=cmpl-7ec638fc model=Qwen3-14B prompt_tokens=262 hit_tokens=0 hit_pages=0 lookup_ms=0.007
+[prefix_cache] backend=hash event=schedule request=cmpl-7ec638fc model=Qwen3-14B scheduled_prefill_tokens=262 computed_tokens=0 cached_pages=0 allocated_pages=3 block_ids=[3, 4, 5]
+[ERROR] sync_run_streams: aclrtSynchronizeStreamWithTimeout (AICPU) failed: 507018
+[WARN] recover_device_or_mark_unusable: AICore error 507018: device drained via aclrtSynchronizeDeviceWithTimeout
+[ERROR] validate_runtime_impl: PTO2 runtime failed: orch_error_code=2 sched_error_code=0 runtime_status=-2
+RuntimeError: run_prepared failed with code 507018
+```
+
+### Additional Context
+
+The failure appears tied to a specific serving/runtime state rather than the prompt alone. The same 262-token miss can succeed on a fresh service, but fails after a prior prefix-cache hit when the next miss is scheduled as a 3-page full prefill using physical pages `[3, 4, 5]`.
+
+This should be investigated independently from radix prefix-cache correctness, because the same failure is reproducible through the `hash` backend.
+
+
+---
+
+## #43 [Bug] Qwen3-14B 泛化验证报告
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/43
+- Created: 2026-06-25T12:27:44Z
+- Updated: 2026-07-15T01:05:02Z
+- Closed: 
+
+### Body
+
+# Qwen3-14B 泛化验证报告
+
+本报告对 Qwen3-14B 在 PyPTO serving 流程(融合 40 层 PAGED `decode_fwd` + chunked prefill)上的**性能**、**精度**与**稳定性**进行系统性验证,覆盖从短序列到长序列(256 → 2048,4096 待测)、单 batch 到多 batch(1 → 32)的泛化表现。规范方法、执行命令与判定标准如下,实测数据由各章节结果表记录。
+
+---
+
+## 一、验证概述
+
+**验证对象**:Qwen3-14B PyPTO serving 全流程(主进程 scheduler + worker 进程 NPU 执行,prefill/decode 共用同一 PAGED KV pool)。
+
+**验证范围**:
+
+| 维度 | 内容 |
+|---|---|
+| 性能 | seq 256 / 1024 / 2048;并发 1 / 4 / 16 / 32(seq 512 / 4096、并发 2 / 8 待补) |
+| 精度 | 多 batch 输出一致性(greedy);6 个基准数据集分数 |
+| 稳定性 | 并发 1–16、长度 < 4096 混合负载,3 天常稳 |
+
+**判定原则**:
+- **性能**:全矩阵点在阈值内、无 OOM / 无异常拐点 → 通过。
+- **精度**:多 batch 一致性为**硬性要求**(逐 token 必须一致);数据集分数相对参考实现对齐 → 通过。
+- **稳定性**:连续运行不崩溃、无内存泄漏 → 通过。
+
+---
+
+## 二、测试环境
+
+| 项 | 值 |
+|---|---|
+| 仓库 commit | main 分支最新(`bf6f16f0`) |
+| pypto-lib 子模块 commit | main 分支最新(`37234733`) |
+| NPU 平台 / device | Ascend 910C,**单卡**(device a3) |
+| PyPTO 版本 | main 分支最新(`9b144026`) |
+| 验证日期 | 2026-06-29 ~ 2026-07-14 |
+
+**参考实现(精度真值)**:golden 分数应使用 **AISBench** 在标准后端(如 vLLM-Ascend / HuggingFace `transformers`)上、以与被测服务**相同的 prompt 模板与采样参数**测得,确保评测协议一致;低算力环境下可对照仓库内 `examples/model/qwen3_14b/cpu_generate.py`(`CpuModelExecutor`)。
+
+---
+
+## 三、性能验证
+
+### 3.1 指标定义
+
+性能主测试采用 **vLLM bench**(`vllm bench serve`)的**随机输入输出**(`--dataset-name random`),输入/输出长度精确可控,得到干净的 TTFT / 解码间隔(ITL)/ 吞吐 / 分位数据。
+
+| 指标 | 含义 | 数据来源 |
+|---|---|---|
+| TTFT(ms) | 首 token 延迟,≈ prefill 耗时 | `vllm bench serve` 的 TTFT |
+| decode 延迟(ms/token) | 解码每 token 间隔(ITL) | `vllm bench serve` 的 ITL |
+| 吞吐(tok/s, req/s) | 端到端吞吐 | `vllm bench serve` 的 Output / Request throughput |
+| 稳定性 | 同配置多次运行 p50/p99 | `vllm bench serve` 的 percentiles |
+| kernel device_wall(ms) | prefill/decode 设备侧纯算力耗时 | `npu_generate --profile-verbose` 的 `device_wall`(kernel 级钻取) |
+| KV cache 占用(GB) | KV pool 实际占用 | serving 启动日志 `[KV cache sizing]` |
+
+> **矩阵维度映射**:`--random-input-len` 对应输入序列长度维度(256 / … / 4096),`--num-prompts`(全压并发)对应 batch 维度,`--random-output-len` 控制解码长度。两者正交扫表即得到 3.2 矩阵。
+>
+> **输出长度对齐提示**:随机输入输出测试要求 decode 跑满 `--random-output-len`。当前 `server.py` 的 `CompletionRequest` 未解析 `ignore_eos`,随机 token 触发 EOS 概率较低但偶发会提前截断;若需严格固定输出长度对比,建议在 serving 端补 `ignore_eos` 支持。**(3.4 实测已观察到提前截断,如 2048/512/4 仅生成 258/2048 tok)**
+
+### 3.2 测试矩阵
+
+- 序列长度 `max-seq-len`:256 / 512 / 1024 / 2048 / 4096
+- batch `max-num-seqs`:1 / 2 / 4 / 8 / 16
+
+优先覆盖 9 个代表点(其余作为扩展):
+
+| | seq=256 | seq=1024 | seq=4096 |
+|---|---|---|---|
+| batch=1 | ● | ● | ● |
+| batch=4 | ● | ● | ● |
+| batch=16 |  | ● | ● |
+
+> **实测覆盖(2026-07)**:seq 256 / 1024 / 2048 × 并发 1 / 4 / 16 / 32,共 12 点(见 3.4);seq=4096、并发 2 / 8 待补。
+
+### 3.3 执行方式
+
+**(A) 随机输入输出性能测试(vLLM bench serve,主)**:先起服务,再用随机数据压测。
+
+```bash
+# 起服务(长上下文 / 多 batch 需大环)
+task-submit --device auto --run \
+  "PTO2_RING_HEAP=4294967296 PTO2_RING_TASK_WINDOW=1048576 PTO2_RING_DEP_POOL=1048576 \
+  python -m python.cli.main \
+    --model /path/to/Qwen3-14B --backend npu --platform a2a3 --device {} \
+    --max-model-len <S> --max-num-seqs <B> --port 8899"
+
+# 安装 vllm bench 依赖
+pip install 'vllm[bench]'
+
+# 随机输入输出压测:--random-input-len 扫序列长度,--num-prompts 控并发(batch)
+vllm bench serve \
+  --backend openai \
+  --base-url http://127.0.0.1:8899 \
+  --endpoint /v1/completions \
+  --model Qwen3-14B \
+  --dataset-name random \
+  --random-input-len <256|512|1024|2048|4096> \
+  --random-output-len <32|128|512> \
+  --num-prompts <N> \
+  --ignore-eos \
+  --output-json results_<S>x<O>x<N>.json
+```
+
+> 多请求并发未配置大环时,可能返回 HTTP 200 但不出 token(报 `rtMalloc failed: 207001` 等),须带大环。
+
+**(B) kernel 级计时钻取**(`npu_generate --profile`,补 prefill/decode kernel 的 device_wall):
+
+```bash
+task-submit --device auto --max-time 0 --run \
+  "PTO2_RING_HEAP=536870912 PTO2_RING_TASK_WINDOW=131072 PTO2_RING_DEP_POOL=131072 \
+  python examples/model/qwen3_14b/npu_generate.py \
+    --model-dir /path/to/Qwen3-14B \
+    --prompt '<按需拼接至目标输入长度>' \
+    --platform a2a3 \
+    --max-seq-len <256|512|1024|2048|4096> \
+    --max-num-seqs <1|2|4|8|16> \
+    --max-new-tokens 32 \
+    --profile --profile-verbose"
+```
+
+### 3.4 性能结果
+
+**(1) 性能矩阵 + vllm_ascend 参考对比**(vllm bench serve;单点 mean;prefix-caching 关、greedy;同一硬件、相同 `--ignore-eos` 随机输入输出)
+
+| 并发 | 输入/输出 | PyPTO<br>TTFT(ms) | PyPTO<br>ITL(ms) | PyPTO<br>Output(tok/s) | vllm_ascend<br>TTFT(ms) | vllm_ascend<br>ITL(ms) | vllm_ascend<br>Output(tok/s) |
+|---|---|---|---|---|---|---|---|
+| 1 | 256/256 | 234.74 | 35.14 | 27.84 | 75.30 | 25.57 | 38.81 |
+| 4 | 256/256 | 516.75 | 36.10 | 105.13 | 149.07 | 26.37 | 148.84 |
+| 16 | 256/256 | 2001.87 | 52.63 | 223.93 | 482.49 | 28.92 | 520.75 |
+| 32 | 256/256 | 10199.96 | 52.08 | 236.97 | 892.75 | 32.32 | 895.91 |
+| 1 | 1024/512 | 791.92 | 38.83 | 24.81 | 139.77 | 25.97 | 38.18 |
+| 4 | 1024/512 | 3234.53 | 39.55 | 87.35 | 405.17 | 27.48 | 141.67 |
+| 16 | 1024/512 | 8610.40 | 65.19 | 99.32† | 1652.31 | 31.86 | 456.59 |
+| 32 | 1024/512 | 28068.70 | 70.82 | 164.64 | 2572.34 | 38.44 | 736.87 |
+| 1 | 2048/512 | 2070.35 | 42.79 | 21.39 | 248.42 | 26.27 | 37.44 |
+| 4 | 2048/512 | 6301.63 | 47.61 | 8.41† | 759.79 | 28.70 | 132.72 |
+| 16 | 2048/512 | 20680.71 | 87.81 | 88.21 | 2618.76 | 35.91 | 390.29 |
+| 32 | 2048/512 | 51864.21 | 102.49 | 79.54 | 4424.94 | 46.43 | 580.92 |
+
+> † 该点 PyPTO 未开 `ignore_eos` 被 EOS 提前截断(生成 token 远少于 输出×并发,如 2048/512/4 仅 258/2048),其 PyPTO Output / TPOT 被拉低、真实吞吐差距比表列更大;TTFT、ITL 两端口径一致可直接对比,解码延迟以 ITL 为准。参考实现全程跑满输出长度、无提前截断。
+>
+> **PyPTO 自身**:① 并发1 TTFT 随 seq 近线性(~1000 tok/s prefill)、ITL 35–43 ms;② 并发≥16 聚合解码吞吐饱和,峰值 270–320 tok/s、总吞吐 490–600 tok/s,并发32 无 OOM。
+>
+> **对比参考 vllm_ascend**:PyPTO 全面落后——**TTFT 慢 3–12×**(2048/32:51.9 vs 4.4 s ≈ 11.7×)、**解码 ITL 慢 1.4–2.5×**、**并发32 聚合吞吐低 3.5–7×**(参考 581–896 tok/s)。瓶颈在 prefill / 调度(decode kernel 仅慢 1.4–2.5×)。并发 2/8、seq=512/4096 未覆盖;kernel device_wall(3.4-2)待补。
+
+**(2) kernel device_wall**(命令 B,kernel 级钻取)
+
+| 配置点 | prefill device_wall(ms) | decode device_wall(ms/step) |
+|---|---|---|
+| seq=4096, batch=1 |  |  |
+| seq=4096, batch=16 |  |  |
+| seq=1024, batch=16 |  |  |
+
+### 3.5 性能判定标准
+
+1. TTFT 随 seq 近线性增长,无明显拐点。
+2. decode 延迟在固定 batch 下基本不随 seq 变化(paged KV 预期行为)。
+3. batch 16 / seq 4096 不 OOM;吞吐随 batch 单调上升至饱和。
+4. 任一矩阵点失败 / 回退 / 超阈值 → 不通过,需附根因。
+
+---
+
+## 四、精度验证
+
+### 4.1 多 batch 输出一致性
+
+**目标**:验证融合 decode 的固定 batch + row 0 复制填充机制不污染 active 行。
+
+**方法**(greedy,`temperature=0`,排除采样噪声):
+- 固定同一组 prompt(≥ 20 条,中英文 + 长短混合)。
+- 分别在 batch=1 / 8 / 16 下生成。
+- **判定 A(硬性)**:各 batch 下输出 token_ids 序列完全一致 → 通过。
+- **判定 B(数值,辅助)**:同输入首 token logits 相对 golden 的 `max_abs_diff < 1e-2`(bf16 量级)。
+
+| prompt | golden 首 token | batch=1 | batch=8 | batch=16 | 一致 | logits max_abs_diff |
+|---|---|---|---|---|---|---|
+| ≥20 条(中英文 + 长短混合) | 对照 golden | ✓ 逐 token 一致 | ✓ 逐 token 一致 | ✓ 逐 token 一致 | ✓ | < 1e-2(bf16 量级,符合判定 B) |
+
+> 重点关注:padding 行复制来源的 row 0 在不同 batch 下结果是否稳定;长序列(seq≤4096)下 chunked prefill + paged decode 拼接是否引入误差。
+>
+> **实测(2026-07)**:batch=1 / 8 / 16 三组,同一组 prompt 输出 token_ids 序列逐 token 完全一致;首 token logits 相对 golden 的 max_abs_diff < 1e-2(bf16 量级)。row 0 复制填充未污染 active 行 ✓。
+
+**判定**:全部一致 → **通过 ✓**(硬性要求,逐 token 完全一致)。
+
+### 4.2 基准数据集
+
+> 精度与性能评测均通过 **AISBench**(华为昇腾评测套件)对在线服务进行(见 4.3)。精度评估采用 greedy,与 golden 同条件对照。
+
+| 数据集 | 分数 | 指标 | 题量 / 备注 | 判定 |
+|---|---|---|---|---|
+| CEval | **81.0%** | acc | 1346 题,52/52 学科 | 对齐 ✓ |
+| GSM8K | **89.99%** | acc(match) | 1319 题;thinking 关 | 对齐 ✓ |
+| MMLU | **79.6%** | acc | 14042 题,57 学科;weighted 77.9% | 对齐 ✓ |
+| CMMLU | **81.0%** | acc | 11582 题,67/67 学科 | 对齐 ✓ |
+| HumanEval | **90.24%** | pass@1 | 164 题 | 对齐 ✓ |
+| GPQA(diamond) | **42.9%** | acc | 198 题;thinking 关 | 对齐 ✓ |
+
+> **数据集初测(AISBench,greedy)**:
+>
+> - **CEval**(06-29):52 学科全完成、1346 题、正确 1094、**acc 81.0%**。
+> - **CMMLU**(06-29):67 学科全完成、11582 题、正确 9473、**acc 81.0%**。
+> - **MMLU**(07-01):57 学科全完成、**acc 79.6%(naive)/ 77.9%(weighted)**;分类 STEM 76.8 / 社科 85.5 / 人文 80.1 / 其他 77.8,弱项为数学(58.9)、化学(56.0)、法律(54.4)、global_facts(47.0)——与各模型在 MMLU 上的典型弱项一致。
+> - **GSM8K**(07-02):1319 题全集、**acc 89.99%**、空输出 0(thinking 关、max_out_len 2048、batch 16,8901 端口;此前一次 32.9% 系服务/端口异常,已弃)。
+> - **HumanEval**(07-02):164 题、**pass@1 90.24%**、0 空输出(测试用例执行验证)。
+> - **GPQA diamond**(07-02):198 题、**acc 42.9%**、0 空输出(thinking 关;超难题,Qwen3-14B 量级正常)。
+>
+> CEval / CMMLU 均**空输出 0、NaN 退化 0** → 融合 40 层 PAGED `decode_fwd` 在规模化推理(累计 ~2.9 万题)下数值稳定、无退化 ✓。六集分数与 Qwen3-14B 公开水平一致:中文/英文知识 79.6–81%、数学/代码 ~90%、GPQA 42.9%(关思考)。
+
+### 4.3 数据集评估方法(AISBench)
+
+数据集的精度与性能评测统一采用华为 **AISBench**(基于 OpenCompass,面向服务化 API 后端)对本仓库的在线服务进行评测。本仓库 serving 暴露的 `/v1/completions` 与 `/v1/chat/completions` 即为 AISBench 的服务化后端,二者协议一致,无需额外适配。
+
+**(1) 安装 AISBench**
+
+```bash
+git clone https://github.com/AISBench/benchmark.git
+cd benchmark/
+pip3 install -e ./ --use-pep517
+pip3 install -r requirements/api.txt
+pip3 install -r requirements/extra.txt
+ais_bench -h          # 验证安装
+```
+
+**(2) 下载数据集**(置于 `benchmark/ais_bench/datasets/`)
+
+```bash
+cd ais_bench/datasets
+
+# C-Eval
+mkdir -p ceval/formal_ceval && cd ceval/formal_ceval
+wget https://www.modelscope.cn/datasets/opencompass/ceval-exam/resolve/master/ceval-exam.zip
+unzip ceval-exam.zip && rm ceval-exam.zip && cd -
+
+# MMLU
+wget http://opencompass.oss-cn-shanghai.aliyuncs.com/datasets/data/mmlu.zip && unzip mmlu.zip && rm mmlu.zip
+
+# GSM8K
+wget http://opencompass.oss-cn-shanghai.aliyuncs.com/datasets/data/gsm8k.zip && unzip gsm8k.zip && rm gsm8k.zip
+```
+
+**(3) 配置服务化后端**
+
+编辑 `benchmark/ais_bench/benchmark/configs/models/vllm_api/vllm_api_general_chat.py`,指向本仓库 serving:
+
+| 参数 | 取值 |
+|---|---|
+| `host_ip` / `host_port` | serving 监听地址与端口(`--port`,默认 8000) |
+| `path` / `model` | 模型权重路径 / `--served-model-name` |
+| `max_out_len` | 输出上限;`max_out_len` + 输入长度 ≤ serving 的 `--max-model-len` |
+| `batch_size` | 按数据集规模设定 |
+| `temperature` | 精度评估取 `0`(greedy) |
+
+> AISBench 服务化后端走 OpenAI 的 `v1/chat/completions`、`v1/completions`,与本仓库 `server.py` 提供的两个端点一致。
+
+**(4) 执行评测**
+
+精度(accuracy):
+```bash
+ais_bench --models vllm_api_general_chat \
+  --datasets ceval_gen_0_shot_cot_chat_prompt.py \
+  --mode all --dump-eval-details --merge-ds
+```
+性能(吞吐/时延,可与 3.3 的 `bench_serving` 交叉验证):
+```bash
+ais_bench --models vllm_api_general_chat \
+  --datasets ceval_gen_0_shot_cot_chat_prompt.py \
+  --summarizer default_perf --mode perf
+```
+
+常用数据集 prompt 配置文件名(以 AISBench 仓库 `ais_bench/datasets/` 内 README 与数据集列表为准):
+
+| 数据集 | 配置文件 |
+|---|---|
+| C-Eval | `ceval_gen_0_shot_cot_chat_prompt.py` |
+| MMLU | `mmlu_gen_0_shot_cot_chat_prompt.py` |
+| GSM8K | `gsm8k` 对应配置(见数据集列表) |
+
+结果落盘:精度 → `outputs/default/<时间戳>/summary/summary.csv|md`;性能 → `performances/<模型>/<数据集>.csv|json`。将对应 acc / 性能数值填入 4.2 与第三章结果表。
+
+### 4.4 精度判定标准
+
+- 多 batch 一致性:逐 token 完全一致 → 通过。
+- 数据集:本实现分数相对 golden 落差 ≤ 1 个百分点 → 对齐(覆盖 bf16 + 采样差异的合理区间)。
+
+---
+
+## 五、稳定性验证(常稳)
+
+**目标**:验证 serving 在持续混合负载下不泄漏、不累积退化、不崩溃。
+
+**方法**:
+- 负载:并发 1–16、请求长度 < 4096 的混合流量。
+- 时长:**连续 3 天(≈72 h)**。
+
+**结果**:服务全程正常运行,无 OOM、无 `rtMalloc failed`、无进程退出;KV pool / ring heap 无持续增长。
+
+**判定**:**通过 ✓**(3 天常稳、服务存活、无泄漏)。
+
+---
+
+## 六、结论
+
+| 维度 | 子项 | 判定 | 备注 |
+|---|---|---|---|
+| 性能 | 短序列(256)延迟/吞吐 | ✓ | 并发1:TTFT 235 ms、ITL 35 ms、Output 27.8 tok/s |
+| 性能 | 长序列(2048)容量/吞吐 | ✓ | 并发1 TTFT 2.07 s;并发32 无 OOM |
+| 性能 | 长序列(4096) | 待测 | seq=4096 未覆盖 |
+| 性能 | 并发扩展性(→32) | ✓ | 峰值解码 270–320 tok/s、总吞吐 490–600 tok/s(并发≥16 饱和) |
+| 性能 | 对齐参考实现(vllm_ascend) | ⚠️ 待优化 | TTFT 慢 3–12×、ITL 慢 1.4–2.5×、吞吐低 3.5–7×(见 3.4-1) |
+| 精度 | 多 batch 一致性 | 通过 ✓ | batch=1/8/16 逐 token 一致(见 4.1) |
+| 精度 | 数据集(6 个) | 对齐 ✓ | CEval/CMMLU 81%、MMLU 79.6%、GSM8K 90%、HumanEval 90.2%、GPQA 42.9%(累计 ~2.9 万题,零退化;见 4.2) |
+| 稳定性 | 3 天常稳(并发1–16,<4096) | 通过 ✓ | 服务全程存活,无 OOM/泄漏(见五) |
+
+**总体结论**:**核心项已通过**。性能:并发 1–32、seq 256/1024/2048 已测——并发1 TTFT 随 seq 近线性(~1000 tok/s prefill)、ITL 35–43 ms;并发≥16 聚合解码吞吐饱和,峰值 270–320 tok/s、总吞吐 490–600 tok/s,并发32 无 OOM。精度:多 batch 一致性通过 ✓、6 个数据集全对齐 ✓。稳定性:3 天常稳通过 ✓。
+
+**⚠️ 性能对齐参考**:对照 vllm_ascend,PyPTO 仍明显落后——TTFT 慢 3–12×、解码 ITL 慢 1.4–2.5×、聚合吞吐低 3.5–7×(见 3.4-1),prefill / 调度为主要瓶颈,需专项优化。
+
+**已知问题 / 后续**:
+
+- seq=4096、并发 2/8 未覆盖;kernel device_wall(3.4-2)待补。
+- serving 端 `CompletionRequest` 未解析 `ignore_eos`,随机输入输出测试偶发提前截断(2048/512/4 仅生成 258 tok),拉低了部分点的 Output / TPOT 均值;建议补 `ignore_eos` 后重测以获得干净的吞吐对比(见 3.1、3.4 注)。
+- 性能落后参考实现 vllm_ascend:TTFT 慢 3–12×、解码 ITL 慢 1.4–2.5×、聚合吞吐低 3.5–7×(见 3.4-1);瓶颈在 prefill / 调度,需专项优化。
+
+---
+
+## 附录 A:命令速查
+
+```bash
+# 单点三级计时
+python examples/model/qwen3_14b/npu_generate.py --model-dir <DIR> \
+  --prompt '<P>' --platform a2a3 --max-seq-len <S> --max-num-seqs <B> \
+  --max-new-tokens 32 --profile --profile-verbose
+
+# 起 serving(大环)
+PTO2_RING_HEAP=4294967296 PTO2_RING_TASK_WINDOW=1048576 PTO2_RING_DEP_POOL=1048576 \
+python -m python.cli.main --model <DIR> --backend npu --platform a2a3 \
+  --device {} --max-model-len <S> --max-num-seqs <B> --port 8899
+
+# 随机输入输出压测(vLLM bench serve,指向在线服务)
+pip install 'vllm[bench]'
+vllm bench serve --backend openai --base-url http://127.0.0.1:8899 \
+  --endpoint /v1/completions --model Qwen3-14B --dataset-name random \
+  --random-input-len <S> --random-output-len <O> --num-prompts <N> \
+  --ignore-eos --output-json results.json
+
+# 数据集精度/性能评测(AISBench,指向在线服务)
+ais_bench --models vllm_api_general_chat --datasets ceval_gen_0_shot_cot_chat_prompt.py \
+  --mode all --dump-eval-details --merge-ds            # 精度 acc
+ais_bench --models vllm_api_general_chat --datasets ceval_gen_0_shot_cot_chat_prompt.py \
+  --summarizer default_perf --mode perf                # 性能吞吐/时延
+
+# 健康检查
+curl --noproxy "*" http://127.0.0.1:8899/health
+```
+
+## 附录 B:运行日志归档
+
+各次跑分留存 trace / `SA_PROFILE_OUTPUT` / 控制台日志,便于事后逐 kernel 回溯。归档位置:—
+
+
+---
+
+## #44 [Feature] Let L3 own/pool the 4 per-step decode input tensors (skip per-token rtMalloc/rtFree)
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/44
+- Created: 2026-06-26T08:22:54Z
+- Updated: 2026-06-27T01:06:28Z
+- Closed: 
+
+### Body
+
+## Summary
+
+The fused decode dispatch re-allocates (`rtMalloc`) and frees (`rtFree`) the
+four per-step decode input tensors — `hidden`, `seq_lens`, `block_table`,
+`slot_mapping` — on **every** decode step, even though their shapes are
+constant for the entire generation. Request: have **L3 own and pool** these
+device buffers once and **decide per-step whether a re-copy is needed**, so
+each generated token no longer pays raw CANN `rtMalloc`/`rtFree` driver calls
+(and redundant H2D copies).
+
+**Area:** Executor or runtime
+
+## Motivation / Use Case
+
+Measured on Qwen3-14B decode (a2a3, batch-16, 256-token context), per-token
+TPOT ≈ 52 ms. Layer breakdown (chip-timing style: `host_wall` / `runner_run`
+/ `device_wall` from `run_prepared`, plus the per-bind sub-split):
+
+| layer | ms |
+|---|---|
+| ① kernel run time (device makespan) | ~32.0 |
+| ② device init/finalize | ~1.2 |
+| ③ host↔device handshake | ~1.0 |
+| ④ attach + **bind** + validate | ~10.1 |
+| &nbsp;&nbsp;└ bind `args_malloc_copy` | **~2.4** |
+| &nbsp;&nbsp;└ bind `prebuilt_arena` | ~5.7 |
+
+The `args_malloc_copy` cost is **not** the data transfer. Each of the four
+input tensors goes through `device_malloc → MemoryAllocator::alloc → rtMalloc`
+(the onboard allocator wraps raw CANN `rtMalloc`/`rtFree` with no reuse pool —
+it only tracks live pointers in a `ptr_set_`), and is `device_free → rtFree`'d
+again in the per-run copy-back/cleanup loop. So **every decode token pays
+4× `rtMalloc` + 4× `rtFree` raw driver calls**; the actual H2D is tiny
+(`hidden` 160 KB + the rest ≈ tens of µs). The shapes never change during
+decode, so this alloc/free churn is pure per-token overhead that should be
+one-time.
+
+## Proposed API / Behavior
+
+Have L3 manage the lifetime **and** the copy policy of the four decode inputs:
+
+1. **Pool the device buffers**: allocate once per callable (keyed by
+   callable id + arg slot + size), reuse across all decode steps, free at
+   `finalize` — no per-step `rtMalloc`/`rtFree`.
+2. **Let L3 decide whether to re-copy (H2D) each step**, instead of always
+   copying, based on who actually produces the value:
+   - `hidden` — changes every step (embedding of the freshly sampled token)
+     → re-copy.
+   - `seq_lens` — is just `prompt_len + step` (a per-row counter); L3/device
+     can maintain it → ideally no H2D.
+   - `slot_mapping` — derivable from `seq_len` + the page table
+     (`block_table`); L3/device can compute it → ideally no H2D.
+   - `block_table` — changes only when a sequence crosses a page boundary
+     (~every `page_size` = 128 tokens; signal = the KV manager allocated a new
+     page) → re-copy only at boundaries.
+
+Net effect: per token goes from "8 driver calls + 4 H2D" to "(at most) the
+`hidden` H2D + an occasional `block_table` update", with pooled device buffers.
+
+## Measurement basis (how the numbers above were obtained)
+
+To avoid a misread: the per-token timing lives at **L2**, not L3.
+
+- The L3 `DistributedWorker.run` forks a **chip-child** that runs `run_prepared`
+  once per decode step. That L2 `run_prepared` already computes both
+  `host_wall` and `device_wall` (the latter is **nonzero ~33 ms** — the fused
+  decode's on-NPU orchestrator wall), and the on-device orch/sched markers
+  (`Thread N: orch_start/orch_end ... sched_*`, emitted at `LOG_INFO_V9` under
+  the default `PTO2_PROFILING`, parsed by
+  `simpler_setup.tools.device_log_timing`) give the kernel makespan.
+- The L3 parent's `Worker.run` returns `RunTiming(python_wall, 0)`. That
+  `device_wall=0` is **expected** — L3 is a host dispatcher with no device wall
+  of its own; it is **not** "missing data". The real numbers are at L2; the
+  parent simply drops the child's `RunTiming`.
+- Surfacing the host-side split needs **one `LOG_INFO_V9` line in
+  `run_prepared`** (`c_api_shared.cpp`) printing `host_wall / runner_run /
+  device_wall` — the same V9 tier the orch/sched markers already use.
+  `host_wall` and `device_wall` are already computed; `runner_run` (a
+  `steady_clock` around `runner->run()`) is the only net-new measurement.
+
+This pooling request and that one-line instrumentation are independent; the
+instrumentation just makes the win measurable.
+
+## Alternatives Considered
+
+- **Pool only at the runtime allocator level** (make `MemoryAllocator` reuse
+  same-size frees): removes the `rtMalloc`/`rtFree` churn but still re-copies
+  everything and does not let L3 skip redundant copies.
+- **Move the bookkeeping fully on-device** (device-side `seq_len` counter +
+  page-table lookup for `slot_mapping`, and on-device sampling + embedding so
+  `hidden` never leaves the device): the ideal end-state — it eliminates the
+  per-token host roundtrip entirely — but a larger architectural change. The
+  L3-managed pooling requested here is the incremental first step.
+
+## Additional Context
+
+Relevant code paths:
+- **Host build of the inputs** (pypto-serving): `npu_runner.py`
+  `_prepare_decode_inputs` builds fresh temps, `_pad_decode_inputs` copies them
+  into the persistent `compiled.decode_*_buffer` (already `.share_memory_()`'d
+  once, so parent↔chip-child is already zero-copy).
+- **Per-step device alloc + H2D** (simpler runtime): `runtime_maker.cpp`
+  `bind_callable_to_runtime_impl` (per-tensor `device_malloc` + `copy_to_device`),
+  with `tensor_pairs_` `device_free`'d in the copy-back/cleanup loop every run.
+- **Allocator** (simpler): `memory_allocator.h/.cpp` onboard = raw
+  `rtMalloc`/`rtFree`, `ptr_set_` only (no reuse pool).
+
+Because the persistent host buffers are already shared, the only remaining
+per-token waste is on the device side: the `rtMalloc`/`rtFree` churn and the
+redundant copies. This is a serving/runtime cross-cut — the ask is for **L3**
+(the distributed runtime layer) to own these device buffers and the copy
+decision across decode steps.
+
+
+---
+
+## #51 [Bug] test_qwen3_output_matches_expected_tokens fails
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/51
+- Created: 2026-07-01T08:28:18Z
+- Updated: 2026-07-02T08:20:25Z
+- Closed: 2026-07-02T08:20:25Z
+
+### Body
+
+### Diagnosis
+
+Hello, I am running the CI ([logs](https://github.com/hw-native-sys/pypto-serving/actions/runs/28502681623/job/84486942042)) in my [PR](https://github.com/hw-native-sys/pypto-serving/pull/34) and the test `test_qwen3_output_matches_expected_tokens` always fails. @superxf can you please take a look at it? Or maybe I am missing something to make the test pass :D
+
+### Description
+
+1. Run the `unit-tests` job in the CI
+2. `test_qwen3_output_matches_expected_tokens` always fails
+
+
+### Command or Request
+
+_No response_
+
+### Environment
+
+CI environment
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+CI
+
+### Model
+
+Qwen3
+
+### Logs
+
+```text
+>       assert result.token_ids == EXPECTED_TOKEN_IDS, (
+            f"Qwen3 output changed for prompt {PROMPT!r}:\n"
+            f"expected token_ids: {EXPECTED_TOKEN_IDS}\n"
+            f"actual token_ids:   {result.token_ids}\n"
+            f"actual text:        {result.text!r}\n"
+            f"finish_reason:      {result.finish_reason}"
+        )
+E       AssertionError: Qwen3 output changed for prompt 'The capital of France is':
+E         expected token_ids: [12095, 13, 576, 6722, 315, 9625, 374, 12095]
+E         actual token_ids:   [12095, 13, 3555, 374, 279, 6722, 315, 279]
+E         actual text:        ' Paris. What is the capital of the'
+E         finish_reason:      length
+```
+
+### Additional Context
+
+_No response_
+
+---
+
+## #52 [Feature] Add native Qwen3-14B A8W8 serving path
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/52
+- Created: 2026-07-01T12:38:53Z
+- Updated: 2026-07-01T12:46:07Z
+- Closed: 
+
+### Body
+
+## Summary
+
+Track the native Qwen3-14B A8W8 serving integration introduced by PR #48.
+
+This serving-side work connects the Qwen3-14B A8W8 PyPTO kernels from `pypto-lib` into an end-to-end native serving path. The combined branch can run a full A8W8 decode flow, but follow-up validation and performance tracking are still needed before treating this path as a stable fast path.
+
+## Motivation / Use Case
+
+Qwen3-14B A8W8 serving should have a native path that can exercise the PyPTO A8W8 kernels end to end, including model initialization, decode execution, output validation, and performance measurement.
+
+The current work is useful as the integration point for kernel-side optimization in `pypto-lib`. It also provides a realistic serving benchmark for validating decode TPOT improvements, output quality, and regression risk.
+
+## Current behavior
+
+- The matching `pypto-lib` PR provides the Qwen3-14B A8W8 kernel path.
+- The serving-side PR wires this path into native Qwen3-14B A8W8 serving.
+- The combined setup can produce normal Chinese output after the Q RoPE equivalence issue in the fused QK norm path was isolated and corrected on the kernel/model side.
+- The latest observed baseline is around 360-371 ms/token TPOT, with one corrected fused-QK-norm path observed around 429.6 ms/token.
+
+## Measurement basis
+
+The current performance bottleneck appears to be decode task fanout and scheduling overhead rather than a single serving-side control-flow issue.
+
+From the paired kernel-side profiling:
+
+- Device wall time is around 356 ms/step.
+- Each decode step emits about 38,705 AICore task records.
+- Average task runtime is about 45 us.
+- Dispatch-to-finish latency is about 61 us.
+- The largest static fanout source is MLP gate/up/silu/down, at about 224 groups per layer.
+
+This means the serving path should keep reporting end-to-end TPOT and output quality while the lower-level PyPTO kernel work reduces task fanout.
+
+## Proposed behavior
+
+The native Qwen3-14B A8W8 serving path should provide:
+
+- A clear way to enable the native A8W8 path for Qwen3-14B.
+- Stable end-to-end decode execution with the matching `pypto-lib` kernels.
+- Reproducible output-quality checks for short decode runs, such as 16-token and 48-token smoke tests.
+- Reproducible TPOT reporting so kernel-side changes can be evaluated against the same serving path.
+- Guardrails around experimental kernel flags so correctness-sensitive fast paths can remain default-off until validated.
+
+## Known risks
+
+- Experimental fused kernel flags can affect output quality. One previous repeated-output regression was traced to the fused QK norm branch using a non-equivalent batched Q RoPE path.
+- Some apparent model-DSL optimizations do not reduce end-to-end TPOT, even when they look promising from static submit counts.
+- Backend buffer limits currently block some larger-tile MLP attempts, so the serving path should not assume every kernel-side fast path is production-ready.
+
+## Suggested validation plan
+
+1. Keep a default correctness path for Qwen3-14B A8W8 serving.
+2. Add or document the exact command/config used for 16-token and 48-token output-quality checks.
+3. Record TTFT, TPOT, and decode throughput for the default path and each experimental fast-path flag combination.
+4. Cross-link serving measurements with the matching `pypto-lib` optimization issue.
+5. Treat experimental flags as opt-in until both quality and TPOT improve.
+
+## Acceptance criteria
+
+- Qwen3-14B A8W8 native serving can be enabled and run end to end with the matching `pypto-lib` kernels.
+- 16-token and 48-token output-quality checks pass without repeated-output regression.
+- TTFT, TPOT, and decode throughput are reported for the validated configuration.
+- Experimental fast paths are either default-off or documented with their correctness/performance status.
+- The serving issue is kept linked to the kernel-side optimization tracker.
+
+## Related
+
+- pypto-serving PR: #48
+- Matching kernel-side PR: hw-native-sys/pypto-lib#642
+- Kernel-side optimization tracker: hw-native-sys/pypto-lib#665
+
+---
+
+## #54 [Bug] test_prefix_cache_reuses_prefix_and_preserves_output fails
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/54
+- Created: 2026-07-02T15:20:03Z
+- Updated: 2026-07-08T08:07:04Z
+- Closed: 
+
+### Body
+
+### Diagnosis
+
+test_prefix_cache_reuses_prefix_and_preserves_output fails in CI
+
+### Description
+
+test_prefix_cache_reuses_prefix_and_preserves_output fails in CI stochastically
+
+### Command or Request
+
+_No response_
+
+### Environment
+
+CI env
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+CI
+
+### Model
+
+Qwen3
+
+### Logs
+
+```text
+harness = _Harness(engine=<python.core.async_engine.AsyncLLMEngine object at 0xfffe26f51b40>, loop=<_UnixSelectorEventLoop runni..., 1)], [('serving-req-8', False, 1)], [('serving-req-8', False, 1)], [('serving-req-8', False, 1)]], cache_hits=[0, 1])
+
+    def test_prefix_cache_reuses_prefix_and_preserves_output(harness):
+        """A repeated long prompt hits the prefix cache without changing output."""
+        harness.reset()
+    
+        prompt_len = len(harness.engine.tokenizer.encode(LONG_PROMPT))
+        assert prompt_len > PAGE_SIZE, (
+            f"Prefix-cache test needs a prompt longer than one {PAGE_SIZE}-token "
+            f"block, got {prompt_len} tokens."
+        )
+        assert prompt_len + LONG_NEW_TOKENS <= MAX_SEQ_LEN
+    
+        # Cold run publishes the prefix blocks; hot run must reuse them.
+        cold = harness.run(_collect(harness.engine, LONG_PROMPT, LONG_NEW_TOKENS))
+        hits_after_cold = max(harness.cache_hits, default=0)
+        hot = harness.run(_collect(harness.engine, LONG_PROMPT, LONG_NEW_TOKENS))
+    
+>       assert hot == cold, (
+            f"Prefix-cache hit changed greedy output:\n"
+            f"cold: {cold}\n"
+            f"hot:  {hot}"
+        )
+E       AssertionError: Prefix-cache hit changed greedy output:
+E         cold: [17, 10, 17, 28, 19, 13, 220, 17]
+E         hot:  [17, 15, 17, 18, 12, 15, 19, 12]
+E       assert [17, 15, 17, 18, 12, 15, ...] == [17, 10, 17, 28, 19, 13, ...]
+E         
+E         At index 1 diff: 15 != 10
+E         
+E         Full diff:
+E           [
+E               17,
+E         -     10,
+E         ?      ^
+E         +     15,
+E         ?      ^
+E               17,
+E         -     28,
+E         ?     ^
+E         +     18,
+E         ?     ^
+E         +     12,
+E         +     15,
+E               19,
+E         -     13,
+E         ?      ^
+E         +     12,
+E         ?      ^
+E         -     220,
+E         -     17,
+E           ]
+```
+
+### Additional Context
+
+https://github.com/hw-native-sys/pypto-serving/actions/runs/28588930341/job/84767344063
+
+---
+
+## #62 [Feature] Add DeepSeekV4 Flash serving support
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/62
+- Created: 2026-07-09T05:05:10Z
+- Updated: 2026-07-09T05:05:10Z
+- Closed: 
+
+### Body
+
+### Summary
+
+Add NPU serving support for the quantized DeepSeekV4 Flash W8A8 checkpoint with TP=8 execution on 8 Ascend devices.
+
+### Area
+
+Model integration
+
+### Motivation / Use Case
+
+DeepSeekV4 Flash needs a production serving path comparable to the existing Qwen serving flow, but its runtime requirements differ from the generic model path. It uses DeepSeek-specific packed prefill/decode kernels, fixed TP=8 topology, host-side scheduling metadata, model-specific cache slot mapping, and the quantized `/data/models/dsv4-flash-w8a8` checkpoint.
+
+This feature enables OpenAI-compatible completion serving for DeepSeekV4 Flash on 8 NPU devices while preserving the generic scheduler and worker architecture.
+
+### Proposed API / Behavior
+
+Support launching DeepSeekV4 Flash serving with the NPU backend, TP=8, DP=1, and model-specific DeepSeekV4 runner/executor integration. The serving path should:
+
+- load the quantized DeepSeekV4 Flash W8A8 checkpoint
+- compile and dispatch pypto-lib packed prefill/decode kernels
+- use DeepSeek-specific fixed cache slot and kernel metadata management
+- keep generic scheduler block accounting functional without allocating generic DeepSeek KV tensors
+- expose existing `/health`, `/v1/completions`, `/v1/chat/completions`, and `/v1/models` endpoints
+- document the validated serving and completion-check commands
+
+Implementation PR: #55
+
+### Alternatives Considered
+
+Use the generic KV/cache runner path directly. This is not sufficient because DeepSeekV4 uses multiple model-specific cache families and packed kernel contracts that do not map directly to the generic KV tensor allocation path.
+
+### Additional Context
+
+The integration targets the pypto-lib DeepSeekV4 kernel submodule revision used by PR #55 and the quantized checkpoint at `/data/models/dsv4-flash-w8a8`.
+
+---
+
+## #65 [Feature]  Lib-Serving Decoupling Architecture Design
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/65
+- Created: 2026-07-10T09:43:43Z
+- Updated: 2026-07-10T09:51:39Z
+- Closed: 
+
+### Body
+
+# Lib-Serving Decoupling Architecture Design
+
+## 1. Background and Problem
+
+From the repository's intended architecture, `pypto-serving` owns the online serving runtime, including model loading, worker lifecycle management, request scheduling, KV cache management, kernel compilation orchestration, and the HTTP/CLI entry points. `pypto-lib` owns model kernels, the kernel ABI, model-specific layouts, and lower-level execution logic.
+
+Today, `pypto-serving` directly copies a large amount of `pypto-lib` internal knowledge in order to drive the Qwen3-14B kernels. This includes kernel file paths, file names, function names, host-side JIT wrapper argument order, compile dummy arguments, runtime argument tuples, weight layout keys, kernel constant names, and model name inference rules.
+
+This design made it possible to integrate one concrete model quickly, but it also created hard-coded coupling between the two repositories. Whenever the `pypto-lib` kernel ABI changes, `pypto-serving` must be updated in lockstep; otherwise, failures usually surface only during compilation or runtime.
+
+The main forms of coupling are:
+
+- Kernel file path coupling: serving constructs paths under `pypto-lib/models/...`.
+- Kernel file name coupling: serving loads modules by file names such as `prefill_fwd.py` and `decode_layer.py`.
+- Host-side JIT wrapper signature coupling: serving maintains wrappers that must match the kernel ABI.
+- Compile dummy argument coupling: serving builds model-specific dummy tensors for JIT compilation.
+- Runtime argument order coupling: serving constructs tuples in the order required by kernel signatures.
+- Weight layout coupling: serving knows the weight keys, transposes, padding rules, and layer stacking rules required by kernels.
+- Model inference coupling: serving guesses the contract from model names, paths, or architecture strings.
+- Kernel constant coupling: serving reads module constants such as `BATCH`, `VOCAB`, and `NUM_LAYERS`.
+
+These forms of coupling create the following architectural problems:
+
+- The two repositories must be changed together, and changes in one repository can easily break the other.
+- Serving duplicates lib kernel ABI knowledge, creating a second source of truth.
+- New model integration tends to accumulate `if model_name...` branches in serving.
+- Compatibility failures lack structured diagnostics and often appear as import, shape, or runtime errors.
+- Models beyond Qwen3, such as DeepSeek-V4 Flash/Pro, will amplify the existing coupling.
+
+## 2. Goals and Non-Goals
+
+Design goals:
+
+- Make `pypto-lib` the single source of truth for the model serving ABI.
+- Keep `pypto-serving` responsible only for serving runtime orchestration, without owning model kernel ABI details.
+- Preserve the current Qwen3-14B serving path.
+- Leave extension points for DeepSeek-V4 Flash/Pro and future models.
+- Drive compatibility checks from contract contents instead of manually maintained model version numbers.
+- When an ABI is incompatible, report the specific contract, field, and suggested action.
+
+Non-goals:
+
+- This design does not require replacing the submodule with a package. The submodule can remain the current mechanism for exact reproducibility.
+- This design does not move shared scheduler, HTTP, CLI, or worker logic into `pypto-lib`.
+- This design does not express model kernel ABI details on the serving side.
+- This design does not finalize a cross-model `ModelConfig` schema.
+- This design does not require all future models to share the same execution graph, weight layout, or runtime argument structure.
+
+## 3. Overall Architecture
+
+Before the refactor, `pypto-serving` directly reads internal `pypto-lib` implementation details:
+
+```mermaid
+flowchart LR
+    subgraph ServingBefore["pypto-serving"]
+        SPath["construct lib kernel path"]
+        SImport["import kernel files by filename"]
+        SConst["read kernel constants"]
+        SHost["own host-side JIT wrapper signatures"]
+        SCompile["build compile dummy args"]
+        SRuntime["build runtime arg tuples"]
+        SWeight["prepare model-specific weight layout"]
+    end
+
+    subgraph LibBefore["pypto-lib"]
+        Kernels["actual kernel implementation"]
+    end
+
+    SPath --> Kernels
+    SImport --> Kernels
+    SConst --> Kernels
+    SHost --> Kernels
+    SCompile --> Kernels
+    SRuntime --> Kernels
+    SWeight --> Kernels
+```
+
+After the refactor, `pypto-serving` consumes only structured contracts exposed by `pypto-lib` through a contract registry:
+
+```mermaid
+flowchart LR
+    subgraph ServingAfter["pypto-serving"]
+        Loader["model loader"]
+        Worker["worker / executor"]
+        Scheduler["scheduler / KV cache"]
+        Surface["HTTP / CLI"]
+        Helpers["contract helper APIs"]
+    end
+
+    subgraph LibAfter["pypto-lib"]
+        Registry["serving contract registry"]
+        Contract["ModelServingContract"]
+        Identity["model identity"]
+        Limits["capabilities / limits"]
+        Graph["execution graph"]
+        KernelSpec["KernelSpec metadata"]
+        Host["host-side JIT wrappers"]
+        CompileArgs["compile args builders"]
+        RuntimeArgs["runtime args builders"]
+        Weights["weight layout preparation"]
+        KernelLoader["kernel loader"]
+        Validators["validators"]
+    end
+
+    Helpers --> Registry --> Contract
+    Contract --> Identity
+    Contract --> Limits
+    Contract --> Graph
+    Contract --> KernelSpec
+    Contract --> Host
+    Contract --> CompileArgs
+    Contract --> RuntimeArgs
+    Contract --> Weights
+    Contract --> KernelLoader
+    Contract --> Validators
+```
+
+Repository responsibility boundaries:
+
+`pypto-lib` owns:
+
+- model-specific serving ABI
+- kernel file layout
+- kernel function mapping
+- kernel constant interpretation
+- host-side JIT wrapper signatures
+- compile-time argument construction
+- runtime kernel argument construction
+- weight layout preparation
+- model/kernel compatibility validation
+
+`pypto-serving` owns:
+
+- model loading orchestration
+- runtime limits and request-facing configuration
+- executor selection
+- kernel compilation orchestration
+- batching and scheduling
+- KV cache allocation
+- worker lifecycle
+- HTTP and CLI surfaces
+
+Cross-boundary constraints:
+
+- Serving does not directly concatenate lib kernel paths.
+- Serving does not import kernels by file name.
+- Serving does not read model-specific kernel constants.
+- Serving does not own model-specific host-side JIT wrapper signatures.
+- Serving does not duplicate kernel argument tuple ordering.
+- Serving does not duplicate model-specific weight layouts.
+
+## 4. Detailed Design
+
+### 4.1 Contract Registry and Model Selection
+
+The contract registry is the model selection boundary between serving and lib. It receives an explicit family/variant or model metadata parsed from the model directory, then returns the matching `ModelServingContract`.
+
+Input forms:
+
+- Explicit family / variant, such as `("qwen3", "14b")`.
+- Loaded model configuration metadata, such as architecture, model type, hidden size, layer count, attention/MoE/quantization fields.
+
+Output forms:
+
+- The matched `ModelServingContract`.
+- If the model family is planned but not yet implemented, a clear not implemented error.
+- If the model is unsupported, an unsupported contract error.
+
+Matching principles:
+
+- Each contract defines the structured fields required for matching.
+- Serving does not infer the model family from the model name, directory name, or string containment checks.
+- Unsupported model errors should include diagnostic information such as `model_id`, architecture, and `model_type`.
+
+Multi-model extension:
+
+- Qwen3-14B is an independent contract.
+- DeepSeek-V4 Flash and DeepSeek-V4 Pro should be independent contracts.
+- New models are integrated by adding new lib contracts.
+- Serving should add at most an executor class mapping, not kernel ABI details.
+
+### 4.2 `ModelServingContract`
+
+`ModelServingContract` is the top-level description of a model serving ABI. It describes the capabilities, limits, execution graph, kernel metadata, weight layout, and hooks exposed by a model contract to serving.
+
+Core fields:
+
+- `schema_version`: the format version of the contract schema.
+- `model`: stable model identity, including family, variant, size, quantization, and similar fields.
+- `capabilities`: capabilities supported by the model contract, such as paged KV, chunked prefill, and device greedy sampling.
+- `limits`: model/kernel limits, such as batch size, maximum sequence length, vocabulary size, and page size.
+- `resources`: resources required for model execution.
+- `cache`: KV cache layout and page metadata.
+- `execution`: the stage graph for serving phases such as prefill and decode.
+- `kernels`: mapping from logical kernel stages to `KernelSpec`.
+- `weights`: model weight layout metadata.
+- `kernel_binder`: binds loaded kernel functions to lib-owned host wrappers.
+- `prepare_weights`: model-specific weight layout preparation function.
+- `load_kernels`: lib-owned kernel loader.
+- `validate_kernels`: lib-owned kernel/module/model validation function.
+
+The key point of `ModelServingContract` is to expose only the structured ABI information that serving must know. The actual kernel files, constant names, and internal module organization remain implementation details owned by lib.
+
+### 4.3 `KernelSpec`
+
+`KernelSpec` describes a logical kernel stage. Serving does not directly care about kernel file names or the module that contains a Python function; it only cares about the ABI metadata exposed by this stage for a serving phase.
+
+Core fields:
+
+- `name`: logical stage name, such as `prefill` or `decode`.
+- `public_name`: stable name for logging and profiling, such as `qwen3.prefill`.
+- `runtime_args`: ordered argument metadata, including name, dtype, shape expression, and direction.
+- `outputs`: logical outputs produced by the kernel stage.
+- `capabilities`: capabilities provided by the stage.
+- `host_jit_fn`: lib-owned host-side JIT wrapper function.
+- `compile_args_builder`: builder for compile dummy arguments.
+- `runtime_args_builder`: builder that maps logical runtime inputs to the raw kernel ABI tuple.
+
+The purpose of `KernelSpec` is to keep ABI changes inside the lib contract. Serving uses `KernelSpec` to orchestrate compilation and execution, but it does not duplicate signatures.
+
+### 4.4 `LoadedKernelModules`
+
+`LoadedKernelModules` is the return value from the lib kernel loader. It contains loaded kernel functions and extracted kernel constants.
+
+Fields:
+
+- `functions`: mapping from logical function name to callable.
+- `constants`: structured constants dictionary.
+
+Ownership:
+
+- Kernel directory layout is owned by lib.
+- Kernel filename mapping is owned by lib.
+- Kernel constant names and semantics are owned by lib.
+- Serving only receives structured loading results and follows the repository responsibility boundaries defined in Section 3.
+
+### 4.5 `ServingRequirements`
+
+`ServingRequirements` is serving's generic requirement declaration for a contract. It is not a model ABI version; it describes the conditions that a contract must satisfy for the serving runtime.
+
+Fields:
+
+- `schema_version`: the contract schema that serving can parse.
+- `required_phases`: phases required by serving, such as `prefill` and `decode`.
+- `required_capabilities`: mandatory capabilities, such as paged KV.
+- `optional_capabilities`: capabilities that serving can use but does not require.
+
+Validation semantics:
+
+- A schema mismatch means serving cannot parse the contract.
+- A missing phase means the execution graph cannot satisfy the serving flow.
+- A missing capability means the contract cannot satisfy the current serving runtime mode.
+
+### 4.6 `ExecutionGraphSpec`
+
+`ExecutionGraphSpec` describes the mapping from serving phases to kernel stages.
+
+Example:
+
+```text
+prefill -> prefill, greedy_sample
+decode  -> decode
+```
+
+This structure allows future models to have different execution graphs:
+
+- Multi-stage prefill.
+- Separate sample or embedding stages.
+- MoE- or MLA-specific stages.
+- Different graphs for different variants.
+
+Serving invokes logical stages by phase instead of assuming a fixed set of four kernels.
+
+### 4.7 Kernel Loading
+
+Kernel loading is fully owned by the lib contract.
+
+The lib-side loader is responsible for:
+
+- Locating the kernel directory.
+- Maintaining the mapping from logical stages to file names, modules, and functions.
+- Loading kernel functions.
+- Reading and interpreting kernel constants.
+- Returning `LoadedKernelModules`.
+
+Serving-side API calls:
+
+```python
+loaded_kernels = contract_load_kernels(contract)
+contract_validate_kernels(contract, loaded_kernels, model)
+bind_contract_kernel_functions(contract, **loaded_kernels.functions)
+```
+
+Kernel constant mismatch errors are produced by the lib validator. Serving only calls the loader, validator, and binder, while following the repository responsibility boundaries defined in Section 3.
+
+### 4.8 Host-Side JIT Wrappers and Compile Arguments
+
+A host-side JIT wrapper refers to the PyPTO `pl.jit.host` layer: the host-side JIT boundary that connects Python orchestration logic to PyPTO kernel calls. It is owned by lib. The wrapper signature must match the kernel ABI, so it belongs to the lib-side serving ABI rather than serving runtime orchestration logic.
+
+Design:
+
+- Lib defines host-side JIT wrappers.
+- Lib receives the actual loaded kernel functions through a binder.
+- Serving obtains the host JIT function through `contract_host_jit_fn(contract, stage)`.
+- Serving does not maintain wrapper signatures.
+
+Compile arguments are generated by lib builders:
+
+```python
+dummy_args = contract_compile_args(contract, stage, model_config, runtime_config)
+compiled = host_jit_fn.compile(*dummy_args, config=run_config)
+```
+
+Design benefits:
+
+- Kernel signature changes require changes only in the lib contract.
+- The serving compile flow remains generic.
+- Compile-time shape and dtype rules are not duplicated in serving.
+
+### 4.9 Runtime Arguments and Execution Flow
+
+The serving runner constructs only logical inputs, such as prefill hidden states, sequence lengths, block tables, slot mappings, static weight records, and KV cache pages.
+
+The lib-side runtime argument builder is responsible for:
+
+- Mapping logical inputs to the raw kernel ABI tuple.
+- Maintaining kernel argument order.
+- Handling model-specific optional outputs.
+- Handling contract-specific parameters such as device sampling and device embedding.
+
+Serving dispatch flow:
+
+```python
+args = contract_runtime_args(contract, stage, inputs, static, **runtime_objects)
+compiled_callable(*args)
+```
+
+Serving may know the logical concepts, but raw argument ordering stays in the lib runtime argument builder. Runtime ABI changes should affect only the lib builder and contract tests.
+
+### 4.10 Weight Layout
+
+Weight layout is part of the model kernel ABI, so it is owned by the lib contract.
+
+Lib-side weight preparation is responsible for:
+
+- Kernel weight key names.
+- Tensor transposition.
+- Vocabulary padding.
+- Layer stacking.
+- Shared memory export policy.
+- Destructive or free-after-pack behavior that may release original tensors.
+
+Serving is responsible for:
+
+- Loading model weights.
+- Holding the runtime model record.
+- Providing a tensor exporter, such as shared-memory placement.
+- Calling `contract_prepare_weights`.
+
+Qwen3 and future models may have completely different layouts. Serving should not duplicate Qwen3 layout rules.
+
+### 4.11 ABI Compatibility and Version Strategy
+
+The submodule commit SHA remains valuable because it provides reproducibility. A serving commit can precisely record which lib SHA it used. However, the submodule commit SHA should not be the only runtime compatibility mechanism.
+
+Responsibilities of `schema_version`:
+
+- Describe the contract schema shape.
+- Indicate whether serving can parse the contract fields.
+- It does not represent the version of a specific model kernel ABI.
+
+Responsibilities of `abi_fingerprint`:
+
+- Compute a stable hash from public ABI metadata.
+- Change when kernel arguments, execution graph, limits, weight metadata, or similar public ABI data changes.
+- Support logging, diagnostics, and compatibility error localization.
+
+`abi_fingerprint` is mainly diagnostic. It should be written to logs and included in compatibility errors, making it easier to align a failed serving process with the public ABI metadata it actually observed. Hard runtime compatibility should be determined by structured checks: schema parsing, `ServingRequirements`, model/runtime validation, and lib-owned kernel validators. By default, the fingerprint should not become a fixed allowlist gate, because that would reintroduce the complexity of manually maintained version tables.
+
+The following diagram shows only the compatibility check path, not the full startup flow. The full startup flow is described in Section 5.
+
+```mermaid
+flowchart TD
+    Start["load selected contract"]
+    Sha["log submodule commit SHA"]
+    Schema["schema_version check"]
+    Requirements["ServingRequirements check"]
+    Runtime["model/runtime validation"]
+    Kernels["lib-owned kernel validator"]
+    Fingerprint["log abi_fingerprint"]
+    Compile["compile and register model"]
+    Error["structured compatibility error"]
+
+    Start --> Sha --> Schema --> Requirements --> Runtime --> Kernels --> Fingerprint --> Compile
+    Schema -- fail --> Error
+    Requirements -- fail --> Error
+    Runtime -- fail --> Error
+    Kernels -- fail --> Error
+    Fingerprint -. "diagnostic only" .-> Error
+```
+
+Compatibility checks include:
+
+- Contract schema.
+- Required phases and capabilities.
+- Kernel argument metadata.
+- Weight layout metadata.
+- Cache layout metadata.
+- Model/runtime metadata.
+- Loaded kernel constants.
+
+Error messages should include:
+
+- Model family / variant.
+- Schema version.
+- ABI fingerprint.
+- Incompatible field.
+- Suggested action, such as updating the submodule, updating serving, or rebuilding kernels.
+
+### 4.12 Multi-Model Extension
+
+The Qwen3-14B contract describes the current dense transformer serving path:
+
+- paged KV
+- chunked prefill
+- device greedy sampling
+- device embedding
+- Qwen3-specific weight layout
+- Qwen3-specific runtime argument builders
+
+DeepSeek-V4 Flash/Pro should be integrated through independent contracts:
+
+- Independent family / variant.
+- MoE / MLA specific metadata.
+- Potentially different execution graph.
+- Independent kernel loader.
+- Independent weight layout.
+- Independent runtime argument builder.
+- Independent validator.
+
+Future model integration path:
+
+1. Add a model contract in `pypto-lib`.
+2. Add a kernel loader and validator in `pypto-lib`.
+3. Add host wrappers, compile/runtime argument builders, and weight layout in `pypto-lib`.
+4. Add an executor mapping in `pypto-serving` only if the model requires a new executor class.
+5. Do not add kernel ABI detail code in serving.
+
+### 4.13 Model Config Boundary
+
+`ModelConfig` is currently the bridge between the model loader and the contract registry. It carries model metadata parsed from `config.json` for contract matching and runtime validation.
+
+Design constraints:
+
+- Serving should not infer the model family from model names.
+- Contract matching should be based on structured metadata.
+- Serving should not add `if` branches for every model naming style.
+
+Open design points:
+
+- The `config.json` fields differ significantly across Qwen3, DeepSeek-V4, and quantized models.
+- This design does not yet decide whether to expand `ModelConfig` into a wide schema, preserve the raw config, or move more parsing and matching into lib.
+
+Design requirements:
+
+- The final approach must avoid per-model hard-coded `if` chains on the serving side.
+- The final approach must allow each contract to inspect the structured fields it needs.
+
+### 4.14 Contract Instance Lifecycle
+
+A contract instance consists of immutable metadata and hook references. The registry may create a new contract object or return an equivalent prebuilt object; after selection, serving treats it as read-only.
+
+The contract lifecycle is bound to model registration. It is not a per-request object and should not store mutable request state. Request state remains in the serving scheduler, runner, and KV cache structures. During model registration, the worker selects the contract. After executor compilation completes, the runner holds a reference to the contract so it can continue using runtime argument builders during prefill and decode. The full startup steps are described in Section 5.
+
+### 4.15 Executor Abstraction
+
+The serving executor abstraction remains owned by `pypto-serving`. The contract does not replace the executor. The contract provides model-related ABI knowledge; the executor provides runtime orchestration capability.
+
+Executor responsibilities:
+
+- Create PyPTO run configurations.
+- Invoke JIT compilation.
+- Allocate and share runtime buffers.
+- Integrate device workers.
+- Create model runners.
+- Expose serving runtime capabilities such as device sampling and device embedding.
+
+Contract responsibilities inside the executor flow:
+
+- Provide host JIT functions.
+- Provide compile dummy arguments.
+- Prepare model-specific weights.
+- Map logical runtime inputs to ABI tuples.
+- Validate loaded kernels using model/runtime metadata.
+
+Adding a new model should not automatically require a new executor class. A new executor class is needed only when device orchestration, runner behavior, or runtime integration differs. If the difference is limited to the kernel ABI, weight layout, execution graph, or argument builders, it should be expressed through a new lib contract.
+
+## 5. Startup and Runtime Flow
+
+Startup flow:
+
+```mermaid
+sequenceDiagram
+    participant W as Worker
+    participant L as ModelLoader
+    participant R as pypto-lib Registry
+    participant C as ModelServingContract
+    participant E as Executor
+    participant Runner as ModelRunner
+
+    W->>L: load model weights and config
+    L-->>W: LoadedModel
+    W->>R: select contract from model config
+    R-->>W: ModelServingContract
+    W->>W: validate ServingRequirements
+    W->>C: load kernels
+    C-->>W: LoadedKernelModules
+    W->>C: validate kernels with model and runtime information
+    W->>C: bind kernel functions to host-side JIT wrappers
+    W->>E: create executor for contract
+    E->>C: get host_jit_fn and compile arguments
+    E->>E: compile host-side JIT wrappers
+    E->>C: prepare weight layout
+    E->>Runner: create runner with compiled kernels and contract
+    Runner-->>W: model registration complete
+```
+
+Prefill/decode flow:
+
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant Runner as ModelRunner
+    participant C as ModelServingContract
+    participant K as Compiled Kernel
+
+    S-->>Runner: scheduled logical batch
+    Runner->>Runner: construct logical input objects
+    Runner->>C: construct runtime args for stage
+    C-->>Runner: raw kernel ABI tuple
+    Runner->>K: call compiled callable
+    K-->>Runner: logits / sampled ids / hidden states
+    Runner-->>S: serving outputs
+```
+
+Failure ownership:
+
+- Unsupported model: registry.
+- Incompatible contract: serving requirement validation.
+- Kernel constant mismatch: lib validator.
+- Runtime limit mismatch: contract/runtime validation.
+- Compilation failure: serving executor orchestration.
+
+## 6. Test Strategy
+
+`pypto-lib` tests:
+
+- Contract metadata tests.
+- ABI fingerprint stability tests.
+- Compile argument construction tests.
+- Runtime argument construction tests.
+- Weight layout tests.
+- Kernel loader tests.
+- Kernel validator tests.
+- Registry matcher tests.
+
+`pypto-serving` tests:
+
+- Contract compatibility tests.
+- Executor selection tests.
+- Source-text coupling absence tests.
+- Batching and scheduler regression tests.
+- Qwen3 E2E tests.
+
+Cross-repository validation:
+
+- `pypto-lib` PRs run lib contract and fingerprint tests.
+- `pypto-lib` PRs can optionally run serving compatibility tests based on the PR SHA.
+- `pypto-serving` PRs run serving tests against the pinned lib submodule.
+
+## 7. Acceptance Criteria
+
+### 7.1 Qwen3 Migration Complete
+
+- Serving does not construct lib kernel paths.
+- Serving does not import kernel files by file name.
+- Serving does not read model-specific kernel constants.
+- Serving does not own model-specific host-side JIT wrapper signatures.
+- Serving does not construct model-specific compile/runtime argument tuples.
+- Serving does not duplicate the Qwen3 weight layout.
+- Serving does not assert against lib source text.
+- The lib contract is the single source of truth for the serving ABI.
+- Qwen3 serving E2E passes.
+
+### 7.2 Future Model Extension Readiness
+
+- New model integration primarily adds lib contracts, loaders, validators, builders, and weight layouts.
+- When model differences are limited to ABI, graph, weights, or runtime argument layout, serving does not need new kernel ABI details.
+- Serving needs a new executor mapping only when device orchestration or runner behavior differs.
+- For heterogeneous `config.json` files, the `ModelConfig` boundary remains a clear open issue; future model extension readiness does not mean this schema has been finalized.
+
+---
+
+## #74 [Feature] Extend Qwen3 device sampling to support top-k
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/74
+- Created: 2026-07-13T09:17:51Z
+- Updated: 2026-07-31T03:36:32Z
+- Closed: 2026-07-31T03:36:32Z
+
+### Body
+
+### Summary
+
+Extend the Qwen3 device-side sampling path to support top-k sampling.
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+PR #47 moved Qwen3 greedy sampling and token embedding from the host to the device. However, non-greedy requests using top-k sampling still perform full-vocabulary candidate selection on the CPU for every generated token.
+
+This repeated host-side operation introduces additional per-token overhead and limits the benefit of device-side sampling.
+
+### Proposed API / Behavior
+
+Build on the device sampling framework introduced by https://github.com/hw-native-sys/pypto-serving/pull/47:
+
+- Add device-side top-k candidate selection for Qwen3.
+- Return the selected candidate values and token IDs to serving.
+- Keep temperature, top-p filtering, and stochastic token selection compatible with the existing sampler.
+- Automatically use the device path for supported top-k configurations.
+- Preserve the CPU fallback for unsupported models or sampling parameters.
+
+The NPU operator should be implemented in `pypto-lib`, with capability detection, result handling, and fallback logic implemented in `pypto-serving`.
+
+### Alternatives Considered
+
+Continue performing full-vocabulary top-k selection on the CPU.
+
+### Additional Context
+
+This is a follow-up extension to the greedy device sampling and embedding work introduced by PR #47.
+
+
+---
+
+## #79 [Feature] Refactor directory structure into an installable pypto_serving package
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/79
+- Created: 2026-07-13T12:11:21Z
+- Updated: 2026-07-15T02:14:51Z
+- Closed: 2026-07-15T02:14:51Z
+
+### Body
+
+### Summary
+
+Refactor the Python source layout from the flat `python/core/` grab-bag into a proper installable package (`pypto_serving/`) organized by concern (serving, model, config, tools, worker), and add a `pyproject.toml`.
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+The current layout has three structural problems:
+
+1. **`python` is the import root but not a real package** — no `__init__.py`, it only works because `examples/pypto-serving` injects the repo root into `sys.path`. There is no `pyproject.toml`/`setup.py`, so the project can't be installed or expose a console entry point.
+2. **`core/` is a grab-bag** — 19 files (~4500 lines) mixing orchestration, memory, model loading, execution, sampling, HTTP serving, and config with no grouping.
+3. **58 references** to `python.core|cli|runtime|profile` across code, tests, and examples make the meaningless `python` root name a real liability.
+
+A concern-based package makes ownership boundaries explicit, enables normal packaging/installation, and removes the `sys.path` hack.
+
+### Proposed API / Behavior
+
+Target layout:
+
+```
+pypto_serving/
+  cli/              # user interface cli
+  config/           # types.py, parallel.py
+  serving/          # main serving framework
+    engine/         # engine.py, async_engine.py, request_state.py
+    sched/          # scheduler.py
+    memory/         # kv_cache.py
+    server/         # server.py, serving_worker.py, streamer.py
+  model/            # model_loader.py, tokenizer.py
+    common/         # base model runner/executor
+      runner/       # model_runner.py
+      executor/     # executor.py, pypto_executor.py, sampler.py, utils.py
+    qwen
+    deepseek
+    ...
+  worker/           # worker.py (Simpler boundary)
+  tools/
+    profile/        # recorder.py, merge.py, env.py
+pyproject.toml      # package metadata + console_script entry point
+```
+
+Phased migration (verify after each): add `pyproject.toml` → rename `python/` → `pypto_serving/` via `git mv` → regroup `core/` into subpackages → drop `_profiling.py`/`StageTimer` (removed entirely, no replacement) → rewrite the 58 `python.*` imports → run `pytest tests/test_batching.py tests/test_parallel.py`, ruff, and header/english lint after each phase.
+
+### Alternatives Considered
+
+- **Rename-only** (keep flat `core/`): fixes the bad import root but leaves the grab-bag.
+- **Regroup-only** (keep `python/` root): improves organization but keeps the meaningless, uninstallable root name.
+- Chose full scope (rename + regroup) as the higher-value option.
+
+### Additional Context
+
+Backlog items for follow-up work: worker naming clarity, example model-runner duplication, `types.py` cohesion, and dropping the `sys.path` hack after packaging lands. `examples/`, `platform/`, `tests/`, and `pypto-lib/` stay put — only their import lines change.
+
+---
+
+## #80 [Feature] Add DeepSeekV4 MTP speculative decoding support
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/80
+- Created: 2026-07-14T01:43:22Z
+- Updated: 2026-07-16T06:30:55Z
+- Closed: 2026-07-16T06:30:55Z
+
+### Body
+
+### Summary
+
+Add Multi-Token Prediction (MTP) speculative decoding support to the DeepSeekV4 Flash serving path.
+
+### Area
+
+Model integration
+
+### Motivation / Use Case
+
+DeepSeekV4 Flash checkpoints include an MTP draft layer that can predict an additional token ahead of the main model. Integrating this draft model into pypto-serving can reduce decode iterations while preserving the output of greedy main-model decoding.
+
+The existing DeepSeekV4 serving integration supports packed prefill and decode kernels, but it does not define the complete serving lifecycle for MTP initialization, draft verification, token acceptance, rejection recovery, cache consistency, or acceptance-rate observability.
+
+### Proposed API / Behavior
+
+Add optional DeepSeekV4 MTP speculative decoding with the following behavior:
+
+- load the MTP projection, attention, MoE, HC-head, and normalization weights from the checkpoint
+- compile and execute the pypto-lib `prefill_mtp` and `decode_mtp` kernels
+- initialize the first draft token from shifted MTP prefill inputs
+- use the main-model B4S2 decode path to verify one draft token per iteration
+- commit both verified tokens when the draft is accepted
+- commit only the correct main-model token when the draft is rejected
+- rebuild or roll back all affected main-model and MTP cache/compressor state after rejection
+- continue MTP execution after rejection instead of permanently falling back to ordinary decode
+- preserve token-for-token equivalence with greedy decoding
+- expose proposed-token count, accepted-token count, and acceptance rate in serving logs or metrics
+- keep MTP disabled by default and provide an explicit serving configuration option to enable it
+- report initialization or execution failures instead of silently changing generation behavior
+
+Acceptance criteria:
+
+- repeated requests produce deterministic greedy output
+- a 50-token generation matches the non-MTP baseline token by token
+- rejection followed by recovery does not pollute later main-model outputs
+- MTP continues proposing tokens after one or more rejections
+- unit tests cover full acceptance, immediate rejection, later rejection, and recovery
+- a real 8-device DeepSeekV4 test reports the measured acceptance rate
+
+### Alternatives Considered
+
+- Permanently fall back to ordinary decode after the first rejection. This preserves basic generation but loses MTP acceleration for the rest of the request.
+- Ignore rejected speculative cache writes without explicit recovery. This can leave main-model attention or compressor state on the rejected branch and cause later output divergence.
+- Implement MTP entirely outside the model runner. This makes ownership of model-specific hidden state and cache recovery unclear.
+
+### Additional Context
+
+This extends the base DeepSeekV4 Flash serving integration tracked by #62.
+
+The initial target is greedy decoding with one MTP draft token and the existing DeepSeekV4 TP=8 packed-kernel execution path.
+
+
+---
+
+## #90 [Feature] Add skills for performance benchmarking and precision evaluation
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/90
+- Created: 2026-07-15T02:15:21Z
+- Updated: 2026-07-21T07:56:10Z
+- Closed: 2026-07-21T07:56:10Z
+
+### Body
+
+### Summary
+
+# LLM Evaluation Agent Skills
+
+This directory contains two reusable agent skills that together cover the two core dimensions of evaluating a large language model: **accuracy** (does it answer correctly?) and **performance** (how fast does it run, and how much load can it handle?). Each is a self-contained, from-scratch guide with no machine-specific assumptions.
+
+| Skill | Question it answers | Tool |
+|---|---|---|
+| `ais-bench-eval` | How accurate is the model on standard benchmarks? | `ais_bench` (AISBench) CLI |
+| `vllm-bench-perf` | How fast does it serve, and what is its throughput/latency under load? | vLLM `vllm bench` CLI |
+
+Because they are registered as agent skills, a request like "test ceval" or "stress-test the server" automatically loads the right one, so evaluation always follows the same verified path.
+
+---
+
+## 1. `ais-bench-eval` — Accuracy evaluation
+
+### What it does
+Sends a dataset (ceval, MMLU, CMMLU, GSM8K, …) to an OpenAI-compatible inference endpoint via the `ais_bench` CLI and computes accuracy.
+
+### What it covers (end to end, from zero)
+- Prerequisites and installation from the repository (`git clone` → `pip install -e ./` + serving deps).
+- Dataset download with `download_datasets.sh`.
+- Configuration: model config (`model`, `host_ip`/`host_port`, `batch_size`, `generation_kwargs`, `max_out_len`) and dataset config (prompt template, retriever, answer postprocessor, split).
+- Running a benchmark, monitoring progress, and reading `summary_*.md` for the score.
+- Troubleshooting: endpoint unreachable, 0-score runs, and all-dash summaries.
+
+### Why it is useful
+- **Avoids repeated mistakes.** Hard-won lessons are baked in — e.g. a `host_port` mismatch fails every subject; a 0-score is either an extraction mismatch or garbled output; an all-dash summary means no score was produced.
+- **Trustworthy results.** It states which aggregate row is the headline number, what `*-weighted` means, and how to verify the endpoint can really serve `/v1/chat/completions` (not just `/v1/models`).
+- **Portable.** Generic and from-scratch, so it works on any machine, not just one specific box.
+
+---
+
+## 2. `vllm-bench-perf` — Performance evaluation
+
+### What it does
+Measures serving latency and throughput with vLLM's `vllm bench` CLI, using the synthetic `random` dataset so no dataset download is required.
+
+### What it covers (end to end, from zero)
+- Installing vLLM and starting a `vllm serve` server.
+- `vllm bench serve` — online test against a running endpoint (TTFT, TPOT, ITL, request/token throughput).
+- `vllm bench throughput` / `latency` — offline tests that boot their own engine.
+- Load-pattern recipes by goal (max throughput, realistic Poisson traffic, bursty stress, latency profiling) and how to read the metrics (p99, saturation point).
+
+### Why it is useful
+- **Aligned with the official vLLM methodology.** Metrics match the vLLM benchmark, so results are comparable across runs and setups.
+- **Zero data preparation.** The `random` dataset generates synthetic prompts with fully controlled input/output lengths, giving a pure performance measurement without fetching ShareGPT or other corpora.
+- **Clear subcommand selection.** It tells you when to use `serve` (client against an existing endpoint) versus offline `throughput`/`latency` (which need a supported accelerator), and how to sweep from a single request up to a full saturation stress test.
+
+---
+
+## Combined value
+
+Evaluating a model comes down to two questions — **accuracy** and **performance** — and these two skills split that cleanly (by design: accuracy uses only `ais_bench`, performance uses only `vllm bench`). Together they deliver:
+
+1. **Consistency.** Every evaluation follows the same verified workflow, so results are repeatable and comparable.
+2. **Reusability.** A different person, machine, or model can follow the skill and get the same outcome without re-deriving the process.
+3. **Automatic invocation.** As agent skills, they are loaded automatically when an accuracy- or performance-testing intent is detected, instead of requiring a manual lookup.
+
+In short: **`ais-bench-eval` tells you whether the model answers correctly; `vllm-bench-perf` tells you how fast it runs and how much concurrency it can sustain** — two from-scratch, portable playbooks for the two halves of LLM evaluation.
+
+
+### Area
+
+Serving API
+
+### Motivation / Use Case
+
+This directory contains two reusable agent skills that together cover the two core dimensions of evaluating a large language model: **accuracy** (does it answer correctly?) and **performance** (how fast does it run, and how much load can it handle?). Each is a self-contained, from-scratch guide with no machine-specific assumptions.
+
+### Proposed API / Behavior
+
+_No response_
+
+### Alternatives Considered
+
+_No response_
+
+### Additional Context
+
+_No response_
+
+---
+
+## #91 Offline generate_batch lacks token-level chunked prefill → task-ring heap deadlock (507018) on long prompts
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/91
+- Created: 2026-07-15T07:19:41Z
+- Updated: 2026-07-15T07:19:41Z
+- Closed: 
+
+### Body
+
+## Summary
+
+Offline batch generation (`LLMEngine.generate_batch` → `_generate_batch_impl`)
+does **not** perform token-level chunked prefill. Each prompt is prefilled in a
+single `run_prefill` call spanning the whole prompt, so for long prompts the
+`prefill_fwd` per-layer staging tensors (which scale with tokens-per-call)
+overflow the task-ring heap and trip a `Task Allocator Deadlock`
+(host-side `507018`). The async serving path already chunks long prefills
+(`scheduler.py`: `enable_chunk_prefill` / `long_prefill_token_threshold`); the
+offline path never wired this up.
+
+## Repro
+
+Qwen3-14B, a2a3, real batch-16 (16 independent requests), 3338-token prompt
+each, `--max-num-batched-tokens 1024`, `PTO2_RING_HEAP=2147483648` (2 GB):
+
+```
+python examples/model/qwen3_14b/npu_generate.py \
+  --model-dir /data/models/Qwen3-14B --prompt "<3338-token prompt>" \
+  --platform a2a3 --device-id $DEV \
+  --max-seq-len 4096 --max-new-tokens 20 --batch-size 16 \
+  --max-num-batched-tokens 1024 --profile
+```
+
+Warmup (small tokens) passes; the first real prefill deadlocks:
+
+```
+FATAL: Task Allocator Deadlock  (pto_ring_buffer.h)
+  BLOCKED: tasks=3426/131072, heap_used=2143289344/2147483648,
+           heap_available=4194304, on=heap        # 99.8% full, stuck
+  Heap ring 3: Requested: 11141120 bytes; No reclaim progress for ~500 ms
+  Solution: Increase heap (current: 2147483648)
+```
+
+## Root cause (from generated `prefill_fwd.cpp`)
+
+The per-layer staging is sized by `toks_pad = ceil(prefill_tokens/128)*128`,
+i.e. it scales with **tokens per `run_prefill` call**:
+
+| tensor | shape (3338 tok → toks_pad 3456) | dtype | size/layer |
+| --- | --- | --- | --- |
+| `resid1_all` | [3456, 5120] | FP32 | 67.5 MiB |
+| `mlp_out_acc` | [3456, 5120] | FP32 (manual_dep) | 67.5 MiB |
+| `post_norm_all` | [3456, 5120] | BF16 | 33.8 MiB |
+| `layer_next_hidden` | [3338, 5120] | BF16 | 32.6 MiB |
+
+≈ 200 MiB live staging per layer. The 40-layer graph runs ~10–12 layers ahead
+of task retirement in the FIFO ring, so the heap fills to ~2.14 GB and
+head-of-line reclaim stalls. Since every `alloc_*` is `toks_pad`-driven,
+tokens-per-call is the only knob that bounds the ring footprint — request-level
+grouping (one whole request per call) does not help a single long prompt.
+
+## Fix
+
+Wire token-level chunked prefill into `_generate_batch_impl`: split each
+prompt into `<= max_num_batched_tokens`-token sub-chunks and prefill
+incrementally (KV carry-over via the kernel's `chunk_lens` / `chunk_offsets`),
+reusing the async scheduler's `long_prefill_token_threshold` mechanism. This
+bounds per-call `prefill_tokens` (e.g. 512 → ~10 MiB/layer staging) and keeps
+the ring far below 2 GB.
+
+## Environment
+
+- pypto-serving: `chunk-offline-batch-prefill` (offline request-level grouping;
+  the token-level chunking is missing)
+- pypto-lib: `4ee8cf4` (#765, Qwen3 CANN FAI static batch-16)
+- pypto: `ccbf2870`
+- simpler runtime: worktree feat branch (1e24e1f6)
+
+
+---
+
+## #95 [Bug] DeepSeek V4 8-card serving 性能验证与瓶颈分析
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/95
+- Created: 2026-07-16T09:05:22Z
+- Updated: 2026-07-23T13:55:55Z
+- Closed: 
+
+### Body
+
+# DeepSeek V4 8-card Serving 性能验证与瓶颈分析
+
+## 一、验证概述
+
+本文记录 DeepSeek V4 Flash W8A8 在 8 卡 Ascend NPU 上的 serving 性能基线，并拆分 prefill、decode、runtime bind/H2D、Device 执行、D2H、LM head 和 sampling 等阶段耗时。
+
+本报告使用当前尚未包含权重和 Cache 驻留优化的基线版本，不包含未合入 PR 的优化后性能数据。
+
+验证范围：
+
+- DeepSeek V4 Flash W8A8
+- TP=8，DP=1
+- MTP disabled
+- Prompt：`Huawei is`，共 4 tokens
+- 生成 20 tokens
+- 完整 serving 推理
+- Runtime STRACE
+- 不使用泳道图作为耗时统计依据
+
+相关 issue：
+
+- #44：逐 token decode 输入 tensor 的 Device buffer 池化
+- #62：DeepSeek V4 Flash serving 接入
+
+本 issue 的重点是当前完整推理路径的性能分布，以及权重、Cache 和运行时资源生命周期优化。
+
+## 二、测试环境
+
+| 项目 | 配置 |
+| --- | --- |
+| Serving commit | `750a65918a2ffef8c15935b4b127637f27ca073c` |
+| pypto-lib commit | `306519dcac1aa0d9edf273299cc0648c4835ec46` |
+| Model | `/data/models/dsv4-flash-w8a8` |
+| Quantization | W8A8 |
+| Platform | `a2a3` |
+| Devices | `8,9,10,11,12,13,14,15` |
+| TP / DP | TP=8 / DP=1 |
+| PTOAS | `0.48` |
+| MTP | Disabled |
+| Prompt | `Huawei is` |
+| Prompt tokens | 4 |
+| Generated tokens | 20 |
+| Task | `task_20260715_194739_142047818271` |
+| Result | Exit 0，生成文本符合预期 |
+
+## 三、性能验证
+
+### 3.1 指标定义
+
+本次统计包含以下层级：
+
+1. **Serving wall**
+
+   从 scheduler 发起一个模型 step，到 sampling 完成的 Host wall。
+
+2. **Packed dispatch outer wall**
+
+   L3 父进程提交 8 个 rank、等待所有 rank 返回的整体 wall time。
+
+3. **Runtime Host wall**
+
+   每个 rank 的 `simpler_run` wall time。
+
+4. **Bind/H2D**
+
+   Runtime 为 callable 参数分配 Device 内存并执行 H2D 的耗时，包括模型权重、Cache 和调用参数。
+
+5. **Device wall**
+
+   Device graph/orchestrator/scheduler 的临界路径 wall time。三个窗口高度重叠，不能相加。
+
+6. **Validate/D2H**
+
+   Runtime 检查输出、执行必要的 D2H 并回收本次调用资源的耗时。
+
+7. **Host LM head / sampling**
+
+   Packed model 返回 hidden state 后，在 Host 侧进行的 LM head 和 sampling。
+
+### 3.2 Prefill 性能
+
+| 阶段 | 耗时 |
+| --- | ---: |
+| Serving prefill total | 444297.694 ms |
+| Batch planning | 0.022 ms |
+| Tensorize inputs | 0.920 ms |
+| Embedding lookup | 2.301 ms |
+| Model runner | 444281.024 ms |
+| Shared-buffer first allocation | 368028.127 ms |
+| Prepare model inputs | 49.649 ms |
+| Stage kernel inputs | 83.342 ms |
+| Packed prefill dispatch outer wall | 75810.681 ms |
+| Output checks | 0.165 ms |
+| Host LM head | 307.303 ms |
+| Sampling | 13.346 ms |
+
+Prefill 的主要耗时不是 kernel 本身，而是首次申请和初始化共享 Host buffer：
+
+- Shared-buffer first allocation：368.028 s，占 prefill 总耗时约 82.83%。
+- Packed prefill dispatch：75.811 s，占约 17.06%。
+- LM head、sampling、embedding 等阶段占比较小。
+
+这部分属于明显的冷启动成本，建议将固定 shape buffer 的申请和初始化前移到模型加载阶段。
+
+### 3.3 Steady Decode 性能
+
+以下统计包含 18 个正常 decode token，不包含开启额外 profiling 的第一个 decode token。
+
+| 阶段 | Mean | P50 | P90 | Min | Max |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Serving decode total | 7488.817 ms | 7445.914 ms | 8018.532 ms | 6596.584 ms | 9067.067 ms |
+| Batch planning | 0.035 ms | 0.034 ms | 0.043 ms | 0.026 ms | 0.050 ms |
+| Tensorize inputs | 0.126 ms | 0.118 ms | 0.171 ms | 0.073 ms | 0.290 ms |
+| Embedding lookup | 1.337 ms | 0.326 ms | 3.837 ms | 0.202 ms | 4.391 ms |
+| Model runner | 7461.152 ms | 7407.855 ms | 8001.793 ms | 6582.390 ms | 9051.831 ms |
+| Prepare/stage inputs | 37.320 ms | 26.703 ms | 88.988 ms | 19.283 ms | 91.347 ms |
+| Stage packed-kernel args | 6.068 ms | 4.208 ms | 19.991 ms | 3.285 ms | 21.136 ms |
+| Packed decode dispatch outer wall | 7184.023 ms | 7106.150 ms | 7796.148 ms | 6288.459 ms | 8777.045 ms |
+| Output checks | 0.105 ms | 0.105 ms | 0.121 ms | 0.085 ms | 0.137 ms |
+| Host LM head | 233.045 ms | 195.019 ms | 386.988 ms | 147.294 ms | 559.913 ms |
+| Sampling | 26.139 ms | 13.562 ms | 71.406 ms | 9.614 ms | 90.752 ms |
+
+Packed decode dispatch 平均为 7184.023 ms，占 serving decode 总耗时约 95.93%，是当前最主要的 serving 瓶颈。
+
+Packed dispatch 之后的 Host LM head 和 sampling 合计平均约 259.184 ms，占约 3.46%。
+
+### 3.4 Runtime STRACE
+
+共统计 19 个 decode token × 8 个 rank，即 152 次 rank runtime 调用。
+
+| Runtime 阶段 | 每个 rank 调用平均耗时 | Host wall 占比 |
+| --- | ---: | ---: |
+| `simpler_run` Host wall | 6906.775 ms | 100% |
+| Bind total | 5231.321 ms | 75.74% |
+| Bind args：Device allocation/H2D | 5231.202 ms | 75.74% |
+| Bind prebuilt | 0.013 ms | <0.01% |
+| Device wall | 1365.794 ms | 19.78% |
+| Output validation/D2H | 278.013 ms | 4.03% |
+| 其他 Host 开销 | 约 31.647 ms | 0.46% |
+
+Device 内部阶段：
+
+| Device 阶段 | 平均耗时 |
+| --- | ---: |
+| Device graph window | 1365.762 ms |
+| Device orchestrator window | 1365.659 ms |
+| Device scheduler window | 1365.734 ms |
+| Device preamble | 0.024 ms |
+| Device config validation | 0.005 ms |
+| Device arena wiring | 0.003 ms |
+| Device SM reset | 0.004 ms |
+| Device post-orchestration | 0.007 ms |
+
+Device graph、orchestrator 和 scheduler 是同一执行区间的不同观察窗口，三者高度重叠，不能相加。当前 Device 有效临界路径约为 1.366 s。
+
+每个 token 最慢 rank 的平均数据：
+
+| 指标 | 耗时 |
+| --- | ---: |
+| Slowest-rank Host wall | 6978.185 ms |
+| Slowest-rank bind | 6466.179 ms |
+| 独立选择的最大 Device wall | 2534.020 ms |
+
+最大 Host wall、bind 和 Device wall 可能来自不同 rank，因此这些最大值也不能直接相加。
+
+### 3.5 性能瓶颈
+
+#### 1. 权重和 Cache 每个 decode step 重复 bind/H2D
+
+Bind/H2D 平均耗时 5231.202 ms，占单 rank runtime Host wall 的 75.74%。
+
+当前每个 decode token 都重新处理固定模型参数和长生命周期 Cache。对于 decode 来说，模型权重不变，KV Cache、compressor Cache 等状态也应该由 Device 上的长期 tensor 原地更新，不应每个 step 重新申请和搬运。
+
+在其他阶段耗时保持不变的理想情况下，如果 steady decode 消除这部分重复 bind/H2D，单 rank runtime wall 的理论下限可由 6906.775 ms 降到约 1675.573 ms。该数值只是根据基线拆分计算的优化空间，并非优化后实测结果。
+
+#### 2. Device 执行仍有较大优化空间
+
+消除 bind/H2D 后，Device wall 将成为主要瓶颈，目前平均为 1365.794 ms。
+
+Device 侧应进一步检查：
+
+- MoE dispatch/wait 中的跨 rank 同步；
+- rank 间负载不均衡；
+- 通信 domain 和通信资源是否逐 step 创建、销毁；
+- scheduler/orchestrator 是否存在不必要的同步；
+- main decode kernel 的实际有效执行时间与 Device wall 之间的差异。
+
+#### 3. Packed outer wall 存在额外父进程开销
+
+Packed decode dispatch outer wall 为 7184.023 ms，而每个 token 的 slowest-rank Host wall 平均为 6978.185 ms，两者相差约 205.838 ms。
+
+因为 L3 outer wall 和子进程 rank timing 的起止点、并发提交方式不同，这个差值不能简单归到某一个 kernel，但说明父进程仍存在约 200 ms 量级的资源管理、IPC、rank 提交或等待开销。
+
+#### 4. Host LM head 和 sampling
+
+Host LM head 平均 233.045 ms，sampling 平均 26.139 ms，合计约 259.184 ms。
+
+在 runtime bind/H2D 优化后，这部分会成为明显的 serving 瓶颈。建议评估：
+
+- LM head Device 化；
+- sampling Device 化；
+- hidden、logits 和 sampled token 保持 Device resident；
+- sampled token 直接进入下一轮 embedding，避免 Device → Host → Device 往返。
+
+#### 5. Prefill 冷启动申请
+
+Prefill 首次共享 buffer 申请耗时 368028.127 ms。
+
+建议将固定 shape 的 Host shared buffer、Device 权重、Cache、通信 domain 和 runtime arena 在模型启动阶段一次性初始化。请求执行阶段只更新实际输入数据和动态 metadata。
+
+### 3.6 优化建议与验证目标
+
+| 优先级 | 优化项 | 当前对应耗时 | 建议 |
+| --- | --- | ---: | --- |
+| P0 | 主模型权重 Device resident | Bind/H2D 5231.202 ms/rank | 模型加载时上传一次，decode 不再重复 H2D |
+| P0 | KV/compressor Cache Device resident | 包含在 Bind/H2D 中 | 请求生命周期内保持 Device tensor，kernel 原地更新 |
+| P0 | MTP 权重和 Cache resident | MTP 场景会产生同类开销 | 与主模型使用一致的生命周期管理 |
+| P1 | 通信 domain/buffer 复用 | Outer 与 slowest rank 相差约 205.838 ms | Worker/runtime 生命周期内复用，避免逐 step 创建和释放 |
+| P1 | Device LM head/sampling | 259.184 ms/token | 保持 hidden/logits/token 全流程 Device resident |
+| P1 | MoE 通信和 rank 均衡 | Device wall 1365.794 ms | 优化 dispatch/wait 和跨 rank 同步 |
+| P2 | Prefill buffer 启动时预分配 | 368028.127 ms cold-start | 将固定 buffer 初始化移出请求路径 |
+| P2 | Decode 输入 tensor 池化 | 与 #44 互补 | 复用 hidden、seq_lens、block_table、slot_mapping 的 Device buffer |
+
+建议后续在相同设备、相同 prompt 和相同 20-token 场景下验证：
+
+- Steady decode 的固定权重和 Cache bind/H2D 接近 0；
+- 不以增加每 token D2H 或 Host copy 为代价；
+- Cache 原地更新与原始流程输出一致；
+- 分别报告 main decode、MTP decode、runtime 和 serving wall；
+- Packed outer wall 应逐步接近最慢 rank 的真实 Device 临界路径；
+- 优化后数据单独记录，不覆盖本文的合入前基线。
+
+
+---
+
+## #123 [Bug] DeepSeek V4 chunked prefill does not honor the fixed 128-token kernel limit
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/123
+- Created: 2026-07-29T03:33:39Z
+- Updated: 2026-08-01T09:35:00Z
+- Closed: 
+
+### Body
+
+### Diagnosis
+
+**pypto-serving / DeepSeek V4 integration**
+
+The generic scheduler does not know the model-specific per-request prefill capacity. It can dispatch more than 128 active tokens to the DeepSeek V4 fixed B1S128 prefill kernel.
+
+Even when `--long-prefill-token-threshold 128` is used as a manual workaround, the MTP prefill context and final-chunk padding paths are not fully chunk-safe.
+
+### Description
+
+On `main` (`pypto-serving e57e14f`, `pypto-lib 7e7d4cc`):
+
+1. Chunked prefill limits a request using only `long_prefill_token_threshold` and the global token budget.
+2. The documented DeepSeek V4 command uses:
+   - `--max-num-batched-tokens 512`
+   - `--long-prefill-token-threshold 2048`
+3. DeepSeek V4 uses a fixed `DEEPSEEK_V4_PREFILL_SEQ = 128`.
+4. A 129-token prompt is therefore scheduled as one 129-token prefill chunk and rejected by `_prefill_kernel_positions()` before kernel dispatch:
+
+```text
+num_new = min(129, 2048, 512) = 129
+ValueError: kernel_tokens must cover all active positions
+```
+
+The main-model path already carries continuation metadata (`num_computed_tokens`, absolute positions, and persistent paged-cache mappings), but two additional issues remain when the chunk size is manually limited to 128:
+
+- `_capture_mtp_prefill_context()` replaces the per-request MTP context on every chunk. `_initialize_mtp_draft()` therefore sees only the final chunk. For a 129-token prompt split as `128 + 1`, the preceding tokens needed by the MTP sliding-attention window are absent from the captured context.
+- `_prefill_kernel_positions()` constructs all 128 static positions from `chunk_start`, including inactive padding rows. A short final chunk near a non-128-aligned `max_model_len` can be rejected even though every active token position is valid.
+
+There is currently a DeepSeek metadata test using a continued chunk, but no serving-level equivalence test covering multi-chunk DeepSeek prefill.
+
+Expected behavior:
+
+- DeepSeek prompts up to `max_model_len` are automatically split into chunks no larger than the model kernel capacity.
+- Chunked and non-chunked/reference execution produce equivalent output.
+- MTP remains correct when the final chunk is partial.
+- Inactive padding positions do not invalidate an otherwise valid final chunk.
+
+Actual behavior:
+
+- A prompt longer than 128 tokens fails with the documented configuration.
+- Forcing 128-token chunks avoids that immediate exception but leaves MTP context loss and tail-padding edge cases.
+
+### Command or Request
+
+Start the server using the documented DeepSeek configuration:
+
+```bash
+pypto-serving \
+  --model /data/models/dsv4-flash-w8a8 \
+  --served-model-name dsv4-flash-w8a8 \
+  --backend npu \
+  --platform a2a3 \
+  --devices 8,9,10,11,12,13,14,15 \
+  --dp 8 \
+  --ep 8 \
+  --tp 1 \
+  --block-size 128 \
+  --max-model-len 512 \
+  --max-num-seqs 32 \
+  --max-num-batched-tokens 512 \
+  --long-prefill-token-threshold 2048 \
+  --enable-mtp \
+  --no-enable-prefix-caching \
+  --port 8225
+```
+
+Then send a completion request whose prompt tokenizes to 129 tokens:
+
+```bash
+curl --noproxy "*" -s http://127.0.0.1:8225/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"dsv4-flash-w8a8","prompt":"<129-token prompt>","max_tokens":1,"temperature":0.0}'
+```
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `e57e14f` |
+| pypto-lib | `7e7d4cc` |
+| pypto | `2a282cc9` local checkout |
+| simpler | `972374b3` local checkout |
+| ptoas | Unknown |
+| CANN | Unknown |
+| torch / torch-npu | `2.9.0` / Unknown |
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+Ascend `a2a3`, 8-device DP=8 / EP=8 configuration
+
+### Model
+
+DeepSeek V4 Flash W8A8 (`/data/models/dsv4-flash-w8a8`)
+
+### Logs
+
+```text
+ValueError: kernel_tokens must cover all active positions
+```
+
+This is a deterministic host-side validation failure identified from the current code path. A complete device reproduction was not run in the reporting checkout.
+
+### Additional Context
+
+Relevant code paths:
+
+- `pypto_serving/serving/sched/scheduler.py`
+- `pypto_serving/model/deepseek/npu_runner.py`
+  - `_prefill_kernel_tokens()`
+  - `_prefill_kernel_positions()`
+  - `_capture_mtp_prefill_context()`
+  - `_initialize_mtp_draft()`
+- `pypto_serving/model/deepseek/npu_executor.py`
+- `pypto_serving/serving/server/serving_worker.py`
+- `tests/test_deepseek_v4.py`
+
+Suggested fix and acceptance criteria:
+
+1. Expose a model/executor capability such as `max_prefill_tokens_per_request`; set it to 128 for DeepSeek V4.
+2. Clamp both waiting and running prefill requests to the effective model limit.
+3. Make MTP initialization chunk-aware, either by incrementally prefilling MTP or retaining the required rolling context across chunks.
+4. Use valid positions for inactive static padding rows near `max_model_len`.
+5. Add serving tests for prompt lengths 129, 255, 256, and 257, both with and without MTP.
+6. Add coverage for mixed-length batches and non-128-aligned `max_model_len`.
+
+Related but not duplicate: #7 tracks chunked-prefill completeness at a high level.
+
+---
+
+## #131 [Bug] DeepSeek V4 MTP generation becomes corrupted after 89 output tokens
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/131
+- Created: 2026-07-30T09:27:55Z
+- Updated: 2026-08-14T08:37:34Z
+- Closed: 2026-08-14T08:37:34Z
+
+### Body
+
+### Diagnosis
+
+pypto-serving / DeepSeek V4 MTP decode path — long deterministic generation becomes corrupted after an initially correct prefix. The exact lower-layer cause (MTP state advancement, cache progression, or model output handling) has not yet been isolated.
+
+### Description
+
+DeepSeek V4 8-device serving returns HTTP 200 and reports all 130 requested completion tokens, but the output becomes corrupted during long generation.
+
+Reproduction:
+
+1. Start DeepSeek V4 W8A8 serving on eight Ascend NPUs.
+2. Enable MTP and disable prefix caching.
+3. Send prompt `Huawei is` with deterministic sampling and `max_tokens=130`.
+4. Observe that completion tokens 1–89 form a coherent Huawei introduction.
+5. Completion tokens 90–130 degrade into repetitive, JSON-like token fragments such as `"Get", "of", "and"`.
+
+Expected behavior:
+
+The deterministic completion should remain coherent until EOS or the requested 130-token limit.
+
+Actual behavior:
+
+The API reports `completion_tokens: 130`, but the final 41 tokens are corrupted. The configured `max_model_len=260` is not exceeded: prompt plus completion is only 134 tokens.
+
+The existing DeepSeek accuracy guard generates only 10 tokens, so it does not cover this long-generation failure.
+
+### Command or Request
+
+```bash
+bash .agents/skills/profile-dsv4-serving-strace/scripts/run_profile.sh \
+  --model-dir /data/models/dsv4-flash-w8a8 \
+  --devices 8,9,10,11,12,13,14,15 \
+  --max-tokens 130
+```
+
+Equivalent request payload:
+
+```json
+{
+  "model": "dsv4-flash-w8a8",
+  "prompt": "Huawei is",
+  "max_tokens": 130,
+  "temperature": 0.0,
+  "top_p": 1.0
+}
+```
+
+Relevant serving configuration:
+
+```text
+backend=npu
+platform=a2a3
+dp=8
+ep=8
+block_size=128
+max_model_len=260
+max_num_seqs=1
+max_num_batched_tokens=512
+enable_mtp=true
+enable_prefix_caching=false
+```
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `815be47a9aa536ece7dc55baf92491074050f088` |
+| pypto-lib | `a46139ad9b3b2387571efcd128d9ac08d0be18ed` |
+| pypto | `a8ef572f45d144c6a57b98f1e6f619b34fa7f8dc` |
+| simpler runtime | `9922afdb08cc6f203eaf39328661e2f2648d333d` |
+| ptoas | `v0.48` |
+| CANN | `9.0.0` / `26.0.rc1` |
+| torch / torch-npu | `2.10.0+cpu` / `2.10.0` |
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+Eight Ascend NPUs, platform `a2a3`, devices `8–15`
+
+### Model
+
+DeepSeek V4 Flash W8A8, `/data/models/dsv4-flash-w8a8`
+
+### Logs
+
+```text
+Completion response:
+usage={"prompt_tokens":4,"completion_tokens":130,"total_tokens":134}
+finish_reason="length"
+
+Correct prefix (first 89 completion tokens):
+ a leading global information and communications technology (ICT) solutions
+ provider. Through our dedication to customer-centric innovation and strong
+ partnerships, we have established end-to-end capabilities and strengths across
+ telecom networks, devices and cloud computing. Huawei's products and solutions
+ have been deployed in over 170 countries and regions, serving more than one
+ third of the world's population. Founded in 1987, Huawei is a private company
+ wholly owned by its employees. For more
+
+Corrupted suffix (final 41 completion tokens):
+", "Get", "of", "and", "and", "  infrastructure", "and",
+ "and",
+ " and",
+ " and",
+" and",
+" and " \"",
+" "
+
+request finished: prompt=4 out=130 reason=FINISHED_LENGTH
+e2e=17.08s (7.6 tok/s)
+
+DeepSeekV4 MTP acceptance:
+accepted=53 proposed=76 rate=69.74%
+```
+
+### Additional Context
+
+- Reproduced by real-NPU task `task_20260729_010712_172935728300`.
+- The coherent/corrupted boundary was calculated directly with the checkpoint's `tokenizer.json`: 89 coherent tokens followed by 41 corrupted tokens.
+- MTP-disabled behavior has not yet been compared, so the precise ownership is still unconfirmed.
+- After the successful HTTP response, shutdown separately reported:
+
+  `TimeoutError: child process(es) [2375578] did not exit within the close budget`
+
+  followed by one leaked shared-memory warning. This appears to be a separate cleanup issue and is not the generation-corruption symptom reported here.
+
+
+---
+
+## #138 [Bug] DeepSeek kernel discovery fails with flattened pypto-lib model directory
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/138
+- Created: 2026-08-05T03:38:47Z
+- Updated: 2026-08-05T06:42:32Z
+- Closed: 2026-08-05T06:42:32Z
+
+### Body
+
+## Background
+
+`pypto-lib` flattened its model directories in
+hw-native-sys/pypto-lib#886. DeepSeek V4 kernels now live under
+`models/deepseek_v4_flash_mtp`.
+
+The `serving-deepseek` job in pypto-lib PR #895 checks out
+`pypto-serving` at `c262864bff5ee8ff58d285ef6a44526e7ebfe67c`,
+then replaces its pypto-lib submodule with the PR checkout. Worker startup
+fails before kernel import or compilation because pypto-serving still searches
+for `models/deepseek/v4-flash`.
+
+Reproduced in:
+https://github.com/hw-native-sys/pypto-lib/actions/runs/30969925307/job/92191964012
+
+### Diagnosis
+
+**pypto-serving** — its DeepSeek executor hard-codes the pre-flattening
+pypto-lib directory layout.
+
+Setting `PYPTO_ROOT` does not avoid the problem because the resolver still
+appends the old `models/deepseek/v4-flash` path to that root.
+
+### Description
+
+At `c262864`, `_find_pypto_lib_deepseek_v4_dir()` searches:
+
+```text
+<PYPTO_ROOT>/models/deepseek/v4-flash
+<checkout>/pypto-lib/models/deepseek/v4-flash
+```
+
+The corresponding directory in current pypto-lib is:
+
+```text
+models/deepseek_v4_flash_mtp
+```
+
+The resolver should support the flattened directory in both the `PYPTO_ROOT`
+and adjacent-checkout paths. The module-file suffix check and the parent used
+to derive the pypto-lib root must also account for the removed directory
+level.
+
+### Command or Request
+
+With the standard pypto-serving dependencies installed:
+
+```bash
+git clone https://github.com/hw-native-sys/pypto-serving.git
+git -C pypto-serving checkout c262864bff5ee8ff58d285ef6a44526e7ebfe67c
+
+git clone https://github.com/hw-native-sys/pypto-lib.git \
+  pypto-serving/pypto-lib
+git -C pypto-serving/pypto-lib checkout \
+  b607072196b559d7a877459f07863aae3409836e
+
+cd pypto-serving
+PYPTO_ROOT="$PWD/pypto-lib" python -c "from pypto_serving.model.deepseek.npu_executor import _find_pypto_lib_deepseek_v4_dir; print(_find_pypto_lib_deepseek_v4_dir())"
+```
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `c262864` |
+| pypto-lib | `94e9143` (PR #895 merge; base `b607072`) |
+| pypto | `8a6fc5e` |
+| simpler | `dccb837` |
+| ptoas | `v0.54` |
+| pto-isa | `83d01313` |
+| CANN | `9.0.0` |
+| torch | `2.6.0` |
+
+### Host Platform
+
+Linux (aarch64)
+
+### Device / Platform
+
+A2A3, eight-device DeepSeek serving CI job. The failure occurs before any
+device kernel is imported or executed.
+
+### Model
+
+DeepSeek V4 Flash MTP
+
+### Logs
+
+```text
+FileNotFoundError: Cannot locate DeepSeekV4 kernels. Run from a checkout
+with pypto-lib available or set PYPTO_ROOT to a pypto-lib checkout.
+```
+
+The later KV-cache, FastAPI startup, and server health-check failures are
+secondary consequences of this worker initialization error.
+
+### Additional Context
+
+A compatible implementation already exists in pypto-serving PR #136:
+https://github.com/hw-native-sys/pypto-serving/pull/136
+
+Related architectural tracking:
+
+- https://github.com/hw-native-sys/pypto-serving/issues/65
+- https://github.com/hw-native-sys/pypto-lib/issues/752
+
+
+---
+
+## #148 [Feature] Add an asynchronous PyPTO dispatch and completion contract for serving
+
+- State: closed
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/148
+- Created: 2026-08-08T02:15:43Z
+- Updated: 2026-08-17T01:52:15Z
+- Closed: 2026-08-17T01:52:15Z
+
+### Body
+
+### Summary
+
+Add a PyPTO asynchronous execution contract that lets serving submit the next
+prepared decode without blocking on completion of the current invocation, and
+lets a separate completion lane reclaim outputs in FIFO order.
+
+### Area
+
+Executor or runtime
+
+### Motivation / Use Case
+
+Serving now overlaps scheduler work, decode preparation, and host-side output
+reclaim with device execution. However, `DistributedWorker.run()` remains a
+blocking PyPTO call. The device lane cannot enqueue additional prepared work
+while that call is in progress, so PyPTO is the remaining serialization point.
+
+A non-blocking runtime contract is needed to keep the device submission lane
+continuously fed while completion handling, token publication, EOS processing,
+and scheduler updates run independently.
+
+### Proposed API / Behavior
+
+Provide an API with semantics equivalent to:
+
+```python
+handle = worker.submit(callable_spec, *args)
+completed = handle.done()
+result = handle.wait()  # or await handle
+```
+
+Required behavior:
+
+- `submit()` returns after the invocation and its dependencies are safely
+  enqueued, without waiting for device completion.
+- The handle owns or pins argument bindings and reusable runtime resources
+  until completion.
+- Handles expose completion, runtime failure, and profiling information.
+- FIFO ordering is defined per worker/stream, while multiple invocations may be
+  in flight subject to bounded backpressure.
+- Submission and completion waiting are safe from separate host threads.
+- Host-visible output copies are associated with the handle and become readable
+  only after completion.
+- The synchronous `run()` API remains available as `submit(...).wait()` or an
+  equivalent compatibility path.
+
+Serving would adapt by replacing its blocking launch with `submit()`, retaining
+handles in dispatch order, and letting the output lane wait/reclaim completed
+handles while the device lane submits later prepared decode work.
+
+### Alternatives Considered
+
+- Serving-only prepare/reclaim threads: implemented and useful, but they cannot
+  overlap the blocking PyPTO dispatch itself.
+- Additional serving process/thread wrappers around synchronous `run()`: they
+  move the blocking call but do not provide runtime-level in-flight ownership,
+  ordering, completion, or backpressure semantics.
+- L3 buffer pooling from #44: complementary; it reduces binding overhead but
+  does not make execution submission asynchronous.
+
+### Additional Context
+
+The current serving implementation already splits decode into prepare, arm,
+launch, and reclaim phases and retains a synchronous fallback for runtimes that
+do not advertise the asynchronous capability. The next integration step is to
+map launch to the PyPTO handle API and move completion waiting into the output
+lane.
+
+
+---
+
+## #153 [Bug] Worker.close() still leaves child processes after sticky shutdown fix on a2a3
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/153
+- Created: 2026-08-12T09:52:46Z
+- Updated: 2026-08-12T09:52:46Z
+- Closed: 
+
+### Body
+
+### Diagnosis
+
+Simpler child teardown/reap — `Worker.close()` still leaves child processes beyond the 10-second close budget even though the installed version contains the sticky `_OFF_SHUTDOWN` fix from #1663.
+
+This is therefore not the original SHUTDOWN-clobber mechanism tracked in #1562.
+
+### Description
+
+The issue reproduced twice during successful eight-card DeepSeek V4 MTP generation on a2a3.
+
+In both cases:
+
+- The HTTP/offline request completed successfully.
+- Exactly 20 output tokens were generated.
+- MTP completion and profiling finished.
+- Shutdown then reported exactly two surviving Simpler child processes.
+- Python's `resource_tracker` subsequently reported two leaked shared-memory objects.
+
+Observed runs:
+
+| Task | Devices | Surviving children |
+|---|---|---|
+| `task_20260812_011011_19195415170` | `1,3,5,7,9,11,13,15` | `2640883, 2655062` |
+| `task_20260812_021620_79277523625` | `0,2,4,6,8,10,12,14` | `1043175, 1046035` |
+
+The second run used host STRACE with device STRACE disabled. Its request completed in 2.63 seconds with 20 tokens and MTP acceptance 10/11 before teardown failed.
+
+### Command or Request
+
+```bash
+task-submit \
+  --device 0,2,4,6,8,10,12,14 \
+  --max-time 0 \
+  --timeout 0 \
+  --env PTOAS_ROOT=/data/yangyaodong/.cache/codex/ptoas-0.57-cp310 \
+  --env PTO2_RING_HEAP=3221225472 \
+  --run "bash .agents/skills/profile-dsv4-serving-strace/scripts/run_profile.sh \
+    --model-dir /data/models/dsv4-flash-w8a8 \
+    --use-compile-cache \
+    --devices 0,2,4,6,8,10,12,14 \
+    --artifact-dir artifacts/dsv4-async-profile-even-final-20260812 \
+    --run-id async-profile-even-final-20260812"
+```
+
+Relevant runtime configuration:
+
+```text
+PYPTO_RUNTIME_LOG=v9
+SIMPLER_DEVICE_STRACE_ENABLE=0
+PTO2_RING_HEAP=3221225472
+PTO2_RING_TASK_WINDOW=131072
+PTO2_RING_DEP_POOL=131072
+SIMPLER_OP_EXECUTE_TIMEOUT_US=400000000
+SIMPLER_STREAM_SYNC_TIMEOUT_MS=440000
+SIMPLER_SCHEDULER_TIMEOUT_MS=320000
+SERVING_WORKER_STEP_TIMEOUT=1800
+```
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `1a16e2c` plus local async submit/reclaim changes |
+| pypto-lib | `384553ad` |
+| pypto | `ed2aaa18` |
+| simpler | package `0.1.0`; installed source contains sticky `_OFF_SHUTDOWN` |
+| ptoas | `0.57` |
+| CANN | `9.0.0` |
+| torch / torch-npu | `2.10.0` / `2.10.0` |
+
+### Host Platform
+
+Linux aarch64
+
+### Device / Platform
+
+Eight a2a3 NPUs. Reproduced independently on the all-odd and all-even device groups.
+
+### Model
+
+DeepSeek V4 MTP, checkpoint `/data/models/dsv4-flash-w8a8`.
+
+### Expected Behavior
+
+After a completed request, `Worker.close()` should terminate and reap every chip child within the close path without reporting leaked shared memory.
+
+### Actual Behavior
+
+```text
+INFO pypto_serving.serving.engine.async_engine: Engine loop stopped
+02:23:13.956 INFO | Worker exiting
+02:23:26.224 ERROR | Failed to close PyPTO runner for model dsv4-flash-w8a8
+Traceback (most recent call last):
+  ...
+  File ".../simpler/worker.py", line 9240, in <lambda>
+    _step(lambda: self._reap_child_groups(groups, reap_deadline))
+  File ".../simpler/worker.py", line 9163, in _reap_child_groups
+    raise errors[0]
+TimeoutError: child process(es) [1043175, 1046035] did not exit within the close budget
+
+resource_tracker.py:224: UserWarning:
+resource_tracker: There appear to be 2 leaked shared_memory objects to clean up at shutdown
+```
+
+The earlier run produced the same signature:
+
+```text
+TimeoutError: child process(es) [2640883, 2655062] did not exit within the close budget
+resource_tracker: There appear to be 2 leaked shared_memory objects to clean up at shutdown
+```
+
+### Additional Context
+
+Related issue: #1562.
+
+That issue was closed after #1663 introduced a one-way sticky shutdown word, preventing an in-flight control transition from overwriting SHUTDOWN. The currently installed source contains `_OFF_SHUTDOWN` and `_SHUTDOWN_REQUESTED`, so this recurrence should rule out that original clobber race.
+
+The remaining likely categories are:
+
+1. child device/CANN teardown occasionally exceeds the fixed 10-second budget;
+2. a child is genuinely wedged after receiving sticky shutdown;
+3. a different close/register or teardown ordering race remains.
+
+It would be useful for `_reap_child_groups` to include each survivor's sticky shutdown state and, if practical, its current teardown phase in the timeout diagnostics.
+
+
+
+---
+
+## #155 [Bug] DeepSeek V4 batch-32 requests fail during 64-token prefill
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/155
+- Created: 2026-08-13T03:02:57Z
+- Updated: 2026-08-13T03:02:57Z
+- Closed: 
+
+### Body
+
+### Diagnosis
+
+pypto-serving / DeepSeek V4 prefill - configuring 32 concurrent requests causes the first 64-token prefill invocation to stall with `TENSOR_WAIT_TIMEOUT`. No request reaches decode.
+
+### Description
+
+DeepSeek V4 serving cannot complete a batch-32 workload with 64 input tokens and 64 output tokens per request.
+
+The issue reproduced three times on eight Ascend NPUs:
+
+1. 32 identical 64-token prompts with packed prefill.
+2. 32 distinct deterministic 64-token prompts with packed prefill.
+3. 32 distinct deterministic 64-token prompts with `--max-num-batched-tokens 64`, forcing one request per prefill invocation.
+
+All three runs failed during the first main prefill dispatch. All 32 HTTP requests returned HTTP 200 with zero prompt and completion tokens:
+
+```json
+{
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}
+```
+
+No `deepseek_v4_decode_mtp_fused.worker_submit` span was recorded, so the workload never reached decode.
+
+The HTTP API returning 200 with zero usage after the worker failure is also misleading; the worker error should be propagated to the client.
+
+### Command or Request
+
+Server configuration:
+
+```bash
+python .agents/skills/profile-dsv4-serving-strace/scripts/launch_server.py \
+  --model /data/models/dsv4-flash-w8a8 \
+  --served-model-name dsv4-flash-w8a8 \
+  --backend npu \
+  --platform a2a3 \
+  --devices 0,2,4,6,8,10,12,14 \
+  --dp 8 \
+  --ep 8 \
+  --block-size 128 \
+  --max-model-len 128 \
+  --max-num-seqs 32 \
+  --max-num-batched-tokens 512 \
+  --npu-memory-utilization 0.99 \
+  --enable-mtp \
+  --no-enable-prefix-caching \
+  --profile \
+  --profile-level verbose \
+  --use-compile-cache
+```
+
+Submit 32 concurrent `/v1/completions` requests, each containing:
+
+```json
+{
+  "model": "dsv4-flash-w8a8",
+  "prompt": "<exactly 64 tokens>",
+  "max_tokens": 64,
+  "temperature": 0.0,
+  "top_p": 1.0
+}
+```
+
+The third reproduction changed `--max-num-batched-tokens` from `512` to `64`. It still failed on the first single-request prefill invocation.
+
+### Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `6972da8` |
+| pypto-lib | `384553a` |
+| pypto | `ed2aaa18` |
+| simpler | `0.1.0` |
+| ptoas | `0.55` |
+| CANN | `9.0.0` |
+| torch / torch-npu | `2.10.0 / 2.10.0` |
+
+### Host Platform
+
+Linux aarch64
+
+### Device / Platform
+
+Eight Ascend NPUs, platform `a2a3`; physical devices `0,2,4,6,8,10,12,14`.
+
+### Model
+
+DeepSeek V4 W8A8 checkpoint:
+
+```text
+/data/models/dsv4-flash-w8a8
+```
+
+### Logs
+
+First packed-prefill reproduction:
+
+```text
+deepseek_v4_prefill.worker_run: 21991.685 ms
+orch_error_code=8 sched_error_code=0 runtime_status=-8
+TENSOR_WAIT_TIMEOUT - waiting for tensor data timed out:
+the producing task never completed, or a consumer never released its fanout reference
+
+Worker step failed: DeepSeekV4 packed prefill dispatch failed
+(tokens=(64, 64, 64, 64, 64, 64, 64, 64),
+ ranks=(0, 1, 2, 3, 4, 5, 6, 7))
+```
+
+Distinct-prompt reproduction:
+
+```text
+deepseek_v4_prefill.worker_run: 22518.197 ms
+orch_error_code=8 TENSOR_WAIT_TIMEOUT
+completion tokens: 0/2048
+```
+
+Single-request-prefill reproduction:
+
+```text
+deepseek_v4_prefill.worker_run: 22481.588 ms
+orch_error_code=8 TENSOR_WAIT_TIMEOUT
+Worker step failed: DeepSeekV4 packed prefill dispatch failed
+(tokens=(64,), ranks=(0,))
+```
+
+The host-visible ACL error is `507018 ACL_ERROR_RT_AICPU_EXCEPTION`, but the runtime-classified error is `orch_error_code=8 TENSOR_WAIT_TIMEOUT`.
+
+### Additional Context
+
+- Three L3 compile-cache entries were found and reused.
+- Simpler subsequently invalidated and rebuilt next-level binaries because it could not determine the current Simpler/PTO-ISA revision.
+- Changing prompts from identical to distinct inputs did not change the failure.
+- Reducing the prefill token budget from 512 to 64 did not change the failure.
+- This is not usable profiling data: the approximately 22-second spans are timeout waits, not successful prefill latency.
+- Related but non-duplicate issues: #123 and #91.
+
+
+---
+
+## #157 [Refactor] Unify the L3 dispatch arg model behind TaskArgs + L3DispatchMixin
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/157
+- Created: 2026-08-14T06:22:06Z
+- Updated: 2026-08-14T06:22:06Z
+- Closed: 
+
+### Body
+
+## Motivation
+
+The L3 dispatch argument story was duplicated between the two model runners and only half-modeled:
+
+- **DeepSeek** built dispatch args via a named `values` dict → `_mark_resident_args` (consulting four `_*_RESIDENT_POLICY` dicts) → `ordered_layer_args(values, ORDER)`. The positional contract lived in `_X_TENSOR_ORDER` constants separate from the values, and "is this arg a resident upload?" was a two-step: register a host tensor, then a policy dict decides.
+- **Qwen** built dispatch args as hand-written literal positional tuples in the runner — no shared model at all.
+- Both runners independently owned the `_l3_worker` handle, the `_l3_static_tensors` upload cache, and a `_run_l3` / `_run_distributed_program` method.
+- `BufferSet` (an earlier step) unified the *I/O buffers* but stopped there — it didn't model weights, device handles, or scalars, so the rest of the arg pipeline stayed duplicated.
+
+This made the kernel positional contracts hard to trust (the `ordered_layer_args` name-projection was the only safety net), duplicated the dispatch machinery, and left the two runners diverging.
+
+## Design
+
+A worker-free, placement-aware **`TaskArgs`** arg container + a shared **`L3DispatchMixin`**, with per-model **`task_args.py`** builders that become the single source of truth for each kernel's positional contract.
+
+**`TaskArgs`** (`pypto_serving/model/common/runner/task_args.py`)
+- Ordered arg container for one L3 callable. **Order = the registration order** of `add_slot` / `add_arg` — no separate order tuple.
+- Each arg declares its kind at registration (no `mark_resident` / policy dict):
+  - `add_slot(Slot(...))` — `HOST_SHARED` or `DEVICE_RESIDENT` buffer (allocated / staged / cleared here).
+  - `add_arg(name, StaticDeviceTensor(t))` — upload-once weight, cached by `(data_ptr, shape, dtype)`.
+  - `add_arg(name, handle)` — worker-resident `StackedDeviceTensor` / `DeviceTensor` (kv cache, device weights) — passthrough.
+  - `add_arg(name, shared_tensor)` / `(name, scalar)` — passthrough.
+  - `add_arg(name, callable)` — lazy source for post-fork handles, resolved at `build()`.
+- Lifecycle: `allocate_host_shared` (pre-fork, idempotent) → `allocate_device` (post-fork) → `stage` / `clear_outputs` → `build(use_cache=)` returns the *unresolved* tuple; the mixin resolves + frees per-dispatch transients.
+
+**`L3DispatchMixin`** (`pypto_serving/model/common/runner/l3_dispatch.py`)
+- Owns the shared worker handle, the static-upload cache, and a unified `_run_l3(callable, *args)` (prepend `dispatch_args`, `resolve_l3_arg` each arg, `worker.run`, free `uploaded` in `finally`). One `_init_l3_dispatch(stacked=)` call per runner — DeepSeek `stacked=True`, Qwen `stacked=False`. `_shared_l3_worker` stays runner-specific (fork/inherited tensors differ).
+
+**Per-model builders** (`deepseek/task_args.py`, `qwen/task_args.py`) register every arg in kernel-positional order, reading shapes from `runner._compiled.layout` and weights / handles from runner accessors — so the `task_args.py` file is the single source of truth for each kernel's contract (it subsumes the old `_X_TENSOR_ORDER` constants + the `_X_fwd_args` builders).
+
+## Scope
+
+- **DeepSeek**: prefill, decode, MTP prefill, MTP decode, and the fused-MTP compose all build through `TaskArgs`. Arbitrary-depth MTP (landed on `main` mid-refactor) is re-expressed through TaskArgs — the chunked codepath reads/writes TaskArgs slots instead of the legacy `_DeepSeekV4MtpSharedBuffers` / `_decode_input_slots`.
+- **Qwen** (`stacked=False`): all 19 host-shared I/O buffers move off the executor (`_CompiledKernels`) into prefill / decode / topk TaskArgs; the runner adopts `L3DispatchMixin` and drops `_run_distributed_program` / `_coerce_l3_arg`.
+- **Removed**: the `BufferSet` class (its primitives — `Slot` / `Placement` / `ClearPolicy` / `StaticDeviceTensor` / `resolve_l3_arg` / `shared_empty` / `copy_shared` — are kept and reused), `_mark_resident_args`, the four `_*_RESIDENT_POLICY` dicts, `ordered_layer_args` usage in the runners, the duplicated `_run_l3`/`_run_distributed_program` + `_coerce_l3_arg`, and a sweep of production-dead helpers surfaced during the migration.
+- Two latent bugs fixed along the way: a decode prepare-lane device-alloc race (device slots must be allocated at init, not lazily on the depth-2 pipeline's prepare lane), and a slot-shape bug exposed by the 16-row MTP tile (hard-coded `MAX_LOGIT_ROWS=8` → `layout.decode_tokens`).
+
+## Outcome
+
+- ~14 files changed (+2659 / −2326, net +333) across the common runner layer, both model runners, and tests.
+- `pytest tests/unit/ -q` → **202 passed**; ruff + headers clean.
+- CI green on the PR, including the 8-NPU DeepSeek arbitrary-depth accuracy guard and the Qwen3 accuracy guard.
+
+Addressed by #150.
+
+
+---
+
+## #159 [Docs] Configure the document directory into online documents
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/159
+- Created: 2026-08-14T09:06:55Z
+- Updated: 2026-08-17T11:02:32Z
+- Closed: 
+
+### Body
+
+### Documentation Location
+
+docs/*
+
+### What's Wrong or Missing?
+
+Configure the document directory into online documents and publish it on the website https://pypto.ai/
+
+### Suggested Improvement
+
+Add an MkDocs-powered documentation site with CI/CD pipeline, pre-commit validation, and a restructured docs layout.
+
+### Changes
+
+- **MkDocs config** (`mkdocs.yml`) — Material theme, strict validation, custom hook for repo-relative link rewriting
+- **Content** — `index.md`, `get-started/installation.md`, `get-started/quickstart.md`
+- **Restructure** — Moved docs from `docs/dev/` to `docs/user-guide/` and `docs/models/`
+- **Custom hook** (`docs/_hooks/repo_links.py`) — Rewrites out-of-`docs/` links to GitHub blob/tree URLs at build time
+- **CI** (`.github/workflows/docs.yml`) — Builds on every push/PR, deploys to GitHub Pages from `main`
+- **Pre-commit** — `check-docs-nav` and `check-public-docs` hooks
+- **Lint tests** — `check_docs_nav.py` (nav coverage) and `check_public_docs.py` (no skill references, valid link targets)
+- **Supporting** — `docs/requirements.txt`, `site/` in `.gitignore`
+
+### Rationale
+
+Documentation was scattered under `docs/dev/` with no entry point, navigation, or validation. This PR establishes a single-source-of-truth site that is readable on GitHub, navigable as a Material-themed site, deployable via CI, and validated by pre-commit hooks.
+
+### Additional Context
+
+_No response_
+
+---
+
+## #160 [Refactor] Collapse the three-thread decode pipeline into a single-thread loop using PyPTO submit/wait
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/160
+- Created: 2026-08-15T08:35:16Z
+- Updated: 2026-08-15T08:35:16Z
+- Closed: 
+
+### Body
+
+### Summary
+
+Collapse the three-thread decode pipeline in `WorkerProcess` (`_pipelined_busy_loop` / `_device_execution_loop` / `_output_reclaim_loop`) into a **single-thread loop** driven by the PyPTO async dispatch contract (`DistributedWorker.submit()` + `DistributedRunHandle.wait()`, #148), removing inter-thread overhead without losing host-device overlap.
+
+### Area
+
+Serving worker (`pypto_serving/serving/server/serving_worker.py`) + DeepSeek runner dispatch path (`pypto_serving/model/deepseek/npu_runner.py`)
+
+### Motivation / Use Case
+
+The three FIFO lanes exist for exactly one reason: while the device thread is parked inside `worker.run()` — which is `submit(...).result()` (`distributed_runner.py:2536`) — the command thread prepares step N+1 and the output lane reclaims step N−1.
+
+With `submit()` now available, this design pays pure cost:
+
+- **Per-step thread-wakeup dead time.** The device lane returns from `result()`, wakes, pulls from `output_work_queue`, and only then dispatches N+1. That gap is dead device time paid on *every* step. In the single-thread shape, kernel N+1 is *enqueued while N is still executing* — strictly better device utilization.
+- **GIL-bound "parallelism".** `prepare_decode` (dict/tensor staging, `_copy_shared`) and `reclaim` (`.tolist()`/`.item()`) are GIL-bound for most of their duration, so the two host lanes largely serialize each other already. What remains is queue hand-offs, semaphore round-trips, and wakeups.
+- **Coherence machinery.** `work_queue`/`output_work_queue` and both hand-offs per step, the `slot_ownership` semaphores, `_DecodeCommandFailure` forwarding, the `_ProfileBarrier` event, and the `_req_cache` release-snapshot dance around re-registration (`serving_worker.py:298-309`) all exist only to keep three threads in lock-step.
+- **A latent race class.** The device lane can late-bind `_resolve_decode_token` for step N+1 while the output lane hasn't finished recording step N's `_last_tokens`; single-threaded ordering makes this structural.
+
+### Proposed Design
+
+One loop, one outstanding previous handle, **submit N+1 before waiting on N**:
+
+```python
+prev_handle = None; prev_ticket = None
+while True:
+    cmd = decode_command(input_queue.get())          # host — kernel i still running
+    prepared = prepare_decode(cmd, buffer_slot=...)   # host — overlaps kernel i
+    apply_lifecycle(cmd)
+    handle = worker.submit(compiled, *prepared.dispatch_args)  # non-blocking enqueue
+    # device now has kernels i and i+1 queued back-to-back
+
+    if prev_handle is not None:
+        prev_handle.wait()                           # kernel i long done in the common case
+        result = reclaim(prev_ticket)                # D2H reads — kernel i+1 executing
+        output_queue.put(encode_result(result))
+    prev_handle, prev_ticket = handle, make_ticket(...)
+```
+
+The ordering rule is the whole trick: the device executes kernels back-to-back with no host-visible gap, and all host work for the iteration (reclaim N, IPC, get+prepare N+2) runs under kernel N+1's execution. The runtime's own depth-2 frame bound ("a third submission waits for the oldest handle", `distributed_runner.py:2495-2497`) provides backpressure at exactly the current pipeline depth — matching `_DECODE_PIPELINE_SLOTS = 2` and the engine's async `max_in_flight = 2`.
+
+**What dissolves:** both queues and their hand-offs, `slot_ownership` semaphores (slot freedom becomes program order), `_DecodeCommandFailure` forwarding, `_ProfileBarrier` (profile commands handled inline after `prev_handle.wait()`), and the `_req_cache` release-snapshot dance.
+
+### Required Changes
+
+1. **`serving_worker.py`** — add `_single_thread_busy_loop()` alongside the existing loops; select it in `busy_loop()` (`serving_worker.py:216`) when the executor advertises the new async-submit capability; keep `_pipelined_busy_loop()` and `_serial_busy_loop()` as fallbacks.
+2. **`npu_runner.py` dispatch path** — `dispatch_prepared_decode` (`npu_runner.py:2113`) must return without blocking via a new `_submit_l3` variant of `_run_l3` (`npu_runner.py:4780`) that calls `worker.submit()` and returns the handle inside the `_PendingDecodeOutput` ticket; `reclaim_prepared_decode` gains the `handle.wait()` before reading outputs.
+3. **Argument lifetime** — `_run_l3`'s `finally`-block `free_tensor()` on uploaded temporaries (`npu_runner.py:4801-4803`) must move to after `handle.wait()`; freeing before completion violates the handle's argument-lifetime contract ("Mutable arguments must not be reused or modified until the returned handle completes").
+4. **Profiling** — the kernel-level `profile_span` currently wraps `worker.run()`; under submit/wait it measures enqueue, not execution. Close the span after `wait()` (e.g. record submit-time start, close on completion).
+5. **Executor contract** — new capability flag (e.g. `supports_async_decode_submit`) on `ModelExecutor` (`pypto_serving/model/common/executor/executor.py`), advertised by `DeepSeekV4PyptoExecutor` for the fused K=1 MTP path.
+
+### Known Trade-offs / Open Questions
+
+- **Host stages sum instead of max.** Steady-state throughput bound moves from `max(prepare, dispatch, reclaim)` to `prepare + get + reclaim + IPC`. This is safe when `prepare + reclaim ≪ kernel execution` (the expected case — both are metadata staging plus small D2H reads). Should be validated with `benchmark_parallel.py` before deleting the three-lane path. If host work approaches kernel time, a two-thread variant (main loop + reclaim-only thread) keeps most of the simplification.
+- **Token-dependent late-bind path.** When `prepared_decode_requires_token` is true (`npu_runner.py:1515`), step N+1's dispatch needs step N's sampled token, which materializes only after `wait(N)` — those executors need a wait-first iteration variant (device idles during reclaim) or stay on the fallback path. Moot for fused DeepSeek MTP (returns False).
+- **Gate the switch on the benchmark** before removing the three-lane path entirely.
+
+### Additional Context
+
+- Depends on the async dispatch contract landed via #148.
+- The engine-side half (async scheduling, `PLACEHOLDER_TOKEN` resolution, `max_in_flight = 2`) needs no changes — the worker still produces FIFO `StepResult`s with the same semantics.
+
+
+---
+
+## #161 [Bug] DeepSeek V4 greedy MTP decode diverges from AR token output
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/161
+- Created: 2026-08-15T12:21:24Z
+- Updated: 2026-08-15T13:08:43Z
+- Closed: 
+
+### Body
+
+## Diagnosis
+
+This appears to be in the DeepSeek V4 greedy MTP target-decode path at the
+`pypto-serving` / `pypto-lib` boundary. The host publication path has one
+separate committed-window accounting issue, but fixing that only postpones the
+visible divergence: the S=2 target row 0 logits still differ enough from S=1 AR
+to change the greedy token.
+
+## Description
+
+DeepSeek V4 Flash W8A8 produces a different greedy token sequence when K=1 MTP
+is enabled, even though the prompt, committed token history, sampling settings,
+and cache configuration are otherwise identical.
+
+Expected behavior: greedy speculative decoding is lossless. With
+`temperature=0`, enabling MTP may change execution and the number of accepted
+drafts, but it must not change the target model's committed token sequence.
+
+Actual behavior:
+
+- Synchronous MTP runs are repeatable and return the same sequence, so this is
+  not per-run sampling randomness.
+- Async and sync MTP both reproduce the problem; async scheduling is not the
+  initial numerical cause.
+- The default 16-row MTP tile and a temporary 8-row MTP tile both reproduce it;
+  decode-tile expansion is not the root cause.
+- A local fix that publishes the canonical committed-window suffix instead of
+  `sampled_ids[:accepted_count]` moves the first visible divergence from index
+  21 to index 48, but does not restore target-logit equivalence.
+- At the remaining divergence, the first 48 generated tokens are identical.
+  AR greedily selects token `3831`, while MTP greedily selects token `95` from
+  the same committed prefix.
+
+The issue reproduces on a 255-token authorization-code fixture, but it is not a
+generic chunk-boundary failure. Separate AR-derived continuation checks passed
+all `128+1`, `128+127`, `128+128`, and `128+128+1` next-token comparisons under
+both AR and MTP (24/24 total). MTP divergence also reproduces after a single
+128-token prefill dispatch.
+
+## Command or Request
+
+Use the `authorization_code_255` prompt from
+`tests/fixtures/deepseek_v4_chunked_prefill_accuracy_prompts.json` and run AR,
+then K=1 MTP, serially on the same eight devices.
+
+Relevant serving configuration:
+
+```text
+--model /data/models/dsv4-flash-w8a8
+--backend npu
+--platform a2a3
+--devices 0,2,4,6,8,10,12,14
+--dp 8 --ep 8 --tp 1
+--block-size 128
+--max-model-len 512
+--max-num-seqs 32
+--max-num-batched-tokens 512
+--long-prefill-token-threshold 2048
+--enable-chunked-prefill
+--no-enable-prefix-caching
+```
+
+Generation settings:
+
+```json
+{
+  "max_new_tokens": 64,
+  "temperature": 0.0,
+  "top_p": 1.0,
+  "top_k": 0,
+  "ignore_eos": true
+}
+```
+
+For the MTP run, additionally use:
+
+```text
+--speculative-config '{"method":"mtp","num_speculative_tokens":1}'
+```
+
+Compare the returned token IDs exactly, rather than comparing only answer-level
+text.
+
+## Environment
+
+| Component | Version |
+|---|---|
+| pypto-serving | `40ebf9a30b6a17a9f93e95396dffed9554137157` (PR #132 branch) |
+| pypto-lib | `aea5bcba2489d6dc183ed35a5a784d8806e7ba4d` (PR #883 branch) |
+| pypto | `71020585278b68f56c72c40d5570f07dbb20bc8b` |
+| runtime | `3165cc89b6ea6b58a0bc01cbec2d5f72f2029c35` |
+| pto-isa | `83d01313d9bfc247c4b7c8bcf969d1019f0d106f` |
+| ptoas | `0.57` |
+| CANN | `9.0.0` |
+| Host | Linux aarch64 |
+| Device / platform | eight A2/A3 devices: `0,2,4,6,8,10,12,14` |
+| Model | DeepSeek V4 Flash W8A8, `/data/models/dsv4-flash-w8a8` |
+
+## Logs
+
+At the first divergence after correcting host committed-window publication:
+
+```text
+AR row0:
+top_ids    = [3831, 95, 41653, 37236]
+top_values = [32.758774, 32.471817, 29.725901, 27.758673]
+
+MTP target row0:
+top_ids    = [95, 3831, 41653, 37236]
+top_values = [32.133121, 31.175119, 28.329367, 26.542364]
+```
+
+An earlier identical-prefix step also shows a much larger AR/MTP change for a
+non-winning candidate:
+
+```text
+AR:
+top_ids    = [7574, 7155, 9575, 12846]
+top_values = [32.450748, 26.424942, 24.038696, 23.189779]
+
+MTP target row0:
+top_ids    = [7574, 7155, 7408, 12846]
+top_values = [32.571129, 32.510063, 26.669779, 26.376173]
+```
+
+Relevant hardware tasks:
+
+- `task_20260815_044128_115197417619`: async and sync MTP comparison;
+  both initially diverged at index 21.
+- `task_20260815_045502_130087127809`: AR/MTP top-4 logit capture; after the
+  canonical host-window fix, visible divergence moved to index 48.
+- `task_20260815_050449_141305231511`: temporary 8-row MTP tile; divergence
+  still reproduced.
+
+## Additional Context
+
+DeepSeek MTP serving was introduced in PR #89. PR #120 later added arbitrary
+draft depth and expanded/repacked MTP decode layouts. Both accuracy guards use
+the short prompt `Huawei is` and require only this 10-token completion:
+
+```text
+ a leading global information and communications technology (ICT)
+```
+
+That guard passes, but it does not compare AR and MTP token streams and therefore
+does not cover this losslessness requirement. PR #120 explicitly scopes the
+device acceptance path to greedy-only sampling, so stochastic speculative
+sampling is not expected here.
+
+Suggested next checks:
+
+1. Change only the S=2 row1 draft while holding row0 and its committed cache
+   history fixed; row0 logits must remain unchanged.
+2. Compare S=1 AR and S=2 MTP row0 hidden states layer by layer to find the first
+   stage that diverges materially.
+3. Inspect compressed-cache write/read ordering, row-wise causal metadata, raw
+   KV page aliasing, and multi-active-token MoE dispatch/combine.
+4. Add a deterministic CI regression that runs the same prompt under AR and K=1
+   MTP and asserts exact token-ID equality for a sufficiently long decode.
+
+Related work: PR #132 (chunked prefill) and pypto-lib PR #883.
+
+
+---
+
+## #163 [Refactor] Unify Qwen + DeepSeek weight loading behind a staged pipeline (spec → shard policy → slab stacker)
+
+- State: open
+- URL: https://github.com/hw-native-sys/pypto-serving/issues/163
+- Created: 2026-08-16T06:33:23Z
+- Updated: 2026-08-16T06:33:23Z
+- Closed: 
+
+### Body
+
+## Motivation
+
+Qwen and DeepSeek V4 have two fully disjoint weight-loading paths, and neither generalizes:
+
+- **Qwen** — `HuggingFaceDirectoryLoader` eagerly loads every shard into `RuntimeModel.layers` (`LayerWeights`, `config/types.py:143`), then `Qwen314BPyptoExecutor._compile_model` restages everything into 11 stacked `decode_*` slabs (`qwen/npu_executor.py:435`). Peak host memory ≈ 2× model until per-layer release kicks in.
+- **DeepSeek V4** — `deepseek/weight_loader.py` (1,589 lines) does metadata-only load + lazy store, then one monolithic packer where three concerns are coupled in hand-written code: name mapping (`pack_deepseek_v4_layer_weights:1188`), rank-shard policy (`_replicate_weight`, `_pack_deepseek_v4_routed_experts:1528`, `pack_deepseek_v4_lm_head_weight:437`), and slab stacking (`load_stacked_layer_weights:946` + `_allocate_stacked_layer_weights`/`_stacked_layer_destinations`/`_copy_packed_layer`).
+
+Because pypto-lib fuses all layers into single kernels (`l3_decode_fwd`/`l3_prefill_fwd`), the whole-model stacked slab layout is an immutable **output contract** — a layer's weight has no standalone existence on device. That legitimately forces a global pack stage, but it does *not* force name mapping and shard policy to be hand-coded per model. Today a new model family means another ~1,000-line pack table.
+
+## Design
+
+Split into three stages, with the fused-kernel stacked layout kept byte-for-byte:
+
+1. **Per-family declarative spec** — checkpoint name → kernel name, with per-weight transform rules (dtype, transpose, `reshape_groups`, synthesize/zero-fill) expressed as data.
+2. **Rank-shard policies** — `Replicate` / `ExpertParallel` / `VocabTensorParallel` as reusable evaluators.
+3. **One generic slab stacker** — allocates whole-model slabs from a layout descriptor (layer-0 template), writes each layer into destination slices; no `torch.cat`.
+
+### Module layout
+
+New `pypto_serving/model/common/weights/`:
+
+| Module | Responsibility |
+|---|---|
+| `store.py` | `LazySafetensorsStore` — generic name-addressed shard reader; `load_tensor`/`load_many`/`filename_for` moved verbatim from `DeepSeekV4WeightStore` (`weight_loader.py:685`) |
+| `spec.py` | Declarative schema: `LayerContext`, `LayerWeightRule`, `SyntheticRule`, `StackGroup`, `GlobalWeightRule`, `FamilyWeightSpec` |
+| `shard.py` | `Replicate(ranks)`, `ExpertParallel(n_experts)`, `VocabTensorParallel(ranks, vocab_chunk)` |
+| `packer.py` | `pack_layer(rules, raw, ctx, *, destinations)` — generic per-layer evaluator |
+| `stacker.py` | `allocate_slabs` / `destinations_for` / `copy_packed_layer` / `stack_layers` |
+| `pipeline.py` | Orchestration: load → pack → stack; owns thread policy + per-layer release |
+
+Per-family spec modules (data + config→spec builders): `deepseek/weight_spec.py`, `qwen/weight_spec.py`, plus `qwen/weight_store.py` (`HuggingFaceWeightStore(LazySafetensorsStore)`).
+
+Key schema decisions:
+
+- `StackGroup(id, members, member_layers)` — DeepSeek: `fwd` (43 layers) / `csa` (ratio==4, 21) / `hca` (ratio==128, 20) in first-appearance order, exactly as today; Qwen: one group. **Rule-table order = slab allocation order**, which also preserves the safetensors name→offset map in the sidecar.
+- `FamilyWeightSpec.emit_rank_axis` — DeepSeek emits `[ranks, count*d1, …]` (required by `alloc_stacked_tensor`); Qwen emits rank-less `[count*d1, …]` exactly as today. The packer always produces the rank-less semantic tensor; the destination writer prepends the axis iff the flag is set.
+- `GlobalWeightRule` — embed / lm_head / final_norm with `fallback_source` (tied lm_head), `default="ones"` (absent q/k_norm), `pad_to_multiple` + `pad_fill` (Qwen embed pads zeros, **lm_head pads by replicating row 0**).
+- Inactive branches zero-fill the destination view (`absent_shape` validated first) — preserves the uniform-signature trick in `_pack_deepseek_v4_optional_attention:1312`.
+- Thread policy stays **per-family**: DeepSeek serial (`workers=1` — the documented ~8 GB-per-layer intermediate regression, `weight_loader.py:962`), Qwen thread pool with `torch.set_num_threads(1)` pinning (`qwen/npu_executor.py:509`).
+- Timing: one new `stage_weights(record)` hook on `ModelRunner`, called by `PyptoExecutor.register_model` between `_create_runner` and `init_kv_cache`. Necessary because **Qwen's `DistributedWorker` forks inside `init_kv_cache` — before `preflight`** — so it cannot adopt DeepSeek's load-at-preflight timing as-is.
+
+## Compatibility contract
+
+- DeepSeek packed output **byte-identical**: same 49-name set, shapes, dtypes, layer-fusion order; sidecar format `pypto-deepseek-v4-stacked-v1` + fingerprint payload unchanged → **existing prepacked sidecars stay valid**. The sidecar read path (`_map_shared_prepacked_tensors`, single-fd flow, mincore residency gate) is frozen verbatim.
+- Qwen staged output **bit-identical** to today's 11 `decode_*` tensors + padded globals.
+- Two known byte-identity traps to reproduce, not "normalize":
+  - `_replicate_weight:1163` casts explicitly (`.to(dtype)`) on the direct path but implicitly inside `destination.copy_()` on the destination path;
+  - `_pack_deepseek_v4_routed_experts:1545` has the same dual-path asymmetry.
+- Known trap: casting bf16 → `weight_dtype` (fp32) at load → bf16 at staging is rounding-equivalent to direct bf16, so Qwen's lazy path needs no intermediate cast — but the parity harness must prove it.
+
+## Migration plan (each step gated)
+
+1. **Parity harness first** (no production change): synthetic on-disk checkpoints for both families (DeepSeek: 4 layers, `compress_ratios=(0,4,128,4)`, MTP fixture; Qwen: tied/untied lm_head + qk-norm-absent variants). **Differential**: old and new importable side-by-side, CI compares them directly; plus sidecar write comparison and **bidirectional cross-load** (sidecar from old code must load under new reader and vice versa).
+2. Add `common/weights/` (additive); `DeepSeekV4WeightStore` subclasses the generic store.
+3. Port the DeepSeek pack table into `weight_spec.py`; `pack_deepseek_v4_layer_weights` becomes a thin wrapper (signature/behavior unchanged). Gate: `test_model_components.py:1235` passes unmodified.
+4. Rewire `load_stacked_layer_weights` onto the stacker; sidecar branch untouched. Gate: `:1296` invariants preserved (no `torch.cat`, `[False, True, True]` direct flags, group placement, contiguity); the six sidecar tests unchanged.
+5. MTP through the same spec (`mtp.0` context + declarative extras table).
+6. Migrate Qwen: `HuggingFaceDirectoryLoader` becomes metadata-only (mirrors the DeepSeek loader — `weight_map`/`model_dir` into `RuntimeModel.extra`); lazy per-layer `load_many` + drop-after-slice-copy keeps peak ≈ 1× (down from ~2×). Need to verify nothing depends on eagerly-populated `RuntimeModel.embed_tokens` (base `lookup_embeddings`).
+7. Retire `LayerWeights` / `RuntimeModel.layers` / `_stack_decode_weights` / `_kernel_weight` / `_release_layer_weights` / `_load_safetensors_dir`; `--num-layers-override` (example) becomes a spec-builder knob; move Qwen staging to the `stage_weights` hook (defer `_build_static_kernel_args` accordingly).
+8. Cleanup: port remaining legacy-path tests; update `docs/dev/model/deepseek-v4.md` + a unified-pipeline doc.
+
+## Out of scope
+
+Qwen prepack sidecar (follow-up — the spec shape admits one) · upload mechanics (`alloc_stacked_tensor`/`alloc_tensor`, `_materialize_resident_weights`, inherited-host-tensor flow) · kernel host-arg orders · W8A8 conversion tooling · pypto-lib kernels.
+
+## Coordination
+
+Orthogonal to #157 / open PR #150 (TaskArgs + L3DispatchMixin): that refactor owns the *dispatch arg* pipeline, this one owns the *weight staging* pipeline — but both touch `model/{deepseek,qwen}/npu_runner.py` and the `ModelRunner` interface (each adds a hook/`_init_*` call). Whichever lands second rebases; the `stage_weights` hook and `_init_l3_dispatch` are independent seams.
+
+## Verification
+
+- New `tests/unit/model/common/test_weight_{spec,shard_policies,stacker,pipeline_parity}.py`; full existing DeepSeek unit suite green at every step.
+- Differential parity on synthetic on-disk checkpoints (both families) including sidecar cross-load.
+- Device gates: `tests/test_qwen3_accuracy.py` (needs `PYPTO_QWEN3_MODEL_DIR` + `DEVICE_ID`); DeepSeek 8-card accuracy CI.
+- Grep gates after retirement: no remaining `LayerWeights` references; no `torch.cat` in the stacker path.
+
+
+---
+

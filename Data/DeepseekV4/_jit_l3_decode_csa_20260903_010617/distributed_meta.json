@@ -1,0 +1,556 @@
+{
+  "schema": 2,
+  "params": [
+    {
+      "name": "x_hc__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        4,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "hc_attn_fn__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        24,
+        16384
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "hc_attn_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        3
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "hc_attn_base__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        24
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "attn_norm_w__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "wq_a__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4096,
+        1024
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "wq_b__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        1024,
+        32768
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "wq_b_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        32768
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "wkv__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4096,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "gamma_cq__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        1024
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "gamma_ckv__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "freqs_cos_local__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "freqs_cos__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "freqs_sin_local__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "freqs_sin__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_freqs_cos__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_freqs_sin__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_wkv__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        1024,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_wgate__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        1024,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_ape__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4,
+        1024
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "cmp_norm_w__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "compress_state__ssa_v0",
+      "direction": "InOut",
+      "shape": [
+        2,
+        -1,
+        2,
+        2048
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "compress_state_block_table__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        4
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "idx_wq_b__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        1024,
+        8192
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "idx_wq_b_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        8192
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "weights_proj__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4096,
+        64
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "hadamard_idx__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        128,
+        128
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "inner_wkv__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        256,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "inner_wgate__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        256,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "inner_ape__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4,
+        256
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "inner_norm_w__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        128
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "inner_compress_state__ssa_v0",
+      "direction": "InOut",
+      "shape": [
+        2,
+        -1,
+        2,
+        512
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "inner_compress_state_block_table__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        4
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "kv_cache__ssa_v0",
+      "direction": "InOut",
+      "shape": [
+        2,
+        -1,
+        32,
+        1,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_kv__ssa_v0",
+      "direction": "InOut",
+      "shape": [
+        2,
+        -1,
+        32,
+        1,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "cmp_block_table__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        8192
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "idx_kv_cache__ssa_v0",
+      "direction": "InOut",
+      "shape": [
+        2,
+        -1,
+        32,
+        1,
+        128
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "idx_kv_scale__ssa_v0",
+      "direction": "InOut",
+      "shape": [
+        2,
+        -1,
+        32,
+        1,
+        1
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "idx_block_table__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        8192
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "ori_slot_mapping__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int64"
+    },
+    {
+      "name": "window_swa_indices__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1,
+        128
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "window_swa_lens__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "cmp_slot_mapping__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int64"
+    },
+    {
+      "name": "idx_slot_mapping__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int64"
+    },
+    {
+      "name": "state_slot_mapping__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int64"
+    },
+    {
+      "name": "inner_state_slot_mapping__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int64"
+    },
+    {
+      "name": "position_ids_local__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "position_ids__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "kv_seq_lens__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        -1
+      ],
+      "dtype": "int32"
+    },
+    {
+      "name": "attn_sink__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        64
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "wo_a__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4,
+        1024,
+        4096
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "wo_b__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4096,
+        4096
+      ],
+      "dtype": "int8"
+    },
+    {
+      "name": "wo_b_scale__ssa_v0",
+      "direction": "In",
+      "shape": [
+        2,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "x_out__ssa_v0",
+      "direction": "Out",
+      "shape": [
+        2,
+        -1,
+        4,
+        4096
+      ],
+      "dtype": "fp32"
+    },
+    {
+      "name": "local_t__ssa_v0",
+      "direction": "In",
+      "shape": null,
+      "dtype": "int32"
+    }
+  ],
+  "num_return_types": 1,
+  "platform": "a2a3",
+  "backend_type": "Ascend910B",
+  "distributed_config": {
+    "device_ids": [
+      1,
+      3
+    ],
+    "num_sub_workers": 0,
+    "runtime": "tensormap_and_ringbuffer",
+    "aicpu_thread_num": 0
+  }
+}

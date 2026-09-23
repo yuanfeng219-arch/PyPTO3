@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ascend Memory Studio</title>
+
+  <!-- PTO design system: tokens + components -->
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
+
+  <!-- Patterns consumed by this page -->
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/floating-playback-control/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/memory-reuse-viewer/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css" />
+
+  <!-- Module-local layout only -->
+  <link rel="stylesheet" href="./styles/demo.css" />
+</head>
+<body>
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" aria-label="Ascend Memory Studio">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip" data-ide-slot="host-chip">
+          <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <path d="M7 9h10"></path><path d="M7 13h6"></path>
+          </svg>
+        </div>
+        <div class="pto-ide-frame__workspace" data-ide-slot="workspace-switcher">
+          <span class="mv-title">Ascend Memory Studio</span>
+          <span class="mv-title-sub">片上内存可视化 · space-time occupancy</span>
+        </div>
+      </div>
+      <div class="pto-ide-frame__topbar-center">
+        <div class="pto-ide-frame__search" data-ide-slot="global-search"></div>
+      </div>
+      <div class="pto-ide-frame__topbar-right">
+        <div class="pto-ide-frame__window-actions" data-ide-slot="window-controls" aria-label="Window controls">
+          <button class="pto-ide-frame__window-action is-selected" type="button" data-ide-toggle="visualization" aria-label="Toggle bottom visualization" aria-controls="mv-bottom-dock" aria-expanded="true" aria-pressed="true" title="Runtime trace">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 15h18"></path></svg>
+          </button>
+          <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="terminal" aria-label="Toggle diagnostics log" aria-controls="mv-terminal-pane" aria-expanded="false" aria-pressed="false" title="Diagnostics log">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" data-ide-slot="activity-rail" aria-label="Activity rail">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="Toggle explorer" aria-controls="mv-explorer-pane" aria-expanded="true" aria-pressed="true" title="Explorer">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Search" title="Search">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Source control" title="Source control">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M6 9v12"></path></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Terminal" title="Terminal">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+        </button>
+      </nav>
+
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="standalone-vertical" data-split-direction="vertical" data-sizes="70,30" data-min-size="300,150">
+          <section class="pto-ide-frame__pane pto-ide-frame__pane--stack" data-ide-pane="main-row">
+            <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="22,50,28" data-pixel-sizes="300" data-min-size="240,380,300">
+              <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="mv-explorer-pane">
+                <header class="pto-ide-frame__pane-header" data-ide-slot="navigation-header">
+                  <span class="pto-ide-frame__pane-title">Kernels</span>
+                  <span class="pto-ide-frame__pane-meta">mock data</span>
+                </header>
+                <div class="pto-ide-frame__pane-body" data-ide-slot="navigation">
+                  <div id="mv-explorer"></div>
+                </div>
+              </aside>
+
+              <section class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+                <div class="pto-ide-frame__tabstrip" data-ide-slot="preview-tabs">
+                  <div class="tab-control" id="mv-tabs" role="tablist"></div>
+                </div>
+                <header class="pto-ide-frame__pane-header" data-ide-slot="preview-header">
+                  <span class="pto-ide-frame__pane-title" id="mv-preview-title">空间-时间占用图</span>
+                  <span class="pto-ide-frame__pane-meta" id="mv-preview-meta">—</span>
+                </header>
+                <div class="pto-ide-frame__pane-body" data-ide-slot="preview">
+                  <div class="mv-preview-split" id="mv-preview-split">
+                    <div id="mv-viewer" class="mv-viewer-host"></div>
+                    <section class="mv-src" id="mv-src" hidden aria-label="源码面板">
+                      <div class="mv-src__tabs">
+                        <span class="mv-src__dot"></span>
+                        <span class="mv-src__tab" id="mv-src-name">—</span>
+                        <button class="mv-src__close" id="mv-src-close" type="button" title="关闭源码面板" aria-label="关闭源码面板">×</button>
+                      </div>
+                      <div class="mv-src__toolbar">
+                        <span id="mv-src-status">选择一个 tensor 以联动源码</span>
+                        <div class="mv-src__nav">
+                          <button class="btn btn-compact btn-ghost" id="mv-src-prev" type="button" title="上一个 tensor 段">▲</button>
+                          <button class="btn btn-compact btn-ghost" id="mv-src-next" type="button" title="下一个 tensor 段">▼</button>
+                        </div>
+                      </div>
+                      <div class="mv-src__scroll" id="mv-src-scroll"><div class="mv-src__code" id="mv-src-code"></div></div>
+                    </section>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+                <header class="pto-ide-frame__pane-header" data-ide-slot="inspector-header">
+                  <span class="pto-ide-frame__pane-title" id="mv-inspector-title">Inspector</span>
+                  <span class="pto-ide-frame__pane-meta" id="mv-inspector-meta">MVP · 占用图</span>
+                </header>
+                <div class="pto-ide-frame__pane-body" data-ide-slot="inspector">
+                  <div id="mv-inspector" class="inspector-rail"></div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="pto-ide-frame__pane pto-ide-frame__bottom-dock" data-ide-pane="bottom-panel" data-ide-bottom-dock id="mv-bottom-dock">
+            <div class="pto-ide-frame__bottom-view" data-ide-bottom-panel="visualization">
+              <header class="pto-ide-frame__pane-header">
+                <span class="pto-ide-frame__pane-title">运行时执行 Trace · Swimlane</span>
+                <span class="pto-ide-frame__pane-meta" id="mv-swimlane-meta">P4 · msprof / DFX (mock)</span>
+              </header>
+              <div class="pto-ide-frame__pane-body pto-ide-frame__stage-slot pto-ide-frame__stage-slot--compact" data-ide-slot="bottom-visualization">
+                <div id="mv-swimlane" class="mv-swimlane-host"></div>
+              </div>
+            </div>
+
+            <div class="pto-ide-frame__bottom-view pto-ide-frame__terminal" data-ide-bottom-panel="terminal" id="mv-terminal-pane" hidden>
+              <div class="pto-ide-frame__terminal-tabs" aria-label="Panel tabs">
+                <div class="pto-ide-frame__terminal-tablist">
+                  <span class="pto-ide-frame__terminal-tab is-selected">Diagnostics</span>
+                  <span class="pto-ide-frame__terminal-tab">Output</span>
+                </div>
+                <div class="pto-ide-frame__terminal-actions">
+                  <button class="pto-ide-frame__terminal-action" type="button" data-ide-close="terminal" aria-label="Close">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="pto-ide-frame__terminal-body" id="mv-terminal-body"></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="pto-ide-frame__floating-playback-mount" data-ide-floating-playback data-total-steps="128" data-step="0"></div>
+
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" data-ide-slot="status">
+          <div id="mv-status" class="mv-status"></div>
+        </footer>
+      </div>
+    </div>
+  </section>
+
+  <!-- Design-system runtime -->
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/floating-playback-control/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/memory-reuse-viewer/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js"></script>
+
+  <!-- Demo -->
+  <script src="./js/mock-data.js"></script>
+  <script src="./js/demo.js"></script>
+</body>
+</html>

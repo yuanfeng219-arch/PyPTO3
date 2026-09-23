@@ -1,0 +1,247 @@
+<svg viewBox="0 0 2220 980" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DeepSeek V3.2 residual architecture">
+  <style>
+    .label{fill:#667085;font-size:10px}
+    .state{fill:#101828;font-size:16px;font-weight:700}
+    .shape-note{fill:#667085;font-size:12px;font-weight:500}
+    .small-note{fill:#98A2B3;font-size:10px}
+  </style>
+      <defs>
+        <marker id="arrowBlue" markerWidth="4" markerHeight="4" refX="3.5" refY="2" orient="auto">
+          <path d="M0 0 L4 2 L0 4Z" fill="#5F7CFF"/>
+        </marker>
+        <marker id="arrowBlack" markerWidth="4" markerHeight="4" refX="3.5" refY="2" orient="auto">
+          <path d="M0 0 L4 2 L0 4Z" fill="#4F6BFF"/>
+        </marker>
+      </defs>
+
+      <!-- input -->
+      <text x="34" y="43" fill="#98A2B3" font-size="10" letter-spacing="1.2">MODEL FLOW</text>
+      <rect x="295" y="34" width="150" height="48" rx="12" fill="#EAF8FC" stroke="#9DDFEC"/>
+      <text x="370" y="63" text-anchor="middle" fill="#123C47" font-size="12" font-weight="700">Token Embedding</text>
+      <text x="400" y="105" class="state">x₀</text>
+      <path d="M370 82 V120" fill="none" stroke="#4F6BFF" stroke-width="4.2"/>
+
+      <!-- Layer 0 -->
+      <g transform="translate(220 120)">
+        <rect width="300" height="560" rx="18" fill="#FBFCFE" stroke="#C9D5FF" stroke-width="1.6"/>
+        <text x="22" y="34" fill="#182230" font-size="14" font-weight="700">Layer 0</text>
+        <text x="22" y="57" fill="#667085" font-size="10">Dense Transformer Block</text>
+
+        <!-- main trunk -->
+        <g>
+          <text x="176" y="24" class="state">x₀</text>
+          <text x="176" y="42" class="shape-note">输入 hidden states</text>
+        </g>
+        <line x1="150" y1="0" x2="150" y2="88" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="88" r="4" fill="#4F6BFF"/>
+
+        <!-- branch 1 -->
+        <rect x="92" y="104" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="129" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="88" x2="150" y2="104" stroke="#4F6BFF" stroke-width="4.2"/>
+
+        <rect x="84" y="174" width="132" height="50" rx="12" fill="#B9EEF7" stroke="#69D3E7"/>
+        <text x="150" y="196" text-anchor="middle" fill="#174A55" font-size="11" font-weight="800">MLA</text>
+        <text x="150" y="212" text-anchor="middle" fill="#3D6971" font-size="10">Latent Attention</text>
+        <line x1="150" y1="144" x2="150" y2="174" stroke="#4F6BFF" stroke-width="4.2"/>
+
+        <line x1="150" y1="224" x2="150" y2="258" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="278" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="285" text-anchor="middle" fill="#4155C7" font-size="24" font-weight="500">+</text>
+        <path d="M150 88 H252 V278 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <g>
+          <text x="176" y="270" class="state">x₀′</text>
+          <text x="176" y="287" class="shape-note">MLA + 残差相加后</text>
+        </g>
+
+        <!-- branch 2 -->
+        <line x1="150" y1="294" x2="150" y2="326" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="92" y="326" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="351" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+
+        <line x1="150" y1="366" x2="150" y2="396" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="396" width="132" height="50" rx="12" fill="#DCEACB" stroke="#A9C781"/>
+        <text x="150" y="426" text-anchor="middle" fill="#2C4B14" font-size="11" font-weight="800">Dense FFN</text>
+
+        <line x1="150" y1="446" x2="150" y2="478" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="498" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="505" text-anchor="middle" fill="#4155C7" font-size="24" font-weight="500">+</text>
+        <path d="M150 298 H252 V498 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <g>
+          <text x="176" y="490" class="state">x₁</text>
+          <text x="176" y="507" class="shape-note">Layer 0 输出 hidden states</text>
+        </g>
+
+        <line x1="150" y1="514" x2="150" y2="560" stroke="#4F6BFF" stroke-width="4.2"/>
+      </g>
+
+      <!-- connection to next layer -->
+      <path d="M370 680 V706 H565 V96 H760 V120" fill="none" stroke="#4F6BFF" stroke-width="4.2"/>
+
+      <!-- Layer 1-2 -->
+      <g transform="translate(610 120)">
+        <rect width="300" height="560" rx="18" fill="#FBFCFE" stroke="#D8DEE8" stroke-width="1.5"/>
+        <text x="22" y="34" fill="#182230" font-size="14" font-weight="700">Layer 1–2</text>
+        <text x="22" y="57" fill="#667085" font-size="10">Dense Transformer Blocks ×2</text>
+
+        <text x="176" y="26" class="state">x₁</text>
+        <line x1="150" y1="0" x2="150" y2="88" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="88" r="4" fill="#4F6BFF"/>
+
+        <rect x="92" y="104" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="129" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="88" x2="150" y2="104" stroke="#4F6BFF" stroke-width="4.2"/>
+
+        <rect x="84" y="174" width="132" height="50" rx="12" fill="#B9EEF7" stroke="#69D3E7"/>
+        <text x="150" y="204" text-anchor="middle" fill="#174A55" font-size="11" font-weight="800">MLA</text>
+        <line x1="150" y1="144" x2="150" y2="174" stroke="#4F6BFF" stroke-width="4.2"/>
+        <line x1="150" y1="224" x2="150" y2="258" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="278" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="285" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 88 H252 V278 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="272" class="state">x′</text>
+
+        <line x1="150" y1="294" x2="150" y2="326" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="92" y="326" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="351" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="366" x2="150" y2="396" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="396" width="132" height="50" rx="12" fill="#DCEACB" stroke="#A9C781"/>
+        <text x="150" y="426" text-anchor="middle" fill="#2C4B14" font-size="11" font-weight="800">Dense FFN</text>
+        <line x1="150" y1="446" x2="150" y2="478" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="498" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="505" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 298 H252 V498 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="492" class="state">x</text>
+        <line x1="150" y1="514" x2="150" y2="560" stroke="#4F6BFF" stroke-width="4.2"/>
+      </g>
+
+      <path d="M760 680 V706 H955 V96 H1150 V120" fill="none" stroke="#4F6BFF" stroke-width="4.2"/>
+
+      <!-- Layer 3 -->
+      <g transform="translate(1000 120)">
+        <rect width="300" height="560" rx="18" fill="#FBFCFE" stroke="#D8DEE8" stroke-width="1.5"/>
+        <text x="22" y="34" fill="#182230" font-size="14" font-weight="700">Layer 3</text>
+        <text x="22" y="57" fill="#667085" font-size="10">First MoE Transformer Block</text>
+
+        <text x="176" y="26" class="state">x₃</text>
+        <line x1="150" y1="0" x2="150" y2="88" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="88" r="4" fill="#4F6BFF"/>
+
+        <rect x="92" y="104" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="129" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="88" x2="150" y2="104" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="174" width="132" height="50" rx="12" fill="#B9EEF7" stroke="#69D3E7"/>
+        <text x="150" y="204" text-anchor="middle" fill="#174A55" font-size="11" font-weight="800">MLA</text>
+        <line x1="150" y1="144" x2="150" y2="174" stroke="#4F6BFF" stroke-width="4.2"/>
+        <line x1="150" y1="224" x2="150" y2="258" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="278" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="285" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 88 H252 V278 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="272" class="state">x₃′</text>
+
+        <line x1="150" y1="294" x2="150" y2="326" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="92" y="326" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="351" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="366" x2="150" y2="396" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="396" width="132" height="50" rx="12" fill="#E8D9F7" stroke="#C9A7EA"/>
+        <text x="150" y="426" text-anchor="middle" fill="#4A2A67" font-size="11" font-weight="800">MoE</text>
+        <line x1="150" y1="446" x2="150" y2="478" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="498" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="505" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 298 H252 V498 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="492" class="state">x₄</text>
+        <line x1="150" y1="514" x2="150" y2="560" stroke="#4F6BFF" stroke-width="4.2"/>
+      </g>
+
+      <path d="M1150 680 V706 H1345 V96 H1540 V120" fill="none" stroke="#4F6BFF" stroke-width="4.2"/>
+
+      <!-- Layer 4-58 -->
+      <g transform="translate(1390 120)">
+        <rect width="300" height="560" rx="18" fill="#FBFCFE" stroke="#D8DEE8" stroke-width="1.5" stroke-dasharray="5 5"/>
+        <text x="22" y="34" fill="#182230" font-size="14" font-weight="700">Layer 4–58</text>
+        <text x="22" y="57" fill="#667085" font-size="10">MoE Transformer Blocks ×55</text>
+
+        <text x="176" y="26" class="state">xₗ</text>
+        <line x1="150" y1="0" x2="150" y2="88" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="88" r="4" fill="#4F6BFF"/>
+
+        <rect x="92" y="104" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="129" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="88" x2="150" y2="104" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="174" width="132" height="50" rx="12" fill="#B9EEF7" stroke="#69D3E7"/>
+        <text x="150" y="204" text-anchor="middle" fill="#174A55" font-size="11" font-weight="800">MLA</text>
+        <line x1="150" y1="144" x2="150" y2="174" stroke="#4F6BFF" stroke-width="4.2"/>
+        <line x1="150" y1="224" x2="150" y2="258" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="278" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="285" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 88 H252 V278 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="272" class="state">xₗ′</text>
+
+        <line x1="150" y1="294" x2="150" y2="326" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="92" y="326" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="351" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="366" x2="150" y2="396" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="396" width="132" height="50" rx="12" fill="#E8D9F7" stroke="#C9A7EA"/>
+        <text x="150" y="426" text-anchor="middle" fill="#4A2A67" font-size="11" font-weight="800">MoE</text>
+        <line x1="150" y1="446" x2="150" y2="478" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="498" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="505" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 298 H252 V498 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="492" class="state">xₗ₊₁</text>
+        <line x1="150" y1="514" x2="150" y2="560" stroke="#4F6BFF" stroke-width="4.2"/>
+      </g>
+
+      <path d="M1540 680 V706 H1735 V96 H1930 V120" fill="none" stroke="#4F6BFF" stroke-width="4.2"/>
+
+      <!-- Layer 59-60 -->
+      <g transform="translate(1780 120)">
+        <rect width="300" height="560" rx="18" fill="#FBFCFE" stroke="#D8DEE8" stroke-width="1.5"/>
+        <text x="22" y="34" fill="#182230" font-size="14" font-weight="700">Layer 59–60</text>
+        <text x="22" y="57" fill="#667085" font-size="10">Final MoE Transformer Blocks ×2</text>
+
+        <text x="176" y="26" class="state">x₅₉</text>
+        <line x1="150" y1="0" x2="150" y2="88" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="88" r="4" fill="#4F6BFF"/>
+
+        <rect x="92" y="104" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="129" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="88" x2="150" y2="104" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="174" width="132" height="50" rx="12" fill="#B9EEF7" stroke="#69D3E7"/>
+        <text x="150" y="204" text-anchor="middle" fill="#174A55" font-size="11" font-weight="800">MLA</text>
+        <line x1="150" y1="144" x2="150" y2="174" stroke="#4F6BFF" stroke-width="4.2"/>
+        <line x1="150" y1="224" x2="150" y2="258" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="278" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="285" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 88 H252 V278 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="272" class="state">x′</text>
+
+        <line x1="150" y1="294" x2="150" y2="326" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="92" y="326" width="116" height="40" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="150" y="351" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">RMSNorm</text>
+        <line x1="150" y1="366" x2="150" y2="396" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="84" y="396" width="132" height="50" rx="12" fill="#E8D9F7" stroke="#C9A7EA"/>
+        <text x="150" y="426" text-anchor="middle" fill="#4A2A67" font-size="11" font-weight="800">MoE</text>
+        <line x1="150" y1="446" x2="150" y2="478" stroke="#4F6BFF" stroke-width="4.2"/>
+        <circle cx="150" cy="498" r="16" fill="#FFF" stroke="#5F7CFF" stroke-width="2.4"/>
+        <text x="150" y="505" text-anchor="middle" fill="#4155C7" font-size="24">+</text>
+        <path d="M150 298 H252 V498 H169" fill="none" stroke="#8EA2FF" stroke-width="2.0"/>
+        <text x="176" y="492" class="state">x₆₁</text>
+        <line x1="150" y1="514" x2="150" y2="560" stroke="#4F6BFF" stroke-width="4.2"/>
+      </g>
+
+      <!-- final stack -->
+      <path d="M1930 680 V740" fill="none" stroke="#4F6BFF" stroke-width="4.2"/>
+      <g transform="translate(1828 755)">
+        <rect x="0" y="0" width="204" height="42" rx="10" fill="#F2F4F7" stroke="#D0D5DD"/>
+        <text x="102" y="26" text-anchor="middle" fill="#344054" font-size="10.5" font-weight="700">Final RMSNorm</text>
+
+        <line x1="102" y1="42" x2="102" y2="64" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="18" y="74" width="168" height="42" rx="10" fill="#DDFBE7" stroke="#9DDFB0"/>
+        <text x="102" y="100" text-anchor="middle" fill="#205B2B" font-size="10.5" font-weight="800">LM Head</text>
+
+        <line x1="102" y1="116" x2="102" y2="138" stroke="#4F6BFF" stroke-width="4.2"/>
+        <rect x="40" y="148" width="124" height="42" rx="10" fill="#FFF1D6" stroke="#F0C46D"/>
+        <text x="102" y="174" text-anchor="middle" fill="#684309" font-size="10.5" font-weight="800">Output Token</text>
+      </g>
+
+          </svg>

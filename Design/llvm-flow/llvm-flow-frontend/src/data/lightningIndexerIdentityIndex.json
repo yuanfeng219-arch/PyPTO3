@@ -1,0 +1,378 @@
+{
+  "schemaVersion": "pypto-control-flow-identity-index.spike.v0.1",
+  "status": "evidence-spike",
+  "generatedAt": "2026-09-02",
+  "reviewRun": {
+    "id": "output-deepseek-lightning-indexer-prolog-quant-13801420179101682564",
+    "artifactRoot": "../../output_deepseek",
+    "entryFunction": {
+      "name": "TENSOR_lightning_indexer_prolog_quant",
+      "functionHash": "13801420179101682564",
+      "funcmagic": 2
+    },
+    "sourceSnapshot": {
+      "path": "../../output_deepseek/lightning_indexer_prolog_quant.py",
+      "contentHash": "7205d9a92a3e1e60b4cc770e74c1717696ab743e49d8d5cf5bfda1845746f9a1",
+      "identityStatus": "unverified",
+      "note": "Local source snapshot captured by the Review Run adapter; compiler semantic-label line numbers differ, so compiler-to-source revision identity remains unverified."
+    },
+    "runtimeScenario": {
+      "id": "merged-swimlane-default",
+      "inputT": {
+        "value": 16,
+        "confidence": "derived",
+        "derivation": "Within each observed root every callOpMagic repeats equally. Root invocation counts for factors 16/8/4/2/1 are 1/2/4/8/16 and the factor-32 root is absent. These counts uniquely satisfy the generated loop conditions for 输入长度：16 token."
+      }
+    }
+  },
+  "sourceRegions": [
+    {
+      "id": "source-region:unverified:lightning_indexer_prolog_quant.py:IndexerPrologQuantQuantLoop",
+      "kind": "loop_unroll",
+      "file": "../../output_deepseek/lightning_indexer_prolog_quant.py",
+      "startLine": 252,
+      "endLine": 254,
+      "userName": "IndexerPrologQuantQuantLoop",
+      "indexName": "tIdx",
+      "range": {
+        "start": "0",
+        "end": "t",
+        "step": "1"
+      },
+      "dynamicBound": {
+        "expression": "x_in.shape[0]",
+        "sourceLine": 229
+      },
+      "requestedUnrollConfig": {
+        "expression": "configs.unroll_list",
+        "sourceLine": 251,
+        "concreteValueInSource": null
+      },
+      "effectiveUnrollFactors": {
+        "values": [32, 16, 8, 4, 2, 1],
+        "confidence": "derived",
+        "evidence": "generatedPaths"
+      }
+    }
+  ],
+  "compilerEvidence": {
+    "loopUnrollPass": {
+      "passId": "Pass_00_LoopUnroll",
+      "beforeArtifact": "../../output_deepseek/Pass_00_LoopUnroll/Before_000_LoopUnroll_PROGRAM_ENTRY.json",
+      "afterArtifact": "../../output_deepseek/Pass_00_LoopUnroll/After_000_LoopUnroll_PROGRAM_ENTRY.json",
+      "beforeSha256": "8a82e82f0c6de40571c1688a71822e0dc6c3dd4ea36c0067815c0e89a0509cdc",
+      "afterSha256": "8a82e82f0c6de40571c1688a71822e0dc6c3dd4ea36c0067815c0e89a0509cdc",
+      "structuralDeltaObserved": false,
+      "dumpFunctionCount": 1,
+      "dumpFunction": "PROGRAM_ENTRY",
+      "attribution": {
+        "status": "unknown",
+        "confidence": "unknown",
+        "note": "Six specialization functions are absent from this pass dump and already exist at the start of the per-function pipeline."
+      }
+    },
+    "firstObservedSpecializedFunctions": {
+      "boundary": "Before Pass_00_RemoveRedundantReshape",
+      "artifactDirectory": "../../output_deepseek/Pass_00_RemoveRedundantReshape",
+      "confidence": "exact",
+      "functions": [
+        {
+          "factor": 32,
+          "pathMagic": 6,
+          "pathHash": "14152076415351984818",
+          "operationCount": 233,
+          "reportedSource": "pypto/controller.py:600"
+        },
+        {
+          "factor": 16,
+          "pathMagic": 8,
+          "pathHash": "2973208064386716357",
+          "operationCount": 185,
+          "reportedSource": "pypto/controller.py:600"
+        },
+        {
+          "factor": 8,
+          "pathMagic": 10,
+          "pathHash": "12031502037815016605",
+          "operationCount": 161,
+          "reportedSource": "pypto/controller.py:600"
+        },
+        {
+          "factor": 4,
+          "pathMagic": 12,
+          "pathHash": "15362054110408456712",
+          "operationCount": 149,
+          "reportedSource": "pypto/controller.py:600"
+        },
+        {
+          "factor": 2,
+          "pathMagic": 14,
+          "pathHash": "2018965277383387776",
+          "operationCount": 143,
+          "reportedSource": "pypto/controller.py:600"
+        },
+        {
+          "factor": 1,
+          "pathMagic": 16,
+          "pathHash": "2559561549776830384",
+          "operationCount": 138,
+          "reportedSource": "pypto/controller.py:600"
+        }
+      ]
+    }
+  },
+  "generatedPaths": [
+    {
+      "id": "loop-variant:32",
+      "factor": 32,
+      "order": 0,
+      "outerFunctionHash": "8579426014881462598",
+      "pathMagic": 6,
+      "pathHash": "14152076415351984818",
+      "rootMagic": 25,
+      "rootHash": "11855416121780264696",
+      "condition": "0 <= tIdx < floor(t / 32) * 32; step 32",
+      "finalRootOperationCount": 316,
+      "mappingConfidence": "exact",
+      "runtime": {
+        "observed": false,
+        "rootInvocationCount": 0,
+        "taskEventsPerInvocation": null,
+        "taskEventCount": 0,
+        "durationTotalTraceUnits": 0
+      }
+    },
+    {
+      "id": "loop-variant:16",
+      "factor": 16,
+      "order": 1,
+      "outerFunctionHash": "11186595957140435169",
+      "pathMagic": 8,
+      "pathHash": "2973208064386716357",
+      "rootMagic": 342,
+      "rootHash": "9390738558658823820",
+      "condition": "floor(t / 32) * 32 <= tIdx < floor(t / 16) * 16; step 16",
+      "finalRootOperationCount": 162,
+      "mappingConfidence": "exact",
+      "runtime": {
+        "observed": true,
+        "rootInvocationCount": 1,
+        "taskEventsPerInvocation": 166,
+        "taskEventCount": 166,
+        "durationTotalTraceUnits": 1687.54
+      }
+    },
+    {
+      "id": "loop-variant:8",
+      "factor": 8,
+      "order": 2,
+      "outerFunctionHash": "6045474569631832999",
+      "pathMagic": 10,
+      "pathHash": "12031502037815016605",
+      "rootMagic": 505,
+      "rootHash": "18018953489155049987",
+      "condition": "floor(t / 32) * 32 <= tIdx < floor(t / 8) * 8; step 8",
+      "finalRootOperationCount": 96,
+      "mappingConfidence": "exact",
+      "runtime": {
+        "observed": true,
+        "rootInvocationCount": 2,
+        "taskEventsPerInvocation": 100,
+        "taskEventCount": 200,
+        "durationTotalTraceUnits": 1728.68
+      }
+    },
+    {
+      "id": "loop-variant:4",
+      "factor": 4,
+      "order": 3,
+      "outerFunctionHash": "11838641850364956081",
+      "pathMagic": 12,
+      "pathHash": "15362054110408456712",
+      "rootMagic": 602,
+      "rootHash": "11904995834818116586",
+      "condition": "floor(t / 32) * 32 <= tIdx < floor(t / 4) * 4; step 4",
+      "finalRootOperationCount": 59,
+      "mappingConfidence": "exact",
+      "runtime": {
+        "observed": true,
+        "rootInvocationCount": 4,
+        "taskEventsPerInvocation": 63,
+        "taskEventCount": 252,
+        "durationTotalTraceUnits": 2366.28
+      }
+    },
+    {
+      "id": "loop-variant:2",
+      "factor": 2,
+      "order": 4,
+      "outerFunctionHash": "7058261288654136341",
+      "pathMagic": 14,
+      "pathHash": "2018965277383387776",
+      "rootMagic": 662,
+      "rootHash": "3933870716946022942",
+      "condition": "floor(t / 32) * 32 <= tIdx < floor(t / 2) * 2; step 2",
+      "finalRootOperationCount": 43,
+      "mappingConfidence": "exact",
+      "runtime": {
+        "observed": true,
+        "rootInvocationCount": 8,
+        "taskEventsPerInvocation": 45,
+        "taskEventCount": 360,
+        "durationTotalTraceUnits": 3340.86
+      }
+    },
+    {
+      "id": "loop-variant:1",
+      "factor": 1,
+      "order": 5,
+      "outerFunctionHash": "9429159611411292488",
+      "pathMagic": 16,
+      "pathHash": "2559561549776830384",
+      "rootMagic": 706,
+      "rootHash": "1204390053653505034",
+      "condition": "floor(t / 32) * 32 <= tIdx < t; step 1",
+      "finalRootOperationCount": 35,
+      "mappingConfidence": "exact",
+      "runtime": {
+        "observed": true,
+        "rootInvocationCount": 16,
+        "taskEventsPerInvocation": 37,
+        "taskEventCount": 592,
+        "durationTotalTraceUnits": 5438.42
+      }
+    }
+  ],
+  "runtimeSummary": {
+    "artifact": "../../output_deepseek/merged_swimlane.json",
+    "traceEventCount": 49331,
+    "taskEventCount": 1579,
+    "reshapeFakeTaskEventCount": 9,
+    "controlLoopTaskEventCount": 1570,
+    "controlLoopDurationTotalTraceUnits": 14561.78,
+    "observedFactors": [16, 8, 4, 2, 1],
+    "unobservedFactors": [32],
+    "rootInvocationCounts": {
+      "32": 0,
+      "16": 1,
+      "8": 2,
+      "4": 4,
+      "2": 8,
+      "1": 16
+    },
+    "generatedIntervalsOverlap": true,
+    "frameworkRevisionVerified": false
+  },
+  "sampleRuntimeEvents": [
+    {
+      "id": "runtime-event:merged-swimlane-default:1048691:83549943772.86",
+      "taskId": 1048691,
+      "name": "0-1-115-77-7(Key-Linear)",
+      "pid": 1,
+      "tid": 1002,
+      "timestamp": 83549943772.86,
+      "duration": 28.539993286132812,
+      "semanticLabel": "Key-Linear",
+      "rootHash": "9390738558658823820",
+      "callOpMagic": 10148,
+      "leafHash": "12425596080355208014",
+      "identityChain": [
+        {
+          "relation": "EXECUTED_IN",
+          "target": "generated-root:9390738558658823820",
+          "confidence": "exact",
+          "evidence": "runtime event-hint rootHash"
+        },
+        {
+          "relation": "CALLS",
+          "target": "compiler-op:9390738558658823820:10148",
+          "confidence": "exact",
+          "evidence": "rootHash plus callOpMagic"
+        },
+        {
+          "relation": "CALLS_LEAF",
+          "target": "compiler-function:12425596080355208014",
+          "confidence": "exact",
+          "evidence": "operation.calleehash equals runtime leafHash"
+        },
+        {
+          "relation": "HAS_SEMANTIC_LABEL",
+          "target": "semantic-region:Key-Linear",
+          "confidence": "exact",
+          "evidence": "program.json operation semantic_label"
+        },
+        {
+          "relation": "ORIGINATES_AT",
+          "target": "compiled-source:lightning_indexer_prolog_quant.py:310",
+          "confidence": "exact",
+          "evidence": "program.json semantic_label filename and lineno"
+        },
+        {
+          "relation": "MATCHES_LOCAL_SOURCE",
+          "target": "local-source:lightning_indexer_prolog_quant.py:313",
+          "confidence": "derived",
+          "evidence": "semantic label content match; source snapshot hash missing"
+        },
+        {
+          "relation": "CONTAINED_BY_LOOP",
+          "target": "source-region:unverified:lightning_indexer_prolog_quant.py:IndexerPrologQuantQuantLoop",
+          "confidence": "derived",
+          "evidence": "unique loop name and generated path containment"
+        }
+      ]
+    }
+  ],
+  "semanticSourceDrift": [
+    {"label": "Query-Linear", "compiledLine": 265, "localArtifactLine": 268},
+    {"label": "Query-Dequant", "compiledLine": 271, "localArtifactLine": 274},
+    {"label": "Query-Hadamard", "compiledLine": 295, "localArtifactLine": 298},
+    {"label": "Key-Linear", "compiledLine": 310, "localArtifactLine": 313},
+    {"label": "Key-Hadamard", "compiledLine": 327, "localArtifactLine": 330},
+    {"label": "Weight-Linear", "compiledLine": 340, "localArtifactLine": 343}
+  ],
+  "findings": [
+    {
+      "id": "finding:loop-unroll-pass-no-observed-diff",
+      "severity": "warning",
+      "confidence": "exact",
+      "summary": "Pass_00_LoopUnroll Before and After are byte-identical.",
+      "productMeaning": "Do not attribute the six generated paths to this visible pass diff."
+    },
+    {
+      "id": "finding:specialized-functions-exist-before-per-function-pipeline",
+      "severity": "info",
+      "confidence": "exact",
+      "summary": "Six path functions are already present before Pass_00_RemoveRedundantReshape.",
+      "productMeaning": "Add a frontend materialization boundary before the per-function Pass timeline."
+    },
+    {
+      "id": "finding:runtime-shape-derived-16",
+      "severity": "info",
+      "confidence": "derived",
+      "summary": "The observed per-root invocation counts correspond to 输入长度：16 token.",
+      "productMeaning": "Show invocation multiplicity and request direct scenario metadata for exact confirmation."
+    },
+    {
+      "id": "finding:overlapping-generated-intervals",
+      "severity": "warning",
+      "confidence": "exact",
+      "summary": "Factors 16/8/4/2/1 use overlapping generated intervals and the factor-1 root is invoked 16 times.",
+      "productMeaning": "Verify the compiler/framework revision and semantic correctness before interpreting factor-1 cost as tail overhead."
+    },
+    {
+      "id": "finding:source-snapshot-drift",
+      "severity": "warning",
+      "confidence": "exact",
+      "summary": "Compiler semantic source lines and the local source artifact differ.",
+      "productMeaning": "Require sourceSnapshotHash before presenting an exact source jump."
+    }
+  ],
+  "evidenceCompleteness": {
+    "sourceIntent": "partial",
+    "passAttribution": "missing",
+    "generatedControl": "complete-for-selected-loop",
+    "runtimeRootMapping": "complete-for-task-events",
+    "runtimeToCompilerOperation": "verified-sample",
+    "compilerToLocalSource": "partial"
+  }
+}

@@ -1,0 +1,3097 @@
+/* =============================================================
+ * Tuning Console
+ *
+ * Two real on-device runs, switchable from the topbar case chip, opened as a
+ * working surface for the tuning loop:
+ *   E2E  -> L2 schedule -> L1/L0 core pipeline -> compiler lowering -> ISA / layout
+ *
+ * Every number rendered here comes from data.js, which build-data.cjs derives
+ * from the run's own artifacts. Nothing is modelled or simulated.
+ *
+ * Shared patterns used:
+ *   ide-frame        page shell, panes, bottom dock, status strip
+ *   workbench-shell  split resize kernel (through ide-frame)
+ *   swimlane-task    every timed task bar + its hover tooltip + colormap
+ * ============================================================= */
+(function () {
+  'use strict';
+
+  const RUNS = window.TUNING_RUNS;
+  const CASES = window.TUNING_CASES;
+  const SW = window.PtoSwimlaneTaskPattern;
+  const requestedEmbedView = new URLSearchParams(window.location.search).get('embed');
+  const EMBED_VIEW = ['l1', 'l2'].includes(requestedEmbedView) ? requestedEmbedView : null;
+  const requestedCase = new URLSearchParams(window.location.search).get('case');
+  const initialCase = CASES.some((c) => c.id === requestedCase) ? requestedCase : CASES[0].id;
+
+  /* The active case. Everything derived from it is rebuilt by loadCase(),
+   * because the two dumps do not carry the same artifacts: one has host
+   * STRACE spans and two ranks, the other has neither. */
+  let D = RUNS[initialCase];
+  let CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
+  let TRACE_MATCH = {};
+  let findingById = {};
+  let tasksOf = {};
+  const hasE2E = () => !!D.e2e;
+  const multiRank = () => D.case.ranks.length > 1;
+
+  /* ------------------------------------------------------------- state */
+  const S = {
+    rank: D.defaultRank,
+    view: 'e2e',
+    task: D.derived.worstHandoff,
+    finding: null,
+    findingLevel: 'all',
+    focus: null,               /* 'finding' | 'task' | 'hint' | 'pass' */
+    laneFilter: 'all',
+    colorMode: 'semantic',
+    overlay: 'sched',
+    critOnly: false,
+    focusEvidence: false,
+    scrollToLane: null,
+    t0: 0, t1: 0,
+    compilerTab: 'passes',
+    pass: 17,
+    passMode: 'overview',
+    hintSite: null,
+    hintModule: 'all',
+    dockMode: 'sched',
+    termTab: 'problems',
+    ledger: [],
+    tile: null,
+  };
+
+  const R = () => D.ranks[S.rank];
+  const $ = (sel) => document.querySelector(sel);
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const num = (v, d) => (v == null ? '—' : Number(v).toFixed(d == null ? 2 : d));
+  const us = (v, d) => (v == null ? '—' : Number(v).toFixed(d == null ? 1 : d) + ' us');
+  const kb = (b) => (b == null ? '—' : b >= 1024 ? (b / 1024).toFixed(b % 1024 ? 1 : 0) + ' KB' : b + ' B');
+  const pct = (v, d) => (v == null ? '—' : Number(v).toFixed(d == null ? 1 : d) + '%');
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  const LEVELS = [
+    { id: 'e2e', label: 'E2E', hint: '端到端与 rank 分解' },
+    { id: 'l2', label: 'L2 调度', hint: '任务放置、依赖、关键路径' },
+    { id: 'l1', label: 'L1 / L0', hint: '单核流水与片上预算' },
+    { id: 'compiler', label: '编译器', hint: 'Pass、流水深度、搬运粒度' },
+    { id: 'isa', label: 'ISA / 布局', hint: '布局与指令层证据' },
+  ];
+  const LEVEL_LABEL = {};
+  LEVELS.forEach((l) => { LEVEL_LABEL[l.id] = l.label; });
+
+  /* Colormap: the shared pattern owns every task color decision, including the
+   * aic / aiv / aicpu lane-kind colors. No page-local palette. */
+  const CMAP = SW.createTaskColormap();
+
+  /* ------------------------------------------------- derived per case */
+  const curTask = () => tasksOf[S.rank][S.task] || R().tasks[0];
+  let ledgerSeq = 0;
+
+  function loadCase(id) {
+    D = RUNS[id];
+    CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
+
+    /* Which invocation does each rank's device trace correspond to?
+     * Reconcile the trace span against the host-reported device_wall.sched.
+     * Without host spans there is nothing to reconcile against. */
+    TRACE_MATCH = {};
+    Object.keys(D.ranks).forEach((rank) => {
+      if (!D.e2e || !D.e2e[rank]) { TRACE_MATCH[rank] = null; return; }
+      const span = D.ranks[rank].swimlane.spanUs;
+      let best = null;
+      Object.keys(D.e2e[rank]).forEach((inv) => {
+        const sp = D.e2e[rank][inv]['chip.run.runner_run.device_wall.sched'];
+        if (!sp) return;
+        const diff = Math.abs(sp.us - span);
+        if (!best || diff < best.diff) best = { inv: +inv, hostUs: sp.us, diff: diff };
+      });
+      TRACE_MATCH[rank] = best;
+    });
+
+    findingById = {};
+    D.findings.forEach((f) => { findingById[f.id] = f; });
+
+    tasksOf = {};
+    Object.keys(D.ranks).forEach((rank) => {
+      tasksOf[rank] = {};
+      D.ranks[rank].tasks.forEach((t) => { tasksOf[rank][t.tag] = t; });
+    });
+
+    /* state that only makes sense inside one case */
+    S.rank = D.defaultRank;
+    S.finding = null;
+    S.focus = null;
+    S.focusEvidence = false;
+    S.findingLevel = 'all';
+    S.laneFilter = 'all';
+    S.critOnly = false;
+    S.task = tasksOf[S.rank][D.derived.worstHandoff]
+      ? D.derived.worstHandoff : R().tasks[0].tag;
+    S.hintSite = D.tileSites.length ? D.tileSites[0].key : null;
+    S.pass = D.passes.length ? D.passes[Math.min(17, D.passes.length - 1)].idx : 0;
+    S.passMode = 'overview';
+    S.t0 = 0;
+    S.t1 = R().swimlane.spanUs;
+    /* the E2E tab stays selectable: its absence page is the explanation */
+
+    /* the ledger belongs to the case: a baseline for one run is not a
+     * baseline for the other */
+    S.ledger.length = 0;
+    ledgerSeq = 0;
+    S.ledger.push({
+      id: 'B0',
+      state: 'baseline',
+      title: '基线锁定 · ' + D.case.program,
+      findingId: null,
+      hypothesis: '固定 shape / dtype / 平台 / 卡数 / 工具链，作为后续所有对比的唯一基准。',
+      change: D.case.runDir + '（' + D.case.capturedAt + '，platform ' + D.case.toolchain.platform + '）',
+      correctness: D.case.params.length
+        ? 'distributed_meta.json 记录 ' + D.case.params.length + ' 个绑定参数，schema ' + D.case.metaSchema
+        : '本 dump 无 distributed_meta.json：绑定参数未记录，正确性基准缺口',
+      perf: hasE2E()
+        ? D.case.ranks.map((r) => r + ' device_wall '
+            + us(D.e2e[r][TRACE_MATCH[r].inv]['chip.run.runner_run.device_wall'].us)).join(' / ')
+          + '（inv=' + TRACE_MATCH[D.defaultRank].inv + '）'
+        : '本 dump 无 host STRACE log：device_wall 不可得，基线只能用 trace span '
+          + us(R().swimlane.spanUs),
+      keep: '保留为基线',
+    });
+  }
+  const openExperiment = () => S.ledger.find((r) => r.state === 'open') || null;
+
+  /* ============================================================ tables */
+  function table(cols, rows, opts) {
+    const o = opts || {};
+    const wrap = el('div', 'tc-table-scroll');
+    if (o.tall) wrap.dataset.tall = 'true';
+    const t = el('table', 'tc-table');
+    const thead = el('thead');
+    const tr = el('tr');
+    cols.forEach((c) => {
+      const th = el('th', c.num ? 'num' : null, c.label);
+      if (c.width) th.style.width = c.width;
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    t.appendChild(thead);
+    const tb = el('tbody');
+    rows.forEach((row) => {
+      const r = el('tr');
+      if (row.__selected) r.className = 'is-selected';
+      if (row.__subject) r.classList.add('is-subject');
+      cols.forEach((c) => {
+        const td = el('td', [c.num ? 'num' : null, c.mono ? 'mono' : null].filter(Boolean).join(' ') || null);
+        const v = c.cell ? c.cell(row) : row[c.key];
+        if (v instanceof Node) td.appendChild(v);
+        else td.innerHTML = v == null ? '—' : String(v);
+        r.appendChild(td);
+      });
+      if (o.onPick) r.addEventListener('click', () => o.onPick(row));
+      else r.style.cursor = 'default';
+      tb.appendChild(r);
+    });
+    t.appendChild(tb);
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  function bar(ratio, tone) {
+    const b = el('span', 'tc-bar');
+    const i = el('i');
+    i.style.width = clamp(ratio * 100, 0, 100).toFixed(2) + '%';
+    if (tone) i.dataset.tone = tone;
+    b.appendChild(i);
+    return b;
+  }
+
+  function tiles(items) {
+    const g = el('div', 'tc-tiles');
+    items.forEach((it) => {
+      const n = el('div', 'tc-tile');
+      if (it.tone) n.dataset.tone = it.tone;
+      n.appendChild(el('span', 'k', it.k));
+      n.appendChild(el('span', 'v', it.v));
+      if (it.u) n.appendChild(el('span', 'u', it.u));
+      g.appendChild(n);
+    });
+    return g;
+  }
+
+  /* ============================================== active finding context
+   * S.finding stays active while the reader works, independent of what the
+   * inspector happens to be showing. Everything below answers one question:
+   * "which things on this screen are the evidence for the active finding?" */
+  const activeFinding = () => (S.finding ? findingById[S.finding] : null);
+
+  function subjectTaskSet() {
+    const f = activeFinding();
+    const set = {};
+    if (f) f.subjects.tasks.forEach((t, i) => { set[t] = i + 1; });
+    return set;
+  }
+  function subjectSiteSet() {
+    const f = activeFinding();
+    const set = {};
+    if (f) f.subjects.sites.forEach((s, i) => { set[s] = i + 1; });
+    return set;
+  }
+  function subjectLaneSet() {
+    const f = activeFinding();
+    const set = {};
+    if (f) f.subjects.lanes.forEach((s, i) => { set[s] = i + 1; });
+    return set;
+  }
+
+  /* Jump to one piece of evidence. The inspector deliberately stays on the
+   * finding: it is the argument, the stage is where that argument shows up.
+   * The object's own detail is still one click away on the canvas. */
+  function gotoChip(chip) {
+    const f = activeFinding();
+    if (f) S.focus = 'finding';
+    if (chip.kind === 'task') {
+      const t = tasksOf[S.rank][chip.id];
+      S.task = chip.id;
+      if (!f) S.focus = 'task';
+      if (t && (f.subjects.view === 'l2' || S.view === 'l2')) {
+        S.view = 'l2';
+        const pad = Math.max(40, t.span * 0.35);
+        setWindow(t.start - pad, t.end + pad);
+      } else {
+        S.view = 'l1';
+      }
+    } else if (chip.kind === 'site') {
+      S.view = 'compiler';
+      S.compilerTab = D.depthSites.some((s) => s.key === chip.id) ? 'depth' : 'granularity';
+      S.hintSite = chip.id;
+      if (!f) S.focus = 'hint';
+    } else if (chip.kind === 'lane') {
+      S.view = 'l2';
+      S.laneFilter = chip.id.indexOf('AIC') === 0 ? 'aic' : 'aiv';
+      S.scrollToLane = chip.id;
+    } else if (chip.kind === 'rank') {
+      S.rank = chip.id;
+      S.view = 'e2e';
+      S.t0 = 0; S.t1 = R().swimlane.spanUs;
+      if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
+    } else if (chip.kind === 'phase') {
+      S.view = 'l2';
+      S.overlay = 'sched';
+      S.dockMode = 'sched';
+    }
+    render();
+  }
+
+  /* the bar itself, pinned to the top of the centre stage */
+  function findingBar(stage) {
+    const f = activeFinding();
+    if (!f) return;
+    const bar = el('div', 'tc-findingbar');
+    bar.dataset.sev = f.severity;
+
+    const hd = el('div', 'hd');
+    hd.appendChild(el('span', 'id', f.id));
+    hd.appendChild(el('span', 'ti', f.title));
+    hd.appendChild(el('span', 'mt', f.metric));
+    const acts = el('div', 'acts');
+    const onHomeView = f.subjects.view === S.view
+      && (!f.subjects.tab || f.subjects.tab === S.compilerTab);
+    if (!onHomeView) {
+      acts.appendChild(btn('去证据所在页 · ' + LEVEL_LABEL[f.subjects.view], {
+        size: 'sm', variant: 'solid',
+        on: () => { applyFocus(f); S.view = f.subjects.view; render(); },
+      }));
+    } else if (f.chips.length) {
+      acts.appendChild(btn('聚焦证据', {
+        size: 'sm', selected: S.focusEvidence,
+        title: '把非证据对象压暗，只留这条瓶颈牵涉到的部分',
+        on: () => { S.focusEvidence = !S.focusEvidence; render(); },
+      }));
+    }
+    acts.appendChild(btn('退出', {
+      size: 'sm', variant: 'ghost',
+      title: '清除当前瓶颈上下文，回到自由浏览',
+      on: () => { S.finding = null; S.focusEvidence = false; S.focus = null; render(); },
+    }));
+    hd.appendChild(acts);
+    bar.appendChild(hd);
+
+    if (f.chips.length) {
+      const row = el('div', 'tc-evchips');
+      row.appendChild(el('span', 'lead', '证据 ' + f.chips.length));
+      f.chips.forEach((chip, i) => {
+        const b = el('button', 'tc-evchip');
+        b.type = 'button';
+        const isCurrent = (chip.kind === 'task' && chip.id === S.task)
+          || (chip.kind === 'site' && chip.id === S.hintSite)
+          || (chip.kind === 'rank' && chip.id === S.rank);
+        if (isCurrent) b.classList.add('is-current');
+        b.appendChild(el('span', 'mk', String(i + 1)));
+        b.appendChild(el('span', 'nm', chip.label));
+        if (chip.value) b.appendChild(el('span', 'vl', chip.value));
+        b.addEventListener('click', () => gotoChip(chip));
+        row.appendChild(b);
+      });
+      bar.appendChild(row);
+    } else if (f.subjects.absent) {
+      const row = el('div', 'tc-evchips');
+      row.appendChild(el('span', 'lead', '证据 0 · 缺席项'));
+      bar.appendChild(row);
+    }
+
+    stage.appendChild(bar);
+  }
+
+  function sectionHead(title, sub, right) {
+    const h = el('div', 'tc-section-head');
+    h.appendChild(el('h2', null, title));
+    if (sub) h.appendChild(el('span', 'sub', sub));
+    if (right) { h.appendChild(el('span', 'spacer')); h.appendChild(right); }
+    return h;
+  }
+
+  function btn(label, opts) {
+    const o = opts || {};
+    const b = el('button', ['btn', o.variant ? 'btn-' + o.variant : null, o.size ? 'btn-' + o.size : null,
+      o.selected ? 'is-selected' : null].filter(Boolean).join(' '), label);
+    b.type = 'button';
+    if (o.title) b.title = o.title;
+    if (o.disabled) b.disabled = true;
+    if (o.on) b.addEventListener('click', o.on);
+    return b;
+  }
+
+  function group(cls, items, current, onPick) {
+    const g = el('div', cls);
+    items.forEach((it) => {
+      const cls2 = cls.indexOf('segmented') === 0 ? 'segmented-control-item' : 'tab-control-item';
+      const b = el('button', cls2 + (it.id === current ? ' is-selected' : ''), it.label);
+      b.type = 'button';
+      if (it.hint) b.title = it.hint;
+      b.setAttribute('aria-pressed', it.id === current ? 'true' : 'false');
+      b.addEventListener('click', () => onPick(it.id));
+      g.appendChild(b);
+    });
+    return g;
+  }
+
+  function field(label, control) {
+    const f = el('label', 'tc-field');
+    f.appendChild(el('span', null, label));
+    f.appendChild(control);
+    return f;
+  }
+
+  function select(options, current, onChange) {
+    const s = el('select');
+    options.forEach((o) => {
+      const opt = el('option', null, o.label);
+      opt.value = o.id;
+      if (o.id === current) opt.selected = true;
+      s.appendChild(opt);
+    });
+    s.addEventListener('change', () => onChange(s.value));
+    return s;
+  }
+
+  /* ====================================================== canvas basics */
+  function fitCanvas(canvas, cssW, cssH) {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.width = Math.max(1, Math.round(cssW * dpr));
+    canvas.height = Math.max(1, Math.round(cssH * dpr));
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    return ctx;
+  }
+  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function drawTimeRuler(ctx, x0, w, y, t0, t1) {
+    const span = t1 - t0;
+    const stepRaw = span / 8;
+    const mag = Math.pow(10, Math.floor(Math.log10(stepRaw)));
+    const step = [1, 2, 5, 10].map((m) => m * mag).find((v) => v >= stepRaw) || mag * 10;
+    ctx.save();
+    ctx.font = '500 11px ' + cssVar('--font-sans');
+    ctx.fillStyle = cssVar('--foreground-muted');
+    ctx.strokeStyle = cssVar('--border-subtle');
+    ctx.lineWidth = 1;
+    ctx.textBaseline = 'alphabetic';
+    for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) {
+      const x = x0 + ((t - t0) / span) * w;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x) + 0.5, y + 4);
+      ctx.lineTo(Math.round(x) + 0.5, y + 10);
+      ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.fillText(Math.round(t) + '', Math.round(x) + 3, y + 2);
+    }
+    ctx.restore();
+  }
+
+  /* task object handed to the shared pattern (tooltip + bar) */
+  function barTask(t, block, laneName) {
+    return {
+      label: t.callable,
+      displayName: t.callable,
+      rawName: t.tag + ' · ' + t.callable,
+      colorKey: t.callable,
+      lane: laneName,
+      laneKind: t.kind,
+      laneId: laneName,
+      totalCycle: Math.round((block ? block[1] : t.span) * CYC_PER_US),
+      clcCycle: block ? Math.round((block[1] - (t.setupMean || 0)) * CYC_PER_US) : null,
+      status: /_wait$/.test(t.callable) ? 'wait' : (t.kind === 'mix' ? 'overlap' : 'ok'),
+      dominantCounter: t.kind.toUpperCase() + ' · ' + t.blockCount + ' blk / ' + t.coreCount + ' core',
+      wrapId: 'ring ' + t.ring,
+    };
+  }
+
+  /* one shared tooltip per canvas host, created by the pattern */
+  function attachTooltip(host, canvas, resolve) {
+    const hover = SW.initHoverTooltip({
+      root: canvas,
+      targets: [canvas],
+      appendTo: host,
+      bounds: host,
+      durationUnit: 'cyc',
+      getTask: (target, event) => resolve(event),
+    });
+    if (!hover) return null;
+    let last = null;
+    canvas.addEventListener('pointermove', (event) => {
+      const task = resolve(event);
+      if (!task) { SW.hideTooltip(hover.tooltip); last = null; return; }
+      const key = task.rawName + '|' + task.totalCycle;
+      if (key !== last) {
+        last = key;
+        SW.showTooltip(hover.tooltip, task, event, { bounds: host, target: canvas, durationUnit: 'cyc' });
+      }
+    });
+    canvas.addEventListener('pointerleave', () => { last = null; });
+    return hover;
+  }
+
+  /* ======================================================= E2E view */
+  const SPAN_TREE = [
+    ['chip.run', 0],
+    ['chip.run.bind', 1],
+    ['chip.run.bind.args', 2],
+    ['chip.run.bind.prebuilt', 2],
+    ['chip.run.runner_run', 1],
+    ['chip.run.runner_run.device_wall', 2],
+    ['chip.run.runner_run.device_wall.preamble', 3],
+    ['chip.run.runner_run.device_wall.graph_build', 3],
+    ['chip.run.runner_run.device_wall.orch', 3],
+    ['chip.run.runner_run.device_wall.sched', 3],
+    ['chip.run.runner_run.device_wall.post_orch', 3],
+    ['chip.run.validate', 1],
+  ];
+
+  function viewE2E(stage) {
+    if (!hasE2E()) { viewE2EAbsent(stage); return; }
+    /* --- gates: what must be true before any number is trusted --- */
+    const invCount = Object.keys(D.e2e[D.defaultRank]).length;
+    const gates = [
+      {
+        k: 'Case 固定', state: D.case.params.length ? 'pass' : 'warn',
+        v: D.case.params.length ? 'locked' : '未记录',
+        d: (D.case.params.length ? D.case.params.length + ' 个绑定参数' : '无 distributed_meta.json')
+          + ' · ' + D.case.backend + ' · ' + D.case.ranks.length + ' rank · ' + D.case.numCores + ' core',
+      },
+      {
+        k: '工具链', state: D.case.toolchain.ptoIsaRevision ? 'pass' : 'warn',
+        v: D.case.toolchain.platform,
+        d: (D.case.toolchain.ptoIsaRevision
+          ? 'pto-isa ' + D.case.toolchain.ptoIsaRevision.slice(0, 10)
+          : '无 binary_context.json')
+          + ' · runtime ' + (D.case.toolchain.runtimeName || '未记录'),
+      },
+      {
+        k: '迭代次数', state: 'warn', v: 'n = ' + invCount,
+        d: 'mean / median 不成立',
+      },
+      {
+        k: 'PMU', state: 'info', v: 'off',
+        d: 'trace 内无 counter · 不可与 PMU-on 比较',
+      },
+    ];
+    const gs = el('div', 'tc-gates');
+    gates.forEach((g) => {
+      const n = el('div', 'tc-gate');
+      n.dataset.state = g.state;
+      n.appendChild(el('span', 'k', g.k));
+      n.appendChild(el('span', 'v', g.v));
+      n.appendChild(el('span', 'd', g.d));
+      gs.appendChild(n);
+    });
+    const secGate = el('section');
+    secGate.appendChild(sectionHead('门禁', '4 项'));
+    secGate.appendChild(gs);
+    stage.appendChild(secGate);
+
+    /* --- rank x invocation table --- */
+    const rows = [];
+    Object.keys(D.e2e).forEach((rank) => {
+      Object.keys(D.e2e[rank]).forEach((inv) => {
+        const sp = D.e2e[rank][inv];
+        const get = (n) => (sp[n] ? sp[n].us : null);
+        rows.push({
+          rank: rank, inv: +inv,
+          dev: get('chip.run.runner_run.device_wall'),
+          sched: get('chip.run.runner_run.device_wall.sched'),
+          build: get('chip.run.runner_run.device_wall.graph_build'),
+          orch: get('chip.run.runner_run.device_wall.orch'),
+          host: get('chip.run.runner_run'),
+          bind: get('chip.run.bind'),
+          traced: TRACE_MATCH[rank] && TRACE_MATCH[rank].inv === +inv,
+        });
+      });
+    });
+    const maxDev = Math.max.apply(null, rows.map((r) => r.dev));
+    const secTab = el('section');
+    secTab.appendChild(sectionHead('每 rank / 每次调用', 'device_wall 为设备时钟',
+      el('span', 'tc-readout', '点行 = 选中要带去 L2 / L1 的 rank')));
+    secTab.appendChild(table([
+      { label: 'Rank', key: 'rank', mono: true },
+      { label: 'inv', key: 'inv', num: true },
+      {
+        label: 'device_wall', num: true,
+        cell: (r) => (r.traced ? '<span class="ok">' : '<span>') + num(r.dev, 1) + '</span>',
+      },
+      { label: '', cell: (r) => bar(r.dev / maxDev, r.dev === maxDev ? 'warn' : 'neutral') },
+      { label: 'sched', key: 'sched', num: true, cell: (r) => num(r.sched, 1) },
+      { label: 'graph_build', num: true, cell: (r) => (r.build > r.sched ? '<span class="warn">' : '<span>') + num(r.build, 1) + '</span>' },
+      { label: 'orch', num: true, cell: (r) => num(r.orch, 2) },
+      { label: 'host runner_run', num: true, cell: (r) => num(r.host, 1) },
+      { label: 'trace', cell: (r) => (r.traced ? '<span class="ok">已采</span>' : '—') },
+    ], rows.map((r) => Object.assign(r, { __selected: r.rank === S.rank && r.traced })), {
+      onPick: (r) => { S.rank = r.rank; S.focus = null; render(); },
+    }));
+    stage.appendChild(secTab);
+
+    /* --- hierarchical span breakdown, both ranks on one shared scale --- */
+    const rankKeys = Object.keys(D.ranks);
+    const spans = {};
+    rankKeys.forEach((r) => { spans[r] = D.e2e[r][TRACE_MATCH[r].inv]; });
+    /* one denominator for every bar, so the two columns compare directly */
+    const total = Math.max.apply(null, rankKeys.map((r) => spans[r]['chip.run'].us));
+    const secBreak = el('section');
+    secBreak.appendChild(sectionHead('调用剖分', rankKeys.length + ' rank · 共用刻度 · STRACE host span，device_wall 及子段为设备时钟'));
+    const rowsWrap = el('div', 'tc-spanrows');
+    const shead = el('div', 'tc-spanrow tc-spanhead');
+    shead.appendChild(el('span', 'lbl', 'span'));
+    rankKeys.forEach((r) => {
+      shead.appendChild(el('span', 'h' + (r === S.rank ? ' is-armed' : ''), r + ' inv=' + TRACE_MATCH[r].inv));
+      shead.appendChild(el('span', 'h val' + (r === S.rank ? ' is-armed' : ''), 'us'));
+    });
+    rowsWrap.appendChild(shead);
+    SPAN_TREE.forEach((entry) => {
+      const name = entry[0];
+      const depth = entry[1];
+      if (!rankKeys.some((r) => spans[r][name])) return;
+      const row = el('div', 'tc-spanrow');
+      row.dataset.depth = depth;
+      row.appendChild(el('span', 'lbl', name.replace(/^chip\.run\.?/, '') || 'chip.run'));
+      const tone = /graph_build/.test(name) ? 'warn' : /device_wall$/.test(name) ? 'good' : /sched/.test(name) ? 'neutral' : null;
+      rankKeys.forEach((r) => {
+        const span = spans[r][name];
+        if (!span) {
+          row.appendChild(el('span', 'tc-bar-empty'));
+          row.appendChild(el('span', 'val muted', '—'));
+          return;
+        }
+        row.appendChild(bar(span.us / total, tone));
+        row.appendChild(el('span', 'val' + (r === S.rank ? ' is-armed' : ''), num(span.us, 2)));
+      });
+      rowsWrap.appendChild(row);
+    });
+    secBreak.appendChild(rowsWrap);
+    stage.appendChild(secBreak);
+
+    /* --- reconciliation: host span vs device trace --- */
+    const recSec = el('section');
+    recSec.appendChild(sectionHead('对账', 'host sched ↔ device trace'));
+    const recRows = Object.keys(D.ranks).map((rank) => {
+      const m = TRACE_MATCH[rank];
+      const sw = D.ranks[rank].swimlane;
+      return {
+        rank: rank, inv: m.inv, host: m.hostUs, trace: sw.spanUs, diff: m.diff,
+        tasks: D.ranks[rank].tasks.length,
+        blocks: sw.blocks.reduce((a, b) => a + b.length, 0),
+        crit: D.ranks[rank].critical.tags.length,
+        aic: D.ranks[rank].occupancy.aicUtil,
+        aiv: D.ranks[rank].occupancy.aivUtil,
+        __selected: rank === S.rank,
+      };
+    });
+    recSec.appendChild(table([
+      { label: 'Rank', key: 'rank', mono: true },
+      { label: '匹配 inv', key: 'inv', num: true },
+      { label: 'host sched', num: true, cell: (r) => num(r.host, 1) },
+      { label: 'trace span', num: true, cell: (r) => num(r.trace, 1) },
+      { label: '偏差', num: true, cell: (r) => (r.diff / r.host < 0.02 ? '<span class="ok">' : '<span class="warn">') + num(r.diff, 1) + ' us</span>' },
+      { label: '任务', key: 'tasks', num: true },
+      { label: '块', key: 'blocks', num: true },
+      { label: '关键路径', cell: (r) => r.crit + ' 节点', num: true },
+      { label: 'AIC 占用', num: true, cell: (r) => pct(r.aic) },
+      { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
+    ], recRows, { onPick: (r) => { S.rank = r.rank; render(); } }));
+    stage.appendChild(recSec);
+  }
+
+  /* The L2 dump has no host STRACE log, so there is no end-to-end layer to
+   * show. This is a state, not an error: name the missing artifact, say what
+   * it would have answered, and point at the layer that still works. */
+  function viewE2EAbsent(stage) {
+    const sec = el('section');
+    sec.appendChild(sectionHead('端到端', '本 dump 缺少 host STRACE log'));
+    sec.appendChild(table([
+      { label: '缺失产物', cell: (r) => esc(r[0]), mono: true },
+      { label: '本可回答', cell: (r) => esc(r[1]) },
+      { label: '状态', cell: () => '<span class="bad">缺失</span>' },
+    ], [
+      ['dfx_outputs/**/host.*.log', 'chip.run / bind / runner_run / device_wall 的 span 树'],
+      ['  └ inv=', '本次录制里程序被调用了几次（迭代次数 n）'],
+      ['  └ device_wall', '设备墙钟，调优的主指标与复测基准'],
+      ['  └ bind.prebuilt', 'JIT 建图是否命中缓存，第一次调用能不能用'],
+      ['distributed_meta.json', '绑定参数的 shape / dtype，case 是否固定'],
+    ], {}));
+    stage.appendChild(sec);
+
+    const alt = el('section');
+    alt.appendChild(sectionHead('仍然可测', '设备侧 trace 完整'));
+    const R0 = R();
+    alt.appendChild(tiles([
+      { k: 'trace span', v: num(R0.swimlane.spanUs, 1), u: 'us（设备钟）' },
+      { k: '任务', v: String(R0.tasks.length) },
+      { k: '块', v: String(R0.swimlane.blocks.reduce((a, b) => a + b.length, 0)) },
+      { k: '关键路径', v: R0.critical.tags.length, u: '节点' },
+      { k: 'AIC 占用', v: pct(R0.occupancy.aicUtil), tone: R0.occupancy.aicUtil < 40 ? 'bad' : 'good' },
+      { k: 'AIV 占用', v: pct(R0.occupancy.aivUtil), tone: R0.occupancy.aivUtil < 40 ? 'bad' : null },
+    ]));
+    const jump = el('div', 'tc-actions');
+    jump.appendChild(btn('去 L2 调度', { on: () => { S.view = 'l2'; render(); } }));
+    jump.appendChild(btn('去 ISA / 布局', { variant: 'ghost', on: () => { S.view = 'isa'; render(); } }));
+    alt.appendChild(jump);
+    stage.appendChild(alt);
+  }
+
+  /* ========================================================= L2 view */
+  function laneRows() {
+    const all = R().swimlane.lanes;
+    if (S.laneFilter === 'aic') return all.filter((l) => l.kind === 'aic');
+    if (S.laneFilter === 'aiv') return all.filter((l) => l.kind === 'aiv');
+    return all;
+  }
+
+  function viewL2(stage) {
+    const rank = R();
+    const crit = rank.critical;
+    const critSet = {};
+    crit.tags.forEach((t) => { critSet[t] = 1; });
+    const subj = subjectTaskSet();      /* tag -> 1-based marker number */
+    const subjLane = subjectLaneSet();
+    const hasSubjects = Object.keys(subj).length > 0;
+    const dim = S.focusEvidence && (hasSubjects || Object.keys(subjLane).length > 0);
+
+    /* --- critical path ribbon: the measured chain, on the real time axis --- */
+    const ribSec = el('section');
+    ribSec.appendChild(sectionHead('关键路径 · ' + crit.tags.length + ' 节点',
+      '链上 span 合计 ' + us(crit.spanSum) + '，正向间隙 ' + us(crit.gapOnPath) + '，重叠 ' + us(crit.overlapOnPath),
+      el('span', 'tc-readout', '走完 ' + us(rank.swimlane.spanUs))));
+    const ribHost = el('div', 'tc-canvas-strip');
+    const ribCanvas = el('canvas');
+    ribHost.appendChild(ribCanvas);
+    ribSec.appendChild(ribHost);
+    stage.appendChild(ribSec);
+
+    /* --- worker swimlane --- */
+    const laneSec = el('section', 'tc-stage-fill');
+    const legend = el('div', 'tc-legend');
+    if (S.colorMode === 'engine') {
+      [['aic', 'AIC'], ['aiv', 'AIV'], ['mix', 'MIX']].forEach((p) => {
+        const s = el('span');
+        const i = el('i');
+        i.style.background = CMAP.colorForTask({ laneKind: p[0] }, 'engine');
+        s.appendChild(i);
+        s.appendChild(el('span', null, p[1]));
+        legend.appendChild(s);
+      });
+    } else {
+      rank.tasks.slice().sort((a, b) => b.span - a.span).slice(0, 8).forEach((t) => {
+        const s = el('span');
+        const i = el('i');
+        i.style.background = CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic');
+        s.appendChild(i);
+        s.appendChild(el('span', null, t.callable));
+        legend.appendChild(s);
+      });
+    }
+    laneSec.appendChild(sectionHead('Chip swimlane · ' + rank.swimlane.lanes.length + ' core lane',
+      laneRows().length + ' 泳道 · ' + rank.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块', legend));
+    const laneHost = el('div', 'tc-canvas-host');
+    const laneCanvas = el('canvas', 'tc-lanes');
+    laneCanvas.tabIndex = 0;
+    laneHost.appendChild(laneCanvas);
+    laneSec.appendChild(laneHost);
+    stage.appendChild(laneSec);
+
+    /* ---------- rendering ---------- */
+    const LBL = 66;
+    function drawRibbon() {
+      const w = ribHost.clientWidth || 800;
+      const evRow = hasSubjects ? 26 : 0;
+      const h = 74 + evRow;
+      const ctx = fitCanvas(ribCanvas, w, h);
+      const plotX = LBL, plotW = Math.max(40, w - LBL - 10);
+      drawTimeRuler(ctx, plotX, plotW, 14, S.t0, S.t1);
+      ctx.font = '500 11px ' + cssVar('--font-sans');
+      ctx.fillStyle = cssVar('--foreground-muted');
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const sx = (t) => plotX + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
+
+      /* evidence row: where the active finding's subjects sit on this axis */
+      if (evRow) {
+        ctx.fillStyle = cssVar('--foreground');
+        ctx.fillText('证据', 4, 40);
+        Object.keys(subj).forEach((tag) => {
+          const t = tasksOf[S.rank][tag];
+          if (!t) return;
+          const x = clamp(sx(t.start), plotX, plotX + plotW);
+          const x2 = clamp(sx(t.end), plotX, plotX + plotW);
+          if (x2 <= plotX || x >= plotX + plotW) return;
+          SW.drawTaskBar(ctx, {
+            task: barTask(t, null, 'evidence'),
+            x: x, y: 32, width: Math.max(3, x2 - x), height: 16,
+            baseColor: CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic'),
+            isSelected: true,
+            isEmphasized: t.tag === S.task,
+            fontFamily: cssVar('--font-sans'),
+          });
+          /* numbered marker matching the evidence chip above */
+          const cx = Math.min(plotX + plotW - 7, Math.max(plotX + 7, x + 7));
+          ctx.beginPath();
+          ctx.arc(cx, 28, 7, 0, Math.PI * 2);
+          ctx.fillStyle = cssVar('--background');
+          ctx.fill();
+          ctx.strokeStyle = cssVar('--foreground');
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = cssVar('--foreground');
+          ctx.font = '700 9px ' + cssVar('--font-mono');
+          ctx.textAlign = 'center';
+          ctx.fillText(String(subj[tag]), cx, 28);
+          ctx.textAlign = 'left';
+          ctx.font = '500 11px ' + cssVar('--font-sans');
+        });
+      }
+
+      ctx.fillStyle = cssVar('--foreground-muted');
+      ctx.fillText('CRIT PATH', 4, 40 + evRow);
+      ctx.fillText('GAP', 4, 62 + evRow);
+      let cursor = null;
+      crit.nodes.forEach((node) => {
+        const t = tasksOf[S.rank][node.tag];
+        if (!t) return;
+        const x = sx(t.start), x2 = sx(t.end);
+        if (x2 < plotX || x > plotX + plotW) { cursor = t.end; return; }
+        ctx.globalAlpha = dim && !subj[t.tag] ? 0.28 : 1;
+        SW.drawTaskBar(ctx, {
+          task: barTask(t, null, 'critical'),
+          x: Math.max(plotX, x), y: 31 + evRow, width: Math.max(2, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), height: 18,
+          baseColor: CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, S.colorMode === 'engine' ? 'engine' : 'semantic'),
+          isSelected: !!subj[t.tag] || t.tag === S.task,
+          isEmphasized: true,
+          fontFamily: cssVar('--font-sans'),
+        });
+        ctx.globalAlpha = 1;
+        /* gap markers are not task bars: page-local data-viz marks */
+        if (cursor !== null && t.start > cursor) {
+          const gx = sx(cursor), gx2 = sx(t.start);
+          ctx.fillStyle = cssVar('--warning');
+          ctx.globalAlpha = 0.5;
+          ctx.fillRect(Math.max(plotX, gx), 56 + evRow, Math.max(1, gx2 - gx), 8);
+          ctx.globalAlpha = 1;
+        } else if (cursor !== null && t.start < cursor) {
+          const ox = sx(t.start), ox2 = sx(cursor);
+          ctx.fillStyle = cssVar('--success');
+          ctx.globalAlpha = 0.4;
+          ctx.fillRect(Math.max(plotX, ox), 58 + evRow, Math.max(1, ox2 - ox), 4);
+          ctx.globalAlpha = 1;
+        }
+        cursor = t.end;
+      });
+    }
+
+    const ROW_H = 8, ROW_GAP = 1;
+    let laneLayout = [];
+    function drawLanes() {
+      const lanes = laneRows();
+      const w = laneHost.clientWidth || 800;
+      const plotX = LBL, plotW = Math.max(40, w - LBL - 10);
+      const overlayRows = S.overlay === 'sched' ? rank.scheduler.lanes.length : 0;
+      const readyH = S.overlay === 'ready' ? 46 : 0;
+      const top = 20 + (overlayRows ? overlayRows * (ROW_H + ROW_GAP) + 8 : 0) + readyH;
+      const h = top + lanes.length * (ROW_H + ROW_GAP) + 8;
+      const ctx = fitCanvas(laneCanvas, w, Math.max(h, laneHost.clientHeight || h));
+      const sx = (t) => plotX + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
+      drawTimeRuler(ctx, plotX, plotW, 12, S.t0, S.t1);
+      ctx.font = '500 10px ' + cssVar('--font-sans');
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      laneLayout = [];
+
+      /* AICPU scheduler lanes */
+      if (overlayRows) {
+        rank.scheduler.lanes.forEach((name, i) => {
+          const y = 20 + i * (ROW_H + ROW_GAP);
+          ctx.fillStyle = cssVar('--foreground-muted');
+          ctx.fillText(name, 4, y + ROW_H / 2);
+          rank.scheduler.blocks[i].forEach((b) => {
+            const x = sx(b[0]), x2 = sx(b[0] + b[1]);
+            if (x2 < plotX || x > plotX + plotW) return;
+            ctx.fillStyle = CMAP.colorForLaneKind('aicpu');
+            ctx.globalAlpha = b[2] === 'complete' ? 0.95 : b[2] === 'dispatch' ? 0.7 : 0.45;
+            ctx.fillRect(Math.max(plotX, x), y, Math.max(0.8, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), ROW_H);
+            ctx.globalAlpha = 1;
+          });
+        });
+      }
+
+      /* ready-but-undispatched strip */
+      if (readyH) {
+        const y0 = 22, hh = readyH - 8;
+        const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
+        ctx.fillStyle = cssVar('--foreground-muted');
+        ctx.fillText('READY', 4, y0 + hh / 2);
+        [['AIC', 1, '--danger'], ['AIV', 2, '--warning']].forEach((cfg) => {
+          ctx.beginPath();
+          ctx.moveTo(plotX, y0 + hh);
+          rank.readyQueue.forEach((q) => {
+            const x = clamp(sx(q[0]), plotX, plotX + plotW);
+            const y = y0 + hh - (q[cfg[1]] / peak) * hh;
+            ctx.lineTo(x, y);
+          });
+          ctx.lineTo(plotX + plotW, y0 + hh);
+          ctx.closePath();
+          ctx.fillStyle = cssVar(cfg[2]);
+          ctx.globalAlpha = 0.28;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        });
+        ctx.fillStyle = cssVar('--foreground-muted');
+        ctx.textAlign = 'right';
+        ctx.fillText('peak ' + peak, plotX + plotW - 2, y0 + 5);
+        ctx.textAlign = 'left';
+      }
+
+      /* worker lanes */
+      const markers = [];
+      lanes.forEach((lane, i) => {
+        const y = top + i * (ROW_H + ROW_GAP);
+        const li = rank.swimlane.laneNames.indexOf(lane.name);
+        laneLayout.push({ y: y, laneIdx: li, name: lane.name });
+        const laneIsSubject = !!subjLane[lane.name];
+        if (laneIsSubject) {
+          ctx.fillStyle = cssVar('--warning');
+          ctx.globalAlpha = 0.12;
+          ctx.fillRect(plotX, y - 1, plotW, ROW_H + 2);
+          ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = laneIsSubject ? cssVar('--warning')
+          : lane.util > 60 ? cssVar('--foreground-secondary') : cssVar('--foreground-muted');
+        ctx.fillText(lane.name, 4, y + ROW_H / 2);
+        rank.swimlane.blocks[li].forEach((b) => {
+          const t = rank.tasks[b[2]];
+          if (S.critOnly && !critSet[t.tag]) return;
+          const x = sx(b[0]), x2 = sx(b[0] + b[1]);
+          if (x2 < plotX || x > plotX + plotW) return;
+          const xa = Math.max(plotX, x);
+          const wBar = Math.max(0.8, Math.min(plotX + plotW, x2) - xa);
+          const isSubj = !!subj[t.tag];
+          if (isSubj) markers.push({ x: xa, y: y, n: subj[t.tag] });
+          ctx.globalAlpha = dim && !isSubj && !laneIsSubject ? 0.16 : 1;
+          if (wBar < 2.2) {
+            /* below task-bar legibility: draw a density tick, not a fake bar */
+            ctx.fillStyle = CMAP.colorForTask(
+              S.colorMode === 'engine' ? { laneKind: t.kind } : { colorKey: t.callable, label: t.callable },
+              S.colorMode === 'engine' ? 'engine' : 'semantic');
+            ctx.fillRect(xa, y, wBar, ROW_H);
+            ctx.globalAlpha = 1;
+            return;
+          }
+          SW.drawTaskBar(ctx, {
+            task: barTask(t, b, lane.name),
+            x: xa, y: y, width: wBar, height: ROW_H, radius: 1,
+            baseColor: CMAP.colorForTask(
+              S.colorMode === 'engine' ? { laneKind: t.kind } : { colorKey: t.callable, label: t.callable },
+              S.colorMode === 'engine' ? 'engine' : 'semantic'),
+            isSelected: isSubj || t.tag === S.task,
+            isRelated: !isSubj && t.tag !== S.task && !!critSet[t.tag] && !S.critOnly,
+            isEmphasized: isSubj,
+            fontFamily: cssVar('--font-sans'),
+          });
+          ctx.globalAlpha = 1;
+        });
+      });
+
+      /* numbered markers matching the evidence chips, drawn last so nothing covers them */
+      const seen = {};
+      markers.forEach((m) => {
+        if (seen[m.n]) return;
+        seen[m.n] = 1;
+        const cx = clamp(m.x, plotX + 7, plotX + plotW - 7);
+        ctx.beginPath();
+        ctx.arc(cx, m.y + ROW_H / 2, 7, 0, Math.PI * 2);
+        ctx.fillStyle = cssVar('--background');
+        ctx.fill();
+        ctx.strokeStyle = cssVar('--foreground');
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = cssVar('--foreground');
+        ctx.font = '700 9px ' + cssVar('--font-mono');
+        ctx.textAlign = 'center';
+        ctx.fillText(String(m.n), cx, m.y + ROW_H / 2);
+        ctx.textAlign = 'left';
+        ctx.font = '500 10px ' + cssVar('--font-sans');
+      });
+
+      /* auto-scroll a chip-selected lane into view */
+      if (S.scrollToLane) {
+        const row = laneLayout.find((r) => r.name === S.scrollToLane);
+        if (row) laneHost.scrollTop = Math.max(0, row.y - laneHost.clientHeight / 2);
+        S.scrollToLane = null;
+      }
+    }
+
+    function hitTest(event) {
+      const rect = laneCanvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const plotX = LBL, plotW = Math.max(40, (laneHost.clientWidth || 800) - LBL - 10);
+      if (x < plotX) return null;
+      const t = S.t0 + ((x - plotX) / plotW) * (S.t1 - S.t0);
+      const row = laneLayout.find((r) => y >= r.y - 1 && y <= r.y + ROW_H + 1);
+      if (!row) return null;
+      const tolerance = ((S.t1 - S.t0) / plotW) * 2;
+      const blocks = rank.swimlane.blocks[row.laneIdx];
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (t >= b[0] - tolerance && t <= b[0] + b[1] + tolerance) {
+          const task = rank.tasks[b[2]];
+          if (S.critOnly && !critSet[task.tag]) continue;
+          return { task: task, block: b, lane: row.name };
+        }
+      }
+      return null;
+    }
+
+    attachTooltip(laneHost, laneCanvas, (event) => {
+      const hit = hitTest(event);
+      return hit ? barTask(hit.task, hit.block, hit.lane) : null;
+    });
+    laneCanvas.addEventListener('click', (event) => {
+      const hit = hitTest(event);
+      if (!hit) return;
+      S.task = hit.task.tag;
+      S.focus = 'task';
+      renderInspector();
+      drawLanes();
+      drawRibbon();
+    });
+
+    /* horizontal pan by drag */
+    let drag = null;
+    laneCanvas.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || !event.shiftKey) return;
+      drag = { x: event.clientX, t0: S.t0, t1: S.t1 };
+      laneHost.classList.add('is-grabbing');
+      laneCanvas.setPointerCapture(event.pointerId);
+    });
+    laneCanvas.addEventListener('pointermove', (event) => {
+      if (!drag) return;
+      const plotW = Math.max(40, (laneHost.clientWidth || 800) - LBL - 10);
+      const dt = ((event.clientX - drag.x) / plotW) * (drag.t1 - drag.t0);
+      setWindow(drag.t0 - dt, drag.t1 - dt);
+      drawLanes(); drawRibbon(); renderToolbar();
+    });
+    const endDrag = () => { drag = null; laneHost.classList.remove('is-grabbing'); };
+    laneCanvas.addEventListener('pointerup', endDrag);
+    laneCanvas.addEventListener('pointercancel', endDrag);
+
+    const redraw = () => { drawRibbon(); drawLanes(); };
+    requestAnimationFrame(redraw);
+    stage.__redraw = redraw;
+    if (stage.__ro) stage.__ro.disconnect();
+    stage.__ro = new ResizeObserver(() => redraw());
+    stage.__ro.observe(laneHost);
+    stage.__ro.observe(ribHost);
+  }
+
+  function setWindow(a, b) {
+    const span = R().swimlane.spanUs;
+    let t0 = a, t1 = b;
+    const w = t1 - t0;
+    if (w >= span) { S.t0 = 0; S.t1 = span; return; }
+    if (t0 < 0) { t0 = 0; t1 = w; }
+    if (t1 > span) { t1 = span; t0 = span - w; }
+    S.t0 = t0; S.t1 = t1;
+  }
+  function zoom(factor) {
+    const mid = (S.t0 + S.t1) / 2;
+    const half = ((S.t1 - S.t0) / 2) * factor;
+    setWindow(mid - half, mid + half);
+  }
+
+  /* ====================================================== L1 / L0 view */
+  const DTYPES = [
+    { id: 'int8', label: 'INT8', bytes: 1, mult: 512 },
+    { id: 'bf16', label: 'BF16', bytes: 2, mult: 256 },
+    { id: 'fp16', label: 'FP16', bytes: 2, mult: 256 },
+    { id: 'fp32', label: 'FP32', bytes: 4, mult: 128 },
+  ];
+  const ACC_DTYPES = [
+    { id: 'int32', label: 'INT32', bytes: 4 },
+    { id: 'fp32', label: 'FP32', bytes: 4 },
+  ];
+  const dt = (id) => DTYPES.find((d) => d.id === id) || DTYPES[1];
+  const adt = (id) => ACC_DTYPES.find((d) => d.id === id) || ACC_DTYPES[1];
+
+  function defaultTile() {
+    /* seeded from the AutoTileMatmulL0 dump: the qr_acc K-loop this run actually emitted
+     * (Left INT8[16,64], Right INT8[64,512], Acc INT32[16,512], stage=2) */
+    return { m: 16, n: 512, k: 64, ab: 'int8', acc: 'int32', live: 1, depth: 2 };
+  }
+
+  function tileBudget() {
+    const T = S.tile || (S.tile = defaultTile());
+    const ab = dt(T.ab), ac = adt(T.acc);
+    const left = T.m * T.k * ab.bytes;
+    const right = T.k * T.n * ab.bytes;
+    const acc = T.m * T.n * ac.bytes * Math.max(1, T.live);
+    const freeLR = D.budgets.Right ? D.budgets.Right.freeB : null;
+    const accObserved = Math.max.apply(null, D.l0Tiles.filter((x) => x.mem === 'Acc').map((x) => x.bytes));
+    const innermost = T.n * ab.bytes;
+    const cacheLine = (D.hints.find((h) => h.cacheLineB) || {}).cacheLineB || 512;
+    const need = Math.max(left, right) * T.depth;
+    /* The run's own counter-example: qkv_proj_rope.py:375 asks for depth 2 with
+     * 32768 B per stage against 65536 B free — exactly 100% — and MemoryReuse
+     * still fits only one buffer, because co-resident tiles take part of that
+     * space. So "exactly at the limit" is a fail in practice, not a pass. */
+    const ratio = freeLR ? need / freeLR : null;
+    return {
+      T: T, ab: ab, ac: ac, left: left, right: right, acc: acc,
+      freeLR: freeLR, accObserved: accObserved,
+      innermost: innermost, cacheLine: cacheLine,
+      depthNeed: need, depthRatio: ratio,
+      depthState: ratio == null ? 'warn' : ratio > 1 ? 'fail' : ratio === 1 ? 'fail' : ratio > 0.8 ? 'warn' : 'pass',
+      atLimit: ratio === 1,
+      lineOk: innermost >= cacheLine,
+      needElems: Math.ceil(cacheLine / ab.bytes),
+    };
+  }
+
+  function viewL1(stage) {
+    const rank = R();
+    const t = curTask();
+    const critSet = {};
+    rank.critical.tags.forEach((x) => { critSet[x] = 1; });
+
+    /* --- identity + measured split --- */
+    const idSec = el('section');
+    idSec.appendChild(sectionHead(t.callable, t.tag + ' · ' + t.kind.toUpperCase() + ' · task ' + t.id,
+      el('span', 'tc-readout', critSet[t.tag] ? '在关键路径上（第 ' + (rank.critical.tags.indexOf(t.tag) + 1) + ' 节点）' : '不在关键路径上')));
+    const kernelMean = t.kdurSum / t.blockCount;
+    idSec.appendChild(tiles([
+      { k: 'span', v: num(t.span, 1), u: 'us' },
+      { k: '块 / 核', v: t.blockCount + ' / ' + t.coreCount, u: 'block_num ' + t.blockNum },
+      { k: '块中位', v: num(t.durMed, 2), u: 'us' },
+      { k: '块最长', v: num(t.durMax, 2), u: 'us', tone: t.imbalance > 3 ? 'warn' : null },
+      { k: '离散度', v: num(t.imbalance, 2) + 'x', u: 'max / med', tone: t.imbalance > 3 ? 'bad' : t.imbalance > 2 ? 'warn' : 'good' },
+      { k: 'kernel 均值', v: num(kernelMean, 2), u: 'us' },
+      { k: 'setup 均值', v: num(t.setupMean, 2), u: pct(t.setupShare * 100, 0) + ' of block', tone: t.setupShare > 0.3 ? 'bad' : t.setupShare > 0.1 ? 'warn' : null },
+      { k: 'AICPU 视角', v: num(t.svAicpuMean, 1), u: t.svOverhead != null ? '+' + num(t.svOverhead, 1) + ' us hand-off' : '', tone: t.svOverhead > 20 ? 'bad' : t.svOverhead > 5 ? 'warn' : null },
+    ]));
+    stage.appendChild(idSec);
+
+    /* --- three measurements of the same block, side by side --- */
+    const splitSec = el('section');
+    splitSec.appendChild(sectionHead('一个块的三种口径',
+      'kernel · +local_setup · +hand-off (dispatch→finish)'));
+    const splitHost = el('div', 'tc-canvas-strip');
+    const splitCanvas = el('canvas');
+    splitHost.appendChild(splitCanvas);
+    splitSec.appendChild(splitHost);
+    stage.appendChild(splitSec);
+
+    /* --- per-core block strip + duration distribution --- */
+    const distSec = el('section');
+    distSec.appendChild(sectionHead('块分布',
+      t.blockCount + ' 块 / ' + t.coreCount + ' 核 · ' + num(t.blockCount / t.coreCount, 2) + ' 波'));
+    const distHost = el('div', 'tc-canvas-host');
+    const distCanvas = el('canvas');
+    distHost.appendChild(distCanvas);
+    distSec.appendChild(distHost);
+    stage.appendChild(distSec);
+
+    /* --- on-chip tile budget --- */
+    const calcSec = el('section');
+    calcSec.appendChild(sectionHead('片上预算试算',
+      'Left / Right = 编译器选的 L0A / L0B staging',
+      el('span', 'tc-readout', '上限取自本 run MemoryReuse 报告')));
+    calcSec.appendChild(renderCalc());
+    stage.appendChild(calcSec);
+
+    /* --- compiler hints, honestly unlinked --- */
+    const hintSec = el('section');
+    const mods = ['all'].concat(D.tileFiles.map((f) => f.file));
+    hintSec.appendChild(sectionHead('编译提示', D.hints.length + ' 条 · 按模块聚合 · 无 kernel→源码映射',
+      field('模块', select(mods.map((m) => ({ id: m, label: m === 'all' ? '全部模块' : m })), S.hintModule,
+        (v) => { S.hintModule = v; render(); }))));
+    const hintRows = D.hints
+      .filter((h) => S.hintModule === 'all' || h.file === S.hintModule)
+      .map((h, i) => Object.assign({ __i: i }, h));
+    hintSec.appendChild(table([
+      { label: 'Code', key: 'code', mono: true },
+      { label: '位置', mono: true, cell: (h) => esc(h.file + ':' + h.line) },
+      { label: '类型', cell: (h) => (h.kind === 'pipeline-depth' ? '流水深度' : '搬运粒度') },
+      {
+        label: '事实', cell: (h) => (h.kind === 'pipeline-depth'
+          ? 'depth ' + h.reqDepth + ' → ' + h.fit + ' @' + h.unit + '（' + kb(h.perStageB) + '/stage，' + kb(h.freeB) + ' free）'
+          : esc(h.op) + ' 末维 <span class="' + (h.innermostB < 128 ? 'bad' : 'warn') + '">' + h.innermostB + 'B</span> · tile ' + esc(h.dtype + '[' + h.tileShape + ']') + ' → ' + esc(h.mem)),
+      },
+      { label: '次数', key: 'occurrences', num: true },
+    ], hintRows.slice(0, 80), {
+      onPick: (h) => { S.view = 'compiler'; S.compilerTab = h.kind === 'pipeline-depth' ? 'depth' : 'granularity'; S.hintSite = h.file + ':' + h.line; render(); },
+    }));
+    if (hintRows.length > 80) {
+      hintSec.appendChild(el('p', 'tc-note', '前 80 / ' + hintRows.length + ' 条 · 完整列表见 Problems 面板'));
+    }
+    stage.appendChild(hintSec);
+
+    /* ---------- canvases ---------- */
+    function drawSplit() {
+      const w = splitHost.clientWidth || 700;
+      const h = 82;
+      const ctx = fitCanvas(splitCanvas, w, h);
+      const rows = [
+        { k: 'kernel', v: kernelMean, tone: '--success' },
+        { k: '+ setup', v: t.durMean, tone: '--warning' },
+        { k: '+ hand-off', v: t.svAicpuMean == null ? t.durMean : t.svAicpuMean, tone: '--danger' },
+      ];
+      const max = Math.max.apply(null, rows.map((r) => r.v));
+      const x0 = 84, plotW = Math.max(40, w - x0 - 110);
+      ctx.font = '500 11px ' + cssVar('--font-sans');
+      ctx.textBaseline = 'middle';
+      rows.forEach((r, i) => {
+        const y = 14 + i * 22;
+        ctx.textAlign = 'right';
+        ctx.fillStyle = cssVar('--foreground-muted');
+        ctx.fillText(r.k, x0 - 8, y + 7);
+        ctx.fillStyle = cssVar('--surface-3');
+        ctx.fillRect(x0, y, plotW, 14);
+        ctx.fillStyle = cssVar(r.tone);
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(x0, y, Math.max(1, (r.v / max) * plotW), 14);
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = cssVar('--foreground');
+        ctx.font = '500 11px ' + cssVar('--font-mono');
+        ctx.fillText(num(r.v, 2) + ' us', x0 + plotW + 8, y + 7);
+        ctx.font = '500 11px ' + cssVar('--font-sans');
+      });
+    }
+
+    function drawDist() {
+      const w = distHost.clientWidth || 700;
+      /* per-core strip for this task only */
+      const lanes = [];
+      rank.swimlane.laneNames.forEach((name, li) => {
+        const blocks = rank.swimlane.blocks[li].filter((b) => rank.tasks[b[2]].tag === t.tag);
+        if (blocks.length) lanes.push({ name: name, blocks: blocks });
+      });
+      const ROW = 9, GAP = 1;
+      const stripH = 22 + lanes.length * (ROW + GAP) + 10;
+      const sorted = rank.swimlane.blocks.flat().filter((b) => rank.tasks[b[2]].tag === t.tag)
+        .map((b) => b[1]).sort((a, b) => a - b);
+      const histH = 96;
+      distHost.style.height = Math.min(520, stripH + histH + 4) + 'px';
+      const ctx = fitCanvas(distCanvas, w, stripH + histH);
+      const x0 = 70, plotW = Math.max(40, w - x0 - 12);
+      drawTimeRuler(ctx, x0, plotW, 12, t.start, t.end);
+      const sx = (x) => x0 + ((x - t.start) / Math.max(1e-6, t.end - t.start)) * plotW;
+      ctx.font = '500 10px ' + cssVar('--font-sans');
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      lanes.forEach((lane, i) => {
+        const y = 22 + i * (ROW + GAP);
+        ctx.fillStyle = cssVar('--foreground-muted');
+        ctx.fillText(lane.name, 4, y + ROW / 2);
+        lane.blocks.forEach((b) => {
+          const x = sx(b[0]);
+          const wBar = Math.max(1, sx(b[0] + b[1]) - x);
+          if (wBar < 2.2) {
+            ctx.fillStyle = CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic');
+            ctx.fillRect(x, y, wBar, ROW);
+            return;
+          }
+          SW.drawTaskBar(ctx, {
+            task: barTask(t, b, lane.name),
+            x: x, y: y, width: wBar, height: ROW, radius: 1,
+            baseColor: CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic'),
+            isEmphasized: b[1] >= t.durP90,
+            fontFamily: cssVar('--font-sans'),
+          });
+        });
+      });
+
+      /* sorted block-duration profile: data-viz, not a task bar */
+      const hy = stripH + 16;
+      const hh = histH - 34;
+      const max = sorted[sorted.length - 1] || 1;
+      ctx.fillStyle = cssVar('--foreground-muted');
+      ctx.font = '500 11px ' + cssVar('--font-sans');
+      ctx.textAlign = 'left';
+      ctx.fillText('块时长排序（' + sorted.length + ' 块，' + num(sorted[0], 2) + ' → ' + num(max, 2) + ' us）', 4, hy - 6);
+      const bw = plotW / sorted.length;
+      sorted.forEach((v, i) => {
+        const bh = (v / max) * hh;
+        ctx.fillStyle = v >= t.durP90 ? cssVar('--danger') : cssVar('--primary');
+        ctx.globalAlpha = v >= t.durP90 ? 0.9 : 0.55;
+        ctx.fillRect(x0 + i * bw, hy + hh - bh, Math.max(0.7, bw - 0.4), bh);
+        ctx.globalAlpha = 1;
+      });
+      [['med', t.durMed, '--foreground-secondary'], ['p90', t.durP90, '--warning']].forEach((m) => {
+        const y = hy + hh - (m[1] / max) * hh;
+        ctx.strokeStyle = cssVar(m[2]);
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + plotW, y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = cssVar(m[2]);
+        ctx.textAlign = 'right';
+        ctx.fillText(m[0] + ' ' + num(m[1], 2), x0 - 4, y);
+        ctx.textAlign = 'left';
+      });
+    }
+
+    const redraw = () => { drawSplit(); drawDist(); };
+    requestAnimationFrame(redraw);
+    stage.__redraw = redraw;
+    if (stage.__ro) stage.__ro.disconnect();
+    stage.__ro = new ResizeObserver(() => redraw());
+    stage.__ro.observe(distHost);
+    stage.__ro.observe(splitHost);
+  }
+
+  function renderCalc() {
+    const B = tileBudget();
+    const wrap = el('div', 'tc-calc');
+
+    const form = el('div', 'tc-calc-form');
+    const numRow = (label, key, min, max, step) => {
+      const row = el('div', 'tc-calc-row');
+      row.appendChild(el('label', null, label));
+      const i = el('input');
+      i.type = 'number'; i.min = min; i.max = max; i.step = step || 1;
+      i.value = S.tile[key];
+      i.addEventListener('change', () => {
+        S.tile[key] = clamp(parseInt(i.value, 10) || min, min, max);
+        render();
+      });
+      row.appendChild(i);
+      return row;
+    };
+    form.appendChild(numRow('M_tile', 'm', 8, 512, 8));
+    form.appendChild(numRow('N_tile', 'n', 16, 1024, 16));
+    form.appendChild(numRow('K_tile', 'k', 16, 1024, 16));
+    const abRow = el('div', 'tc-calc-row');
+    abRow.appendChild(el('label', null, 'A / B dtype'));
+    abRow.appendChild(select(DTYPES.map((d) => ({ id: d.id, label: d.label })), S.tile.ab, (v) => { S.tile.ab = v; render(); }));
+    form.appendChild(abRow);
+    const accRow = el('div', 'tc-calc-row');
+    accRow.appendChild(el('label', null, 'Acc dtype'));
+    accRow.appendChild(select(ACC_DTYPES.map((d) => ({ id: d.id, label: d.label })), S.tile.acc, (v) => { S.tile.acc = v; render(); }));
+    form.appendChild(accRow);
+    form.appendChild(numRow('live acc', 'live', 1, 8, 1));
+    const dRow = el('div', 'tc-calc-row');
+    dRow.appendChild(el('label', null, 'pipeline stage'));
+    dRow.appendChild(select([1, 2, 3, 4].map((n) => ({ id: String(n), label: String(n) })), String(S.tile.depth),
+      (v) => { S.tile.depth = +v; render(); }));
+    form.appendChild(dRow);
+    const presets = el('div', 'tc-actions');
+    presets.appendChild(btn('回到本 run 实测值', {
+      size: 'sm', on: () => { S.tile = defaultTile(); render(); },
+    }));
+    form.appendChild(presets);
+    wrap.appendChild(form);
+
+    const out = el('div', 'tc-calc-out');
+    const budget = el('div', 'tc-budget');
+    const row = (name, bytes, cap, fx, tone) => {
+      const r = el('div', 'tc-budget-row');
+      r.appendChild(el('span', 'nm', name));
+      r.appendChild(bar(cap ? bytes / cap : 0, tone));
+      r.appendChild(el('span', 'fx', kb(bytes) + (cap ? ' / ' + kb(cap) : '')));
+      return r;
+    };
+    budget.appendChild(row('Left (L0A)', B.left, B.freeLR, B.left > B.freeLR ? 'bad' : 'neutral'));
+    budget.appendChild(row('Right (L0B)', B.right, B.freeLR, B.right > B.freeLR ? 'bad' : 'neutral'));
+    budget.appendChild(row('Acc (L0C)', B.acc, B.accObserved, B.acc > B.accObserved ? 'warn' : 'good'));
+    budget.appendChild(row('stage × max(L,R)', B.depthNeed, B.freeLR, B.depthState === 'pass' ? 'good' : B.depthState === 'warn' ? 'warn' : 'bad'));
+    out.appendChild(budget);
+
+    const verdict = el('div', 'tc-verdict');
+    const vrow = (state, tag, html) => {
+      const r = el('div', 'tc-verdict-row');
+      r.dataset.state = state;
+      r.appendChild(el('span', 'tag', tag));
+      const p = el('p');
+      p.innerHTML = html;
+      r.appendChild(p);
+      return r;
+    };
+    if (B.freeLR == null) {
+      verdict.appendChild(vrow('warn', 'depth ?',
+        'stage ' + B.T.depth + ' × max(L,R) = <strong>' + kb(B.depthNeed)
+        + '</strong>，但本 dump 无 PH-MR-001，Left/Right 可用字节未知 · 无法判定'));
+    } else {
+      const depthMsg = B.atLimit
+        ? ' · 同配置实测回退：' + D.depthSites[0].file + ':' + D.depthSites[0].line
+        : B.depthState === 'fail' ? ' · 超出，MemoryReuse 降至 depth 1'
+          : B.depthState === 'warn' ? ' · 余量不足以容纳同驻 tile' : '';
+      verdict.appendChild(vrow(B.depthState, B.depthState === 'pass' ? 'depth' : 'depth ↓',
+        'stage ' + B.T.depth + ' × max(L,R) = <strong>' + kb(B.depthNeed) + '</strong> / '
+        + kb(B.freeLR) + ' free = ' + pct(B.depthRatio * 100, 0) + depthMsg));
+    }
+    verdict.appendChild(vrow(B.lineOk ? 'pass' : 'warn', B.lineOk ? 'cache line' : '末维不足',
+      'N × ' + B.ab.label + ' = <strong>' + B.innermost + 'B</strong> / ' + B.cacheLine + 'B'
+      + (B.lineOk ? '' : ' · 需 ' + B.ab.mult + ' 元素倍数（≥ ' + B.needElems + ' 个 ' + B.ab.label + '）')));
+    verdict.appendChild(vrow(B.acc > B.accObserved ? 'warn' : 'pass', 'Acc',
+      'M × N × ' + B.ac.bytes + 'B × ' + B.T.live + ' = <strong>' + kb(B.acc) + '</strong> · 本 run 实测最大 '
+      + kb(B.accObserved) + '（dump 未报上限，超出即待验证）'));
+    out.appendChild(verdict);
+
+    const obs = D.l0Tiles.slice(0, 8).map((x) => ({
+      mem: x.mem, shape: x.dtype + '[' + x.rows + ',' + x.cols + ']',
+      bytes: x.bytes, innermost: x.innermostB, n: x.n,
+    }));
+    out.appendChild(sectionHead('本 run 出现的 L0 tile', D.l0Tiles.length + ' 种 · 点行回填'));
+    out.appendChild(table([
+      { label: '空间', key: 'mem', mono: true },
+      { label: 'tile', key: 'shape', mono: true },
+      { label: '字节', num: true, cell: (r) => kb(r.bytes) },
+      { label: '末维', num: true, cell: (r) => (r.innermost >= 512 ? '<span class="ok">' : '<span class="warn">') + r.innermost + 'B</span>' },
+      { label: '出现', key: 'n', num: true },
+    ], obs, {
+      onPick: (r) => {
+        const m = r.shape.match(/\[(\d+),(\d+)\]/);
+        if (!m) return;
+        if (r.mem === 'Right') { S.tile.k = +m[1]; S.tile.n = +m[2]; }
+        else if (r.mem === 'Left') { S.tile.m = +m[1]; S.tile.k = +m[2]; }
+        else { S.tile.m = +m[1]; S.tile.n = +m[2]; }
+        render();
+      },
+    }));
+    wrap.appendChild(out);
+    return wrap;
+  }
+
+  /* ==================================================== compiler view */
+  function viewCompiler(stage) {
+    if (S.compilerTab === 'passes') {
+      const detailByPass = {};
+      (D.passEvidence || []).forEach((d) => { detailByPass[d.idx] = d; });
+      const selected = D.passes.find((p) => p.idx === S.pass) || D.passes[0];
+      const detail = detailByPass[selected.idx] || { add: 0, del: 0, groups: 0, scopes: [], hunks: [], links: [] };
+      const changed = D.passes.filter((p) => {
+        const d = detailByPass[p.idx];
+        return d && (d.add || d.del);
+      }).length;
+      const sec = el('section', 'tc-pass-workspace');
+      sec.appendChild(sectionHead('编译 IR 全流程 · ' + D.case.program,
+        changed + ' / ' + Math.max(0, D.passes.length - 1) + ' 个 Pass 改动了 IR'));
+
+      /* The river is a view of the same selected-pass state as the evidence
+       * panel below.  Its strata describe IR form, its dots describe actual
+       * snapshot changes — no separate, decorative pipeline is introduced. */
+      const strata = [
+        { id: 's0', label: 'S0 · 前端', form: 'Tensor IR', until: 0 },
+        { id: 's1', label: 'S1 · 规范化张量', form: 'SSA / Tensor', until: 9 },
+        { id: 's2', label: 'S2 · 层级化', form: 'Structured IR', until: 12 },
+        { id: 's3', label: 'S3 · Tile', form: 'Tile IR', until: 21 },
+        { id: 's4', label: 'S4 · 双核 Kernel', form: 'AIC / AIV Kernel', until: 28 },
+        { id: 's5', label: 'S5 · 物理内存', form: 'MemRef / 物理内存', until: 34 },
+        { id: 's6', label: 'S6 · 运行时', form: 'Runtime IR', until: Infinity },
+      ];
+      const stratumFor = (p) => strata.find((s) => p.idx <= s.until) || strata[strata.length - 1];
+      const kindFor = (p, d) => {
+        if (!p.idx || !(d.add || d.del)) return 'same';
+        if (/MemoryReuse/.test(p.name) && D.depthSites.some((s) => s.fittedDepth < s.maxReqDepth)) return 'bad';
+        if (/MemRef|Memory|Addr|Layout/.test(p.name)) return 'memory';
+        if (/Runtime|Host|CallDirection|CommDomain/.test(p.name)) return 'runtime';
+        if (/Inline|Outline|Unroll|Split|Expand|LowerPipeline/.test(p.name)) return 'struct';
+        if (/Tile|Pipeline|Prefetch|Matmul/.test(p.name)) return 'intent';
+        return 'touch';
+      };
+      const groups = [];
+      D.passes.forEach((p, i) => {
+        const s = stratumFor(p);
+        const last = groups[groups.length - 1];
+        if (!last || last.id !== s.id) groups.push({ id: s.id, label: s.label, form: s.form, from: i, to: i });
+        else last.to = i;
+      });
+      const river = el('div', 'tc-pass-river');
+      const riverHead = el('div', 'tc-pass-river-head');
+      riverHead.appendChild(el('span', null, '相邻快照 · ' + D.passes[0].lines + ' → ' + D.passes[D.passes.length - 1].lines + ' 行'));
+      riverHead.appendChild(el('span', null, changed + ' 个关键事件 · ' + D.passes.length + ' 个 Pass'));
+      river.appendChild(riverHead);
+      const riverScroll = el('div', 'tc-pass-river-scroll');
+      const riverScene = el('div', 'tc-pass-river-scene');
+      riverScene.style.minWidth = Math.max(1040, D.passes.length * 28) + 'px';
+      const formLabel = el('span', 'tc-pass-river-label', 'IR 形态');
+      riverScene.appendChild(formLabel);
+      groups.forEach((group) => {
+        const band = el('div', 'tc-pass-form-band');
+        band.dataset.stratum = group.id;
+        band.style.left = (group.from / D.passes.length * 100) + '%';
+        band.style.width = ((group.to - group.from + 1) / D.passes.length * 100) + '%';
+        band.textContent = group.form;
+        riverScene.appendChild(band);
+      });
+      const sequenceLabel = el('span', 'tc-pass-river-label tc-pass-river-seq-label', '执行序 →');
+      riverScene.appendChild(sequenceLabel);
+      const spine = el('i', 'tc-pass-river-spine'); riverScene.appendChild(spine);
+      groups.forEach((group) => {
+        const box = el('div', 'tc-pass-stage-band');
+        box.dataset.stratum = group.id;
+        box.style.left = (group.from / D.passes.length * 100) + '%';
+        box.style.width = ((group.to - group.from + 1) / D.passes.length * 100) + '%';
+        box.appendChild(el('span', null, group.label));
+        riverScene.appendChild(box);
+      });
+      D.passes.forEach((p, i) => {
+        const d = detailByPass[p.idx] || {};
+        const kind = kindFor(p, d);
+        const b = el('button', 'tc-pass-river-node is-' + kind + (p.idx === selected.idx ? ' is-selected' : ''));
+        b.type = 'button'; b.dataset.stratum = stratumFor(p).id;
+        b.style.left = ((i + 0.5) / D.passes.length * 100) + '%';
+        b.title = String(p.idx).padStart(2, '0') + ' · ' + p.name + (d.add || d.del ? ' · +' + d.add + ' / −' + d.del : ' · 未改动 IR');
+        b.setAttribute('aria-label', b.title);
+        b.appendChild(el('i', 'dot'));
+        if (kind !== 'touch' && kind !== 'same') b.appendChild(el('span', 'idx', String(p.idx).padStart(2, '0')));
+        b.addEventListener('click', () => { S.pass = p.idx; S.focus = 'pass'; S.passMode = 'overview'; render(); });
+        riverScene.appendChild(b);
+      });
+      riverScroll.appendChild(riverScene); river.appendChild(riverScroll);
+      const legend = el('div', 'tc-pass-river-legend');
+      [['struct', '结构变换'], ['intent', '意图相关'], ['bad', '意图被破坏'], ['memory', '内存'], ['runtime', '运行时'], ['touch', '普通改动'], ['same', '未改动']]
+        .forEach(([kind, label]) => { const item = el('span'); item.appendChild(el('i', 'is-' + kind)); item.appendChild(el('span', null, label)); legend.appendChild(item); });
+      river.appendChild(legend);
+      sec.appendChild(river);
+
+      const body = el('div', 'tc-pass-workspace-body');
+
+      const work = el('div', 'tc-pass-detail');
+      const head = el('div', 'tc-pass-detail-head');
+      const title = el('div');
+      title.appendChild(el('span', 'eyebrow', selected.idx === 0 ? '流水线输入' : 'Pass #' + selected.idx + ' · 从 ' + detail.from));
+      title.appendChild(el('h3', null, selected.name));
+      head.appendChild(title);
+      const modes = el('div', 'segmented-control segmented-control-muted');
+      [['overview', '变化概览'], ['diff', '代码 Diff']].forEach(([id, label]) => {
+        modes.appendChild(btn(label, { size: 'sm', selected: S.passMode === id,
+          on: () => { S.passMode = id; render(); } }));
+      });
+      head.appendChild(modes);
+      work.appendChild(head);
+
+      const metrics = el('div', 'tc-pass-metrics');
+      [
+        ['IR 行', selected.lines, selected.delta === 0 ? '与上一快照等长' : (selected.delta > 0 ? '+' : '') + selected.delta],
+        ['实测变更', detail.add + ' + / ' + detail.del + ' −', detail.groups + ' 个改写区域'],
+        ['受影响作用域', String(detail.scopes.length), detail.scopes.length ? detail.scopes.slice(0, 2).map((s) => s.name).join(' · ') : '无'],
+      ].forEach(([k, v, sub]) => {
+        const m = el('div', 'tc-pass-metric');
+        m.appendChild(el('span', 'k', k)); m.appendChild(el('strong', null, v)); m.appendChild(el('span', 'sub', sub));
+        metrics.appendChild(m);
+      });
+      work.appendChild(metrics);
+
+      if (detail.links && detail.links.length) {
+        const links = el('div', 'tc-pass-links');
+        links.appendChild(el('span', 'label', '运行内关联'));
+        detail.links.forEach((link) => {
+          links.appendChild(btn(link.label, { size: 'sm', on: () => {
+            if (link.findingId && findingById[link.findingId]) {
+              S.finding = link.findingId; S.focus = 'finding'; applyFocus(findingById[link.findingId]);
+            } else if (link.view) S.view = link.view;
+            render();
+          } }));
+        });
+        work.appendChild(links);
+      }
+
+      if (!detail.add && !detail.del) {
+        work.appendChild(el('div', 'tc-pass-empty', selected.idx === 0
+          ? '前端 IR 是流水线的事实起点；选择后续 Pass 查看相邻快照的改写证据。'
+          : '相邻快照逐行一致：这个 Pass 在本次编译输入上是空操作。'));
+      } else if (S.passMode === 'overview') {
+        const scopes = el('div', 'tc-pass-scopes');
+        scopes.appendChild(el('span', 'label', '受影响作用域'));
+        detail.scopes.forEach((scope) => {
+          const chip = el('span', 'tc-pass-scope');
+          chip.appendChild(el('code', null, scope.name));
+          chip.appendChild(el('span', null, scope.lines + ' 行变更'));
+          scopes.appendChild(chip);
+        });
+        work.appendChild(scopes);
+        const hunkList = el('div', 'tc-pass-hunks');
+        detail.hunks.slice(0, 3).forEach((hunk, i) => {
+          const card = el('article', 'tc-pass-hunk');
+          card.appendChild(el('div', 'h', '改写区域 ' + (i + 1) + ' · ' + hunk.scopes.join(' / ')));
+          const pre = el('pre', 'tc-pass-code');
+          pre.textContent = hunk.before.map((line) => '− ' + line).join('\n')
+            + (hunk.beforeMore ? '\n− … ' + hunk.beforeMore + ' 行' : '')
+            + (hunk.before.length && hunk.after.length ? '\n' : '')
+            + hunk.after.map((line) => '+ ' + line).join('\n')
+            + (hunk.afterMore ? '\n+ … ' + hunk.afterMore + ' 行' : '');
+          card.appendChild(pre);
+          hunkList.appendChild(card);
+        });
+        work.appendChild(hunkList);
+      } else {
+        const diffList = el('div', 'tc-pass-diff-list');
+        detail.hunks.forEach((hunk, i) => {
+          const card = el('article', 'tc-pass-diff-card');
+          card.appendChild(el('div', 'h', '区域 ' + (i + 1) + ' · ' + hunk.scopes.join(' / ')
+            + ' · 前 ' + hunk.beforeLine + ' / 后 ' + hunk.afterLine + ' 行'));
+          const grid = el('div', 'tc-pass-diff-grid');
+          [['删除', hunk.before, hunk.beforeMore, 'before'], ['新增', hunk.after, hunk.afterMore, 'after']].forEach(([label, lines, more, side]) => {
+            const sideEl = el('div', 'tc-pass-diff-side'); sideEl.dataset.side = side;
+            sideEl.appendChild(el('span', 'label', label));
+            const pre = el('pre', 'tc-pass-code');
+            pre.textContent = lines.length ? lines.join('\n') + (more ? '\n… ' + more + ' 行' : '') : '—';
+            sideEl.appendChild(pre); grid.appendChild(sideEl);
+          });
+          card.appendChild(grid); diffList.appendChild(card);
+        });
+        work.appendChild(diffList);
+      }
+      body.appendChild(work);
+      sec.appendChild(body);
+      stage.appendChild(sec);
+    }
+
+    if (S.compilerTab === 'depth') {
+      const sec = el('section');
+      if (!D.depthSites.length) {
+        /* MemoryReuse never reported a degradation here. That is a different
+         * statement from "we found nothing", so spell out what was checked. */
+        sec.appendChild(sectionHead('软流水深度回退', '本 run 无 PH-MR-001'));
+        sec.appendChild(table([
+          { label: '事实', cell: (r) => esc(r[0]), mono: true },
+          { label: '含义', cell: (r) => esc(r[1]) },
+        ], [
+          ['PH-MR-001 × 0', 'MemoryReuse 未报告过任何一次深度回退'],
+          ['pl.pipeline × ' + D.pipelineSites.length, '请求的 stage 都放得下，或该 kernel 未进 MemoryReuse'],
+          ['Left / Right / Vec 可用字节 缺失', '片上预算试算器无本 run 实测上限可对账'],
+        ], {}));
+      } else {
+        sec.appendChild(sectionHead('软流水深度回退',
+          D.depthSites.length + ' 个源码点，' + D.hints.filter((h) => h.code === 'PH-MR-001').length + ' 条 PH-MR-001'));
+        sec.appendChild(table([
+          { label: '源码点', mono: true, cell: (s) => esc(s.module + ':' + s.line) },
+          { label: '空间', cell: (s) => s.units.join(' / '), mono: true },
+          { label: '组数', key: 'groupCount', num: true },
+          { label: '请求 → 实得', num: true, cell: (s) => s.maxReqDepth + ' → <span class="bad">' + s.fittedDepth + '</span>' },
+          { label: '每 stage', num: true, cell: (s) => kb(s.perStageB) },
+          { label: '可用', num: true, cell: (s) => kb(s.freeB) },
+          { label: '需求 / 可用', cell: (s) => bar((s.perStageB * s.maxReqDepth) / s.freeB, 'bad') },
+        ], D.depthSites.map((s) => Object.assign({
+          __selected: s.key === S.hintSite, __subject: !!subjectSiteSet()[s.key],
+        }, s)), {
+          onPick: (s) => { S.hintSite = s.key; S.focus = 'hint'; render(); },
+        }));
+      }
+      stage.appendChild(sec);
+
+      const stageGroups = {};
+      D.pipelineSites.forEach((p) => {
+        const k = 'stage=' + p.stage;
+        (stageGroups[k] = stageGroups[k] || []).push(p);
+      });
+      const sec2 = el('section');
+      sec2.appendChild(sectionHead('IR 里请求的流水',
+        D.pipelineSites.length + ' 个 pl.pipeline 站点（AutoTileMatmulL0 之后）· 前端手写 ' + D.dsl.pipeline + ' 处'));
+      sec2.appendChild(table([
+        { label: 'stage', key: 'k', mono: true },
+        { label: '站点数', cell: (r) => r.n, num: true },
+        { label: '循环次数（trip）', cell: (r) => esc(r.trips), mono: true },
+        { label: '携带值', cell: (r) => r.carriers, num: true },
+      ], Object.keys(stageGroups).sort().map((k) => ({
+        k: k, n: stageGroups[k].length,
+        trips: Array.from(new Set(stageGroups[k].map((p) => p.trip))).slice(0, 8).join(', '),
+        carriers: Math.max.apply(null, stageGroups[k].map((p) => p.carriers)),
+      })), {}));
+      stage.appendChild(sec2);
+    }
+
+    if (S.compilerTab === 'granularity') {
+      const cacheLine = (D.hints.find((h) => h.cacheLineB) || {}).cacheLineB || 512;
+      const sec = el('section');
+      sec.appendChild(sectionHead('搬运末维粒度',
+        D.hints.filter((h) => h.code === 'PH001').reduce((a, h) => a + h.occurrences, 0) + ' 次命中 · cache line ' + cacheLine + 'B · backend ' + D.case.backend));
+      sec.appendChild(table([
+        { label: '模块', key: 'module', mono: true },
+        { label: '源码点', key: 'siteCount', num: true },
+        { label: '命中', key: 'occ', num: true },
+        { label: '最小末维', num: true, cell: (f) => '<span class="' + (f.minB < 128 ? 'bad' : 'warn') + '">' + f.minB + 'B</span>' },
+        { label: '距一行', cell: (f) => bar(f.minB / cacheLine, 'bad') },
+      ], D.tileFiles, { onPick: (f) => { S.hintModule = f.file; S.view = 'l1'; render(); } }));
+      stage.appendChild(sec);
+
+      const sec2 = el('section');
+      const memFilter = ['all', 'Vec', 'Mat', 'Acc'];
+      sec2.appendChild(sectionHead('最差的源码点', '按末维字节升序',
+        field('目标空间', select(memFilter.map((m) => ({ id: m, label: m === 'all' ? '全部' : m })), S.__mem || 'all',
+          (v) => { S.__mem = v; render(); }))));
+      const rows = D.tileSites.filter((s) => {
+        const m = S.__mem || 'all';
+        return m === 'all' || s.mems[m];
+      }).slice(0, 60);
+      sec2.appendChild(table([
+        { label: '源码点', mono: true, cell: (s) => esc(s.module + ':' + s.line) },
+        { label: '末维', num: true, cell: (s) => '<span class="' + (s.minB < 128 ? 'bad' : 'warn') + '">' + s.minB + 'B</span>' },
+        { label: '算子', cell: (s) => Object.keys(s.ops).join(', '), mono: true },
+        { label: '空间', cell: (s) => Object.keys(s.mems).join(', '), mono: true },
+        { label: 'tile', cell: (s) => esc(s.shapes.join(' ')), mono: true },
+        { label: '命中', key: 'occ', num: true },
+      ], rows.map((s) => Object.assign({
+        __selected: s.key === S.hintSite, __subject: !!subjectSiteSet()[s.key],
+      }, s)), {
+        onPick: (s) => { S.hintSite = s.key; S.focus = 'hint'; render(); },
+      }));
+      stage.appendChild(sec2);
+
+      const guide = el('section');
+      guide.appendChild(sectionHead('末维目标', '凑满 ' + cacheLine + 'B 所需元素倍数'));
+      guide.appendChild(table([
+        { label: 'dtype', key: 'label', mono: true },
+        { label: '每元素', num: true, cell: (d) => d.bytes + 'B' },
+        { label: '末维元素倍数', num: true, cell: (d) => d.mult },
+        { label: '对应字节', num: true, cell: (d) => kb(d.mult * d.bytes) },
+      ], DTYPES, {}));
+      stage.appendChild(guide);
+    }
+  }
+
+  /* ========================================================= ISA view */
+  function viewISA(stage) {
+    const layoutPass = D.passes.find((p) => p.name === 'ResolveBackendOpLayouts');
+    const spacePass = D.passes.find((p) => p.name === 'InferTileMemorySpace');
+    const cacheLine = (D.hints.find((h) => h.cacheLineB) || {}).cacheLineB || 512;
+
+    const have = el('section');
+    have.appendChild(sectionHead('工具链与约束', 'binary_context · Pass dump · L0 tile'));
+    have.appendChild(tiles([
+      { k: 'platform', v: D.case.toolchain.platform || D.case.backend },
+      { k: 'pto-isa', v: D.case.toolchain.ptoIsaRevision ? D.case.toolchain.ptoIsaRevision.slice(0, 8) : '—', u: 'revision' },
+      { k: 'runtime', v: (D.case.toolchain.runtimeName || '—').split('_')[0],
+        u: D.case.toolchain.runtimeRevision ? D.case.toolchain.runtimeRevision.slice(0, 8) : (D.case.toolchain.aicpuThreads ? D.case.toolchain.aicpuThreads + ' AICPU 线程' : '') },
+      { k: 'cache line', v: cacheLine, u: 'B' },
+      { k: 'L0 tile 形状', v: D.l0Tiles.length, u: '种（AutoTileMatmulL0）' },
+      { k: 'Left/Right 可用', v: D.budgets.Right ? kb(D.budgets.Right.freeB) : '—',
+        u: D.budgets.Right ? 'MemoryReuse 报告' : '无 PH-MR-001' },
+    ]));
+    stage.appendChild(have);
+
+    const lay = el('section');
+    lay.appendChild(sectionHead('布局与内存空间分配', 'ResolveBackendOpLayouts +' + layoutPass.delta + ' 行，InferTileMemorySpace +' + spacePass.delta + ' 行'));
+    lay.appendChild(table([
+      { label: '空间', key: 'mem', mono: true },
+      { label: 'tile 形状', cell: (r) => esc(r.shape), mono: true },
+      { label: 'dtype', key: 'dtype', mono: true },
+      { label: '字节', num: true, cell: (r) => kb(r.bytes) },
+      { label: '末维', num: true, cell: (r) => (r.innermostB >= cacheLine ? '<span class="ok">' : '<span class="warn">') + r.innermostB + 'B</span>' },
+      { label: D.budgets.Right ? '占 ' + kb(D.budgets.Right.freeB) : '相对最大',
+        cell: (r) => {
+          const base = D.budgets.Right ? D.budgets.Right.freeB
+            : Math.max.apply(null, D.l0Tiles.map((x) => x.bytes));
+          return r.mem === 'Acc' ? '—' : bar(r.bytes / base, r.bytes > base ? 'bad' : 'neutral');
+        } },
+      { label: '出现', key: 'n', num: true },
+    ], D.l0Tiles.map((r) => Object.assign({ shape: '[' + r.rows + ',' + r.cols + ']' }, r)), {}));
+    stage.appendChild(lay);
+
+    const missing = el('section');
+    const A = D.case.artifacts;
+
+    /* PTOAS sources, when this dump carries them */
+    if (A.ptoas) {
+      const src = el('section');
+      const units = D.case.ptoasUnits;
+      const maxPto = Math.max.apply(null, units.map((u) => u.ptoLines));
+      src.appendChild(sectionHead('PTOAS 单元', units.length + ' 个 · .pto → .cpp · '
+        + Object.keys(A.kernelDirs).map((k) => k + ' ' + A.kernelDirs[k]).join(' / ')));
+      src.appendChild(table([
+        { label: '单元', key: 'name', mono: true },
+        { label: '.pto 行', key: 'ptoLines', num: true },
+        { label: '', cell: (r) => bar(r.ptoLines / maxPto, r.ptoLines === maxPto ? 'warn' : 'neutral') },
+        { label: '.cpp 行', num: true, cell: (r) => (r.cppLines == null ? '—' : r.cppLines) },
+        { label: '展开比', num: true, cell: (r) => (r.cppLines == null ? '—'
+          : num(r.cppLines / r.ptoLines, 2) + 'x') },
+      ], units.slice().sort((a, b) => b.ptoLines - a.ptoLines), { tall: true }));
+      stage.appendChild(src);
+    }
+
+    /* what is still missing — computed, not a fixed list */
+    const gaps = [
+      [A.ptoas ? null : 'ptoas/*.pto', '每个 kernel 的 PTOAS 源与展开后的 cpp'],
+      [Object.keys(A.kernelDirs).length ? null : 'kernels/', '实际编译出的 AIC / AIV 二进制'],
+      ['PTOAS TileLib 模板记录', '模板候选与选中原因'],
+      ['VPTO scheduler 排布报告', '依赖、延迟、寄存器压力、重物化'],
+      ['cycle cost model 预测', '与实测块时长对账'],
+      ['PMU counter', 'Cube / Vec / MTE / FIXPIPE，需单独建 PMU-on 基线'],
+    ].filter((r) => r[0]);
+    missing.appendChild(sectionHead('缺失产物', gaps.length + ' 项'));
+    missing.appendChild(table([
+      { label: '产物', cell: (r) => esc(r[0]), mono: true },
+      { label: '用于', cell: (r) => esc(r[1]) },
+      { label: '状态', cell: () => '<span class="bad">缺失</span>' },
+    ], gaps, {}));
+    stage.appendChild(missing);
+  }
+
+  /* ======================================================== inspector */
+  function inspectorSection(title, kicker) {
+    const s = el('section', 'inspector-section');
+    const h = el('div', 'inspector-section-head');
+    h.appendChild(el('h3', 'inspector-section-title', title));
+    if (kicker) h.appendChild(el('span', 'inspector-section-kicker', kicker));
+    s.appendChild(h);
+    return s;
+  }
+
+  function kv(pairs) {
+    const d = el('dl', 'tc-kv');
+    pairs.forEach((p) => {
+      if (p[1] == null) return;
+      d.appendChild(el('dt', null, p[0]));
+      d.appendChild(el('dd', null, p[1]));
+    });
+    return d;
+  }
+
+  function renderInspector() {
+    const host = $('#inspector');
+    host.textContent = '';
+    const title = $('[data-bind="inspectorTitle"]');
+    const meta = $('[data-bind="inspectorMeta"]');
+
+    const focus = S.focus || defaultFocus();
+    if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
+    else if (focus === 'hint' && S.hintSite) renderHintInspector(host, title, meta);
+    else if (focus === 'pass') renderPassInspector(host, title, meta);
+    else if (focus === 'run') renderRunInspector(host, title, meta);
+    else renderTaskInspector(host, title, meta);
+
+    host.appendChild(renderLedger());
+  }
+
+  /* the inspector follows the view unless the user pinned something else */
+  function defaultFocus() {
+    if (S.view === 'e2e' || S.view === 'isa') return 'run';
+    if (S.view === 'compiler') return S.compilerTab === 'passes' ? 'pass' : (S.hintSite ? 'hint' : 'run');
+    return 'task';
+  }
+
+  function renderRunInspector(host, title, meta) {
+    title.textContent = D.case.program;
+    meta.textContent = D.case.toolchain.platform || D.case.backend;
+
+    const s1 = inspectorSection('运行对象', D.case.runDir.slice(0, 16) + '…');
+    s1.appendChild(kv([
+      ['model', D.case.model],
+      ['采集时间', D.case.capturedAt],
+      ['ranks', D.case.ranks.join(', ') + ' · ' + D.case.device],
+      ['核', D.case.numCores + '（AIC ' + D.case.aicCount + ' / AIV ' + D.case.aivCount + '）'],
+      ['callables', String(D.case.callables)],
+      ['绑定参数', D.case.params.length ? String(D.case.params.length) : '未记录'],
+      ['pto-isa', D.case.toolchain.ptoIsaRevision ? D.case.toolchain.ptoIsaRevision.slice(0, 12) : '—'],
+      ['runtime', D.case.toolchain.runtimeName || '—'],
+    ]));
+    host.appendChild(s1);
+
+    if (!multiRank() || !hasE2E()) { renderRunInspectorSingle(host); return; }
+    const RK = D.case.ranks;
+    const s2 = inspectorSection('两卡对比', 'inv=' + TRACE_MATCH[RK[0]].inv + ' / ' + TRACE_MATCH[RK[1]].inv);
+    const a = D.ranks[RK[0]], b = D.ranks[RK[1]];
+    s2.appendChild(kv([
+      ['device_wall', num(D.e2e.rank0[2]['chip.run.runner_run.device_wall'].us, 1) + ' / '
+        + num(D.e2e.rank1[2]['chip.run.runner_run.device_wall'].us, 1) + ' us'],
+      ['trace span', num(a.swimlane.spanUs, 1) + ' / ' + num(b.swimlane.spanUs, 1) + ' us'],
+      ['AIC 占用', pct(a.occupancy.aicUtil) + ' / ' + pct(b.occupancy.aicUtil)],
+      ['AIV 占用', pct(a.occupancy.aivUtil) + ' / ' + pct(b.occupancy.aivUtil)],
+      ['关键路径', a.critical.tags.length + ' / ' + b.critical.tags.length + ' 节点'],
+      ['调度器占用', pct(a.scheduler.perLaneUtil) + ' / ' + pct(b.scheduler.perLaneUtil)],
+    ]));
+    /* the observation, then what the host clock says causes it */
+    s2.appendChild(el('div', 'inspector-soft-card is-warning',
+      'rank0 更慢却更闲：+' + num(a.swimlane.spanUs - b.swimlane.spanUs, 0) + ' us span，'
+      + '−' + num(b.occupancy.aicUtil - a.occupancy.aicUtil, 1) + ' pt AIC 占用'));
+    const K = D.launchSkew;
+    if (K) {
+      const cause = el('div', 'inspector-soft-card');
+      cause.appendChild(el('span', 'hd', 'rank1 晚发 ' + num(K.runnerUs, 1) + ' us'));
+      cause.appendChild(el('span', 'bd', 'AIC busy ' + num(K.work.rank0.aic.busy, 0) + ' / '
+        + num(K.work.rank1.aic.busy, 0) + ' us（差 '
+        + pct(Math.abs(K.work.rank0.aic.busy - K.work.rank1.aic.busy) / K.work.rank1.aic.busy * 100, 2)
+        + '）——计算量相同，多出来的 span 是等待'));
+      const rows = el('div', 'tc-skewrows');
+      const hd = el('div', 'tc-skewrow is-head');
+      ['wait', 'rank0 等', '错峰上界', '占比'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
+      rows.appendChild(hd);
+      K.checks.forEach((c) => {
+        const r = el('button', 'tc-skewrow');
+        r.type = 'button';
+        r.appendChild(el('span', 'l', c.callable.replace(/_wait$/, '')));
+        r.appendChild(el('span', 'n', num(c.measured, 1)));
+        r.appendChild(el('span', 'n muted', num(c.bound, 1)));
+        r.appendChild(el('span', 'n' + (c.fitPct >= 80 ? ' hot' : ''), pct(c.fitPct, 0)));
+        r.addEventListener('click', () => {
+          S.rank = 'rank0'; S.view = 'l2'; S.task = c.tag0; S.focus = 'task';
+          const t = tasksOf.rank0[c.tag0];
+          if (t) { const pad = Math.max(40, t.span * 0.35); setWindow(t.start - pad, t.end + pad); }
+          render();
+        });
+        rows.appendChild(r);
+      });
+      cause.appendChild(rows);
+      cause.appendChild(el('span', 'bd', (K.allUnderBound ? '4 个 wait 全部落在上界内' : '有 wait 超出上界')
+        + ' · 合计 ' + num(K.measuredSum, 0) + ' / ' + num(K.boundSum, 0) + ' us'));
+      s2.appendChild(cause);
+    }
+    host.appendChild(s2);
+
+    const s3 = inspectorSection('瓶颈队列', 'top 3');
+    D.findings.slice(0, 3).forEach((f) => {
+      s3.appendChild(btn(f.id + ' · ' + f.title, {
+        size: 'sm',
+        on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
+      }));
+    });
+    host.appendChild(s3);
+  }
+
+  function renderTaskInspector(host, title, meta) {
+    const t = curTask();
+    const rank = R();
+    title.textContent = t.callable;
+    meta.textContent = t.tag + ' · ' + S.rank;
+
+    const s1 = inspectorSection('对象', t.kind.toUpperCase());
+    s1.appendChild(kv([
+      ['task id', t.id],
+      ['callable', t.callable + '（funcId ' + t.funcId + '）'],
+      ['ring / scope', 'r' + t.ring + ' · ' + t.scope + (t.earlyDispatch ? ' · early_dispatch' : '')],
+      ['窗口', num(t.start, 1) + ' → ' + num(t.end, 1) + ' us'],
+      ['块 / 核', t.blockCount + ' / ' + t.coreCount + '（block_num ' + t.blockNum + '）'],
+      ['块时长', num(t.durMin, 2) + ' / ' + num(t.durMed, 2) + ' / ' + num(t.durP90, 2) + ' / ' + num(t.durMax, 2) + ' us'],
+      ['kernel · setup', num(t.kdurSum / t.blockCount, 2) + ' · ' + num(t.setupMean, 2) + ' us'],
+      ['AICPU 视角', t.svAicpuMean == null ? null : num(t.svAicpuMean, 1) + ' us（+' + num(t.svOverhead, 1) + '）'],
+      ['前驱 / 后继', t.pred.length + ' / ' + t.succ.length],
+    ]));
+    host.appendChild(s1);
+
+    if (t.args.length) {
+      const s2 = inspectorSection('绑定张量', t.args.length + ' 个');
+      const list = el('div', 'tc-evidence');
+      t.args.slice(0, 8).forEach((a) => {
+        const r = el('div', 'tc-evidence-row');
+        r.appendChild(el('span', 'a', 'idx ' + a.idx + ' · ' + a.type));
+        r.appendChild(el('span', 'l', a.dtype + ' [' + a.shape.join(', ') + ']'));
+        list.appendChild(r);
+      });
+      s2.appendChild(list);
+      if (t.args.length > 8) s2.appendChild(el('p', 'tc-note', '另有 ' + (t.args.length - 8) + ' 个'));
+      host.appendChild(s2);
+    }
+
+    const s3 = inspectorSection('依赖', 'fanin / fanout hints');
+    const chips = el('div', 'tc-chipbar');
+    t.pred.concat(t.succ).forEach((tag) => {
+      const p = tasksOf[S.rank][tag];
+      const b = btn(tag + (p ? ' · ' + p.callable : ''), {
+        variant: 'ghost', size: 'sm',
+        on: () => { if (p) { S.task = tag; S.focus = 'task'; render(); } },
+      });
+      if (!p) b.disabled = true;
+      chips.appendChild(b);
+    });
+    s3.appendChild(chips);
+    host.appendChild(s3);
+
+    const rel = D.findings.filter((f) => f.focus && f.focus.task === t.tag);
+    if (rel.length) {
+      const s4 = inspectorSection('关联瓶颈', rel.length + ' 条');
+      rel.forEach((f) => {
+        s4.appendChild(btn(f.id + ' · ' + f.title, {
+          size: 'sm', on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
+        }));
+      });
+      host.appendChild(s4);
+    }
+
+    const s5 = inspectorSection('所在核', '本任务涉及的泳道');
+    const laneNames = {};
+    rank.swimlane.laneNames.forEach((name, li) => {
+      if (rank.swimlane.blocks[li].some((b) => rank.tasks[b[2]].tag === t.tag)) laneNames[name] = 1;
+    });
+    const laneStats = rank.swimlane.lanes.filter((l) => laneNames[l.name])
+      .sort((a, b) => b.util - a.util).slice(0, 6);
+    s5.appendChild(table([
+      { label: 'lane', key: 'name', mono: true },
+      { label: '占用', num: true, cell: (l) => pct(l.util) },
+      { label: '', cell: (l) => bar(l.util / 100, l.util > 70 ? 'warn' : 'neutral') },
+      { label: '最大空洞', num: true, cell: (l) => num(l.maxGap, 1) },
+    ], laneStats, {}));
+    host.appendChild(s5);
+  }
+
+  function renderFindingInspector(host, title, meta) {
+    const f = findingById[S.finding];
+    title.textContent = f.id + ' · ' + LEVEL_LABEL[f.level];
+    meta.textContent = f.severity;
+
+    const s1 = inspectorSection(f.title, f.metric);
+    s1.appendChild(el('p', 'tc-note', f.claim));
+    host.appendChild(s1);
+
+    const s2 = inspectorSection('证据', f.chips.length ? f.evidence.length + ' 项 · 已在中间标号' : f.evidence.length + ' 项');
+    const list = el('div', 'tc-evidence');
+    f.evidence.forEach((e) => {
+      /* link an evidence row to the marked objects its locator names, so the
+       * inspector text and the numbered markers on the stage are the same thing */
+      const keysOf = (c) => {
+        const keys = [c.id, c.label];
+        if (c.kind === 'site') keys.push(c.id.split(':')[0]);   /* file without line */
+        return keys.filter(Boolean);
+      };
+      const linked = f.chips.filter((c) => keysOf(c)
+        .some((k) => e.locator.indexOf(k) >= 0 || e.value.indexOf(k) >= 0));
+      const r = el('div', 'tc-evidence-row');
+      const a = el('span', 'a', e.artifact);
+      if (linked.length) {
+        a.appendChild(document.createTextNode(' · '));
+        a.appendChild(el('span', 'jump', '标号 ' + linked.map((c) => f.chips.indexOf(c) + 1).join(' / ')));
+        r.classList.add('is-linked');
+        r.tabIndex = 0;
+        r.setAttribute('role', 'button');
+        const go = () => gotoChip(linked[0]);
+        r.addEventListener('click', go);
+        r.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+      }
+      r.appendChild(a);
+      r.appendChild(el('span', 'l', e.locator));
+      r.appendChild(el('span', 'v', e.value));
+      list.appendChild(r);
+    });
+    s2.appendChild(list);
+    host.appendChild(s2);
+
+    const s3 = inspectorSection('杠杆与护栏');
+    s3.appendChild(el('div', 'inspector-soft-card is-info', '杠杆：' + f.lever));
+    s3.appendChild(el('div', 'inspector-soft-card is-warning', '护栏：' + f.guardrail));
+    s3.appendChild(el('div', 'inspector-soft-card', '复测：' + f.verify));
+    host.appendChild(s3);
+
+    host.appendChild(renderComposer(f));
+  }
+
+  function renderHintInspector(host, title, meta) {
+    const depth = D.depthSites.find((s) => s.key === S.hintSite);
+    const tile = D.tileSites.find((s) => s.key === S.hintSite);
+    const site = depth || tile;
+    if (!site) { renderTaskInspector(host, title, meta); return; }
+    title.textContent = site.file + ':' + site.line;
+    meta.textContent = depth ? 'PH-MR-001' : 'PH001';
+
+    const s1 = inspectorSection('源码点', site.module);
+    if (depth) {
+      s1.appendChild(kv([
+        ['pipeline 组', depth.groupCount + ' 组'],
+        ['空间', depth.units.join(' / ')],
+        ['请求深度', String(depth.maxReqDepth)],
+        ['实得深度', String(depth.fittedDepth)],
+        ['每 stage', kb(depth.perStageB)],
+        ['可用', kb(depth.freeB)],
+        ['需求 / 可用', num((depth.perStageB * depth.maxReqDepth) / depth.freeB, 2) + 'x'],
+      ]));
+      const list = el('div', 'tc-evidence');
+      depth.groups.forEach((g) => {
+        const r = el('div', 'tc-evidence-row');
+        r.appendChild(el('span', 'a', 'group ' + g.group + ' @' + g.unit));
+        r.appendChild(el('span', 'l', 'depth ' + g.reqDepth + ' → ' + g.fit));
+        r.appendChild(el('span', 'v', kb(g.perStageB) + ' / stage，' + kb(g.freeB) + ' free'
+          + (g.ownDepth ? '；单独放得下 depth ' + g.ownDepth : '')));
+        list.appendChild(r);
+      });
+      s1.appendChild(list);
+    } else {
+      s1.appendChild(kv([
+        ['算子', Object.keys(tile.ops).join(', ')],
+        ['目标空间', Object.keys(tile.mems).join(', ')],
+        ['dtype', Object.keys(tile.dtypes).join(', ')],
+        ['tile', tile.shapes.join(' ')],
+        ['最小末维', tile.minB + 'B'],
+        ['建议', '≥ ' + tile.recB + 'B（cache line ' + tile.cacheLineB + 'B）'],
+        ['命中', tile.occ + ' 次 / ' + tile.n + ' 条'],
+      ]));
+    }
+    host.appendChild(s1);
+
+    const s2 = inspectorSection('处理');
+    s2.appendChild(el('div', 'inspector-soft-card is-info', depth
+      ? '减少同驻 tile，而非调大 stage'
+      : '末维凑满一个 cache line'));
+    s2.appendChild(el('div', 'inspector-soft-card is-warning', depth
+      ? '调大 stage 会再触发一次回退'
+      : '加大末维会抬高 L0 / UB 占用，可能触发深度回退'));
+    host.appendChild(s2);
+  }
+
+  function renderPassInspector(host, title, meta) {
+    const p = D.passes.find((x) => x.idx === S.pass) || D.passes[0];
+    title.textContent = p.name;
+    meta.textContent = '#' + p.idx;
+    const s1 = inspectorSection('Pass', p.file);
+    s1.appendChild(kv([
+      ['IR 行数', String(p.lines)],
+      ['Δ 行', (p.delta > 0 ? '+' : '') + p.delta],
+      ['pl.pipeline', String(p.counts.pipeline)],
+      ['tile.matmul', String(p.counts.matmul)],
+      ['pl.spmd', String(p.counts.spmd)],
+      ['pl.range', String(p.counts.range)],
+      ['Mem.Left / Right', p.counts.left + ' / ' + p.counts.right],
+      ['Mem.Acc / Vec', p.counts.acc + ' / ' + p.counts.vec],
+    ]));
+    host.appendChild(s1);
+
+    const prev = D.passes.find((x) => x.idx === p.idx - 1);
+    if (prev) {
+      const s2 = inspectorSection('相对上一个 Pass', prev.name);
+      const diffs = [
+        ['pl.pipeline', p.counts.pipeline - prev.counts.pipeline],
+        ['tile.matmul', p.counts.matmul - prev.counts.matmul],
+        ['Mem.Left', p.counts.left - prev.counts.left],
+        ['Mem.Right', p.counts.right - prev.counts.right],
+        ['Mem.Acc', p.counts.acc - prev.counts.acc],
+        ['pl.range', p.counts.range - prev.counts.range],
+      ].filter((d) => d[1] !== 0);
+      if (diffs.length) s2.appendChild(kv(diffs.map((d) => [d[0], (d[1] > 0 ? '+' : '') + d[1]])));
+      else s2.appendChild(el('p', 'tc-note', '结构计数无变化 · 行数 ' + (p.delta > 0 ? '+' : '') + p.delta));
+      host.appendChild(s2);
+    }
+  }
+
+  /* ------------------------------------------------------- experiment */
+  function renderComposer(f) {
+    const open = openExperiment();
+    const s = inspectorSection('实验台账', open ? '已有 1 个进行中' : '每轮只验证一个假设');
+    if (open && open.findingId !== f.id) {
+      s.appendChild(el('div', 'inspector-soft-card is-warning',
+        open.id + ' 进行中 · 结论后才能开下一个'));
+      s.appendChild(btn('查看 ' + open.id, {
+        size: 'sm',
+        on: () => { if (open.findingId) { S.finding = open.findingId; S.focus = 'finding'; render(); } },
+      }));
+      return s;
+    }
+    if (open && open.findingId === f.id) {
+      s.appendChild(renderStepper(open));
+      return s;
+    }
+    const form = el('div', 'tc-form');
+    const hyp = el('textarea');
+    hyp.rows = 3;
+    hyp.value = f.lever;
+    const chg = el('input');
+    chg.type = 'text';
+    chg.placeholder = '例如：hc_post.py:51 把 co-live tile 从 5 组降到 2 组';
+    const l1 = el('label');
+    l1.appendChild(el('span', null, '假设'));
+    l1.appendChild(hyp);
+    const l2 = el('label');
+    l2.appendChild(el('span', null, '改动'));
+    l2.appendChild(chg);
+    form.appendChild(l1);
+    form.appendChild(l2);
+    const acts = el('div', 'tc-actions');
+    acts.appendChild(btn('开始实验', {
+      variant: 'solid', size: 'sm',
+      on: () => {
+        ledgerSeq += 1;
+        S.ledger.push({
+          id: 'E' + ledgerSeq,
+          state: 'open',
+          findingId: f.id,
+          title: f.id + ' · ' + f.title,
+          hypothesis: hyp.value.trim() || f.lever,
+          change: chg.value.trim() || '（未填写改动位置）',
+          correctness: null, perf: null, keep: null,
+          verify: f.verify, guardrail: f.guardrail,
+        });
+        render();
+      },
+    }));
+    form.appendChild(acts);
+    s.appendChild(form);
+    return s;
+  }
+
+  function renderStepper(row) {
+    const wrap = el('div', 'tc-form');
+    const steps = el('div', 'tc-ledger-steps');
+    const step = (k, v, done) => {
+      const r = el('div', 'tc-ledger-step');
+      r.dataset.done = done ? 'true' : 'false';
+      r.appendChild(el('span', 'k', k));
+      r.appendChild(el('span', 'v', v));
+      return r;
+    };
+    steps.appendChild(step('假设', row.hypothesis, true));
+    steps.appendChild(step('改动', row.change, true));
+    steps.appendChild(step('正确性', row.correctness || '待记录', !!row.correctness));
+    steps.appendChild(step('性能', row.perf || row.verify, !!row.perf));
+    steps.appendChild(step('结论', row.keep || '待决定', !!row.keep));
+    wrap.appendChild(steps);
+
+    const acts = el('div', 'tc-actions');
+    if (!row.correctness) {
+      const inp = el('input');
+      inp.type = 'text';
+      inp.placeholder = '精度阈值 / 对比基准';
+      const lb = el('label');
+      lb.appendChild(el('span', null, '正确性'));
+      lb.appendChild(inp);
+      wrap.appendChild(lb);
+      acts.appendChild(btn('记录正确性', {
+        size: 'sm', variant: 'solid',
+        on: () => { row.correctness = inp.value.trim() || '通过（未填写细节）'; render(); },
+      }));
+    } else if (!row.perf) {
+      const inp = el('input');
+      inp.type = 'text';
+      inp.placeholder = '复测结果，例如 device_wall 5132.8 → ? us';
+      const lb = el('label');
+      lb.appendChild(el('span', null, '性能'));
+      lb.appendChild(inp);
+      wrap.appendChild(lb);
+      acts.appendChild(btn('记录性能', {
+        size: 'sm', variant: 'solid',
+        on: () => { row.perf = inp.value.trim() || '（未填写复测数值）'; render(); },
+      }));
+    } else {
+      const guard = el('div', 'inspector-soft-card is-warning');
+      guard.textContent = row.guardrail;
+      wrap.appendChild(guard);
+      acts.appendChild(btn('保留', { size: 'sm', variant: 'solid', on: () => { row.keep = '保留'; row.state = 'kept'; render(); } }));
+      acts.appendChild(btn('回退', { size: 'sm', on: () => { row.keep = '回退'; row.state = 'reverted'; render(); } }));
+    }
+    acts.appendChild(btn('放弃这轮', {
+      size: 'sm', variant: 'ghost',
+      on: () => { S.ledger = S.ledger.filter((r) => r !== row); render(); },
+    }));
+    wrap.appendChild(acts);
+    return wrap;
+  }
+
+  function renderLedger() {
+    const s = inspectorSection('台账', S.ledger.length + ' 条');
+    const list = el('div', 'tc-ledger');
+    S.ledger.slice().reverse().forEach((row) => {
+      const item = el('div', 'tc-ledger-item');
+      item.dataset.state = row.state;
+      const hd = el('div', 'hd');
+      hd.appendChild(el('span', 'id', row.id));
+      hd.appendChild(el('span', 'st', row.state));
+      item.appendChild(hd);
+      item.appendChild(el('span', 'ti', row.title));
+      const steps = el('div', 'tc-ledger-steps');
+      [['假设', row.hypothesis], ['改动', row.change], ['正确性', row.correctness],
+        ['性能', row.perf], ['结论', row.keep]].forEach((p) => {
+        const r = el('div', 'tc-ledger-step');
+        r.dataset.done = p[1] ? 'true' : 'false';
+        r.appendChild(el('span', 'k', p[0]));
+        r.appendChild(el('span', 'v', p[1] || '—'));
+        steps.appendChild(r);
+      });
+      item.appendChild(steps);
+      if (row.findingId) {
+        item.appendChild(btn('回到 ' + row.findingId, {
+          variant: 'ghost', size: 'sm',
+          on: () => { S.finding = row.findingId; S.focus = 'finding'; applyFocus(findingById[row.findingId]); render(); },
+        }));
+      }
+      list.appendChild(item);
+    });
+    s.appendChild(list);
+    return s;
+  }
+
+  /* ======================================================= bottom dock */
+  function renderDock() {
+    const body = $('#dockBody');
+    body.textContent = '';
+    /* the ready-queue tooltip lives outside #dockBody, so clear it by hand */
+    const staleTip = document.querySelector('[data-tc-tip="readyq"]');
+    if (staleTip) staleTip.remove();
+    const rank = R();
+    $('[data-bind="dockMeta"]').textContent = S.rank + ' · 与上方时间轴同窗口 '
+      + num(S.t0, 0) + '–' + num(S.t1, 0) + ' us';
+    const modeHost = $('#dockMode');
+    modeHost.textContent = '';
+    modeHost.appendChild(group('segmented-control segmented-control-muted', [
+      { id: 'sched', label: 'AICPU 调度' },
+      { id: 'ready', label: 'Ready queue' },
+      { id: 'lanes', label: '核占用' },
+    ], S.dockMode, (v) => { S.dockMode = v; renderDock(); }));
+
+    if (S.dockMode === 'lanes') {
+      const rows = rank.swimlane.lanes.slice().sort((a, b) => b.util - a.util);
+      body.appendChild(table([
+        { label: 'lane', key: 'name', mono: true },
+        { label: '类型', key: 'kind', mono: true },
+        { label: '块', key: 'blocks', num: true },
+        { label: '占用', num: true, cell: (l) => pct(l.util) },
+        { label: '', cell: (l) => bar(l.util / 100, l.util > 70 ? 'warn' : l.util < 30 ? 'bad' : 'neutral') },
+        { label: '空洞数', key: 'nGap', num: true },
+        { label: '最大空洞', num: true, cell: (l) => num(l.maxGap, 1) },
+        { label: '首块 → 末块', cell: (l) => num(l.first, 0) + ' → ' + num(l.last, 0), num: true },
+      ], rows, {}));
+      return;
+    }
+
+    if (S.dockMode === 'sched') {
+      const phases = Object.keys(rank.scheduler.phases)
+        .map((k) => Object.assign({ phase: k }, rank.scheduler.phases[k]))
+        .sort((a, b) => b.us - a.us);
+      const maxUs = phases[0].us;
+      const head = el('div', 'tc-tiles');
+      head.style.flex = '0 0 auto';
+      const t = tiles([
+        { k: '调度线程', v: rank.scheduler.lanes.length },
+        { k: '合计 busy', v: num(rank.scheduler.busy, 0), u: 'us' },
+        { k: '单线程平均占用', v: pct(rank.scheduler.perLaneUtil), tone: rank.scheduler.perLaneUtil > 40 ? 'warn' : null },
+        { k: 'orchestrator submit', v: rank.orchestrator.count, u: num(rank.orchestrator.busy, 1) + ' us' },
+        { k: 'hb_violation', v: rank.hbViolations.length, u: '对', tone: rank.hbViolations.length ? 'warn' : 'good' },
+      ]);
+      body.appendChild(t);
+      body.appendChild(table([
+        { label: 'phase', key: 'phase', mono: true },
+        { label: '段数', key: 'n', num: true },
+        { label: '总时长', num: true, cell: (p) => num(p.us, 1) },
+        { label: '', cell: (p) => bar(p.us / maxUs, p.phase === 'complete' ? 'warn' : 'neutral') },
+        { label: '处理任务', key: 'tasks', num: true },
+        { label: 'us / 任务', num: true, cell: (p) => (p.usPerTask == null ? '—' : num(p.usPerTask, 3)) },
+      ], phases, {}));
+      return;
+    }
+
+    /* ready queue
+     * shared_ready_queue is a Chrome-trace counter (ph "C"): each sample says
+     * how many tasks are dependency-satisfied but not yet dispatched, split by
+     * engine. A counter holds its value until the next sample, so it is drawn
+     * as a step — the same semantics build-data.cjs integrates busyTime with. */
+    const SERIES = [
+      { key: 'AIC', idx: 1, token: '--danger' },
+      { key: 'AIV', idx: 2, token: '--warning' },
+      { key: 'MIX', idx: 3, token: '--accent' },
+    ];
+    const legend = el('div', 'tc-legend');
+    SERIES.forEach((sr) => {
+      const item = el('span');
+      const swatch = el('i');
+      swatch.style.background = cssVar(sr.token);
+      item.appendChild(swatch);
+      item.appendChild(el('span', null, sr.key + ' ready · peak ' + rank.readyStat.peak[sr.key]));
+      legend.appendChild(item);
+    });
+    legend.appendChild(el('span', 'tc-readout', rank.readyQueue.length + ' 个采样点 · 悬停读数'));
+    body.appendChild(legend);
+
+    const host = el('div', 'tc-canvas-strip');
+    host.style.flex = '0 0 auto';
+    const canvas = el('canvas');
+    host.appendChild(canvas);
+    body.appendChild(host);
+    body.appendChild(tiles([
+      { k: 'AIC ready>0', v: pct(rank.readyStat.busyShare.AIC), u: num(rank.readyStat.busyTime.AIC, 0) + ' us', tone: 'warn' },
+      { k: 'AIV ready>0', v: pct(rank.readyStat.busyShare.AIV), u: num(rank.readyStat.busyTime.AIV, 0) + ' us' },
+      { k: 'MIX ready>0', v: pct(rank.readyStat.busyShare.MIX), u: num(rank.readyStat.busyTime.MIX, 0) + ' us' },
+      { k: '峰值', v: rank.readyStat.peak.AIC + ' / ' + rank.readyStat.peak.AIV + ' / ' + rank.readyStat.peak.MIX, u: 'AIC / AIV / MIX' },
+      { k: 'AIC 核占用', v: pct(rank.occupancy.aicUtil), tone: rank.occupancy.aicUtil < 40 ? 'bad' : null },
+      { k: 'AIV 核占用', v: pct(rank.occupancy.aivUtil) },
+    ]));
+
+    const q = rank.readyQueue;
+    /* last sample whose timestamp is <= t */
+    const sampleAt = (t) => {
+      let lo = 0, hi = q.length - 1, hit = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (q[mid][0] <= t) { hit = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      return hit;
+    };
+
+    let hoverX = null;   /* pointer position, canvas css px */
+    let geom = null;     /* written by draw(), read by the pointer handler */
+
+    const draw = () => {
+      const w = host.clientWidth || 700;
+      const h = 92;
+      const ctx = fitCanvas(canvas, w, h);
+      const x0 = 46, plotW = Math.max(40, w - x0 - 12), y0 = 18, hh = h - 40;
+      geom = { x0: x0, plotW: plotW, y0: y0, hh: hh };
+      drawTimeRuler(ctx, x0, plotW, 10, S.t0, S.t1);
+      const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
+      const sx = (t) => x0 + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
+      const sy = (v) => y0 + hh - (v / peak) * hh;
+      SERIES.forEach((sr) => {
+        ctx.beginPath();
+        ctx.moveTo(x0, y0 + hh);
+        let prevY = y0 + hh;
+        q.forEach((sample) => {
+          const x = clamp(sx(sample[0]), x0, x0 + plotW);
+          const y = sy(sample[sr.idx]);
+          ctx.lineTo(x, prevY);   /* hold the previous value up to this sample */
+          ctx.lineTo(x, y);       /* then step */
+          prevY = y;
+        });
+        ctx.lineTo(x0 + plotW, prevY);
+        ctx.lineTo(x0 + plotW, y0 + hh);
+        ctx.closePath();
+        ctx.fillStyle = cssVar(sr.token);
+        ctx.globalAlpha = 0.3;
+        ctx.fill();
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = cssVar(sr.token);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+      ctx.font = '500 11px ' + cssVar('--font-sans');
+      ctx.fillStyle = cssVar('--foreground-muted');
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(peak), x0 - 6, y0 + 4);
+      ctx.fillText('0', x0 - 6, y0 + hh);
+
+      /* crosshair: the read head the tooltip is reporting */
+      if (hoverX != null) {
+        const hx = clamp(hoverX, x0, x0 + plotW);
+        const i = sampleAt(S.t0 + ((hx - x0) / plotW) * (S.t1 - S.t0));
+        ctx.save();
+        ctx.strokeStyle = cssVar('--foreground-secondary');
+        ctx.globalAlpha = 0.55;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(hx) + 0.5, y0 - 6);
+        ctx.lineTo(Math.round(hx) + 0.5, y0 + hh);
+        ctx.stroke();
+        ctx.restore();
+        if (i >= 0) {
+          SERIES.forEach((sr) => {
+            ctx.beginPath();
+            ctx.arc(hx, sy(q[i][sr.idx]), 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = cssVar(sr.token);
+            ctx.fill();
+          });
+        }
+      }
+    };
+
+    /* the shared pattern owns the tooltip chrome; only the rows are ours */
+    const tipRow = (k, v, cls) => '<div class="pto-swimlane-task-tooltip__row">'
+      + '<span class="pto-swimlane-task-tooltip__key">' + esc(k) + '</span>'
+      + '<span class="pto-swimlane-task-tooltip__value' + (cls ? ' ' + cls : '') + '">'
+      + esc(v) + '</span></div>';
+
+    /* the tooltip lives on the frame layer: .tc-canvas-strip clips to its
+     * rounded corners, and the strip is only 92px tall. */
+    const tipLayer = document.querySelector('.tc-frame');
+    const tip = SW.createTooltip();
+    tip.dataset.tcTip = 'readyq';
+    tipLayer.appendChild(tip);
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (!geom) return;
+      hoverX = event.clientX - canvas.getBoundingClientRect().left;
+      draw();
+      const hx = clamp(hoverX, geom.x0, geom.x0 + geom.plotW);
+      const t = S.t0 + ((hx - geom.x0) / geom.plotW) * (S.t1 - S.t0);
+      const i = sampleAt(t);
+      if (i < 0) { SW.hideTooltip(tip); return; }
+      const held = (i + 1 < q.length ? q[i + 1][0] : q[q.length - 1][0]) - q[i][0];
+      const total = q[i][1] + q[i][2] + q[i][3];
+      const html = '<div class="pto-swimlane-task-tooltip__title">t = ' + num(t, 1) + ' us</div>'
+        + tipRow('采样', num(q[i][0], 2) + ' us · #' + (i + 1) + '/' + q.length)
+        + tipRow('保持', num(held, 2) + ' us')
+        + tipRow('AIC ready', String(q[i][1]), q[i][1] > 0 ? 'is-warn' : '')
+        + tipRow('AIV ready', String(q[i][2]))
+        + tipRow('MIX ready', String(q[i][3]))
+        + tipRow('待派发合计', String(total));
+      SW.showTooltip(tip, { counterReadout: true }, event,
+        { bounds: tipLayer, target: canvas, getTooltipHtml: () => html });
+    });
+    canvas.addEventListener('pointerleave', () => {
+      hoverX = null;
+      draw();
+      SW.hideTooltip(tip);
+    });
+
+    requestAnimationFrame(draw);
+    if (body.__ro) body.__ro.disconnect();
+    body.__ro = new ResizeObserver(draw);
+    body.__ro.observe(host);
+  }
+
+  /* -------------------------------------------------------- terminal */
+  const TERM_TABS = [
+    { id: 'problems', label: 'Problems' },
+    { id: 'output', label: 'Output' },
+    { id: 'artifacts', label: 'Artifacts' },
+  ];
+
+  function renderTerminal() {
+    const tabs = $('#terminalTabs');
+    tabs.textContent = '';
+    TERM_TABS.forEach((t) => {
+      const b = el('span', 'pto-ide-frame__terminal-tab' + (t.id === S.termTab ? ' is-selected' : ''),
+        t.label + (t.id === 'problems' ? ' (' + D.hints.length + ')' : ''));
+      b.tabIndex = 0;
+      b.addEventListener('click', () => { S.termTab = t.id; renderTerminal(); });
+      tabs.appendChild(b);
+    });
+
+    const body = $('#terminalBody');
+    body.textContent = '';
+
+    if (S.termTab === 'problems') {
+      const list = el('div', 'tc-term-list');
+      D.hints.forEach((h) => {
+        const row = el('button', 'tc-term-row');
+        row.type = 'button';
+        row.dataset.sev = h.kind === 'pipeline-depth' ? 'warn' : 'info';
+        row.appendChild(el('span', 'sev', h.code));
+        row.appendChild(el('span', 'loc', h.file + ':' + h.line));
+        row.appendChild(el('span', 'msg', h.kind === 'pipeline-depth'
+          ? 'MemoryReuse: depth ' + h.reqDepth + ' → ' + h.fit + ' @' + h.unit + ' group ' + h.group
+            + ' (' + h.perStageB + ' B/stage, ' + h.freeB + ' B free)'
+          : 'TileInnermostDimGranularity: ' + h.op + ' innermost ' + h.innermostB + 'B, tile '
+            + h.dtype + '[' + h.tileShape + '] → ' + h.mem + ', recommended ≥ ' + h.recB + 'B'));
+        row.addEventListener('click', () => {
+          S.view = 'compiler';
+          S.compilerTab = h.kind === 'pipeline-depth' ? 'depth' : 'granularity';
+          S.hintSite = h.file + ':' + h.line;
+          S.focus = 'hint';
+          render();
+        });
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+      return;
+    }
+
+    if (S.termTab === 'output') {
+      const lines = [];
+      Object.keys(D.e2e || {}).forEach((rank) => {
+        Object.keys(D.e2e[rank]).forEach((inv) => {
+          lines.push('# ' + rank + ' inv=' + inv);
+          Object.keys(D.e2e[rank][inv]).forEach((name) => {
+            const sp = D.e2e[rank][inv][name];
+            lines.push('  [' + sp.clk.padEnd(6) + '] ' + name.padEnd(46) + ' dur=' + sp.us.toFixed(2) + ' us');
+          });
+        });
+      });
+      const pre = el('pre', 'tc-term-static', lines.join('\n'));
+      body.appendChild(pre);
+      return;
+    }
+
+    /* Artifact inventory for the active case: present rows carry what they
+     * answer, absent rows say so instead of being dropped silently. */
+    const A = D.case.artifacts;
+    const rankDir = (r) => 'dfx_outputs/' + (multiRank() ? r + '/d0/' : '');
+    const rows = [
+      ['distributed_meta.json', A.distributedMeta
+        ? D.case.params.length + ' 个绑定参数，schema ' + D.case.metaSchema : '缺失'],
+    ].concat(D.case.ranks.map((r) => [
+      rankDir(r) + 'merged_swimlane_*.json',
+      'Worker + Scheduler view，' + D.ranks[r].tasks.length + ' 任务 / '
+        + D.ranks[r].swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块',
+    ])).concat([
+      [rankDir(D.defaultRank) + 'deps.json', 'scope / 绑定张量'
+        + (D.ranks[D.defaultRank].tasks[0].blockNum != null ? ' / block_num / early_dispatch' : '')],
+      [rankDir(D.defaultRank) + 'name_map.json', D.case.callables + ' 个 callable（level ' + D.case.level + '）'],
+      [rankDir(D.defaultRank) + 'host.*.log', A.hostSpans
+        ? 'STRACE host span（bind / runner_run / device_wall / sched）' : '缺失 —— 无 E2E 层'],
+      ['report/perf_hints.log', D.hints.length + ' 条 perf hint（'
+        + Array.from(new Set(D.hints.map((h) => h.code))).sort().join(' / ') + '）'],
+      ['passes_dump/', D.passes.length + ' 个 IR dump，' + D.passes[0].lines
+        + ' → ' + D.passes[D.passes.length - 1].lines + ' 行'],
+      ['chip_swimlane_records.json', A.chipSwimlaneRecords
+        ? '核清单与时钟频率' : '缺失 —— 核数由 trace 线程名推得'],
+      ['binary_context.json', A.binaryContext
+        ? 'platform ' + D.case.toolchain.platform + ' · pto-isa '
+          + D.case.toolchain.ptoIsaRevision.slice(0, 12) + ' · runtime ' + D.case.toolchain.runtimeName
+        : '缺失'],
+      ['ptoas/', A.ptoas ? A.ptoas + ' 个单元（.pto + .cpp）' : '缺失'],
+      ['kernels/', Object.keys(A.kernelDirs).length
+        ? Object.keys(A.kernelDirs).map((k) => k + ' ' + A.kernelDirs[k]).join(' · ') : '缺失'],
+      ['orchestration/', A.orchestration.length ? A.orchestration.join(' · ') : '缺失'],
+      ['kernel_config.py', A.kernelConfig
+        ? 'runtime ' + (D.case.toolchain.runtimeName || '—')
+          + (D.case.toolchain.aicpuThreads ? ' · ' + D.case.toolchain.aicpuThreads + ' AICPU 线程' : '')
+        : '缺失'],
+    ]);
+    body.appendChild(table([
+      { label: '产物', cell: (r) => esc(r[0]), mono: true },
+      { label: '内容', cell: (r) => esc(r[1]) },
+    ], rows, {}));
+  }
+
+  /* One device, or no host spans: there is no cross-rank comparison to make,
+   * so the inspector reports this run on its own terms. */
+  function renderRunInspectorSingle(host) {
+    const R0 = R();
+    const s2 = inspectorSection('本次运行', D.case.ranks.length + ' 个执行单元');
+    s2.appendChild(kv([
+      ['trace span', num(R0.swimlane.spanUs, 1) + ' us'],
+      ['device_wall', hasE2E()
+        ? num(D.e2e[S.rank][TRACE_MATCH[S.rank].inv]['chip.run.runner_run.device_wall'].us, 1) + ' us'
+        : '无 host log'],
+      ['AIC 占用', pct(R0.occupancy.aicUtil)],
+      ['AIV 占用', pct(R0.occupancy.aivUtil)],
+      ['关键路径', R0.critical.tags.length + ' 节点'],
+      ['调度器占用', pct(R0.scheduler.perLaneUtil)],
+    ]));
+    if (!hasE2E()) {
+      s2.appendChild(el('div', 'inspector-soft-card is-warning',
+        '无 host STRACE log：迭代次数、device_wall、bind 缓存命中都不可得，'
+        + '基线只能锁在 trace span ' + num(R0.swimlane.spanUs, 1) + ' us 上'));
+    }
+    host.appendChild(s2);
+
+    const s3 = inspectorSection('瓶颈队列', 'top ' + Math.min(3, D.findings.length));
+    D.findings.slice(0, 3).forEach((f) => {
+      s3.appendChild(btn(f.id + ' · ' + f.title, {
+        variant: 'ghost', size: 'sm',
+        on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
+      }));
+    });
+    host.appendChild(s3);
+    host.appendChild(renderLedger());
+  }
+
+  /* ========================================================= chrome */
+  function renderTabs() {
+    const host = $('#levelTabs');
+    host.textContent = '';
+    LEVELS.forEach((l) => {
+      const b = el('button', 'tab-control-item' + (l.id === S.view ? ' is-selected' : ''), l.label);
+      b.type = 'button';
+      b.title = l.hint;
+      b.setAttribute('aria-pressed', l.id === S.view ? 'true' : 'false');
+      b.addEventListener('click', () => { S.view = l.id; S.focus = null; render(); });
+      host.appendChild(b);
+    });
+  }
+
+  function renderToolbar() {
+    const host = $('#viewToolbar');
+    host.textContent = '';
+    /* sub-view switch sits where the view's own tab would: on the left */
+    if (S.view === 'compiler') {
+      host.appendChild(group('segmented-control segmented-control-muted', [
+        { id: 'passes', label: 'Pass 轨迹' },
+        { id: 'depth', label: '流水深度' },
+        { id: 'granularity', label: '搬运粒度' },
+      ], S.compilerTab, (v) => { S.compilerTab = v; render(); }));
+    }
+
+    const right = el('div', 'tc-toolbar-right');
+
+    if (S.view === 'compiler') {
+      right.appendChild(el('span', 'tc-readout', D.passes.length + ' Pass dump · ' + D.hints.length + ' perf hint'));
+    }
+
+    if (S.view === 'l2') {
+      right.appendChild(field('泳道', select([
+        { id: 'all', label: '全部 ' + R().swimlane.lanes.length },
+        { id: 'aic', label: 'AIC ' + D.case.aicCount },
+        { id: 'aiv', label: 'AIV ' + D.case.aivCount },
+      ], S.laneFilter, (v) => { S.laneFilter = v; render(); })));
+      right.appendChild(field('着色', select([
+        { id: 'semantic', label: '按算子' },
+        { id: 'engine', label: '按引擎' },
+      ], S.colorMode, (v) => { S.colorMode = v; render(); })));
+      right.appendChild(field('叠加', select([
+        { id: 'sched', label: 'AICPU 调度' },
+        { id: 'ready', label: 'Ready queue' },
+        { id: 'none', label: '无' },
+      ], S.overlay, (v) => { S.overlay = v; render(); })));
+      right.appendChild(btn('只看关键路径', {
+        size: 'sm', selected: S.critOnly,
+        on: () => { S.critOnly = !S.critOnly; render(); },
+      }));
+      const zoomGroup = el('div', 'toolbar-control');
+      zoomGroup.appendChild(btn('−', { variant: 'ghost', size: 'icon', title: '缩小', on: () => { zoom(2); redrawStage(); renderToolbar(); renderDock(); } }));
+      zoomGroup.appendChild(btn('Fit', { variant: 'ghost', size: 'sm', on: () => { S.t0 = 0; S.t1 = R().swimlane.spanUs; redrawStage(); renderToolbar(); renderDock(); } }));
+      zoomGroup.appendChild(btn('+', { variant: 'ghost', size: 'icon', title: '放大', on: () => { zoom(0.5); redrawStage(); renderToolbar(); renderDock(); } }));
+      right.appendChild(zoomGroup);
+      right.appendChild(el('span', 'tc-readout', num(S.t0, 0) + '–' + num(S.t1, 0) + ' us · shift+拖动平移'));
+    }
+
+    if (S.view === 'l1') {
+      const ordered = R().tasks.slice().sort((a, b) => b.span - a.span);
+      right.appendChild(field('kernel', select(ordered.map((t) => ({
+        id: t.tag, label: t.callable + ' · ' + t.tag + '（' + num(t.span, 0) + ' us）',
+      })), S.task, (v) => { S.task = v; S.focus = 'task'; render(); })));
+    }
+
+    if ((S.view === 'l2' || S.view === 'l1') && multiRank()) {
+      right.appendChild(field('rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
+        (v) => {
+          S.rank = v;
+          S.t0 = 0; S.t1 = R().swimlane.spanUs;
+          if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
+          render();
+        })));
+    }
+
+    host.appendChild(right);
+    host.hidden = !host.childNodes.length || (host.childNodes.length === 1 && !right.childNodes.length);
+  }
+
+  function renderExplorer() {
+    const tree = $('#runTree');
+    tree.textContent = '';
+    const row = (depth, label, metaText, opts) => {
+      const o = opts || {};
+      const b = el('button', 'tc-tree-row' + (o.selected ? ' is-selected' : ''));
+      b.type = 'button';
+      b.dataset.depth = depth;
+      b.appendChild(el('span', 'n', label));
+      if (metaText) b.appendChild(el('span', 'm', metaText));
+      if (o.on) b.addEventListener('click', o.on);
+      else b.disabled = true;
+      tree.appendChild(b);
+      return b;
+    };
+    row(0, D.case.program, D.case.backend);
+    Object.keys(D.ranks).forEach((rank) => {
+      const m = TRACE_MATCH[rank];
+      row(1, rank + ' / ' + D.case.device, us(D.ranks[rank].swimlane.spanUs, 0), {
+        selected: rank === S.rank,
+        on: () => {
+          S.rank = rank;
+          S.t0 = 0; S.t1 = R().swimlane.spanUs;
+          if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
+          render();
+        },
+      });
+      if (D.e2e && D.e2e[rank]) {
+        Object.keys(D.e2e[rank]).forEach((inv) => {
+          row(2, 'inv=' + inv + (m && m.inv === +inv ? ' · traced' : ''),
+            us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
+              on: () => { S.rank = rank; S.view = 'e2e'; render(); },
+            });
+        });
+      } else {
+        row(2, 'host.*.log', '缺失');
+      }
+    });
+    row(0, 'artifacts', D.passes.length + ' passes');
+    row(1, 'report/perf_hints.log', D.hints.length, {
+      on: () => { S.view = 'compiler'; S.compilerTab = 'depth'; render(); },
+    });
+    row(1, 'passes_dump/', D.passes.length, {
+      on: () => { S.view = 'compiler'; S.compilerTab = 'passes'; render(); },
+    });
+    row(1, 'binary_context.json', D.case.toolchain.platform, {
+      on: () => { S.view = 'isa'; render(); },
+    });
+
+    $('[data-bind="explorerMeta"]').textContent = D.case.runDir.slice(0, 18) + '…';
+
+    /* findings queue */
+    const filterHost = $('#findingFilter');
+    filterHost.textContent = '';
+    const counts = { all: D.findings.length };
+    D.findings.forEach((f) => { counts[f.level] = (counts[f.level] || 0) + 1; });
+    [{ id: 'all', label: '全部' }].concat(LEVELS.filter((l) => counts[l.id]).map((l) => ({ id: l.id, label: l.label })))
+      .forEach((o) => {
+        filterHost.appendChild(btn(o.label + ' ' + (counts[o.id] || 0), {
+          size: 'sm', selected: S.findingLevel === o.id,
+          on: () => { S.findingLevel = o.id; render(); },
+        }));
+      });
+
+    const list = $('#findingList');
+    list.textContent = '';
+    const shown = D.findings.filter((f) => S.findingLevel === 'all' || f.level === S.findingLevel);
+    const logged = {};
+    S.ledger.forEach((r) => { if (r.findingId) logged[r.findingId] = 1; });
+    shown.forEach((f) => {
+      const b = el('button', 'tc-finding'
+        + (f.id === S.finding && S.focus === 'finding' ? ' is-selected' : '')
+        + (logged[f.id] ? ' is-logged' : ''));
+      b.type = 'button';
+      b.dataset.sev = f.severity;
+      const hd = el('div', 'hd');
+      hd.appendChild(el('span', 'id', f.id));
+      hd.appendChild(el('span', 'lv', LEVEL_LABEL[f.level]));
+      b.appendChild(hd);
+      b.appendChild(el('span', 'ti', f.title));
+      b.appendChild(el('span', 'mt', f.metric));
+      b.addEventListener('click', () => {
+        S.finding = f.id;
+        S.focus = 'finding';
+        applyFocus(f);
+        render();
+      });
+      list.appendChild(b);
+    });
+    $('[data-bind="findingCount"]').textContent = shown.length + ' / ' + D.findings.length;
+  }
+
+  /* Activating a finding puts the stage where its evidence lives and turns on
+   * evidence focus, so the reader never has to guess which parts of the screen
+   * the inspector is talking about. */
+  function applyFocus(f) {
+    if (!f) return;
+    const s = f.subjects || {};
+    S.view = s.view || (f.focus && f.focus.view) || S.view;
+    if (s.tab) S.compilerTab = s.tab;
+    if (s.overlay) S.overlay = s.overlay;
+    if (s.tasks && s.tasks.length && tasksOf[S.rank][s.tasks[0]]) S.task = s.tasks[0];
+    if (s.sites && s.sites.length) S.hintSite = s.sites[0];
+    if (s.lanes && s.lanes.length) S.laneFilter = s.lanes[0].indexOf('AIC') === 0 ? 'aic' : 'aiv';
+    if (f.focus && f.focus.pass) {
+      const p = D.passes.find((x) => x.name === f.focus.pass);
+      if (p) S.pass = p.idx;
+    }
+    S.critOnly = false;
+    S.focusEvidence = true;
+    if (S.view === 'l2') { S.t0 = 0; S.t1 = R().swimlane.spanUs; }
+  }
+
+  function renderStatus() {
+    const host = $('#statusStrip');
+    host.textContent = '';
+    const rank = R();
+    const open = openExperiment();
+    const items = [
+      ['case', D.case.program],
+      ['rank', S.rank + (TRACE_MATCH[S.rank] ? ' inv=' + TRACE_MATCH[S.rank].inv : ' · 无 host log')],
+      ['span', us(rank.swimlane.spanUs, 1)],
+      ['tasks', String(rank.tasks.length)],
+      ['crit', rank.critical.tags.length + ' 节点'],
+      ['AIC / AIV', pct(rank.occupancy.aicUtil, 0) + ' / ' + pct(rank.occupancy.aivUtil, 0)],
+      ['sched', pct(rank.scheduler.perLaneUtil, 0)],
+      ['hints', String(D.hints.length)],
+    ];
+    items.forEach((it) => {
+      const s = el('span', 'tc-status-item');
+      s.appendChild(el('span', 'k', it[0]));
+      s.appendChild(el('span', 'v', it[1]));
+      host.appendChild(s);
+    });
+    const pmu = el('span', 'tc-status-item');
+    pmu.appendChild(el('span', 'k', 'pmu'));
+    const pv = el('span', 'v warn', 'off');
+    pmu.appendChild(pv);
+    host.appendChild(pmu);
+    const exp = el('span', 'tc-status-item');
+    exp.appendChild(el('span', 'k', '实验'));
+    exp.appendChild(el('span', 'v' + (open ? ' warn' : ' ok'), open ? open.id + ' 进行中' : '无进行中'));
+    host.appendChild(exp);
+  }
+
+  function renderFingerprint() {
+    const host = $('#fingerprint');
+    host.textContent = '';
+    const head = el('header', 'panel-shell-header');
+    head.appendChild(el('h2', 'panel-shell-title', 'Case fingerprint'));
+    head.appendChild(el('span', 'panel-shell-meta', D.case.runDir));
+    const close = el('button', 'panel-shell-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', '关闭');
+    close.addEventListener('click', () => toggleFingerprint(false));
+    head.appendChild(close);
+    host.appendChild(head);
+    const body = el('div', 'panel-shell-body');
+    const dl = el('dl', 'tc-fp-grid');
+    const add = (k, v) => { dl.appendChild(el('dt', null, k)); dl.appendChild(el('dd', null, v)); };
+    add('program', D.case.program);
+    add('model', D.case.model);
+    add('platform / backend', D.case.toolchain.platform + ' / ' + D.case.backend);
+    add('pto-isa', D.case.toolchain.ptoIsaRevision);
+    add('runtime', D.case.toolchain.runtimeName + ' @ ' + D.case.toolchain.runtimeRevision);
+    add('ranks / device', D.case.ranks.join(', ') + ' / ' + D.case.device);
+    add('cores', D.case.numCores + '（AIC ' + D.case.aicCount + ' + AIV ' + D.case.aivCount + '，每核 ' + D.case.threadsPerCore + ' thread）');
+    add('trace clock', (D.case.clockHz / 1e6) + ' MHz');
+    add('callables', D.case.callables + ' 个（incore scope ' + D.case.incoreScopes.length + '）');
+    add('captured', D.case.capturedAt);
+    add('source root', D.case.sourceRoot);
+    body.appendChild(dl);
+    body.appendChild(sectionHead('绑定参数', '前 12 / ' + D.case.params.length));
+    body.appendChild(table([
+      { label: 'name', cell: (p) => esc(p.name.replace(/__ssa_v0$/, '')), mono: true },
+      { label: 'dir', key: 'dir' },
+      { label: 'dtype', key: 'dtype', mono: true },
+      { label: 'shape', cell: (p) => '[' + p.shape.join(', ') + ']', mono: true },
+    ], D.case.params.slice(0, 12), {}));
+    host.appendChild(body);
+  }
+
+  function toggleFingerprint(force) {
+    const host = $('#fingerprint');
+    const chip = document.querySelector('[data-act="toggle-fingerprint"]');
+    const open = force == null ? host.hidden : force;
+    host.hidden = !open;
+    chip.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  /* ---------------------------------------------------------- search */
+  function buildSearchIndex() {
+    const idx = [];
+    Object.keys(D.ranks).forEach((rank) => {
+      D.ranks[rank].tasks.forEach((t) => {
+        idx.push({
+          kind: 'task', text: t.callable + ' ' + t.tag, name: t.callable,
+          value: t.tag + ' · ' + num(t.span, 0) + ' us · ' + rank,
+          go: () => { S.rank = rank; S.view = 'l1'; S.task = t.tag; S.focus = 'task'; },
+        });
+      });
+    });
+    D.findings.forEach((f) => {
+      idx.push({
+        kind: 'finding', text: f.id + ' ' + f.title + ' ' + f.axis, name: f.id + ' ' + f.title,
+        value: f.metric,
+        go: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); },
+      });
+    });
+    D.passes.forEach((p) => {
+      idx.push({
+        kind: 'pass', text: p.name, name: p.name, value: '#' + p.idx + ' · ' + p.lines + ' 行',
+        go: () => { S.view = 'compiler'; S.compilerTab = 'passes'; S.pass = p.idx; S.focus = 'pass'; },
+      });
+    });
+    D.depthSites.forEach((s) => {
+      idx.push({
+        kind: 'hint', text: 'PH-MR-001 ' + s.module + ':' + s.line, name: s.file + ':' + s.line,
+        value: 'depth ' + s.maxReqDepth + ' → ' + s.fittedDepth,
+        go: () => { S.view = 'compiler'; S.compilerTab = 'depth'; S.hintSite = s.key; S.focus = 'hint'; },
+      });
+    });
+    D.tileSites.forEach((s) => {
+      idx.push({
+        kind: 'hint', text: 'PH001 ' + s.module + ':' + s.line, name: s.file + ':' + s.line,
+        value: '末维 ' + s.minB + 'B',
+        go: () => { S.view = 'compiler'; S.compilerTab = 'granularity'; S.hintSite = s.key; S.focus = 'hint'; },
+      });
+    });
+    return idx;
+  }
+  const SEARCH = buildSearchIndex();
+
+  function runSearch(q) {
+    const box = $('#searchResults');
+    const input = $('#searchInput');
+    box.textContent = '';
+    const query = q.trim().toLowerCase();
+    if (!query) { box.hidden = true; input.setAttribute('aria-expanded', 'false'); return; }
+    const hits = SEARCH.filter((h) => h.text.toLowerCase().indexOf(query) >= 0).slice(0, 24);
+    if (!hits.length) {
+      box.appendChild(el('div', 'tc-search-empty', '没有匹配的 kernel、任务、提示或 Pass'));
+    } else {
+      hits.forEach((h) => {
+        const b = el('button', 'tc-search-hit');
+        b.type = 'button';
+        b.appendChild(el('span', 'k', h.kind));
+        b.appendChild(el('span', 'n', h.name));
+        b.appendChild(el('span', 'v', h.value));
+        b.addEventListener('click', () => {
+          h.go();
+          input.value = '';
+          box.hidden = true;
+          input.setAttribute('aria-expanded', 'false');
+          render();
+        });
+        box.appendChild(b);
+      });
+    }
+    box.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  /* ============================================================ render */
+  function redrawStage() {
+    const stage = $('#stage');
+    if (stage.__redraw) stage.__redraw();
+  }
+
+  function render() {
+    const stage = $('#stage');
+    if (stage.__ro) { stage.__ro.disconnect(); stage.__ro = null; }
+    stage.__redraw = null;
+    stage.textContent = '';
+
+    renderTabs();
+    renderToolbar();
+    renderExplorer();
+    findingBar(stage);
+
+    if (S.view === 'e2e') viewE2E(stage);
+    else if (S.view === 'l2') viewL2(stage);
+    else if (S.view === 'l1') viewL1(stage);
+    else if (S.view === 'compiler') viewCompiler(stage);
+    else viewISA(stage);
+
+    renderInspector();
+    renderDock();
+    renderTerminal();
+    renderStatus();
+    $('[data-bind="caseChip"]').textContent = D.case.program + ' · ' + S.rank;
+  }
+
+  /* ------------------------------------------------------------- boot */
+  /* Switching case swaps the whole dataset. The two dumps carry different
+   * artifacts, so every layer re-derives what it can and says what it cannot. */
+  function switchCase(id) {
+    if (id === D.case.id) { toggleCaseMenu(false); return; }
+    loadCase(id);
+    S.tile = defaultTile();
+    toggleCaseMenu(false);
+    renderFingerprint();
+    render();
+  }
+
+  function toggleCaseMenu(force) {
+    const menu = $('#caseMenu');
+    const chip = document.querySelector('[data-act="toggle-fingerprint"]');
+    const open = force === undefined ? menu.hidden : force;
+    menu.hidden = !open;
+    chip.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) toggleFingerprint(false);
+  }
+
+  function renderCaseMenu() {
+    const menu = $('#caseMenu');
+    menu.textContent = '';
+    CASES.forEach((c) => {
+      const run = RUNS[c.id];
+      const b = el('button', 'tc-case-item' + (c.id === D.case.id ? ' is-selected' : ''));
+      b.type = 'button';
+      const hd = el('div', 'hd');
+      hd.appendChild(el('span', 'nm', c.label));
+      hd.appendChild(el('span', 'sub', c.sub));
+      b.appendChild(hd);
+      /* say up front which layers this dump can answer */
+      const layers = el('div', 'ly');
+      [
+        ['E2E', !!run.e2e],
+        ['L2', true],
+        ['L1/L0', true],
+        ['编译器', run.passes.length > 0],
+        ['ISA', run.case.artifacts.ptoas > 0],
+      ].forEach((pair) => {
+        layers.appendChild(el('span', pair[1] ? 'on' : 'off', pair[0]));
+      });
+      b.appendChild(layers);
+      b.appendChild(el('div', 'mt', run.ranks[run.defaultRank].tasks.length + ' 任务 · '
+        + run.findings.length + ' 条瓶颈 · ' + run.hints.length + ' 条提示'));
+      b.addEventListener('click', () => switchCase(c.id));
+      menu.appendChild(b);
+    });
+    const fp = el('button', 'tc-case-item is-action', 'Case fingerprint …');
+    fp.type = 'button';
+    fp.addEventListener('click', () => { toggleCaseMenu(false); toggleFingerprint(true); });
+    menu.appendChild(fp);
+  }
+
+  function boot() {
+    if (window.PtoIdeFrame) window.PtoIdeFrame.initAll();
+    if (EMBED_VIEW) document.body.classList.add('tc-embed-view');
+    loadCase(initialCase);
+    S.tile = defaultTile();
+    S.view = EMBED_VIEW || 'e2e';
+    S.focus = null;
+    renderCaseMenu();
+    renderFingerprint();
+    render();
+
+    document.querySelector('[data-act="toggle-fingerprint"]').addEventListener('click', () => toggleCaseMenu());
+    document.querySelector('[data-act="theme"]').addEventListener('click', () => {
+      const root = document.documentElement;
+      root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+      render();
+    });
+    document.querySelector('[data-act="focus-search"]').addEventListener('click', () => $('#searchInput').focus());
+    document.querySelector('[data-act="show-ledger"]').addEventListener('click', () => {
+      const btnEl = document.querySelector('[data-ide-toggle="inspector"]');
+      if (btnEl && btnEl.getAttribute('aria-expanded') === 'false') btnEl.click();
+      $('#inspector').scrollTop = $('#inspector').scrollHeight;
+    });
+    document.querySelector('[data-act="open-terminal"]').addEventListener('click', () => {
+      const btnEl = document.querySelector('[data-ide-toggle="terminal"]');
+      if (btnEl && btnEl.getAttribute('aria-expanded') === 'false') btnEl.click();
+    });
+
+    const input = $('#searchInput');
+    input.addEventListener('input', () => runSearch(input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { input.value = ''; runSearch(''); input.blur(); }
+      if (e.key === 'Enter') {
+        const first = $('#searchResults').querySelector('.tc-search-hit');
+        if (first) first.click();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.tc-search')) { $('#searchResults').hidden = true; }
+      if (!e.target.closest('#fingerprint') && !e.target.closest('[data-act="toggle-fingerprint"]')) {
+        toggleFingerprint(false);
+      }
+      if (!e.target.closest('#caseMenu') && !e.target.closest('[data-act="toggle-fingerprint"]')) {
+        toggleCaseMenu(false);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement !== input) { e.preventDefault(); input.focus(); }
+      if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey
+        && document.activeElement !== input && document.activeElement.tagName !== 'INPUT'
+        && document.activeElement.tagName !== 'TEXTAREA') {
+        S.view = LEVELS[+e.key - 1].id;
+        render();
+      }
+    });
+    window.addEventListener('resize', () => { redrawStage(); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
+})();

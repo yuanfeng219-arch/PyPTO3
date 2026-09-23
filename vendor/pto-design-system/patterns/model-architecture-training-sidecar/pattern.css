@@ -1,0 +1,1530 @@
+.pto-model-training-sidecar {
+  --training-forward: var(--pto-model-deck-comm, #06b6d4);
+  --training-backward: var(--pto-model-deck-state, #8b5cf6);
+  --training-flow: color-mix(in srgb, var(--foreground) 56%, var(--background));
+  --training-flow-text: color-mix(in srgb, var(--foreground) 72%, var(--background));
+  --training-flow-arrow-opacity: .26;
+  --training-residual: var(--pto-model-deck-residual, #8b5cf6);
+  --training-parameter: var(--pto-model-deck-linear, #3b82f6);
+  --training-metric-std: var(--pto-model-deck-norm, #38bdf8);
+  --training-metric-amax: var(--warning, #f59e0b);
+  --training-metric-latency: var(--pto-model-deck-moe, #ea580c);
+  --training-forward-text: color-mix(in srgb, var(--training-forward) 72%, var(--foreground));
+  --training-layer-column: rgb(from color-mix(in srgb, var(--foreground) 7%, var(--background)) r g b / 1);
+  --training-layer-column-hover: rgb(from color-mix(in srgb, var(--primary) 15%, var(--background)) r g b / 1);
+  --training-operator-side-neutral: rgb(from color-mix(in srgb, var(--foreground) 24%, var(--surface-2)) r g b / 1);
+  --pto-training-sidecar-scale: 1;
+}
+
+html[data-theme="light"] .pto-model-training-sidecar {
+  --training-flow: color-mix(in srgb, var(--foreground) 64%, var(--background));
+  --training-flow-text: color-mix(in srgb, var(--foreground) 78%, var(--background));
+  --training-flow-arrow-opacity: .3;
+  --training-forward-text: color-mix(in srgb, var(--training-forward) 42%, var(--foreground));
+}
+
+.pto-model-training-sidecar .pto-model-deck__viewport { cursor: default; }
+.pto-model-training-sidecar .pto-model-deck__viewport.is-grabbing { cursor: grabbing; }
+
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__layer::after,
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__static::after,
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__layer .pto-model-deck__node::after,
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__static .pto-model-deck__node::after,
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__layer .pto-model-deck__experts::after {
+  display: none;
+  content: none;
+}
+
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__layer :is(.pto-model-deck__node,.pto-model-deck__experts,.pto-model-deck__cluster),
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__static :is(.pto-model-deck__node,.pto-model-deck__experts),
+.pto-model-training-sidecar[data-view="right"] :is(.pto-model-deck__layer,.pto-model-deck__static) > .pto-model-deck__edges {
+  opacity: 0;
+}
+
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__side-stage-boundary {
+  display: none;
+}
+
+.pto-model-training-sidecar[data-view="right"] .pto-model-deck__side-ffn-band {
+  fill: none;
+  stroke: color-mix(in srgb, var(--foreground) 10%, var(--background));
+}
+
+.pto-training-sidecar__scene,
+.pto-training-sidecar__focus-scene {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__scene { z-index: 28; }
+.pto-training-sidecar__focus-scene { z-index: 40; }
+.pto-training-sidecar__scene { transition: opacity 160ms ease; }
+
+.pto-model-training-sidecar.is-layer-camera-transitioning .pto-model-deck__scene,
+.pto-model-training-sidecar.is-layer-camera-transitioning .pto-training-sidecar__scene,
+.pto-model-training-sidecar.is-layer-camera-transitioning .pto-training-sidecar__focus-scene {
+  transition:
+    left 520ms cubic-bezier(.22,.72,.18,1),
+    top 520ms cubic-bezier(.22,.72,.18,1),
+    transform 520ms cubic-bezier(.22,.72,.18,1);
+}
+
+.pto-model-training-sidecar.is-layer-camera-transitioning .pto-model-deck__layer,
+.pto-model-training-sidecar.is-layer-camera-transitioning .pto-model-deck__static {
+  transition: transform 520ms cubic-bezier(.22,.72,.18,1);
+}
+
+.pto-model-training-sidecar.is-layer-camera-transitioning .pto-training-sidecar__scene { opacity: .16; }
+
+.pto-training-sidecar__svg,
+.pto-training-sidecar__labels,
+.pto-training-sidecar__layer-hits {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__svg {
+  z-index: 28;
+  width: 1px;
+  height: 1px;
+}
+
+.pto-training-sidecar__layer-hits {
+  z-index: 39;
+  width: 1px;
+  height: 1px;
+}
+
+.pto-training-sidecar__scene path,
+.pto-training-sidecar__scene rect,
+.pto-training-sidecar__scene circle { vector-effect: none; }
+
+.pto-model-deck:not([data-view="right"]) .pto-training-sidecar__scene,
+.pto-model-deck:not([data-view="right"]) .pto-training-sidecar__focus-scene,
+.pto-model-deck:not([data-view="right"]) .pto-training-sidecar__focus,
+.pto-model-deck:not([data-view="right"]) .pto-training-sidecar__data-control,
+.pto-model-deck:not([data-view="right"]) .pto-training-sidecar__inspector {
+  display: none;
+}
+
+.pto-training-sidecar__data-control {
+  position: relative;
+}
+
+.pto-training-sidecar__data-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pto-training-sidecar__data-toggle [data-metric-count] {
+  display: none;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font: var(--type-micro);
+}
+
+.pto-training-sidecar__data-toggle [data-metric-count]:not(:empty) { display: inline-grid; }
+.pto-training-sidecar__data-toggle i { font: 900 12px/1 var(--font-sans); transition: transform 120ms ease; }
+.pto-training-sidecar__data-control.is-open .pto-training-sidecar__data-toggle i { transform: rotate(180deg); }
+
+.pto-training-sidecar__data-menu {
+  position: absolute;
+  z-index: 90;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 210px;
+  box-sizing: border-box;
+  display: none;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--background-elevated) 96%, transparent);
+  box-shadow: 0 16px 38px color-mix(in srgb, #000 22%, transparent);
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__data-control.is-open .pto-training-sidecar__data-menu { display: grid; }
+
+.pto-training-sidecar__data-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.pto-training-sidecar__data-actions button,
+.pto-training-sidecar__data-options button {
+  appearance: none;
+  min-height: 30px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+  cursor: pointer;
+}
+
+.pto-training-sidecar__data-actions button {
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+.pto-training-sidecar__data-options {
+  display: grid;
+  gap: 3px;
+}
+
+.pto-training-sidecar__data-options button {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+  text-align: left;
+}
+
+.pto-training-sidecar__data-options button span {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 22%, transparent);
+  border-radius: 4px;
+  color: transparent;
+  font: 900 var(--font-size-body-sm)/1 var(--font-sans);
+}
+
+.pto-training-sidecar__data-actions button:hover,
+.pto-training-sidecar__data-actions button:focus-visible,
+.pto-training-sidecar__data-options button:hover,
+.pto-training-sidecar__data-options button:focus-visible {
+  background: var(--state-hover);
+  color: var(--foreground);
+  outline: none;
+}
+
+.pto-training-sidecar__data-options button.is-selected {
+  background: color-mix(in srgb, var(--primary) 11%, transparent);
+  color: var(--foreground);
+}
+
+.pto-training-sidecar__data-options button.is-selected span {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.pto-training-sidecar__stage-guide,
+.pto-training-sidecar__layer-guide,
+.pto-training-sidecar__hidden,
+.pto-training-sidecar__backward,
+.pto-training-sidecar__optimizer,
+.pto-training-sidecar__parameter-stem,
+.pto-training-sidecar__communication {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pto-training-sidecar__layer-guide {
+  stroke: color-mix(in srgb, var(--foreground) 20%, transparent);
+  stroke-width: calc(.9px * var(--pto-training-sidecar-scale));
+  stroke-dasharray: 2 5;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__stage-guide {
+  stroke: color-mix(in srgb, var(--success) 62%, transparent);
+  stroke-width: calc(1.5px * var(--pto-training-sidecar-scale));
+  stroke-opacity: .72;
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__hidden {
+  stroke: var(--training-flow);
+  stroke-width: calc(1.8px * var(--pto-training-sidecar-scale));
+  stroke-opacity: .78;
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__residual-flow-arrow {
+  fill: none;
+  stroke: var(--training-flow);
+  stroke-width: calc(1.5px * var(--pto-training-sidecar-scale));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: var(--training-flow-arrow-opacity);
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__residual-flow-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: calc(8px * var(--pto-training-sidecar-scale));
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__residual-flow-hit-dot {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__flow-texture { pointer-events: none; }
+.pto-training-sidecar__flow-texture.is-forward,
+.pto-training-sidecar__flow-texture.is-backward { --flow-texture-color: var(--training-flow); }
+
+.pto-training-sidecar__flow-texture-base {
+  fill: color-mix(in srgb, var(--flow-texture-color) 7%, var(--background));
+  stroke: none;
+}
+
+.pto-training-sidecar__flow-texture-arrow {
+  fill: none;
+  stroke: var(--flow-texture-color);
+  stroke-width: calc(1.5px * var(--pto-training-sidecar-scale));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: var(--training-flow-arrow-opacity);
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-training-sidecar__backward {
+  stroke: var(--training-flow);
+  stroke-width: calc(1.8px * var(--pto-training-sidecar-scale));
+  stroke-opacity: .72;
+  stroke-dasharray: 6 5;
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__communication.is-forward { stroke: var(--training-forward); }
+.pto-training-sidecar__communication.is-backward { stroke: var(--training-backward); }
+.pto-training-sidecar__communication {
+  stroke-width: calc(2.8px * var(--pto-training-sidecar-scale));
+  stroke-opacity: .92;
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__hidden-dot {
+  r: calc(1.75px * var(--pto-training-sidecar-scale));
+  fill: var(--background);
+  stroke: var(--training-flow);
+  stroke-width: calc(1.15px * var(--pto-training-sidecar-scale));
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__layer-number {
+  position: absolute;
+  transform: translate(-50%, -100%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 50% 100%;
+  color: var(--foreground-muted);
+  font: 750 7.5px/1 var(--font-mono);
+  white-space: nowrap;
+  text-shadow: 0 1px 3px var(--background), 0 0 6px var(--background);
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__backward-dot {
+  r: calc(1.75px * var(--pto-training-sidecar-scale));
+  fill: var(--background);
+  stroke: var(--training-flow);
+  stroke-width: calc(1.15px * var(--pto-training-sidecar-scale));
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__parameter-stem {
+  stroke: var(--training-parameter);
+  stroke-width: calc(1px * var(--pto-training-sidecar-scale));
+  stroke-opacity: .28;
+}
+
+.pto-training-sidecar__parameter-dot {
+  r: calc(2.2px * var(--pto-training-sidecar-scale));
+  fill: color-mix(in srgb, var(--training-parameter) 62%, var(--background));
+  stroke: color-mix(in srgb, var(--training-parameter) 76%, var(--foreground));
+  stroke-width: calc(1px * var(--pto-training-sidecar-scale));
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__step-gradient-dot {
+  r: calc(2.35px * var(--pto-training-sidecar-scale));
+  fill: var(--background);
+  stroke: color-mix(in srgb, var(--training-parameter) 72%, var(--foreground));
+  stroke-width: calc(1.4px * var(--pto-training-sidecar-scale));
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__optimizer {
+  stroke: color-mix(in srgb, var(--training-parameter) 64%, var(--foreground));
+  stroke-width: calc(1.4px * var(--pto-training-sidecar-scale));
+  stroke-dasharray: 4 4;
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__metric-band {
+  fill: color-mix(in srgb, var(--metric-color) 10%, transparent);
+  stroke: color-mix(in srgb, var(--metric-color) 20%, transparent);
+  stroke-width: calc(.7px * var(--pto-training-sidecar-scale));
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__metric-midline {
+  fill: none;
+  stroke: color-mix(in srgb, var(--metric-color) 20%, transparent);
+  stroke-width: calc(.7px * var(--pto-training-sidecar-scale));
+  stroke-dasharray: 2 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__metric-line {
+  fill: none;
+  stroke: var(--metric-color);
+  stroke-width: calc(1.6px * var(--pto-training-sidecar-scale));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: .86;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+}
+
+.pto-training-sidecar__metric-point {
+  fill: var(--metric-color);
+  stroke: transparent;
+  stroke-width: calc(8px * var(--pto-training-sidecar-scale));
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__metric-point:hover { stroke: color-mix(in srgb, var(--metric-color) 22%, transparent); }
+
+.pto-training-sidecar__operator-band {
+  fill: none;
+  stroke: color-mix(in srgb, var(--foreground) 10%, var(--background));
+  stroke-width: calc(.8px * var(--pto-training-sidecar-scale));
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.pto-training-sidecar__operator-band:is(.is-input,.is-output) {
+  stroke: none;
+}
+
+.pto-training-sidecar__layer-column {
+  fill: var(--training-layer-column);
+  stroke: none;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__layer-column.is-hovered {
+  fill: var(--training-layer-column-hover);
+}
+
+.pto-training-sidecar__operator-side {
+  fill: var(--training-operator-side-neutral);
+  stroke: none;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__operator-side.is-hovered {
+  fill: var(--operator-side-color);
+}
+
+.pto-model-training-sidecar .pto-model-deck__side-residual-spine {
+  stroke-opacity: .34;
+  filter: none;
+}
+
+.pto-model-training-sidecar .pto-model-deck__side-residual-connector {
+  stroke-opacity: .3;
+}
+
+.pto-training-sidecar__static-connector {
+  fill: none;
+  stroke: rgb(from color-mix(in srgb, var(--foreground) 42%, var(--background)) r g b / 1);
+  stroke-width: calc(1.2px * var(--pto-training-sidecar-scale));
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__static-connector.is-residual-handoff {
+  stroke-width: calc(1.4px * var(--pto-training-sidecar-scale));
+}
+
+.pto-model-training-sidecar.has-expanded-layer
+  .pto-training-sidecar__scene
+  .pto-training-sidecar__static-connector.is-residual-handoff {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.pto-training-sidecar__selection {
+  fill: color-mix(in srgb, var(--primary) 7%, transparent);
+  stroke: color-mix(in srgb, var(--primary) 58%, transparent);
+  stroke-width: calc(1.2px * var(--pto-training-sidecar-scale));
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-training-sidecar__layer-hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.pto-training-sidecar__layer-hit:focus-visible {
+  outline: none;
+}
+
+.pto-training-sidecar__layer-column.is-flipped {
+  fill: var(--training-layer-column-hover);
+}
+
+.pto-training-sidecar__operator-side.is-flipped {
+  fill: var(--operator-side-color);
+}
+
+.pto-training-sidecar__labels { z-index: 32; }
+
+.pto-training-sidecar__semantic-label,
+.pto-training-sidecar__value-label,
+.pto-training-sidecar__stage-label,
+.pto-training-sidecar__comm-label,
+.pto-training-sidecar__operator-label {
+  position: absolute;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px var(--background), 0 0 8px var(--background);
+}
+
+.pto-training-sidecar__operator-label {
+  max-width: none;
+  box-sizing: border-box;
+  overflow: visible;
+  padding: 1px 5px;
+  transform: translate(-50%, -50%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 50% 50%;
+  border: 1px solid color-mix(in srgb, var(--foreground) 11%, var(--background));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--background));
+  color: color-mix(in srgb, var(--operator-color) 64%, var(--foreground));
+  font: 850 8.5px/1 var(--font-mono);
+  text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
+  pointer-events: auto;
+  transition: opacity 120ms ease;
+}
+
+.pto-model-training-sidecar.has-expanded-layer .pto-training-sidecar__operator-label {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__operator-label.is-input {
+  transform: translate(-100%, -50%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 100% 50%;
+  text-align: right;
+}
+
+.pto-training-sidecar__semantic-label {
+  left: 14px;
+  transform: translateY(-50%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 0 50%;
+  display: grid;
+  gap: 2px;
+  color: var(--foreground);
+  font: 850 10px/1 var(--font-sans);
+}
+
+.pto-training-sidecar__semantic-label span {
+  color: var(--foreground-muted);
+  font: 700 8.5px/1 var(--font-mono);
+}
+
+.pto-training-sidecar__value-label {
+  transform: translate(-50%, -100%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 50% 100%;
+  color: var(--foreground-secondary);
+  font: 750 8.5px/1 var(--font-mono);
+}
+
+.pto-training-sidecar__metric-label {
+  position: absolute;
+  transform: translate(-100%, -50%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 100% 50%;
+  color: var(--foreground-secondary);
+  font: 800 8.5px/1 var(--font-mono);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__value-label,
+.pto-training-sidecar__sample-label,
+.pto-training-sidecar__semantic-label,
+.pto-training-sidecar__stage-label,
+.pto-training-sidecar__comm-label {
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__sample-label {
+  position: absolute;
+  transform: translate(-50%, 0) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 50% 0;
+  color: var(--foreground-muted);
+  font: 750 8.5px/1 var(--font-mono);
+  white-space: nowrap;
+  text-shadow: 0 1px 4px var(--background), 0 0 8px var(--background);
+}
+
+.pto-training-sidecar__value-label.is-forward,
+.pto-training-sidecar__value-label.is-backward { color: var(--training-flow-text); }
+
+.pto-training-sidecar__stage-label {
+  transform: translate(-50%, -50%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 50% 50%;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 108px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--success) 24%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background) 90%, var(--success) 10%);
+  color: color-mix(in srgb, var(--success) 72%, var(--foreground));
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.pto-training-sidecar__stage-label b {
+  font: 850 8.8px/1 var(--font-mono);
+}
+
+.pto-training-sidecar__stage-label span {
+  color: color-mix(in srgb, var(--success) 52%, var(--foreground-secondary));
+  font: 750 7.2px/1 var(--font-mono);
+}
+
+.pto-training-sidecar__loss-composition {
+  position: absolute;
+  z-index: 38;
+  width: calc(340px * var(--pto-training-sidecar-scale));
+  transform: translate(-100%, -50%);
+  display: grid;
+  gap: calc(4px * var(--pto-training-sidecar-scale));
+  box-sizing: border-box;
+  padding: calc(7px * var(--pto-training-sidecar-scale));
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--primary) 42%, var(--border));
+  border-radius: calc(8px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--background) 94%, var(--primary) 6%);
+  box-shadow: 0 calc(8px * var(--pto-training-sidecar-scale)) calc(22px * var(--pto-training-sidecar-scale)) color-mix(in srgb, #000 20%, transparent);
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__loss-composition.is-collapsed {
+  width: calc(244px * var(--pto-training-sidecar-scale));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pto-training-sidecar__loss-composition::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  width: calc(12px * var(--pto-training-sidecar-scale));
+  height: calc(1px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--foreground) 42%, transparent);
+}
+
+.pto-training-sidecar__loss-summary {
+  width: 100%;
+  min-height: calc(38px * var(--pto-training-sidecar-scale));
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: calc(7px * var(--pto-training-sidecar-scale));
+  padding: calc(7px * var(--pto-training-sidecar-scale)) calc(9px * var(--pto-training-sidecar-scale));
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--success) 46%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--background) 90%, var(--success) 10%);
+  box-shadow: 0 calc(6px * var(--pto-training-sidecar-scale)) calc(18px * var(--pto-training-sidecar-scale)) color-mix(in srgb, #000 16%, transparent);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.pto-training-sidecar__loss-summary span { font: 850 calc(8px * var(--pto-training-sidecar-scale))/1 var(--font-sans); }
+.pto-training-sidecar__loss-summary b { min-width: 0; overflow: hidden; color: var(--success); font: 800 calc(6.7px * var(--pto-training-sidecar-scale))/1 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.pto-training-sidecar__loss-summary i { color: var(--foreground-muted); font: 750 calc(6.5px * var(--pto-training-sidecar-scale))/1 var(--font-mono); font-style: normal; }
+
+.pto-training-sidecar__loss-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--pto-training-sidecar-scale));
+}
+
+.pto-training-sidecar__loss-header strong { color: var(--foreground); font: 850 calc(8.5px * var(--pto-training-sidecar-scale))/1 var(--font-sans); }
+.pto-training-sidecar__loss-header button { width: calc(20px * var(--pto-training-sidecar-scale)); height: calc(20px * var(--pto-training-sidecar-scale)); border: calc(1px * var(--pto-training-sidecar-scale)) solid var(--border); border-radius: var(--radius-pill); background: var(--surface-1); color: var(--foreground-secondary); cursor: pointer; }
+
+.pto-training-sidecar__loss-input {
+  color: color-mix(in srgb, var(--training-forward) 72%, var(--foreground));
+  font: 750 calc(7px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+}
+
+.pto-training-sidecar__loss-terms {
+  display: flex;
+  align-items: stretch;
+  gap: calc(3px * var(--pto-training-sidecar-scale));
+}
+
+.pto-training-sidecar__loss-terms > span {
+  align-self: center;
+  color: var(--foreground-muted);
+  font: 850 calc(7px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+}
+
+.pto-training-sidecar__loss-terms button,
+.pto-training-sidecar__loss-total {
+  min-width: 0;
+  display: grid;
+  gap: calc(2px * var(--pto-training-sidecar-scale));
+  padding: calc(4px * var(--pto-training-sidecar-scale));
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--primary) 34%, var(--border));
+  border-radius: calc(5px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--surface-1) 84%, transparent);
+  color: var(--foreground-secondary);
+  font: 750 calc(6.7px * var(--pto-training-sidecar-scale))/1.12 var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pto-training-sidecar__loss-terms button { flex: 1; }
+.pto-training-sidecar__loss-terms button b { color: var(--warning); font-size: .9em; }
+.pto-training-sidecar__loss-total { width: 100%; align-content: center; border-color: color-mix(in srgb, var(--success) 52%, var(--border)); color: var(--success); text-align: center; }
+.pto-training-sidecar__loss-total::before { content: "↓  Total objective"; color: var(--foreground-muted); font-size: .8em; }
+.pto-training-sidecar__loss-composition small { color: var(--foreground-muted); font: 700 calc(6.5px * var(--pto-training-sidecar-scale))/1.2 var(--font-mono); }
+
+.pto-training-sidecar__tooltip {
+  position: absolute;
+  z-index: 80;
+  display: none;
+  max-width: 300px;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 96%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+  color: var(--foreground);
+  font: var(--type-mono);
+  pointer-events: none;
+}
+
+.pto-training-sidecar__tooltip.is-visible { display: block; }
+
+.pto-training-sidecar__base-tip-hit {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__comm-label {
+  transform: translate(-50%, -50%) scale(var(--pto-training-sidecar-scale));
+  transform-origin: 50% 50%;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+  font: 850 8px/1 var(--font-mono);
+}
+
+.pto-training-sidecar__comm-label.is-forward { color: var(--training-forward-text); }
+.pto-training-sidecar__comm-label.is-backward { color: var(--training-backward); }
+
+.pto-training-sidecar__focus {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 45;
+  width: 292px;
+  min-height: 414px;
+  box-sizing: border-box;
+  display: none;
+  grid-template-rows: auto auto auto auto 1fr;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 62%, transparent);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--background) 95%, var(--primary) 5%);
+  box-shadow: 0 18px 46px color-mix(in srgb, #000 28%, transparent);
+  color: var(--foreground);
+  pointer-events: auto;
+}
+
+[data-detail] { cursor: pointer; }
+
+.pto-training-sidecar__inspector {
+  position: absolute;
+  right: 16px;
+  top: 108px;
+  z-index: 72;
+  width: min(330px, calc(100% - 32px));
+  max-height: calc(100% - 24px);
+  box-sizing: border-box;
+  display: none;
+  gap: 12px;
+  padding: 15px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--primary) 54%, var(--border));
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--background) 96%, var(--primary) 4%);
+  box-shadow: 0 18px 48px color-mix(in srgb, #000 30%, transparent);
+  color: var(--foreground);
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__inspector.is-open { display: grid; }
+
+.pto-training-sidecar__inspector header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pto-training-sidecar__inspector header > div { display: grid; gap: 4px; }
+.pto-training-sidecar__inspector header span { color: var(--primary); font: var(--type-micro); text-transform: uppercase; }
+.pto-training-sidecar__inspector h3 { margin: 0; color: var(--foreground); font: 850 15px/1.2 var(--font-sans); }
+.pto-training-sidecar__inspector header button { width: 25px; height: 25px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-1); color: var(--foreground-secondary); cursor: pointer; }
+.pto-training-sidecar__inspector > p { margin: 0; color: var(--foreground-secondary); font: var(--type-body); }
+
+.pto-training-sidecar__inspector-values { display: grid; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: var(--radius-lg); overflow: hidden; }
+.pto-training-sidecar__inspector-values div { display: grid; grid-template-columns: minmax(92px,.8fr) minmax(0,1.2fr); gap: 10px; padding: 8px 10px; background: color-mix(in srgb, var(--surface-1) 82%, transparent); }
+.pto-training-sidecar__inspector-values div + div { border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
+.pto-training-sidecar__inspector-values span { color: var(--foreground-muted); font: var(--type-mono); }
+.pto-training-sidecar__inspector-values b { overflow-wrap: anywhere; color: var(--foreground); font: var(--type-mono); font-weight: var(--font-weight-bold); }
+
+.pto-training-sidecar__assessment { display: grid; gap: 4px; padding: 9px 10px; border: 1px solid currentColor; border-radius: var(--radius-lg); background: color-mix(in srgb, currentColor 7%, transparent); font: var(--type-mono); }
+.pto-training-sidecar__assessment.is-normal { color: var(--success); }
+.pto-training-sidecar__assessment.is-warning { color: var(--warning); }
+.pto-training-sidecar__assessment.is-abnormal { color: var(--destructive, #ef4444); }
+.pto-training-sidecar__assessment.is-info { color: var(--primary); }
+.pto-training-sidecar__assessment span { color: var(--foreground-secondary); }
+.pto-training-sidecar__inspector footer { color: var(--foreground-muted); font: var(--type-mono); }
+
+.pto-training-sidecar__focus.is-open { display: grid; }
+
+.pto-training-sidecar__focus-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pto-training-sidecar__focus-title {
+  display: grid;
+  gap: 4px;
+  font: 850 13px/1 var(--font-sans);
+}
+
+.pto-training-sidecar__focus-title span {
+  color: var(--foreground-muted);
+  font: 700 9px/1 var(--font-mono);
+}
+
+.pto-training-sidecar__focus-close {
+  width: 24px;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--foreground-secondary);
+  cursor: pointer;
+}
+
+.pto-training-sidecar__focus-section {
+  display: grid;
+  gap: 6px;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+}
+
+.pto-training-sidecar__focus-section > b {
+  color: var(--foreground-muted);
+  font: 850 9px/1 var(--font-mono);
+  text-transform: uppercase;
+}
+
+.pto-training-sidecar__flow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--foreground-secondary);
+  font: 750 9px/1.2 var(--font-mono);
+}
+
+.pto-training-sidecar__flow i {
+  height: 1px;
+  background: currentColor;
+  opacity: .55;
+}
+
+.pto-training-sidecar__flow.is-forward,
+.pto-training-sidecar__flow.is-backward { color: var(--training-flow); }
+
+.pto-training-sidecar__kv {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 5px 10px;
+  color: var(--foreground-secondary);
+  font: 700 9px/1.2 var(--font-mono);
+}
+
+.pto-training-sidecar__detail-slot {
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--primary) 38%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--foreground-muted);
+  font: 750 9px/1.3 var(--font-mono);
+  text-align: center;
+}
+
+/* The selected Layer is a real slice in the scaled scene. Its 10px side
+   becomes this front plane while adjacent Layer slices make room for it. */
+.pto-training-sidecar__focus {
+  --pto-training-sidecar-scale: var(--pto-training-focus-scale, 1);
+  min-height: 0;
+  display: none;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: calc(3px * var(--pto-training-sidecar-scale));
+  background: rgb(from color-mix(in srgb, var(--background) 98%, var(--primary) 2%) r g b / .985);
+  box-shadow: none;
+}
+
+.pto-training-sidecar__focus.is-open { display: block; }
+.pto-training-sidecar__focus.is-flipping {
+  animation: pto-training-sidecar-slice-flip 520ms cubic-bezier(.22,.72,.18,1) both;
+}
+
+.pto-training-sidecar__focus-header {
+  position: absolute;
+  z-index: 5;
+  left: calc(5px * var(--pto-training-sidecar-scale));
+  right: auto;
+  top: calc(4px * var(--pto-training-sidecar-scale));
+  width: 460px;
+  min-height: calc(20px * var(--pto-training-sidecar-scale));
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 calc(4px * var(--pto-training-sidecar-scale)) 0 calc(38px * var(--pto-training-sidecar-scale));
+  border: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--background) 98%, transparent) 72%, transparent);
+  pointer-events: none;
+}
+
+.pto-training-sidecar__focus-title {
+  gap: calc(2px * var(--pto-training-sidecar-scale));
+  font: 850 calc(9.5px * var(--pto-training-sidecar-scale))/1 var(--font-sans);
+}
+
+.pto-training-sidecar__focus-title span {
+  font: 700 calc(7px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+}
+
+.pto-training-sidecar__focus-title em {
+  color: color-mix(in srgb, var(--pto-model-deck-attention) 76%, var(--foreground));
+  font: 750 calc(6.6px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  font-style: normal;
+}
+
+.pto-training-sidecar__focus-close {
+  position: absolute;
+  z-index: 8;
+  left: 0;
+  top: 0;
+  width: calc(17px * var(--pto-training-sidecar-scale));
+  height: calc(17px * var(--pto-training-sidecar-scale));
+  border-radius: calc(5px * var(--pto-training-sidecar-scale));
+  font: 800 calc(10px * var(--pto-training-sidecar-scale))/1 var(--font-sans);
+  pointer-events: auto;
+}
+
+.pto-training-sidecar__focus-shared {
+  position: absolute;
+  z-index: 3;
+  left: calc(50px * var(--pto-training-sidecar-scale));
+  right: calc(7px * var(--pto-training-sidecar-scale));
+  top: calc(48px * var(--pto-training-sidecar-scale));
+  display: flex;
+  justify-content: center;
+  gap: calc(4px * var(--pto-training-sidecar-scale));
+  pointer-events: none;
+}
+
+.pto-training-sidecar__focus-shared span,
+.pto-training-sidecar__focus-aux {
+  padding: calc(2px * var(--pto-training-sidecar-scale)) calc(4px * var(--pto-training-sidecar-scale));
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--training-forward) 24%, var(--border));
+  border-radius: calc(4px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--training-forward) 5%, var(--surface-1));
+  color: color-mix(in srgb, var(--training-forward-text) 72%, var(--foreground-secondary));
+  font: 750 calc(6.8px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-sublayer {
+  --sublayer-color: var(--foreground-muted);
+  position: absolute;
+  z-index: 2;
+  left: calc(46px * var(--pto-training-sidecar-scale));
+  right: calc(4px * var(--pto-training-sidecar-scale));
+  box-sizing: border-box;
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--sublayer-color) 32%, var(--border));
+  border-radius: calc(6px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--sublayer-color) 4%, var(--surface-1));
+  pointer-events: none;
+}
+
+.pto-training-sidecar__focus-sublayer.is-attention { --sublayer-color: var(--pto-model-deck-attention, var(--primary)); }
+.pto-training-sidecar__focus-sublayer.is-ffn { --sublayer-color: var(--pto-model-deck-moe, var(--training-backward)); }
+.pto-training-sidecar__focus-sublayer.is-output { --sublayer-color: var(--pto-model-deck-norm, var(--training-forward)); }
+
+.pto-training-sidecar__focus-sublayer > strong {
+  position: absolute;
+  z-index: 4;
+  left: calc(6px * var(--pto-training-sidecar-scale));
+  top: 0;
+  transform: translateY(-50%);
+  padding: 0 calc(4px * var(--pto-training-sidecar-scale));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--background) 94%, var(--sublayer-color) 6%);
+  color: color-mix(in srgb, var(--sublayer-color) 58%, var(--foreground));
+  font: 850 calc(6.2px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-sublayer .pto-training-sidecar__focus-row,
+.pto-training-sidecar__focus-sublayer .pto-training-sidecar__focus-aux {
+  left: calc(4px * var(--pto-training-sidecar-scale));
+  right: calc(4px * var(--pto-training-sidecar-scale));
+}
+
+.pto-training-sidecar__focus-sublayer .pto-training-sidecar__focus-row { pointer-events: auto; }
+
+.pto-training-sidecar__focus-row {
+  position: absolute;
+  z-index: 2;
+  left: calc(50px * var(--pto-training-sidecar-scale));
+  right: calc(7px * var(--pto-training-sidecar-scale));
+  min-height: calc(17px * var(--pto-training-sidecar-scale));
+  box-sizing: border-box;
+  transform: translateY(-50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(4px * var(--pto-training-sidecar-scale));
+  padding: calc(2px * var(--pto-training-sidecar-scale)) calc(4px * var(--pto-training-sidecar-scale));
+  border: calc(.75px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--focus-color, var(--primary)) 46%, var(--border));
+  border-radius: calc(4px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--focus-color, var(--primary)) 8%, var(--surface-1));
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pto-training-sidecar__focus-row:hover {
+  border-color: color-mix(in srgb, var(--focus-color, var(--primary)) 72%, var(--border));
+  background: color-mix(in srgb, var(--focus-color, var(--primary)) 13%, var(--surface-1));
+}
+
+.pto-training-sidecar__focus-row b {
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--focus-color, var(--foreground)) 58%, var(--foreground));
+  font: 800 calc(8px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-row > span {
+  display: flex;
+  min-width: 0;
+  gap: calc(2px * var(--pto-training-sidecar-scale));
+}
+
+.pto-training-sidecar__focus-row i {
+  padding: calc(1.5px * var(--pto-training-sidecar-scale)) calc(2.5px * var(--pto-training-sidecar-scale));
+  border-radius: calc(3px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--background) 74%, transparent);
+  color: color-mix(in srgb, var(--foreground) 82%, var(--foreground-secondary));
+  font: 750 calc(6.5px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-row.is-hidden {
+  --focus-color: var(--training-forward);
+  border-color: color-mix(in srgb, var(--training-forward) 48%, var(--border));
+}
+
+.pto-training-sidecar__focus-row.is-residual-add {
+  padding-left: calc(23px * var(--pto-training-sidecar-scale));
+  border-color: color-mix(in srgb, var(--training-residual) 72%, var(--border));
+  background: color-mix(in srgb, var(--training-residual) 12%, var(--surface-1));
+}
+
+.pto-training-sidecar__focus-row.is-residual-add::before {
+  content: "+";
+  position: absolute;
+  left: calc(5px * var(--pto-training-sidecar-scale));
+  top: 50%;
+  width: calc(13px * var(--pto-training-sidecar-scale));
+  height: calc(13px * var(--pto-training-sidecar-scale));
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: calc(1.2px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--training-residual) 84%, var(--foreground));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--training-residual) 18%, var(--surface-1));
+  color: color-mix(in srgb, var(--training-residual) 62%, var(--foreground));
+  font: 900 calc(10px * var(--pto-training-sidecar-scale))/1 var(--font-sans);
+}
+
+.pto-training-sidecar__focus-row.is-residual-add b,
+.pto-training-sidecar__focus-row.is-residual-add i {
+  color: color-mix(in srgb, var(--training-residual) 48%, var(--foreground));
+}
+
+.pto-training-sidecar__focus-mhc-rail {
+  position: absolute;
+  z-index: 1;
+  left: calc(8px * var(--pto-training-sidecar-scale));
+  width: calc(34px * var(--pto-training-sidecar-scale));
+  display: grid;
+  grid-template-columns: repeat(4, calc(2px * var(--pto-training-sidecar-scale)));
+  justify-content: space-between;
+  padding: 0 calc(4px * var(--pto-training-sidecar-scale));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__focus-mhc-rail > i {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--training-residual) 72%, transparent);
+  box-shadow: 0 0 calc(4px * var(--pto-training-sidecar-scale)) color-mix(in srgb, var(--training-residual) 26%, transparent);
+}
+
+.pto-training-sidecar__focus-mhc-rail span {
+  position: absolute;
+  left: calc(30px * var(--pto-training-sidecar-scale));
+  top: 50%;
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--training-residual) 62%, var(--foreground));
+  font: 800 calc(5.2px * var(--pto-training-sidecar-scale))/1.15 var(--font-mono);
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-mhc-state {
+  position: absolute;
+  z-index: 4;
+  left: calc(4px * var(--pto-training-sidecar-scale));
+  width: calc(42px * var(--pto-training-sidecar-scale));
+  transform: translateY(-50%);
+  box-sizing: border-box;
+  padding: calc(2px * var(--pto-training-sidecar-scale));
+  border: calc(1px * var(--pto-training-sidecar-scale)) solid color-mix(in srgb, var(--training-residual) 58%, var(--border));
+  border-radius: calc(4px * var(--pto-training-sidecar-scale));
+  background: color-mix(in srgb, var(--background) 86%, var(--training-residual) 14%);
+  color: color-mix(in srgb, var(--training-residual) 64%, var(--foreground));
+  font: 850 calc(6px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pto-training-sidecar__focus-aux {
+  position: absolute;
+  z-index: 3;
+  left: calc(50px * var(--pto-training-sidecar-scale));
+  right: calc(7px * var(--pto-training-sidecar-scale));
+  transform: translateY(-50%);
+  box-sizing: border-box;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--warning) 36%, var(--border));
+  background: color-mix(in srgb, var(--warning) 6%, var(--surface-1));
+  color: color-mix(in srgb, var(--warning) 68%, var(--foreground));
+  text-overflow: ellipsis;
+}
+
+.pto-training-sidecar__focus-backward {
+  position: absolute;
+  z-index: 4;
+  left: calc(12px * var(--pto-training-sidecar-scale));
+  right: calc(12px * var(--pto-training-sidecar-scale));
+  bottom: calc(8px * var(--pto-training-sidecar-scale));
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--pto-training-sidecar-scale));
+  color: var(--training-flow-text);
+  font: 800 calc(10px * var(--pto-training-sidecar-scale))/1 var(--font-mono);
+  pointer-events: none;
+}
+
+.pto-training-sidecar__focus-backward i { flex: 1; height: calc(1px * var(--pto-training-sidecar-scale)); background: currentColor; opacity: .48; }
+
+/* Layer focus reuses the canonical 720 × 1180 front graph. Telemetry is
+   added inside each real operator node so structure and metrics stay aligned. */
+.pto-training-sidecar__focus-graph-stage {
+  position: absolute;
+  left: 50%;
+  width: 720px;
+  height: 1124px;
+  transform: translateX(-50%) scale(var(--pto-training-focus-graph-scale, 1));
+  transform-origin: 50% 0;
+}
+
+.pto-training-sidecar__focus .pto-training-sidecar__focus-header {
+  min-height: calc(40px * var(--pto-training-sidecar-scale));
+  padding: calc(4px * var(--pto-training-sidecar-scale)) calc(8px * var(--pto-training-sidecar-scale)) calc(4px * var(--pto-training-sidecar-scale)) calc(38px * var(--pto-training-sidecar-scale));
+}
+
+.pto-training-sidecar__focus .pto-training-sidecar__focus-title {
+  gap: calc(3px * var(--pto-training-sidecar-scale));
+  font: 850 calc(14px * var(--pto-training-sidecar-scale))/1 var(--font-sans);
+}
+
+.pto-training-sidecar__focus .pto-training-sidecar__focus-title span { font: 750 calc(8.5px * var(--pto-training-sidecar-scale))/1 var(--font-mono); }
+.pto-training-sidecar__focus .pto-training-sidecar__focus-title em { font: 800 calc(8px * var(--pto-training-sidecar-scale))/1 var(--font-mono); }
+
+.pto-training-sidecar__focus .pto-training-sidecar__focus-close {
+  width: calc(26px * var(--pto-training-sidecar-scale));
+  height: calc(26px * var(--pto-training-sidecar-scale));
+  border-radius: calc(7px * var(--pto-training-sidecar-scale));
+  font-size: calc(15px * var(--pto-training-sidecar-scale));
+}
+
+.pto-training-sidecar__focus-graph {
+  position: absolute;
+  inset: 0;
+  width: 720px;
+  height: 1124px;
+  transform: none;
+  transform-style: flat;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__layer-label { display: none; }
+
+.pto-model-deck[data-view="right"] .pto-training-sidecar__focus-graph .pto-model-deck__node,
+.pto-model-deck[data-view="right"] .pto-training-sidecar__focus-graph .pto-model-deck__experts {
+  transform-style: flat;
+}
+
+.pto-model-deck[data-view="right"] .pto-training-sidecar__focus-graph .pto-model-deck__node::after,
+.pto-model-deck[data-view="right"] .pto-training-sidecar__focus-graph .pto-model-deck__experts::after,
+.pto-training-sidecar__focus-graph .pto-model-deck__experts.is-collapsed::before {
+  display: none;
+  content: none;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__cluster {
+  border-width: 1.2px;
+  background: color-mix(in srgb, var(--cluster-color) 7%, transparent);
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__cluster span {
+  font-size: 9px;
+  letter-spacing: .025em;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__edges path {
+  stroke: var(--training-flow);
+  stroke-width: 1.45;
+  stroke-opacity: .58;
+  stroke-dasharray: none;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__edges path[data-kind="comm"] {
+  stroke: var(--training-flow);
+  stroke-width: 1.6;
+  stroke-opacity: .62;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__edges path[data-kind="residual"] {
+  stroke: var(--training-residual);
+  stroke-width: 1.5;
+  stroke-opacity: .68;
+  stroke-dasharray: 5 5;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__edges path.is-focus-mhc-rail {
+  stroke: var(--training-residual);
+  stroke-width: 1.15;
+  stroke-opacity: .76;
+  stroke-dasharray: none;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node,
+.pto-training-sidecar__focus-graph .pto-model-deck__experts {
+  z-index: 2;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 5px;
+  overflow: visible;
+  line-height: 1;
+}
+
+.pto-training-sidecar__focus-graph.has-focus-data .pto-model-deck__node,
+.pto-training-sidecar__focus-graph.has-focus-data .pto-model-deck__experts,
+.pto-training-sidecar__focus-graph.has-focus-data .pto-model-deck__cluster {
+  transition:
+    left 220ms cubic-bezier(.22,.72,.18,1),
+    width 220ms cubic-bezier(.22,.72,.18,1);
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node.has-focus-data,
+.pto-training-sidecar__focus-graph .pto-model-deck__experts.has-focus-data {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  padding: calc(2px * var(--pto-training-focus-scale));
+  overflow: hidden;
+  border: calc(1px * var(--pto-training-focus-scale)) solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  background: var(--surface-1);
+  box-shadow: 0 calc(2px * var(--pto-training-focus-scale)) calc(5px * var(--pto-training-focus-scale)) color-mix(in srgb, #000 13%, transparent);
+  color: var(--foreground);
+}
+
+.pto-training-sidecar__focus-graph .has-focus-data .pto-training-sidecar__focus-node-label {
+  align-self: stretch;
+  flex: 0 0 var(--pto-training-focus-label-width, 46%);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 0 calc(4px * var(--pto-training-focus-scale));
+  border: calc(1px * var(--pto-training-focus-scale)) solid color-mix(in srgb, var(--node-color) 54%, #fff);
+  border-radius: calc(6px * var(--pto-training-focus-scale));
+  background: var(--node-color);
+  color: #fff;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node[data-op="mhc-state"] {
+  display: flex;
+  padding-left: 5px;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node[data-op="mhc-state"].has-focus-data {
+  padding-left: 2px;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node[data-op="mhc-state"]::before { display: none; }
+
+.pto-training-sidecar__focus-node-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font: 750 calc(11px * var(--pto-training-focus-scale))/1 var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-node-metrics {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-self: stretch;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6px * var(--pto-training-focus-scale));
+  padding: 0 calc(4px * var(--pto-training-focus-scale));
+  overflow: hidden;
+  color: var(--foreground-secondary);
+  white-space: nowrap;
+}
+
+.pto-training-sidecar__focus-node-metrics i {
+  flex: 0 0 auto;
+  color: var(--foreground-secondary);
+  font: 500 calc(10px * var(--pto-training-focus-scale))/1 var(--font-mono);
+  font-style: normal;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node.is-tiny .pto-training-sidecar__focus-node-label { font-size: calc(10.5px * var(--pto-training-focus-scale)); }
+.pto-training-sidecar__focus-graph .pto-model-deck__node.is-tiny .pto-training-sidecar__focus-node-metrics i { font-size: calc(9.5px * var(--pto-training-focus-scale)); }
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node.is-add {
+  display: grid;
+  place-items: center;
+  width: 26px !important;
+  min-width: 26px;
+  height: 26px !important;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--training-residual);
+  box-shadow: none;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node.is-add.has-focus-data {
+  padding: 0;
+  border: 0;
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node.is-add .pto-training-sidecar__focus-node-label {
+  align-self: auto;
+  flex: none;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font: 900 15px/1 var(--font-sans);
+}
+
+.pto-training-sidecar__focus-graph .pto-model-deck__node.is-add .pto-training-sidecar__focus-node-metrics { display: none; }
+
+.pto-training-sidecar__focus-graph-aux {
+  position: absolute;
+  z-index: 3;
+  left: 140px;
+  top: 1092px;
+  width: 440px;
+  min-height: 26px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-1));
+  color: color-mix(in srgb, var(--warning) 72%, var(--foreground));
+  font: 850 10px/1 var(--font-mono);
+  white-space: nowrap;
+}
+
+/* The data menu may expose any union of metric groups. JavaScript marks only
+   the inactive annotations; zoom and pan never participate in visibility. */
+.pto-model-training-sidecar .is-metric-hidden {
+  display: none !important;
+}
+
+/* Once a Layer slice is open, data annotations belong to that front-facing
+   slice only. Keeping background telemetry out prevents the side rails and PP
+   boundary labels from appearing to move when the data filter changes. */
+.pto-model-training-sidecar.has-expanded-layer .pto-training-sidecar__scene :is(
+  .pto-training-sidecar__metric-band,
+  .pto-training-sidecar__metric-midline,
+  .pto-training-sidecar__metric-line,
+  .pto-training-sidecar__metric-point,
+  .pto-training-sidecar__metric-label,
+  .pto-training-sidecar__sample-label,
+  .pto-training-sidecar__residual-flow-arrow,
+  .pto-training-sidecar__residual-flow-hit,
+  .pto-training-sidecar__residual-flow-hit-dot,
+  .pto-training-sidecar__flow-texture,
+  .pto-training-sidecar__backward,
+  .pto-training-sidecar__backward-dot,
+  .pto-training-sidecar__parameter-stem,
+  .pto-training-sidecar__parameter-dot,
+  .pto-training-sidecar__step-gradient-dot,
+  .pto-training-sidecar__optimizer,
+  .pto-training-sidecar__communication,
+  .pto-training-sidecar__comm-label,
+  .pto-training-sidecar__semantic-label,
+  .pto-training-sidecar__loss-composition,
+  .pto-training-sidecar__value-label:not(.is-structure)
+) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* The sidecar already owns the full-width Stage labels above the topology axis.
+   Suppress only the redundant in-model PP pills in the PP/right-view composition. */
+.pto-model-training-sidecar[data-view="right"][data-parallel="pp"]
+  .pto-model-deck__annotation.is-side[data-kind="pp"] {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .pto-training-sidecar__semantic-label { display: none; }
+  .pto-training-sidecar__inspector.is-open {
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: 8px;
+    width: auto;
+    max-height: 72vh;
+    overflow: auto;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+  .pto-training-sidecar__loss-composition.is-expanded { width: min(340px, calc(100vw - 24px)); }
+  .pto-training-sidecar__loss-composition.is-collapsed { width: min(244px, calc(100vw - 24px)); }
+}
+
+@keyframes pto-training-sidecar-slice-flip {
+  0% {
+    opacity: .34;
+    transform: perspective(calc(1500px * var(--pto-training-sidecar-scale))) rotateY(88deg) scaleX(.06);
+  }
+  64% {
+    opacity: 1;
+    transform: perspective(calc(1500px * var(--pto-training-sidecar-scale))) rotateY(-4deg) scaleX(1);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(calc(1500px * var(--pto-training-sidecar-scale))) rotateY(0deg) scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pto-model-training-sidecar.is-layer-camera-transitioning .pto-model-deck__scene,
+  .pto-model-training-sidecar.is-layer-camera-transitioning .pto-training-sidecar__scene,
+  .pto-model-training-sidecar.is-layer-camera-transitioning .pto-training-sidecar__focus-scene { transition: none; }
+  .pto-model-training-sidecar.is-layer-camera-transitioning .pto-model-deck__layer,
+  .pto-model-training-sidecar.is-layer-camera-transitioning .pto-model-deck__static { transition: none; }
+  .pto-training-sidecar__focus.is-flipping { animation: none; }
+}

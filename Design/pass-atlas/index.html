@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyPTO Pass Atlas · 编译流水线与硬件图解</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<header class="top">
+  <span class="top__mark"></span>
+  <span class="top__name">PyPTO Pass Atlas</span>
+  <span class="top__tag" id="meta"></span>
+  <nav class="top__tabs" id="tabs" role="tablist"></nav>
+  <div class="top__right">
+    <input type="search" id="search" class="search" placeholder="搜 Pass / 属性…" aria-label="搜索" hidden>
+    <div class="socsw" id="socsw" role="group" aria-label="切换芯片"></div>
+  </div>
+</header>
+
+<main class="body">
+  <aside class="rail" id="rail-pane" hidden>
+    <div class="rail__head">
+      <span class="rail__title">PIPELINE</span>
+      <div class="rail__modes" id="rail-modes"></div>
+    </div>
+    <div class="rail__body" id="rail"></div>
+    <div class="rail__foot" id="rail-foot"></div>
+  </aside>
+  <section class="view" id="view"></section>
+</main>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script src="./data.js"></script>
+<script src="./hw.js"></script>
+<script src="./op.js"></script>
+<script src="./pack.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

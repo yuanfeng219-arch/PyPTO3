@@ -1,0 +1,188 @@
+@import '../../../styles/variable';
+
+.upload {
+  margin: 0 auto;
+  margin-top: 2rem;
+  margin-bottom: 3rem;
+  min-height: 70vh;
+  max-width: 800px;
+  width: 90%;
+  padding: 2rem;
+
+  .Docker {
+    font-size: 0.9rem;
+    padding: 1rem;
+    color: gray;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    a {
+      text-decoration: underline;
+      color: $dark;
+    }
+    a:hover {
+      color: $purple;
+    }
+  }
+
+  .navlink {
+    margin-bottom: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    
+    button {
+      padding: 0.75rem 1.5rem;
+      text-decoration: none;
+      background-color: white;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    #active {
+      color: white;
+      background-color: $purple;
+      border: 2px solid $purple;
+    }
+
+    #deactive {
+      color: $dark;
+      border: transparent;
+      background-color: #F2F0F5;
+    }
+
+    #deactive:hover {
+      background-color: $lightpurple;
+      border: 2px solid $purple;
+    }
+  }
+
+  form {
+    background-color: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+  }
+
+  .userName, .file, .pass, .llvm_version {
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    label {
+      font-weight: 600;
+      color: $dark;
+      font-size: 0.9rem;
+      min-width: 100px;
+      text-align: left;
+    }
+
+    input, select {
+      flex: 1;
+      padding: 0.5rem;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      color: $dark;
+      font-size: 0.85rem;
+      transition: border-color 0.2s ease;
+      
+      &:focus {
+        outline: none;
+        border-color: $purple;
+        box-shadow: 0 0 0 3px rgba(153, 102, 255, 0.1);
+      }
+    }
+
+    input[type="file"] {
+      padding: 0.3rem;
+      color: $gray;
+    }
+  }
+
+  .cmd {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    background-color: #2d3748;
+    border-radius: 8px;
+    color: white;
+    padding: 1.5rem;
+
+    h5 {
+      font-size: 0.8rem;
+      color: #a0aec0;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.9rem;
+      white-space: normal;
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+
+    i {
+      color: $highlight;
+      font-style: normal;
+    }
+  }
+
+  .clang {
+    margin-bottom: 3rem;
+    background-color: #f4f4f4;
+    border-radius: 8px;
+    padding: 1.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    line-height: 1.6;
+
+    i {
+      font-style: normal;
+      color: $highlight;
+      background-color: #2d3748;
+      padding: 0.2rem 0.4rem;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+  }
+}
+
+#submit {
+  text-align: center;
+  margin-top: 1rem;
+  
+  input {
+    font-size: 0.95rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}
+
+@media (max-width: 1400px) {
+  .upload {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .upload {
+    width: 95%;
+    padding: 1rem;
+    
+    form {
+      padding: 1.5rem;
+    }
+  }
+}

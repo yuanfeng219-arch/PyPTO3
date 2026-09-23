@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DeepSeek V4 decode_csa 从 PyPTO 源码到 Ascend 上板执行的数据与产物图谱">
+  <title>DeepSeek V4 · CSA Execution Atlas</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080a0f;
+      --panel: #11151e;
+      --panel-2: #151b26;
+      --panel-3: #1b2330;
+      --line: rgba(255,255,255,.095);
+      --line-strong: rgba(255,255,255,.16);
+      --text: #f2f5f8;
+      --muted: #98a3b5;
+      --dim: #697486;
+      --lime: #b7f36a;
+      --cyan: #63d6e5;
+      --blue: #8aa8ff;
+      --violet: #c49bff;
+      --orange: #ffb86b;
+      --red: #ff7f93;
+      --shadow: 0 20px 70px rgba(0,0,0,.28);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 72% -10%, rgba(138,168,255,.16), transparent 32rem),
+        radial-gradient(circle at 8% 26%, rgba(183,243,106,.06), transparent 27rem),
+        var(--bg);
+      font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+    .app { display: grid; grid-template-columns: 246px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; padding: 22px 16px;
+      border-right: 1px solid var(--line); background: rgba(10,13,19,.82); backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; gap: 24px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 4px 9px; }
+    .brand-mark { width: 28px; height: 28px; border-radius: 9px; background: var(--lime); color: #0d1609; display: grid; place-items: center; font-weight: 900; font-size: 13px; box-shadow: 0 0 30px rgba(183,243,106,.18); }
+    .brand-copy strong { display: block; font-size: 13px; letter-spacing: .02em; }
+    .brand-copy span { display: block; margin-top: 3px; color: var(--dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    .side-label { padding: 0 10px; color: var(--dim); font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .nav { display: grid; gap: 4px; }
+    .nav button { border: 0; background: transparent; text-align: left; padding: 10px 11px; border-radius: 10px; color: var(--muted); cursor: pointer; font-size: 12px; display: flex; gap: 10px; align-items: center; }
+    .nav button:hover, .nav button.active { color: var(--text); background: rgba(255,255,255,.07); }
+    .nav button.active { box-shadow: inset 2px 0 var(--lime); }
+    .nav b { width: 20px; color: var(--dim); font: 600 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .side-foot { margin-top: auto; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.025); }
+    .side-foot .tiny { color: var(--dim); font-size: 10px; line-height: 1.55; }
+    .side-foot .path { margin-top: 8px; color: var(--cyan); font: 10px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .main { min-width: 0; }
+    .topbar { height: 62px; padding: 0 34px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 8; background: rgba(8,10,15,.74); backdrop-filter: blur(18px); }
+    .crumb { color: var(--muted); font-size: 11px; }
+    .crumb strong { color: var(--text); font-weight: 600; }
+    .top-actions { display: flex; gap: 8px; align-items: center; }
+    .pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 10px var(--lime); }
+    .content { max-width: 1560px; margin: 0 auto; padding: 34px 38px 80px; }
+    .eyebrow { color: var(--lime); font: 700 10px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 10px 0 10px; max-width: 940px; font-size: clamp(30px, 4vw, 54px); line-height: 1.05; letter-spacing: -.045em; }
+    h2 { margin: 0; font-size: 21px; letter-spacing: -.025em; }
+    h3 { margin: 0; font-size: 14px; }
+    p { color: var(--muted); line-height: 1.65; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 28px; align-items: end; }
+    .hero p { max-width: 760px; margin: 0; font-size: 14px; }
+    .hero-meta { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(138,168,255,.09), rgba(255,255,255,.025)); box-shadow: var(--shadow); }
+    .hero-meta-title { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .hero-meta strong { font-size: 12px; }
+    .hero-meta .state { color: var(--lime); font-size: 10px; }
+    .hero-meta .value { margin-top: 13px; color: var(--text); font: 17px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .hero-meta small { display: block; margin-top: 6px; color: var(--dim); font-size: 10px; }
+    .source-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 20px; }
+    .source-chips a, .tag { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: rgba(255,255,255,.03); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; text-decoration: none; }
+    .source-chips a:hover { color: var(--cyan); border-color: rgba(99,214,229,.5); }
+    .notice { margin: 26px 0 30px; padding: 13px 15px; border: 1px solid rgba(255,184,107,.24); border-left: 3px solid var(--orange); border-radius: 11px; background: rgba(255,184,107,.055); color: #e7c79e; font-size: 12px; line-height: 1.55; }
+    .notice strong { color: var(--orange); }
+    .section { margin-top: 46px; scroll-margin-top: 90px; }
+    .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 17px; }
+    .section-head p { margin: 5px 0 0; font-size: 12px; }
+    .section-index { color: var(--dim); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .kpis { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; }
+    .kpi { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.035); min-height: 98px; }
+    .kpi .num { display: block; color: var(--text); font: 23px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: -.05em; }
+    .kpi .label { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .kpi .hint { display: block; margin-top: 5px; color: var(--dim); font-size: 10px; }
+    .pipeline-wrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .7fr); gap: 12px; }
+    .pipeline { display: grid; grid-template-columns: repeat(8, minmax(100px,1fr)); gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .stage { position: relative; min-height: 155px; padding: 13px 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); cursor: pointer; transition: .18s ease; }
+    .stage:hover, .stage.selected { transform: translateY(-2px); border-color: var(--stage-color); background: linear-gradient(160deg, color-mix(in srgb, var(--stage-color) 14%, var(--panel)), var(--panel)); box-shadow: 0 12px 32px rgba(0,0,0,.22); }
+    .stage:not(:last-child)::after { content: '›'; position: absolute; right: -9px; top: 50%; color: var(--dim); font-size: 18px; z-index: 2; }
+    .stage .step { color: var(--stage-color); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .stage h3 { margin-top: 11px; line-height: 1.25; }
+    .stage p { margin: 7px 0 0; font-size: 10px; line-height: 1.45; }
+    .stage .stage-count { position: absolute; bottom: 12px; color: var(--dim); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .inspector { min-height: 155px; padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel-2); }
+    .inspector .inspector-kicker { color: var(--lime); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .inspector h3 { margin-top: 7px; font-size: 16px; }
+    .inspector p { margin: 7px 0 12px; font-size: 11px; }
+    .inspector .code-line { padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--cyan); background: #0b0e14; font: 10px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .two-col { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+    .panel { border: 1px solid var(--line); border-radius: var(--radius); background: rgba(17,21,30,.86); overflow: hidden; }
+    .panel-head { padding: 15px 17px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); }
+    .panel-head .sub { margin-top: 4px; color: var(--dim); font-size: 10px; }
+    .panel-body { padding: 16px; }
+    .pass-list { display: grid; gap: 7px; }
+    .pass-row { display: grid; grid-template-columns: 75px minmax(0,1fr) 58px; gap: 10px; align-items: center; padding: 8px 9px; border-radius: 9px; cursor: pointer; }
+    .pass-row:hover, .pass-row.active { background: rgba(255,255,255,.06); }
+    .pass-id { color: var(--dim); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .pass-name { font-size: 11px; }
+    .pass-bar { height: 5px; border-radius: 999px; background: var(--bar-color); opacity: .8; }
+    .pass-count { color: var(--dim); text-align: right; font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .pass-detail { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #0b0e14; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .kernel-controls { display: flex; align-items: center; gap: 8px; }
+    .search { width: 138px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; outline: 0; color: var(--text); background: #0c1017; font-size: 10px; }
+    .search:focus { border-color: var(--cyan); }
+    .kernel-list { max-height: 480px; overflow: auto; display: grid; gap: 5px; }
+    .kernel { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 8px; }
+    .kernel:hover { background: rgba(255,255,255,.055); }
+    .kernel-id { color: var(--dim); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .kernel-name { font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .core { padding: 3px 5px; border-radius: 5px; font-size: 9px; font-weight: 800; }
+    .core.aic { color: var(--orange); background: rgba(255,184,107,.12); }
+    .core.aiv { color: var(--cyan); background: rgba(99,214,229,.11); }
+    .artifact-flow { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 9px; align-items: stretch; }
+    .artifact { position: relative; padding: 15px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); min-height: 144px; }
+    .artifact:not(:last-child)::after { content: '→'; position: absolute; right: -10px; top: 52px; color: var(--dim); z-index: 2; }
+    .artifact .artifact-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.07); color: var(--artifact-color); font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .artifact h3 { margin-top: 14px; }
+    .artifact p { margin: 5px 0 0; font-size: 10px; line-height: 1.45; }
+    .artifact small { display: block; margin-top: 11px; color: var(--artifact-color); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .runtime-grid { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 12px; }
+    .metric-stack { display: grid; gap: 8px; }
+    .metric-line { display: flex; justify-content: space-between; gap: 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.025); font-size: 11px; }
+    .metric-line span { color: var(--muted); }
+    .metric-line strong { font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .swimlane { padding: 16px; }
+    .trace-tabs { display: flex; gap: 7px; margin-bottom: 15px; }
+    .trace-tab { padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; font-size: 10px; }
+    .trace-tab.active { color: var(--text); border-color: var(--lime); background: rgba(183,243,106,.1); }
+    .lane { display: grid; grid-template-columns: 100px minmax(0,1fr) 74px; gap: 12px; align-items: center; margin: 12px 0; }
+    .lane-label { color: var(--muted); font-size: 11px; }
+    .lane-track { position: relative; height: 29px; border: 1px solid var(--line); border-radius: 6px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 20%); }
+    .lane-bar { position: absolute; top: 4px; bottom: 4px; left: 2%; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; color: #09100a; background: var(--bar); font-size: 9px; font-weight: 800; white-space: nowrap; overflow: hidden; }
+    .lane-time { color: var(--dim); text-align: right; font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .trace-note { margin-top: 16px; padding: 11px 12px; border: 1px dashed var(--line-strong); border-radius: 9px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+    .data-grid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); gap: 12px; }
+    .shape-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .shape-table th { padding: 9px 8px; color: var(--dim); border-bottom: 1px solid var(--line); text-align: left; font-size: 10px; font-weight: 600; }
+    .shape-table td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,.06); color: var(--muted); }
+    .shape-table td:first-child { color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
+    .shape-table td:nth-child(2) { color: var(--cyan); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .evidence-list { display: grid; gap: 8px; }
+    .evidence { display: grid; grid-template-columns: 10px 1fr; gap: 9px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.025); }
+    .evidence-mark { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: var(--evidence-color); box-shadow: 0 0 12px color-mix(in srgb, var(--evidence-color) 60%, transparent); }
+    .evidence strong { display: block; font-size: 11px; }
+    .evidence p { margin: 4px 0 0; font-size: 10px; line-height: 1.5; }
+    .evidence a { color: var(--cyan); text-decoration: none; }
+    .evidence a:hover { text-decoration: underline; }
+    .footer { margin-top: 50px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 18px; color: var(--dim); font-size: 10px; }
+    .footer a { color: var(--muted); text-decoration: none; }
+    .footer a:hover { color: var(--cyan); }
+    .deep-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(320px,.85fr); gap: 12px; }
+    .deep-list { max-height: 620px; overflow: auto; display: grid; gap: 4px; }
+    .deep-row { display: grid; grid-template-columns: 42px minmax(0,1fr) 100px; gap: 9px; align-items: center; padding: 9px 10px; border: 1px solid transparent; border-radius: 9px; cursor: pointer; }
+    .deep-row:hover, .deep-row.active { border-color: var(--line-strong); background: rgba(255,255,255,.055); }
+    .deep-row .id { color: var(--dim); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .deep-row .name { font-size: 11px; }
+    .deep-row .file { display: block; margin-top: 4px; color: var(--dim); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .deep-row .delta { color: var(--cyan); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; text-align: right; }
+    .detail-card { min-height: 620px; padding: 18px; background: radial-gradient(circle at 100% 0, rgba(99,214,229,.08), transparent 18rem), var(--panel-2); }
+    .detail-kicker { color: var(--lime); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; }
+    .detail-card h3 { margin-top: 10px; font-size: 20px; }
+    .detail-card p { font-size: 11px; line-height: 1.6; }
+    .detail-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin: 16px 0; }
+    .detail-stat { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0,0,0,.14); }
+    .detail-stat span { display: block; color: var(--dim); font-size: 9px; }
+    .detail-stat strong { display: block; margin-top: 5px; color: var(--text); font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .ir-code { padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #090c12; color: #c9d5e8; font: 10px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+    .ir-code .hot { color: var(--cyan); }
+    .lineage { display: flex; gap: 8px; align-items: stretch; overflow-x: auto; padding: 12px 2px 16px; }
+    .lineage-node { flex: 0 0 150px; position: relative; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; }
+    .lineage-node:not(:last-child)::after { content: '→'; position: absolute; right: -10px; top: 27px; color: var(--dim); z-index: 2; }
+    .lineage-node:hover, .lineage-node.active { border-color: var(--node-color); background: color-mix(in srgb, var(--node-color) 12%, var(--panel)); }
+    .lineage-node .node-kind { color: var(--node-color); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .lineage-node strong { display: block; margin-top: 10px; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .lineage-node small { display: block; margin-top: 6px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+    .lineage-detail { margin-top: 4px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #0b0e14; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .callable-table-wrap { overflow: auto; max-height: 690px; }
+    .callable-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    .callable-table th { position: sticky; top: 0; padding: 9px; color: var(--dim); background: var(--panel-2); border-bottom: 1px solid var(--line); text-align: left; font-size: 10px; z-index: 1; }
+    .callable-table td { padding: 8px 9px; border-bottom: 1px solid rgba(255,255,255,.055); color: var(--muted); font-size: 10px; }
+    .callable-table tr { cursor: pointer; }
+    .callable-table tr:hover, .callable-table tr.active { background: rgba(255,255,255,.055); }
+    .callable-table td:first-child, .callable-table td:nth-child(2) { color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .callable-detail { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #0b0e14; font-size: 10px; line-height: 1.6; color: var(--muted); }
+    .graph-panel { overflow: hidden; }
+    .graph-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+    .graph-select-label { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 10px; }
+    .graph-select { max-width: 230px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; outline: 0; color: var(--text); background: #0c1017; font-size: 10px; }
+    .graph-select:focus { border-color: var(--cyan); }
+    .graph-step { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; font-size: 10px; }
+    .graph-step:hover { color: var(--text); border-color: var(--cyan); }
+    .graph-body { padding: 16px; }
+    .graph-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; color: var(--muted); font-size: 11px; }
+    .graph-status strong { color: var(--text); }
+    .graph-status .graph-stage-summary { color: var(--cyan); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .graph-compare { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+    .graph-pane { min-width: 0; border: 1px solid var(--line); border-radius: 11px; background: #0b0e14; overflow: hidden; }
+    .graph-pane-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .graph-pane-head strong { color: var(--text); font-size: 11px; }
+    .graph-pane-head span { color: var(--dim); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .graph-canvas { min-height: 370px; padding: 5px; }
+    .graph-canvas svg { display: block; width: 100%; height: auto; min-height: 360px; }
+    .graph-canvas svg text { font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+    .graph-edge { fill: none; stroke: rgba(152,163,181,.5); stroke-width: 1.3; marker-end: url(#graph-arrow); }
+    .graph-edge.added { stroke: var(--lime); stroke-width: 2; }
+    .graph-edge.deleted { stroke: var(--red); stroke-width: 2; stroke-dasharray: 5 4; }
+    .graph-edge.changed { stroke: var(--orange); stroke-width: 2; stroke-dasharray: 3 3; }
+    .graph-node { cursor: pointer; }
+    .graph-node rect { fill: rgba(255,255,255,.055); stroke: rgba(152,163,181,.48); stroke-width: 1.1; }
+    .graph-node:hover rect, .graph-node.selected rect { stroke: var(--cyan); stroke-width: 2; }
+    .graph-node.added rect { fill: rgba(183,243,106,.14); stroke: var(--lime); stroke-width: 1.8; }
+    .graph-node.deleted rect { fill: rgba(255,127,147,.12); stroke: var(--red); stroke-width: 1.8; stroke-dasharray: 5 3; }
+    .graph-node.changed rect { fill: rgba(255,184,107,.14); stroke: var(--orange); stroke-width: 1.8; }
+    .graph-node .node-label { fill: var(--text); font-size: 11px; font-weight: 500; }
+    .graph-node .node-meta { fill: var(--dim); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .graph-node .node-kind { fill: var(--node-accent, var(--cyan)); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .graph-diff { display: flex; gap: 12px; flex-wrap: wrap; padding: 11px 2px 0; color: var(--dim); font-size: 10px; }
+    .graph-diff span { display: inline-flex; align-items: center; gap: 5px; }
+    .graph-diff i { width: 8px; height: 8px; display: inline-block; border-radius: 2px; background: var(--diff-color); }
+    .graph-detail { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #0b0e14; color: var(--muted); font-size: 10px; line-height: 1.6; }
+    .graph-detail strong { color: var(--text); }
+    .graph-detail a { color: var(--cyan); text-decoration: none; }
+    .graph-detail a:hover { text-decoration: underline; }
+    .dep-chain { display: grid; grid-template-columns: repeat(6, minmax(125px,1fr)); gap: 8px; overflow-x: auto; }
+    .dep-step { min-width: 125px; padding: 11px; border-left: 2px solid var(--step-color); border-radius: 8px; background: rgba(255,255,255,.04); }
+    .dep-step .task-id { color: var(--step-color); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .dep-step strong { display: block; margin-top: 8px; font-size: 11px; }
+    .dep-step small { display: block; margin-top: 5px; color: var(--dim); font-size: 9px; line-height: 1.4; }
+    .mini-legend { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mini-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); font-size: 9px; }
+    .mini-legend i { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--legend); }
+    @media (max-width: 1120px) { .deep-grid { grid-template-columns: 1fr; } .detail-card { min-height: auto; } .dep-chain { grid-template-columns: repeat(3,minmax(125px,1fr)); } .graph-compare { grid-template-columns: 1fr; } }
+    @media (max-width: 1120px) { .kpis { grid-template-columns: repeat(3,1fr); } .hero, .pipeline-wrap, .runtime-grid, .data-grid { grid-template-columns: 1fr; } .pipeline { grid-template-columns: repeat(8, 145px); } .artifact-flow { grid-template-columns: repeat(3,1fr); } .artifact:nth-child(3)::after, .artifact:nth-child(6)::after { display: none; } }
+    @media (max-width: 760px) { .app { display: block; } .sidebar { position: relative; width: 100%; height: auto; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--line); } .side-label, .side-foot { display: none; } .brand { justify-content: center; } .nav { grid-template-columns: repeat(6,1fr); gap: 3px; } .nav button { justify-content: center; padding: 9px 5px; font-size: 10px; } .nav button span { display: none; } .nav b { width: auto; } .topbar { padding: 0 16px; } .top-actions .pill:first-child { display: none; } .content { padding: 26px 16px 54px; } .kpis { grid-template-columns: repeat(2,1fr); } .two-col, .artifact-flow { grid-template-columns: 1fr; } .artifact:not(:last-child)::after { content: '↓'; top: auto; bottom: -13px; right: 50%; } .artifact:nth-child(3)::after, .artifact:nth-child(6)::after { display: block; } .lane { grid-template-columns: 75px minmax(0,1fr) 62px; gap: 7px; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">P</div><div class="brand-copy"><strong>Execution Atlas</strong><span>PyPTO / Ascend</span></div></div>
+      <div><div class="side-label">Explore</div><nav class="nav" aria-label="页面导航">
+        <button class="active" data-target="overview"><b>01</b><span>总览</span></button>
+        <button data-target="pipeline"><b>02</b><span>源码链路</span></button>
+        <button data-target="lowering"><b>03</b><span>编译产物</span></button>
+        <button data-target="deepflow"><b>04</b><span>逐层细节</span></button>
+        <button data-target="runtime"><b>05</b><span>板上执行</span></button>
+        <button data-target="data"><b>06</b><span>数据证据</span></button>
+      </nav></div>
+      <div class="side-foot"><div class="tiny">Snapshot / JIT compile run</div><div class="path">_jit_l3_decode_csa_20260903_010617</div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div class="crumb">DeepSeek V4 / <strong>decode_csa</strong> / execution atlas</div><div class="top-actions"><span class="pill"><span class="dot"></span> evidence loaded</span><span class="pill">2026.09.03</span></div></header>
+      <div class="content">
+        <section id="overview" class="hero">
+          <div><div class="eyebrow">Operator-to-board trace</div><h1>从算子源码，到可执行文件，再到板上数据。</h1><p>把一次 DeepSeek V4 CSA JIT 快照拆成可核验的编译链：源码语义、52 个 Pass、PTO/CPP/O/BIN、Host 编排、双 rank 任务 DAG，以及 DFX 性能和形状证据。</p><div class="source-chips"><a href="../../Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py">decode_csa.py</a><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/distributed_meta.json">distributed_meta.json</a><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/cache/binary_context.json">binary_context.json</a><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/report/perf_hints.log">perf_hints.log</a></div></div>
+          <div class="hero-meta"><div class="hero-meta-title"><strong>Snapshot state</strong><span class="state">● recorded</span></div><div class="value">TP=2 · T/rank=256</div><small>Ascend910B / a2a3 · devices [1, 3]</small><small>Global output: [2, -1, 4, 4096] FP32</small></div>
+        </section>
+        <div class="notice"><strong>证据边界：</strong>这里展示的是编译产物、任务图、形状和性能证据。当前快照没有真实 Tensor 输入/输出 dump；<code>debug/run.py</code> 是随机占位输入且比较函数为空，因此“执行的数据”部分会明确区分真实运行元数据与缺失的数值证据。</div>
+
+        <section class="section" aria-label="关键指标"><div class="section-head"><div><h2>一眼看懂这次执行</h2><p>这不是一个扁平的 .bin，而是一个带通信和依赖的多核执行包。</p></div><span class="section-index">SNAPSHOT / 01</span></div>
+          <div class="kpis"><div class="kpi"><span class="num">52</span><span class="label">Pass snapshots</span><span class="hint">frontend → runtime</span></div><div class="kpi"><span class="num">64</span><span class="label">device callables</span><span class="hint">14 AIC · 50 AIV</span></div><div class="kpi"><span class="num">86</span><span class="label">graph tasks</span><span class="hint">deps.json</span></div><div class="kpi"><span class="num">72</span><span class="label">device cores</span><span class="hint">24 AIC · 48 AIV</span></div><div class="kpi"><span class="num">5.13 ms</span><span class="label">rank0 steady run</span><span class="hint">invocation 2</span></div><div class="kpi"><span class="num">0</span><span class="label">golden comparisons</span><span class="hint">debug compare TODO</span></div></div>
+        </section>
+
+        <section id="pipeline" class="section"><div class="section-head"><div><h2>01 / 源码语义 → 任务阶段</h2><p>点击任一阶段，右侧会显示它的输入输出边界和生成的 callable。</p></div><span class="section-index">SOURCE / 02</span></div>
+          <div class="pipeline-wrap"><div id="pipelineCards" class="pipeline"></div><div id="stageInspector" class="inspector"></div></div>
+        </section>
+
+        <section id="lowering" class="section"><div class="section-head"><div><h2>02 / 编译器如何把图压成硬件产物</h2><p>Pass 名称来自快照文件；数量和结构变化来自实际 IR 统计。</p></div><span class="section-index">LOWERING / 03</span></div>
+          <div class="two-col"><div class="panel"><div class="panel-head"><div><h3>Pass pipeline</h3><div class="sub">点击一段查看这一层的职责</div></div><span class="tag">00 → 51</span></div><div class="panel-body"><div id="passList" class="pass-list"></div><div id="passDetail" class="pass-detail"></div></div></div>
+            <div class="panel"><div class="panel-head"><div><h3>64 device callables</h3><div class="sub">来自 name_map.json / kernel_config.py</div></div><div class="kernel-controls"><input id="kernelSearch" class="search" placeholder="搜索 kernel…" aria-label="搜索 kernel"></div></div><div class="panel-body"><div id="kernelList" class="kernel-list"></div></div></div></div>
+          <div class="panel" style="margin-top:12px"><div class="panel-head"><div><h3>Artifact chain</h3><div class="sub">每一层都对应目录里的真实文件类型</div></div><span class="tag">a2a3</span></div><div class="panel-body"><div id="artifactFlow" class="artifact-flow"></div></div></div>
+        </section>
+
+        <section id="deepflow" class="section"><div class="section-head"><div><h2>03 / 逐层中间表示：52 个 Pass 全量展开</h2><p>左侧是每一个快照文件，右侧是这一层“输入状态 → 变换 → 输出状态”的可核验摘要。</p></div><span class="section-index">IR DIFF / 04</span></div>
+          <div class="deep-grid"><div class="panel"><div class="panel-head"><div><h3>Pass snapshots</h3><div class="sub">每行对应 passes_dump 下的一个文件</div></div><div class="mini-legend"><span><i style="--legend:var(--blue)"></i>结构</span><span><i style="--legend:var(--cyan)"></i>Tile</span><span><i style="--legend:var(--violet)"></i>Runtime</span></div></div><div class="panel-body"><div id="allPassList" class="deep-list"></div></div></div><div id="allPassInspector" class="panel detail-card"></div></div>
+          <div class="panel graph-panel" style="margin-top:12px"><div class="panel-head"><div><h3>Pass Graph Explorer</h3><div class="sub">把源码语义投影成图，再对比相邻阶段的节点、边和属性变化</div></div><div class="graph-controls"><label class="graph-select-label" for="graphPassSelect">当前 Pass<select id="graphPassSelect" class="graph-select" aria-label="选择计算图 Pass"></select></label><button type="button" class="graph-step" id="graphPrev">‹ 上一 Pass</button><button type="button" class="graph-step" id="graphNext">下一 Pass ›</button></div></div><div class="graph-body"><div class="graph-status" aria-live="polite"><span id="graphPassStatus"></span><span id="graphStageSummary" class="graph-stage-summary"></span></div><div class="graph-compare"><div class="graph-pane"><div class="graph-pane-head"><strong id="graphBeforeTitle">Before</strong><span>上一阶段图 / 被删除节点仍保留</span></div><div id="graphBefore" class="graph-canvas" role="img" aria-label="Pass 前计算图"></div></div><div class="graph-pane"><div class="graph-pane-head"><strong id="graphAfterTitle">After</strong><span>当前阶段图 / 新增和改写高亮</span></div><div id="graphAfter" class="graph-canvas" role="img" aria-label="Pass 后计算图"></div></div></div><div class="graph-diff" aria-label="计算图差异图例"><span><i style="--diff-color:var(--lime)"></i>新增</span><span><i style="--diff-color:var(--red)"></i>删除</span><span><i style="--diff-color:var(--orange)"></i>属性变化</span><span><i style="--diff-color:var(--cyan)"></i>点击节点查看追踪</span></div><div id="graphDetail" class="graph-detail"></div></div></div>
+          <div class="panel" style="margin-top:12px"><div class="panel-head"><div><h3>Tensor lineage</h3><div class="sub">同一个 token 数据在算子内部如何换名字、换布局、跨设备</div></div><span class="tag">T/rank = 256</span></div><div class="panel-body"><div id="lineageMap" class="lineage"></div><div id="lineageDetail" class="lineage-detail"></div></div></div>
+          <div class="panel" style="margin-top:12px"><div class="panel-head"><div><h3>64 callable registry</h3><div class="sub">完整展开 func_id → 源文件 → core type → 数据边界</div></div><div class="kernel-controls"><input id="callableSearch" class="search" placeholder="搜索名称 / 模块…" aria-label="搜索 callable"></div></div><div class="panel-body"><div class="callable-table-wrap"><table class="callable-table"><thead><tr><th>func_id</th><th>callable</th><th>core</th><th>来源模块</th><th>数据边界 / 作用</th></tr></thead><tbody id="callableTableBody"></tbody></table></div><div id="callableDetail" class="callable-detail"></div></div></div>
+        </section>
+
+        <section id="runtime" class="section"><div class="section-head"><div><h2>04 / 最后如何在板上执行</h2><p>Host 编排库提交任务，runtime 根据依赖把 AIC/AIV callable 派发到芯片核。</p></div><span class="section-index">RUNTIME / 05</span></div>
+          <div class="runtime-grid"><div class="panel"><div class="panel-head"><div><h3>Board geometry</h3><div class="sub">distributed_meta + DFX records</div></div></div><div class="panel-body metric-stack"><div class="metric-line"><span>Platform</span><strong>a2a3</strong></div><div class="metric-line"><span>Backend</span><strong>Ascend910B</strong></div><div class="metric-line"><span>Ranks</span><strong>rank0 / rank1</strong></div><div class="metric-line"><span>Devices</span><strong>[1, 3]</strong></div><div class="metric-line"><span>Core split</span><strong>24 AIC + 48 AIV</strong></div><div class="metric-line"><span>Runtime</span><strong>tensormap_and_ringbuffer</strong></div><div class="metric-line"><span>Comm windows</span><strong>gather / attention / o</strong></div></div></div>
+            <div class="panel"><div class="panel-head"><div><h3>Execution swimlane</h3><div class="sub">merged trace 中的热点排序；不是单次调用的精确拆分</div></div></div><div class="swimlane"><div class="trace-tabs"><button class="trace-tab active" data-rank="merged">Merged trace</button><button class="trace-tab" data-rank="rank0">Rank 0</button><button class="trace-tab" data-rank="rank1">Rank 1</button></div><div id="lanes"></div><div class="trace-note">任务名中的 <code>r2t2</code> / <code>r3t2</code> 是图 scope/task 标签，不是 rank2/rank3。依赖 trace 能看到 fan-in/fan-out，Host log 能看到 invocation 1/2。</div></div></div></div>
+          <div class="panel" style="margin-top:12px"><div class="panel-head"><div><h3>Runtime handoff</h3><div class="sub">从 Host 参数到 device task 的最后一跳</div></div><span class="tag">69 args</span></div><div class="panel-body"><div class="artifact-flow" id="handoffFlow"></div></div></div>
+          <div class="panel" style="margin-top:12px"><div class="panel-head"><div><h3>Observed dependency chain</h3><div class="sub">从 trace 中抽出的可读 fan-in / fan-out 示例</div></div><span class="tag">DAG sample</span></div><div class="panel-body"><div class="dep-chain" id="depChain"></div></div></div>
+        </section>
+
+        <section id="data" class="section"><div class="section-head"><div><h2>05 / 执行的数据：形状、通信和证据边界</h2><p>可见的是 shape/stride/依赖/耗时；不可见的是本次真实 Tensor 数值。</p></div><span class="section-index">DATA / 06</span></div>
+          <div class="data-grid"><div class="panel"><div class="panel-head"><div><h3>Shape contract</h3><div class="sub">本次 TP=2 快照中的关键数据边界</div></div><span class="tag">dynamic dims</span></div><div class="panel-body"><table class="shape-table"><thead><tr><th>Tensor / buffer</th><th>Shape</th><th>dtype / role</th></tr></thead><tbody><tr><td>x_out</td><td>[2, -1, 4, 4096]</td><td>FP32 / output</td></tr><tr><td>x_hc · local</td><td>[256, 16384]</td><td>FP32 / rank input</td></tr><tr><td>gather_window</td><td>[512, 4096]</td><td>BF16 / distributed</td></tr><tr><td>attention_window</td><td>[2048, 4096]</td><td>BF16 / publish</td></tr><tr><td>o_window</td><td>[512, 4096]</td><td>BF16 / all-to-all</td></tr><tr><td>idx_topk</td><td>[T, 512]</td><td>INT32 / sparse index</td></tr><tr><td>sparse plan</td><td>[T, 5] blocks</td><td>INT32 / valid mask</td></tr></tbody></table></div></div>
+            <div class="panel"><div class="panel-head"><div><h3>What is actually recorded?</h3><div class="sub">不要把调试模板当作真实板上数据</div></div></div><div class="panel-body evidence-list"><div class="evidence" style="--evidence-color:var(--lime)"><span class="evidence-mark"></span><div><strong>真实：编译上下文</strong><p>a2a3、PTO ISA revision、runtime revision 已记录在 <a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/cache/binary_context.json">binary_context.json</a>。</p></div></div><div class="evidence" style="--evidence-color:var(--cyan)"><span class="evidence-mark"></span><div><strong>真实：板上任务与耗时</strong><p>rank0/rank1 的 host log、chip swimlane、deps/name_map 记录了提交、依赖、核类型和执行时间。</p></div></div><div class="evidence" style="--evidence-color:var(--orange)"><span class="evidence-mark"></span><div><strong>真实：性能提示</strong><p>流水深度受内存复用限制；部分最内层 Tile 小于建议粒度。它们是优化线索，不是正确性失败。</p></div></div><div class="evidence" style="--evidence-color:var(--red)"><span class="evidence-mark"></span><div><strong>缺失：数值输入/输出</strong><p><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/debug/run.py">debug/run.py</a> 使用随机占位输入，dynamic dim 填 1，<code>_user_compare</code> 为空；当前不能做逐元素正确性结论。</p></div></div></div></div></div>
+        </section>
+
+        <footer class="footer"><span>Built as a repository-local analysis artifact · no source files modified</span><span><a href="../../Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py">source</a> · <a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/">snapshot folder</a></span></footer>
+      </div>
+    </main>
+  </div>
+  <script>
+    const stages = [
+      { n:'01', title:'HC pre / mix', short:'预处理与混合', count:'6 callables', color:'var(--lime)', desc:'RMS、线性投影、Sinkhorn 和 mix_x 生成 post_t / comb_t / x_mixed。', code:'decode_csa.py:227 → hc_pre.py', output:'x_mixed · post_t · comb_t' },
+      { n:'02', title:'Norm + gather', short:'归一化与通信', count:'7 callables', color:'var(--cyan)', desc:'构造 RoPE 表、RMSNorm，并以 window + signal 做 token all-gather。', code:'decode_csa.py:230 → decode_cp_token_allgather.py', output:'x_normed_full · gather_window' },
+      { n:'03', title:'Q / KV project', short:'投影与 RoPE', count:'10 callables', color:'var(--blue)', desc:'Q、KV 投影和 RoPE；late dependency 把计算与缓存写回连接起来。', code:'decode_csa.py:291 → qkv_proj_rope.py', output:'q · kv_full · rope state' },
+      { n:'04', title:'KV caches', short:'缓存写回', count:'11 callables', color:'var(--violet)', desc:'原始 KV、ratio-4 compressor、indexer compressor 分别写入分页缓存。', code:'decode_csa.py:321–382', output:'kv_cache · cmp_kv · idx_kv_cache' },
+      { n:'05', title:'Indexer / Top-K', short:'索引与稀疏选择', count:'12 callables', color:'var(--orange)', desc:'Indexer query 计算 score，经过 group wave 和 query merge 产生 Top-K=512。', code:'decode_indexer.py:626', output:'idx_topk_scores · idx_topk' },
+      { n:'06', title:'Sparse attention', short:'稀疏注意力', count:'5 callables', color:'var(--red)', desc:'构造有效 QK plan，执行 qk/pv AIC+AIV，再做 RoPE/CS 后处理。', code:'decode_sparse_attn_csa.py:105', output:'sparse block outputs' },
+      { n:'07', title:'Merge + publish', short:'合并与发布', count:'4 callables', color:'var(--cyan)', desc:'online softmax merge、attention sink、BF16 pack，并发布到 attention_window。', code:'decode_csa.py:395–477', output:'attention_window' },
+      { n:'08', title:'O proj + post', short:'输出投影', count:'9 callables', color:'var(--lime)', desc:'O all-to-all、TP reduce-scatter，最后执行 hc_post 写出 x_out。', code:'decode_csa.py:479–499', output:'x_out [2,-1,4,4096]' }
+    ];
+    const passes = [
+      ['00–08','Frontend / SSA','inline、loop/control-flow、SSA、调用展平','355 → 436 tiles','var(--blue)'],
+      ['09–10','Outline scopes','拆分 Incore / Cluster / worker scope','24 → 112 defs','var(--violet)'],
+      ['11–16','Tensor → Tile','Tile op、2D view、cast 和 layout 合法化','1,471 tiles','var(--cyan)'],
+      ['17–22','Matmul / layout','AutoTileMatmul、memory space、backend layout','1,632 tiles','var(--orange)'],
+      ['23–30','Mixed / pipeline','AIC+AIV 拆分、cross-core pipeline、slots','14 AIC + 50 AIV','var(--lime)'],
+      ['31–38','Memory materialize','IO、stride、memref、reuse、address allocation','4,162 → 2,846 tiles','var(--blue)'],
+      ['39–45','Graph / comm','方向、依赖、signal、comm domain、dist ctx','34 comm ops','var(--violet)'],
+      ['46–51','Runtime boundary','清理、runtime scope、fence、valid shape','13 scopes','var(--cyan)']
+    ];
+    const passFacts = [
+      ['00','frontend','00_frontend.py','209 KB','defs 24 · spmd 48 · scopes 8','tiles 355 · comm 32','入口图：24 个高层函数、动态符号和分布式 Tensor 仍可见。'],
+      ['01','InlineFunctions','01_after_InlineFunctions.py','262 KB','defs 4 · spmd 49','tiles 436','内联子函数，调用边界减少，tile 数开始增长。'],
+      ['02','UnrollLoops','02_after_UnrollLoops.py','282 KB','defs 4','tiles 436','把可静态确定的循环体展开，为后续 Tile 化暴露重复计算。'],
+      ['03','CtrlFlowTransform','03_after_CtrlFlowTransform.py','282 KB','defs 4','tiles 436','统一控制流形态，使分支可被后端调度。'],
+      ['04','ConvertToSSA','04_after_ConvertToSSA.py','363 KB','defs 4','tiles 436','值编号和迭代变量显式化，为依赖分析建立 SSA 边。'],
+      ['05','Simplify','05_after_Simplify.py','355 KB','defs 4','tiles 436','做局部简化，删除可折叠表达式。'],
+      ['06','NormalizeStmtStructure','06_after_NormalizeStmtStructure.py','355 KB','defs 4','tiles 436','规范 statement 嵌套，使 outline 规则可匹配。'],
+      ['07','FlattenCallExpr','07_after_FlattenCallExpr.py','394 KB','defs 4','tiles 436','把调用表达式展开到显式临时值。'],
+      ['08','OutlineHierarchyScopes','08_after_OutlineHierarchyScopes.py','394 KB','defs 4','tiles 436','建立层级 scope，后续可以按设备层级切分。'],
+      ['09','OutlineIncoreScopes','09_after_OutlineIncoreScopes.py','435 KB','defs 64','tiles 436','把可落到 Incore 的函数抽出；函数数从 4 变为 64。'],
+      ['10','OutlineClusterScopes','10_after_OutlineClusterScopes.py','481 KB','defs 112 · spmd 42','tiles 436','进一步拆出 cluster/worker scope，准备多核执行。'],
+      ['11','ConvertTensorToTileOps','11_after_ConvertTensorToTileOps.py','515 KB','defs 112','tiles 1,471','Tensor load/store 被改写成显式 Tile 操作。'],
+      ['12','OptimizeOrchTensors','12_after_OptimizeOrchTensors.py','515 KB','defs 112','tiles 1,471','优化 Host orchestration 侧的中间 Tensor。'],
+      ['13','LowerCompositeOps','13_after_LowerCompositeOps.py','515 KB','defs 112','tiles 1,471','复合算子拆成后端可识别的基础操作。'],
+      ['14','FlattenTileNdTo2D','14_after_FlattenTileNdTo2D.py','516 KB','defs 112','tiles 1,471','多维 Tile view 展平成后端主用的二维布局。'],
+      ['15','BlockNzTensorViews','15_after_BlockNzTensorViews.py','516 KB','defs 112','tiles 1,471','显式处理 Block-NZ / 视图约束。'],
+      ['16','LegalizeTileCast','16_after_LegalizeTileCast.py','516 KB','defs 112','tiles 1,471','合法化 Tile dtype/layout cast。'],
+      ['17','AutoTileMatmulL0','17_after_AutoTileMatmulL0.py','540 KB','defs 112','tiles 1,536','为 matmul 选择 L0 级 Tile 形状。'],
+      ['18','CanonicalizeTileSlice','18_after_CanonicalizeTileSlice.py','540 KB','defs 112','tiles 1,536','统一 slice 的边界和 stride 表达。'],
+      ['19','InferTileMemorySpace','19_after_InferTileMemorySpace.py','543 KB','defs 112','tiles 1,559','推断 Tile 应驻留的内存空间。'],
+      ['20','InsertMxScaleAddr','20_after_InsertMxScaleAddr.py','543 KB','defs 112','tiles 1,559','插入量化/混合精度 scale 地址信息。'],
+      ['21','ResolveBackendOpLayouts','21_after_ResolveBackendOpLayouts.py','553 KB','defs 112','tiles 1,632','把抽象布局解析为后端具体 op layout。'],
+      ['22','LowerAutoVectorSplit','22_after_LowerAutoVectorSplit.py','553 KB','defs 112','tiles 1,632','把自动向量切分变为显式分片。'],
+      ['23','ExpandMixedKernel','23_after_ExpandMixedKernel.py','569 KB','defs 116 · AIC 14 · AIV 50','tiles 1,632','混合 Kernel 分裂成 14 个 AIC + 50 个 AIV callable。'],
+      ['24','InjectGMPipeBuffer','24_after_InjectGMPipeBuffer.py','570 KB','defs 116','tiles 1,632','注入 Global Memory pipeline buffer。'],
+      ['25','SplitVectorKernel','25_after_SplitVectorKernel.py','588 KB','defs 116','tiles 1,680','把 Vector Kernel 拆成可并发执行的片段。'],
+      ['26','StampTfreeSplit','26_after_StampTfreeSplit.py','588 KB','defs 116','tiles 1,680','给 free/split 边界打标，支持调度和回收。'],
+      ['27','NormalizeReturnOrder','27_after_NormalizeReturnOrder.py','588 KB','defs 116','tiles 1,680','固定多返回值顺序，稳定参数 ABI。'],
+      ['28','SkewCrossCorePipeline','28_after_SkewCrossCorePipeline.py','595 KB','defs 116','tiles 1,696','跨核 pipeline 做 skew，重叠 producer/consumer。'],
+      ['29','LowerPipelineToSlots','29_after_LowerPipelineToSlots.py','595 KB','defs 116','tiles 1,696','把 pipeline stage 映射为 slot。'],
+      ['30','LowerPipelineLoops','30_after_LowerPipelineLoops.py','836 KB','defs 116','tiles 2,453','流水循环完全显式化，IR 体积显著增大。'],
+      ['31','CanonicalizeIOOrder','31_after_CanonicalizeIOOrder.py','835 KB','defs 116','tiles 2,453','统一 kernel 输入输出排列。'],
+      ['32','MaterializeTensorStrides','32_after_MaterializeTensorStrides.py','835 KB','defs 116','tiles 2,453','把 stride 从推断信息物化为参数。'],
+      ['33','InitMemRef','33_after_InitMemRef.py','1,122 KB','defs 116 · spmd 41','tiles 4,162','生成 MemRef 初始化、地址和 Tile 存储描述。'],
+      ['34','MaterializeSemanticAliases','34_after_MaterializeSemanticAliases.py','1,122 KB','defs 116','tiles 4,162','固定语义别名和 view 之间的关系。'],
+      ['35','MemoryReuse','35_after_MemoryReuse.py','987 KB','defs 116','tiles 2,846','做 buffer reuse；这也是 perf_hints 里流水深度受限的来源。'],
+      ['36','AllocateMemoryAddr','36_after_AllocateMemoryAddr.py','1,010 KB','defs 116','tiles 2,846','为 DDR/Vec 等 MemRef 分配静态地址。'],
+      ['37','FoldNoOpReshape','37_after_FoldNoOpReshape.py','1,009 KB','defs 116','tiles 2,823','折叠无效 reshape，减少 view 变换。'],
+      ['38','FuseCreateAssembleToSlice','38_after_FuseCreateAssembleToSlice.py','1,009 KB','defs 116','tiles 2,823','把 create/assemble 融合为 slice。'],
+      ['39','DeriveCallDirections','39_after_DeriveCallDirections.py','1,025 KB','defs 116','tiles 2,823','从调用边推导 In/Out/InOut 方向。'],
+      ['40','AutoDeriveTaskDependencies','40_after_AutoDeriveTaskDependencies.py','1,025 KB','defs 116','tiles 2,823','由数据流自动生成 task fan-in/fan-out。'],
+      ['41','ExpandManualPhaseFence','41_after_ExpandManualPhaseFence.py','1,025 KB','defs 116','tiles 2,823','把手写 phase fence 展为显式依赖边。'],
+      ['42','SynthesizeAllReduceSignals','42_after_SynthesizeAllReduceSignals.py','1,025 KB','defs 116','tiles 2,823','为 collective / reduce-scatter 合成 signal。'],
+      ['43','MaterializeCommDomainScopes','43_after_MaterializeCommDomainScopes.py','1,025 KB','defs 116','tiles 2,823','为跨 rank buffer 建立 comm domain scope。'],
+      ['44','LowerHostTensorCollectives','44_after_LowerHostTensorCollectives.py','1,025 KB','defs 116','tiles 2,823','把 Host collective 调用变成 runtime 可提交形式。'],
+      ['45','MaterializeDistTensorCtx','45_after_MaterializeDistTensorCtx.py','1,028 KB','defs 116 · comm 34','tiles 2,823','物化 DistributedTensor 与 CommCtx。'],
+      ['46','Simplify','46_after_Simplify.py','968 KB','defs 116','tiles 2,755','后端清理和局部简化。'],
+      ['47','LegalizeGraphBoundary','47_after_LegalizeGraphBoundary.py','968 KB','defs 116','tiles 2,755','合法化 Host/device graph 边界。'],
+      ['48','MaterializeRuntimeScopes','48_after_MaterializeRuntimeScopes.py','970 KB','defs 116 · scopes 13','tiles 2,755','把 runtime scope 变成显式执行域。'],
+      ['49','ClassifyIterArgCarry','49_after_ClassifyIterArgCarry.py','970 KB','defs 116','tiles 2,755','标记 loop carry / iter arg 的传递方式。'],
+      ['50','InsertCommFence','50_after_InsertCommFence.py','970 KB','defs 116','tiles 2,755','在通信边界补上 fence。'],
+      ['51','MaterializeValidShapeSymbols','51_after_MaterializeValidShapeSymbols.py','970 KB','defs 116','tiles 2,755','最终物化动态 valid shape；进入 PTO backend。']
+    ];
+    const graphNode = (id,label,kind,meta,x,y,accent,trace) => ({id,label,kind,meta,x,y,accent,trace});
+    const graphEdge = (from,to,label='') => ({from,to,label});
+    const graphBaseline = {
+      title:'Python / JIT entry',
+      nodes:[
+        graphNode('python_entry','decode_csa.py','SOURCE','@pl.jit.inline',35,145,'var(--lime)','decode_csa.py:151'),
+        graphNode('input_tensor','x_hc','Tensor','rank-local input',220,145,'var(--cyan)','decode_csa.py:152'),
+        graphNode('jit_call','JIT call','FRONTEND','Tensor graph',405,145,'var(--blue)','decode_csa.py:623'),
+        graphNode('return_tensor','return','Tensor','dynamic shape',590,145,'var(--lime)','decode_csa.py:623')
+      ],
+      edges:[graphEdge('python_entry','input_tensor','args'),graphEdge('input_tensor','jit_call','bind'),graphEdge('jit_call','return_tensor','result')]
+    };
+    const graphPhases = [
+      {pass:0,title:'Frontend semantic graph',transform:'把 Python/JIT 调用中的 Tensor、动态符号和 inline 算子收敛成可分析的 SSA 图。',nodes:[
+        graphNode('x_hc','x_hc','Tensor','[256,16384] FP32',30,145,'var(--lime)','decode_csa.py:152'),
+        graphNode('decode','decode_csa','OPERATOR','inline body',210,145,'var(--blue)','decode_csa.py:151'),
+        graphNode('qkv','q / kv','Tensor','symbolic shape',390,75,'var(--cyan)','decode_csa.py:291–319'),
+        graphNode('attn','sparse attention','Tensor','symbolic shape',390,215,'var(--orange)','decode_csa.py:384–393'),
+        graphNode('x_out','x_out','Tensor','[2,-1,4,4096] FP32',585,145,'var(--lime)','decode_csa.py:497–499')
+      ],edges:[graphEdge('x_hc','decode','input'),graphEdge('decode','qkv','qkv'),graphEdge('qkv','attn','q/kv'),graphEdge('attn','x_out','return')]},
+      {pass:8,title:'Outlined scope graph',transform:'把 inline body 按层级和 Incore 边界拆成 4 → 64 个可独立 lower 的函数作用域。',nodes:[
+        graphNode('input','x_hc','Tensor','rank-local',30,145,'var(--lime)','decode_csa.py:152'),
+        graphNode('hc_pre','hc_pre','SCOPE','4 kernels',205,55,'var(--blue)','hc_pre.py'),
+        graphNode('mix','mix_x','SCOPE','1 callable',205,235,'var(--violet)','hc_pre.py'),
+        graphNode('comm','cp_allgather','SCOPE','5 callables',390,55,'var(--cyan)','cp_allgather.py'),
+        graphNode('qkv_scope','q/kv projection','SCOPE','10 callables',390,235,'var(--blue)','qkv_proj_rope.py'),
+        graphNode('attention_scope','sparse attention','SCOPE','7 callables',575,145,'var(--orange)','decode_sparse_attn_csa.py')
+      ],edges:[graphEdge('input','hc_pre','pre'),graphEdge('input','mix','mix'),graphEdge('hc_pre','comm','token'),graphEdge('mix','comm','token'),graphEdge('comm','qkv_scope','gather'),graphEdge('qkv_scope','attention_scope','q/kv')]},
+      {pass:11,title:'Explicit Tile graph',transform:'Tensor load/store 被改写成 Tile 操作，view 和 layout 成为图上的显式属性。',nodes:[
+        graphNode('x_tile','x_hc tile','TILE','load / view',30,145,'var(--cyan)','11_after_ConvertTensorToTileOps.py'),
+        graphNode('gather_tile','gather tile','TILE','[512,4096]',205,55,'var(--cyan)','cp_allgather.py'),
+        graphNode('q_tile','q projection','TILE','matmul + rope',390,55,'var(--blue)','qkv_proj_rope.py'),
+        graphNode('kv_tile','kv projection','TILE','matmul + cache',390,235,'var(--violet)','qkv_proj_rope.py'),
+        graphNode('score_tile','score / topk','TILE','tile views',575,55,'var(--orange)','decode_indexer.py'),
+        graphNode('pv_tile','qk → pv','TILE','sparse window',575,235,'var(--red)','decode_sparse_attn_csa.py')
+      ],edges:[graphEdge('x_tile','gather_tile','load'),graphEdge('gather_tile','q_tile','token'),graphEdge('gather_tile','kv_tile','token'),graphEdge('q_tile','score_tile','q'),graphEdge('kv_tile','score_tile','kv'),graphEdge('score_tile','pv_tile','plan')]},
+      {pass:17,title:'L0 tile / matmul graph',transform:'AutoTileMatmulL0 为 matmul 选择 L0 级形状，slice 和 layout 被规范化。',nodes:[
+        graphNode('gather_l0','gather','TILE','GM → UB',30,145,'var(--cyan)','16_after_LegalizeTileCast.py'),
+        graphNode('q_l0','q matmul','L0','m×k×n tile',220,55,'var(--blue)','17_after_AutoTileMatmulL0.py'),
+        graphNode('kv_l0','kv matmul','L0','m×k×n tile',220,235,'var(--violet)','17_after_AutoTileMatmulL0.py'),
+        graphNode('index_l0','indexer score','L0','leaf wave',410,55,'var(--orange)','decode_indexer.py'),
+        graphNode('cache_l0','cache write','L0','paged cache',410,235,'var(--violet)','csa_cache_writeback.py'),
+        graphNode('pv_l0','qk / pv','L0','sparse matmul',600,145,'var(--red)','decode_sparse_attn_csa.py')
+      ],edges:[graphEdge('gather_l0','q_l0','q'),graphEdge('gather_l0','kv_l0','kv'),graphEdge('q_l0','index_l0','query'),graphEdge('kv_l0','cache_l0','write'),graphEdge('index_l0','pv_l0','topk'),graphEdge('cache_l0','pv_l0','kv')]},
+      {pass:23,title:'Mixed AIC / AIV graph',transform:'ExpandMixedKernel 把复合 Kernel 拆成 14 个 AIC 与 50 个 AIV callable，设备类型成为节点属性。',nodes:[
+        graphNode('q_aiv','q prepare','AIV','func_id 13–19',30,55,'var(--cyan)','name_map.json'),
+        graphNode('kv_aiv','kv prepare','AIV','func_id 20–23',30,235,'var(--cyan)','name_map.json'),
+        graphNode('index_aic','index score','AIC','func_id 42',220,55,'var(--orange)','kernel_config.py'),
+        graphNode('index_aiv','index score','AIV','func_id 43',220,235,'var(--cyan)','kernel_config.py'),
+        graphNode('qk_aic','qk_pv','AIC','func_id 48',410,55,'var(--orange)','kernel_config.py'),
+        graphNode('qk_aiv','qk_pv','AIV','func_id 49',410,235,'var(--red)','kernel_config.py'),
+        graphNode('publish','merge / publish','AIV','func_id 51',600,145,'var(--lime)','decode_csa.py:395–477')
+      ],edges:[graphEdge('q_aiv','index_aic','query'),graphEdge('q_aiv','index_aiv','query'),graphEdge('kv_aiv','index_aic','kv'),graphEdge('kv_aiv','index_aiv','kv'),graphEdge('index_aic','qk_aic','plan'),graphEdge('index_aiv','qk_aiv','plan'),graphEdge('qk_aic','publish','partial'),graphEdge('qk_aiv','publish','partial')]},
+      {pass:30,title:'Pipeline slot graph',transform:'跨核 skew、slot 和 pipeline loop 被物化，producer/consumer 可以重叠执行。',nodes:[
+        graphNode('slot0','slot 0','SLOT','producer',35,55,'var(--lime)','29_after_LowerPipelineToSlots.py'),
+        graphNode('slot1','slot 1','SLOT','producer',35,235,'var(--lime)','29_after_LowerPipelineToSlots.py'),
+        graphNode('qk_prod','qk producer','AIC+AIV','stage 0',230,55,'var(--orange)','28_after_SkewCrossCorePipeline.py'),
+        graphNode('kv_prod','kv producer','AIV','stage 0',230,235,'var(--cyan)','28_after_SkewCrossCorePipeline.py'),
+        graphNode('pv_cons','pv consumer','AIV','stage 1',425,145,'var(--red)','30_after_LowerPipelineLoops.py'),
+        graphNode('publish_pipe','publish','AIV','stage 2',615,145,'var(--lime)','csa_merge_pack_publish')
+      ],edges:[graphEdge('slot0','qk_prod','acquire'),graphEdge('slot1','kv_prod','acquire'),graphEdge('qk_prod','pv_cons','ready'),graphEdge('kv_prod','pv_cons','ready'),graphEdge('pv_cons','publish_pipe','release'),graphEdge('publish_pipe','slot0','reuse')]},
+      {pass:33,title:'MemRef / address graph',transform:'InitMemRef 与 AllocateMemoryAddr 将抽象 buffer 变成 DDR、Vec 等地址化 MemRef。',nodes:[
+        graphNode('args_mem','args','MEMREF','MemRef input',30,145,'var(--lime)','33_after_InitMemRef.py'),
+        graphNode('ddr','mem_ddr_*','DDR','GM address',220,55,'var(--blue)','36_after_AllocateMemoryAddr.py'),
+        graphNode('vec','mem_vec_*','VEC','UB address',220,235,'var(--cyan)','36_after_AllocateMemoryAddr.py'),
+        graphNode('qk_addr','qk_pv','KERNEL','ptr + stride',410,55,'var(--red)','qk_pv_aiv.cpp'),
+        graphNode('merge_addr','merge publish','KERNEL','ptr + validshape',410,235,'var(--lime)','csa_merge_pack_publish.cpp'),
+        graphNode('reuse','buffer reuse','ALLOC','lifetime reuse',600,145,'var(--violet)','35_after_MemoryReuse.py')
+      ],edges:[graphEdge('args_mem','ddr','alloc'),graphEdge('args_mem','vec','alloc'),graphEdge('ddr','qk_addr','GM'),graphEdge('vec','qk_addr','UB'),graphEdge('ddr','merge_addr','GM'),graphEdge('vec','merge_addr','UB'),graphEdge('qk_addr','reuse','free'),graphEdge('merge_addr','reuse','free')]},
+      {pass:40,title:'Task dependency graph',transform:'DeriveCallDirections 与 AutoDeriveTaskDependencies 从数据流生成 fan-in/fan-out 任务边。',nodes:[
+        graphNode('gather_task','allgather','TASK','r2t8–12',30,145,'var(--cyan)','deps.json'),
+        graphNode('proj_task','q/kv projection','TASK','r3t0–1',220,55,'var(--blue)','deps.json'),
+        graphNode('cache_task','cache write','TASK','r3t2–5',220,235,'var(--violet)','deps.json'),
+        graphNode('topk_task','top-k group','TASK','r3t6',410,55,'var(--orange)','deps.json'),
+        graphNode('qk_task','qk_pv','TASK','AIC + AIV',410,235,'var(--red)','deps.json'),
+        graphNode('publish_task','merge publish','TASK','r3t9',600,145,'var(--lime)','deps.json')
+      ],edges:[graphEdge('gather_task','proj_task','fanout'),graphEdge('gather_task','cache_task','fanout'),graphEdge('proj_task','topk_task','fanin'),graphEdge('cache_task','topk_task','fanin'),graphEdge('cache_task','qk_task','fanin'),graphEdge('topk_task','qk_task','plan'),graphEdge('qk_task','publish_task','fanin')]},
+      {pass:45,title:'Distributed communication graph',transform:'DistributedTensor 与 CommCtx 被物化，通信域、跨 rank buffer 和 collective 进入任务图。',nodes:[
+        graphNode('rank0','rank 0','RANK','device 1',30,55,'var(--lime)','distributed_meta.json'),
+        graphNode('rank1','rank 1','RANK','device 3',30,235,'var(--lime)','distributed_meta.json'),
+        graphNode('gather_comm','token allgather','COMM','[512,4096] BF16',220,145,'var(--cyan)','host_orch.py'),
+        graphNode('attention_comm','attention window','COMM','[2048,4096] BF16',410,55,'var(--orange)','decode_sparse_attn_csa.py'),
+        graphNode('o_comm','o all-to-all','COMM','[512,4096] BF16',410,235,'var(--violet)','decode_o_proj.py'),
+        graphNode('rs_comm','reduce-scatter','COLLECTIVE','x_out',600,145,'var(--red)','host_orch.py')
+      ],edges:[graphEdge('rank0','gather_comm','send'),graphEdge('rank1','gather_comm','send'),graphEdge('gather_comm','attention_comm','distributed'),graphEdge('gather_comm','o_comm','distributed'),graphEdge('attention_comm','rs_comm','o'),graphEdge('o_comm','rs_comm','reduce')]},
+      {pass:51,title:'Runtime submission graph',transform:'Runtime scope、fence 和 valid shape 完成物化，Host graph 可以提交 86 个任务。',nodes:[
+        graphNode('host_args','Host args','HOST','69 args',30,145,'var(--lime)','decode_csa_test.cpp'),
+        graphNode('alloc_runtime','alloc tensors','RUNTIME','shape / stride',210,55,'var(--cyan)','decode_csa_test.cpp'),
+        graphNode('submit_runtime','rt_submit','RUNTIME','AIC/AIV + deps',210,235,'var(--blue)','host_orch.py'),
+        graphNode('scheduler','scheduler','SCHED','86 graph tasks',400,145,'var(--violet)','deps.json'),
+        graphNode('device','device cores','DEVICE','24 AIC + 48 AIV',585,55,'var(--orange)','DFX records'),
+        graphNode('publish_rt','publish x_out','OUTPUT','[2,-1,4,4096]',585,235,'var(--lime)','hc_post / return')
+      ],edges:[graphEdge('host_args','alloc_runtime','bind'),graphEdge('host_args','submit_runtime','submit'),graphEdge('alloc_runtime','scheduler','buffers'),graphEdge('submit_runtime','scheduler','program'),graphEdge('scheduler','device','dispatch'),graphEdge('device','publish_rt','writeback')]}
+    ];
+    const lineage = [
+      ['input','x_hc','[256,16384] FP32','rank-local input','var(--lime)','decode_csa.py:152'],
+      ['pre','inv_rms','[256,1] FP32','hc_pre_rms output','var(--blue)','orchestration task 0'],
+      ['mix','x_mixed','[256,16384] FP32','mix_x output','var(--violet)','decode_csa.py:221–228'],
+      ['norm','x_normed_t','[256,4096] BF16','RMSNorm result','var(--cyan)','decode_csa.py:273–275'],
+      ['comm','x_normed_full','[512,4096] BF16','all-gather readback','var(--cyan)','cp_token_allgather_readback'],
+      ['qkv','q / kv_full','q + [256,512] BF16','projection + RoPE','var(--blue)','qkv_proj_rope.py'],
+      ['cache','kv_cache / cmp_kv','paged BF16 cache','slot mapping writeback','var(--violet)','func_id 23–33'],
+      ['topk','idx_topk','[T,512] INT32','sparse index','var(--orange)','indexer_topk_query_merge'],
+      ['plan','valid_qk_plan','[T,5] blocks','window + compressed blocks','var(--red)','csa_slots_build_valid_qk_plan'],
+      ['publish','attention_window','[2048,4096] BF16','merged attention publish','var(--cyan)','csa_merge_pack_publish'],
+      ['output','x_out','[2,-1,4,4096] FP32','global output','var(--lime)','hc_post / return']
+    ];
+    const callableNames = ['hc_pre_rms','hc_pre_linear','hc_pre_linear_reduce','split_pre_post','comb_sinkhorn','mix_x','csa_rope_interleave','rms_norm','cp_token_allgather_push','cp_token_allgather_payload_wait','cp_token_allgather_readback','cp_token_allgather_readback_wait','cp_token_allgather_retire','q_rope_prepare','q_rope_prepare_0','qr_proj_seed','qr_proj_matmul','qr_rms_norm_quant','qproj_matmul','qproj_dequant_rms_nope_rope','kv_proj_seed','kv_proj_matmul','kv_rms_norm_rope','csa_cache_writeback','kv_score_proj','scatter_softmax_pool','compress_state_commit','rmsnorm_rope_cache_write','kv_score_proj_0','scatter_softmax_pool_0','compress_state_commit_0','rmsnorm_rope','kv_hadamard','kv_and_cache_write','idx_qr_proj_matmul','idx_qr_proj_dequant','qr_rope_swap_idx','qr_rope','qr_hadamard_matmul','qr_hadamard_quant','weights_proj','weights_proj_reduce','indexer_score_leaf_wave_aic','indexer_score_leaf_wave_aiv','indexer_topk_group_wave','indexer_topk_query_merge','kv_touch','csa_slots_build_valid_qk_plan','qk_pv_aic','qk_pv_aiv','rope_cs','csa_merge_pack_publish','o_group_a2a_wait','o_group_a2a_gather','o_group_a2a_complete','tp_o_a','tp_o_a_quant','tp_o_b','tp_o_b_dequant','tp_o_b_publish','tp_o_rs_wait','tp_o_rs_reduce','tp_o_rs_complete','hc_post'];
+    const callableCore = callableNames.map((_,i)=>[1,16,18,21,24,28,32,34,38,40,42,48,55,57].includes(i)?'AIC':'AIV');
+    const callableSource = (i) => i<=5?'hc_pre.py':i<=14?'decode_csa.py / cp_allgather.py':i<=22?'qkv_proj_rope.py':i===23?'csa_cache_writeback.py':i<=27?'decode_compressor_ratio4.py':i<=33?'decode_indexer_compressor.py':i<=45?'decode_indexer.py':i<=50?'decode_sparse_attn_csa.py':i<=54?'decode_csa.py / decode_o_proj.py':'decode_o_proj.py / hc_post.py';
+    const callableEdge = (i) => i<=5?'x_hc → intermediate':i<=14?'normed token → gathered token':i<=22?'weights + token → q/kv':i<=33?'projected kv → paged cache':i<=45?'query/cache → top-k':i<=50?'top-k → sparse attention':i<=54?'attention → remote window':'remote window → x_out';
+    const depChain = [['r2t0','hc_pre_rms','fanin: input','fanout: r2t8/r2t9','var(--lime)'],['r2t1','hc_pre_linear','fanin: r2t0','fanout: r2t2','var(--blue)'],['r2t2','hc_pre_linear_reduce','fanin: r2t1','fanout: r2t3','var(--cyan)'],['r2t8–12','cp_allgather','fanin: norm','fanout: r3t0/r3t1','var(--violet)'],['r3t0–1','q/kv projection','fanin: gather + weights','fanout: cache/indexer','var(--orange)'],['r3t6–9','qk_pv AIC+AIV','fanin: qk plan + cache','fanout: merge/publish','var(--red)']];
+    const kernels = [
+      ['0','hc_pre_rms','AIV'],['1','hc_pre_linear','AIC'],['2','hc_pre_linear_reduce','AIV'],['3','split_pre_post','AIV'],['4','comb_sinkhorn','AIV'],['5','mix_x','AIV'],['6','csa_rope_interleave','AIV'],['7','rms_norm','AIV'],
+      ['8–12','cp_token_allgather_*','AIV'],['13–14','q_rope_prepare*','AIV'],['15–19','q projection / rope','AIV'],['20–22','kv projection / rope','AIV'],['23','csa_cache_writeback','AIV'],
+      ['24–27','ratio4 compressor','AIV'],['28–33','indexer compressor','AIV'],['34–41','indexer query projection','AIV'],['42','indexer_score_leaf_wave','AIC'],['43','indexer_score_leaf_wave','AIV'],['44–45','indexer topk / merge','AIV'],
+      ['46–47','kv_touch / qk_plan','AIV'],['48','qk_pv','AIC'],['49','qk_pv','AIV'],['50','rope_cs','AIV'],['51','csa_merge_pack_publish','AIV'],['52–54','o_group_a2a_*','AIV'],['55–62','tp_o_* / reduce_scatter','AIC+AIV'],['63','hc_post','AIV']
+    ];
+    const artifacts = [
+      ['PY','Source graph','decode_csa.py + subkernels','@pl.jit / @pl.jit.host','var(--lime)'],
+      ['IR','PTO IR','62 .pto snapshots','pto.target_arch=a2a3','var(--cyan)'],
+      ['C++','Device C++','64 generated .cpp','__aicore__ / __gm__','var(--blue)'],
+      ['O','Object','64 ELF .o','device object code','var(--violet)'],
+      ['BIN','Incore binary','64 .bin payloads','Ascend device ISA','var(--orange)'],
+      ['SO','Host graph','decode_csa_test.so','AICPU orchestration','var(--red)']
+    ];
+    const lanes = {
+      merged:[['qk_pv_aiv','31.6 ms','88%','var(--red)'],['qk_pv_aic','15.0 ms','58%','var(--orange)'],['csa_merge_pack_publish','7.8 ms','39%','var(--cyan)'],['kv_score_proj','5.5 ms','28%','var(--violet)'],['indexer_topk_group_wave','5.4 ms','26%','var(--lime)']],
+      rank0:[['qk_pv_aiv','15.8 ms','86%','var(--red)'],['qk_pv_aic','7.5 ms','56%','var(--orange)'],['csa_merge_pack_publish','3.9 ms','38%','var(--cyan)'],['kv_score_proj','2.7 ms','27%','var(--violet)'],['indexer_topk_group_wave','2.7 ms','26%','var(--lime)']],
+      rank1:[['qk_pv_aiv','16.0 ms','87%','var(--red)'],['qk_pv_aic','7.6 ms','57%','var(--orange)'],['csa_merge_pack_publish','3.9 ms','38%','var(--cyan)'],['kv_score_proj','2.7 ms','27%','var(--violet)'],['indexer_topk_group_wave','2.7 ms','26%','var(--lime)']]
+    };
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const graphSignature = (node) => [node.label,node.kind,node.meta].join('|');
+    const graphEdgeKey = (edge) => `${edge.from}→${edge.to}`;
+    const graphPhaseForPass = (pass) => graphPhases.reduce((chosen,phase,index) => pass >= phase.pass ? index : chosen, 0);
+    function graphStatus(node, peer, side){
+      if(!peer) return side === 'after' ? 'added' : 'deleted';
+      return graphSignature(node) === graphSignature(peer) ? 'same' : 'changed';
+    }
+    function graphEdgeStatus(edge, peerEdges, side){
+      const peer = peerEdges.find(item => graphEdgeKey(item) === graphEdgeKey(edge));
+      if(!peer) return side === 'after' ? 'added' : 'deleted';
+      return edge.label === peer.label ? 'same' : 'changed';
+    }
+    function graphNodeById(graph,id){ return graph.nodes.find(node => node.id === id); }
+    function graphPath(edge, graph){
+      const from = graphNodeById(graph,edge.from), to = graphNodeById(graph,edge.to);
+      if(!from || !to) return '';
+      const x1 = from.x + 145, y1 = from.y + 30, x2 = to.x, y2 = to.y + 30, mid = (x1 + x2) / 2;
+      return `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+    }
+    function renderGraph(containerId, graph, peer, side){
+      const markerId = `${containerId}-arrow`;
+      const peerNodes = new Map(peer.nodes.map(node => [node.id,node]));
+      const peerEdges = peer.edges;
+      const nodes = graph.nodes.map(node => {
+        const status = graphStatus(node,peerNodes.get(node.id),side);
+        return `<g class="graph-node ${status}" data-graph-node="${esc(node.id)}" transform="translate(${node.x} ${node.y})" style="--node-accent:${node.accent}"><rect width="145" height="60" rx="8"></rect><text class="node-kind" x="11" y="16">${esc(node.kind)}</text><text class="node-label" x="11" y="33">${esc(node.label)}</text><text class="node-meta" x="11" y="49">${esc(node.meta)}</text></g>`;
+      }).join('');
+      const edges = graph.edges.map(edge => {
+        const path = graphPath(edge,graph); if(!path) return '';
+        const status = graphEdgeStatus(edge,peerEdges,side);
+        const from = graphNodeById(graph,edge.from), to = graphNodeById(graph,edge.to);
+        const x1 = from.x + 145, y1 = from.y + 30, x2 = to.x, y2 = to.y + 30, mid = (x1 + x2) / 2;
+        const label = edge.label ? `<text x="${mid}" y="${(y1+y2)/2-5}" class="node-meta" text-anchor="middle">${esc(edge.label)}</text>` : '';
+        return `<path class="graph-edge ${status}" d="${path}" marker-end="url(#${markerId})"></path>${label}`;
+      }).join('');
+      document.getElementById(containerId).innerHTML = `<svg viewBox="0 0 760 360" role="img" aria-label="${esc(graph.title)}"><title>${esc(graph.title)}</title><desc>${esc(graph.transform)}</desc><defs><marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path></marker></defs><g>${edges}${nodes}</g></svg>`;
+      document.querySelectorAll(`#${containerId} .graph-node`).forEach(node => node.addEventListener('click',()=>selectGraphNode(node.dataset.graphNode,graphPhaseForPass(currentGraphPass),side)));
+    }
+    let currentGraphPass = 51;
+    function renderGraphForPass(pass){
+      currentGraphPass = pass;
+      const phaseIndex = graphPhaseForPass(pass), current = graphPhases[phaseIndex], before = phaseIndex === 0 ? graphBaseline : graphPhases[phaseIndex-1];
+      const phasePass = current.pass;
+      const passInfo = passFacts[pass];
+      const nodeIds = new Set(current.nodes.map(node=>node.id));
+      const previousNodeIds = new Set(before.nodes.map(node=>node.id));
+      const added = current.nodes.filter(node=>!previousNodeIds.has(node.id)).length;
+      const deleted = before.nodes.filter(node=>!nodeIds.has(node.id)).length;
+      const changed = current.nodes.filter(node=>{ const peer=graphNodeById(before,node.id); return peer && graphSignature(peer)!==graphSignature(node); }).length;
+      $('#graphPassSelect').value = String(pass);
+      $('#graphPassStatus').innerHTML = `<strong>Pass ${passInfo[0]} · ${esc(passInfo[1])}</strong>　对应图阶段 ${phaseIndex+1}/${graphPhases.length} · 图快照基准 Pass ${phasePass}`;
+      $('#graphStageSummary').textContent = `+${added} 新增 · −${deleted} 删除 · ${changed} 属性变化　${current.transform}`;
+      $('#graphBeforeTitle').textContent = `Before · ${before.title}`;
+      $('#graphAfterTitle').textContent = `After · ${current.title}`;
+      renderGraph('graphBefore',before,current,'before');
+      renderGraph('graphAfter',current,before,'after');
+      showGraphDetail(current.nodes[0],current,phaseIndex,'after',current.nodes[0] ? graphStatus(current.nodes[0],graphNodeById(before,current.nodes[0].id),'after') : 'same');
+    }
+    function showGraphDetail(node, current, phaseIndex, side, status){
+      if(!node) return;
+      const phaseFile = passFacts[current.pass][2], selectedFile = passFacts[currentGraphPass][2];
+      const snapshots = selectedFile === phaseFile ? `<a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/${encodeURIComponent(phaseFile)}">打开 Pass ${currentGraphPass} 快照：${esc(phaseFile)}</a>` : `<a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/${encodeURIComponent(phaseFile)}">图阶段基准：Pass ${current.pass} · ${esc(phaseFile)}</a><br><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/${encodeURIComponent(selectedFile)}">当前选择：Pass ${currentGraphPass} · ${esc(selectedFile)}</a>`;
+      $('#graphDetail').innerHTML = `<strong style="color:${node.accent}">${esc(node.label)}</strong> · ${esc(node.kind)} · ${esc(status)}<br>属性：<code>${esc(node.meta)}</code>　追踪：<code>${esc(node.trace)}</code><br><span style="color:var(--dim)">当前图阶段：${esc(current.title)}。该节点在此阶段的图身份由名称、kind、属性和输入输出边共同确认。</span><br>${snapshots}`;
+      document.querySelectorAll('.graph-node').forEach(el=>el.classList.toggle('selected',el.dataset.graphNode===node.id));
+    }
+    function selectGraphNode(id, phaseIndex, side){
+      const current = graphPhases[phaseIndex], before = phaseIndex === 0 ? graphBaseline : graphPhases[phaseIndex-1];
+      const node = (side === 'before' ? before : current).nodes.find(item=>item.id===id) || before.nodes.find(item=>item.id===id) || current.nodes.find(item=>item.id===id);
+      const peer = side === 'before' ? current.nodes.find(item=>item.id===id) : before.nodes.find(item=>item.id===id);
+      showGraphDetail(node,current,phaseIndex,side,graphStatus(node,peer,side));
+    }
+    function populateGraphPassSelect(){
+      $('#graphPassSelect').innerHTML = passFacts.map((pass,index)=>`<option value="${index}">Pass ${pass[0]} · ${esc(pass[1])}</option>`).join('');
+      $('#graphPassSelect').addEventListener('change',event=>selectDeepPass(Number(event.target.value)));
+      $('#graphPrev').addEventListener('click',()=>selectDeepPass(Math.max(0,currentGraphPass-1)));
+      $('#graphNext').addEventListener('click',()=>selectDeepPass(Math.min(passFacts.length-1,currentGraphPass+1)));
+    }
+    function renderAllPasses(){
+      $('#allPassList').innerHTML = passFacts.map((p,i)=>`<div class="deep-row ${i===51?'active':''}" data-deep-pass="${i}"><span class="id">${p[0]}</span><span><span class="name">${p[1]}</span><span class="file">${p[2]}</span></span><span class="delta">${p[4].split(' · ')[0]}</span></div>`).join('');
+      document.querySelectorAll('.deep-row').forEach(el=>el.addEventListener('click',()=>selectDeepPass(+el.dataset.deepPass)));
+      selectDeepPass(51);
+    }
+    function selectDeepPass(i){
+      const p=passFacts[i]; document.querySelectorAll('.deep-row').forEach((el,n)=>el.classList.toggle('active',n===i));
+      const before = i===0 ? 'Python/JIT 前端中的 Tensor、动态符号、inline 调用' : i<11 ? `上一层 IR：${passFacts[i-1][1]}，仍以抽象函数/SSA 为主` : i<23 ? `上一层 IR：${passFacts[i-1][1]}，已出现显式 Tile/view` : i<31 ? `上一层 IR：${passFacts[i-1][1]}，已具备后端 layout` : i<39 ? `上一层 IR：${passFacts[i-1][1]}，已展开 pipeline` : i<46 ? `上一层 IR：${passFacts[i-1][1]}，已有 MemRef/地址` : `上一层 IR：${passFacts[i-1][1]}，已有依赖/通信语义`;
+      const after = i<11 ? '可 outline 的层级函数' : i<23 ? '显式 Tile + backend layout' : i<31 ? 'AIC/AIV + pipeline slots' : i<39 ? '带 stride、MemRef 和地址的设备 IR' : i<46 ? '带 fan-in/fan-out 和 comm context 的任务图' : 'runtime scope + fence + valid shape，交给 PTO backend';
+      const code = i===0 ? 'def decode_csa(...) → Tensor graph' : i===23 ? '@pl.function(AIC/AIV) × 64 callables' : i===33 ? 'MemRef(mem_ddr_*) + MemRef(mem_vec_*)' : i===45 ? 'pld.DistributedTensor + pld.CommCtx' : i===51 ? 'pl.tile.set_validshape(...) → backend input' : `${p[1]}: explicit IR rewrite`;
+      $('#allPassInspector').innerHTML=`<div class="detail-kicker">PASS ${p[0]} / ${i+1} OF 52</div><h3>${p[1]}</h3><p>${p[6]}</p><div class="detail-stats"><div class="detail-stat"><span>snapshot</span><strong><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/${encodeURIComponent(p[2])}" style="color:var(--cyan);text-decoration:none">${p[2]}</a></strong></div><div class="detail-stat"><span>file size</span><strong>${p[3]}</strong></div><div class="detail-stat"><span>observed stats</span><strong>${p[4]}</strong></div><div class="detail-stat"><span>tile / comm</span><strong>${p[5]}</strong></div><div class="detail-stat"><span>input state</span><strong>${before}</strong></div><div class="detail-stat"><span>output state</span><strong>${after}</strong></div></div><div class="ir-code"><span class="hot">${esc(code)}</span>\n\n输入：${esc(before)}\n动作：${esc(p[6])}\n输出：${esc(after)}\n\n快照文件：passes_dump/${esc(p[2])}</div>`;
+      renderGraphForPass(i);
+    }
+    function renderLineage(){
+      $('#lineageMap').innerHTML=lineage.map((n,i)=>`<div class="lineage-node ${i===0?'active':''}" data-lineage="${i}" style="--node-color:${n[4]}"><span class="node-kind">${n[0]}</span><strong>${n[1]}</strong><small>${n[2]}<br>${n[3]}</small></div>`).join('');
+      document.querySelectorAll('.lineage-node').forEach(el=>el.addEventListener('click',()=>selectLineage(+el.dataset.lineage)));
+      selectLineage(0);
+    }
+    function selectLineage(i){ const n=lineage[i]; document.querySelectorAll('.lineage-node').forEach((el,j)=>el.classList.toggle('active',j===i)); $('#lineageDetail').innerHTML=`<strong style="color:${n[4]}">${n[1]}</strong> · ${n[2]}<br>${n[3]}。来源/落点：<code>${esc(n[5])}</code><br><span style="color:var(--dim)">这是可追踪的 shape/layout 边界；当前快照未保存该节点的真实数值。</span>`; }
+    function renderCallables(filter=''){
+      const q=filter.toLowerCase(); const rows=callableNames.map((name,i)=>({i,name,core:callableCore[i],source:callableSource(i),edge:callableEdge(i)})).filter(k=>`${k.i} ${k.name} ${k.core} ${k.source} ${k.edge}`.toLowerCase().includes(q));
+      $('#callableTableBody').innerHTML=rows.map(k=>`<tr data-callable="${k.i}"><td>${k.i}</td><td>${esc(k.name)}</td><td><span class="core ${k.core.toLowerCase()}">${k.core}</span></td><td>${esc(k.source)}</td><td>${esc(k.edge)}</td></tr>`).join('') || '<tr><td colspan="5" style="padding:20px;color:var(--dim)">没有匹配的 callable</td></tr>';
+      document.querySelectorAll('#callableTableBody tr').forEach(el=>el.addEventListener('click',()=>selectCallable(+el.dataset.callable)));
+      if(rows.length) selectCallable(rows[0].i);
+    }
+    function selectCallable(i){ document.querySelectorAll('#callableTableBody tr').forEach(el=>el.classList.toggle('active',+el.dataset.callable===i)); const name=callableNames[i]; $('#callableDetail').innerHTML=`<strong style="color:${callableCore[i]==='AIC'?'var(--orange)':'var(--cyan)'}">func_id ${i} · ${name}</strong><br>core type: ${callableCore[i]} · source: ${callableSource(i)}<br>数据路径：${callableEdge(i)}<br>最终文件：kernels/${callableCore[i].toLowerCase()}/${name}.cpp → .o → incore_${i}_*_${name}_a2a3.bin`; }
+    function renderDepChain(){ $('#depChain').innerHTML=depChain.map(d=>`<div class="dep-step" style="--step-color:${d[4]}"><span class="task-id">${d[0]}</span><strong>${d[1]}</strong><small>${d[2]}<br>${d[3]}</small></div>`).join(''); }
+    function renderStages(){
+      $('#pipelineCards').innerHTML = stages.map((s,i)=>`<article class="stage ${i===0?'selected':''}" data-stage="${i}" style="--stage-color:${s.color}"><div class="step">${s.n}</div><h3>${s.title}</h3><p>${s.short}</p><div class="stage-count">${s.count}</div></article>`).join('');
+      document.querySelectorAll('.stage').forEach(el=>el.addEventListener('click',()=>selectStage(+el.dataset.stage)));
+      selectStage(0);
+    }
+    function selectStage(i){
+      document.querySelectorAll('.stage').forEach((el,n)=>el.classList.toggle('selected',n===i));
+      const s=stages[i]; $('#stageInspector').innerHTML=`<div class="inspector-kicker">SELECTED STAGE / ${s.n}</div><h3>${s.title}</h3><p>${s.desc}</p><div class="code-line">${esc(s.code)}<br>↳ ${esc(s.output)}</div>`;
+    }
+    function renderPasses(){
+      $('#passList').innerHTML=passes.map((p,i)=>`<div class="pass-row ${i===4?'active':''}" data-pass="${i}"><span class="pass-id">${p[0]}</span><span><span class="pass-name">${p[1]}</span><span class="pass-bar" style="display:block;width:${35+i*8}%;--bar-color:${p[4]};margin-top:6px"></span></span><span class="pass-count">${p[3]}</span></div>`).join('');
+      document.querySelectorAll('.pass-row').forEach(el=>el.addEventListener('click',()=>selectPass(+el.dataset.pass)));
+      selectPass(4);
+    }
+    function selectPass(i){ const p=passes[i]; document.querySelectorAll('.pass-row').forEach((el,n)=>el.classList.toggle('active',n===i)); $('#passDetail').innerHTML=`<strong style="color:${p[4]}">${p[0]} · ${p[1]}</strong><br>${p[2]}。这一层之后，程序从“${i<3?'高层图结构':'逻辑算子'}”进一步变成“${i<5?'可拆分的硬件任务':'带内存、依赖和通信上下文的可执行图'}”。`; }
+    function renderKernels(filter=''){ const q=filter.toLowerCase(); $('#kernelList').innerHTML=kernels.filter(k=>k.join(' ').toLowerCase().includes(q)).map(k=>`<div class="kernel"><span class="kernel-id">${k[0]}</span><span class="kernel-name">${esc(k[1])}</span><span class="core ${k[2].split('+')[0].toLowerCase()}">${k[2]}</span></div>`).join('') || '<div style="padding:20px;color:var(--dim);font-size:11px">没有匹配的 callable</div>'; }
+    function renderArtifacts(){ $('#artifactFlow').innerHTML=artifacts.map(a=>`<div class="artifact" style="--artifact-color:${a[4]}"><div class="artifact-icon">${a[0]}</div><h3>${a[1]}</h3><p>${a[2]}</p><small>${a[3]}</small></div>`).join(''); $('#handoffFlow').innerHTML=[['01','Host args','69 args · 60 tensors + scalars/context'],['02','alloc_tensors','中间 Tensor + shape/stride'],['03','rt_submit','AIC/AIV callable + deps'],['04','scheduler','ready queue / fan-in / fan-out'],['05','device cores','24 AIC + 48 AIV'],['06','publish','x_out + signals']].map((a,i)=>`<div class="artifact" style="--artifact-color:${["var(--lime)","var(--cyan)","var(--blue)","var(--violet)","var(--orange)","var(--red)"][i]}"><div class="artifact-icon">${a[0]}</div><h3>${a[1]}</h3><p>${a[2]}</p></div>`).join(''); }
+    function renderLanes(kind='merged'){ $('#lanes').innerHTML=lanes[kind].map(l=>`<div class="lane"><span class="lane-label">${l[0]}</span><div class="lane-track"><div class="lane-bar" style="width:${l[2]};--bar:${l[3]}">${l[0]}</div></div><span class="lane-time">${l[1]}</span></div>`).join(''); }
+    document.querySelectorAll('.nav button').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.target).scrollIntoView({behavior:'smooth'});}));
+    document.querySelector('#kernelSearch').addEventListener('input',e=>renderKernels(e.target.value));
+    document.querySelector('#callableSearch').addEventListener('input',e=>renderCallables(e.target.value));
+    document.querySelectorAll('.trace-tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.trace-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderLanes(btn.dataset.rank);}));
+    renderStages(); renderPasses(); renderKernels(); renderArtifacts(); renderLanes(); populateGraphPassSelect(); renderAllPasses(); renderLineage(); renderCallables(); renderDepChain();
+  </script>
+</body>
+</html>

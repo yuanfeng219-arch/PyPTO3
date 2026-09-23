@@ -1,0 +1,152 @@
+.opv-pass-ir-capsule-node > rect.opv-pass-ir-capsule-hit {
+  fill: transparent !important;
+  stroke: transparent !important;
+  filter: none !important;
+  pointer-events: all;
+}
+
+.opv-pass-ir-capsule-node.is-selected > rect.opv-pass-ir-capsule-hit,
+.opv-pass-ir-capsule-node.is-model-selected > rect.opv-pass-ir-capsule-hit,
+.opv-pass-ir-capsule-node.is-training-selected > rect.opv-pass-ir-capsule-hit,
+.opv-pass-ir-capsule-node[class*='highlight-node_'] > rect.opv-pass-ir-capsule-hit {
+  stroke: var(--model-graphviz-selected, #fff) !important;
+  stroke-width: 3px !important;
+}
+
+.opv-pass-ir-capsule-node > .pto-model-graphviz-node-label,
+.opv-pass-ir-capsule-node > .pto-model-graphviz-node-type,
+.opv-pass-ir-capsule-node > .pto-model-graphviz-toggle,
+.opv-pass-ir-capsule-node > .pto-model-graphviz-toggle-icon,
+.opv-pass-ir-capsule-node > [class*='node-label_'],
+.opv-pass-ir-capsule-node > [class*='type-indicator_'] {
+  opacity: 0 !important;
+}
+
+.opv-pass-ir-capsule-foreign-object {
+  overflow: visible;
+  pointer-events: none;
+}
+
+.opv-pass-ir-capsule-host {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: visible;
+}
+
+.opv-pass-ir-capsule-host .node-card {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible;
+  cursor: inherit;
+}
+
+.opv-pass-ir-capsule-host .op-pill {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 5px 10px;
+  gap: 8px;
+  border-radius: var(--radius-pill, 999px);
+  box-shadow:
+    inset 0 0 8px rgba(255, 255, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 2px 5px rgba(0, 0, 0, 0.18);
+}
+
+.opv-pass-ir-capsule-collapsible .opv-pass-ir-capsule-host .op-pill {
+  padding-right: 42px;
+}
+
+.opv-pass-ir-capsule-collapsible .opv-pass-ir-capsule-host::after {
+  content: '+';
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  translate: 0 -50%;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font: 700 15px/1 var(--font-sans, sans-serif);
+}
+
+.opv-pass-ir-capsule-host .op-pill-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex: 0 0 26px;
+}
+
+.opv-pass-ir-capsule-host .op-pill-icon img {
+  width: 16px;
+  height: 16px;
+}
+
+.opv-pass-ir-capsule-host .op-pill-name {
+  min-width: 0;
+  color: #fff;
+  font-family: var(--font-sans, sans-serif) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  font-variation-settings: 'wght' 700;
+  letter-spacing: 0;
+  line-height: 1.1 !important;
+  text-transform: none;
+}
+
+.opv-pass-ir-capsule-host .op-pill-latency {
+  max-width: 58px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme='light'] .opv-pass-ir-capsule-host .op-pill {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--node-accent, #3577f6) 82%, white) 0%,
+    color-mix(in srgb, var(--node-accent, #3577f6) 86%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 color-mix(in srgb, var(--node-accent, #3577f6) 28%, transparent),
+    0 2px 5px color-mix(in srgb, var(--node-accent, #3577f6) 22%, transparent);
+}
+
+.opv-pass-ir-capsule-node:hover .opv-pass-ir-capsule-foreign-object {
+  filter: brightness(1.05);
+}
+
+.edge-group_8738e552-e764-4a57-839a-6321bc3ae7d3 > path[data-pto-capsule-bezier='1'] {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.node_8738e552-e764-4a57-839a-6321bc3ae7d3.tensor-node_8738e552-e764-4a57-839a-6321bc3ae7d3 > .node-label_8738e552-e764-4a57-839a-6321bc3ae7d3 {
+  font-family: var(--font-sans, sans-serif) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.edge-label_8738e552-e764-4a57-839a-6321bc3ae7d3 > text {
+  font-family: var(--font-sans, sans-serif) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}

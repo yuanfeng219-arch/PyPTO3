@@ -1,0 +1,45 @@
+# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+# Disabled due to false positives:
+#   -clang-analyzer-unix.Malloc
+#   -clang-analyzer-cplusplus.NewDeleteLeaks reports the control block that
+#     libstdc++ allocates inside std::make_shared (the shared_ptr-internal
+#     `_M_pi`) as leaked, blaming the call sites it inlined the allocation into.
+#     The IR is shared_ptr-only — there is no raw new/delete to leak — so the
+#     reports track the libstdc++ version rather than the code.
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  clang-diagnostic-*,
+  google-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  misc-include-cleaner,
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  -clang-analyzer-unix.Malloc,
+  -google-build-using-namespace,
+  -modernize-avoid-c-arrays,
+  -modernize-concat-nested-namespaces,
+  -modernize-return-braced-init-list,
+  -modernize-use-auto,
+  -modernize-use-trailing-return-type,
+  -performance-enum-size,
+  -performance-inefficient-string-concatenation,
+  -portability-template-virtual-member-function
+
+CheckOptions:
+  misc-include-cleaner.IgnoreHeaders: "msgpack/.*"
+
+WarningsAsErrors: "*"
+HeaderFilterRegex: '.*(include/pypto/|src/|3rdparty/libbacktrace/include)/.*\.h$'
+HeaderFileExtensions: ["h", "hpp"]
+ImplementationFileExtensions: ["cpp", "cc", "c"]

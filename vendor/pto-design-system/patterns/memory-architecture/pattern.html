@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTO Pattern - 950B Memory Architecture</title>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const applyTheme = (theme) => {
+        if (theme === 'light' || theme === 'dark' || theme === 'glass') {
+          document.documentElement.dataset.theme = theme;
+        }
+      };
+      if (params.has('embed')) {
+        document.documentElement.dataset.embedPreview = 'true';
+      }
+      applyTheme(params.get('theme'));
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'pto-preview-theme') {
+          applyTheme(event.data.theme);
+        }
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css?v=memory-graph-only-scalar-v1">
+  <link rel="stylesheet" href="../aic-core-object/pattern.css?v=memory-graph-only-scalar-v1">
+  <link rel="stylesheet" href="../aiv-core-object/pattern.css?v=memory-graph-only-scalar-v1">
+  <link rel="stylesheet" href="./pattern.css?v=memory-graph-only-scalar-v1">
+</head>
+<body class="pto-pattern-memory-arch__page">
+  <main class="pto-pattern-memory-arch__main">
+    <section class="pto-pattern-memory-arch__stage">
+      <div class="pto-memory-architecture-viewport" data-pto-mem-arch-viewport data-default-zoom="0.6" aria-label="950B memory architecture diagram">
+        <div class="pto-memory-architecture-sizer" data-pto-mem-arch-sizer>
+          <div class="pto-memory-architecture-canvas" data-pto-mem-arch-canvas>
+            <div id="pattern-memory-arch-stage"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../aiv-core-object/pattern.js?v=memory-graph-only-scalar-v1"></script>
+  <script src="../aic-core-object/pattern.js?v=memory-graph-only-scalar-v1"></script>
+  <script src="./pattern.js?v=memory-graph-only-scalar-v1"></script>
+  <script>
+    (function renderMemoryArchitecturePattern() {
+      const helper = window.PtoMemoryArchitecturePattern;
+      const stage = document.getElementById('pattern-memory-arch-stage');
+      if (!helper || !stage) return;
+      const isEmbedPreview = document.documentElement.dataset.embedPreview === 'true';
+      const viewport = document.querySelector('[data-pto-mem-arch-viewport]');
+      const sizer = document.querySelector('[data-pto-mem-arch-sizer]');
+      const canvas = document.querySelector('[data-pto-mem-arch-canvas]');
+      let lastReportedHeight = 0;
+
+      const syncFrameHeight = () => {
+        if (!isEmbedPreview || window.parent === window) return;
+        const contentNode = document.querySelector('.pto-pattern-memory-arch__main') || document.querySelector('.pto-pattern-memory-arch__stage') || stage;
+        const nextHeight = Math.ceil(contentNode.getBoundingClientRect().height);
+        if (nextHeight > 0) {
+          const resolvedHeight = nextHeight;
+          if (Math.abs(resolvedHeight - lastReportedHeight) <= 1) return;
+          lastReportedHeight = resolvedHeight;
+          window.parent.postMessage({
+            type: 'pto-pattern-preview-height',
+            pathname: window.location.pathname,
+            height: resolvedHeight,
+          }, '*');
+        }
+      };
+
+      helper.renderArchitecture(stage, 'ascend950b');
+      const overlay = helper.createRouteOverlay(stage, 'ascend950b');
+      helper.setBufferBlocks?.(stage, [
+        { core: 'mem950-aiv1', buffer: 'UB', label: 'xLocal', state: 'enqueued', tone: 'input', cellRange: [0, 15], sourceTile: 'x[block0,progress0,:]' },
+        { core: 'mem950-aic', buffer: 'L0C', label: 'C partial', state: 'accumulating', tone: 'accumulator', cellRange: [20, 35], sourceTile: 'C[m0,n0]' },
+      ]);
+      overlay?.render();
+      const hoverInteractions = helper.attachHoverInteractions?.(stage, 'ascend950b');
+      helper.attachPathFocusInteractions?.(stage, 'ascend950b');
+      const zoomController = helper.createZoomController?.({
+        viewport,
+        sizer,
+        canvas,
+        defaultZoom: 0.6,
+        min: 0.35,
+        max: 1.4,
+        step: 0.1,
+        pan: true,
+        wheelZoom: true,
+        centerOnReset: true,
+        centerTarget: '.pto-mem950__rails, .pto-mem950__engine-stack, .pto-mem950__stack',
+        onZoom: ({ zoom }) => {
+          hoverInteractions?.setViewportScale?.(zoom);
+          overlay?.render();
+          syncFrameHeight();
+        },
+        onPan: () => syncFrameHeight(),
+      });
+      zoomController?.render();
+      window.requestAnimationFrame(() => zoomController?.center?.());
+
+      if (isEmbedPreview && 'ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(() => syncFrameHeight());
+        resizeObserver.observe(document.querySelector('.pto-pattern-memory-arch__main'));
+        if (sizer) resizeObserver.observe(sizer);
+      }
+
+      window.requestAnimationFrame(syncFrameHeight);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(syncFrameHeight));
+      window.setTimeout(syncFrameHeight, 120);
+      window.setTimeout(syncFrameHeight, 260);
+    })();
+  </script>
+</body>
+</html>

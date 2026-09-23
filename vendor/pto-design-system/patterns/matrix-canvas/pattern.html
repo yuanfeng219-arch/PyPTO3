@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PTO Matrix Canvas Pattern</title>
+  <link rel="icon" href="data:,">
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const applyPreviewTheme = (theme) => {
+        if (theme !== 'light' && theme !== 'dark' && theme !== 'glass') return;
+        document.documentElement.dataset.theme = theme;
+        window.dispatchEvent(new CustomEvent('pto-preview-theme-applied'));
+      };
+      applyPreviewTheme(params.get('theme'));
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'pto-preview-theme') applyPreviewTheme(event.data.theme);
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="./pattern.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font: var(--type-body);
+    }
+
+    html {
+      overflow-y: auto;
+    }
+
+    body {
+      height: auto;
+      padding: var(--space-6);
+      overflow-x: hidden;
+      overflow-y: auto;
+      display: block;
+    }
+
+    body.is-embed {
+      padding: var(--space-4);
+    }
+
+    .preview-page {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: var(--space-6);
+    }
+
+    .preview-heading,
+    .specimen-head,
+    .canvas-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .preview-heading {
+      align-items: flex-start;
+    }
+
+    .preview-heading__copy,
+    .specimen-copy {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .preview-heading h1,
+    .preview-heading p,
+    .specimen-head h2,
+    .specimen-head p {
+      margin: 0;
+    }
+
+    .preview-heading h1 {
+      font: var(--type-title-1);
+    }
+
+    .specimen-head h2 {
+      font: var(--type-title-2);
+    }
+
+    .preview-heading p,
+    .specimen-head p,
+    .contract-note {
+      color: var(--foreground-secondary);
+      font: var(--type-body);
+    }
+
+    .specimen-grid {
+      display: grid;
+      grid-template-columns: minmax(420px, 0.9fr) minmax(560px, 1.1fr);
+      gap: var(--space-4);
+    }
+
+    .specimen {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(460px, 1fr);
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: var(--radius-xl);
+      background: var(--surface-1);
+    }
+
+    .specimen.is-wide {
+      grid-column: 1 / -1;
+    }
+
+    .canvas-stage {
+      position: relative;
+      min-width: 0;
+      min-height: 460px;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--surface-2) 76%, transparent);
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      z-index: var(--z-raised);
+      top: var(--space-3);
+      right: var(--space-3);
+      pointer-events: none;
+    }
+
+    .canvas-toolbar > * {
+      pointer-events: auto;
+    }
+
+    .toolbar-readout {
+      min-width: 54px;
+      justify-content: center;
+    }
+
+    .contract-note {
+      margin: 0;
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--primary) 8%, var(--surface-2));
+    }
+
+    .interaction-help {
+      color: var(--foreground-secondary);
+      font: var(--type-body-sm);
+    }
+
+    .contract-section {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .contract-section__head,
+    .config-group,
+    .usage-copy {
+      display: grid;
+      gap: var(--space-3);
+    }
+
+    .contract-section__head {
+      gap: var(--space-1);
+    }
+
+    .contract-section h2,
+    .contract-section h3,
+    .contract-section p,
+    .usage-list {
+      margin: 0;
+    }
+
+    .contract-section h2 {
+      font: var(--type-title-2);
+    }
+
+    .contract-section h3 {
+      font: var(--type-title-3);
+    }
+
+    .contract-section__head p,
+    .usage-copy p,
+    .legend-item p,
+    .usage-list {
+      color: var(--foreground-secondary);
+      font: var(--type-body);
+    }
+
+    .config-grid,
+    .usage-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+      align-items: start;
+    }
+
+    .config-group,
+    .usage-copy {
+      min-width: 0;
+      padding: var(--space-4);
+      border-radius: var(--radius-xl);
+      background: var(--surface-1);
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .legend-item {
+      min-width: 0;
+      min-height: 144px;
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      gap: var(--space-4);
+      align-items: center;
+      padding: var(--space-3);
+      border-radius: var(--radius-lg);
+      background: var(--surface-2);
+    }
+
+    .legend-canvas-stage {
+      width: 128px;
+      height: 112px;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--surface-1) 76%, transparent);
+    }
+
+    .legend-item__copy {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .legend-item__name {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .legend-item__name strong {
+      color: var(--foreground);
+      font: var(--type-body);
+    }
+
+    .legend-item code,
+    .legend-item__token {
+      color: var(--foreground-muted);
+      font: var(--type-mono);
+    }
+
+    .config-table-wrap,
+    .code-sample {
+      overflow-x: auto;
+    }
+
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+      font: var(--type-body-sm);
+      text-align: left;
+    }
+
+    .config-table th,
+    .config-table td {
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    .config-table th {
+      color: var(--foreground-secondary);
+      font: var(--type-label);
+      white-space: nowrap;
+    }
+
+    .config-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .config-table code,
+    .usage-copy code,
+    .value-list code {
+      color: var(--foreground);
+      font: var(--type-mono);
+    }
+
+    .code-sample {
+      margin: 0;
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: var(--surface-2);
+      color: var(--foreground);
+      font: var(--type-mono);
+    }
+
+    .value-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+
+    .value-list code {
+      min-height: var(--tag-height);
+      display: inline-flex;
+      align-items: center;
+      padding: 0 var(--tag-padding-x);
+      border-radius: var(--tag-radius);
+      background: var(--comp-tag-bg);
+    }
+
+    .usage-list {
+      padding-left: var(--space-5);
+    }
+
+    .usage-list li + li {
+      margin-top: var(--space-2);
+    }
+
+    @media (max-width: 1020px) {
+      body { padding: var(--space-4); }
+      .specimen-grid,
+      .config-grid,
+      .usage-grid { grid-template-columns: 1fr; }
+      .legend-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+      .specimen { grid-template-rows: auto minmax(420px, 1fr); }
+      .canvas-stage { min-height: 420px; }
+    }
+
+    @media (max-width: 480px) {
+      .legend-item {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview-page">
+    <header class="preview-heading">
+      <div class="preview-heading__copy">
+        <h1>Matrix Canvas Pattern</h1>
+        <p>Tensor Visualization 家族的二维成员。视觉延续 API Visualizer · Load3D A2 矩阵，并加入大数据聚合格。</p>
+      </div>
+      <button class="btn btn-ghost" type="button" id="themeToggle">Light mode</button>
+    </header>
+
+    <section class="contract-section" aria-labelledby="legendTitle">
+      <div class="contract-section__head">
+        <h2 id="legendTitle">Style 与 State 图例</h2>
+        <p>每项都由真实 Matrix Canvas renderer 绘制。Padding 是格子样式；Muted 是可叠加的弱化状态，两者不能互换。</p>
+      </div>
+      <div class="legend-grid">
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="row-focus" aria-label="当前行 Row focus 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>当前行 / Row focus</strong><code>states: ['row-focus']</code></div>
+            <p>强调当前处理行。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="column-focus" aria-label="当前列 Column focus 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>当前列 / Column focus</strong><code>states: ['column-focus']</code></div>
+            <p>强调当前处理列。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="written" aria-label="已写入 Written 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>已写入 / Written</strong><code>states: ['written']</code></div>
+            <p>表示已经完成写入的矩阵格。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="padding" aria-label="填充来源 Padding 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>填充来源 / Padding</strong><code>style: 'padding'</code></div>
+            <p>表示来自补齐区域的数据，不是 Muted。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="broadcast" aria-label="广播生成 Broadcast 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>广播生成 / Broadcast</strong><code>style: 'broadcast'</code></div>
+            <p>普通填充是源数据；灰色蒙版表示广播生成的数据。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="current" aria-label="当前格 Current 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>当前格 / Current</strong><code>states: ['current']</code></div>
+            <p>当前处理位置，使用最高优先级强调。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="selected" aria-label="已选择 Selected 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>已选择 / Selected</strong><code>states: ['selected']</code></div>
+            <p>业务选择的矩阵格。</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <div class="legend-canvas-stage"><canvas data-matrix-legend="muted" aria-label="已弱化 Muted 图例"></canvas></div>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><strong>已弱化 / Muted</strong><code>states: ['muted']</code></div>
+            <p>降低非当前内容的视觉权重。</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="specimen-grid">
+      <article class="specimen">
+        <header class="specimen-head">
+          <div class="specimen-copy">
+            <h2>Detail cells · 8 × 12</h2>
+            <p>矩阵整体保留圆角，内部使用连续直角网格；支持行列焦点、写入与 PAD 状态，文字低于可读尺寸时直接隐藏。</p>
+          </div>
+        </header>
+        <div class="canvas-stage">
+          <div class="canvas-toolbar">
+            <div class="toolbar-control">
+              <button class="btn btn-ghost btn-sm" type="button" data-fit="detail">适配</button>
+              <span class="toolbar-readout" id="detailZoom">100%</span>
+            </div>
+          </div>
+          <canvas id="detailCanvas" aria-label="Detailed matrix tensor specimen"></canvas>
+        </div>
+      </article>
+
+      <article class="specimen">
+        <header class="specimen-head">
+          <div class="specimen-copy">
+            <h2>缩略格 · 240 × 420 source → 12 × 20</h2>
+            <p>业务直接注入缩略格行列数；缩略格沿用连续直角网格，仅用中央标记表达聚合强度，hover 提供实际覆盖范围与统计值。</p>
+          </div>
+        </header>
+        <div class="canvas-stage">
+          <div class="canvas-toolbar">
+            <div class="toolbar-control">
+              <button class="btn btn-ghost btn-sm" type="button" data-fit="aggregate">适配</button>
+              <button class="btn btn-ghost btn-sm" type="button" data-zoom="aggregate">放大 2×</button>
+              <span class="toolbar-readout" id="aggregateZoom">100%</span>
+            </div>
+          </div>
+          <canvas id="aggregateCanvas" aria-label="Aggregated large matrix tensor specimen"></canvas>
+        </div>
+      </article>
+
+      <article class="specimen is-wide">
+        <header class="specimen-head">
+          <div class="specimen-copy">
+            <h2>Broadcast · Bias [1,16] → [16,16]</h2>
+            <p>第一行是 Bias 源数据，使用普通填充；后 15 行由广播生成，通过 <code>style: 'broadcast'</code> 叠加灰色蒙版，边界沿用连续网格。</p>
+          </div>
+        </header>
+        <div class="canvas-stage">
+          <div class="canvas-toolbar">
+            <div class="toolbar-control">
+              <button class="btn btn-ghost btn-sm" type="button" data-fit="broadcast">适配</button>
+              <span class="toolbar-readout" id="broadcastZoom">100%</span>
+            </div>
+          </div>
+          <canvas id="broadcastCanvas" aria-label="Bias matrix broadcast from 1 by 16 to 16 by 16"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <p class="interaction-help">交互：滚轮纵向滚动 · 横向触控板手势或 Shift + 滚轮横向滚动 · Ctrl/Command + 滚轮缩放 · F / 0 适配 · + / − 缩放。滚动受矩阵边界约束，无拖拽平移。</p>
+    <p class="contract-note">缩略格数量与每格覆盖范围都由业务注入；源矩阵 shape 始终保持 240×420，不会被改写成 12×20。</p>
+
+    <section class="contract-section" aria-labelledby="configTitle">
+      <div class="contract-section__head">
+        <h2 id="configTitle">可配置项</h2>
+        <p>业务页面只配置 Scene、Cell、Options 与聚合参数；矩阵几何、DPR、命中测试、滚动边界、缩放和 Tooltip 由 Pattern 管理。</p>
+      </div>
+
+      <div class="config-grid">
+        <article class="config-group">
+          <h3>Scene</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead><tr><th>字段</th><th>类型</th><th>默认值</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>extent.rows</code></td><td>正整数</td><td><code>1</code></td><td>源矩阵真实行数</td></tr>
+                <tr><td><code>extent.columns</code></td><td>正整数</td><td><code>1</code></td><td>源矩阵真实列数</td></tr>
+                <tr><td><code>axes.rows</code></td><td>string</td><td><code>row</code></td><td>纵向坐标轴名称</td></tr>
+                <tr><td><code>axes.columns</code></td><td>string</td><td><code>column</code></td><td>横向坐标轴名称</td></tr>
+                <tr><td><code>cells</code></td><td>array</td><td><code>[]</code></td><td>明细格或聚合格列表</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>Cell</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>row</code></td><td>number</td><td>是</td><td>起始行坐标，从 0 开始</td></tr>
+                <tr><td><code>column</code></td><td>number</td><td>是</td><td>起始列坐标，从 0 开始</td></tr>
+                <tr><td><code>id / label / value</code></td><td>string / number</td><td>否</td><td>标识、格内文字与原始数值</td></tr>
+                <tr><td><code>rowSpan / columnSpan</code></td><td>正整数</td><td>否</td><td>覆盖的源矩阵范围，默认均为 1</td></tr>
+                <tr><td><code>tone</code></td><td>enum</td><td>否</td><td>语义颜色，默认 <code>neutral</code></td></tr>
+                <tr><td><code>style</code></td><td>enum</td><td>否</td><td>格子类型，默认 <code>value</code></td></tr>
+                <tr><td><code>states</code></td><td>string[]</td><td>否</td><td>可叠加的交互与处理状态</td></tr>
+                <tr><td><code>summary</code></td><td>object</td><td>聚合格需要</td><td>范围、数量、min、max、mean 与 intensity</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>Options</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead><tr><th>字段</th><th>类型</th><th>默认值</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>ariaLabel</code></td><td>string</td><td>英文默认说明</td><td>Canvas 无障碍说明</td></tr>
+                <tr><td><code>showAxes / showGrid</code></td><td>boolean</td><td><code>true</code></td><td>显示轴标与可读尺度网格</td></tr>
+                <tr><td><code>interactive / showTooltip</code></td><td>boolean</td><td><code>true</code></td><td>启用交互与 hover 详情</td></tr>
+                <tr><td><code>autoFit</code></td><td>boolean</td><td><code>true</code></td><td>初始及未改动视图自动适配</td></tr>
+                <tr><td><code>minZoom / maxZoom</code></td><td>number</td><td><code>0.015 / 12</code></td><td>缩放范围</td></tr>
+                <tr><td><code>scrollSpeed</code></td><td>number</td><td><code>1</code></td><td>滚动速度，限制为 0.1–4</td></tr>
+                <tr><td><code>padding</code></td><td>object</td><td><code>38 / 28 / 42 / 52</code></td><td>top / right / bottom / left 留白</td></tr>
+                <tr><td><code>onHover / onSelect</code></td><td>function</td><td>无</td><td>格子 hover 变化与点击回调</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>createAggregatedCells</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>source.rows / columns</code></td><td>正整数</td><td>源矩阵真实 shape</td></tr>
+                <tr><td><code>source.values</code></td><td>Array / TypedArray</td><td>行优先的一维数据</td></tr>
+                <tr><td><code>source.valueAt</code></td><td>function</td><td>替代 values 的惰性读取函数</td></tr>
+                <tr><td><code>thumbnailRows / Columns</code></td><td>正整数</td><td>目标缩略网格数量</td></tr>
+                <tr><td><code>blockRows / Columns</code></td><td>正整数</td><td>每格固定覆盖范围，默认 16 × 16</td></tr>
+                <tr><td><code>tone</code></td><td>enum</td><td>聚合格语义颜色，默认 neutral</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="interaction-help">目标缩略格数与固定跨度二选一；传入目标数量时，由 Pattern 计算实际跨度。</p>
+        </article>
+
+        <article class="config-group">
+          <h3>Controller</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead><tr><th>方法</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>update(scene, options?)</code></td><td>更新数据与可选配置；shape 变化时默认重新适配</td></tr>
+                <tr><td><code>resize()</code></td><td>按当前容器尺寸与主题重绘</td></tr>
+                <tr><td><code>fit() / resetView()</code></td><td>适配完整矩阵</td></tr>
+                <tr><td><code>setZoom(scale, anchor?)</code></td><td>以画布中心或指定坐标缩放</td></tr>
+                <tr><td><code>getViewState()</code></td><td>读取 scale、offset 与 userView</td></tr>
+                <tr><td><code>destroy()</code></td><td>断开监听并移除 Tooltip</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>值域</h3>
+          <p class="interaction-help">Tone 只用于明确语义；普通格与聚合格默认保持 neutral。</p>
+          <div class="value-list" aria-label="Tone values">
+            <code>neutral</code><code>input</code><code>output</code><code>compute</code><code>reduction</code><code>fusion</code>
+          </div>
+          <p class="interaction-help">Style 决定内容表达，States 可以叠加；<code>current</code> 的视觉优先级最高。</p>
+          <div class="value-list" aria-label="Style values">
+            <code>value</code><code>empty</code><code>padding</code><code>broadcast</code><code>aggregate</code>
+          </div>
+          <div class="value-list" aria-label="State values">
+            <code>row-focus</code><code>column-focus</code><code>written</code><code>selected</code><code>current</code><code>muted</code>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="contract-section" aria-labelledby="usageTitle">
+      <div class="contract-section__head">
+        <h2 id="usageTitle">使用说明</h2>
+        <p>消费页面直接加载共享 CSS / JS 并调用 renderer，不通过 iframe，也不要复制矩阵几何与交互逻辑。</p>
+      </div>
+      <div class="usage-grid">
+        <article class="usage-copy">
+          <h3>最小接入</h3>
+          <pre class="code-sample"><code>&lt;link rel="stylesheet" href="patterns/matrix-canvas/pattern.css"&gt;
+&lt;script src="patterns/matrix-canvas/pattern.js"&gt;&lt;/script&gt;
+
+const controller = PtoMatrixCanvas.render(canvas, {
+  extent: { rows: 8, columns: 12 },
+  axes: { rows: 'M', columns: 'N' },
+  cells: [{ row: 2, column: 7, value: 0.82 }],
+}, {
+  showAxes: true,
+  showGrid: true,
+});</code></pre>
+        </article>
+
+        <article class="usage-copy">
+          <h3>更新与生命周期</h3>
+          <pre class="code-sample"><code>controller.update(nextScene, { preserveView: true });
+controller.fit();
+controller.setZoom(2, { x: 320, y: 220 });
+const view = controller.getViewState();
+controller.resize();
+controller.destroy();</code></pre>
+          <p><code>preserveView: true</code> 可在 shape 变化时保留当前缩放与偏移。</p>
+        </article>
+
+        <article class="usage-copy">
+          <h3>大矩阵缩略</h3>
+          <pre class="code-sample"><code>const cells = PtoMatrixCanvas.createAggregatedCells({
+  values,
+  rows: 240,
+  columns: 420,
+}, {
+  thumbnailRows: 12,
+  thumbnailColumns: 20,
+});
+
+controller.update({
+  extent: { rows: 240, columns: 420 },
+  cells,
+});</code></pre>
+          <p>注意：<code>extent</code> 始终是源矩阵 shape，不能写成缩略格数量。</p>
+        </article>
+
+        <article class="usage-copy">
+          <h3>交互与限制</h3>
+          <ul class="usage-list">
+            <li>滚轮纵向滚动；横向手势或 Shift + 滚轮横向滚动。</li>
+            <li>Ctrl/Command + 滚轮以指针为锚点缩放；F / 0 适配。</li>
+            <li>点击只通过 <code>onSelect</code> 上报，选中态由业务更新 Scene。</li>
+            <li>无拖拽平移；矩阵不会越过自身边界形成无限画布。</li>
+            <li>主题变化后调用 <code>resize()</code>，让 Canvas 重新读取语义 Token。</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="./pattern.js"></script>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('embed') === '1') document.body.classList.add('is-embed');
+
+      const createLegendScene = (kind) => {
+        const cells = [];
+        for (let row = 0; row < 3; row += 1) {
+          for (let column = 0; column < 3; column += 1) {
+            const index = row * 3 + column;
+            const isCenter = row === 1 && column === 1;
+            const states = [];
+            let style = 'value';
+
+            if (kind === 'row-focus' && row === 1) states.push('row-focus');
+            if (kind === 'column-focus' && column === 1) states.push('column-focus');
+            if (kind === 'written' && index <= 4) states.push('written');
+            if (kind === 'current' && isCenter) states.push('current');
+            if (kind === 'selected' && isCenter) states.push('selected');
+            if (kind === 'muted' && isCenter) states.push('muted');
+            if (kind === 'padding' && isCenter) style = 'padding';
+            if (kind === 'broadcast' && row > 0) style = 'broadcast';
+
+            cells.push({
+              id: `${kind}-${row}-${column}`,
+              row,
+              column,
+              label: isCenter ? 'x' : '',
+              style,
+              tone: 'neutral',
+              states,
+            });
+          }
+        }
+        return {
+          extent: { rows: 3, columns: 3 },
+          axes: { rows: 'row', columns: 'column' },
+          cells,
+        };
+      };
+
+      const legendControllers = [];
+      document.querySelectorAll('[data-matrix-legend]').forEach((canvas) => {
+        const kind = canvas.dataset.matrixLegend;
+        legendControllers.push(window.PtoMatrixCanvas.render(
+          canvas,
+          createLegendScene(kind),
+          {
+            ariaLabel: canvas.getAttribute('aria-label'),
+            showAxes: false,
+            showGrid: true,
+            interactive: false,
+            showTooltip: false,
+            padding: { top: 8, right: 8, bottom: 8, left: 8 },
+          }
+        ));
+      });
+
+      const detailCells = [];
+      const rows = 8;
+      const columns = 12;
+      const currentRow = 2;
+      const currentColumn = 7;
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const states = [];
+          if (row === currentRow) states.push('row-focus');
+          if (column === currentColumn) states.push('column-focus');
+          if (row * columns + column < currentRow * columns + currentColumn) states.push('written');
+          if (row === currentRow && column === currentColumn) states.push('current');
+          detailCells.push({
+            row,
+            column,
+            label: (row === 0 && column < 3) || (row === currentRow && column > 4)
+              ? `x${row}${column}`
+              : `${(Math.sin(row * 0.8 + column * 0.45) * 0.8).toFixed(2)}`,
+            value: Math.sin(row * 0.8 + column * 0.45) * 0.8,
+            style: (row === 0 && column < 3) || (row === 5 && column > 8) ? 'padding' : 'value',
+            tone: column % 4 === 0 ? 'input' : 'neutral',
+            states,
+          });
+        }
+      }
+
+      const detailController = window.PtoMatrixCanvas.render(
+        document.getElementById('detailCanvas'),
+        {
+          extent: { rows, columns },
+          axes: { rows: 'M · row', columns: 'N · column' },
+          cells: detailCells,
+        },
+        { ariaLabel: '8 by 12 detailed matrix tensor' }
+      );
+
+      const broadcastSize = 16;
+      const biasValues = Array.from({ length: broadcastSize }, (_, column) =>
+        Number((Math.sin(column * 0.42) * 0.5).toFixed(2))
+      );
+      const broadcastCells = [];
+      for (let row = 0; row < broadcastSize; row += 1) {
+        for (let column = 0; column < broadcastSize; column += 1) {
+          broadcastCells.push({
+            id: `bias-${row}-${column}`,
+            row,
+            column,
+            label: String(biasValues[column]),
+            value: biasValues[column],
+            style: row === 0 ? 'value' : 'broadcast',
+            tone: 'neutral',
+          });
+        }
+      }
+      const broadcastController = window.PtoMatrixCanvas.render(
+        document.getElementById('broadcastCanvas'),
+        {
+          extent: { rows: broadcastSize, columns: broadcastSize },
+          axes: { rows: 'broadcast rows', columns: 'bias columns' },
+          cells: broadcastCells,
+        },
+        { ariaLabel: 'Bias matrix broadcast from 1 by 16 to 16 by 16' }
+      );
+
+      const sourceRows = 240;
+      const sourceColumns = 420;
+      const values = new Float32Array(sourceRows * sourceColumns);
+      for (let row = 0; row < sourceRows; row += 1) {
+        for (let column = 0; column < sourceColumns; column += 1) {
+          const ridge = Math.exp(-Math.pow((column - sourceColumns * 0.62) / 48, 2));
+          const wave = Math.sin(row * 0.07) * Math.cos(column * 0.035);
+          values[row * sourceColumns + column] = wave * 0.42 + ridge * 1.1 + ((row + column) % 31 === 0 ? 0.34 : 0);
+        }
+      }
+
+      const aggregateCells = window.PtoMatrixCanvas.createAggregatedCells(
+        { values, rows: sourceRows, columns: sourceColumns },
+        { thumbnailRows: 12, thumbnailColumns: 20, tone: 'neutral' }
+      );
+      const selectedAggregate = aggregateCells.find((cell) => cell.row === 80 && cell.column === 210);
+      if (selectedAggregate) selectedAggregate.states = ['selected'];
+
+      const aggregateController = window.PtoMatrixCanvas.render(
+        document.getElementById('aggregateCanvas'),
+        {
+          extent: { rows: sourceRows, columns: sourceColumns },
+          axes: { rows: 'source rows', columns: 'source columns' },
+          cells: aggregateCells,
+        },
+        { ariaLabel: '240 by 420 matrix tensor represented by a 12 by 20 thumbnail grid' }
+      );
+
+      const refreshReadout = () => {
+        document.getElementById('detailZoom').textContent = `${Math.round(detailController.getViewState().scale * 100)}%`;
+        document.getElementById('aggregateZoom').textContent = `${Math.round(aggregateController.getViewState().scale * 100)}%`;
+        document.getElementById('broadcastZoom').textContent = `${Math.round(broadcastController.getViewState().scale * 100)}%`;
+      };
+      [
+        document.getElementById('detailCanvas'),
+        document.getElementById('aggregateCanvas'),
+        document.getElementById('broadcastCanvas'),
+      ].forEach((canvas) => {
+        ['wheel', 'pointermove', 'keydown'].forEach((eventName) => {
+          canvas.addEventListener(eventName, () => window.requestAnimationFrame(refreshReadout));
+        });
+      });
+      refreshReadout();
+
+      document.querySelector('[data-fit="detail"]').addEventListener('click', () => {
+        detailController.fit();
+        refreshReadout();
+      });
+      document.querySelector('[data-fit="aggregate"]').addEventListener('click', () => {
+        aggregateController.fit();
+        refreshReadout();
+      });
+      document.querySelector('[data-fit="broadcast"]').addEventListener('click', () => {
+        broadcastController.fit();
+        refreshReadout();
+      });
+      document.querySelector('[data-zoom="aggregate"]').addEventListener('click', () => {
+        aggregateController.setZoom(aggregateController.getViewState().scale * 2);
+        refreshReadout();
+      });
+
+      const themeToggle = document.getElementById('themeToggle');
+      const syncThemeLabel = () => {
+        themeToggle.textContent = document.documentElement.dataset.theme === 'light' ? 'Dark mode' : 'Light mode';
+        detailController.resize();
+        aggregateController.resize();
+        broadcastController.resize();
+        legendControllers.forEach((controller) => controller.resize());
+      };
+      themeToggle.addEventListener('click', () => {
+        document.documentElement.dataset.theme =
+          document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+        syncThemeLabel();
+      });
+      window.addEventListener('pto-preview-theme-applied', syncThemeLabel);
+      window.addEventListener('beforeunload', () => {
+        detailController.destroy();
+        aggregateController.destroy();
+        broadcastController.destroy();
+        legendControllers.forEach((controller) => controller.destroy());
+      });
+      syncThemeLabel();
+
+      window.parent?.postMessage({
+        type: 'pto-pattern-preview-height',
+        pathname: window.location.pathname,
+        height: document.documentElement.scrollHeight,
+      }, '*');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+/* 融合数据流 · 昇腾硬件抽象架构视图
+   全画布覆盖层，几何与用色沿用替换方案面板与对比视图 */
+
+.kf-fus-btn.is-hw {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.kf-fus-btn.is-hw:hover, .kf-fus-btn.is-hw:focus-visible {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.kf-hw-root {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  backdrop-filter: blur(2px);
+}
+.kf-hw-root[hidden] { display: none; }
+
+.kf-hw-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  margin: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  overflow: hidden;
+  box-shadow: 0 18px 48px color-mix(in srgb, #000 34%, transparent);
+}
+
+/* ---------------- 头部 ---------------- */
+
+.kf-hw-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.kf-hw-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  font: 600 10px/1.4 var(--font-mono, monospace);
+  letter-spacing: .08em;
+  color: var(--accent);
+}
+.kf-hw-title h2 { margin: 0 0 3px; font: 600 var(--kf-type-sm)/1.25 var(--font-sans); color: var(--foreground); }
+.kf-hw-title p { margin: 0; font: 400 var(--kf-type-2xs)/1.4 var(--font-sans); color: var(--foreground-muted); }
+.kf-hw-title code { font-family: var(--font-mono, monospace); color: var(--foreground-secondary); }
+
+.kf-hw-headactions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.kf-hw-modeswitch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.kf-hw-modeswitch button {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--foreground-secondary);
+  font: 500 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-hw-modeswitch button.is-active {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.kf-hw-btn {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  font: 500 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-hw-btn:hover { color: var(--foreground); border-color: var(--border-strong); }
+.kf-hw-zoom {
+  min-width: 44px;
+  text-align: center;
+  font: 500 10px/1.4 var(--font-mono, monospace);
+  color: var(--foreground-muted);
+}
+.kf-hw-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  cursor: pointer;
+}
+.kf-hw-close:hover { color: var(--foreground); border-color: var(--border-strong); }
+
+/* ---------------- 指标带 ---------------- */
+
+.kf-hw-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  padding: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--border-subtle);
+}
+.kf-hw-metric {
+  padding: 9px 14px;
+  background: var(--surface-2);
+}
+.kf-hw-metric span {
+  display: block;
+  font: 400 10px/1.4 var(--font-sans);
+  color: var(--foreground-muted);
+}
+.kf-hw-metric b {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 3px 0 2px;
+  font: 600 var(--kf-type-sm)/1.1 var(--font-mono, monospace);
+}
+.kf-hw-metric i { font-style: normal; }
+.kf-hw-metric .is-before { color: var(--foreground-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.kf-hw-metric .is-after { color: var(--foreground); }
+.kf-hw-metric.is-good .is-after { color: var(--success); }
+.kf-hw-metric em { font-style: normal; font-size: 11px; color: var(--foreground-muted); }
+.kf-hw-metric small { font: 400 10px/1.4 var(--font-sans); color: var(--foreground-secondary); }
+
+/* ---------------- 主体 ---------------- */
+
+.kf-hw-body {
+  display: grid;
+  grid-template-columns: minmax(280px, 25%) minmax(0, 1fr);
+  min-height: 0;
+}
+.kf-hw-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 13px;
+  border-right: 1px solid var(--border-subtle);
+  overflow: auto;
+}
+.kf-hw-railhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 9px;
+  font: 600 var(--kf-type-2xs)/1.3 var(--font-sans);
+  color: var(--foreground);
+}
+.kf-hw-railhead small { font: 400 10px/1.3 var(--font-sans); color: var(--foreground-muted); }
+
+.kf-hw-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.kf-hw-step { position: relative; }
+/* 相邻两段之间的执行顺序连线 */
+.kf-hw-step + .kf-hw-step::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: -5px;
+  width: 1px;
+  height: 5px;
+  background: var(--border-strong);
+}
+.kf-hw-step button {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--role);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+}
+.kf-hw-step.is-active button {
+  border-color: color-mix(in srgb, var(--primary) 54%, transparent);
+  border-left-color: var(--role);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+}
+.kf-hw-step.is-onchip button { border-style: dashed; }
+.kf-hw-step__idx {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--role);
+  color: #fff;
+  font: 700 9px/1 var(--font-mono, monospace);
+  font-style: normal;
+}
+.kf-hw-step__text {
+  min-width: 0;
+  font: 400 var(--kf-type-2xs)/1.35 var(--font-sans);
+  color: var(--foreground);
+  word-break: break-word;
+}
+.kf-hw-step__unit {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font: 600 10px/1.5 var(--font-mono, monospace);
+  font-style: normal;
+}
+.kf-hw-step__unit.is-cube { background: color-mix(in srgb, #4F46E5 22%, transparent); color: #a5b4fc; }
+.kf-hw-step__unit.is-vector { background: color-mix(in srgb, #8B5CF6 22%, transparent); color: #c4b5fd; }
+.kf-hw-step__gm {
+  flex-shrink: 0;
+  font: 500 10px/1.4 var(--font-sans);
+  font-style: normal;
+  color: var(--warning);
+}
+.kf-hw-step__gm.is-onchip { color: var(--success); }
+
+.kf-hw-note {
+  margin: 11px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  font: 400 var(--kf-type-2xs)/1.55 var(--font-sans);
+  color: var(--foreground-secondary);
+}
+
+/* ---------------- 画布 ---------------- */
+
+.kf-hw-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  min-width: 0;
+}
+.kf-hw-viewport {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--foreground-muted) 16%, transparent) 1px, transparent 0)
+    0 0 / 22px 22px,
+    var(--background);
+  cursor: grab;
+}
+.kf-hw-viewport:active { cursor: grabbing; }
+.kf-hw-sizer { position: relative; }
+.kf-hw-canvas { transform-origin: 0 0; }
+
+.kf-hw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+.kf-hw-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 10px/1.4 var(--font-sans);
+  color: var(--foreground-secondary);
+}
+.kf-hw-legend i { width: 16px; height: 2px; border-radius: 1px; }
+.kf-hw-legend .is-transport { background: #ffdf1f; }
+.kf-hw-legend .is-return { background: #29c7a6; }
+.kf-hw-legend .is-direct { background: #4d97ff; }
+
+@media (max-width: 1180px) {
+  .kf-hw-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kf-hw-body { grid-template-columns: minmax(240px, 32%) minmax(0, 1fr); }
+}
+
+/* ---------------- 数据流动画 ---------------- */
+
+.kf-hw-play { display: inline-flex; align-items: center; gap: 6px; }
+.kf-hw-playbtn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--success) 46%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  font: 600 var(--kf-type-2xs)/1 var(--font-sans);
+  cursor: pointer;
+}
+.kf-hw-playbtn:hover { background: color-mix(in srgb, var(--success) 22%, transparent); }
+.kf-hw-playbtn.is-playing {
+  border-color: color-mix(in srgb, var(--warning) 52%, transparent);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: color-mix(in srgb, var(--warning) 88%, var(--foreground));
+}
+.kf-hw-speed {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.kf-hw-speed button {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 3px);
+  background: transparent;
+  color: var(--foreground-muted);
+  font: 600 10px/1 var(--font-mono, monospace);
+  cursor: pointer;
+}
+.kf-hw-speed button.is-active { background: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--primary); }
+
+/* 实时穿越计数：融合前会一路涨，融合后停在 2 */
+.kf-hw-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 9px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  font: 400 10px/1.4 var(--font-sans);
+  color: var(--foreground-muted);
+}
+.kf-hw-counter b {
+  font: 700 var(--kf-type-md, 18px)/1 var(--font-mono, monospace);
+  color: var(--warning);
+  font-variant-numeric: tabular-nums;
+  transition: color 200ms;
+}
+.kf-hw-counter em { font-style: normal; }
+.kf-hw-counter i { margin-left: auto; font-style: normal; color: var(--foreground-secondary); }
+.kf-hw-root.is-playing .kf-hw-counter b { color: var(--danger); }
+
+/* 路径上的行进虚线：只在当前聚焦的路由上跑，方向就是数据流向 */
+@keyframes kfHwDash { to { stroke-dashoffset: -16; } }
+.pto-mem950__overlay g[data-route-id].is-route-active > path.kf-hw-line {
+  stroke-dasharray: 9 7;
+  animation: kfHwDash var(--kf-hw-dash-dur, 1.1s) linear infinite;
+}
+
+/* 数据包：沿路径移动的圆点，只在聚焦路由上可见 */
+.kf-hw-packet {
+  opacity: 0;
+  transition: opacity 180ms;
+  pointer-events: none;
+}
+.pto-mem950__overlay g[data-route-id].is-route-active .kf-hw-packet { opacity: 1; }
+
+/* 停在片上的那几段没有路由可跑，用行的呼吸提示「数据没离开这里」 */
+@keyframes kfHwHold {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 40%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 0%, transparent); }
+}
+.kf-hw-root.is-playing .kf-hw-step.is-active.is-onchip button {
+  animation: kfHwHold 1.6s ease-out infinite;
+  border-color: color-mix(in srgb, var(--success) 54%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pto-mem950__overlay g[data-route-id].is-route-active > path.kf-hw-line { animation: none; }
+  .kf-hw-packet { display: none; }
+  .kf-hw-root.is-playing .kf-hw-step.is-active.is-onchip button { animation: none; }
+}

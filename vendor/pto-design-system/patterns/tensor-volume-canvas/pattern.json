@@ -1,0 +1,136 @@
+{
+  "id": "tensor-volume-canvas",
+  "family": "tensor-visualization",
+  "name": "Tensor Volume Canvas",
+  "type": "canvas",
+  "description": "Fixed-view Canvas 2D renderer for API Visualizer-style three-dimensional tensor volumes. It renders a transparent voxel scene with stable occlusion, axes, labels, padding, window, current, and skipped states without owning business selection or container chrome.",
+  "source": {
+    "visualContract": [
+      "Canonical NCHW/A1 fixed-view fixture documented by patterns/tensor-volume-canvas/pattern.html",
+      "patterns/tensor-volume-canvas/pattern.html",
+      "patterns/tensor-volume-canvas/pattern.css",
+      "patterns/tensor-volume-canvas/pattern.js"
+    ],
+    "patternHtml": "patterns/tensor-volume-canvas/pattern.html",
+    "patternCss": "patterns/tensor-volume-canvas/pattern.css",
+    "renderScript": "patterns/tensor-volume-canvas/pattern.js"
+  },
+  "useWhen": [
+    "rendering NCHW, A1, Load3D, Conv, tiling, or code-recovery tensor volumes with a shared fixed projection",
+    "showing padding, sampling windows, current voxels, skipped voxels, or per-voxel labels",
+    "embedding the same tensor-volume renderer directly in multiple PTO pages without an iframe"
+  ],
+  "sceneContract": {
+    "extent": {
+      "columns": "positive integer",
+      "rows": "positive integer",
+      "depth": "positive integer"
+    },
+    "axes": {
+      "columns": "string",
+      "rows": "string",
+      "depth": "string"
+    },
+    "voxel": {
+      "required": [
+        "column",
+        "row",
+        "depth"
+      ],
+      "optional": [
+        "id",
+        "label"
+      ],
+      "tone": [
+        "neutral",
+        "input",
+        "output",
+        "compute",
+        "reduction",
+        "fusion"
+      ],
+      "toneDefault": "neutral when no interaction state or explicit semantic emphasis is supplied",
+      "state": [
+        "base",
+        "ghost",
+        "padding",
+        "window",
+        "current",
+        "skipped"
+      ]
+    }
+  },
+  "requiredApis": [
+    "window.PtoTensorVolumeCanvas.render(canvas, scene, options) returning { update, resize, destroy }",
+    "controller.update(nextScene)",
+    "controller.resize()",
+    "controller.destroy()"
+  ],
+  "options": [
+    "ariaLabel",
+    "padding.top",
+    "padding.right",
+    "padding.bottom",
+    "padding.left",
+    "showAxes",
+    "autoLabelDensity"
+  ],
+  "allowedOverrides": [
+    "scene.extent",
+    "scene.axes labels",
+    "scene.voxels and their tone, state, label, and coordinates",
+    "canvas and host-container dimensions",
+    "ariaLabel",
+    "canvas padding",
+    "axis-label visibility",
+    "automatic label density"
+  ],
+  "forbiddenOverrides": [
+    "copying or rewriting the fixed projection, voxel geometry, depth sorting, DPR setup, or ResizeObserver logic in a consuming page",
+    "overriding the shared voxel palette or replacing --primary and --warning with page-local blue or orange values",
+    "adding rotation, pan, pointer-drag, wheel zoom, or configurable camera controls",
+    "moving Load3D, Conv, tiling, playback, selection, or tensor-format business rules into the Pattern",
+    "adding product-specific pane, card, toolbar, inspector, or playback chrome inside the renderer",
+    "embedding this Pattern through an iframe in consuming pages"
+  ],
+  "colorContract": {
+    "neutral": [
+      "top rgb(74, 80, 88)",
+      "east rgb(59, 65, 74)",
+      "south rgb(48, 54, 64)",
+      "edge rgba(10, 12, 16, 0.72)"
+    ],
+    "padding": [
+      "top rgba(90, 96, 104, 0.25)",
+      "east rgba(54, 60, 68, 0.25)",
+      "south rgba(42, 48, 56, 0.25)",
+      "edge rgba(190, 200, 212, 0.18)"
+    ],
+    "blue": [
+      "--primary"
+    ],
+    "orange": [
+      "--warning"
+    ],
+    "chrome": [
+      "--background",
+      "--surface-*",
+      "--foreground*"
+    ],
+    "note": "Neutral and padding voxels reproduce the Recommendation Trace API Visualizer Load3D palette. Semantic tones resolve PTO tokens at paint time. Consuming pages must not supply a private palette."
+  },
+  "behavior": [
+    "fixed depth projection uses depthX = 0.52 unit and depthY = 0.38 unit",
+    "base voxels default to neutral tone; semantic tones are opt-in and should represent an explicit interaction state or semantic emphasis",
+    "voxels render from deep to shallow for stable occlusion",
+    "ResizeObserver and resize() refit the scene without changing the fixed camera",
+    "backing-store dimensions follow devicePixelRatio without changing CSS size",
+    "consumers should call controller.resize() after a theme change so canvas paint resolves the new semantic token values",
+    "invalid or out-of-range voxels are skipped with a development warning",
+    "empty voxel arrays clear the canvas while preserving axes",
+    "current labels take priority when automatic label density hides other labels",
+    "the canvas remains transparent and registers no pointer-drag, wheel, pan, zoom, or rotation interactions"
+  ],
+  "originNote": "The Pattern is self-contained in this repository; its preview validates canonical fixtures and has no runtime dependency on an external business page.",
+  "agentReuseRule": "Load pattern.css and pattern.js, then call window.PtoTensorVolumeCanvas.render with a canvas plus a business-neutral scene. Convert Load3D, Conv, tiling, code-recovery, playback, and selection state into voxel tone/state data in the consuming page. Update highlights through controller.update(nextScene), call controller.resize() after theme changes, and destroy the controller when its host unmounts. Do not copy projection or voxel-rendering code, add camera interaction, recolor blue/orange outside PTO semantic tokens, or move product chrome into the Pattern."
+}

@@ -1,0 +1,202 @@
+﻿[
+    {
+        "url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/5",
+        "repository_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills",
+        "labels_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/5/labels{/name}",
+        "comments_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/5/comments",
+        "events_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/5/events",
+        "html_url":  "https://github.com/hw-native-sys/pypto-skills/issues/5",
+        "id":  5077788362,
+        "node_id":  "I_kwDOTnxcWs8AAAABLqjmyg",
+        "number":  5,
+        "title":  "setup.md resolves LOCAL_REPO from the gh default repository, selecting the wrong push target in a fork checkout",
+        "user":  {
+                     "login":  "Hzfengsy",
+                     "id":  25500082,
+                     "node_id":  "MDQ6VXNlcjI1NTAwMDgy",
+                     "avatar_url":  "https://avatars.githubusercontent.com/u/25500082?v=4",
+                     "gravatar_id":  "",
+                     "url":  "https://api.github.com/users/Hzfengsy",
+                     "html_url":  "https://github.com/Hzfengsy",
+                     "followers_url":  "https://api.github.com/users/Hzfengsy/followers",
+                     "following_url":  "https://api.github.com/users/Hzfengsy/following{/other_user}",
+                     "gists_url":  "https://api.github.com/users/Hzfengsy/gists{/gist_id}",
+                     "starred_url":  "https://api.github.com/users/Hzfengsy/starred{/owner}{/repo}",
+                     "subscriptions_url":  "https://api.github.com/users/Hzfengsy/subscriptions",
+                     "organizations_url":  "https://api.github.com/users/Hzfengsy/orgs",
+                     "repos_url":  "https://api.github.com/users/Hzfengsy/repos",
+                     "events_url":  "https://api.github.com/users/Hzfengsy/events{/privacy}",
+                     "received_events_url":  "https://api.github.com/users/Hzfengsy/received_events",
+                     "type":  "User",
+                     "user_view_type":  "public",
+                     "site_admin":  false
+                 },
+        "labels":  [
+                       {
+                           "id":  11671041696,
+                           "node_id":  "LA_kwDOTnxcWs8AAAACt6X2oA",
+                           "url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/labels/bug",
+                           "name":  "bug",
+                           "color":  "d73a4a",
+                           "default":  true,
+                           "description":  "Something isn\u0027t working"
+                       }
+                   ],
+        "state":  "open",
+        "locked":  false,
+        "assignees":  [
+
+                      ],
+        "milestone":  null,
+        "comments":  0,
+        "created_at":  "2026-08-06T04:59:39Z",
+        "updated_at":  "2026-08-06T04:59:39Z",
+        "closed_at":  null,
+        "assignee":  null,
+        "author_association":  "MEMBER",
+        "issue_field_values":  [
+
+                               ],
+        "type":  null,
+        "active_lock_reason":  null,
+        "sub_issues_summary":  {
+                                   "total":  0,
+                                   "completed":  0,
+                                   "percent_completed":  0
+                               },
+        "issue_dependencies_summary":  {
+                                           "blocked_by":  0,
+                                           "total_blocked_by":  0,
+                                           "blocking":  0,
+                                           "total_blocking":  0
+                                       },
+        "body":  "## Summary\n\n`lib/github/setup.md` §2 derives `LOCAL_REPO` with `gh repo view --json nameWithOwner,url` (line 39). Invoked with no argument, `gh repo view` returns the **gh default repository**, which `gh repo set-default` stores in the consuming repository\u0027s own Git config as `remote.\u003cname\u003e.gh-resolved = base`. In a fork checkout whose default points at the parent, `LOCAL_REPO` becomes the parent — not \"the repository represented by this checkout\", which is how §2 defines it.\n\nEvery downstream derivation inherits the wrong identity. Observed in a fork checkout with `origin = Hzfengsy/pypto` and `upstream = hw-native-sys/pypto`:\n\n| setup.md line | Variable | Expected (fork checkout) | Actual |\n| --- | --- | --- | --- |\n| 43 | `LOCAL_REPO` | `Hzfengsy/pypto` | `hw-native-sys/pypto` |\n| 61 | `IS_FORK` | `true` | `false` |\n| 63-67 | `PR_REPO` | `hw-native-sys/pypto` | `hw-native-sys/pypto` |\n| 171 | `PUSH_REMOTE` | `origin` | `upstream` |\n| 207-213 | `ROLE` / `PR_HEAD_PREFIX` | `fork` / `Hzfengsy:` | `owner` / *(empty)* |\n\nThe net effect is that the workflow is configured to push a feature branch **directly into the shared upstream repository** instead of the contributor\u0027s fork.\n\nThe failure is silent, and the existing guards do not catch it because they verify consistency against the already-wrong identity. `pr-context.sh guard-branch` compares `LOCAL_REPO` with `HEAD_REPO`; both are wrong in the same direction, so it passes. The same applies to the `remote_targets_repo \"$PUSH_REMOTE\" \"$EXPECTED_PUSH_REPO\"` check in `commit-and-push.md`, since `EXPECTED_PUSH_REPO` is derived from the same poisoned `LOCAL_REPO`.\n\n## Motivation/Impact\n\nThis resolves toward the higher-blast-radius target: it silently redirects a push from a personal fork to a shared organization repository. A contributor who follows the documented workflow can create branches directly on the upstream repo without any step reporting the change of destination.\n\n`gh repo set-default` is not an exotic configuration. `gh` interactively prompts for it the first time you run `gh pr list` / `gh issue list` in a checkout with more than one remote, so any fork clone with both `origin` and `upstream` is a candidate. The setting lives in the consuming repository\u0027s Git config, so it is invisible to anyone reading only the skill sources.\n\nReproduction, entirely read-only:\n\n```bash\ncd \u003cfork-checkout\u003e            # origin=\u003cyou\u003e/\u003crepo\u003e, upstream=\u003corg\u003e/\u003crepo\u003e\ngit config --local --get-regexp \u0027remote.*gh-resolved\u0027\n# remote.upstream.gh-resolved base\n\ngh repo view --json nameWithOwner --jq .nameWithOwner\n# \u003corg\u003e/\u003crepo\u003e                \u003c-- the parent, not this checkout\n\ngh repo view --json nameWithOwner --jq .nameWithOwner --repo \u003cyou\u003e/\u003crepo\u003e\n# \u003cyou\u003e/\u003crepo\u003e                \u003c-- what setup.md §2 intends\n```\n\nFound while running `auto-pr` against `hw-native-sys/pypto`. It was caught only because the operator inspected `git remote -v` by hand before the push and noticed the mismatch; nothing in the workflow surfaced it.\n\n## Acceptance Criteria\n\n- `LOCAL_REPO` is derived from the checkout\u0027s own remotes (for example the remote the current branch tracks, else `origin`), not from an argument-less `gh repo view`.\n- When the checkout-derived identity and the gh default repository disagree, the workflow stops with an actionable message naming both values, rather than silently preferring either one.\n- A fork checkout with `remote.\u003cupstream\u003e.gh-resolved = base` resolves `ROLE=fork`, `PUSH_REMOTE=origin`, `PR_HEAD_PREFIX=\u003cowner\u003e:`, and `PR_REPO=\u003cparent\u003e`.\n- A non-fork checkout with the same setting still resolves `ROLE=owner` correctly.\n- `lib/github/setup.md` §2 documents the interaction with `gh repo set-default` and states that the gh default repository is not a source of checkout identity.\n- Regression coverage under `tests/` (alongside `test_github_pr.py` / `test_commit_and_push.py`) for the fork-with-`gh-resolved`-parent topology.\n",
+        "closed_by":  null,
+        "reactions":  {
+                          "url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/5/reactions",
+                          "total_count":  0,
+                          "+1":  0,
+                          "-1":  0,
+                          "laugh":  0,
+                          "hooray":  0,
+                          "confused":  0,
+                          "heart":  0,
+                          "rocket":  0,
+                          "eyes":  0
+                      },
+        "timeline_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/5/timeline",
+        "performed_via_github_app":  null,
+        "state_reason":  null,
+        "pinned_comment":  null
+    },
+    {
+        "url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/6",
+        "repository_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills",
+        "labels_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/6/labels{/name}",
+        "comments_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/6/comments",
+        "events_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/6/events",
+        "html_url":  "https://github.com/hw-native-sys/pypto-skills/issues/6",
+        "id":  5077790195,
+        "node_id":  "I_kwDOTnxcWs8AAAABLqjt8w",
+        "number":  6,
+        "title":  "Validation sandbox cannot run validation for native-build repositories, and its documented escape hatch has no mechanism",
+        "user":  {
+                     "login":  "Hzfengsy",
+                     "id":  25500082,
+                     "node_id":  "MDQ6VXNlcjI1NTAwMDgy",
+                     "avatar_url":  "https://avatars.githubusercontent.com/u/25500082?v=4",
+                     "gravatar_id":  "",
+                     "url":  "https://api.github.com/users/Hzfengsy",
+                     "html_url":  "https://github.com/Hzfengsy",
+                     "followers_url":  "https://api.github.com/users/Hzfengsy/followers",
+                     "following_url":  "https://api.github.com/users/Hzfengsy/following{/other_user}",
+                     "gists_url":  "https://api.github.com/users/Hzfengsy/gists{/gist_id}",
+                     "starred_url":  "https://api.github.com/users/Hzfengsy/starred{/owner}{/repo}",
+                     "subscriptions_url":  "https://api.github.com/users/Hzfengsy/subscriptions",
+                     "organizations_url":  "https://api.github.com/users/Hzfengsy/orgs",
+                     "repos_url":  "https://api.github.com/users/Hzfengsy/repos",
+                     "events_url":  "https://api.github.com/users/Hzfengsy/events{/privacy}",
+                     "received_events_url":  "https://api.github.com/users/Hzfengsy/received_events",
+                     "type":  "User",
+                     "user_view_type":  "public",
+                     "site_admin":  false
+                 },
+        "labels":  [
+                       {
+                           "id":  11671041696,
+                           "node_id":  "LA_kwDOTnxcWs8AAAACt6X2oA",
+                           "url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/labels/bug",
+                           "name":  "bug",
+                           "color":  "d73a4a",
+                           "default":  true,
+                           "description":  "Something isn\u0027t working"
+                       }
+                   ],
+        "state":  "closed",
+        "locked":  false,
+        "assignees":  [
+
+                      ],
+        "milestone":  null,
+        "comments":  1,
+        "created_at":  "2026-08-06T04:59:56Z",
+        "updated_at":  "2026-08-06T11:33:47Z",
+        "closed_at":  "2026-08-06T11:33:47Z",
+        "assignee":  null,
+        "author_association":  "MEMBER",
+        "issue_field_values":  [
+
+                               ],
+        "type":  null,
+        "active_lock_reason":  null,
+        "sub_issues_summary":  {
+                                   "total":  0,
+                                   "completed":  0,
+                                   "percent_completed":  0
+                               },
+        "issue_dependencies_summary":  {
+                                           "blocked_by":  0,
+                                           "total_blocked_by":  0,
+                                           "blocking":  0,
+                                           "total_blocking":  0
+                                       },
+        "body":  "## Summary\n\n`lib/github/commit-and-push.md` requires the push transaction to validate inside `scripts/validation-sandbox.sh`, forbids any credentialed fallback, and offers exactly one escape hatch: \"stop and require an explicitly trusted project runner that enforces the same credential-free, network-denied boundary\". No mechanism exists to declare such a runner, so for any repository whose validation needs a native build the workflow has no supported path to completion.\n\nMeasured against `hw-native-sys/pypto` (C++ extension built with CMake + nanobind, one Git submodule). Every element of that repository\u0027s documented validation fails inside the sandbox:\n\n| Repository-defined validation | Sandbox result | Cause |\n| --- | --- | --- |\n| `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo` | `Configuring incomplete, errors occurred!` | `find_package(nanobind CONFIG REQUIRED)` fails; nanobind lives in the host Python environment, which the sandbox correctly hides |\n| C++ link step | would fail | `3rdparty/msgpack-c` is empty — `git archive` does not include submodule contents |\n| `python -m pytest tests/ut/` | cannot run | `pytest` absent; no network to install it |\n| `python tests/lint/check_headers.py` | `Error: \u0027/workspace\u0027 is not a git repository` | the repo\u0027s own lint scripts enumerate via `git ls-files`; the sandbox strips Git metadata by design |\n\nThe last row is the notable one: even the pure-Python checks fail, so this is not merely \"native builds are hard\". Probed by invoking `validation-sandbox.sh` directly with a diagnostic command; `bwrap` 0.8.0 was present and working, so this is not a missing-runtime case.\n\nTwo distinguishable problems:\n\n1. **No way to declare a trusted runner.** The contract names the escape hatch but provides no config key, file, or convention for supplying one, and correctly forbids selecting one from the worktree. The instruction is therefore unactionable.\n2. **`git archive` silently drops submodule contents.** `validation-sandbox.sh` builds the snapshot with `git archive --format=tar \"$PREPARED_HEAD_OID\"`. For a repository with submodules the extracted tree is incomplete, and the omission is silent — validation could fail for a reason unrelated to the change, or in principle pass while never compiling the omitted code.\n\nA third, ordering issue: sandbox feasibility is knowable before any repository mutation, but the blocker surfaces at the push gate. In the observed run a branch had already been created, changes staged, and a commit written before the workflow discovered it could not validate or push.\n\n## Motivation/Impact\n\n`pypto-developer` is published for `hw-native-sys/pypto`, and `auto-pr` / `github-pr` / `fix-pr` cannot complete their push transaction there. The operator\u0027s only options are to abandon the workflow or to override the documented boundary, and the second is what actually happened in the observed run — which is the outcome the boundary exists to prevent. An unactionable safety rule tends to get bypassed rather than obeyed.\n\nThe submodule gap is independently worth fixing: it silently changes what gets validated, for any consumer with submodules, whether or not the trusted-runner question is resolved.\n\n## Acceptance Criteria\n\n- A documented mechanism exists for a repository to declare a trusted validation runner, resolved from a location outside the consuming worktree so the existing threat model is preserved, and `commit-and-push.md` references it where it currently says \"require an explicitly trusted project runner\".\n- `validation-sandbox.sh` produces a complete snapshot for a repository with submodules, or fails loudly when it cannot, rather than silently extracting an incomplete tree.\n- The skills detect that validation cannot run in the available sandbox **before** creating a branch, staging, or committing, and report it while the worktree is still unmodified.\n- The reported blocker names which specific validation requirement could not be met (missing toolchain, submodule contents, Git metadata, or network) instead of a generic failure.\n- `tests/test_commit_and_push.py` covers the submodule snapshot case and the declared-runner path.\n",
+        "closed_by":  {
+                          "login":  "Hzfengsy",
+                          "id":  25500082,
+                          "node_id":  "MDQ6VXNlcjI1NTAwMDgy",
+                          "avatar_url":  "https://avatars.githubusercontent.com/u/25500082?v=4",
+                          "gravatar_id":  "",
+                          "url":  "https://api.github.com/users/Hzfengsy",
+                          "html_url":  "https://github.com/Hzfengsy",
+                          "followers_url":  "https://api.github.com/users/Hzfengsy/followers",
+                          "following_url":  "https://api.github.com/users/Hzfengsy/following{/other_user}",
+                          "gists_url":  "https://api.github.com/users/Hzfengsy/gists{/gist_id}",
+                          "starred_url":  "https://api.github.com/users/Hzfengsy/starred{/owner}{/repo}",
+                          "subscriptions_url":  "https://api.github.com/users/Hzfengsy/subscriptions",
+                          "organizations_url":  "https://api.github.com/users/Hzfengsy/orgs",
+                          "repos_url":  "https://api.github.com/users/Hzfengsy/repos",
+                          "events_url":  "https://api.github.com/users/Hzfengsy/events{/privacy}",
+                          "received_events_url":  "https://api.github.com/users/Hzfengsy/received_events",
+                          "type":  "User",
+                          "user_view_type":  "public",
+                          "site_admin":  false
+                      },
+        "reactions":  {
+                          "url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/6/reactions",
+                          "total_count":  0,
+                          "+1":  0,
+                          "-1":  0,
+                          "laugh":  0,
+                          "hooray":  0,
+                          "confused":  0,
+                          "heart":  0,
+                          "rocket":  0,
+                          "eyes":  0
+                      },
+        "timeline_url":  "https://api.github.com/repos/hw-native-sys/pypto-skills/issues/6/timeline",
+        "performed_via_github_app":  null,
+        "state_reason":  "completed",
+        "pinned_comment":  null
+    }
+]

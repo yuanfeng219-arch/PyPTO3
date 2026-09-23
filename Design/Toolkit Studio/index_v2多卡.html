@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyPTO Studio V2 · Coding 阶段计算图</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/aic-core-object/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/memory-architecture/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=20260813-2" />
+  <link rel="stylesheet" href="./styles/demo.css?v=20260821-10" />
+  <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
+  <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
+</head>
+<body>
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip" data-ide-slot="host-chip" aria-hidden="true">
+          <svg class="pto-studio-logo" viewBox="0 0 32 32" width="32" height="32" aria-label="PyPTO Studio">
+            <defs>
+              <linearGradient id="pto-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#C4612F;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#A94E22;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <path d="M6 8 L16 4 L26 8 L26 16 L16 20 L6 16 Z" fill="url(#pto-logo-grad)" opacity="0.2"/>
+            <path d="M6 16 L16 12 L26 16 L26 24 L16 28 L6 24 Z" fill="none" stroke="url(#pto-logo-grad)" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M16 12 L16 20" stroke="url(#pto-logo-grad)" stroke-width="1.5"/>
+            <path d="M10 14 L16 12 L22 14" fill="none" stroke="url(#pto-logo-grad)" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="16" cy="20" r="2" fill="#C4612F"/>
+          </svg>
+        </div>
+        <div class="pto-ide-frame__workspace" data-ide-slot="workspace-switcher">
+          <span class="kf-brand">PyPTO Studio</span><span class="kf-version-chip" title="Coding 阶段计算图与调度执行拆分版">V2</span>
+        </div>
+        <div class="kf-mode-switch" role="group" aria-label="产品模式">
+          <button class="is-active" type="button" data-product-mode="ide" aria-pressed="true">IDE</button>
+          <button type="button" data-product-mode="solo" aria-pressed="false"><span></span>SOLO</button>
+        </div>
+      </div>
+      <div class="pto-ide-frame__topbar-center">
+        <div class="pto-ide-frame__search kf-command" data-ide-slot="global-search">⌘ K　搜索命令、tensor 或 pass</div>
+      </div>
+      <div class="pto-ide-frame__topbar-right">
+        <div class="kf-env-wrap">
+          <button class="kf-env" id="envControl" type="button" aria-haspopup="dialog" aria-controls="envFingerprintPanel" aria-expanded="false">
+            <span class="kf-env-label">全局环境</span><i></i><span>Ascend 950B</span><small>PyPTO 3.0.0-dev</small><b aria-hidden="true">⌄</b>
+          </button>
+          <section class="kf-env-panel" id="envFingerprintPanel" role="dialog" aria-label="环境指纹" hidden>
+            <header><div><span class="kf-eyebrow">RUNTIME CONTEXT</span><h2>环境指纹</h2></div><span class="kf-state-chip good">环境已锁定</span></header>
+            <div class="kf-fingerprint-id"><span>FINGERPRINT</span><code>env:8da1bf09</code><button type="button" id="copyFingerprint">复制</button></div>
+            <dl>
+              <div><dt>Device</dt><dd><b>Ascend 950B</b><small>Firmware 7.6.0.3</small></dd></div>
+              <div><dt>Runtime</dt><dd><b>CANN 9.0.RC1</b><small>Driver 24.1.0</small></dd></div>
+              <div><dt>Compiler</dt><dd><b>PyPTO 3.0.0-dev</b><small>commit e10c4a</small></dd></div>
+              <div><dt>ISA</dt><dd><b>PTOAS 0.8.4</b><small>A2-compat</small></dd></div>
+              <div><dt>Precision</dt><dd><b>BF16 · rtol 1e-3</b><small>balanced profile</small></dd></div>
+              <div><dt>Shape hash</dt><dd><b>sha256:4c89…d2f1</b><small>12 tensor contracts</small></dd></div>
+            </dl>
+            <footer><span><i></i> 与当前可信基线一致</span><time datetime="2026-08-03T14:32:08+08:00">采集于 14:32:08</time></footer>
+          </section>
+        </div>
+        <div class="pto-ide-frame__window-actions" data-ide-slot="window-controls" aria-label="Window controls">
+          <button class="pto-ide-frame__window-action" id="resetDemo" type="button" aria-label="重置 Demo" title="重置 Demo">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" id="ideActivityRail" data-ide-slot="activity-rail" aria-label="Activity rail">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" id="activityExplorer" type="button" data-ide-toggle="explorer" data-activity-view="explorer" aria-label="切换资源管理器" aria-controls="kf-explorer" aria-expanded="true" aria-pressed="true" title="切换资源管理器">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" id="activityWorkflow" type="button" data-activity-view="workflow" aria-label="打开可信 Kernel 工作流" aria-controls="kf-explorer" aria-expanded="false" aria-pressed="false" title="可信 Kernel 工作流"><span class="kf-rail-glyph" aria-hidden="true">K</span></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" id="activityModelViz" type="button" data-activity-view="model" aria-label="打开大模型结构可视化" aria-controls="modelArchitectureView" aria-expanded="false" aria-pressed="false" title="大模型结构可视化">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="8" y="2.5" width="8" height="5" rx="1.5"/><rect x="2.5" y="16.5" width="8" height="5" rx="1.5"/><rect x="13.5" y="16.5" width="8" height="5" rx="1.5"/><path d="M12 7.5v4.5M6.5 16.5V14h11v2.5"/></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="搜索" title="Search"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="源码管理" title="Source control"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></svg></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="终端" title="Terminal"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg></button>
+      </nav>
+
+      <div class="pto-ide-frame__workarea" id="ideWorkarea">
+        <section class="kf-model-workspace pto-model-graphviz-pattern-page" id="modelArchitectureView" aria-label="大模型结构可视化" hidden>
+          <aside class="kf-model-library" aria-label="模型列表">
+            <header><span class="kf-eyebrow">MODEL LIBRARY</span><h2>模型结构</h2></header>
+            <button class="kf-model-card is-active" type="button" aria-current="true">
+              <span class="kf-model-card__icon">Q3</span><span><b>Qwen3 14B</b><small>Fused Decode · 源码校准</small></span><em>已加载</em>
+            </button>
+            <nav class="kf-model-phases" aria-label="执行阶段">
+              <span>执行阶段</span>
+              <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
+              <button type="button" data-model-phase="boundary-in"><i>01</i><span><b>输入边界</b><small>copy_hidden · x_gamma0</small></span></button>
+              <button type="button" data-model-phase="scope-1"><i>02</i><span><b>Scope 1</b><small>RMS · QKV · QK Norm</small></span></button>
+              <button type="button" data-model-phase="scope-2"><i>03</i><span><b>Scope 2</b><small>Paged Flash Attention</small></span></button>
+              <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
+              <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
+            </nav>
+            <button class="kf-model-obs-entry" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">
+              <span class="kf-model-obs-entry__icon" aria-hidden="true">⏱</span>
+              <b>推理性能分析</b><em>↗</em>
+              <small>run-0803-a · 512 steps · 08/03 14:32</small>
+              <span class="kf-model-obs-entry__state"><i></i>已采集 · TPOT <b>15.2 ms</b> · <b>Memory-bound</b></span>
+            </button>
+
+            <div class="kf-model-facts">
+              <span>模型规格</span>
+              <dl><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
+            </div>
+            <div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
+          </aside>
+
+          <main class="kf-model-canvas">
+            <header class="kf-model-toolbar">
+              <div><span class="kf-eyebrow">DECODE EXECUTION MAP</span><h1>Qwen3 14B · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
+              <div class="kf-model-toolbar__right">
+                <div class="kf-model-toolbar__actions" role="group" aria-label="画布控制">
+                  <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
+                </div>
+                <button class="kf-model-toolbar__profiler" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">⏱ 性能分析 ↗</button>
+              </div>
+            </header>
+            <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
+            <footer class="kf-model-canvas__status"><span><i></i> Qwen3 14B 架构已预加载</span><span>单节点分层下钻 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放</span></footer>
+          </main>
+
+          <aside class="kf-model-inspector" aria-live="polite">
+            <header><span class="kf-eyebrow">MODEL INSPECTOR</span><h2 id="modelInspectorTitle">Qwen3 14B</h2></header>
+            <div id="modelInspectorBody">
+              <div class="kf-model-inspector__hero"><span>CODE ALIGNED</span><b>decode_layer.py 已校准</b><p>阶段与依赖来自实际的 PyPTO 任务：从 BF16 输入边界开始，经三段 Scope，最终进入 RMS LM Head。</p></div>
+            </div>
+            <nav class="kf-model-outline" aria-label="结构索引">
+              <span>结构索引</span>
+              <button type="button" data-model-focus="copy-hidden"><i></i>copy_hidden<small>BF16 → FP32 · once</small></button>
+              <button type="button" data-model-focus="qkv-proj"><i></i>q/k/v_proj<small>Split-K atomic accumulate</small></button>
+              <button type="button" data-model-focus="fa-fused"><i></i>fa_fused<small>QK → Softmax → SV</small></button>
+              <button type="button" data-model-focus="dcr-xgamma"><i></i>dcr_xgamma<small>out + next normed</small></button>
+              <button type="button" data-model-focus="rms-lm-head"><i></i>rms_lm_head<small>Final norm + vocabulary</small></button>
+            </nav>
+          </aside>
+        </section>
+
+        <div class="pto-ide-frame__split" id="ideMainSplit" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="22,51,27" data-pixel-sizes="286" data-min-size="240,520,300" data-storage-key="kernel-forge-flow-a-v1">
+          <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="kf-explorer">
+            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title" id="sidePaneTitle">资源管理器</span><span class="pto-ide-frame__pane-meta" id="sidePaneMeta">workspace</span></header>
+            <div class="pto-ide-frame__pane-body kf-explorer-body">
+              <section class="kf-side-view is-active" data-side-view="explorer" aria-label="工程目录">
+                <div class="kf-tree-toolbar"><span>文件 <small>Qwen3_14b</small></span><button type="button" id="collapseTree" aria-label="折叠所有目录" title="折叠所有目录">⌃</button></div>
+                <div class="kf-file-tree" id="projectTree" role="tree">
+                  <div class="kf-tree-row is-root"><button type="button" data-tree-toggle="project" aria-expanded="true"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><b>Qwen3_14b</b></button></div>
+                  <div class="kf-tree-group" data-tree-group="project">
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="jit-decode-fwd" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>_jit_decode_fwd_layers_20260625_184941</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="jit-decode-fwd" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/__pycache__/"><span class="kf-folder-icon"></span><span>__pycache__</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/debug/"><span class="kf-folder-icon"></span><span>debug</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/dfx_outputs/"><span class="kf-folder-icon"></span><span>dfx_outputs</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/kernels/"><span class="kf-folder-icon"></span><span>kernels</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/orchestration/"><span class="kf-folder-icon"></span><span>orchestration</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-tree-toggle="passes-dump" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>passes_dump</span></button></div>
+                      <div class="kf-tree-group" data-tree-group="passes-dump" hidden>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="00_frontend.py" data-open-step="1" data-passes-dump="true"><span class="kf-file-icon py">Py</span><span>00_frontend.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="01_after_InlineFunctions.py" data-open-step="1" data-passes-dump="true"><span class="kf-file-icon py">Py</span><span>01_after_InlineFunctions.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="02_after_UnrollLoops.py" data-open-step="1" data-passes-dump="true"><span class="kf-file-icon py">Py</span><span>02_after_UnrollLoops.py</span></button></div>
+                      </div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/ptoas/"><span class="kf-folder-icon"></span><span>ptoas</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/report/"><span class="kf-folder-icon"></span><span>report</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="Data/_jit_decode_fwd_layers_20260625_184941/kernel_config.py"><span class="kf-file-icon py">Py</span><span>kernel_config.py</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="claude" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>.claude</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="claude" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".claude/rules/"><span class="kf-folder-icon"></span><span>rules</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".claude/skills/"><span class="kf-folder-icon"></span><span>skills</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".claude/CLAUDE.md"><span class="kf-file-icon md">M</span><span>CLAUDE.md</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="gemini" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>.gemini</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="gemini" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".gemini/styleguide.md"><span class="kf-file-icon md">M</span><span>styleguide.md</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="github" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>.github</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="github" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/actions/"><span class="kf-folder-icon"></span><span>actions</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/docker/"><span class="kf-folder-icon"></span><span>docker</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/ISSUE_TEMPLATE/"><span class="kf-folder-icon"></span><span>ISSUE_TEMPLATE</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/perf_baselines/"><span class="kf-folder-icon"></span><span>perf_baselines</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/scripts/"><span class="kf-folder-icon"></span><span>scripts</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/workflows/"><span class="kf-folder-icon"></span><span>workflows</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file=".github/copilot-instructions.md"><span class="kf-file-icon md">M</span><span>copilot-instructions.md</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="thirdparty" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>3rdparty</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="thirdparty" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="3rdparty/libbacktrace/"><span class="kf-folder-icon"></span><span>libbacktrace</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="3rdparty/msgpack-c/"><span class="kf-folder-icon"></span><span>msgpack-c</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="cmake" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>cmake</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="cmake" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="cmake/libbacktrace.cmake"><span class="kf-file-icon cfg">C</span><span>libbacktrace.cmake</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="cmake/msgpack.cmake"><span class="kf-file-icon cfg">C</span><span>msgpack.cmake</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="docs" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>docs</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="docs" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="docs/en/"><span class="kf-folder-icon"></span><span>en</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="docs/images/"><span class="kf-folder-icon"></span><span>images</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="docs/zh-cn/"><span class="kf-folder-icon"></span><span>zh-cn</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="examples" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>examples</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="examples" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="examples/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="examples/hello_world.py"><span class="kf-file-icon py">Py</span><span>hello_world.py</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-tree-toggle="examples-kernels" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>kernels</span></button></div>
+                      <div class="kf-tree-group" data-tree-group="examples-kernels" hidden>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/01_elementwise.py"><span class="kf-file-icon py">Py</span><span>01_elementwise.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/02_fused_ops.py"><span class="kf-file-icon py">Py</span><span>02_fused_ops.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/03_matmul.py"><span class="kf-file-icon py">Py</span><span>03_matmul.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/04_concat.py"><span class="kf-file-icon py">Py</span><span>04_concat.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/05_activation.py"><span class="kf-file-icon py">Py</span><span>05_activation.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/06_softmax.py"><span class="kf-file-icon py">Py</span><span>06_softmax.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/07_normalization.py"><span class="kf-file-icon py">Py</span><span>07_normalization.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/08_assemble.py"><span class="kf-file-icon py">Py</span><span>08_assemble.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/09_dyn_valid_shape.py"><span class="kf-file-icon py">Py</span><span>09_dyn_valid_shape.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/10_split_k.py"><span class="kf-file-icon py">Py</span><span>10_split_k.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/kernels/11_auto_tile_matmul.py"><span class="kf-file-icon py">Py</span><span>11_auto_tile_matmul.py</span></button></div>
+                      </div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-tree-toggle="examples-models" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>models</span></button></div>
+                      <div class="kf-tree-group" data-tree-group="examples-models" hidden>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/01_ffn.py"><span class="kf-file-icon py">Py</span><span>01_ffn.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/02_vector_dag.py"><span class="kf-file-icon py">Py</span><span>02_vector_dag.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/03_flash_attention.py"><span class="kf-file-icon py">Py</span><span>03_flash_attention.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/04_paged_attention.py"><span class="kf-file-icon py">Py</span><span>04_paged_attention.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/05_paged_attention_batch.py"><span class="kf-file-icon py">Py</span><span>05_paged_attention_batch.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/06_paged_attention_dynamic.py"><span class="kf-file-icon py">Py</span><span>06_paged_attention_dynamic.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/07_paged_attention_multi_config.py"><span class="kf-file-icon py">Py</span><span>07_paged_attention_multi_config.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/08_llama_mini.py"><span class="kf-file-icon py">Py</span><span>08_llama_mini.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/models/09_paged_attention_spmd.py"><span class="kf-file-icon py">Py</span><span>09_paged_attention_spmd.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-tree-toggle="examples-models-qwen3_jit" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>qwen3_jit</span></button></div>
+                        <div class="kf-tree-group" data-tree-group="examples-models-qwen3_jit" hidden>
+                          <div class="kf-tree-row depth-4"><button type="button" data-file="examples/models/qwen3_jit/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                          <div class="kf-tree-row depth-4"><button type="button" data-file="examples/models/qwen3_jit/config.py"><span class="kf-file-icon py">Py</span><span>config.py</span></button></div>
+                          <div class="kf-tree-row depth-4"><button type="button" data-tree-toggle="examples-models-qwen3_jit-kernels" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>kernels</span></button></div>
+                          <div class="kf-tree-group" data-tree-group="examples-models-qwen3_jit-kernels" hidden>
+                            <div class="kf-tree-row depth-5"><button type="button" data-file="examples/models/qwen3_jit/kernels/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                            <div class="kf-tree-row depth-5"><button type="button" data-file="examples/models/qwen3_jit/kernels/attention.py"><span class="kf-file-icon py">Py</span><span>attention.py</span></button></div>
+                            <div class="kf-tree-row depth-5"><button type="button" data-file="examples/models/qwen3_jit/kernels/mlp.py"><span class="kf-file-icon py">Py</span><span>mlp.py</span></button></div>
+                            <div class="kf-tree-row depth-5"><button type="button" data-file="examples/models/qwen3_jit/kernels/projection.py"><span class="kf-file-icon py">Py</span><span>projection.py</span></button></div>
+                            <div class="kf-tree-row depth-5"><button type="button" data-file="examples/models/qwen3_jit/kernels/rmsnorm.py"><span class="kf-file-icon py">Py</span><span>rmsnorm.py</span></button></div>
+                          </div>
+                          <div class="kf-tree-row depth-4"><button type="button" data-file="examples/models/qwen3_jit/qwen3_decode.py"><span class="kf-file-icon py">Py</span><span>qwen3_decode.py</span></button></div>
+                        </div>
+                      </div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-tree-toggle="examples-runtime" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>runtime</span></button></div>
+                      <div class="kf-tree-group" data-tree-group="examples-runtime" hidden>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/runtime/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/runtime/distributed_callback.py"><span class="kf-file-icon py">Py</span><span>distributed_callback.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/runtime/explicit_dispatch.py"><span class="kf-file-icon py">Py</span><span>explicit_dispatch.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/runtime/multi_program_kv_cache.py"><span class="kf-file-icon py">Py</span><span>multi_program_kv_cache.py</span></button></div>
+                      </div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-tree-toggle="examples-utils" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>utils</span></button></div>
+                      <div class="kf-tree-group" data-tree-group="examples-utils" hidden>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/utils/__init__.py"><span class="kf-file-icon py">Py</span><span>__init__.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/utils/cross_function_calls.py"><span class="kf-file-icon py">Py</span><span>cross_function_calls.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/utils/error_handling.py"><span class="kf-file-icon py">Py</span><span>error_handling.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/utils/parse_from_text.py"><span class="kf-file-icon py">Py</span><span>parse_from_text.py</span></button></div>
+                        <div class="kf-tree-row depth-3"><button type="button" data-file="examples/utils/phase_fence_dep_compression.py"><span class="kf-file-icon py">Py</span><span>phase_fence_dep_compression.py</span></button></div>
+                      </div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="include" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>include</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="include" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="include/pypto/"><span class="kf-folder-icon"></span><span>pypto</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="python" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>python</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="python" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="python/bindings/"><span class="kf-folder-icon"></span><span>bindings</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="python/pypto/"><span class="kf-folder-icon"></span><span>pypto</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="runtime" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>runtime</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="runtime" hidden></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="src" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>src</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="src" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="src/backend/"><span class="kf-folder-icon"></span><span>backend</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="src/codegen/"><span class="kf-folder-icon"></span><span>codegen</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="src/core/"><span class="kf-folder-icon"></span><span>core</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="src/ir/"><span class="kf-folder-icon"></span><span>ir</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="tests" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>tests</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="tests" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="tests/lint/"><span class="kf-folder-icon"></span><span>lint</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="tests/st/"><span class="kf-folder-icon"></span><span>st</span></button></div>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="tests/ut/"><span class="kf-folder-icon"></span><span>ut</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-tree-toggle="toolchain" aria-expanded="false"><span class="kf-caret">›</span><span class="kf-folder-icon"></span><span>toolchain</span></button></div>
+                    <div class="kf-tree-group" data-tree-group="toolchain" hidden>
+                      <div class="kf-tree-row depth-2"><button type="button" data-file="toolchain/versions.env"><span class="kf-file-icon cfg">E</span><span>versions.env</span></button></div>
+                    </div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file=".clang-format"><span class="kf-file-icon cfg">C</span><span>.clang-format</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file=".clang-tidy"><span class="kf-file-icon cfg">C</span><span>.clang-tidy</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file=".gitignore"><span class="kf-file-icon cfg">G</span><span>.gitignore</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file=".gitmodules"><span class="kf-file-icon cfg">G</span><span>.gitmodules</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file=".pre-commit-config.yaml"><span class="kf-file-icon cfg">Y</span><span>.pre-commit-config.yaml</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="AGENTS.md"><span class="kf-file-icon md">M</span><span>AGENTS.md</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="CMakeLists.txt"><span class="kf-file-icon cfg">C</span><span>CMakeLists.txt</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="LICENSE"><span class="kf-file-icon md">L</span><span>LICENSE</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="pyproject.toml"><span class="kf-file-icon cfg">T</span><span>pyproject.toml</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="README.md"><span class="kf-file-icon md">M</span><span>README.md</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="README.zh-CN.md"><span class="kf-file-icon md">M</span><span>README.zh-CN.md</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="SECURITY.md"><span class="kf-file-icon md">M</span><span>SECURITY.md</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="decode_layer.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>decode_layer.py</span><i>1</i></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="paged_attention_dynamic.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>paged_attention_dynamic.py</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="pto3_tile_loop_lab.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>pto3_tile_loop_lab.py</span><i>Lab</i></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="matmul.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>matmul.py</span></button></div>
+                  </div>
+                </div>
+                <div class="kf-tree-summary" aria-label="项目统计"><span title="15 files"><b>15</b><em>files</em></span><span title="14 folders"><b>14</b><em>folders</em></span><span class="kf-tree-summary__diagnostic" title="1 diagnostic"><b>1</b><em>diagnostic</em></span></div>
+              </section>
+
+              <section class="kf-side-view" data-side-view="workflow" aria-label="可信 Kernel 任务路线" hidden>
+                <div class="kf-progress"><span id="progressBar"></span></div>
+                <ol class="kf-steps" id="stepNav">
+                  <li><button class="is-active" data-step="0"><span class="kf-step-index">01</span><span><b>定义目标</b><small>子图、Shape 与精度契约</small></span><em></em></button></li>
+                  <li><button data-step="1"><span class="kf-step-index">02</span><span><b>编写 Kernel</b><small>在资源管理器中打开源码</small></span><em></em></button></li>
+                  <li><button data-step="2"><span class="kf-step-index">03</span><span><b>编译卫士</b><small>Pass 级不变量验证</small></span><em></em></button></li>
+                  <li><button data-step="3"><span class="kf-step-index">04</span><span><b>Correctness Lab</b><small>首个分歧与证据定位</small></span><em></em></button></li>
+                  <li><button data-step="4"><span class="kf-step-index">05</span><span><b>可信基线</b><small>环境指纹与证据链</small></span><em></em></button></li>
+                  <li><button data-open-runs><span class="kf-step-index">06</span><span><b>运行详情</b><small>共享、比较与证据下钻</small></span><em></em></button></li>
+                </ol>
+                <div class="kf-context">
+                  <span class="kf-eyebrow">当前项目</span>
+                  <strong>qwen3-14b / decode</strong>
+                  <div><span>目标</span><code>decode_layer</code></div>
+                  <div><span>分支</span><code>kernel/decode-layer</code></div>
+                </div>
+              </section>
+
+              <section class="kf-side-view" data-side-view="runs" aria-label="运行列表" hidden>
+                <div class="kf-runs-toolbar"><button type="button" data-back-workflow aria-label="返回任务路线" title="返回任务路线">‹</button><span>RUNS</span><button type="button" id="compareRuns" aria-label="对比运行" title="对比运行">⇄</button></div>
+                <div class="kf-run-list" id="runList" role="listbox" aria-label="运行详情列表"></div>
+                <div class="kf-runs-summary"><span>4 runs</span><span>1 阻塞</span><span>2 可信</span></div>
+              </section>
+            </div>
+          </aside>
+
+          <main class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+            <div class="pto-ide-frame__tabstrip"><div class="kf-tabs" id="tabs"><button class="is-active" data-editor-tab="source">decode_layer.py</button></div></div>
+            <header class="pto-ide-frame__pane-header">
+              <span class="pto-ide-frame__pane-title" id="stageTitle">定义目标</span>
+              <span class="pto-ide-frame__pane-meta" id="stageMeta">recipe · decode_layer</span>
+            </header>
+            <div class="pto-ide-frame__pane-body kf-main-body">
+              <section class="kf-stage is-active" data-stage="0" aria-labelledby="stage0Title">
+                <div class="kf-stage-heading"><div><span class="kf-eyebrow">START FROM INTENT</span><h1 id="stage0Title">选择要可信化的计算</h1><p>从模型子图或经过验证的配方开始。Toolkit 会将上下文固化为可审计的 Kernel 契约。</p></div><span class="kf-state-chip good">上下文已读取</span></div>
+                <div class="kf-recipe-grid" id="recipeGrid"></div>
+                <div class="kf-contract-grid">
+                  <label>Batch<select id="batchSelect"><option selected>16</option><option>8</option><option>4</option></select></label>
+                  <label>Q heads<input value="40" readonly /></label>
+                  <label>KV heads<input value="8" readonly /></label>
+                  <label>Head dim<select id="headDimSelect"><option>128</option><option>64</option></select></label>
+                  <label>Inter-layer dtype<select id="dtypeSelect"><option>FP32</option><option>BF16 boundary</option></select></label>
+                  <label>验证目标<select id="precisionSelect"><option>argmax 16 / 16</option><option>ratio tolerance</option></select></label>
+                </div>
+                <div class="kf-callout"><span>✓</span><div><b>Toolkit 已解析 Decode Layer 上下文</b><small>hidden [16, 5120] FP32 · 40 Q heads / 8 KV heads · paged KV · 40 layers</small></div><button class="btn btn-solid" data-next>打开算子源码 <span>→</span></button></div>
+              </section>
+
+              <section class="kf-stage kf-source-stage" data-stage="1" aria-label="decode_layer.py 全量源码">
+                <div class="kf-code kf-full-source" id="dslEditor" role="textbox" aria-label="decode_layer.py 全量源码" tabindex="0"></div>
+              </section>
+
+              <section class="kf-stage" data-stage="2" aria-labelledby="stage2Title">
+                <div class="kf-stage-heading compact"><div><span class="kf-eyebrow">PASS-BY-PASS PROOF</span><h1 id="stage2Title">每一步编译都有证据</h1></div><span class="kf-state-chip neutral" id="compileStatus">等待运行</span></div>
+                <div class="kf-pass-strip" id="passStrip"></div>
+                <div class="kf-ir-stage">
+                  <div class="kf-ir-head"><span>Pass IR · <b id="activePassName">Semantic Lowering</b></span><span id="guardSummary">8 项约束待验证</span></div>
+                  <div class="kf-ir-graph" id="irGraph"></div>
+                </div>
+                <div class="kf-guard-grid" id="guardGrid"></div>
+                <div class="kf-actions"><button class="btn btn-soft" data-prev>返回 DSL</button><button class="btn btn-solid" id="runCompile">运行全部 Pass <span>▶</span></button><button class="btn btn-solid" id="toLab" hidden>进入 Correctness Lab <span>→</span></button></div>
+              </section>
+
+              <section class="kf-stage" data-stage="3" aria-labelledby="stage3Title">
+                <div class="kf-stage-heading compact"><div><span class="kf-eyebrow">TRIANGULATED CORRECTNESS</span><h1 id="stage3Title">定位首个分歧，而不只是“测试失败”</h1></div><span class="kf-state-chip danger" id="labStatus">发现 1 个分歧</span></div>
+                <div class="kf-oracles" id="oracleCards"></div>
+                <div class="kf-divergence">
+                  <div class="kf-divergence-head"><div><span class="kf-danger-dot"></span><b>首个阻塞</b><code>decode_layer → fa_work_build → tensor.write[index]</code></div><span>codegen <b>index vs i64</b></span></div>
+                  <div class="kf-compare" id="tensorCompare"></div>
+                  <div class="kf-trace-row"><span>算子</span><button class="is-hot">decode_layer</button><span>›</span><span>Task</span><button class="is-hot">fa_work_build</button><span>›</span><span>Tensor</span><button class="is-hot">fa_work_table</button><span>›</span><span>索引</span><button class="is-hot">cursor + wp</button></div>
+                </div>
+                <div class="kf-root-cause"><span>↳</span><div><b>根因假设 · 96% 置信度</b><p>设备侧 <code>pl.read</code> 产生的动态索引进入 GM store offset，命中当前 PTO codegen 的 <code>INDEX / i64</code> 限制。</p></div><button class="btn btn-solid" id="fixAndRerun">应用仿射 fallback 并重跑</button></div>
+                <div class="kf-actions"><button class="btn btn-soft" data-prev>查看 Pass</button></div>
+              </section>
+
+              <section class="kf-stage" data-stage="4" aria-labelledby="stage4Title">
+                <div class="kf-success-hero"><div class="kf-seal">✓</div><span class="kf-eyebrow">TRUSTED BASELINE ISSUED</span><h1 id="stage4Title">Decode Layer 可信基线已建立</h1><p>编译约束与 oracle 已通过。此结果可复现、可审计，并可作为后续调度优化的安全起点。</p><div class="kf-baseline-id"><span>BASELINE</span><code>ptok://qwen3-14b/decode-layer@9f2a71c</code><button id="copyBaseline">复制</button></div></div>
+                <div class="kf-proof-grid">
+                  <section><span class="kf-eyebrow">证据链</span><ol><li><span>✓</span>Reference parity <em>3 / 3 oracle</em></li><li><span>✓</span>Compiler guards <em>8 / 8 pass</em></li><li><span>✓</span>Tensor checkpoints <em>12 / 12 match</em></li><li><span>✓</span>Repro bundle <em>sealed</em></li></ol></section>
+                </div>
+                <div class="kf-repro"><div><span class="kf-eyebrow">一键复现</span><code>pypto trust replay ptok://qwen3-14b/decode-layer@9f2a71c</code></div><button class="btn btn-solid" id="copyRepro">复制命令</button></div>
+                <div class="kf-actions center"><button class="btn btn-soft" id="viewEvidence">查看完整证据</button><button class="btn btn-solid" id="newBaseline">基于此基线开始优化 <span>→</span></button></div>
+              </section>
+
+              <section class="kf-run-detail" id="runDetail" aria-label="统一运行详情页"></section>
+            </div>
+          </main>
+
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+            <header class="pto-ide-frame__pane-header"><div class="kf-intent-pane-title-group"><span class="pto-ide-frame__pane-title" id="inspectorTitle">意图预览</span><span class="kf-intent-agent-stack" aria-label="Agent team: Lead, DSL, Guard, Validation"><i class="kf-intent-agent-avatar is-lead" title="Lead Agent"><b>L</b></i><i class="kf-intent-agent-avatar is-dsl" title="DSL Agent"><b>D</b></i><i class="kf-intent-agent-avatar is-guard" title="Guard Agent"><b>G</b></i><i class="kf-intent-agent-avatar is-validation" title="Validation Agent"><b>V</b></i></span></div><span class="pto-ide-frame__pane-meta" id="inspectorMeta">live</span></header>
+            <div class="pto-ide-frame__pane-body kf-inspector" id="inspector"></div>
+          </aside>
+        </div>
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" id="ideStatusStrip"><span><i class="kf-status-dot"></i> Compiler Guard 已启用</span><span id="statusText">目标契约已就绪</span><span>UTF-8　Spaces: 2　Ln 1, Col 1</span></footer>
+      </div>
+
+      <section class="kf-solo-workarea" id="soloWorkarea" aria-label="PyPTO Studio SOLO 工作台" hidden>
+        <aside class="kf-solo-column kf-solo-plan" id="soloPlanPane">
+          <header class="kf-solo-column-head">
+            <div><span class="kf-eyebrow">PROJECT</span><h2>QWEN3-14B-DECODE-LAYER</h2></div>
+            <button class="kf-solo-new-task-trigger" id="soloNewTaskTrigger" type="button"><span>＋</span>新建任务</button>
+          </header>
+          <div class="kf-solo-plan-body">
+            <div class="kf-solo-section-label"><span>当前任务</span><em>执行中</em></div>
+            <section class="kf-solo-goal">
+              <span class="kf-eyebrow">当前目标</span>
+              <h3>为 Qwen3-14B 构建 FP32 跨层 Decode Layer</h3>
+              <p>满足 BF16 / rtol 1e-3，并为 Ascend 950B 生成可复现证据链。</p>
+              <div><span>qwen3-14b</span><span>decode_layer</span></div>
+            </section>
+            <div class="kf-solo-agent-card kf-solo-team-card">
+              <span class="kf-solo-team-stack" aria-hidden="true"><i>L</i><i>D</i><i>G</i><i>V</i></span>
+              <div><b>Kernel Alpha Team</b><small>4 Agents · 并行协同</small></div><em>READY</em>
+            </div>
+            <section class="kf-solo-plan-list">
+              <header><span>执行计划</span><em id="soloProgress">0 / 5</em></header>
+              <ol>
+                <li data-solo-task="0"><i>1</i><div><b>理解目标与工程上下文</b><small>模型子图、shape、硬件契约</small></div><span></span></li>
+                <li data-solo-task="1"><i>2</i><div><b>生成并修正 Kernel DSL</b><small>布局、并行与内存意图</small></div><span></span></li>
+                <li data-solo-task="2"><i>3</i><div><b>执行编译卫士</b><small>5 Pass · 8 类不变量</small></div><span></span></li>
+                <li data-solo-task="3"><i>4</i><div><b>运行 Correctness Lab</b><small>三路 oracle · 首个分歧</small></div><span></span></li>
+                <li data-solo-task="4"><i>5</i><div><b>签发可信基线</b><small>指纹、证据链与复现命令</small></div><span></span></li>
+              </ol>
+            </section>
+            <section class="kf-solo-history" aria-labelledby="soloHistoryTitle">
+              <header class="kf-solo-section-label"><span id="soloHistoryTitle">历史任务</span><em id="soloHistoryCount">3 项</em></header>
+              <div class="kf-solo-history-list" id="soloHistoryList">
+                <button class="kf-solo-history-item" type="button" data-history-task="RMSNorm + RoPE 融合内核">
+                  <span class="kf-solo-history-icon is-success">✓</span><span><b>RMSNorm + RoPE 融合内核</b><small>已完成 · 基线 7c31e2a</small></span><time>08/01</time>
+                </button>
+                <button class="kf-solo-history-item" type="button" data-history-task="MoE Expert Grouped GEMM">
+                  <span class="kf-solo-history-icon is-success">✓</span><span><b>MoE Expert Grouped GEMM</b><small>已完成 · 基线 b8160fd</small></span><time>07/29</time>
+                </button>
+                <button class="kf-solo-history-item" type="button" data-history-task="Decode Attention 延迟回归">
+                  <span class="kf-solo-history-icon is-stopped">!</span><span><b>Decode Attention 延迟回归</b><small>已中止 · 首个分歧待处理</small></span><time>07/26</time>
+                </button>
+              </div>
+            </section>
+          </div>
+        </aside>
+
+        <main class="kf-solo-column kf-solo-agent" id="soloAgentPane">
+          <section class="kf-solo-team-surface" aria-label="Agent Team · Kernel Alpha">
+            <header class="kf-solo-column-head kf-solo-team-head">
+            <div class="kf-solo-agent-title">
+              <span class="kf-solo-avatar">4</span>
+              <div><h2 id="agentTeamTitle">Agent Team · Kernel Alpha</h2><small id="soloRunStatus"><i></i><span id="soloRunStatusText">4 Agents 协同就绪</span><span class="kf-solo-member-icons" aria-label="团队成员：Lead、DSL、Guard、Validation"><i>L</i><i>D</i><i>G</i><i>V</i></span><button class="kf-agent-team-toggle" id="agentTeamToggle" type="button" aria-label="展开 Agent Team 成员" aria-expanded="false" aria-controls="agentTeamDrawer"><i>⌄</i></button></small></div>
+            </div>
+            <div class="kf-solo-team-head-actions">
+              <div class="kf-solo-agent-actions"><button type="button" id="soloPause" disabled>暂停</button><button type="button" id="soloTakeover">切换到 IDE 接管</button></div>
+            </div>
+            </header>
+            <div class="kf-agent-team-drawer" id="agentTeamDrawer" aria-labelledby="agentTeamTitle" hidden>
+              <div class="kf-agent-team-stage">
+              <div class="kf-agent-team-grid" role="list" aria-label="Kernel Alpha 团队成员">
+                <button class="kf-agent-member is-selected is-active" type="button" role="listitem" data-agent-index="0" data-agent-tool="context" data-agent-name="Lead Agent" data-agent-detail="拆解目标、分配任务，并汇总团队证据链。">
+                  <span class="kf-agent-figure" aria-hidden="true"><span class="kf-agent-character"><i class="kf-agent-head"><b></b></i><i class="kf-agent-neck"></i><i class="kf-agent-body"><b></b></i><i class="kf-agent-arm is-left"></i><i class="kf-agent-arm is-right"></i></span><i class="kf-agent-platform"></i></span>
+                  <span class="kf-agent-member-copy"><b>Lead Agent</b><small>编排与决策</small><em>ACTIVE</em></span>
+                </button>
+                <button class="kf-agent-member" type="button" role="listitem" data-agent-index="1" data-agent-tool="editor" data-agent-name="DSL Agent" data-agent-detail="生成语义 DSL，负责计算、布局、并行与内存意图。">
+                  <span class="kf-agent-figure" aria-hidden="true"><span class="kf-agent-character"><i class="kf-agent-head"><b></b></i><i class="kf-agent-neck"></i><i class="kf-agent-body"><b></b></i><i class="kf-agent-arm is-left"></i><i class="kf-agent-arm is-right"></i></span><i class="kf-agent-platform"></i></span>
+                  <span class="kf-agent-member-copy"><b>DSL Agent</b><small>语义与布局</small><em>STANDBY</em></span>
+                </button>
+                <button class="kf-agent-member" type="button" role="listitem" data-agent-index="2" data-agent-tool="guard" data-agent-name="Guard Agent" data-agent-detail="逐 Pass 验证依赖、liveness、layout 与 ISA 容量约束。">
+                  <span class="kf-agent-figure" aria-hidden="true"><span class="kf-agent-character"><i class="kf-agent-head"><b></b></i><i class="kf-agent-neck"></i><i class="kf-agent-body"><b></b></i><i class="kf-agent-arm is-left"></i><i class="kf-agent-arm is-right"></i></span><i class="kf-agent-platform"></i></span>
+                  <span class="kf-agent-member-copy"><b>Guard Agent</b><small>Pass 与 ISA</small><em>STANDBY</em></span>
+                </button>
+                <button class="kf-agent-member" type="button" role="listitem" data-agent-index="3" data-agent-tool="lab" data-agent-name="Validation Agent" data-agent-detail="运行三路 Oracle，在 tensor 层定位并复核首个分歧。">
+                  <span class="kf-agent-figure" aria-hidden="true"><span class="kf-agent-character"><i class="kf-agent-head"><b></b></i><i class="kf-agent-neck"></i><i class="kf-agent-body"><b></b></i><i class="kf-agent-arm is-left"></i><i class="kf-agent-arm is-right"></i></span><i class="kf-agent-platform"></i></span>
+                  <span class="kf-agent-member-copy"><b>Validation Agent</b><small>Oracle 与定位</small><em>STANDBY</em></span>
+                </button>
+              </div>
+              <footer id="agentTeamDetail"><b>Lead Agent</b><span>拆解目标、分配任务，并汇总团队证据链。</span><em>正在统筹</em></footer>
+              </div>
+            </div>
+          </section>
+          <div class="kf-solo-feed" id="soloFeed" aria-live="polite">
+            <article class="kf-solo-message is-user"><span>你</span><div><p>基于 Qwen3-14B 的 Decode Layer，为 Ascend 平台验证 FP32 跨层 carry、Paged Attention 与融合 MLP 调度，最终给我可复现基线。</p><time>14:31</time></div></article>
+            <article class="kf-solo-message is-agent"><span class="kf-solo-avatar">L</span><div><p>Kernel Alpha Team 已接手。Lead Agent 会拆解目标，DSL、Guard 与 Validation Agent 将并行读取上下文，并在关键产物上相互复核。</p><div class="kf-solo-plan-summary"><b>已组建 Agent Team</b><span>4 个角色 · 5 个任务 · 预计 3 分钟</span></div></div></article>
+            <section class="kf-solo-ready" id="soloReady"><span>上下文已准备</span><h3>让 SOLO 端到端完成可信化</h3><p>执行期间右侧工具会实时跟随 Agent；你可以暂停或随时切换回 IDE 接管。</p><button class="btn btn-solid" type="button" id="soloStart"><span class="kf-solo-play">▶</span> 开始执行</button></section>
+          </div>
+          <form class="kf-solo-composer" id="soloComposer">
+            <textarea id="soloPrompt" rows="2" placeholder="补充约束，或告诉 SOLO 下一步要做什么…" aria-label="向 SOLO 补充要求"></textarea>
+            <div><span>输入 /plan 查看计划　·　@ 引用文件</span><button type="submit" id="soloSend" aria-label="发送">↑</button></div>
+          </form>
+        </main>
+
+        <aside class="kf-solo-column kf-solo-tools" id="soloToolsPane">
+          <header class="kf-solo-column-head">
+            <div><span class="kf-eyebrow">ACTIVE TOOL</span><h2 id="soloToolTitle">工程上下文</h2></div>
+            <button class="kf-follow is-active" type="button" id="soloFollow" aria-pressed="true"><i></i>实时跟随</button>
+          </header>
+          <div class="kf-solo-tool-tabs" role="tablist" aria-label="SOLO 工具">
+            <button class="is-active" type="button" data-solo-tool="context" role="tab" aria-selected="true">Context</button>
+            <button type="button" data-solo-tool="editor" role="tab" aria-selected="false">Editor</button>
+            <button type="button" data-solo-tool="guard" role="tab" aria-selected="false">Guard</button>
+            <button type="button" data-solo-tool="lab" role="tab" aria-selected="false">Lab</button>
+          </div>
+          <div class="kf-solo-tool-body">
+            <section class="kf-solo-tool-panel is-active" data-solo-tool-panel="context">
+              <div class="kf-solo-context-hero"><span class="kf-solo-tool-icon">◎</span><div><b>Qwen3-14B · Decode Layer</b><small>模型上下文已索引</small></div><em>READY</em></div>
+              <div class="kf-solo-context-grid"><div><span>Target</span><b>Ascend A2/A3/A5</b></div><div><span>Precision</span><b>FP32 carry</b></div><div><span>Layers</span><b>40</b></div><div><span>Recipe</span><b>Decode Layer</b></div></div>
+              <section class="kf-solo-tool-card"><header><span>Agent 已读取</span><em>6 sources</em></header><ul><li><i>✓</i><span>模型子图与 tensor shape</span><code>graph.json</code></li><li><i>✓</i><span>目标硬件容量约束</span><code>950b.yaml</code></li><li><i>✓</i><span>精度与输出契约</span><code>target.json</code></li><li><i>✓</i><span>现有 reference 与 fixtures</span><code>tests/</code></li></ul></section>
+            </section>
+            <section class="kf-solo-tool-panel" data-solo-tool-panel="editor" hidden>
+              <div class="kf-solo-code-head"><span>kernels/decode_layer.py</span><em id="soloEditorState">Agent editing</em></div>
+              <div class="kf-solo-code-preview"><div><i>303</i><code><b>@pl.jit.inline</b></code></div><div><i>304</i><code><b>def</b> _decode_layer(...):</code></div><div><i>410</i><code>　<b>with</b> pl.manual_scope():</code></div><div><i>514</i><code>　　name_hint=<s>"fa_work_build"</s></code></div><div><i>728</i><code>　　name_hint=<s>"fa_fused"</s>, deps=[work_tid]</code></div><div class="is-changed"><i>811</i><code>　　name_hint=<s>"online_softmax"</s>, deps=[fa_tid]</code></div><div class="is-changed"><i>1081</i><code>　name_hint=<s>"dcr_xgamma"</s>, deps=down_tids</code></div></div>
+              <div class="kf-solo-tool-note"><span>✓</span><div><b>SOLO 应用了可编译 fallback</b><small>将动态 work-table offset 改为静态仿射索引</small></div></div>
+            </section>
+            <section class="kf-solo-tool-panel" data-solo-tool-panel="guard" hidden>
+              <div class="kf-solo-pass-list"><header><span>Compiler Guard</span><em id="soloGuardState">等待运行</em></header><div id="soloGuardPasses"><span>Semantic Lowering<i></i></span><span>Layout Planning<i></i></span><span>Parallel Mapping<i></i></span><span>Memory Scheduling<i></i></span><span>ISA Emission<i></i></span></div></div>
+              <div class="kf-solo-guard-matrix"><span>Op legality</span><span>Dependencies</span><span>Manual scope</span><span>Liveness</span><span>Paged layout</span><span>Index width</span><span>ISA capacity</span><span>FP32 carry</span></div>
+            </section>
+            <section class="kf-solo-tool-panel" data-solo-tool-panel="lab" hidden>
+              <div class="kf-solo-oracle-row"><div><span>CPU</span><b>Torch golden</b><em>PASS</em></div><div><span>HOST</span><b>FP32 carry ref</b><em>PASS</em></div><div><span>PTO</span><b>Device argmax</b><em id="soloDeviceResult">RUN</em></div></div>
+              <section class="kf-solo-lab-result" id="soloLabResult"><span class="kf-solo-spinner"></span><h3>等待 Correctness Lab</h3><p>SOLO 将自动比对模型层、Kernel 与 Tensor checkpoint。</p></section>
+            </section>
+          </div>
+          <footer class="kf-solo-tool-status"><span id="soloToolStatus"><i></i> Context indexed</span><button type="button" id="soloOpenTool">在 IDE 中打开</button></footer>
+        </aside>
+
+        <div class="kf-solo-task-modal" id="soloTaskModal" hidden>
+          <section class="kf-solo-task-dialog" role="dialog" aria-modal="true" aria-labelledby="soloNewTaskTitle">
+            <header><div><span class="kf-eyebrow">SOLO TASK</span><h2 id="soloNewTaskTitle">新建可信 Kernel 任务</h2></div><button type="button" id="soloNewTaskClose" aria-label="关闭">×</button></header>
+            <form id="soloNewTaskForm">
+              <label><span>任务目标</span><textarea id="soloNewTaskGoal" rows="3" required placeholder="例如：为 Qwen3 layer.20 生成 RMSNorm + RoPE 融合 Kernel"></textarea></label>
+              <div class="kf-solo-task-fields">
+                <label><span>Kernel 配方</span><select id="soloNewTaskRecipe"><option>Decode Layer</option><option>Paged Attention</option><option>RMSNorm + RoPE</option><option>MoE Expert</option></select></label>
+                <label><span>目标硬件</span><select id="soloNewTaskTarget"><option>Ascend 950B</option><option>Ascend 910B</option><option>CPU Reference</option></select></label>
+              </div>
+              <footer><button class="btn" id="soloNewTaskCancel" type="button">取消</button><button class="btn btn-solid" type="submit">创建并交给 SOLO</button></footer>
+            </form>
+          </section>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <div class="kf-toast" id="toast" role="status" aria-live="polite"></div>
+  <script>window.PTO_PASS_IR_GRAPH_NODE_ASSET_PREFIX = '../../vendor/pto-design-system/';</script>
+  <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/aic-core-object/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/memory-architecture/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/model-graphviz/pattern.js?v=20260813-2"></script>
+  <script src="./js/decode-layer-source.js?v=20260807-4"></script>
+  <script src="./js/passes-dump-source.js?v=20260810-1"></script>
+  <script src="./js/examples-source.js?v=20260812-1"></script>
+  <script src="./js/passes-graph.js?v=20260811-8"></script>
+  <script src="./js/qwen3-model-viz.js?v=20260821-11"></script>
+  <script src="./js/inference-profile-data.js?v=20260821-4"></script>
+  <script src="./js/inference-timeline.js?v=20260821-1"></script>
+  <script src="./js/inference-parallel.js?v=20260821-1"></script>
+  <script src="./js/inference-memory.js?v=20260821-1"></script>
+  <script src="./js/inference-serving.js?v=20260821-1"></script>
+  <script src="./js/inference-advisor.js?v=20260821-2"></script>
+  <script src="./js/inference-profiler.js?v=20260821-4"></script>
+  <script src="./js/demo-v2.js?v=20260821-8"></script>
+</body>
+</html>

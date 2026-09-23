@@ -1,0 +1,1828 @@
+{
+  "schema_version": "model_architecture.v1",
+  "model": {
+    "name": "openPangu-Ultra-MoE-718B-V1.1",
+    "framework": "pytorch",
+    "source_root": "/Users/yin/gitcode/openPangu-Ultra-MoE-718B-V1.1",
+    "params_total": "718B",
+    "params_active": "39B",
+    "architecture_class": "PanguUltraMoEForCausalLM"
+  },
+  "extraction_scope": {
+    "kind": "full_source",
+    "full_main_layers": 61,
+    "trace_main_layers": null,
+    "notes": [
+      "Module/op skeleton extracted from inference/model.py (canonical) merged with config.json runtime values.",
+      "config declares num_mtp_layers=1 (MTP), but inference/model.py forward path does not instantiate an MTP head; MTP excluded from this graph.",
+      "All-Reduce / All-Gather nodes are conditional on parallel sizes (attn_tp/moe_tp/embed_tp); they no-op at size 1.",
+      "Residual add paths handled implicitly inside fused npu_add_rms_norm (RMSNorm returns (y, residual)); not drawn as separate Add nodes."
+    ]
+  },
+  "sources": [
+    {
+      "id": "runtime_config",
+      "kind": "config",
+      "path": "/Users/yin/gitcode/openPangu-Ultra-MoE-718B-V1.1/config.json",
+      "role": "source_of_truth"
+    },
+    {
+      "id": "model_source",
+      "kind": "source",
+      "path": "/Users/yin/gitcode/openPangu-Ultra-MoE-718B-V1.1/inference/model.py",
+      "role": "source_of_truth"
+    },
+    {
+      "id": "config_class",
+      "kind": "source",
+      "path": "/Users/yin/gitcode/openPangu-Ultra-MoE-718B-V1.1/configuration_openpangu_moe.py",
+      "role": "supporting"
+    }
+  ],
+  "symbol_table": {
+    "H": 7680,
+    "V": 153600,
+    "L": 61,
+    "L_dense": 3,
+    "L_moe": 58,
+    "E": 256,
+    "top_k": 8,
+    "shared": 1,
+    "n_heads": 128,
+    "q_lora": 1536,
+    "kv_lora": 512,
+    "qk_nope": 128,
+    "qk_rope": 64,
+    "q_head": 192,
+    "v_dim": 128,
+    "inter": 18432,
+    "moe_inter": 2048,
+    "Smax": 131072,
+    "routed_scaling": 2.5,
+    "mtp": 1,
+    "rope_theta": 25600000
+  },
+  "nodes": [
+    {
+      "id": "in_token_ids",
+      "kind": "input",
+      "label": "Token IDs",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 734,
+          "fact": "input_ids: LongTensor",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "in_position_ids",
+      "kind": "input",
+      "label": "Position IDs",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 738,
+          "fact": "position_ids optional",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "in_attn_mask",
+      "kind": "input",
+      "label": "Attention Mask",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 737,
+          "fact": "attention_mask optional",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "embedding",
+      "kind": "op",
+      "label": "Parallel Embedding",
+      "op_type": "Embedding",
+      "attrs": {
+        "vocab_symbol": "V",
+        "hidden_symbol": "H",
+        "tp_split": "embed_tp_size"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 713,
+          "fact": "nn.Embedding(vocab_size_per_rank, hidden_size)",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 39,
+          "fact": "vocab_size=153600",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 13,
+          "fact": "hidden_size=7680",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "decoder_layer",
+      "kind": "module",
+      "label": "Decoder Layer",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 716,
+          "fact": "ModuleList of PanguUltraMoEDecoderLayer x num_hidden_layers",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 24,
+          "fact": "num_hidden_layers=61",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "ln_input",
+      "kind": "op",
+      "label": "Input RMSNorm",
+      "op_type": "RMSNorm",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 627,
+          "fact": "input_layernorm = RMSNorm",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 30,
+          "fact": "rms_norm_eps=1e-5",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "mla",
+      "kind": "module",
+      "label": "MLA Attention",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 394,
+          "fact": "class PanguUltraMoEAttention",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 22,
+          "fact": "num_attention_heads=128",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "q_a_proj",
+      "kind": "op",
+      "label": "Q Down Proj",
+      "op_type": "Linear",
+      "attrs": {
+        "out_symbol": "q_lora"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 429,
+          "fact": "q_a_proj",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 27,
+          "fact": "attention_q_lora_dim=1536",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "q_a_ln",
+      "kind": "op",
+      "label": "Q RMSNorm",
+      "op_type": "RMSNorm",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 432,
+          "fact": "q_a_layernorm",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "q_b_proj",
+      "kind": "op",
+      "label": "Q Up Proj",
+      "op_type": "Linear",
+      "attrs": {
+        "head_dim_symbol": "q_head"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 433,
+          "fact": "q_b_proj -> heads * q_head_dim",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "model_source",
+          "line": 422,
+          "fact": "q_head_dim = qk_dim + qk_rope_dim",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "kv_a_proj",
+      "kind": "op",
+      "label": "KV Down Proj",
+      "op_type": "Linear",
+      "attrs": {
+        "note": "MQA compressed latent + decoupled rope key"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 439,
+          "fact": "kv_a_proj_with_mqa",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 16,
+          "fact": "attention_kv_lora_dim=512",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 29,
+          "fact": "attention_qk_rope_dim=64",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "kv_a_ln",
+      "kind": "op",
+      "label": "KV RMSNorm",
+      "op_type": "RMSNorm",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 444,
+          "fact": "kv_a_layernorm",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "k_absorb",
+      "kind": "op",
+      "label": "K Absorb MatMul",
+      "op_type": "MatMul",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 446,
+          "fact": "kv_b_proj_w_k absorb",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "model_source",
+          "line": 504,
+          "fact": "bmm_5d q_nope x w_k",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "rope",
+      "kind": "op",
+      "label": "RoPE Apply",
+      "op_type": "RoPE",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 521,
+          "fact": "apply_rotary_pos_emb(q_pe, k_pe)",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 31,
+          "fact": "rope_theta=25600000",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "rope_cache",
+      "kind": "state",
+      "label": "RoPE Cache",
+      "state_type": "rope_cache",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 98,
+          "fact": "cos_cached / sin_cached buffers",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "kv_cache",
+      "kind": "state",
+      "label": "KV Cache",
+      "state_type": "attention_cache",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 529,
+          "fact": "scatter_update_ past_key_states",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "model_source",
+          "line": 856,
+          "fact": "cache_key_shape",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "attn_score",
+      "kind": "op",
+      "label": "Attn Score MatMul",
+      "op_type": "MatMul",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 549,
+          "fact": "q @ k^T * softmax_scale",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "softmax",
+      "kind": "op",
+      "label": "Softmax",
+      "op_type": "Softmax",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 557,
+          "fact": "softmax fp32",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "attn_ctx",
+      "kind": "op",
+      "label": "Attn Context MatMul",
+      "op_type": "MatMul",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 561,
+          "fact": "attn_weights @ v",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "v_absorb",
+      "kind": "op",
+      "label": "V Absorb MatMul",
+      "op_type": "MatMul",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 564,
+          "fact": "bmm_5d attn_output x w_v",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "o_proj",
+      "kind": "op",
+      "label": "Output Proj",
+      "op_type": "Linear",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 461,
+          "fact": "o_proj",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "model_source",
+          "line": 565,
+          "fact": "o_proj(reshape)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "attn_allreduce",
+      "kind": "op",
+      "label": "Attn All-Reduce",
+      "op_type": "AllReduce",
+      "attrs": {
+        "condition": "attn_tp_size > 1",
+        "group": "attn_tp"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 567,
+          "fact": "dist.all_reduce(attn_output)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "ln_post_attn",
+      "kind": "op",
+      "label": "Post-Attn RMSNorm",
+      "op_type": "RMSNorm",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 630,
+          "fact": "post_attention_layernorm",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "ln_pre_mlp",
+      "kind": "op",
+      "label": "Pre-MLP RMSNorm",
+      "op_type": "RMSNorm",
+      "attrs": {
+        "condition": "sandwich_norm"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 635,
+          "fact": "pre_mlp_layernorm",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 33,
+          "fact": "sandwich_norm=true",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "dense_mlp",
+      "kind": "module",
+      "label": "Dense MLP",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 184,
+          "fact": "class MLP",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 15,
+          "fact": "intermediate_size=18432",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "d_upgate",
+      "kind": "op",
+      "label": "Up-Gate Proj",
+      "op_type": "Linear",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 197,
+          "fact": "merge_up_gate_proj",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "d_swiglu",
+      "kind": "op",
+      "label": "SwiGLU Activation",
+      "op_type": "SwiGLU",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 208,
+          "fact": "act_fn(gate)*up",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 12,
+          "fact": "hidden_act=silu",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "d_down",
+      "kind": "op",
+      "label": "Down Proj",
+      "op_type": "Linear",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 200,
+          "fact": "down_proj",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "d_allreduce",
+      "kind": "op",
+      "label": "Dense All-Reduce",
+      "op_type": "AllReduce",
+      "attrs": {
+        "condition": "moe_tp_size > 1",
+        "group": "moe_tp"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 211,
+          "fact": "dist.all_reduce(down_proj)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "moe",
+      "kind": "module",
+      "label": "MoE FFN",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 295,
+          "fact": "class PanguUltraMoE",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 20,
+          "fact": "num_routed_experts=256",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "router",
+      "kind": "module",
+      "label": "MoE Router",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 265,
+          "fact": "class MoEGate",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "g_linear",
+      "kind": "op",
+      "label": "Router Linear",
+      "op_type": "Linear",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 279,
+          "fact": "F.linear gate weight fp32",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "g_sigmoid",
+      "kind": "op",
+      "label": "Sigmoid Scores",
+      "op_type": "Sigmoid",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 282,
+          "fact": "logits.sigmoid()",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "g_topk",
+      "kind": "op",
+      "label": "TopK Select",
+      "op_type": "TopK",
+      "attrs": {
+        "k_symbol": "top_k"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 284,
+          "fact": "torch.topk k=top_k",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 23,
+          "fact": "num_experts_per_tok=8",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "g_gather",
+      "kind": "op",
+      "label": "Gather Weights",
+      "op_type": "Gather",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 285,
+          "fact": "scores.gather(1, topk_idx)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "g_norm",
+      "kind": "op",
+      "label": "Normalize & Scale",
+      "op_type": "Normalize",
+      "attrs": {
+        "scale_symbol": "routed_scaling"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 287,
+          "fact": "norm_topk_prob",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 32,
+          "fact": "routed_scaling_factor=2.5",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_init_routing",
+      "kind": "op",
+      "label": "MoE Init Routing",
+      "op_type": "Gather",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 362,
+          "fact": "npu_moe_init_routing",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_up_gate",
+      "kind": "op",
+      "label": "Grouped Up-Gate MatMul",
+      "op_type": "GroupedMatMul",
+      "attrs": {
+        "experts_symbol": "E",
+        "inter_symbol": "moe_inter"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 246,
+          "fact": "npu_grouped_matmul group_w1_w3",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 19,
+          "fact": "moe_intermediate_size=2048",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_swiglu",
+      "kind": "op",
+      "label": "SwiGLU Activation",
+      "op_type": "SwiGLU",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 254,
+          "fact": "act_fn(mm1)*mm3",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_down",
+      "kind": "op",
+      "label": "Grouped Down MatMul",
+      "op_type": "GroupedMatMul",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 255,
+          "fact": "npu_grouped_matmul group_w2",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_finalize",
+      "kind": "op",
+      "label": "MoE Finalize Routing",
+      "op_type": "Scatter",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 379,
+          "fact": "npu_moe_finalize_routing",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_allreduce",
+      "kind": "op",
+      "label": "MoE All-Reduce",
+      "op_type": "AllReduce",
+      "attrs": {
+        "condition": "moe_tp_size > 1",
+        "group": "moe_tp"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 388,
+          "fact": "dist.all_reduce(hidden_states)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "shared_expert",
+      "kind": "module",
+      "label": "Shared Expert MLP",
+      "attrs": {
+        "shared_symbol": "shared"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 320,
+          "fact": "self.shared_experts = MLP",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 21,
+          "fact": "num_shared_experts=1",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "m_combine",
+      "kind": "op",
+      "label": "Combine Shared",
+      "op_type": "Add",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 338,
+          "fact": "y = y + shared_experts(identity)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "ln_post_mlp",
+      "kind": "op",
+      "label": "Post-MLP RMSNorm",
+      "op_type": "RMSNorm",
+      "attrs": {
+        "condition": "sandwich_norm"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 638,
+          "fact": "post_mlp_layernorm",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "final_norm",
+      "kind": "op",
+      "label": "Final RMSNorm",
+      "op_type": "RMSNorm",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 722,
+          "fact": "self.norm",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "model_source",
+          "line": 788,
+          "fact": "norm(hidden, residual)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "lm_head",
+      "kind": "op",
+      "label": "LM Head",
+      "op_type": "Linear",
+      "attrs": {
+        "vocab_symbol": "V"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 805,
+          "fact": "lm_head Linear hidden->vocab",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 34,
+          "fact": "tie_word_embeddings=false",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "logits_allgather",
+      "kind": "op",
+      "label": "Logits All-Gather",
+      "op_type": "AllGather",
+      "attrs": {
+        "condition": "embed_tp_size > 1",
+        "group": "embed_tp"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 841,
+          "fact": "all_gather_into_tensor(new_logits)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "out_logits",
+      "kind": "output",
+      "label": "Logits",
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 848,
+          "fact": "return logits",
+          "confidence": "confirmed"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_tok_emb",
+      "source": "in_token_ids",
+      "target": "embedding",
+      "tensor": {
+        "name": "input_ids",
+        "shape": "[B,T]",
+        "dtype": "int64"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 734,
+          "fact": "input_ids",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_emb_ln",
+      "source": "embedding",
+      "target": "ln_input",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 769,
+          "fact": "hidden_states = inputs_embeds",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_ln_mla",
+      "source": "ln_input",
+      "target": "mla",
+      "tensor": {
+        "name": "normed",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 659,
+          "fact": "self_attn(hidden_states)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_mla_qa",
+      "source": "mla",
+      "target": "q_a_proj",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_qa_qln",
+      "source": "q_a_proj",
+      "target": "q_a_ln",
+      "tensor": {
+        "name": "q_latent",
+        "shape": "[B,T,q_lora]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 490,
+          "fact": "q_a_layernorm(q_a_proj)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_qln_qb",
+      "source": "q_a_ln",
+      "target": "q_b_proj"
+    },
+    {
+      "id": "e_mla_kva",
+      "source": "mla",
+      "target": "kv_a_proj",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_kva_kvln",
+      "source": "kv_a_proj",
+      "target": "kv_a_ln",
+      "tensor": {
+        "name": "compressed_kv",
+        "shape": "[B,T,kv_lora]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 492,
+          "fact": "kv_a_proj_with_mqa",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_kvln_kabs",
+      "source": "kv_a_ln",
+      "target": "k_absorb"
+    },
+    {
+      "id": "e_qb_rope",
+      "source": "q_b_proj",
+      "target": "rope",
+      "tensor": {
+        "name": "q_pe",
+        "shape": "[B,H,T,qk_rope]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 503,
+          "fact": "q_pe",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_kva_rope",
+      "source": "kv_a_proj",
+      "target": "rope",
+      "tensor": {
+        "name": "k_pe",
+        "shape": "[B,1,T,qk_rope]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 513,
+          "fact": "k_pe",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_pos_rope",
+      "source": "in_position_ids",
+      "target": "rope",
+      "tensor": {
+        "name": "position_ids",
+        "shape": "[B,T]",
+        "dtype": "int64"
+      }
+    },
+    {
+      "id": "e_ropecache_rope",
+      "source": "rope_cache",
+      "target": "rope",
+      "tensor": {
+        "name": "cos_sin",
+        "shape": "[T,qk_rope]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 771,
+          "fact": "rotary_emb(...)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_kabs_score",
+      "source": "k_absorb",
+      "target": "attn_score",
+      "tensor": {
+        "name": "q_nope",
+        "shape": "[B,H,T,kv_lora]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 523,
+          "fact": "query_states cat",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_rope_score",
+      "source": "rope",
+      "target": "attn_score"
+    },
+    {
+      "id": "e_rope_kvcache",
+      "source": "rope",
+      "target": "kv_cache",
+      "tensor": {
+        "name": "key_states",
+        "shape": "[B,1,T,kv_lora+qk_rope]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 529,
+          "fact": "scatter_update",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_kvcache_score",
+      "source": "kv_cache",
+      "target": "attn_score",
+      "tensor": {
+        "name": "key_cache",
+        "shape": "[B,1,Smax,kv_lora+qk_rope]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 531,
+          "fact": "key_states = past_key_states",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_mask_score",
+      "source": "in_attn_mask",
+      "target": "attn_score",
+      "tensor": {
+        "name": "attn_mask",
+        "shape": "[B,1,T,Smax]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 553,
+          "fact": "attn_weights + attention_mask",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_score_softmax",
+      "source": "attn_score",
+      "target": "softmax"
+    },
+    {
+      "id": "e_softmax_ctx",
+      "source": "softmax",
+      "target": "attn_ctx"
+    },
+    {
+      "id": "e_kvcache_ctx",
+      "source": "kv_cache",
+      "target": "attn_ctx",
+      "tensor": {
+        "name": "value_states",
+        "shape": "[B,1,Smax,kv_lora]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 560,
+          "fact": "value_states[..., :kv_lora]",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_ctx_vabs",
+      "source": "attn_ctx",
+      "target": "v_absorb"
+    },
+    {
+      "id": "e_vabs_oproj",
+      "source": "v_absorb",
+      "target": "o_proj"
+    },
+    {
+      "id": "e_oproj_ar",
+      "source": "o_proj",
+      "target": "attn_allreduce"
+    },
+    {
+      "id": "e_ar_mla_out",
+      "source": "attn_allreduce",
+      "target": "mla",
+      "tensor": {
+        "name": "attn_out",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_mla_postln",
+      "source": "mla",
+      "target": "ln_post_attn",
+      "tensor": {
+        "name": "attn_out",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 670,
+          "fact": "post_attention_layernorm",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_postln_preln",
+      "source": "ln_post_attn",
+      "target": "ln_pre_mlp",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 671,
+          "fact": "pre_mlp_layernorm",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_preln_dense",
+      "source": "ln_pre_mlp",
+      "target": "dense_mlp",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 625,
+          "fact": "MLP when layer_idx < num_dense_layers",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_preln_moe",
+      "source": "ln_pre_mlp",
+      "target": "moe",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 620,
+          "fact": "PanguUltraMoE when layer_idx >= num_dense_layers",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_dense_upgate",
+      "source": "dense_mlp",
+      "target": "d_upgate",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_upgate_act",
+      "source": "d_upgate",
+      "target": "d_swiglu",
+      "tensor": {
+        "name": "gate_up",
+        "shape": "[B,T,2*inter]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 207,
+          "fact": "chunk gate/up",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_act_down",
+      "source": "d_swiglu",
+      "target": "d_down"
+    },
+    {
+      "id": "e_down_ar",
+      "source": "d_down",
+      "target": "d_allreduce"
+    },
+    {
+      "id": "e_dense_out",
+      "source": "d_allreduce",
+      "target": "ln_post_mlp",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_moe_router",
+      "source": "moe",
+      "target": "router",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_r_lin",
+      "source": "router",
+      "target": "g_linear",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_lin_sig",
+      "source": "g_linear",
+      "target": "g_sigmoid",
+      "tensor": {
+        "name": "router_logits",
+        "shape": "[B*T,E]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 279,
+          "fact": "F.linear",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_sig_topk",
+      "source": "g_sigmoid",
+      "target": "g_topk",
+      "tensor": {
+        "name": "scores",
+        "shape": "[B*T,E]",
+        "dtype": "fp32"
+      }
+    },
+    {
+      "id": "e_topk_gather",
+      "source": "g_topk",
+      "target": "g_gather",
+      "tensor": {
+        "name": "topk_idx",
+        "shape": "[B*T,top_k]",
+        "dtype": "int32",
+        "constraints": [
+          "top_k=8"
+        ]
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 284,
+          "fact": "topk",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_gather_norm",
+      "source": "g_gather",
+      "target": "g_norm",
+      "tensor": {
+        "name": "topk_weight",
+        "shape": "[B*T,top_k]",
+        "dtype": "fp32"
+      }
+    },
+    {
+      "id": "e_moe_initroute",
+      "source": "moe",
+      "target": "m_init_routing",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_topk_initroute",
+      "source": "g_topk",
+      "target": "m_init_routing",
+      "tensor": {
+        "name": "expert_idx",
+        "shape": "[B*T,top_k]",
+        "dtype": "int32"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 346,
+          "fact": "expert_idx = topk_ids",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_initroute_up",
+      "source": "m_init_routing",
+      "target": "m_up_gate",
+      "tensor": {
+        "name": "expanded_x",
+        "shape": "[B*T*top_k,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 362,
+          "fact": "npu_moe_init_routing",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_up_act",
+      "source": "m_up_gate",
+      "target": "m_swiglu",
+      "tensor": {
+        "name": "mm1_mm3",
+        "shape": "[N,2*moe_inter]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 253,
+          "fact": "chunk mm1/mm3",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_act_mdown",
+      "source": "m_swiglu",
+      "target": "m_down"
+    },
+    {
+      "id": "e_mdown_finalize",
+      "source": "m_down",
+      "target": "m_finalize",
+      "tensor": {
+        "name": "expert_out",
+        "shape": "[N,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_norm_finalize",
+      "source": "g_norm",
+      "target": "m_finalize",
+      "tensor": {
+        "name": "routing_weights",
+        "shape": "[B*T,top_k]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 384,
+          "fact": "scales=routing_weights",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_finalize_ar",
+      "source": "m_finalize",
+      "target": "m_allreduce"
+    },
+    {
+      "id": "e_moe_shared",
+      "source": "moe",
+      "target": "shared_expert",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 338,
+          "fact": "shared_experts(identity)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_ar_combine",
+      "source": "m_allreduce",
+      "target": "m_combine",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_shared_combine",
+      "source": "shared_expert",
+      "target": "m_combine",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_combine_out",
+      "source": "m_combine",
+      "target": "ln_post_mlp",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      }
+    },
+    {
+      "id": "e_postmlp_final",
+      "source": "ln_post_mlp",
+      "target": "final_norm",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 788,
+          "fact": "final norm after layers",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_final_head",
+      "source": "final_norm",
+      "target": "lm_head",
+      "tensor": {
+        "name": "hidden_states",
+        "shape": "[B,T,H]",
+        "dtype": "bf16"
+      },
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 838,
+          "fact": "logits = lm_head(hidden)",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "e_head_ag",
+      "source": "lm_head",
+      "target": "logits_allgather",
+      "tensor": {
+        "name": "logits_shard",
+        "shape": "[B,T,V/embed_tp]",
+        "dtype": "fp32"
+      }
+    },
+    {
+      "id": "e_ag_out",
+      "source": "logits_allgather",
+      "target": "out_logits",
+      "tensor": {
+        "name": "logits",
+        "shape": "[B,T,V]",
+        "dtype": "fp32"
+      },
+      "provenance": [
+        {
+          "source": "runtime_config",
+          "line": 39,
+          "fact": "vocab_size=153600",
+          "confidence": "confirmed"
+        }
+      ]
+    }
+  ],
+  "repeats": [
+    {
+      "id": "repeat_decoder_layers",
+      "template_node": "decoder_layer",
+      "range": "0-60",
+      "count": 61,
+      "provenance": [
+        {
+          "source": "runtime_config",
+          "line": 24,
+          "fact": "num_hidden_layers=61",
+          "confidence": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "repeat_routed_experts",
+      "template_node": "m_up_gate",
+      "range": "0-255",
+      "count": 256,
+      "provenance": [
+        {
+          "source": "runtime_config",
+          "line": 20,
+          "fact": "num_routed_experts=256",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "model_source",
+          "line": 232,
+          "fact": "group_w1_w3 [E, 2*inter, H]",
+          "confidence": "confirmed"
+        }
+      ]
+    }
+  ],
+  "branches": [
+    {
+      "id": "ffn_choice",
+      "condition": "layer_idx < num_dense_layers",
+      "true_target": "dense_mlp",
+      "false_target": "moe",
+      "resolved_ranges": [
+        {
+          "target": "dense_mlp",
+          "range": "0-2"
+        },
+        {
+          "target": "moe",
+          "range": "3-60"
+        }
+      ],
+      "provenance": [
+        {
+          "source": "model_source",
+          "line": 619,
+          "fact": "self.mlp = PanguUltraMoE if layer_idx >= num_dense_layers else MLP",
+          "confidence": "confirmed"
+        },
+        {
+          "source": "runtime_config",
+          "line": 11,
+          "fact": "num_dense_layers=3",
+          "confidence": "confirmed"
+        }
+      ]
+    }
+  ],
+  "visual_layout": {
+    "direction": "vertical",
+    "nodes": {},
+    "groups": [
+      {
+        "id": "g_decoder",
+        "label": "Decoder Layer Template",
+        "nodes": [
+          "ln_input",
+          "ln_post_attn",
+          "ln_pre_mlp",
+          "ln_post_mlp"
+        ],
+        "children": [
+          "g_mla",
+          "g_dense",
+          "g_moe"
+        ],
+        "badge": "repeat 0-60, count 61"
+      },
+      {
+        "id": "g_mla",
+        "label": "MLA Attention",
+        "nodes": [
+          "mla",
+          "q_a_proj",
+          "q_a_ln",
+          "q_b_proj",
+          "kv_a_proj",
+          "kv_a_ln",
+          "k_absorb",
+          "rope",
+          "rope_cache",
+          "kv_cache",
+          "attn_score",
+          "softmax",
+          "attn_ctx",
+          "v_absorb",
+          "o_proj",
+          "attn_allreduce"
+        ]
+      },
+      {
+        "id": "g_dense",
+        "label": "Dense FFN (layers 0-2)",
+        "nodes": [
+          "dense_mlp",
+          "d_upgate",
+          "d_swiglu",
+          "d_down",
+          "d_allreduce"
+        ],
+        "badge": "range 0-2"
+      },
+      {
+        "id": "g_moe",
+        "label": "MoE FFN (layers 3-60)",
+        "nodes": [
+          "moe",
+          "m_init_routing",
+          "m_up_gate",
+          "m_swiglu",
+          "m_down",
+          "m_finalize",
+          "m_allreduce",
+          "shared_expert",
+          "m_combine"
+        ],
+        "children": [
+          "g_router"
+        ],
+        "badge": "range 3-60, experts 256, active top_k 8"
+      },
+      {
+        "id": "g_router",
+        "label": "MoE Router",
+        "nodes": [
+          "router",
+          "g_linear",
+          "g_sigmoid",
+          "g_topk",
+          "g_gather",
+          "g_norm"
+        ]
+      },
+      {
+        "id": "g_head",
+        "label": "Output Head",
+        "nodes": [
+          "final_norm",
+          "lm_head",
+          "logits_allgather",
+          "out_logits"
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

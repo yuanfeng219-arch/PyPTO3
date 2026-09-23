@@ -1,0 +1,695 @@
+# Python IR 语法规范
+
+## 概述
+
+PyPTO IR 的 Python 风格语法:
+
+- **完整**: 包含重构 IR 所需的全部信息
+- **可解析 (Parser)**: 可解析回 IR (参见 [IR 解析器](../ir/07-parser.md))
+- **Pythonic**: 遵循 Python 风格, 通过大部分代码检查工具
+- **静态单赋值 (SSA) 风格**: 使用 SSA, 配合 `pl.yield_()` 和 `pl.range()`
+
+## 模块结构
+
+```python
+# pypto.program: program_name
+import pypto.language as pl
+```
+
+对于未命名程序: `# pypto.program`
+
+**注意:** 模块前缀可配置 (默认 `pl`, 旧版 `ir`, 支持自定义)。
+
+## 类型系统
+
+### 标量类型
+
+```python
+x: pl.INT64
+y: pl.FP32
+z: pl.BOOL
+```
+
+可用类型:
+
+| 类别 | 类型 |
+| ---- | ---- |
+| **整数** | `INT4`, `INT8`, `INT16`, `INT32`, `INT64` |
+| **无符号整数** | `UINT4`, `UINT8`, `UINT16`, `UINT32`, `UINT64` |
+| **浮点数** | `FP4`, `FP8`, `FP16`, `FP32` |
+| **Brain Float** | `BF16` |
+| **Hisilicon** | `HF4`, `HF8` |
+| **布尔值** | `BOOL` |
+
+### 张量 (Tensor) 和 Tile 类型
+
+```python
+# Tensor (subscript notation)
+a: pl.Tensor[[4, 8], pl.FP32]      # Fixed shape
+b: pl.Tensor[[n, m], pl.INT64]     # Symbolic shape
+
+# Tile (block in unified buffer)
+t: pl.Tile[[16, 16], pl.FP16]
+```
+
+### 内存引用 (MemRef)
+
+```python
+# Create MemRef
+addr_expr = pl.ConstInt(0x1000, pl.INT64, span)
+memref = pl.MemRef(addr_expr, 1024, 0)
+
+# Memory spaces: DDR, Vec, Mat, Left, Right, Acc
+# Note: pl.Mem is a short alias for pl.MemorySpace
+
+# Tensor with memref
+tensor: pl.Tensor[[64, 128], pl.FP32, pl.MemRef(addr_expr, 8192, 0)]
+
+# Tile 把内存空间保存在 tile 注解上，而不是 MemRef 内部
+tile: pl.Tile[[16, 16], pl.FP16, pl.MemRef(addr_expr, 512, 0), pl.Mem.Left]
+```
+
+### Tile 视图 (TileView)
+
+```python
+# Create TileView
+valid_shape = [pl.ConstInt(16, pl.INT64, span)] * 2
+stride = [pl.ConstInt(1, pl.INT64, span), pl.ConstInt(16, pl.INT64, span)]
+start_offset = pl.ConstInt(0, pl.INT64, span)
+tile_view = pl.TileView(valid_shape=valid_shape, stride=stride, start_offset=start_offset)
+
+# Tile with memref and tile_view
+tile: pl.Tile[
+    [16, 16], pl.FP16,
+    pl.MemRef(addr_expr, 512, 0), pl.Mem.Left,
+    pl.TileView(valid_shape=..., stride=..., start_offset=...)
+]
+```
+
+**说明：**
+
+- 省略 `pl.TileView(...)` **不**表示“没有 TileView 语义”。DSL 会根据 tile 的 shape，以及在存在时的
+  tile memory space，推导一个隐式 TileView。
+- 在这种隐式形式下，`valid_shape` 默认等于 tile shape；布局 / fractal 默认值也会根据
+  shape / memory-space 组合推导。
+- 显式写出的 `pl.TileView()`（或只是在重复这些隐式默认值的写法）与省略写法在语义上等价。
+  parser / printer 的往返过程中，二者可能会被规范化为同一种打印形式。
+
+## 表达式 (Expression)
+
+### 变量和常量
+
+```python
+x                       # Variable reference
+tensor_a                # Tensor variable
+42                      # Integer literal — INDEX-typed
+3.14                    # Float literal
+pl.const(42, pl.INT64)  # Typed integer literal (any non-INDEX dtype)
+```
+
+裸整数字面量始终为 `INDEX` 类型。若需携带其他整数 dtype（如 `INT64`），
+请使用 `pl.const(value, dtype)`——打印器也以此形式渲染此类常量，
+从而保证打印出的 IR 能通过解析器正确往返。
+在复合 shape 维度和纯常量算术中（如
+`pl.const(32, pl.INDEX) + pl.const(32, pl.INDEX)`），打印器对 `INDEX`
+也会输出带类型的叶子，使解析器逐字重建表达式树而不做常量折叠；
+化简始终由 Simplify pass 负责。
+
+**闭包变量:** 在 DSL 作用域中未找到的名称会从外层 Python 作用域解析。支持的类型: `int`, `float`, `bool`, `list`, `tuple` 以及 IR 表达式。
+
+```python
+OFFSET = [0, 0]
+TILE_SHAPE = [64, 64]
+
+@pl.function
+def func(t: pl.Tensor[[128, 128], pl.FP32], out: pl.Tensor[[128, 128], pl.FP32]) -> pl.Tensor[[128, 128], pl.FP32]:
+    a: pl.Tile[[64, 64], pl.FP32] = pl.tile.load(t, OFFSET, TILE_SHAPE)  # closure vars as positional args
+    ...
+```
+
+### 下标索引 (Subscript Indexing)
+
+`Tensor` 和 `Tile` 的下标采用 numpy/torch 风格的语义:
+
+- **标量** 索引会移除该维度; **切片 (slice)** 会保留该维度。
+- 索引个数少于 `rank` 时, 末尾自动补 `:` —— 4D 张量上的 `C[i]` 等价于 `C[i, :, :, :]`。
+- 链式索引可组合 —— `C[i][j]` 是两次降秩视图。
+- **全标量且满秩** 的索引读取一个标量 (2D 张量上的 `A[i, j]` → `tensor.read` / `tile.read`)。
+
+```python
+C[i, j, k, l]   # all scalar, full rank   -> scalar
+C[i, j]         # partial, all scalar      -> 64×64 view (dims 0,1 dropped)
+C[i]            # partial                  -> 64×64×64 view (dim 0 dropped)
+C[i][j]         # chained                  -> works (C[i] is 3D, then [j])
+C[i:i+8, j]     # mixed slice + scalar     -> 8×64×64 view (dim 1 dropped)
+C[i:i+8, :, :, :]  # all slices            -> 8×64×64×64 view
+```
+
+v1 限制: 不支持切片 `step`、tile 切片的下界必须可静态折叠、不支持 ellipsis / `None` / 负索引 / 高级索引。**Tile 物理上是 2D 的**, 所以自然结果 `< 2D` 的 tile 会被自动提升到 2D (`[N]` → `[1, N]`) 并发出非致命警告 —— 若需要不同的布局, 请显式使用 `pl.tile.reshape`。
+
+实现机制: 非平凡的下标会下降为 `tensor.slice` / `tile.slice`, 其 `shape`/`offset` 保持满秩, 并附带一个 `drop_dims` 列表记录被标量索引的轴 (详见 IR 算子文档)。赋值左侧 (LHS) 遵循相同规则 —— `C[i, j] = rhs` 会在 `tensor.assemble` 之前把 `rhs` reshape 回满秩窗口 (尚不支持链式写入 `C[i][j] = rhs`)。
+
+### 二元操作
+
+| Python 操作符 | PyPTO IR | 类别 |
+| ------------- | -------- | ---- |
+| `+` | Add | 算术 |
+| `-` | Sub | 算术 |
+| `*` | Mul | 算术 |
+| `//` | FloorDiv | 算术 |
+| `%` | FloorMod | 算术 |
+| `/` | FloatDiv | 算术 |
+| `**` | Pow | 算术 |
+| `==`, `!=`, `<`, `<=`, `>`, `>=` | Eq, Ne, Lt, Le, Gt, Ge | 比较 |
+| `and`, `or` | And, Or | 逻辑 |
+| `^` | Xor | 逻辑 |
+| `&` | BitAnd | 位运算 |
+| `\|` | BitOr | 位运算 |
+| `<<`, `>>` | BitShiftLeft, BitShiftRight | 位运算 |
+
+**注意:** `and`/`or` 从 Python 的 `ast.BoolOp` 语法解析而来。链式表达式如 `a and b and c` 从左到右折叠为 `And(And(a, b), c)`。与 Python 不同，IR 的 `And`/`Or` 节点会求值两个操作数（无短路求值语义）。对应的 IR 工厂函数为 `ir.and_(lhs, rhs)` 和 `ir.or_(lhs, rhs)`。
+
+### 一元操作和函数
+
+```python
+-x              # Neg
+~x              # BitNot
+not x           # Not
+abs(x)          # Abs
+min(a, b)       # Min
+max(a, b)       # Max
+```
+
+### 函数/操作调用
+
+```python
+# Explicit namespace
+pl.tensor.add(a, b)                  # Tensor addition
+pl.tile.load(t, [0, 0], [64, 64])      # Tile load
+
+# Unified dispatch (auto-selects tensor/tile based on input type)
+pl.add(a, b)                          # Tensor or Tile — dispatched automatically
+pl.mul(tile, 2.0)                     # Tile + scalar -> tile.muls
+pl.exp(tile)                          # Tile -> tile.exp
+
+# Promoted ops (single-module ops accessible at pl.*)
+pl.load(t, [0, 0], [64, 64])            # Promoted from block
+pl.create_tensor([64], dtype=pl.FP32)       # Promoted from tensor
+
+# System operations (synchronization primitives)
+pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+pl.system.bar_v()                        # Vector barrier
+pl.system.bar_m()                        # Matrix barrier
+pl.system.bar_all()                      # Global barrier
+
+# Cross-core operations (TPUSH/TPOP protocol)
+pl.tpush_to_aic(tile0, split=0, id=0)        # Vector → Cube push on pipe 0
+pl.tpush_to_aic(tile1, split=0, id=1)        # Vector → Cube push on pipe 1
+tile0 = pl.tpop_from_aiv(split=0, id=0)      # Cube pops from Vector pipe 0
+tile1 = pl.tpop_from_aiv(split=0, id=1)      # Cube pops from Vector pipe 1
+pl.tfree_to_aiv(tile0, id=0)                 # Release slot to Vector pipe 0
+pl.tfree_to_aiv(tile1, id=1)                 # Release slot to Vector pipe 1
+
+# Cross-core pipe initialization and buffer management
+buf = pl.reserve_buffer(name="slot_buf", size=4096, base=pl.AUTO)
+peer = pl.import_peer_buffer(name="slot_buf", peer_func="other_func")
+pl.aic_initialize_pipe(pl.const(0, pl.INT32), buf, dir_mask=2, slot_size=512, id=0)
+pl.aiv_initialize_pipe(pl.const(0, pl.INT32), peer, dir_mask=2, slot_size=512, id=0)
+# 可选：显式指定 GM 环形缓冲区槽数量（默认单向 8 / 双向 4），
+# 以及（仅 a2/a3）本地槽数量 local_slot_num（必须 <= slot_num）。
+# 缓冲区大小需自行设置：a3 -> slot_size * local_slot_num，a5 -> slot_size * slot_num。
+pl.aic_initialize_pipe(pl.const(0, pl.INT32), buf, dir_mask=2, slot_size=512, slot_num=16, local_slot_num=4)
+```
+
+## 语句 (Statement)
+
+### 赋值
+
+```python
+x: pl.INT64 = expr
+y: pl.Tensor[[4], pl.FP32] = tensor_op(a)
+```
+
+### If 语句 (SSA 风格)
+
+```python
+# If with both branches
+if condition:
+    y1 = pl.yield_(value1)
+else:
+    y1 = pl.yield_(value2)
+
+# Multiple return values (no inline type annotations)
+if condition:
+    y1, y2 = pl.yield_(value1, value2)
+else:
+    y1, y2 = pl.yield_(value3, value4)
+```
+
+**要点:**
+
+- `pl.yield_()` 赋值给 SSA phi 节点
+- yield 中定义的变量在 if 之后可访问
+- 两个分支必须 yield 相同的变量
+- 元组解包时不能使用内联类型标注
+
+### For 循环 (带 iter_args 的 SSA 风格)
+
+```python
+# 简单循环 (1-3 个位置参数，类似 Python 的 range())
+for i in pl.range(stop):                    # start=0, step=1
+for i in pl.range(start, stop):             # step=1
+for i in pl.range(start, stop, step):       # 完整形式
+
+# 带 iter_args 的循环 (循环携带值)
+sum_init: pl.INT64 = 0
+for i, (sum,) in pl.range(n, init_values=(sum_init,)):
+    sum = pl.yield_(sum + i)
+sum_final = sum
+
+# 并行 for 循环 (同样支持 1-3 个参数)
+for i in pl.parallel(stop):
+for i in pl.parallel(start, stop, step):
+    body_statements
+```
+
+**要点:** 循环携带值使用 `pl.range()` 或 `pl.parallel()` 的 `init_values`, 元组解包 `(sum,)` 声明 iter_args, `pl.yield_()` 为下一次迭代更新值, 循环结束后 iter_args 包含最终值。`pl.parallel()` 生成 `ForKind.Parallel` 循环, `pl.range()` 生成 `ForKind.Sequential` (默认)。
+
+### While 循环 (带 iter_args 的 SSA 风格)
+
+```python
+# 自然 while：条件作为 while 头部表达式
+i: pl.Scalar[pl.INT64] = 0
+while i < n:
+    i = i + 1
+
+# 带 init_values 的 SSA 形式：头部元组 = iter_args，第一条语句是 pl.cond()。
+# yield-LHS 名字成为循环外的绑定名（与 pl.range 一致）。
+x_init: pl.Scalar[pl.INT64] = 0
+for (x,) in pl.while_(init_values=(x_init,)):
+    pl.cond(x < n)
+    x_next = pl.yield_(x + 1)
+# 此处 `x_next` 已由 yield-LHS 绑定；`x` 仅在循环 body 内可见。
+
+# Pre-SSA：body 中完全没有 pl.yield_，由 ConvertToSSA 后续补出。
+for (x,) in pl.while_(init_values=(x_init,)):
+    pl.cond(x < n)
+    x = x + 1
+
+# ❌ init_values 非空时不允许裸 pl.yield_(...)，parser 直接报错：
+#    for (x,) in pl.while_(init_values=(x_init,)):
+#        pl.cond(x < n)
+#        pl.yield_(x + 1)             # ParserSyntaxError: requires assignment-form pl.yield_
+```
+
+**要点:** `pl.while_(init_values=(...,))` 复用 `for ... in` 头部，用于 SSA 风格循环；body 的第一条语句必须是 `pl.cond(<bool>)`。循环外的绑定名来自 **yield-LHS**（上面的 `x_next`），而不是头部元组——头部元组中的名字只在循环 body 内可见。这一约定与 `pl.range` **保持一致**：当 `init_values` 非空且 body 中确实出现 `pl.yield_(...)` 调用时，必须使用 assignment 形式。Pre-SSA 形式的循环（body 中完全没有 yield，如最后一种写法）仍然合法。
+
+### 作用域上下文管理器 (Scope Context Managers)
+
+| 形式 | Scope 类型 | 说明 |
+| ---- | ---------- | ---- |
+| `pl.at(level=pl.Level.CORE_GROUP)` | `InCore` | CORE_GROUP 级固定边界 outline |
+| `pl.at(level=pl.Level.CORE_GROUP, optimizations=[pl.split(MODE)])` | `InCore` | InCore + 跨核 split 提示 |
+| `pl.at(level=pl.Level.HOST)`（或任意非 `CORE_GROUP` 级别） | `Hierarchy` | 分布式层级作用域 |
+| `pl.cluster()` | `Cluster` | AIC+AIV 协同调度组 |
+| `with pl.spmd(N)` / `for i in pl.spmd(N)` | `Spmd`（for-form 内嵌 `InCore`） | SPMD 多 block 派发——见 [pl.spmd](#plspmd-多-block-派发) |
+| `pl.spmd(N, optimizations=[pl.split(MODE)])` | `Spmd(InCore(split=MODE))` | split 提示作用于内层 InCore（两种形式均适用） |
+| `pl.scope(mode=pl.ScopeMode.MANUAL)` / `pl.manual_scope()` | `Runtime(manual=true)` | orchestrator 的 MANUAL scope——由用户管理任务排序。两种 `auto_scope` 模式下都可用（它是依赖语义选择）。见[手工依赖原语](#手工依赖原语) |
+| `pl.scope()` | `Runtime(manual=false)` | orchestrator 的 AUTO scope（`PTO2_SCOPE()`）。手写它需要 `@pl.function(auto_scope=False)`（默认 `auto_scope=True` 下由编译器决定 AUTO 放置）。见 [MaterializeRuntimeScopes](../passes/41-materialize_runtime_scopes.md) |
+
+#### `pl.spmd` 多 block 派发
+
+`pl.spmd(N)` 把一个 kernel 派发到 `N` 个 block。形式：
+
+- `with pl.spmd(N): ...` —— body **既可以**是对一个已声明 InCore kernel 的单次调用（直接派发，`SpmdScopeStmt(body=Call)`，无内层 InCore 包裹），**也可以**是一段内联多语句块，自动外包成一段隐式 InCore 区域（与 for-form 相同，只是不自动绑定索引）。内联 body 必须通过 `pl.tile.get_block_idx()` 读取每个 block 的索引——否则所有 block 执行完全相同的工作，parser 会拒绝。不捕获 producer TaskId。
+- `for i in pl.spmd(N): ...` —— 循环变量绑定到每个 block 的索引（`pl.tile.get_block_idx()`）；body 自动外包成一段隐式 InCore 区域。
+- `with pl.spmd(N, deps=[...]) as tid: ...` —— **捕获形式**：与 `with pl.at(...) as tid:` 对称。body 形态与上面的普通形式相同，并额外在 `tid` 中捕获该分发的 grid 级 producer `pl.Scalar[pl.TASK_ID]`（可用作 `deps=` 边、存入 `pl.array.create(N, pl.TASK_ID)`、或跨入 `pl.manual_scope`）。TaskId 捕获与内联 body 正交——这是该形式相比普通形式唯一多出来的能力。lower 成一个 `ir.Submit`，其尾部 tuple 元素即 grid TaskId；`core_num` / `sync_start` 记录在外包出的 `Spmd` Function attrs 上。参见下文“手动依赖原语”小节。
+- `out, tid = pl.spmd_submit(kernel, *args, core_num=N)` —— **submit 形式**：将 kernel 在 `N` 个 block 上分发，同时捕获该分发的 producer `pl.Scalar[pl.TASK_ID]`（针对已声明 kernel 的 `pl.submit` 版本）。参见下文“手动依赖原语”小节。
+
+以上三种形式也都接受 `allow_early_resolve=True`（布尔字面量；与 `pl.submit` / `pl.at` 相同的 early-dispatch 选项）。即使不写 `as tid` 也会强制走 `ir.Submit` 形态，并 lower 为 `Arg::set_allow_early_resolve(true)`。在嵌套于 `pl.cluster()` 内的 `pl.spmd` 上会被拒绝（此类 scope 会被 unwrap 进 Group 函数、永远不会产生 Submit，提示会丢失）。
+
+可选 `optimizations=[pl.split(MODE)]`：
+
+| 条目 | 适用形式 | 作用 |
+| ---- | -------- | ---- |
+| `pl.split(MODE)` | 两种均适用 | 给内层 InCore 设置 `split_` 字段（跨核数据搬运提示，由 `ExpandMixedKernel` / `MemoryReuse` 消费）。with-form 会在原 call 外多包一层 `InCoreScopeStmt` 来承载该字段。 |
+
+示例参见 [语言指南](../../user/01-language_guide.md#incore-作用域)。
+
+### 手工依赖原语
+
+默认情况下 runtime 通过缓冲区读写重叠（`OverlapMap`）自动推导任务间依赖。
+DSL 暴露**两套正交的机制**，用户可任意组合：
+
+> **两套机制相互独立。** 把某个 buffer / 区域 / arg 从自动跟踪中"摘出来"
+> 并**不要求**你同时声明显式边；声明显式边也**不要求**你同时关掉自动
+> 跟踪。最终 task 的 fanin 是 **`自动跟踪 deps ∪ 显式 deps`**——它们
+> 是相加而非互相替代。
+
+#### 机制 A——退出自动依赖跟踪（3 种粒度）
+
+三种粒度彼此独立。按需选择最小的单位，必要时叠加。
+
+| 表层语法 | 粒度 | 作用 |
+| -------- | ---- | ---- |
+| `with pl.manual_scope():` | per-region | 下沉为 `PTO2_SCOPE(PTO2ScopeMode::MANUAL)`。区域内 runtime 不做自动跟踪；用户需要的排序边必须通过机制 B 显式声明。 |
+| `pl.create_tensor([...], dtype=..., manual_dep=True)` | per-tensor 生命周期 | 任何读 / 写该 tensor 的 task 都**整生命周期**跳过 `OverlapMap` 的 lookup 和 insert，不受 scope 影响。适合那种"完全交给显式边管理"的 scratch buffer。 |
+| `pl.no_dep(arg)` | per-call 参数 | kernel 调用点上，被包装的参数其 `ArgDirection` 变为 `NoDep`——**仅本次提交**对该槽位不进入自动跟踪。不论 callee 把该槽位声明为 `In`、`Out` 还是 `InOut` 都合法：用户在带外（out-of-band）承诺该槽位不存在 RaW / WaW / WaR 冲突——例如 paged-attention 那种"写偏移是数据相关、但按分配协议保证不相交"的场景。在 `pl.manual_scope` 内没有意义（scope 已经全员退出）。 |
+| `with pl.at(..., no_dep_args=[t1, t2]):` | per-arg, 作用于 `pl.at`-块 | `pl.no_dep(arg)` 在 `pl.at`-块上的对应物。outliner 把列出的 tensor 作为合成 kernel call 的实参；`DeriveCallDirections` 随后把这些实参槽位标为 `NoDep`——和在显式 call 站点用 `pl.no_dep(...)` 等效。每一项必须是外层 scope 可见的张量名。In / Out / InOut 的适用范围与 `pl.no_dep(arg)` 相同：如果 scope 体里用 `pl.assemble` 写过这个 capture，outliner 会把合成 kernel 上该形参推断成 `InOut`，`no_dep_args=` 仍然把它覆盖为 `NoDep`（和覆盖 `In` 一样）。注意：`no_dep_args=` 接收**张量**，`deps=` 接收 **TaskId**——同一个 "dep"，作用在不同层。 |
+
+#### 机制 B——显式声明 task 间的边（`deps=`）
+
+这些表面都会下沉为 `set_dependencies` codegen；按 producer 形态选择：
+单个 kernel 调用、outlined `pl.at` 区域，或 dependency-only fan-in。
+
+| 表层语法 | producer 形态 | 备注 |
+| -------- | ------------- | ---- |
+| `result, tid = pl.submit(kernel, *args, deps=[...], allow_early_resolve=False)` | 单个 kernel 调用 | 尾部 `tid` 是 producer `pl.Scalar[pl.TASK_ID]`。它是 parser construct（类似 `pl.range`），不是 runtime 函数。`allow_early_resolve=True` 将该 task 标记为推测式 early-dispatch producer（让调度器提前预置其 consumer；lower 为 `Arg::set_allow_early_resolve(true)`）。 |
+| `result, tid = pl.spmd_submit(kernel, *args, core_num=N, sync_start=False, deps=[...])` | 单个 SPMD task launch | `pl.submit` 的 SPMD 版本：将 kernel 在 `N` 个 block 上分发（一个 orchestration task → 一个 `tid`）。`core_num` 是必填关键字参数（正整数表达式）；`sync_start=True` 强制所有 block 原子启动。callee 可以是 InCore / AIC / AIV / Group。launch spec 记录在 `Submit.core_num` / `Submit.sync_start` 上。同样接受 `allow_early_resolve=True`（与 `pl.submit` 相同的 early-dispatch 选项）。 |
+| `with pl.at(level=pl.Level.CORE_GROUP, deps=[...]) as tid:` | outlined `pl.at`-块 | 整块被 outline 成 InCore kernel + `Submit`；`tid` 捕获被合成的 Submit 的 TaskId，可作为后续 `pl.submit` / `pl.at` 的 dep。不写 `as tid` 时 outliner 会合成一个未使用的 TaskId Var——deps 始终走 `Submit::deps_`。同样接受 `allow_early_resolve=True`（与 `pl.submit` 相同的 early-dispatch 选项）；即使不写 `as tid` 也会强制走 `Submit` 形态，并 lower 为 `Arg::set_allow_early_resolve(true)`。 |
+| `with pl.spmd(N, deps=[...]) as tid:` | outlined SPMD 分发 | `pl.at ... as tid` 形式的 SPMD 版本。内联 body 自动外包成 InCore kernel 并在 `N` 个 block 上分发；`tid` 捕获 grid 级 producer TaskId。`deps=` 仅在带 `as tid` 时可用。`core_num` / `sync_start` 记录在外包出的 `Spmd` Function attrs 上（lower 出的 `Submit.core_num` 为 `None`）；codegen 通过 launch-function 回退读取。同样接受 `allow_early_resolve=True`（与 `pl.submit` / `pl.at` 相同的 early-dispatch 选项；`pl.spmd` 三种形式均可用，即使不写 `as tid` 也会强制走 `Submit` 形态）。不能嵌套在 `pl.cluster()` 内。 |
+| `barrier = pl.system.task_dummy(deps=[...])` | dependency-only barrier | 不提交 kernel。返回的 TaskId 是一个紧凑的 fan-in 点，可供后续 `deps=[barrier]` 使用。 |
+| `None`（Python 字面量） | 种子 / dep 条目 | "暂无 producer" 的哨兵。`prev_tid = None` 用作 TaskId 循环 iter_arg 的种子；`deps=[None]` 中的 `None` 被丢弃（不贡献任何边）。下沉为 `system.task_invalid` → `PTO2TaskId::invalid()`。 |
+
+**这些表面都不依赖机制 A 的状态。** 显式 deps 可用于普通自动跟踪、
+`pl.manual_scope()` 内或 `manual_dep=True` tensor 上，并总是在自动跟踪结果
+**之上**追加；早期"`deps=` 只在 `pl.manual_scope` 内有效"的限制已经解除。
+
+普通的 `out = self.kernel(...)` 是 **fire-and-forget**：它不返回 task id，
+并且在它上面写 `deps=` 会被拒绝（parser 报错，提示 "use `pl.submit`"）。
+每个 `deps=[...]` 条目必须是 TaskId 值：先前 `pl.submit(...)` /
+`pl.at(..., deps=) as tid` 绑定的 `tid`、`pl.system.task_dummy(deps=[...])`
+的返回值、TaskId 循环 iter_arg carry、从 TaskId 数组槽读出的
+`Scalar[TASK_ID]`（`prev = tids[k]`）、来自
+`pl.array.create(N, pl.TASK_ID)` 的 `Array[N, TASK_ID]`，或字面量 `None`。
+`deps=[...]` 不接受 tensor。
+
+```python
+# 示例 1——两套机制同用：scope-wide 退出 + 显式边。
+@pl.function(type=pl.FunctionType.Orchestration)
+def main(self, x: pl.Tensor[[64], pl.FP32],
+         scratch: pl.Out[pl.Tensor[[64], pl.FP32]],
+         out: pl.Out[pl.Tensor[[64], pl.FP32]]) -> pl.Tensor[[64], pl.FP32]:
+    with pl.manual_scope():                                           # 机制 A: scope-wide
+        scratch, stage1_tid = pl.submit(self.stage1, x, scratch)
+        out, _ = pl.submit(self.stage2, scratch, out, deps=[stage1_tid])  # 机制 B
+    return out
+```
+
+```python
+# 示例 2——只用机制 B，**不**进 manual_scope。其他 buffer 仍然走自动跟踪；
+# 显式边是在自动跟踪结果**之上**追加。注意没有 `with pl.manual_scope():`。
+@pl.function(type=pl.FunctionType.Orchestration)
+def main(self, x: pl.Tensor[[64], pl.FP32],
+         out: pl.Out[pl.Tensor[[64], pl.FP32]]) -> pl.Tensor[[64], pl.FP32]:
+    tmp, prep_tid = pl.submit(self.preprocess, x)
+    out, _ = pl.submit(self.consume, tmp, out, deps=[prep_tid])
+    return out
+```
+
+```python
+# 示例 3——以 pl.at-块作为 producer，给下游 pl.at-块加显式边。
+# `as tid` 捕获被合成 outlined Call 的 TaskId。
+@pl.function(type=pl.FunctionType.Orchestration)
+def main(self, x: pl.Tensor[[64], pl.FP32],
+         out: pl.Out[pl.Tensor[[64], pl.FP32]]) -> pl.Tensor[[64], pl.FP32]:
+    with pl.at(level=pl.Level.CORE_GROUP) as tid_a:
+        # 块体被 outline 成 InCore kernel
+        ...
+    with pl.at(level=pl.Level.CORE_GROUP, deps=[tid_a]) as tid_b:
+        # 显式边——严格在 tid_a 块之后运行
+        ...
+    return out
+```
+
+```python
+# 示例 4——机制 A 的 tensor-lifetime 形态：scratch buffer 整生命周期退出
+# 自动跟踪；ordering 完全交给显式边管理。
+scratch = pl.create_tensor([N], dtype=pl.FP32, manual_dep=True)
+scratch, prod_tid = pl.submit(self.fill, x, scratch)
+out, _ = pl.submit(self.consume, scratch, out, deps=[prod_tid])
+```
+
+`pl.submit` 脱糖为单个 `ir.Submit`，其返回类型是扁平的增广
+`TupleType([*<kernel return types>, ScalarType(TASK_ID)])` ——
+元素 `0..N-1` 是 kernel 结果，元素 `N` 是 producer TaskId。parser 把每个
+`deps=[...]` 列表直接写入类型化的 `Submit::deps_` 字段（普通 `Call` 永不
+携带 `manual_dep_edges`——ManualDepsOnSubmitOnly 不变式）。`pl.at(..., deps=)`
+走相同的路径：outliner 读 `ScopeStmt` 上的 `attrs["task_id_var"]` +
+`attrs["manual_dep_edges"]`，把它们一起搬到合成的 `Submit` 上（带 deps 但
+没写 `as tid` 的 scope 会得到一个合成的未使用 TaskId Var，使派发仍是 Submit）。codegen 填充一个按精确依赖数定长的栈数组，
+并对每个 task 发出一次 `params.set_dependencies(arr, count);` 调用。
+runtime 的 `Arg::set_dependencies(ptr, count)` 直接接收调用者持有的任意
+长度数组，所以单 call 的依赖边数没有硬上限。显式 fan-in 可写成
+`barrier = pl.system.task_dummy(deps=[tids])`，再让 consumer `deps=[barrier]`；
+它复用同一套 dependency parser，lowering 成 `rt_submit_dummy_task(...)`，
+在 dep 全 invalid 时返回 invalid 且跳过 dummy submit，并可与自动
+`ExpandManualPhaseFence` barrier 共存。
+
+`pl.no_dep(arg)` 是 auto scope 原语；在 `pl.manual_scope` 内不起作用
+（整个 scope 已经退出自动跟踪了）。
+
+#### Manual scope 下的 `pl.parallel`：array-carry fence
+
+当 manual-dep 边穿过一个 `pl.parallel` 循环（即循环 iter_arg 承载被依赖的
+TaskId）时，orchestration codegen 把对应的 TaskId iter_arg 视作**大小等于
+parallel 循环 trip count 的数组**。每次 parallel 迭代写入自己的槽位；
+下游消费者依赖**每一个**槽位（不是只依赖"最后被发射"的那个
+task）。这就保证用户声明的 fence 语义即便在迭代乱序完成时也是正确的。
+
+走 array-carry 路径的前提：
+
+- `pl.parallel` 的 trip count 必须是 Python 字面量（编译期常量）。
+  trip count 是动态值的情况下 codegen 会拒绝，提示 "statically-known
+  trip count"。
+
+```python
+with pl.manual_scope():
+    prev_tid = None                                      # 种子：还没有 producer
+    for phase in pl.range(N_PHASES):
+        for branch in pl.parallel(N_BRANCHES):           # 编译期常量
+            row = (phase * N_BRANCHES + branch) * TILE_M
+            out, prev_tid = pl.submit(self.kernel_stripe, data, row, 1.0, out, deps=[prev_tid])
+```
+
+`prev_tid` 在 `pl.parallel` 内被重新绑定，所以 codegen 把 carry 下沉为
+`PTO2TaskId[N_BRANCHES]` 数组。phase `N+1` 中的每个 task 都会等待
+phase `N` 的全部 `N_BRANCHES` 个 task，而非只等最后那个。
+
+### Yield 语句
+
+```python
+yield            # No values
+yield x          # Single value
+yield x, y       # Multiple values
+```
+
+### Break 和 Continue
+
+```python
+break              # 退出最内层循环
+continue           # 跳到下一次迭代
+```
+
+**限制:** 仅当**最内层**封闭循环为顺序循环 (`pl.range`) 或 `while` 时有效。当最内层循环为 `pl.parallel()` 或 `pl.unroll()` 时不支持。在外层 `pl.parallel` 循环内嵌套的内层 `pl.range` 循环中使用 `break` 是合法的。**注意:** 代码生成后端对 `break`/`continue` 的支持跟踪在 [#448](https://github.com/hw-native-sys/pypto/issues/448) 中。
+
+### 编译期调试 (Compile-Time Debugging)
+
+`pl.static_print()` 和 `pl.static_assert()` 是仅在解析期执行的构造，用于在解析过程中检查 IR 状态和断言条件。它们**不生成任何 IR**。
+
+```python
+@pl.function
+def func(x: pl.Tensor[[128, 64], pl.FP16]) -> pl.Tensor[[128, 64], pl.FP16]:
+    pl.static_print("input:", x)          # → static_print [file:line]: input: x: pl.Tensor[[128, 64], pl.FP16]
+    pl.static_print(f"input: {x}")        # → static_print [file:line]: input: x: pl.Tensor[[128, 64], pl.FP16]
+    pl.static_assert(True)                # 静默通过
+    pl.static_assert(N > 32, "N too small")  # 在解析期检查闭包变量 N
+    return x
+```
+
+| 函数 | 用途 | 失败时 |
+| ---- | ---- | ------ |
+| `pl.static_print(*args)` | 将变量类型/值打印到 stdout | 需要 ≥1 个参数 |
+| `pl.static_assert(cond, msg="")` | 断言编译期条件 | 抛出 `ParserError` |
+| `pl.dump_tag(tensor)` | 把某个张量标记为运行期选择性 dump 的目标 —— 声明式逐张量标记（在 Orchestration 作用域，或被 orch 内联的 Inline helper 中均可使用 —— 见 [运行期 DFX](../03-runtime-dfx.md#选择性张量-dump)） | 在非 Orchestration / Inline 函数中使用、或参数不是裸变量名时抛出 `ParserSyntaxError` |
+
+**要点：**
+
+- 三者均为语句级构造（不能用在表达式中）
+- `static_print` 接受变量、常量、字符串标签（原样打印）和 f-string 的简单 `{expr}` 占位符（格式化为 IR）。不支持转换标志（`!r`、`!s`、`!a`）和格式说明符（`:...`）。
+- `static_assert` 支持闭包变量表达式（如 `N > 32`）和 IR 常量
+- `static_assert` 的消息参数必须是字符串字面量
+- `dump_tag` 接受单个绑定在外层 Orchestration（或 Inline）作用域内的张量变量名，在解析期被消耗，并自始至终以 Var 身份（而非名字）跟踪到 codegen。在显式 `self.kernel(...)` 调用点，它把该张量记录到每个后续消费它的 Call 的 `dump_vars` 上；在 `@pl.jit` / `with pl.at(level=...)` 风格（派发由 outline pass 合成）下，它改为写入所在 scope 的 `dump_vars`，再由 outliner 映射到合成派发的实参上（见 [运行期 DFX](../03-runtime-dfx.md#选择性张量-dump)）。若需要在单次 task 启动处显式列出 dump 目标，请用 `pl.submit(...)` / `pl.at(...)` 上的 `dumps=[...]` kwarg（与 `deps=` 对称）
+- 即使后续解析失败，输出仍会显示——适用于调试解析错误
+
+### 语句序列
+
+```python
+stmt1            # Natural Python sequencing
+stmt2
+stmt3
+```
+
+## 函数
+
+```python
+# Single return type
+def function_name(param1: pl.INT64, param2: pl.FP32) -> pl.INT64:
+    x: pl.INT64 = param1 + 1
+    return x
+
+# Multiple return types
+def function_name(x: pl.INT64) -> tuple[pl.INT64, pl.INT64]:
+    y: pl.INT64 = x + 1
+    z: pl.INT64 = x * 2
+    return y, z
+
+# No return types
+def function_name(x: pl.INT64):
+    y: pl.INT64 = x + 1
+
+# With function type
+@pl.function(type=pl.FunctionType.Orchestration)
+def orchestrator(n: pl.INT64) -> pl.INT64:
+    return n + 1
+
+@pl.function(type=pl.FunctionType.InCore)
+def aicore_kernel(x: pl.INT64) -> pl.INT64:
+    return x * 2
+```
+
+### 函数类型
+
+| 类型 | 用途 | 描述 |
+| ---- | ---- | ---- |
+| `pl.FunctionType.Opaque` | 默认 | 未指定的函数类型 |
+| `pl.FunctionType.Orchestration` | Host/AICPU | 控制流和依赖分析 |
+| `pl.FunctionType.InCore` | AICore | AICore 子图执行（未特化） |
+| `pl.FunctionType.AIC` | Cube 核心 | Cube 核心内核（特化的 InCore） |
+| `pl.FunctionType.AIV` | Vector 核心 | Vector 核心内核（特化的 InCore） |
+| `pl.FunctionType.Group` | 多核 | AIC + AIV 内核的协调调度组 |
+
+未指定类型时, 函数默认为 `Opaque`。
+
+### 参数方向
+
+参数可以使用包装类型指定 `In` (默认)、`Out` 或 `InOut` 方向:
+
+```python
+@pl.function(type=pl.FunctionType.InCore)
+def kernel(
+    qi: pl.Tensor[[16, 128], pl.BF16],                   # In (default)
+    output: pl.InOut[pl.Tensor[[16, 128], pl.FP32]],      # InOut
+    result: pl.Out[pl.Tensor[[16, 128], pl.FP32]],        # Out
+    scale: pl.Scalar[pl.FP32],                             # In (default)
+) -> pl.Tensor[[16, 128], pl.FP32]:
+    ...
+```
+
+| 方向 | 包装类型 | 描述 |
+| ---- | -------- | ---- |
+| `In` | 无 (默认) | 只读输入参数 |
+| `Out` | `pl.Out[type]` | 只写输出参数 |
+| `InOut` | `pl.InOut[type]` | 读写输入/输出参数 |
+
+**约束:** `Scalar` 参数不能使用 `InOut` 方向 (会抛出 `ParserTypeError`)。
+
+## 完整示例
+
+### 张量操作 (带 iter_args 的循环)
+
+```python
+# pypto.program: my_program
+import pypto.language as pl
+
+def loop_sum(n: pl.INT64) -> pl.INT64:
+    sum_init: pl.INT64 = 0
+    for i, (sum,) in pl.range(n, init_values=(sum_init,)):
+        sum = pl.yield_(sum + i)
+    return sum
+```
+
+### Tile 操作 (基于 Tile 的计算)
+
+```python
+import pypto.language as pl
+
+@pl.program
+class BlockExample:
+    @pl.function
+    def tile_add(
+        self,
+        input_a: pl.Tensor[[64, 64], pl.FP32],
+        input_b: pl.Tensor[[64, 64], pl.FP32],
+        output: pl.Tensor[[64, 64], pl.FP32],
+    ) -> pl.Tensor[[64, 64], pl.FP32]:
+        tile_a: pl.Tile[[64, 64], pl.FP32] = pl.load(input_a, [0, 0], [64, 64])
+        tile_b: pl.Tile[[64, 64], pl.FP32] = pl.load(input_b, [0, 0], [64, 64])
+        tile_c: pl.Tile[[64, 64], pl.FP32] = pl.add(tile_a, tile_b)
+        result: pl.Tensor[[64, 64], pl.FP32] = pl.store(tile_c, [0, 0], output)
+        return result
+```
+
+## SSA 风格控制流
+
+`pl.yield_()` 为 if/for 语句创建 SSA phi 节点:
+
+```python
+# If: phi node at merge point
+if condition:
+    y1 = pl.yield_(x + 1)
+else:
+    y1 = pl.yield_(x + 2)
+# y1 = phi(x + 1, x + 2)
+
+# For: loop-carried values via iter_args
+sum_init: pl.INT64 = 0
+for i, (sum,) in pl.range(10, init_values=(sum_init,)):
+    sum = pl.yield_(sum + i)
+sum_final: pl.INT64 = sum  # captures final value
+```
+
+## 打印 IR 节点
+
+对任意 IR 节点调用 `as_python()` 获取其 Python 表示：
+
+```python
+print(stmt.as_python())          # "x: pl.Scalar[pl.INT64] = a + b"（默认 "pl" 前缀）
+print(stmt.as_python("ir"))      # "x: ir.Scalar[ir.INT64] = a + b"（自定义前缀）
+```
+
+### 简洁模式 (Concise Mode)
+
+传入 `concise=True` 可省略中间变量的类型标注。函数签名类型（参数和返回值）始终保留：
+
+```python
+print(func.as_python())                  # 详细模式（默认）：每个赋值都包含类型
+print(func.as_python(concise=True))      # 简洁模式：省略中间类型标注
+```
+
+详细输出：
+
+```python
+def main(self, x: pl.Tensor[[64, 128], pl.FP32]) -> pl.Tensor[[64, 128], pl.FP16]:
+    y: pl.Tensor[[64, 128], pl.FP32] = pl.some_op(x)
+    result: pl.Tensor[[64, 128], pl.FP16] = pl.cast(y, pl.FP16)
+    return result
+```
+
+简洁输出：
+
+```python
+def main(self, x: pl.Tensor[[64, 128], pl.FP32]) -> pl.Tensor[[64, 128], pl.FP16]:
+    y = pl.some_op(x)
+    result = pl.cast(y, pl.FP16)
+    return result
+```
+
+自由函数 `ir.python_print(node)` 同样可用，支持相同的参数。
+
+## 参考资料
+
+- [IR 概述](../ir/00-overview.md) - 核心 IR 结构
+- [IR 解析器 (Parser)](../ir/07-parser.md) - 将 Python 语法解析回 IR
+- [操作符注册](../ir/05-operators.md) - 操作系统和类型推断

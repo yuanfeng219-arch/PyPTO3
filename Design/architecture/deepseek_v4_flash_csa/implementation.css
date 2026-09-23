@@ -1,0 +1,133 @@
+.pto-dv4-architecture.has-csa-selection {
+  --csa-unselected-node-fill: color-mix(in srgb, var(--surface-4) 82%, var(--foreground-muted));
+}
+
+.pto-dv4-architecture {
+  --csa-map-same: var(--success);
+  --csa-map-expanded: var(--primary);
+  --csa-map-state: var(--warning);
+  --csa-map-deploy: var(--accent);
+  --csa-diff-same: #90f4b4;
+  --csa-diff-expanded: #95bcf9;
+  --csa-diff-state: #fad595;
+  --csa-diff-deploy: #a69dfa;
+}
+
+:root[data-theme='light'] .pto-dv4-architecture {
+  --foreground-secondary: rgba(0, 0, 0, 0.68);
+  --foreground-muted: rgba(0, 0, 0, 0.56);
+}
+
+:root[data-theme='dark'] .pto-dv4-architecture {
+  --foreground-secondary: rgba(255, 255, 255, 0.72);
+  --foreground-muted: rgba(255, 255, 255, 0.60);
+}
+
+/* The shared DV4 sidecar uses 8px for compact multiplicity badges. This
+   page keeps every rendered label at the 10px accessibility floor. */
+.pto-dv4-architecture__legend-mark.is-merge::after,
+.pto-dv4-side-merge__badge-text {
+  font-size: 10px;
+}
+
+.pto-dv4-architecture[data-mapping-level='l1'] .pto-model-graphviz-node.is-collapsed > rect,
+.pto-dv4-architecture[data-mapping-level='l2'] .pto-model-graphviz-node.is-collapsed > rect {
+  stroke-width: 2px;
+}
+
+.pto-dv4-architecture :is([data-node-id='csa_scope_input'], [data-node-id='csa_scope_output']) {
+  pointer-events: none;
+}
+
+.pto-dv4-architecture :is([data-node-id='csa_scope_input'], [data-node-id='csa_scope_output']) > rect {
+  fill: color-mix(in srgb, var(--surface-2) 62%, transparent) !important;
+  stroke: var(--foreground-muted) !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 6 5;
+  opacity: .62;
+}
+
+.pto-dv4-architecture :is([data-node-id='csa_scope_input'], [data-node-id='csa_scope_output']) > .pto-model-graphviz-node-label {
+  fill: var(--foreground-secondary) !important;
+  opacity: .62;
+}
+
+/* Diff compares visible L3 nodes to L2, independently of source mapping tags. */
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node[data-node-id] > rect {
+  fill: color-mix(in srgb, var(--surface-4) 82%, var(--foreground-muted)) !important;
+}
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node[data-diff-highlight][data-diff-category='expanded'] > rect { fill: var(--csa-diff-expanded) !important; }
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node[data-diff-highlight][data-diff-category='state'] > rect { fill: var(--csa-diff-state) !important; }
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node[data-diff-highlight][data-diff-category='deploy'] > rect { fill: var(--csa-diff-deploy) !important; }
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node > :is(.pto-model-graphviz-node-label, .pto-model-graphviz-node-type) { fill: var(--foreground-muted) !important; }
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node[data-diff-highlight] > :is(.pto-model-graphviz-node-label, .pto-model-graphviz-node-type) { fill: #202938 !important; }
+.pto-dv4-architecture.is-mapping-diff .pto-model-graphviz-node[data-diff-highlight][data-diff-category='state'] > :is(.pto-model-graphviz-node-label, .pto-model-graphviz-node-type) { fill: #241a00 !important; }
+
+
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node:not([data-selection-keep]) > rect {
+  fill: var(--csa-unselected-node-fill) !important;
+  fill-opacity: 1;
+}
+
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node:not([data-selection-keep]) > .pto-model-graphviz-node-label,
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node:not([data-selection-keep]) > .pto-model-graphviz-node-type {
+  fill: var(--foreground-muted);
+}
+
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node.is-model-selected > rect {
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary) 55%, transparent));
+}
+
+.pto-dv4-architecture[data-mapping-level='l3'].has-csa-selection .pto-model-graphviz-edge:not(.is-model-related) {
+  opacity: 0.36;
+}
+
+.pto-dv4-architecture.has-model-boundary-focus [data-cluster-id='csa_model_semantic_scope'] > rect:first-child {
+  fill: color-mix(in srgb, var(--primary) 7%, transparent);
+  stroke: var(--primary);
+  stroke-width: 4px;
+  stroke-dasharray: 11 6;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 42%, transparent));
+}
+
+.pto-dv4-architecture.has-model-boundary-focus [data-cluster-id='csa_model_semantic_scope'] > .pto-model-graphviz-cluster-label {
+  fill: var(--primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.pto-dv4-architecture[data-mapping-level='l1'].has-model-boundary-focus [data-cluster-id='csa_model_semantic_scope'] > rect:first-child {
+  fill: transparent;
+  stroke-dasharray: none;
+}
+
+:root[data-theme='light'] .pto-dv4-architecture.has-csa-selection {
+  --csa-unselected-node-fill: color-mix(in srgb, var(--surface-3) 88%, var(--foreground-muted));
+}
+
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture,
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture__viewport {
+  background-color: #fff;
+}
+
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture {
+  --model-graphviz-bg: #fff;
+  --model-graphviz-surface: #fff;
+  --model-graphviz-surface-soft: #fff;
+  --model-graphviz-stage-bg: #fff;
+}
+
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture__viewport {
+  background-image: none;
+}
+
+/* Selection takes precedence over semantic and Diff colors on both canvases. */
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node[data-node-id]:not([data-selection-keep]) > rect {
+  fill: var(--csa-unselected-node-fill) !important;
+  fill-opacity: 1 !important;
+  filter: none !important;
+}
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node[data-node-id]:not([data-selection-keep]) > .pto-model-graphviz-node-label,
+.pto-dv4-architecture.has-csa-selection .pto-model-graphviz-node[data-node-id]:not([data-selection-keep]) > .pto-model-graphviz-node-type {
+  fill: var(--foreground-muted) !important;
+}
