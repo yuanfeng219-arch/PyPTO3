@@ -198,7 +198,22 @@ rank0 共 8 段、1199.6 us，占 span 的 24.6%。最长那段 671 us 里 72 �
 
 点任意一行会把泳道时间窗收到那一段。
 
+### 下钻可返回
+
+scope 行和空转行都会改写时间窗，所以两种下钻都留了回路：
+
+| 动作 | 改了什么 | 面包屑 | 返回方式 |
+|---|---|---|---|
+| 点 scope 行 | 面板 → kernel 详情 + 时间窗 | `← scope 排行 / csa_merge_pack_publish` | 点面包屑，或 Esc |
+| 点空转行 | 只改时间窗，面板不动 | `← 恢复时间窗 / 3587–4526 us` | 同上 |
+
+返回时时间窗恢复到下钻前的值（不是重置成全量）。连续下钻不会覆盖最初的返回点。
+
 ### 泳道上的占用率色带
+
+工具条上 `着色` 是一个开关。**关掉之后所有任务条变中性灰**（`--surface-4`，
+深色 `#313131` / 浅色 `#CCCCCC`），对比度全部让给占用率色带、空转底色和关键路径，
+图例也跟着换成「任务（配色已关）/ 空转窗口 N 段 / 关键路径 N 节点」。
 
 泳道顶部固定两条色带(AIC / AIV)，透明度跟着每窗占用率走；
 被判定为空转的窗口整列打上 warning 色底、两侧虚线、上方标 `671 us 空转`。
@@ -351,10 +366,68 @@ L1 视图里的试算器不是通用公式演示，它对着**本 run 的实测�
 
 ---
 
+## kernel → 源码：dump 里没有，但能重建
+
+泳道上的算子名不是编译器发明的。每个外联 scope 都以源码里的
+`pl.spmd(..., name_hint="X")` 命名：
+
+```python
+# decode_sparse_attn_csa.py:208
+with pl.spmd(NUM_QK_CORES, name_hint="qk_pv", deps=[qk_plan_tid, cache_ready_dep],
+             allow_early_resolve=True) as qk_tid:
+```
+
+从入口 `decode_csa.py` 追传递导入(13 个模块)、索引其中所有 `name_hint`，
+就能把 trace 里的 callable 打回源码：
+
+| | |
+|---|---|
+| 覆盖 | **62 / 62** callable |
+| 唯一定位到 文件:行 | **54** |
+| 多候选(同名 hint 出现在多处) | **8** |
+| 未匹配 | 0 |
+
+编译器加的两级后缀要先折回去：
+
+- `_aic` / `_aiv` —— `ExpandMixedKernel`(pass 23)拆 mixed kernel。
+  `qk_pv_aic` → `qk_pv`
+- `_0` —— **同一处源码被实例化两次**，不是两处源码。
+  `decode_csa.py` 只 import 了 `compressor_ratio4`，却在 line 353 与 892 各调一次，
+  两次 tile 常量不同，实测块数 512 / 256 正好对上 —— 于是有
+  `kv_score_proj` 与 `kv_score_proj_0`
+
+另外 `_spmd` 是**前端追踪时追加**的：源码写 `name_hint="csa_merge_pack_publish"`，
+`00_frontend.py` 里才变成 `..._spmd`。别拿前端 IR 当源码读。
+
+### 界面上怎么呈现
+
+- L2 scope 排行每行第二列给 `文件:行`，多候选标 `+N` 并染成 warning 色
+- L1 kernel inspector 多一行 `源码`；多候选或去后缀匹配的，下面补一张卡说明
+- ISA 页签新增 `kernel → 源码` 段，写明**来源不在 dump 内**、依据是什么、
+  以及**不能做的事：只给出 scope 写在哪里，不把实测块时长归到某一行**
+- decode_fwd_layers 的 Qwen3 源码树不在仓库里，同一段显示为缺失并说明可重建
+
+### 泳道图例去掉了
+
+原来按算子着色时画 8 个色块，是 `slice(0, 8)` 的显示上限，不是统计量 ——
+62 个 scope 列 8 个既不完整，在 decode_fwd_layers 上还会重名(426 个任务只有 38 个
+callable，前 8 个任务里 5 个都是 `up_proj`，颜色还完全一样)。
+
+62 路分类本来就没有可读的图例。现在改成一行读数：
+
+```
+62 scope 各一色 · 颜色只用于区分相邻块，名字看悬停或右侧排行
+```
+
+按引擎着色仍保留 AIC / AIV / MIX 三项 —— 那是真能查的图例。
+
+---
+
 ## 诚实的空缺
 
-- **没有 kernel → 源码映射**。perf hint 挂在源码位置上，IR 只保留 outline 后的 incore scope 名，两者之间
-  这份 dump 不提供可验证的对应关系。L1 视图因此不做自动归因，只提供模块选择器 + 明确说明「对应关系需人工确认」。
+- **dump 内没有 kernel → 源码映射**。decode_csa 的这一条已由模型源码按 name_hint 重建（62/62 覆盖、54 唯一、
+  8 个多候选，见上一节）；decode_fwd_layers 的 Qwen3 源码树不在仓库里，仍然缺。重建出来的是「scope 写在哪里」，
+  **不是**「哪一行耗了多少时间」——perf hint 自带的行号与它是两条独立证据，不要互相当作确认。
 - **没有 PTOAS / VPTO 级产物**。ISA 视图只给这份 dump 能支撑的结论（工具链指纹、布局与内存空间分配、L0 tile 清单、
   512B 约束），并列出需要补齐哪些产物（TileLib 模板选择记录、VPTO 指令排布报告、cycle cost model 预测、PMU counter）
   才能把结论推进到指令层。

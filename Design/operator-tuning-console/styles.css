@@ -623,6 +623,38 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-evidence-row .l { color: var(--foreground); font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
 .tc-evidence-row .v { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.45; }
 
+/* ------------------------------------------------ drill-down breadcrumb
+ * Sits at the top of whichever panel a scope / idle-window drill landed on,
+ * so the way back is where the reader already is. */
+.tc-crumb {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.tc-crumb-back {
+  padding: 2px var(--space-2);
+  margin-left: calc(var(--space-2) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  font: var(--type-body-sm);
+  cursor: pointer;
+}
+.tc-crumb-back:hover { background: var(--state-hover); }
+.tc-crumb > .sep { color: var(--foreground-disabled); }
+.tc-crumb > .cur {
+  color: var(--foreground-secondary);
+  font-family: var(--font-mono);
+  font: var(--type-body-sm);
+  font-family: var(--font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* ------------------------------------------------- L2 scope inspector
  * Ranked rows with an inline proportional bar behind the name, so the
  * "where did the time go" reading needs no second chart. */
@@ -671,6 +703,16 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   font-family: var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* file:line under the scope name; "+N" marks more than one candidate site */
+.tc-scoperow > .l > .src {
+  position: relative;
+  display: block;
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tc-scoperow > .l > .src.is-amb { color: var(--warning); }
 .tc-scoperow > .n { font-family: var(--font-mono); text-align: right; }
 .tc-scoperow > .n.muted { color: var(--foreground-muted); }
 /* zero slack on a fat scope: the combination worth acting on */

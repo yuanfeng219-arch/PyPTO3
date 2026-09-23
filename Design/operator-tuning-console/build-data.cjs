@@ -37,6 +37,9 @@ const CASES = [
     model: 'deepseek_v4_flash_dspark / decode_csa',
     sourceRoot: '/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark',
     binaryContext: 'next_levels/decode_csa_test/cache/binary_context.json',
+    /* the model source this run was compiled from; absolute, outside the dump */
+    sourceDir: path.join(DATA, 'DeepseekV4/deepseek_v4_flash_dspark'),
+    entryModule: 'decode_csa.py',
     ranks: [
       { key: 'rank0', dir: 'dfx_outputs/rank0/d0', trace: 'merged_swimlane_20260903_010746.json', host: 'host.2263908.log' },
       { key: 'rank1', dir: 'dfx_outputs/rank1/d0', trace: 'merged_swimlane_20260903_010747.json', host: 'host.2263922.log' },
@@ -53,6 +56,9 @@ const CASES = [
     model: 'qwen3 / 14b / decode_layer',
     sourceRoot: '/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/qwen3/14b',
     binaryContext: null,
+    /* the Qwen3 tree this was compiled from is not in the repo */
+    sourceDir: null,
+    entryModule: null,
     ranks: [
       { key: 'device0', dir: 'dfx_outputs', trace: 'merged_swimlane_20260625_185006.json', host: null },
     ],
@@ -174,9 +180,11 @@ const caseInfo = {
   },
   incoreScopes: incoreNames,
   sourceRoot: CASE.sourceRoot,
-  /* Neither dump carries a kernel -> source-file map: perf hints are anchored
-   * on source locations, the IR keeps only outlined incore scope names. */
+  /* No dump carries a kernel -> source map. For decode_csa one is rebuilt
+   * from the model source by name_hint (see sourceMap); without the source
+   * tree — decode_fwd_layers — there is none. */
   hasKernelSourceMap: false,
+  kernelSourceRebuilt: !!(CASE.sourceDir && fs.existsSync(CASE.sourceDir)),
   /* what this dump can and cannot answer — the UI reads these directly */
   artifacts: {
     hostSpans: CASE.ranks.every((r) => !!r.host),
@@ -765,6 +773,99 @@ const schedBusy = R.scheduler.busy;
 const rqStat = R.readyStat;
 const hbPairs = R.hbViolations;
 
+/* --------------------------------------------------- kernel -> source
+ * The dump has no kernel->source map, but the names are not invented: every
+ * outlined scope is named after a pl.spmd(..., name_hint="X") in the model
+ * source. Walking the entry module's transitive imports and indexing those
+ * hints reconstructs the mapping the dump omits.
+ *
+ * Two things this deliberately does NOT do:
+ *   - it does not claim a unique site when the same hint appears more than
+ *     once; those are reported as candidates
+ *   - it does not attribute measured time to a source line. The name says
+ *     where the scope was written, not which call site produced which block. */
+const SUFFIX = /_(aic|aiv)$|_\d+$/;
+const sourceIndex = (function () {
+  if (!CASE.sourceDir || !fs.existsSync(CASE.sourceDir)) return null;
+  const root = CASE.sourceDir;
+  const exists = (f) => fs.existsSync(path.join(root, f));
+  const seen = new Set();
+  const queue = [CASE.entryModule];
+  while (queue.length) {
+    const f = queue.shift();
+    if (!f || seen.has(f) || !exists(f)) continue;
+    seen.add(f);
+    const text = fs.readFileSync(path.join(root, f), 'utf8');
+    for (const m of text.matchAll(/^\s*(?:from|import)\s+([a-z_0-9]+)/gm)) {
+      const cand = m[1] + '.py';
+      if (exists(cand) && !seen.has(cand)) queue.push(cand);
+    }
+  }
+  const hints = {};
+  Array.from(seen).sort().forEach((f) => {
+    fs.readFileSync(path.join(root, f), 'utf8').split('\n').forEach((line, i) => {
+      const m = line.match(/name_hint="([^"]+)"/);
+      if (!m) return;
+      (hints[m[1]] = hints[m[1]] || []).push({ file: f, line: i + 1 });
+    });
+  });
+  return { modules: Array.from(seen).sort(), hints: hints };
+})();
+
+/* resolve one callable to its source site(s) */
+function sourceFor(callable) {
+  if (!sourceIndex) return null;
+  const direct = sourceIndex.hints[callable];
+  const base = callable.replace(SUFFIX, '');
+  const viaSuffix = direct ? null : sourceIndex.hints[base];
+  const sites = direct || viaSuffix;
+  if (!sites || !sites.length) return null;
+  return {
+    hint: direct ? callable : base,
+    exact: !!direct,
+    file: sites[0].file,
+    line: sites[0].line,
+    candidates: sites.length,
+    sites: sites.length > 1 ? sites : null,
+  };
+}
+
+const sourceMap = (function () {
+  if (!sourceIndex) return null;
+  const out = {};
+  let uniq = 0, ambiguous = 0, missing = 0;
+  Object.keys(RANKS).forEach((rk) => {
+    RANKS[rk].tasks.forEach((t) => {
+      if (out[t.callable] !== undefined) return;
+      const src = sourceFor(t.callable);
+      out[t.callable] = src;
+      if (!src) missing++;
+      else if (src.candidates > 1) ambiguous++;
+      else uniq++;
+    });
+  });
+  return {
+    root: path.basename(CASE.sourceDir),
+    entry: CASE.entryModule,
+    modules: sourceIndex.modules,
+    hintCount: Object.keys(sourceIndex.hints).length,
+    map: out,
+    covered: uniq + ambiguous,
+    total: uniq + ambiguous + missing,
+    unique: uniq,
+    ambiguous: ambiguous,
+    missing: missing,
+  };
+})();
+
+/* hang it on the tasks and scopes so every panel can read it */
+if (sourceMap) {
+  Object.keys(RANKS).forEach((rk) => {
+    RANKS[rk].tasks.forEach((t) => { t.src = sourceMap.map[t.callable] || null; });
+    RANKS[rk].scopes.forEach((sc) => { sc.src = sourceMap.map[sc.name] || null; });
+  });
+}
+
 /* ------------------------------------------------------- launch skew
  * Both host logs carry ts= on the same host CLOCK_MONOTONIC (sequential pids
  * on one machine), so the two per-rank device traces — each of which starts
@@ -1302,7 +1403,8 @@ const findings = [
     })),
     focus: { view: 'compiler', tab: 'granularity' },
     lever: '按 dtype 把末维凑到 512B：BF16 → 256 元素倍数，FP32 → 128，INT8 → 512。',
-    guardrail: '加大末维会同时抬高 L0/UB 占用，可能触发 F4 的深度回退；两项要一起看。',
+    guardrail: '加大末维会同时抬高 L0/UB 占用，可能触发 F4 的深度回退；两项要一起看。'
+      + (sourceMap ? ' scope→源码已可定位，但 perf hint 的行号来自编译器自身，两者是独立证据，不要互相当作确认。' : ''),
     verify: '重编译后核对 PH001 条数与最小末维，并复测对应 kernel 的 MTE 时间。',
   },
   CAN.F6 && {
@@ -1602,6 +1704,7 @@ const payload = {
   findings: findings,
   investigations: investigations,
   launchSkew: launchSkew,
+  sourceMap: sourceMap,
   derived: {
     waitTasks: waitTasks.map((t) => t.tag), waitSpan: waitSpan,
     setupHeavy: setupHeavy.map((t) => t.tag),
