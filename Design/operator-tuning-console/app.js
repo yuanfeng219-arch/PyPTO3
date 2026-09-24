@@ -47,8 +47,10 @@
     colorMode: 'semantic',
     colorOn: true,          /* off => every bar goes neutral grey */
     scopeReturn: null,      /* window + focus to restore when drilling back up */
+    folded: {},             /* inspector sections the reader has collapsed */
     overlay: 'sched',
     critOnly: false,
+    pathOnly: 'off',       /* 'off' | 'obs' | 'cpm' -- which path the filter shows */
     focusEvidence: false,
     scrollToLane: null,
     t0: 0, t1: 0,
@@ -153,6 +155,7 @@
     S.findingLevel = 'all';
     S.laneFilter = 'all';
     S.critOnly = false;
+    S.pathOnly = 'off';
     S.task = tasksOf[S.rank][D.derived.worstHandoff]
       ? D.derived.worstHandoff : R().tasks[0].tag;
     S.hintSite = D.tileSites.length ? D.tileSites[0].key : null;
@@ -662,7 +665,7 @@
       { label: '偏差', num: true, cell: (r) => (r.diff / r.host < 0.02 ? '<span class="ok">' : '<span class="warn">') + num(r.diff, 1) + ' us</span>' },
       { label: '任务', key: 'tasks', num: true },
       { label: '块', key: 'blocks', num: true },
-      { label: '关键路径', cell: (r) => r.crit + ' 节点', num: true },
+      { label: '依赖关键路径', cell: (r) => r.crit + ' 节点', num: true },
       { label: 'AIC 占用', num: true, cell: (r) => pct(r.aic) },
       { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
     ], recRows, { onPick: (r) => { S.rank = r.rank; render(); } }));
@@ -695,7 +698,7 @@
       { k: 'trace span', v: num(R0.swimlane.spanUs, 1), u: 'us（设备钟）' },
       { k: '任务', v: String(R0.tasks.length) },
       { k: '块', v: String(R0.swimlane.blocks.reduce((a, b) => a + b.length, 0)) },
-      { k: '关键路径', v: R0.critical.tags.length, u: '节点' },
+      { k: '依赖关键路径', v: R0.critical.tags.length, u: '节点 · 静态 CPM' },
       { k: 'AIC 占用', v: pct(R0.occupancy.aicUtil), tone: R0.occupancy.aicUtil < 40 ? 'bad' : 'good' },
       { k: 'AIV 占用', v: pct(R0.occupancy.aivUtil), tone: R0.occupancy.aivUtil < 40 ? 'bad' : null },
     ]));
@@ -719,16 +722,28 @@
     const crit = rank.critical;
     const critSet = {};
     crit.tags.forEach((t) => { critSet[t] = 1; });
+    /* whichever path the "只看" filter is pointed at */
+    const pathSet = {};
+    (S.pathOnly === 'cpm' ? crit.tags : rank.cpath.segments.map((sg) => sg.tag))
+      .forEach((t) => { pathSet[t] = 1; });
     const subj = subjectTaskSet();      /* tag -> 1-based marker number */
     const subjLane = subjectLaneSet();
     const hasSubjects = Object.keys(subj).length > 0;
     const dim = S.focusEvidence && (hasSubjects || Object.keys(subjLane).length > 0);
 
-    /* --- critical path ribbon: the measured chain, on the real time axis --- */
+    /* --- path ribbon -------------------------------------------------
+     * Drawn on the real time axis, so it shows the path that actually
+     * tiles that axis: the observed blame walk. The dependency floor does
+     * NOT tile it (14 nodes, 3066.8 + 185.8 gap against a 4879.8 makespan),
+     * so putting it here used to make the header claim "走完 4879.8 us"
+     * about a chain that covers two thirds of it. CPM nodes are ticked. */
+    const cp = rank.cpath;
+    const cpmOnPath = cp.segments.filter((sg) => sg.onCpm).length;
     const ribSec = el('section');
-    ribSec.appendChild(sectionHead('关键路径 · ' + crit.tags.length + ' 节点',
-      '链上 span 合计 ' + us(crit.spanSum) + '，正向间隙 ' + us(crit.gapOnPath) + '，重叠 ' + us(crit.overlapOnPath),
-      el('span', 'tc-readout', '走完 ' + us(rank.swimlane.spanUs))));
+    ribSec.appendChild(sectionHead('观测路径 · ' + cp.segments.length + ' 节点',
+      '计算 ' + us(cp.computeTotal) + ' + stall ' + us(cp.stallTotal) + ' = ' + us(cp.makespan),
+      el('span', 'tc-readout', '其中 ' + cpmOnPath + ' 个也在依赖关键路径上（共 '
+        + crit.tags.length + ' 个 · ' + us(crit.chainSpan) + '）')));
     const ribHost = el('div', 'tc-canvas-strip');
     const ribCanvas = el('canvas');
     ribHost.appendChild(ribCanvas);
@@ -762,7 +777,7 @@
       const i2 = el('i');
       i2.style.background = cssVar('--danger');
       s2.appendChild(i2);
-      s2.appendChild(el('span', null, '关键路径 ' + crit.tags.length + ' 节点'));
+      s2.appendChild(el('span', null, '依赖关键路径 ' + crit.tags.length + ' 节点'));
       legend.appendChild(s2);
     } else if (S.colorMode === 'engine') {
       [['aic', 'AIC'], ['aiv', 'AIV'], ['mix', 'MIX']].forEach((p) => {
@@ -835,10 +850,10 @@
       }
 
       ctx.fillStyle = cssVar('--foreground-muted');
-      ctx.fillText('CRIT PATH', 4, 40 + evRow);
-      ctx.fillText('GAP', 4, 62 + evRow);
+      ctx.fillText('OBS PATH', 4, 40 + evRow);
+      ctx.fillText('STALL', 4, 62 + evRow);
       let cursor = null;
-      crit.nodes.forEach((node) => {
+      cp.segments.forEach((node) => {
         const t = tasksOf[S.rank][node.tag];
         if (!t) return;
         const x = sx(t.start), x2 = sx(t.end);
@@ -853,6 +868,12 @@
           fontFamily: cssVar('--font-sans'),
         });
         ctx.globalAlpha = 1;
+        /* a tick above the bar marks a node that is ALSO on the dependency
+         * floor -- touching one of those lowers the floor, not just the stall */
+        if (node.onCpm) {
+          ctx.fillStyle = cssVar('--danger');
+          ctx.fillRect(Math.max(plotX, x), 27 + evRow, Math.max(2, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), 2);
+        }
         /* gap markers are not task bars: page-local data-viz marks */
         if (cursor !== null && t.start > cursor) {
           const gx = sx(cursor), gx2 = sx(t.start);
@@ -1012,7 +1033,7 @@
         ctx.fillText(lane.name, 4, y + ROW_H / 2);
         rank.swimlane.blocks[li].forEach((b) => {
           const t = rank.tasks[b[2]];
-          if (S.critOnly && !critSet[t.tag]) return;
+          if (S.critOnly && !pathSet[t.tag]) return;
           const x = sx(b[0]), x2 = sx(b[0] + b[1]);
           if (x2 < plotX || x > plotX + plotW) return;
           const xa = Math.max(plotX, x);
@@ -1032,7 +1053,7 @@
             x: xa, y: y, width: wBar, height: ROW_H, radius: 1,
             baseColor: taskColor(t),
             isSelected: isSubj || t.tag === S.task,
-            isRelated: !isSubj && t.tag !== S.task && !!critSet[t.tag] && !S.critOnly,
+            isRelated: !isSubj && t.tag !== S.task && !!pathSet[t.tag] && !S.critOnly,
             isEmphasized: isSubj,
             fontFamily: cssVar('--font-sans'),
           });
@@ -1084,7 +1105,7 @@
         const b = blocks[i];
         if (t >= b[0] - tolerance && t <= b[0] + b[1] + tolerance) {
           const task = rank.tasks[b[2]];
-          if (S.critOnly && !critSet[task.tag]) continue;
+          if (S.critOnly && !pathSet[task.tag]) continue;
           return { task: task, block: b, lane: row.name };
         }
       }
@@ -1199,14 +1220,17 @@
   function viewL1(stage) {
     const rank = R();
     const t = curTask();
-    const critSet = {};
-    rank.critical.tags.forEach((x) => { critSet[x] = 1; });
+    const role = pathRole(rank, t.tag);
 
     /* --- identity + measured split --- */
     const idSec = el('section');
     idSec.appendChild(sectionHead(t.callable, t.tag + ' · ' + t.kind.toUpperCase() + ' · task ' + t.id
       + ' · ' + t.kernelCount + ' kernel',
-      el('span', 'tc-readout', critSet[t.tag] ? '在关键路径上（第 ' + (rank.critical.tags.indexOf(t.tag) + 1) + ' 节点）' : '不在关键路径上')));
+      (function () {
+        const ro = el('span', 'tc-readout' + (role.onCpm ? ' is-crit' : ''), pathLabel(role));
+        ro.title = pathTitle(role);
+        return ro;
+      })()));
     const kernelMean = t.kdurSum / t.blockCount;
     idSec.appendChild(tiles([
       { k: 'span', v: num(t.span, 1), u: 'us' },
@@ -1928,21 +1952,51 @@
   }
 
   /* ======================================================== inspector */
+  /* The rail opens the three questions the page exists to answer and folds
+   * the supporting detail. With everything expanded L2 was 6.3 screens of
+   * scrolling against 1-2 on every other tab. Nothing is removed: a folded
+   * section is one click from its full content, and the fold state is kept
+   * per title so it survives the rail's re-render. */
+  const FOLD_BY_DEFAULT = { '统计口径': 1, '引擎配对': 1, 'spmd 展开': 1 };
+
   function inspectorSection(title, kicker) {
     const s = el('section', 'inspector-section');
     const h = el('div', 'inspector-section-head');
-    h.appendChild(el('h3', 'inspector-section-title', title));
-    if (kicker) h.appendChild(el('span', 'inspector-section-kicker', kicker));
+    if (!FOLD_BY_DEFAULT[title]) {
+      h.appendChild(el('h3', 'inspector-section-title', title));
+      if (kicker) h.appendChild(el('span', 'inspector-section-kicker', kicker));
+      s.appendChild(h);
+      return s;
+    }
+    if (S.folded[title] === undefined) S.folded[title] = true;
+    const open = !S.folded[title];
+    s.classList.add('is-foldable');
+    if (!open) s.classList.add('is-folded');
+    const btn = el('button', 'inspector-section-toggle');
+    btn.type = 'button';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.appendChild(el('span', 'chev', open ? '−' : '+'));
+    btn.appendChild(el('h3', 'inspector-section-title', title));
+    if (kicker) btn.appendChild(el('span', 'inspector-section-kicker', kicker));
+    btn.addEventListener('click', () => {
+      S.folded[title] = !S.folded[title];
+      renderInspector();
+    });
+    h.appendChild(btn);
     s.appendChild(h);
     return s;
   }
 
+  /* [label, value] or [label, value, title] -- the third slot is where an
+   * explanation goes that used to cost a whole card. */
   function kv(pairs) {
     const d = el('dl', 'tc-kv');
     pairs.forEach((p) => {
       if (p[1] == null) return;
-      d.appendChild(el('dt', null, p[0]));
-      d.appendChild(el('dd', null, p[1]));
+      const dt = el('dt', p[2] ? 'has-q' : null, p[0]);
+      const dd = el('dd', null, p[1]);
+      if (p[2]) { dt.title = p[2]; dd.title = p[2]; }
+      d.appendChild(dt); d.appendChild(dd);
     });
     return d;
   }
@@ -1982,6 +2036,31 @@
    * Σdur on its own ranks the fat scopes; pairing it with DAG slack separates
    * "fat" from "fat and pinned to the critical path". */
   const lanesOf = () => R().swimlane.lanes.length;
+
+  /* membership in each of the two paths, for one task */
+  function pathRole(rank, tag) {
+    const onCpm = rank.critical.tags.indexOf(tag);
+    const seg = rank.cpath.segments.filter((sg) => sg.tag === tag)[0];
+    const obsIdx = seg ? rank.cpath.segments.indexOf(seg) : -1;
+    return {
+      onCpm: onCpm >= 0, cpmIdx: onCpm + 1, cpmN: rank.critical.tags.length,
+      onObs: !!seg, obsIdx: obsIdx + 1, obsN: rank.cpath.segments.length,
+      seg: seg || null,
+    };
+  }
+  function pathLabel(r) {
+    if (!r.onCpm && !r.onObs) return '两条路径都不在';
+    const bits = [];
+    if (r.onCpm) bits.push('依赖关键路径 ' + r.cpmIdx + '/' + r.cpmN);
+    if (r.onObs) bits.push('观测路径 ' + r.obsIdx + '/' + r.obsN);
+    return '在 ' + bits.join(' · ');
+  }
+  function pathTitle(r) {
+    return '依赖关键路径 = 静态 CPM，依赖决定的延迟下界；动它降下界。' + NL
+      + '观测路径 = 从最后完成的任务反向归责走出的链，计算 + stall 精确铺满 makespan；动它去掉 stall。' + NL
+      + '两条不是同一个集合，所以「在不在关键路径上」必须说清是哪一条。'
+      + (r.seg ? NL + '本节点前的 stall ' + num(r.seg.stall, 2) + ' us（' + r.seg.kind + '）' : '');
+  }
   /* scopes are source-level pl.spmd regions; kernels are what launched */
   const scopeCountOf = () => R().scopes.length;
 
@@ -2070,42 +2149,47 @@
       ['Scheduler View', A.schedCoreTime
         ? num(A.schedCoreTime, 0) + ' us · ' + A.schedBlocks + ' 块' : '—'],
       ['hand-off 差', A.handoff == null ? '—' : '+' + num(A.handoff, 0) + ' us'],
-      ['scope / kernel', rank.scopes.length + ' / ' + kernelTotal],
+      ['scope / kernel', rank.scopes.length + ' / ' + kernelTotal,
+        splitScopes.length
+          ? 'scope = 源码里一个 pl.spmd 区域；kernel = 设备上真正 launch 的函数。' + NL
+            + 'ExpandMixedKernel 把 ' + splitScopes.length + ' 个混合 scope 各拆成 AIC + AIV，'
+            + '所以多 ' + (kernelTotal - rank.scopes.length) + ' 个：'
+            + splitScopes.map((x) => x.name).join('、') + NL
+            + '两半共用一次 launch（同一个 taskId），只能靠 FuncId 分开。'
+          : 'scope = 源码里一个 pl.spmd 区域；kernel = 设备上真正 launch 的函数。'
+            + '本 case 没有混合 scope，两者一一对应。'],
     ]));
-    /* the two words are not synonyms and the gap is exactly the mixed scopes */
-    s0.appendChild(el('div', 'inspector-soft-card',
-      splitScopes.length
-        ? 'scope = 源码里一个 pl.spmd 区域；kernel = 设备上真正 launch 的函数。'
-          + 'ExpandMixedKernel 把 ' + splitScopes.length + ' 个混合 scope 各拆成 AIC + AIV 两个 kernel，'
-          + '所以 kernel 比 scope 多 ' + (kernelTotal - rank.scopes.length) + ' 个：'
-          + splitScopes.map((x) => x.name).join('、') + '。两半共用一次 launch（同一个 taskId），'
-          + '只能靠 FuncId 分开。'
-        : 'scope = 源码里一个 pl.spmd 区域；kernel = 设备上真正 launch 的函数。'
-          + '本 case 没有混合 scope，两者一一对应。'));
     if (A.naiveSum) {
       s0.appendChild(el('div', 'inspector-soft-card is-warning',
         '同一个块在 trace 里出现两次。两边相加得 ' + num(A.naiveSum, 0)
         + ' us —— 这是重复计数，不是总量。下面的 scope 排行只用 Worker View。'));
     }
-    host.appendChild(s0);
+    /* s0 is built here but appended below: the rail leads with the three
+     * questions the L2 page exists to answer, not with its bookkeeping. */
 
-    /* --- 2. where the makespan went, attributed --- */
+    /* --- 1. where the makespan went, attributed --- */
     host.appendChild(renderCriticalPath(rank));
 
-    /* --- 3. scope ranking: core-time × slack --- */
-    const top = rank.scopes.slice(0, 14);
+    /* --- 2. scope ranking: core-time × slack --- */
+    const top = rank.scopes.slice(0, 10);
     const maxCore = top[0] ? top[0].coreTime : 1;
     const s1 = inspectorSection('scope 排行', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
     const rows = el('div', 'tc-scoperows');
     const hd = el('div', 'tc-scoperow is-head');
-    [['scope', 'l'], ['引擎', 'e'], ['core-time', 'n'], ['占', 'n'], ['slack', 'n']]
-      .forEach((c) => hd.appendChild(el('span', c[1], c[0])));
+    [['scope', 'l', '外联后的 incore scope，按 Worker core-time 排'],
+     ['引擎', 'e', 'C = AIC (Cube)，V = AIV (Vec)，C+V = 混合 scope'],
+     ['core-time', 'n', 'Σ 块时长，跨所有核'],
+     ['占', 'n', '占本 rank 总 core-time'],
+     ['slack', 'n', 'DAG 上这个 scope 最紧的任务能被推迟多久。'
+       + '0 = 在依赖关键路径上，动它直接缩短总时长；slack 大 = 它胖但不急，先看并行度。' + NL
+       + '不含资源争抢 —— 等核那部分在「关键路径归责」里记作 core-wait。']]
+      .forEach((c) => { const x = el('span', c[1], c[0]); x.title = c[2]; hd.appendChild(x); });
     rows.appendChild(hd);
     top.forEach((sc) => {
       const b = el('button', 'tc-scoperow' + (sc.onCrit ? ' is-crit' : ''));
       b.type = 'button';
       b.title = sc.taskCount + ' 任务 / ' + sc.blocks + ' 块 · wall ' + num(sc.wall, 1) + ' us'
-        + (sc.onCrit ? ' · 关键路径上 ' + sc.critNodes + ' 个节点' : ' · 不在关键路径上')
+        + (sc.onCrit ? ' · 依赖关键路径上 ' + sc.critNodes + ' 个节点' : ' · 不在依赖关键路径上')
         + (sc.src ? '\n' + srcLabel(sc.src) + '\n' + srcTitle(sc.src) : '');
       const nm = el('span', 'l');
       nm.appendChild(el('i', 'bar'));
@@ -2137,19 +2221,16 @@
       rows.appendChild(b);
     });
     s1.appendChild(rows);
-    s1.appendChild(el('div', 'inspector-soft-card',
-      'slack = DAG 上这个 scope 最紧的那个任务能被推迟多久（fanin/fanout + 实测 span 的'
-      + '前推/后推）。0 = 在关键路径上，动它直接缩短总时长；slack 大 = 它胖但不急，'
-      + '先看并行度。不含资源争抢 —— 等核的那部分在上面的「关键路径归责」里记作 core-wait。'));
     host.appendChild(s1);
 
     /* --- 3. idle windows --- */
     const idle = rank.idleRuns || [];
     const idleUs = idle.reduce((a, r) => a + r.us, 0);
     const s2 = inspectorSection('空转窗口',
-      idle.length ? idle.length + ' 段 · ' + pct((idleUs / rank.swimlane.spanUs) * 100, 1) : '无');
+      idle.length ? '前 ' + Math.min(5, idle.length) + ' / ' + idle.length + ' 段 · '
+        + pct((idleUs / rank.swimlane.spanUs) * 100, 1) : '无');
     if (!idle.length) {
-      s2.appendChild(el('div', 'inspector-soft-card',
+      s2.appendChild(el('div', 'tc-foot',
         '没有 AIC 与 AIV 同时低于 ' + rank.idlePct + '% 的窗口（窗宽 '
         + num(rank.occWindowUs, 1) + ' us）。'));
     } else {
@@ -2157,7 +2238,7 @@
       const ih = el('div', 'tc-scoperow is-idle is-head');
       ['窗口', '时长', 'AIC', 'AIV'].forEach((t, i) => ih.appendChild(el('span', i ? 'n' : 'l', t)));
       ir.appendChild(ih);
-      idle.slice(0, 8).forEach((r) => {
+      idle.slice(0, 5).forEach((r) => {
         const b = el('button', 'tc-scoperow is-idle');
         b.type = 'button';
         b.title = '窗口内实际在跑：' + (r.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('，') || '无')
@@ -2180,21 +2261,24 @@
       const worst = idle[0];
       /* what is actually executing, by block overlap — not by task envelope */
       const hog = worst.spanning.filter((t) => t.blocks <= 2 && t.onCrit)[0];
-      s2.appendChild(el('div', 'inspector-soft-card is-warning',
-        '最长一段 ' + num(worst.us, 0) + ' us（占 ' + pct(worst.share, 1) + '），'
-        + lanesOf() + ' 核只用掉 ' + pct(worst.running.capacityPct, 1) + ' 容量。'
+      /* headline + cause; the block-by-block breakdown moves to hover */
+      const ic = el('div', 'inspector-soft-card is-warning');
+      ic.appendChild(el('div', 'hd', '最长一段 ' + num(worst.us, 0) + ' us，'
+        + lanesOf() + ' 核只用掉 ' + pct(worst.running.capacityPct, 1)));
+      ic.appendChild(el('div', 'bd', hog
+        ? hog.callable + ' 单块跨越整段（span ' + num(hog.span, 0) + ' us，在依赖关键路径上）——挡住全部核。'
+        : (worst.running.top.length ? '窗口内只有零星块在跑。' : '窗口内没有任何块在执行。')));
+      ic.title = '占 ' + pct(worst.share, 1) + ' 的 makespan。' + NL
         + (worst.running.top.length
           ? '窗口内在跑：' + worst.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('、')
-          : '窗口内没有任何块在执行。')
-        + (hog ? ' 跨越整段的是 ' + hog.callable + '（' + hog.blocks + ' 块，span ' + num(hog.span, 0)
-          + ' us，在关键路径上）——单块任务挡住全部核。' : '')));
+          : '窗口内没有任何块在执行。');
+      s2.appendChild(ic);
     }
     host.appendChild(s2);
 
-    /* --- 4. AIC / AIV pairing --- */
+    /* --- supporting detail, folded by default --- */
+    host.appendChild(s0);
     host.appendChild(renderEnginePairing(rank));
-
-    /* --- 5. spmd launch shape --- */
     host.appendChild(renderSpmdShape(rank));
   }
 
@@ -2215,8 +2299,7 @@
 
   function renderCriticalPath(rank) {
     const c = rank.cpath;
-    const sec = inspectorSection('关键路径归责',
-      c.segments.length + ' 节点 · ' + (c.tiling.exact ? '归责闭合' : '归责未闭合'));
+    const sec = inspectorSection('路径归责', c.segments.length + ' 节点');
 
     if (!c.acyclic) {
       sec.appendChild(el('div', 'inspector-soft-card is-warning',
@@ -2225,40 +2308,57 @@
 
     sec.appendChild(kv([
       ['makespan', num(c.makespan, 0) + ' us'],
-      ['静态 CPM', num(c.cpm.len, 0) + ' us · ' + pct(c.cpm.share, 1)
-        + '（' + c.cpm.nodes + ' 节点）'],
+      ['静态 CPM', num(c.cpm.len, 0) + ' us · ' + pct(c.cpm.share, 1),
+        '依赖决定的延迟下界（无限核），' + c.cpm.nodes + ' 个节点。'
+        + '接近 makespan = 依赖受限，图本身就是地板。'],
       ['真正计算', num(c.workSpan, 0) + ' us · ' + pct(c.workShare, 1)],
       ['通信等待', c.waitNodes
         ? num(c.waitSpan, 0) + ' us · ' + pct(c.waitShare, 1) + '（' + c.waitNodes + ' 个 *_wait）'
         : '—'],
-      ['调度 stall', num(c.stallTotal, 0) + ' us · ' + pct(c.stallShare, 1)],
-      ['  data-wait', num(c.stallByKind['data-wait'], 1) + ' us'],
-      ['  core-wait', num(c.stallByKind['core-wait'], 1) + ' us'],
-      ['  front-gap', num(c.stallByKind['front-gap'], 1) + ' us'],
+      ['调度 stall', num(c.stallTotal, 0) + ' us · ' + pct(c.stallShare, 1),
+        '等上游 data-wait ' + num(c.stallByKind['data-wait'], 1) + ' us' + NL
+        + '等核 core-wait ' + num(c.stallByKind['core-wait'], 1) + ' us' + NL
+        + '启动 front-gap ' + num(c.stallByKind['front-gap'], 1) + ' us'],
+      ['  数据 / 核 / 启动',
+        num(c.stallByKind['data-wait'], 0) + ' / ' + num(c.stallByKind['core-wait'], 0)
+        + ' / ' + num(c.stallByKind['front-gap'], 0) + ' us'],
     ]));
 
     /* the invariant that makes the per-task attribution sound */
-    const tl = el('div', 'inspector-soft-card' + (c.tiling.exact ? '' : ' is-warning'));
-    tl.appendChild(el('div', 'hd', c.tiling.exact ? '归责闭合检查 ✓' : '归责闭合检查 ✗'));
-    tl.appendChild(el('div', 'bd',
-      'compute + stall = ' + num(c.tiling.sum, 2) + ' us vs makespan ' + num(c.tiling.makespan, 2)
-      + ' us，差 ' + num(c.tiling.delta, 2) + ' us。'
-      + (c.tiling.exact
-        ? '每一微秒都被归到了某个节点的计算或它前面的某一类等待上 —— 下面的逐节点归责成立。'
-        : '走查没有铺满 makespan，逐节点归责不成立，下面的数字不要引用。')));
-    sec.appendChild(tl);
-
-    /* the verdict */
-    const bd = el('div', 'inspector-soft-card' + (c.bound === 'compute' ? '' : ' is-warning'));
-    bd.appendChild(el('div', 'hd', BOUND_LABEL[c.bound] || c.bound));
-    bd.appendChild(el('div', 'bd', c.boundWhy));
+    /* The verdict, with the validity gate folded into its own line: if the
+     * walk did not tile the makespan the verdict is not usable at all. */
+    const bd = el('div', 'inspector-soft-card' + (c.bound === 'compute' && c.tiling.exact ? '' : ' is-warning'));
+    bd.appendChild(el('div', 'hd', (BOUND_LABEL[c.bound] || c.bound)
+      + (c.tiling.exact ? '' : ' · 归责未闭合')));
+    bd.appendChild(el('div', 'bd', c.tiling.exact
+      ? c.boundWhy
+      : '走查没有铺满 makespan（' + num(c.tiling.sum, 2) + ' vs ' + num(c.tiling.makespan, 2)
+        + '），逐节点归责不成立，下面的数字不要引用。'));
+    const gate = el('div', 'bd gate');
+    gate.textContent = (c.tiling.exact ? '✓ ' : '✗ ')
+      + '归责闭合 compute + stall = makespan（差 ' + num(c.tiling.delta, 2) + ' us）';
+    gate.title = 'compute + stall = ' + num(c.tiling.sum, 2) + ' us vs makespan '
+      + num(c.tiling.makespan, 2) + ' us。' + NL
+      + '这条不成立，逐节点归责就不成立 —— 它是整段分析能不能用的前提。';
+    bd.appendChild(gate);
+    /* the floor check: a dependency-limited floor cannot exceed the wall
+     * time it is a floor for. Nothing checked this until it was violated. */
+    const cr = rank.critical;
+    const floor = el('div', 'bd gate');
+    floor.textContent = (cr.floorValid ? '✓ ' : '✗ ')
+      + '依赖下界 CPM ≤ makespan（' + num(cr.chainSpan, 0) + ' ≤ ' + num(cr.walltime, 0) + ' us）';
+    floor.title = '静态 CPM 是「无限核时依赖能压到多短」，它不可能超过实测总时长。' + NL
+      + '这条曾经被违反过：未过滤时间戳的最长链算出 102.2%，把实际并行的两段时长相加了。' + NL
+      + '路径上残留重叠 ' + num(cr.overlapOnPath, 2) + ' us'
+      + (cr.overlapWithinTol ? '（在边保留容差内）' : '（超出容差，要查）');
+    bd.appendChild(floor);
     sec.appendChild(bd);
 
     /* --- path nodes, worst stall first --- */
     const slow = c.segments.filter((sg) => sg.stall > 1)
       .sort((a, b) => b.stall - a.stall);
     const shown = (slow.length ? slow : c.segments.slice().sort((a, b) => b.compute - a.compute))
-      .slice(0, 10);
+      .slice(0, 6);
     const rows = el('div', 'tc-scoperows');
     const hd = el('div', 'tc-scoperow is-cpath is-head');
     [['路径节点', 'l'], ['因', 'e'], ['stall', 'n'], ['span', 'n']]
@@ -2295,30 +2395,29 @@
       rows.appendChild(b);
     });
     sec.appendChild(rows);
-    sec.appendChild(el('div', 'inspector-soft-card',
-      (slow.length ? '🐌 = 该节点前的 stall 超过 1 us（' + c.slowNodes + ' 个）。' : '路径上没有超过 1 us 的 stall。')
-      + '红色左边框 = 同时在静态 CPM 路径上，动它降依赖下界；'
-      + '否则只在观测路径上，动它去掉的是 stall。'
-      + 'span 是节点整段时长，stall 是它前面那段没人干活的时间。'));
-
-    /* the two paths are not interchangeable targets */
+    /* One line, not three cards: the marks, and the one distinction that
+     * changes what a proposal is actually worth. */
+    const note = el('div', 'tc-foot');
+    note.appendChild(el('span', null,
+      (slow.length ? '🐌 stall > 1 us（' + c.slowNodes + ' 个）' : '无 stall > 1 us')
+      + ' · 红边框 = 也在静态 CPM 上'));
     if (c.cpm.onlyOnCpm && c.cpm.onlyOnCpm.length) {
-      sec.appendChild(el('div', 'inspector-soft-card',
-        '静态 CPM 的 ' + c.cpm.nodes + ' 个节点里，' + c.cpm.shared
-        + ' 个也在观测路径上，另外 ' + c.cpm.onlyOnCpm.length
-        + ' 个观测路径从不经过（' + c.cpm.onlyOnCpm.join('、') + '）。'
-        + '动后者降的是依赖下界，动只在观测路径上的节点去掉的是 stall —— '
-        + '提优化建议时必须说清在动哪一条，两者不能互换。'));
+      const more = el('span', 'q', '两条路怎么选 ?');
+      more.title = '静态 CPM 的 ' + c.cpm.nodes + ' 个节点里 ' + c.cpm.shared
+        + ' 个也在观测路径上，另外 ' + c.cpm.onlyOnCpm.length + ' 个观测路径从不经过（'
+        + c.cpm.onlyOnCpm.join('、') + '）。' + NL
+        + '动只在 CPM 上的节点 → 降依赖下界。' + NL
+        + '动只在观测路径上的节点 → 去掉 stall。' + NL
+        + '两者不能互换，提建议时要说清在动哪一条。';
+      note.appendChild(more);
     }
-
-    /* --- how this was derived, and what it is not --- */
-    sec.appendChild(el('div', 'inspector-soft-card',
-      '依赖边按实测时间戳过滤：只有 end(前驱) ≤ start(本节点) + ' + num(c.tol, 3)
-      + ' us 且 start(前驱) < start(本节点) 才保留（' + c.edgesKept + ' 留 / '
-      + c.edgesDropped + ' 弃）。容差'
-      + (c.tolSource === 'clock' ? '取 2 个时钟 tick。' : '本 case 没记时钟频率，退回到时间戳精度的 2 个量子。')
-      + ' core-wait 的前驱是同一条泳道上此前被释放的最晚时刻（running max），'
-      + '所以流水重叠的块也算得对。'));
+    const how = el('span', 'q', '怎么算的 ?');
+    how.title = '依赖边按实测时间戳过滤：只有 end(前驱) ≤ start(本节点) + ' + num(c.tol, 3)
+      + ' us 且 start(前驱) < start(本节点) 才保留（' + c.edgesKept + ' 留 / ' + c.edgesDropped + ' 弃）。' + NL
+      + '容差' + (c.tolSource === 'clock' ? '取 2 个时钟 tick。' : '本 case 没记时钟频率，退回时间戳精度的 2 个量子。') + NL
+      + 'core-wait 的前驱是同一条泳道上此前被释放的最晚时刻（running max），流水重叠的块也算得对。';
+    note.appendChild(how);
+    sec.appendChild(note);
 
     return sec;
   }
@@ -2397,16 +2496,16 @@
     sec.appendChild(rows);
 
     const worst = split[0];
-    sec.appendChild(el('div', 'inspector-soft-card' + (worst.pairRatio < 1.3 ? ' is-warning' : ''),
-      worst.name + ' 两侧最长块 ' + num(worst.engines.aic.durMax, 1) + ' / '
-      + num(worst.engines.aiv.durMax, 1) + ' us，相差 ' + worst.pairRatio + ' 倍。'
-      + (worst.pairRatio < 1.3
-        ? '几乎相等 = 两半没有错开，Cube 段和 Vec 段是在块内串行跑的；'
-          + '整段 span 只有 ' + num(worst.wall, 0) + ' us 也印证这点。解耦成 GM FIFO 才能真正并行。'
-        : '差距明显 = 慢的一侧决定整块时长，快的一侧在等。')));
-    sec.appendChild(el('div', 'inspector-soft-card',
-      '通用 trace 工具看到的是 ' + worst.spmd.blocks + ' 个同名块；'
-      + 'AIC / AIV 的归属只存在于 event-hint 的 FuncId 里，而两半共用同一个 taskId。'));
+    const card = el('div', 'inspector-soft-card' + (worst.pairRatio < 1.3 ? ' is-warning' : ''));
+    card.appendChild(el('div', 'hd', worst.name + ' 两侧最长块相差 ' + worst.pairRatio + ' 倍'));
+    card.appendChild(el('div', 'bd', worst.pairRatio < 1.3
+      ? '几乎相等 = 两半没有错开，Cube 段和 Vec 段在块内串行。解耦成 GM FIFO 才能真正并行。'
+      : '差距明显 = 慢的一侧决定整块时长，快的一侧在等。'));
+    card.title = num(worst.engines.aic.durMax, 1) + ' / ' + num(worst.engines.aiv.durMax, 1)
+      + ' us，整段 span ' + num(worst.wall, 0) + ' us。' + NL
+      + '通用 trace 工具只看到 ' + worst.spmd.blocks + ' 个同名块 —— AIC / AIV 的归属只在 '
+      + 'event-hint 的 FuncId 里，而两半共用同一个 taskId。';
+    sec.appendChild(card);
     return sec;
   }
 
@@ -2432,8 +2531,14 @@
 
     const rows = el('div', 'tc-scoperows');
     const hd = el('div', 'tc-scoperow is-spmd is-head');
-    [['scope', 'l'], ['核', 'n'], ['块', 'n'], ['波', 'n'], ['离散', 'n']]
-      .forEach((c) => hd.appendChild(el('span', c[1], c[0])));
+    [['scope', 'l', '外联后的 incore scope'],
+     ['核', 'n', '最宽一次 pl.spmd 展开占了几个核'],
+     ['块', 'n', '块数'],
+     ['波', 'n', '块数 / 核数。1 波 = 一次填满；>1 波 = 同一批核要跑好几轮，'
+       + '每轮之间有一次完成回收。'],
+     ['离散', 'n', '最长块 / 中位块。>2 = 同一次展开里各块负载不均，'
+       + '最慢的那块决定整个 scope 什么时候结束。']]
+      .forEach((c) => { const x = el('span', c[1], c[0]); x.title = c[2]; hd.appendChild(x); });
     rows.appendChild(hd);
 
     /* rank by what makes a fan-out worth looking at: many waves, or uneven */
@@ -2469,14 +2574,9 @@
     });
     sec.appendChild(rows);
     if (!notable.length) {
-      sec.appendChild(el('div', 'inspector-soft-card',
-        '没有多波、不均或变宽的展开 —— 每个 spmd 都是一次填满、块长一致。'
-        + '本 case 的形状问题在别处：' + single + ' 个 scope 只用 1 个核。'));
+      sec.appendChild(el('div', 'tc-foot',
+        '没有多波、不均或变宽的展开；本 case 的形状问题是 ' + single + ' 个 scope 只用 1 个核。'));
     }
-    sec.appendChild(el('div', 'inspector-soft-card',
-      '波 = 块数 / 核数。1 波 = 一次填满，>1 波 = 同一批核要跑好几轮，'
-      + '每轮之间有一次完成回收。离散度 = 最长块 / 中位块，>2 说明同一次展开里各块负载不均，'
-      + '最慢的那块决定整个 scope 什么时候结束。'));
     return sec;
   }
 
@@ -2507,7 +2607,7 @@
       ['trace span', num(a.swimlane.spanUs, 1) + ' / ' + num(b.swimlane.spanUs, 1) + ' us'],
       ['AIC 占用', pct(a.occupancy.aicUtil) + ' / ' + pct(b.occupancy.aicUtil)],
       ['AIV 占用', pct(a.occupancy.aivUtil) + ' / ' + pct(b.occupancy.aivUtil)],
-      ['关键路径', a.critical.tags.length + ' / ' + b.critical.tags.length + ' 节点'],
+      ['依赖关键路径', a.critical.tags.length + ' / ' + b.critical.tags.length + ' 节点'],
       ['调度器占用', pct(a.scheduler.perLaneUtil) + ' / ' + pct(b.scheduler.perLaneUtil)],
     ]));
     /* the observation, then what the host clock says causes it */
@@ -2576,6 +2676,7 @@
       ['kernel · setup', num(t.kdurSum / t.blockCount, 2) + ' · ' + num(t.setupMean, 2) + ' us'],
       ['AICPU 视角', t.svAicpuMean == null ? null : num(t.svAicpuMean, 1) + ' us（+' + num(t.svOverhead, 1) + '）'],
       ['前驱 / 后继', t.pred.length + ' / ' + t.succ.length],
+      (function () { const r = pathRole(rank, t.tag); return ['路径', pathLabel(r), pathTitle(r)]; })(),
       ['kernel', (t.kernels || []).map((k) => k.name).join(' + ') || t.callable],
       ['源码', t.src ? srcLabel(t.src) : (D.sourceMap ? '未匹配' : '源码树不在仓库内')],
     ]));
@@ -3272,7 +3373,7 @@
         : '无 host log'],
       ['AIC 占用', pct(R0.occupancy.aicUtil)],
       ['AIV 占用', pct(R0.occupancy.aivUtil)],
-      ['关键路径', R0.critical.tags.length + ' 节点'],
+      ['依赖关键路径', R0.critical.tags.length + ' 节点（静态 CPM）'],
       ['调度器占用', pct(R0.scheduler.perLaneUtil)],
     ]));
     if (!hasE2E()) {
@@ -3350,10 +3451,11 @@
         { id: 'ready', label: 'Ready queue' },
         { id: 'none', label: '无' },
       ], S.overlay, (v) => { S.overlay = v; render(); })));
-      right.appendChild(btn('只看关键路径', {
-        size: 'sm', selected: S.critOnly,
-        on: () => { S.critOnly = !S.critOnly; render(); },
-      }));
+      right.appendChild(field('只看', select([
+        { id: 'off', label: '全部任务' },
+        { id: 'obs', label: '观测路径' },
+        { id: 'cpm', label: '依赖关键路径' },
+      ], S.pathOnly, (v) => { S.pathOnly = v; S.critOnly = v !== 'off'; render(); })));
       const zoomGroup = el('div', 'toolbar-control');
       zoomGroup.appendChild(btn('−', { variant: 'ghost', size: 'icon', title: '缩小', on: () => { zoom(2); redrawStage(); renderToolbar(); renderDock(); } }));
       zoomGroup.appendChild(btn('Fit', { variant: 'ghost', size: 'sm', on: () => { S.t0 = 0; S.t1 = R().swimlane.spanUs; redrawStage(); renderToolbar(); renderDock(); } }));
@@ -3492,6 +3594,7 @@
       if (p) S.pass = p.idx;
     }
     S.critOnly = false;
+    S.pathOnly = 'off';
     S.focusEvidence = true;
     if (S.view === 'l2') { S.t0 = 0; S.t1 = R().swimlane.spanUs; }
   }
@@ -3506,7 +3609,7 @@
       ['rank', S.rank + (TRACE_MATCH[S.rank] ? ' inv=' + TRACE_MATCH[S.rank].inv : ' · 无 host log')],
       ['span', us(rank.swimlane.spanUs, 1)],
       ['tasks', String(rank.tasks.length)],
-      ['crit', rank.critical.tags.length + ' 节点'],
+      ['crit', rank.critical.tags.length + ' CPM / ' + rank.cpath.segments.length + ' 观测'],
       ['AIC / AIV', pct(rank.occupancy.aicUtil, 0) + ' / ' + pct(rank.occupancy.aivUtil, 0)],
       ['sched', pct(rank.scheduler.perLaneUtil, 0)],
       ['hints', String(D.hints.length)],

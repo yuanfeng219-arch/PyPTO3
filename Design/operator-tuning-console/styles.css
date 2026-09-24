@@ -202,10 +202,23 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 }
 .inspector-section {
   display: grid;
+  /* Without an explicit column an auto-sized grid track grows to max-content,
+   * and one white-space:nowrap child (a bottleneck-queue button carrying a
+   * long title) pushed the track to 434px inside a 393px rail. Pin the track
+   * to the container and let the long child clip instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   align-content: start;
   padding: var(--inspector-section-padding-y) 0;
   border-top: 1px solid var(--inspector-section-divider);
+}
+/* the queue buttons are nowrap by design; truncate rather than overhang */
+.inspector-section > .btn {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  text-align: left;
 }
 .inspector-section:first-child { border-top: 0; }
 .inspector-section-head {
@@ -231,6 +244,61 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 }
 /* a head with no title keeps its kicker on the left */
 .inspector-section-head > .inspector-section-kicker:first-child { margin-left: 0; }
+
+/* a folded section keeps only its head; the body stays in the DOM so
+ * nothing has to be rebuilt on expand */
+.inspector-section.is-folded > *:not(.inspector-section-head) { display: none; }
+.inspector-section.is-folded { padding-bottom: 0; }
+.inspector-section-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 2px var(--space-1);
+  margin-inline: calc(var(--space-1) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.inspector-section-toggle:hover { background: var(--state-hover); }
+.inspector-section-toggle > .chev {
+  flex: none;
+  width: 9px;
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+}
+.inspector-section-toggle:hover > .chev { color: var(--foreground); }
+
+/* A one-line footnote under a table. Replaces the explanatory cards that
+ * used to follow every table -- the detail moved into title= on the column
+ * headers, and '?' spans mark where more is available on hover. */
+.tc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+}
+.tc-foot > .q {
+  color: var(--foreground-secondary);
+  border-bottom: 1px dotted var(--border);
+  cursor: help;
+}
+.tc-foot > .q:hover { color: var(--foreground); }
+/* a kv row that carries its explanation on hover */
+.tc-kv > dt.has-q { border-bottom: 1px dotted var(--border); cursor: help; }
+/* the validity gate line inside the verdict card */
+.inspector-soft-card > .bd.gate {
+  margin-top: 2px;
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: help;
+}
 
 .inspector-soft-card {
   display: grid;

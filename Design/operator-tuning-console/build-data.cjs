@@ -537,45 +537,9 @@ const hbPairs = trace.filter((e) => e.cat === 'flow' && e.name === 'hb_violation
   };
 });
 
-/* ------------------------------------------------------- critical path */
+/* ----------------------------------------------------------- by tag */
 const byTag = {};
 tasks.forEach((t) => { byTag[t.tag] = t; });
-const best = {};
-for (const t of tasks) {
-  let bp = null, bl = 0;
-  for (const p of t.pred) {
-    const P = byTag[p];
-    if (!P) continue;
-    const c = (best[p] ? best[p].len : 0) + P.span;
-    if (c > bl) { bl = c; bp = p; }
-  }
-  best[t.tag] = { len: bl, prev: bp };
-}
-let endTag = null, mx = -1;
-for (const t of tasks) {
-  const v = best[t.tag].len + t.span;
-  if (v > mx) { mx = v; endTag = t.tag; }
-}
-const critTags = [];
-for (let c = endTag; c; c = best[c].prev) critTags.unshift(c);
-let cursor = null, posGap = 0, overlap = 0;
-const critNodes = critTags.map((tag) => {
-  const t = byTag[tag];
-  const gap = cursor === null ? 0 : r2(t.start - cursor);
-  if (gap > 0) posGap += gap; else overlap += -gap;
-  cursor = t.end;
-  return { tag: tag, gap: gap };
-});
-const critical = {
-  tags: critTags,
-  chainSpan: r2(mx),
-  walltime: SPAN,
-  nodes: critNodes,
-  gapOnPath: r2(posGap),
-  overlapOnPath: r2(overlap),
-  spanSum: r2(sum(critTags.map((tg) => byTag[tg].span))),
-};
-
 /* ------------------------------------------ critical path, attributed
  * Ports simpler_setup.tools.critical_path (repo/simpler). The structural
  * slack below says how much the DEPENDENCY GRAPH would tolerate; it cannot
@@ -765,6 +729,15 @@ const cpath = (function () {
   }
 
   return {
+    /* the filtered graph itself: slack has to run on the same edges the
+     * critical path does, or the two disagree about who is critical */
+    hbPred: hbPred,
+    hbSucc: (function () {
+      const out = {};
+      tasks.forEach((t) => { out[t.tag] = []; });
+      tasks.forEach((t) => { hbPred[t.tag].forEach((ptag) => { out[ptag].push(t.tag); }); });
+      return out;
+    })(),
     tol: TOL, tolSource: TOL_SOURCE,
     makespan: makespan,
     edgesKept: kept, edgesDropped: dropped,
@@ -800,25 +773,79 @@ const cpath = (function () {
   };
 })();
 
+/* ------------------------------------------------------- critical path
+ * ONE definition, derived from the happens-before graph cpath already
+ * filtered by observed timestamps.
+ *
+ * This used to be an independent longest-path walk over the RAW deps graph.
+ * That treated every dependency edge as a happens-before edge, so when a
+ * consumer actually started before its producer finished -- early dispatch,
+ * or a lifetime edge that encodes ownership rather than ordering -- it added
+ * both spans instead of one. On decode_csa/rank0 it reported a 33-node chain
+ * of 4985.02 us against a 4879.82 us makespan: 102.2%, which a dependency
+ * floor cannot be. Five edges on that chain overlapped, 539.74 us of them.
+ *
+ * The filtered CPM's 14 nodes are a strict subset of that 33, so the old
+ * walk was not mis-ordered, it was over-including. */
+const critTags = cpath.cpm.tags;
+let cursor = null, posGap = 0, overlap = 0;
+const critNodes = critTags.map((tag) => {
+  const t = byTag[tag];
+  const gap = cursor === null ? 0 : r2(t.start - cursor);
+  if (gap > 0) posGap += gap; else overlap += -gap;
+  cursor = t.end;
+  return { tag: tag, gap: gap };
+});
+/* A dependency-limited floor cannot exceed the wall time it is a floor for.
+ * Nothing checked this before, which is why the old walk shipped wrong. */
+const floorValid = cpath.cpm.len <= SPAN + 0.01;
+const critical = {
+  tags: critTags,
+  chainSpan: cpath.cpm.len,
+  walltime: SPAN,
+  nodes: critNodes,
+  gapOnPath: r2(posGap),
+  overlapOnPath: r2(overlap),
+  spanSum: r2(sum(critTags.map((tg) => byTag[tg].span))),
+  share: cpath.cpm.share,
+  floorValid: floorValid,
+  /* residual overlap must stay inside the edge-retention tolerance */
+  overlapWithinTol: overlap <= TOL * critTags.length + 0.01,
+};
+if (!floorValid) {
+  console.error('  !! ' + rank + ' critical path ' + cpath.cpm.len
+    + ' us exceeds makespan ' + SPAN + ' us');
+}
+
+
 /* -------------------------------------------------------------- slack
- * Standard forward/backward pass over the fanin/fanout DAG using the
- * MEASURED span of each task. ES/EF from predecessors, LF/LS from
- * successors, slack = LS - ES. This is structural slack: it says how much
- * the dependency graph would tolerate, and deliberately ignores resource
- * contention — two zero-slack tasks may still be fighting for the same core.
- * Tasks on the measured critical path have slack 0 by construction. */
+ * Standard forward/backward pass using the MEASURED span of each task.
+ * ES/EF from predecessors, LF/LS from successors, slack = LS - ES.
+ *
+ * It runs on the SAME timestamp-filtered graph as the critical path. Using
+ * the raw fanin/fanout edges instead over-constrains the pass: an edge whose
+ * producer did not actually gate the consumer still pushes ES forward, so
+ * slack comes out too small and far too many tasks read as zero-slack. On
+ * decode_csa/rank0 that was 33 zero-slack tasks against a 14-node critical
+ * path -- the scope ranking's red "on the critical path" border was on 19
+ * scopes that were not.
+ *
+ * This is still STRUCTURAL slack: it says how much the graph would tolerate
+ * and deliberately ignores resource contention. Two zero-slack tasks may
+ * still be fighting for the same core -- that part is core-wait in cpath. */
 const topo = tasks.slice().sort((a, b) => a.start - b.start);
+const hbP = cpath.hbPred, hbS = cpath.hbSucc;
 const ES = {}, EF = {}, LS = {}, LF = {};
 topo.forEach((t) => {
   let es = 0;
-  t.pred.forEach((ptag) => { if (EF[ptag] != null && EF[ptag] > es) es = EF[ptag]; });
+  hbP[t.tag].forEach((ptag) => { if (EF[ptag] != null && EF[ptag] > es) es = EF[ptag]; });
   ES[t.tag] = es;
   EF[t.tag] = es + t.span;
 });
 const makespan = Math.max.apply(null, topo.map((t) => EF[t.tag]));
 topo.slice().reverse().forEach((t) => {
   let lf = null;
-  t.succ.forEach((stag) => { if (LS[stag] != null && (lf === null || LS[stag] < lf)) lf = LS[stag]; });
+  hbS[t.tag].forEach((stag) => { if (LS[stag] != null && (lf === null || LS[stag] < lf)) lf = LS[stag]; });
   LF[t.tag] = lf === null ? makespan : lf;
   LS[t.tag] = LF[t.tag] - t.span;
 });
@@ -1656,13 +1683,18 @@ const CAN = {
 const findings = [
   CAN.F1 && {
     id: 'F1', level: 'l2', severity: 'high', axis: 'comm',
-    title: '通信等待独占关键路径 ' + r2((waitSpan / SPAN) * 100) + '%',
+    title: '通信等待占 makespan ' + r2((waitSpan / SPAN) * 100) + '%',
     metric: waitSpan + ' us / ' + SPAN + ' us',
     claim: waitTasks.length + ' 个 *_wait 任务合计 ' + waitSpan + ' us，全部单块单核，其中 '
-      + waitTasks[0].callable + ' 单独 ' + waitTasks[0].span + ' us；关键路径 ' + critTags.length + ' 个节点里通信与 publish 段占主导。',
+      + waitTasks[0].callable + ' 单独 ' + waitTasks[0].span + ' us。'
+      + '它们全部落在观测路径（' + R.cpath.segments.length + ' 节点）上，其中 '
+      + waitTasks.filter((t) => critTags.indexOf(t.tag) >= 0).length
+      + ' 个同时在依赖关键路径（' + critTags.length + ' 节点）上 —— '
+      + '前者说明等待吃掉了实测墙钟，后者说明它有一部分连依赖下界都压不掉。',
     evidence: [
       { artifact: 'merged_swimlane (rank0/d0)', locator: waitTasks.map((t) => t.tag).join(' / '), value: waitTasks.map((t) => t.callable + '=' + t.span + 'us').join(', ') },
-      { artifact: 'critical path (fanin/fanout hints)', locator: 'chain ' + critTags.length + ' nodes', value: 'span sum ' + critical.spanSum + ' us' },
+      { artifact: '依赖关键路径（happens-before 图，按实测时间戳过滤）', locator: 'chain ' + critTags.length + ' nodes', value: critical.chainSpan + ' us = makespan 的 ' + critical.share + '%' },
+      { artifact: '观测路径（反向归责走查）', locator: R.cpath.segments.length + ' nodes', value: '等待 ' + R.cpath.waitSpan + ' us / 真算 ' + R.cpath.workSpan + ' us / stall ' + R.cpath.stallTotal + ' us，合计 = makespan' },
     ],
     focus: { view: 'l2', task: waitTasks[0].tag, critOnly: true },
     lever: '按通信算子优先级推进：先确认算法选择（allgather vs 分块 readback），再做通算重叠，最后才调块大小与乒乓。',
@@ -1844,7 +1876,7 @@ const findings = [
       qkAic && qkAiv ? { artifact: 'merged_swimlane（按 FuncId 拆）', locator: qkpv.kernels.map((k) => 'FuncId ' + k.funcId + ' = ' + k.name).join(' / '), value: 'AIC ' + qkAic.blocks + ' 块 ' + qkAic.coreTime + ' us（最长 ' + qkAic.durMax + '）· AIV ' + qkAiv.blocks + ' 块 ' + qkAiv.coreTime + ' us（最长 ' + qkAiv.durMax + '）' } : null,
       { artifact: 'name_map.json', locator: 'callable_id_to_name', value: nameMapCount + ' 个 kernel 名 vs ' + R.scopes.length + ' 个 scope —— 差的正是被拆开的 mixed scope' },
       { artifact: 'deps.json', locator: 'task ' + qkpv.id, value: 'block_num=' + qkpv.blockNum + '，前驱 ' + qkpv.pred.length + ' 个，后继 ' + qkpv.succ.length + ' 个' },
-      { artifact: 'critical path', locator: '是否在关键路径上', value: critTags.indexOf(qkpv.tag) >= 0 ? '在，第 ' + (critTags.indexOf(qkpv.tag) + 1) + ' 个节点' : '不在' },
+      { artifact: '路径归属', locator: '依赖关键路径 / 观测路径', value: (critTags.indexOf(qkpv.tag) >= 0 ? '依赖关键路径第 ' + (critTags.indexOf(qkpv.tag) + 1) + ' 节点' : '不在依赖关键路径上') + ' · ' + (R.cpath.segments.some((sg) => sg.tag === qkpv.tag) ? '观测路径第 ' + (R.cpath.segments.findIndex((sg) => sg.tag === qkpv.tag) + 1) + ' 节点' : '不在观测路径上') },
     ].filter(Boolean),
     focus: { view: 'l1', task: qkpv.tag },
     lever: '按 Flash Attention 的 Cube→Vec→Cube→Vec 解耦思路，用 GM FIFO 让两侧真正并行，而不是块内串行。',
