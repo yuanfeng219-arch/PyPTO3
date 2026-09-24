@@ -10,17 +10,21 @@
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const kb = (b) => b >= 1024 ? (b / 1024).toFixed(b >= 10240 ? 0 : 1) + 'KB' : b + 'B';
 
-  // Palette hooks resolve against the page's design tokens.
+  // Pass mechanics remain visually neutral. Validation status is carried by
+  // the containing flow node and its Run Validation evidence, rather than by
+  // the IR representation shown in this explanatory diagram.
   const C = {
-    tensor: 'var(--irp-s1)', tile: 'var(--irp-s3)',
-    aic: '#CE5622', aiv: '#E09258', group: '#BC7440', orch: '#4E7C90',
-    ok: 'var(--success)', warn: 'var(--warning)', bad: 'var(--danger)',
+    tensor: 'var(--foreground-secondary)', tile: 'var(--foreground-secondary)',
+    aic: 'var(--foreground-secondary)', aiv: 'var(--foreground-secondary)',
+    group: 'var(--foreground-secondary)', orch: 'var(--foreground-secondary)',
+    ok: 'var(--foreground-secondary)', warn: 'var(--foreground-secondary)', bad: 'var(--foreground-secondary)',
     pri: 'var(--primary)', muted: 'var(--foreground-muted)',
     line: 'var(--border-subtle)', strong: 'var(--border-strong)',
     fg: 'var(--foreground)', fg2: 'var(--foreground-secondary)',
     surf: 'var(--surface-2)', surf3: 'var(--surface-3)'
   };
-  const SPACE_C = { Vec: '#4E7C90', Mat: '#A2814F', Acc: '#CE5622', Left: '#7BB088', Right: '#BC7440' };
+  const SPACE_C = { Vec: 'var(--foreground-secondary)', Mat: 'var(--foreground-secondary)',
+    Acc: 'var(--foreground-secondary)', Left: 'var(--foreground-secondary)', Right: 'var(--foreground-secondary)' };
 
   const svg = (h, body) =>
     '<svg class="kf-kg-vis" viewBox="0 0 ' + W + ' ' + h + '" role="img" ' +
