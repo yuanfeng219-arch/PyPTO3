@@ -328,7 +328,8 @@
     kernel: null, filter: 'issues', findOn: null, expandedPass: null,
     /* 工作区页签：kernel = Kernel 列表 + 详情；trace = 借用来的编译 IR 全流程 */
     pane: 'kernel', artifact: null,
-    numericalOverride: previewFixture, entryContext: previewEntry, numericalFocusKey: null
+    numericalOverride: previewFixture, entryContext: previewEntry, numericalFocusKey: null,
+    validationSelection: null, schemaRunId: null
   };
   let host = null;
 
@@ -758,80 +759,138 @@
   }
 
   /* ---------- 装配 ---------- */
-  function shellHTML() {
-    const rows = listRows();
-    const findingCount = FINDINGS.filter(f => (findingSets()[f.id] || []).length).length;
-    const semanticHandoff = runContext().runId === 'run_109' && numericalValidation().status === 'fail';
-    return '<section class="kc" data-kc>' +
-      (semanticHandoff ? '' : summaryHTML() + contextHTML()) +
-      (semanticHandoff ? secondarySignalsHTML(findingCount) :
-        '<div class="kc-sect"><div><h2>需要关注</h2>' +
-          '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div>' +
-          '<span>' + findingCount + ' 项发现</span></div>' + findingsHTML()) +
-      /* 工作区两个页签：Kernel 列表 + 详情 / 编译 IR 全流程（借用 #kgTrace）。
-         页签名已经写明是「Kernel 工作区」，面板头也写着「Kernel 列表」，
-         所以这里不再重复一个小节标题。 */
-      '<nav class="kc-tabs" role="tablist" aria-label="编译工作区">' +
-        '<button type="button" role="tab" class="kc-tab' + (st.pane === 'kernel' ? ' is-on' : '') + '"' +
-          ' data-kc-tab="kernel" aria-selected="' + (st.pane === 'kernel') + '">Kernel 工作区</button>' +
-        '<button type="button" role="tab" class="kc-tab' + (st.pane === 'trace' ? ' is-on' : '') + '"' +
-          ' data-kc-tab="trace" aria-selected="' + (st.pane === 'trace') + '">编译 IR 全流程</button>' +
-      '</nav>' +
-      '<section class="kc-pane" data-kc-pane="kernel">' +
-        '<div class="kc-work">' +
-          '<section class="kc-list-panel"><div class="kc-lhead"><b>Kernel 列表</b>' +
-            '<span class="kc-filter">' +
-              '<button type="button" data-kc-filter="issues" class="' + (st.filter === 'issues' ? 'is-on' : '') + '">需要关注</button>' +
-              '<button type="button" data-kc-filter="all" class="' + (st.filter === 'all' ? 'is-on' : '') + '">全部 ' + K.kernels.length + '</button>' +
-            '</span></div>' +
-            '<div class="kc-list" data-kc-list>' + listHTML() + '</div></section>' +
-          '<section class="kc-detail" data-kc-detail>' + detailHTML() + '</section>' +
-        '</div>' +
-      '</section>' +
-      '<section class="kc-pane" data-kc-pane="trace"></section>' +
-      artifactsRawHTML() +
-      '</section>';
+  const FLOW_STATUS = {
+    pass: { label: 'PASS', rank: 2 }, warning: { label: 'WARNING', rank: 4 },
+    error: { label: 'ERROR', rank: 6 }, first_divergence: { label: 'FIRST DIVERGENCE', rank: 7 },
+    unresolved: { label: 'UNRESOLVED', rank: 3 }, not_run: { label: 'NOT RUN', rank: 0 },
+    not_collected: { label: 'NOT COLLECTED', rank: 1 }
+  };
+  const DEFAULT_STAGES = [
+    ['frontend', 'Frontend'], ['tensor', 'Tensor / Normalize'], ['hierarchy', 'Hierarchy'],
+    ['tile', 'Tile'], ['kernel', 'Kernel'], ['memory', 'Memory'], ['runtime', 'Runtime']
+  ];
+  function validationSchema() {
+    const supplied = runContext().compilationSchema;
+    if (supplied && Array.isArray(supplied.events)) return supplied;
+    return {
+      runId: runContext().runId || 'unknown', stages: DEFAULT_STAGES.map(([id, label]) => ({ id, label })),
+      events: DEFAULT_STAGES.map(([stage, label]) => ({
+        id: 'compilation:unknown:' + stage, runId: runContext().runId || 'unknown', domain: 'compilation',
+        type: 'checkpoint', anchor: { type: 'checkpoint', id: stage + '-checkpoint', stage },
+        status: 'not_collected', title: label + ' checkpoint', summary: '本次 Run 未采集该阶段的验证结果。', evidence: [], changed: false
+      }))
+    };
   }
-
-  /* 页签切换只改 class，不重画 —— 页签 2 里挂的是从 kernelGuard 借来的 #kgTrace
-     实体节点，重画会把它冲掉。 */
-  function showPane() {
-    if (!host) return;
-    $$('[data-kc-pane]', host).forEach(p => p.classList.toggle('is-on', p.dataset.kcPane === st.pane));
-    $$('[data-kc-tab]', host).forEach(b => {
-      const on = b.dataset.kcTab === st.pane;
-      b.classList.toggle('is-on', on);
-      b.setAttribute('aria-selected', String(on));
-    });
-    if (st.pane === 'trace') attachTrace();
+  function flowStatus(event) {
+    const base = FLOW_STATUS[event && event.status] || FLOW_STATUS.not_collected;
+    return event?.status === 'pass' && event.type === 'numerical' ? Object.assign({}, base, { label: 'MATCH' }) : base;
   }
-
-  /* 把 compile guard 的编译 IR 全流程搬进页签 2。同一时刻只有一个宿主：
-     这里 appendChild(e) 之后它就不在 #kernelGuard 里了，归还见 release()。 */
-  function attachTrace() {
-    const box = $('[data-kc-pane="trace"]', host);
-    if (!box) return;
-    const G = window.PTO_GUARD;
-    const el = G && G.traceEl ? G.traceEl() : null;
-    if (!el) {
-      box.innerHTML = '<p class="kc-pane-missing">编译 IR 全流程需要 compile guard 的 Pass 数据，本次视图没有加载。</p>';
+  function strongestEvent(schema, domain) {
+    const candidates = domain ? schema.events.filter(event => event.domain === domain) : schema.events;
+    return candidates.reduce((best, event) =>
+      !best || flowStatus(event).rank > flowStatus(best).rank ? event : best, null);
+  }
+  function selectedValidation(schema) {
+    const selected = schema.events.find(event => event.id === st.validationSelection);
+    return selected || strongestEvent(schema, 'compilation') || strongestEvent(schema);
+  }
+  function syncValidationSelection(schema) {
+    if (st.schemaRunId === schema.runId && schema.events.some(event => event.id === st.validationSelection)) return;
+    st.schemaRunId = schema.runId;
+    const first = strongestEvent(schema, 'compilation') || strongestEvent(schema);
+    st.validationSelection = first ? first.id : null;
+  }
+  function passMetaFor(event) {
+    const id = event?.anchor?.id || event?.title;
+    return (PIPE?.passes || []).find(pass => pass.name === id) || null;
+  }
+  function handoffHTML(schema) {
+    const focus = strongestEvent(schema, 'compilation') || strongestEvent(schema);
+    const status = flowStatus(focus);
+    const hasProblem = focus && ['error', 'first_divergence', 'warning', 'unresolved'].includes(focus.status);
+    const hasPass = focus?.anchor?.type === 'pass';
+    const current = hasProblem ? (focus.title + ' · ' + status.label) :
+      schema.events.some(event => event.status === 'pass') ? '未发现编译异常' : '编译验证未采集 · NOT COLLECTED';
+    const summary = hasProblem ? focus.summary :
+      schema.events.some(event => event.status === 'pass') ? '当前已采集的 compilation validations 均通过。' : '没有可用于判断编译状态的验证证据。';
+    const next = hasPass ? focus.title + ' 前后 IR' : '查看编译流程';
+    const nextSummary = hasPass ? '检查该 Pass 的原始证据与 IR 差异。' : '从已采集 checkpoint 继续核对编译状态。';
+    const action = hasPass ? '<button type="button" data-kc-select="' + esc(focus.id) + '">查看 IR Diff →</button>' :
+      '<button type="button" data-kc-focus-flow="true">查看编译流程</button>';
+    return '<section class="kc-handoff" aria-label="Investigation Handoff">' +
+      '<div class="kc-layer-head"><span>01</span><div><b>Investigation Handoff</b><small>当前发现 → 下一步调查</small></div></div>' +
+      '<div class="kc-handoff-grid"><div><span>当前发现</span><b class="is-' + (focus?.status || 'not_collected') + '">' + esc(current) + '</b><p>' + esc(summary) + '</p></div>' +
+      '<i aria-hidden="true">→</i><div><span>下一步调查</span><b>' + esc(next) + '</b><p>' + esc(nextSummary) + '</p>' + action + '</div></div></section>';
+  }
+  /* 保留既有「编译 IR 全流程」：它已经承载 Pass 可视化、验证标签、
+     键盘选择与原始 IR diff。本页只把它放进统一 schema 的第二层，不重画 Pass。 */
+  function validationFlowHTML() {
+    return '<section class="kc-validation-flow" aria-label="Validation Flow">' +
+      '<div class="kc-layer-head"><span>02</span><div><b>Validation Flow</b><small>编译流程的 checkpoint 验证状态</small></div></div>' +
+      '<div class="kc-original-validation" data-kc-original-validation></div></section>';
+  }
+  function mountOriginalValidation() {
+    const slot = $('[data-kc-original-validation]', host);
+    const guard = window.PTO_GUARD;
+    if (!slot) return;
+    if (!guard?.traceEl) {
+      slot.innerHTML = '<p class="kc-inspector-empty">编译流程尚未加载；请在当前工作台重新打开本次 Run。</p>';
       return;
     }
-    if (el.parentElement !== box) {
-      box.innerHTML = '';              // 清掉上一次的占位文案
-      box.appendChild(el);
-    }
-    // 两个页签看的是同一个 Kernel：切过来时把 guard 的选中态对齐，
-    // activate() 会顺带把还没画过的河流图补上。
-    if (G.select && st.kernel && byName(st.kernel)) G.select(st.kernel);
-    else if (G.activate) G.activate();
-    if (st.expandedPass != null && G.selectPass) G.selectPass(st.expandedPass);
+    guard.traceHome?.();
+    guard.activate?.();
+    guard.refreshValidation?.();
+    const event = selectedValidation(validationSchema());
+    if (event?.anchor?.type === 'pass') guard.selectPass?.(event.anchor.id, { silent: true });
+    else guard.clearPass?.();
+    const trace = guard.traceEl();
+    if (trace) slot.appendChild(trace);
   }
-
+  function paintInspector() {
+    const inspector = $('[data-kc-inspector]', host);
+    if (inspector) inspector.outerHTML = inspectorHTML(validationSchema());
+  }
+  function evidenceFacts(event) {
+    const evidence = event?.evidence;
+    if (Array.isArray(evidence)) return evidence;
+    if (Array.isArray(evidence?.facts)) return evidence.facts;
+    if (evidence && typeof evidence === 'object') return Object.keys(evidence).filter(key => !['before', 'after', 'note'].includes(key)).slice(0, 4).map(key => key + ' · ' + evidence[key]);
+    return [];
+  }
+  function diffHTML(event) {
+    const evidence = event?.evidence || {};
+    const hunk = passMetaFor(event)?.hunks?.[0];
+    const before = evidence.before || hunk?.b?.slice(0, 3).join('\n');
+    const after = evidence.after || hunk?.a?.slice(0, 3).join('\n');
+    if (!before && !after) return '<p class="kc-inspector-empty">当前没有可展示的 IR Diff；请查看已采集 evidence 或重新采集该 Pass 的 IR。</p>';
+    return '<details class="kc-inspector-diff" data-kc-diff><summary>查看 IR Diff</summary><div><pre>' + esc(before || '—') + '</pre><pre>' + esc(after || '—') + '</pre></div>' + (evidence.note ? '<p>' + esc(evidence.note) + '</p>' : '') + '</details>';
+  }
+  function inspectorHTML(schema) {
+    const event = selectedValidation(schema);
+    if (!event) return '<section class="kc-selected-validation" data-kc-inspector aria-label="Selected Validation / Pass Inspector"><div class="kc-layer-head"><span>03</span><div><b>Selected Validation / Pass Inspector</b><small>选择一个 checkpoint 查看 evidence</small></div></div><p class="kc-inspector-empty">本次 Run 没有可选择的编译 checkpoint。</p></section>';
+    const status = flowStatus(event), facts = evidenceFacts(event);
+    const next = event.anchor?.type === 'pass' ? '查看该 Pass 的前后 IR，并确认验证结果与 IR Diff 是否一致。' : '继续选择具体 Pass，或补齐此 checkpoint 的验证证据。';
+    return '<section class="kc-selected-validation" data-kc-inspector aria-label="Selected Validation / Pass Inspector">' +
+      '<div class="kc-layer-head"><span>03</span><div><b>Selected Validation / Pass Inspector</b><small>当前选中 checkpoint 的事实、证据与下一步</small></div></div>' +
+      '<div class="kc-inspector-head"><div><span class="is-' + event.status + '">' + status.label + '</span><b>' + esc(event.title) + '</b><p>' + esc(event.summary || '未记录验证摘要。') + '</p></div><dl><div><dt>验证类型</dt><dd>' + esc(event.type || 'checkpoint') + '</dd></div><div><dt>锚点</dt><dd>' + esc(event.anchor?.id || '—') + '</dd></div></dl></div>' +
+      '<div class="kc-inspector-evidence"><b>Evidence</b>' + (facts.length ? '<div>' + facts.map(fact => '<code>' + esc(typeof fact === 'string' ? fact : JSON.stringify(fact)) + '</code>').join('') + '</div>' : '<p>未采集独立 evidence。</p>') + '</div>' +
+      diffHTML(event) + '<div class="kc-inspector-next"><b>下一步</b><span>' + esc(next) + '</span>' +
+      (event.anchor?.type === 'pass' ? '<button type="button" data-kc-open-diff>' + esc(event.action?.label || '查看 IR Diff →') + '</button>' : '') +
+      '</div></section>';
+  }
+  function shellHTML() {
+    const schema = validationSchema();
+    syncValidationSelection(schema);
+    return '<section class="kc kc-unified" data-kc>' + handoffHTML(schema) + validationFlowHTML(schema) + inspectorHTML(schema) + '</section>';
+  }
+  function showPane() {}
+  function attachTrace() {}
   function paint() {
     if (!host) return;
+    /* 先把既有流程归还原位置，再重绘页壳；否则 innerHTML 会销毁原 Pass 可视化。 */
+    window.PTO_GUARD?.traceHome?.();
     host.innerHTML = shellHTML();
-    showPane();
+    mountOriginalValidation();
   }
   function paintList() {
     const box = $('[data-kc-list]', host);
@@ -930,7 +989,45 @@
     paintDetail();
   }
 
+  function selectSchemaEvent(id, focusInspector) {
+    const schema = validationSchema();
+    const event = schema.events.find(item => item.id === id);
+    if (!event) return false;
+    st.validationSelection = event.id;
+    if (event.anchor?.type === 'pass') window.PTO_GUARD?.selectPass?.(event.anchor.id);
+    paintInspector();
+    if (focusInspector) {
+      const inspector = $('.kc-selected-validation', host);
+      if (inspector) inspector.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    return true;
+  }
+  function syncLegacyPass(index) {
+    const name = PASSNAMES[index];
+    const event = validationSchema().events.find(item => item.anchor?.type === 'pass' && item.anchor.id === name);
+    if (event) selectSchemaEvent(event.id, false);
+  }
   function onClick(e) {
+    const legacyPass = e.target.closest('[data-kg-p]');
+    if (legacyPass) { syncLegacyPass(Number(legacyPass.dataset.kgP)); return; }
+    const selectedValidation = e.target.closest('[data-kc-select]');
+    if (selectedValidation) {
+      selectSchemaEvent(selectedValidation.dataset.kcSelect, true);
+      return;
+    }
+    if (e.target.closest('[data-kc-open-diff]')) {
+      const diff = $('[data-kc-diff]', host);
+      if (diff) {
+        diff.open = true;
+        diff.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+      return;
+    }
+    if (e.target.closest('[data-kc-focus-flow]')) {
+      const flow = $('[data-kc-flow]', host);
+      if (flow) flow.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return;
+    }
     const tb = e.target.closest('[data-kc-tab]');
     if (tb) { st.pane = tb.dataset.kcTab === 'trace' ? 'trace' : 'kernel'; showPane(); return; }
     const fid = e.target.closest('[data-kc-find]');
@@ -994,10 +1091,10 @@
     st.numericalOverride = validation || null;
     st.entryContext = entry || null;
     st.numericalFocusKey = null;
-    focusKnownDivergenceOnce();
+    st.schemaRunId = null;
+    st.validationSelection = null;
     if (host) {
       paint();
-      if (st.expandedPass != null) focusExpandedPass(true);
     }
     return numericalValidation();
   }
@@ -1008,35 +1105,26 @@
     render(root) {
       host = root;
       if (!host) return false;
-      if (!st.kernel || !byName(st.kernel)) {
-        const rows = listRows();
-        st.kernel = rows.length ? rows[0].name : (kernelNames()[0] || null);
-      }
-      focusKnownDivergenceOnce();
       if (!host.dataset.kcBound) {
         host.addEventListener('click', onClick);
+        host.addEventListener('keydown', e => {
+          const pass = e.target.closest('[data-kg-p]');
+          if ((e.key === 'Enter' || e.key === ' ') && pass) syncLegacyPass(Number(pass.dataset.kgP));
+        });
         host.dataset.kcBound = '1';
       }
       paint();
-      if (runContext().runId === 'run_109' && st.expandedPass != null) focusExpandedPass(true);
       return true;
     },
     /* Execution 页签的「在 Compilation 查看」落到这里 */
     selectKernel(name) {
-      if (!host) return false;
-      pickKernel(String(name), { scroll: true });
-      return true;
+      return false;
     },
     selectPass(name) {
       if (!host) return false;
-      const index = PASSNAMES.indexOf(String(name));
-      if (index < 0) return false;
-      st.pane = 'trace';
-      st.expandedPass = index;
-      showPane();
-      const selected = window.PTO_GUARD?.selectPass?.(index);
-      if (!selected) return false;
-      return true;
+      const target = String(name);
+      const event = validationSchema().events.find(item => item.anchor?.id === target || item.title === target);
+      return event ? selectSchemaEvent(event.id, true) : false;
     },
     /* Correctness 可将它已有的 compiler evidence 原样传入。若已知首个
        divergence，会在现有 transformation / IR diff 中自动展开，不创建新 viewer。 */
@@ -1061,17 +1149,15 @@
     /* task-history 的 syncPanel() 靠它判断这块面板现在归谁：是本视图自绘的
        .kc，还是从 stage 2 搬来的 DOM。判错就会把新视图冲掉。 */
     owns(node) { return !!node && host === node; },
-    /* task-history 在重写 #runTabPanel 之前必须先调这个：页签 2 里挂的
-       #kgTrace 是从 kernelGuard 借来的实体节点，被 innerHTML 冲掉就成了游离
-       节点，归还后再也长不回 stage 2 的 Kernel Guard 里。 */
+    /* 任务切换或重绘前归还既有流程节点，保留原 Pass 可视化的事件和状态。 */
     release() {
-      if (window.PTO_GUARD && window.PTO_GUARD.traceHome) window.PTO_GUARD.traceHome();
+      window.PTO_GUARD?.traceHome?.();
       host = null;
     },
     /* 供调试与验收用：当前状态快照 */
     state() {
       return { kernel: st.kernel, filter: st.filter, findOn: st.findOn,
-        pane: st.pane, expandedPass: st.expandedPass,
+        pane: 'validation-flow', expandedPass: st.expandedPass, validationSelection: st.validationSelection,
         numericalValidation: numericalValidation(), entryContext: compilationEntryContext(),
         keyPasses: (current() ? keyPasses(current()).map(p => p.name) : []) };
     },
