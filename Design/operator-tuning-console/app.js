@@ -77,6 +77,8 @@
   const us = (v, d) => (v == null ? '—' : Number(v).toFixed(d == null ? 1 : d) + ' us');
   const kb = (b) => (b == null ? '—' : b >= 1024 ? (b / 1024).toFixed(b % 1024 ? 1 : 0) + ' KB' : b + ' B');
   const pct = (v, d) => (v == null ? '—' : Number(v).toFixed(d == null ? 1 : d) + '%');
+  /* title= needs a real newline; a literal one inside a string breaks the file */
+  const NL = String.fromCharCode(10);
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   const LEVELS = [
@@ -113,6 +115,8 @@
   function loadCase(id) {
     D = RUNS[id];
     CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
+    /* the tab title names the case, so it has to follow the switch */
+    document.title = 'Tuning Console · ' + id;
 
     /* Which invocation does each rank's device trace correspond to?
      * Reconcile the trace span against the host-reported device_wall.sched.
@@ -1200,7 +1204,8 @@
 
     /* --- identity + measured split --- */
     const idSec = el('section');
-    idSec.appendChild(sectionHead(t.callable, t.tag + ' · ' + t.kind.toUpperCase() + ' · task ' + t.id,
+    idSec.appendChild(sectionHead(t.callable, t.tag + ' · ' + t.kind.toUpperCase() + ' · task ' + t.id
+      + ' · ' + t.kernelCount + ' kernel',
       el('span', 'tc-readout', critSet[t.tag] ? '在关键路径上（第 ' + (rank.critical.tags.indexOf(t.tag) + 1) + ' 节点）' : '不在关键路径上')));
     const kernelMean = t.kdurSum / t.blockCount;
     idSec.appendChild(tiles([
@@ -1214,6 +1219,30 @@
       { k: 'AICPU 视角', v: num(t.svAicpuMean, 1), u: t.svOverhead != null ? '+' + num(t.svOverhead, 1) + ' us hand-off' : '', tone: t.svOverhead > 20 ? 'bad' : t.svOverhead > 5 ? 'warn' : null },
     ]));
     stage.appendChild(idSec);
+
+    /* --- one scope, two kernels: the Cube/Vec pairing, measured --- */
+    if (t.kernelCount > 1) {
+      const pairSec = el('section');
+      pairSec.appendChild(sectionHead('引擎配对',
+        t.kernels.map((k) => k.name).join(' + ') + ' · 同一次 Group launch',
+        el('span', 'tc-readout', '最长块比 ' + t.pairRatio + 'x')));
+      pairSec.appendChild(table([
+        { label: 'kernel', cell: (k) => esc(k.name), mono: true },
+        { label: 'FuncId', cell: (k) => String(k.funcId), mono: true, num: true },
+        { label: '引擎', cell: (k) => (k.engine === 'aic' ? 'AIC (Cube)' : 'AIV (Vec)') },
+        { label: '块 / 核', cell: (k) => k.blocks + ' / ' + k.cores, num: true },
+        { label: 'core-time', cell: (k) => num(k.coreTime, 1), mono: true, num: true },
+        { label: '最长块', cell: (k) => num(k.durMax, 2), mono: true, num: true },
+        { label: '均值', cell: (k) => num(k.durMean, 2), mono: true, num: true },
+      ], t.kernels, {}));
+      pairSec.appendChild(el('p', 'tc-note',
+        '两半共用一个 taskId，只有 event-hint 里的 FuncId 能把它们分开 —— 按 taskId 汇总会把 Vec 侧的 '
+        + num(t.engines.aiv.coreTime, 0) + ' us 记到 Cube 侧的名下。'
+        + '两侧最长块 ' + num(t.engines.aic.durMax, 1) + ' / ' + num(t.engines.aiv.durMax, 1)
+        + ' us，而整段 span 只有 ' + num(t.span, 1) + ' us：'
+        + (t.pairRatio < 1.3 ? '两半没有错开，是块内串行。' : '慢的一侧决定整块时长。')));
+      stage.appendChild(pairSec);
+    }
 
     /* --- three measurements of the same block, side by side --- */
     const splitSec = el('section');
@@ -1832,7 +1861,7 @@
     const SM = D.sourceMap;
     const srcSec = el('section');
     if (SM) {
-      srcSec.appendChild(sectionHead('kernel → 源码',
+      srcSec.appendChild(sectionHead('scope → 源码',
         SM.covered + '/' + SM.total + ' 覆盖 · ' + SM.unique + ' 唯一 · ' + SM.ambiguous + ' 多候选'));
       srcSec.appendChild(table([
         { label: '项', cell: (r) => esc(r[0]), mono: true },
@@ -1840,15 +1869,17 @@
       ], [
         ['来源', '不在 dump 内 —— 由 ' + SM.root + '/ 的源码重建'],
         ['入口', SM.entry + ' · 传递导入 ' + SM.modules.length + ' 个模块'],
-        ['依据', 'pl.spmd(..., name_hint="X") 与外联后的 callable 同名'],
+        ['依据', 'pl.spmd(..., name_hint="X") 与 OutlineIncoreScopes 外联出的函数同名'],
         ['索引到的 name_hint', String(SM.hintCount)],
-        ['唯一定位', SM.unique + ' 个 callable'],
+        ['唯一定位', SM.unique + ' 个 scope'],
         ['多候选', SM.ambiguous + ' 个（同名 hint 出现在多处，名字消不掉歧义）'],
         ['未匹配', String(SM.missing)],
+        ['粒度', '映射的是 scope 不是 kernel —— 混合 scope 拆出的 _aic / _aiv '
+          + '两个 kernel 共用同一个 name_hint，因此指向同一处源码'],
         ['不能做的事', '只给出 scope 写在哪里，不把实测块时长归到某一行'],
       ], {}));
     } else {
-      srcSec.appendChild(sectionHead('kernel → 源码', '源码树不在仓库内'));
+      srcSec.appendChild(sectionHead('scope → 源码', '源码树不在仓库内'));
       srcSec.appendChild(table([
         { label: '项', cell: (r) => esc(r[0]), mono: true },
         { label: '值', cell: (r) => esc(r[1]) },
@@ -1951,9 +1982,30 @@
    * Σdur on its own ranks the fat scopes; pairing it with DAG slack separates
    * "fat" from "fat and pinned to the critical path". */
   const lanesOf = () => R().swimlane.lanes.length;
+  /* scopes are source-level pl.spmd regions; kernels are what launched */
+  const scopeCountOf = () => R().scopes.length;
 
   /* file:line, plus an honest marker when the name matches more than one
    * source site or only matched after a compiler suffix was stripped */
+  /* Cube / Vector, and the split when a scope compiled into both */
+  function engineChip(sc) {
+    if (sc.kind === 'mix') return 'C+V';
+    return sc.kind === 'aic' ? 'C' : 'V';
+  }
+  function engineTitle(sc) {
+    const bits = [];
+    ['aic', 'aiv'].forEach((en) => {
+      const e = sc.engines && sc.engines[en];
+      if (!e) return;
+      bits.push((en === 'aic' ? 'AIC (Cube)' : 'AIV (Vec)') + ' ' + num(e.coreTime, 0)
+        + ' us · ' + e.blocks + ' 块 / ' + e.cores + ' 核 · 最长 ' + num(e.durMax, 1) + ' us');
+    });
+    if (sc.kernelCount > 1) {
+      bits.push('拆成 ' + sc.kernelCount + ' 个 kernel：' + sc.kernels.map((k) => k.name).join('、'));
+    }
+    return bits.join(String.fromCharCode(10));
+  }
+
   function srcLabel(src) {
     if (!src) return null;
     return src.file + ':' + src.line
@@ -2009,6 +2061,8 @@
     /* --- 1. accounting: two views of the same block, stated once --- */
     const A = rank.accounting;
     const s0 = inspectorSection('统计口径', A.schedCoreTime ? 'Worker / Scheduler' : 'Worker');
+    const kernelTotal = rank.scopes.reduce((a, x) => a + x.kernelCount, 0);
+    const splitScopes = rank.scopes.filter((x) => x.kernelCount > 1);
     s0.appendChild(kv([
       ['Worker View', num(A.workerCoreTime, 0) + ' us · ' + A.workerBlocks + ' 块'],
       ['  kernel', num(A.workerKernelTime, 0) + ' us'],
@@ -2016,7 +2070,18 @@
       ['Scheduler View', A.schedCoreTime
         ? num(A.schedCoreTime, 0) + ' us · ' + A.schedBlocks + ' 块' : '—'],
       ['hand-off 差', A.handoff == null ? '—' : '+' + num(A.handoff, 0) + ' us'],
+      ['scope / kernel', rank.scopes.length + ' / ' + kernelTotal],
     ]));
+    /* the two words are not synonyms and the gap is exactly the mixed scopes */
+    s0.appendChild(el('div', 'inspector-soft-card',
+      splitScopes.length
+        ? 'scope = 源码里一个 pl.spmd 区域；kernel = 设备上真正 launch 的函数。'
+          + 'ExpandMixedKernel 把 ' + splitScopes.length + ' 个混合 scope 各拆成 AIC + AIV 两个 kernel，'
+          + '所以 kernel 比 scope 多 ' + (kernelTotal - rank.scopes.length) + ' 个：'
+          + splitScopes.map((x) => x.name).join('、') + '。两半共用一次 launch（同一个 taskId），'
+          + '只能靠 FuncId 分开。'
+        : 'scope = 源码里一个 pl.spmd 区域；kernel = 设备上真正 launch 的函数。'
+          + '本 case 没有混合 scope，两者一一对应。'));
     if (A.naiveSum) {
       s0.appendChild(el('div', 'inspector-soft-card is-warning',
         '同一个块在 trace 里出现两次。两边相加得 ' + num(A.naiveSum, 0)
@@ -2030,7 +2095,8 @@
     const s1 = inspectorSection('scope 排行', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
     const rows = el('div', 'tc-scoperows');
     const hd = el('div', 'tc-scoperow is-head');
-    ['scope', 'core-time', '占', 'slack'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
+    [['scope', 'l'], ['引擎', 'e'], ['core-time', 'n'], ['占', 'n'], ['slack', 'n']]
+      .forEach((c) => hd.appendChild(el('span', c[1], c[0])));
     rows.appendChild(hd);
     top.forEach((sc) => {
       const b = el('button', 'tc-scoperow' + (sc.onCrit ? ' is-crit' : ''));
@@ -2047,6 +2113,10 @@
         const sl = el('span', 'src' + (sc.src.candidates > 1 ? ' is-amb' : ''), srcLabel(sc.src));
         nm.appendChild(sl);
       }
+      /* which engine burns this scope's core-time -- C, V, or both */
+      const eg = el('span', 'e is-' + sc.kind, engineChip(sc));
+      eg.title = engineTitle(sc);
+      b.appendChild(eg);
       b.appendChild(el('span', 'n', num(sc.coreTime, 0)));
       b.appendChild(el('span', 'n muted', pct(sc.coreShare, 1)));
       /* zero slack on a fat scope is the actionable combination */
@@ -2081,11 +2151,11 @@
         + num(rank.occWindowUs, 1) + ' us）。'));
     } else {
       const ir = el('div', 'tc-scoperows');
-      const ih = el('div', 'tc-scoperow is-head');
+      const ih = el('div', 'tc-scoperow is-idle is-head');
       ['窗口', '时长', 'AIC', 'AIV'].forEach((t, i) => ih.appendChild(el('span', i ? 'n' : 'l', t)));
       ir.appendChild(ih);
       idle.slice(0, 8).forEach((r) => {
-        const b = el('button', 'tc-scoperow');
+        const b = el('button', 'tc-scoperow is-idle');
         b.type = 'button';
         b.title = '窗口内实际在跑：' + (r.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('，') || '无')
           + String.fromCharCode(10) + '核容量占用 ' + pct(r.running.capacityPct, 1);
@@ -2117,6 +2187,169 @@
           + ' us，在关键路径上）——单块任务挡住全部核。' : '')));
     }
     host.appendChild(s2);
+
+    /* --- 4. AIC / AIV pairing --- */
+    host.appendChild(renderEnginePairing(rank));
+
+    /* --- 5. spmd launch shape --- */
+    host.appendChild(renderSpmdShape(rank));
+  }
+
+  /* ------------------------------------------------------ engine pairing
+   * A general trace tool sees 72 identical blocks. It cannot say that 24 of
+   * them are the Cube half and 48 the Vector half of ONE source scope, nor
+   * that the two ran on paired cores. Split by FuncId and state the ratio. */
+  function renderEnginePairing(rank) {
+    let aicT = 0, aivT = 0;
+    rank.scopes.forEach((sc) => {
+      if (sc.engines.aic) aicT += sc.engines.aic.coreTime;
+      if (sc.engines.aiv) aivT += sc.engines.aiv.coreTime;
+    });
+    const tot = Math.max(aicT + aivT, 1e-9);
+    const split = rank.scopes.filter((sc) => sc.kernelCount > 1)
+      .sort((a, b) => b.coreTime - a.coreTime);
+    const sec = inspectorSection('引擎配对', split.length
+      ? split.length + ' 个混合 scope · AIC ' + pct((aicT / tot) * 100, 0) + ' / AIV ' + pct((aivT / tot) * 100, 0)
+      : 'AIC ' + pct((aicT / tot) * 100, 0) + ' / AIV ' + pct((aivT / tot) * 100, 0));
+
+    sec.appendChild(kv([
+      ['AIC (Cube)', num(aicT, 0) + ' us · ' + pct((aicT / tot) * 100, 1)
+        + ' · ' + rank.occupancy.aicUtil + '% 占用'],
+      ['AIV (Vec)', num(aivT, 0) + ' us · ' + pct((aivT / tot) * 100, 1)
+        + ' · ' + rank.occupancy.aivUtil + '% 占用'],
+      ['Cube : Vec', aicT <= aivT
+        ? '1 : ' + num(aivT / Math.max(aicT, 1e-9), 2)
+        : num(aicT / Math.max(aivT, 1e-9), 2) + ' : 1'],
+    ]));
+
+    if (!split.length) {
+      sec.appendChild(el('div', 'inspector-soft-card',
+        '本 case 没有 mixed kernel —— 每个 scope 只编译出一个 kernel，纯 Cube 或纯 Vec。'));
+      return sec;
+    }
+
+    const rows = el('div', 'tc-scoperows');
+    const hd = el('div', 'tc-scoperow is-pair is-head');
+    [['kernel', 'l'], ['引擎', 'e'], ['core-time', 'n'], ['块/核', 'n'], ['最长块', 'n']]
+      .forEach((c) => hd.appendChild(el('span', c[1], c[0])));
+    rows.appendChild(hd);
+
+    split.forEach((sc) => {
+      const head = el('div', 'tc-pairhead');
+      head.appendChild(el('span', 'nm', sc.name));
+      head.appendChild(el('span', 'ct', num(sc.coreTime, 0) + ' us'));
+      rows.appendChild(head);
+      sc.kernels.forEach((k) => {
+        const b = el('button', 'tc-scoperow is-pair is-sub');
+        b.type = 'button';
+        b.title = k.name + ' · FuncId ' + k.funcId + NL
+          + k.blocks + ' 块 / ' + k.cores + ' 核 · ' + num(k.coreTime, 1) + ' us · 占本 scope ' + pct(k.share, 1);
+        const nm = el('span', 'l');
+        nm.appendChild(el('i', 'bar'));
+        nm.lastChild.style.width = k.share.toFixed(1) + '%';
+        nm.appendChild(el('span', 'tx', k.name));
+        b.appendChild(nm);
+        const eg = el('span', 'e is-' + k.engine, k.engine === 'aic' ? 'C' : 'V');
+        b.appendChild(eg);
+        b.appendChild(el('span', 'n', num(k.coreTime, 0)));
+        b.appendChild(el('span', 'n muted', k.blocks + '/' + k.cores));
+        b.appendChild(el('span', 'n muted', num(k.durMax, 0)));
+        b.addEventListener('click', () => {
+          const from = S.scopeReturn || { t0: S.t0, t1: S.t1, task: S.task, focus: S.focus };
+          S.scopeReturn = { t0: from.t0, t1: from.t1, scope: sc.name, task: from.task, focus: from.focus };
+          S.task = sc.tags[0];
+          S.focus = 'task';
+          const t = tasksOf[S.rank][sc.tags[0]];
+          if (t) { const pad = Math.max(40, t.span * 0.3); setWindow(t.start - pad, t.end + pad); }
+          render();
+        });
+        rows.appendChild(b);
+      });
+    });
+    sec.appendChild(rows);
+
+    const worst = split[0];
+    sec.appendChild(el('div', 'inspector-soft-card' + (worst.pairRatio < 1.3 ? ' is-warning' : ''),
+      worst.name + ' 两侧最长块 ' + num(worst.engines.aic.durMax, 1) + ' / '
+      + num(worst.engines.aiv.durMax, 1) + ' us，相差 ' + worst.pairRatio + ' 倍。'
+      + (worst.pairRatio < 1.3
+        ? '几乎相等 = 两半没有错开，Cube 段和 Vec 段是在块内串行跑的；'
+          + '整段 span 只有 ' + num(worst.wall, 0) + ' us 也印证这点。解耦成 GM FIFO 才能真正并行。'
+        : '差距明显 = 慢的一侧决定整块时长，快的一侧在等。')));
+    sec.appendChild(el('div', 'inspector-soft-card',
+      '通用 trace 工具看到的是 ' + worst.spmd.blocks + ' 个同名块；'
+      + 'AIC / AIV 的归属只存在于 event-hint 的 FuncId 里，而两半共用同一个 taskId。'));
+    return sec;
+  }
+
+  /* --------------------------------------------------------- spmd shape
+   * pl.spmd(N) fans one scope out to N cores. The trace records blocks and
+   * core ids but never the launch shape, so "how wide, how many waves, how
+   * evenly" needs the blocks regrouped per scope. */
+  function renderSpmdShape(rank) {
+    const sc = rank.scopes.slice().sort((a, b) => b.spmd.cores - a.spmd.cores
+      || b.coreTime - a.coreTime);
+    const wide = sc.filter((x) => x.spmd.cores > 1);
+    const single = sc.length - wide.length;
+    const waved = sc.filter((x) => x.spmd.waves > 1);
+    const sec = inspectorSection('spmd 展开',
+      wide.length + ' 个多核 scope · ' + single + ' 个单核');
+
+    sec.appendChild(kv([
+      ['最宽展开', sc[0] ? sc[0].spmd.cores + ' 核（' + sc[0].name + '）' : '—'],
+      ['多波 scope', waved.length + (waved.length
+        ? ' · 最多 ' + num(Math.max.apply(null, waved.map((x) => x.spmd.waves)), 2) + ' 波' : '')],
+      ['单核 scope', single + ' 个'],
+    ]));
+
+    const rows = el('div', 'tc-scoperows');
+    const hd = el('div', 'tc-scoperow is-spmd is-head');
+    [['scope', 'l'], ['核', 'n'], ['块', 'n'], ['波', 'n'], ['离散', 'n']]
+      .forEach((c) => hd.appendChild(el('span', c[1], c[0])));
+    rows.appendChild(hd);
+
+    /* rank by what makes a fan-out worth looking at: many waves, or uneven */
+    const notable = sc.filter((x) => x.spmd.waves > 1 || x.spmd.imbalance > 1.5
+      || x.spmd.widths.length > 1);
+    const pick = (notable.length ? notable : sc.filter((x) => x.spmd.cores > 1))
+      .slice().sort((a, b) =>
+        (b.spmd.waves - 1) * b.spmd.imbalance - (a.spmd.waves - 1) * a.spmd.imbalance
+        || b.spmd.imbalance - a.spmd.imbalance).slice(0, 10);
+    pick.forEach((x) => {
+      const b = el('button', 'tc-scoperow is-spmd');
+      b.type = 'button';
+      b.title = x.name + NL + x.spmd.launches + ' 次 launch · 宽度 ' + x.spmd.widths.join('/')
+        + ' 核 · ' + x.spmd.blocks + ' 块 · ' + num(x.spmd.waves, 2) + ' 波' + NL
+        + '离散度 ' + x.spmd.imbalance + 'x（最长块 / 中位块）';
+      const nm = el('span', 'l');
+      nm.appendChild(el('span', 'tx', x.name));
+      b.appendChild(nm);
+      b.appendChild(el('span', 'n', String(x.spmd.cores)));
+      b.appendChild(el('span', 'n muted', String(x.spmd.blocks)));
+      b.appendChild(el('span', 'n' + (x.spmd.waves > 1 ? ' hot' : ' muted'), num(x.spmd.waves, x.spmd.waves > 1 ? 1 : 0)));
+      b.appendChild(el('span', 'n' + (x.spmd.imbalance > 2 ? ' hot' : ' muted'), num(x.spmd.imbalance, 2)));
+      b.addEventListener('click', () => {
+        const from = S.scopeReturn || { t0: S.t0, t1: S.t1, task: S.task, focus: S.focus };
+        S.scopeReturn = { t0: from.t0, t1: from.t1, scope: x.name, task: from.task, focus: from.focus };
+        S.task = x.tags[0];
+        S.focus = 'task';
+        const t = tasksOf[S.rank][x.tags[0]];
+        if (t) { const pad = Math.max(40, t.span * 0.3); setWindow(t.start - pad, t.end + pad); }
+        render();
+      });
+      rows.appendChild(b);
+    });
+    sec.appendChild(rows);
+    if (!notable.length) {
+      sec.appendChild(el('div', 'inspector-soft-card',
+        '没有多波、不均或变宽的展开 —— 每个 spmd 都是一次填满、块长一致。'
+        + '本 case 的形状问题在别处：' + single + ' 个 scope 只用 1 个核。'));
+    }
+    sec.appendChild(el('div', 'inspector-soft-card',
+      '波 = 块数 / 核数。1 波 = 一次填满，>1 波 = 同一批核要跑好几轮，'
+      + '每轮之间有一次完成回收。离散度 = 最长块 / 中位块，>2 说明同一次展开里各块负载不均，'
+      + '最慢的那块决定整个 scope 什么时候结束。'));
+    return sec;
   }
 
   function renderRunInspector(host, title, meta) {
@@ -2129,7 +2362,7 @@
       ['采集时间', D.case.capturedAt],
       ['ranks', D.case.ranks.join(', ') + ' · ' + D.case.device],
       ['核', D.case.numCores + '（AIC ' + D.case.aicCount + ' / AIV ' + D.case.aivCount + '）'],
-      ['callables', String(D.case.callables)],
+      ['kernel / scope', D.case.callables + ' / ' + scopeCountOf()],
       ['绑定参数', D.case.params.length ? String(D.case.params.length) : '未记录'],
       ['pto-isa', D.case.toolchain.ptoIsaRevision ? D.case.toolchain.ptoIsaRevision.slice(0, 12) : '—'],
       ['runtime', D.case.toolchain.runtimeName || '—'],
@@ -2206,7 +2439,8 @@
     const s1 = inspectorSection('对象', t.kind.toUpperCase());
     s1.appendChild(kv([
       ['task id', t.id],
-      ['callable', t.callable + '（funcId ' + t.funcId + '）'],
+      /* a split scope has no single funcId -- name every kernel's */
+      ['scope', t.callable + '（funcId ' + (t.kernels || []).map((k) => k.funcId).join(' + ') + '）'],
       ['ring / scope', 'r' + t.ring + ' · ' + t.scope + (t.earlyDispatch ? ' · early_dispatch' : '')],
       ['窗口', num(t.start, 1) + ' → ' + num(t.end, 1) + ' us'],
       ['块 / 核', t.blockCount + ' / ' + t.coreCount + '（block_num ' + t.blockNum + '）'],
@@ -2214,8 +2448,20 @@
       ['kernel · setup', num(t.kdurSum / t.blockCount, 2) + ' · ' + num(t.setupMean, 2) + ' us'],
       ['AICPU 视角', t.svAicpuMean == null ? null : num(t.svAicpuMean, 1) + ' us（+' + num(t.svOverhead, 1) + '）'],
       ['前驱 / 后继', t.pred.length + ' / ' + t.succ.length],
+      ['kernel', (t.kernels || []).map((k) => k.name).join(' + ') || t.callable],
       ['源码', t.src ? srcLabel(t.src) : (D.sourceMap ? '未匹配' : '源码树不在仓库内')],
     ]));
+    /* one scope, two kernels: state the split instead of one merged number */
+    if (t.kernelCount > 1 && t.engines.aic && t.engines.aiv) {
+      s1.appendChild(el('div', 'inspector-soft-card',
+        '这是一个 mixed scope：ExpandMixedKernel 拆成 ' + t.kernelCount
+        + ' 个 kernel，共用一次 Group launch。'
+        + 'Cube 侧 ' + t.engines.aic.blocks + ' 块 / ' + num(t.engines.aic.coreTime, 0)
+        + ' us（最长 ' + num(t.engines.aic.durMax, 1) + '），'
+        + 'Vec 侧 ' + t.engines.aiv.blocks + ' 块 / ' + num(t.engines.aiv.coreTime, 0)
+        + ' us（最长 ' + num(t.engines.aiv.durMax, 1) + '）。'
+        + '上面「块 / 核」是两半合计。'));
+    }
     if (t.src && (t.src.candidates > 1 || !t.src.exact)) {
       s1.appendChild(el('div', 'inspector-soft-card',
         (t.src.exact ? '' : 'callable 去掉编译器后缀后按 name_hint="' + t.src.hint + '" 匹配。')
@@ -2857,7 +3103,8 @@
     ])).concat([
       [rankDir(D.defaultRank) + 'deps.json', 'scope / 绑定张量'
         + (D.ranks[D.defaultRank].tasks[0].blockNum != null ? ' / block_num / early_dispatch' : '')],
-      [rankDir(D.defaultRank) + 'name_map.json', D.case.callables + ' 个 callable（level ' + D.case.level + '）'],
+      [rankDir(D.defaultRank) + 'name_map.json', D.case.callables + ' 个 kernel 名（level '
+        + D.case.level + '）—— 对应 ' + scopeCountOf() + ' 个 scope，混合 scope 各拆两个'],
       [rankDir(D.defaultRank) + 'host.*.log', A.hostSpans
         ? 'STRACE host span（bind / runner_run / device_wall / sched）' : '缺失 —— 无 E2E 层'],
       ['report/perf_hints.log', D.hints.length + ' 条 perf hint（'
@@ -3176,7 +3423,8 @@
     add('ranks / device', D.case.ranks.join(', ') + ' / ' + D.case.device);
     add('cores', D.case.numCores + '（AIC ' + D.case.aicCount + ' + AIV ' + D.case.aivCount + '，每核 ' + D.case.threadsPerCore + ' thread）');
     add('trace clock', (D.case.clockHz / 1e6) + ' MHz');
-    add('callables', D.case.callables + ' 个（incore scope ' + D.case.incoreScopes.length + '）');
+    add('kernel / scope', D.case.callables + ' 个 kernel 名 / ' + scopeCountOf()
+      + ' 个 scope（IR incore scope ' + D.case.incoreScopes.length + '）');
     add('captured', D.case.capturedAt);
     add('source root', D.case.sourceRoot);
     body.appendChild(dl);

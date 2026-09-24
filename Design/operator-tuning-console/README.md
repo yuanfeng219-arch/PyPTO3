@@ -366,7 +366,99 @@ L1 视图里的试算器不是通用公式演示，它对着**本 run 的实测�
 
 ---
 
-## kernel → 源码：dump 里没有，但能重建
+## scope 和 kernel 不是一回事
+
+这两个词在通用 trace 工具里会混成一个，在 PTO 里不是。
+
+```
+源码        with pl.spmd(NUM_QK_CORES, name_hint="qk_pv") as qk_tid:
+              └─ 一个 InCoreScopeStmt            ← 这是 scope
+                 │
+OutlineIncoreScopes (09_after_…)
+                 └─ Function(InCore) 名叫 qk_pv
+                    │
+ExpandMixedKernel (23_after_…)
+                    ├─ qk_pv_aic  FunctionType::AIC   ← 这是 kernel
+                    └─ qk_pv_aiv  FunctionType::AIV   ← 这也是 kernel
+                       两个被一个 Group 函数依次调用
+```
+
+**一个 scope 编译出 1 个或 2 个 kernel。** 纯 Cube 或纯 Vec 的 scope，
+`ExpandMixedKernel` 只把 `FunctionType::InCore` 改成 `AIC` / `AIV`，
+不拆不改名；**同时含 Cube 和 Vec 算子的混合 scope 才被拆成两半**，各带 `_aic` / `_aiv` 后缀。
+
+这个 dump 直接印证：
+
+| | decode_csa | decode_fwd_layers |
+|---|---|---|
+| scope（源码 pl.spmd 区域） | 62 | 38 |
+| kernel（`name_map.json` 里的名字） | **64** | **39** |
+| 差额 = 混合 scope 数 | 2（`qk_pv`、`indexer_score_leaf_wave`） | 1（`fa_fused`） |
+
+### 之前这里是错的
+
+两半**共用一次 Group launch，所以在 trace 里是同一个 `taskId`**，
+只有 `event-hint` 里的 `FuncId` 能把它们分开：
+
+```
+taskId 8589934645  tag r2t53  FuncId 48+49  72 blocks
+taskId 12884901902 tag r3t14  FuncId 42+43  72 blocks
+（84 个 task 里只有这 2 个带双 FuncId）
+```
+
+原来的 `build-data.cjs` 按 `taskId` 分组、`funcId` 只取第一个事件的，
+于是 Vec 侧的 31626 us 被记到了 Cube 侧 `qk_pv_aic` 的名下。现在按 FuncId 重新分组，
+每个 task 带一个 `kernels[]`，不变量 `Σkernel.coreTime == scope.coreTime` 在两个 case 上精确成立。
+
+## 引擎配对：AIC / AIV
+
+L2 右栏的「引擎配对」分区回答的是「Cube 和 Vec 各花了多少、混合核的两半谁拖谁」。
+
+```
+AIC (Cube)   37740 us · 30.1% · 32.22% 占用
+AIV (Vec)    87833 us · 69.9% · 37.50% 占用
+Cube : Vec   1 : 2.33
+
+qk_pv                         46662 us
+  qk_pv_aiv   V   31626   48/48   最长 881
+  qk_pv_aic   C   15036   24/24   最长 830
+```
+
+**两侧最长块 830.3 / 881.2 us，相差 1.061 倍，而整段 span 只有 886.4 us。**
+如果两半真的并行，span 会接近单侧最长块；现在 span ≈ 两侧最长块本身，
+说明 Cube 段和 Vec 段是在**块内串行**跑的。这是 F9 的直接证据 ——
+原来 F9 是靠「span ≈ 单块时长」侧面推的，现在是把两半拆开量出来的。
+
+scope 排行也多了一列引擎标记：`C` / `V` / `C+V`，悬停给两侧的 core-time、块数和最长块。
+
+## spmd 展开
+
+`pl.spmd(N)` 把一个 scope 铺到 N 个核上。trace 只记块和 core id，
+不记这次 launch 的形状，所以「铺了多宽、跑了几波、铺得匀不匀」要按 scope 重新汇总。
+
+| 列 | 含义 |
+|---|---|
+| 核 | 这个 scope 最宽一次展开占了几个核 |
+| 块 | 块数 |
+| 波 | 块数 / 核数。1 波 = 一次填满；>1 波 = 同一批核要跑好几轮，每轮之间有一次完成回收 |
+| 离散 | 最长块 / 中位块。>2 = 同一次展开里各块负载不均，最慢的那块决定 scope 什么时候结束 |
+
+两个 case 的形状完全不同，这一维一眼能看出来：
+
+```
+decode_csa          48 个多核 scope / 14 个单核，最宽 72 核
+                    22 个多波 scope，最多 21.33 波
+                    qr_hadamard_matmul  24 核 256 块 10.7 波 离散 7.82
+                    kv_score_proj       24 核 512 块 21.3 波 离散 2.97
+
+decode_fwd_layers    4 个多核 scope / 34 个单核，最宽 72 核
+                    没有多波、不均或变宽的展开
+                    426 个 task 里 422 个是单核单波
+```
+
+没有值得看的展开时，这一段不拿 `1/1/1` 的行凑数，直接说「本 case 的形状问题在别处」。
+
+## scope → 源码：dump 里没有，但能重建
 
 泳道上的算子名不是编译器发明的。每个外联 scope 都以源码里的
 `pl.spmd(..., name_hint="X")` 命名：
@@ -378,19 +470,20 @@ with pl.spmd(NUM_QK_CORES, name_hint="qk_pv", deps=[qk_plan_tid, cache_ready_dep
 ```
 
 从入口 `decode_csa.py` 追传递导入(13 个模块)、索引其中所有 `name_hint`，
-就能把 trace 里的 callable 打回源码：
+就能把 trace 里的 scope 打回源码。**映射的粒度是 scope 不是 kernel** ——
+混合 scope 拆出的 `_aic` / `_aiv` 共用一个 `name_hint`，指向同一处源码：
 
 | | |
 |---|---|
-| 覆盖 | **62 / 62** callable |
+| 覆盖 | **62 / 62** scope |
 | 唯一定位到 文件:行 | **54** |
 | 多候选(同名 hint 出现在多处) | **8** |
 | 未匹配 | 0 |
 
 编译器加的两级后缀要先折回去：
 
-- `_aic` / `_aiv` —— `ExpandMixedKernel`(pass 23)拆 mixed kernel。
-  `qk_pv_aic` → `qk_pv`
+- `_aic` / `_aiv` —— `ExpandMixedKernel` 拆 mixed kernel。
+  `qk_pv_aic` → `qk_pv`。现在 scope 本身就叫 `qk_pv`，这一层是精确命中，不用去后缀
 - `_0` —— **同一处源码被实例化两次**，不是两处源码。
   `decode_csa.py` 只 import 了 `compressor_ratio4`，却在 line 353 与 892 各调一次，
   两次 tile 常量不同，实测块数 512 / 256 正好对上 —— 于是有

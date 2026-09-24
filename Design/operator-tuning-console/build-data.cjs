@@ -297,6 +297,9 @@ for (const e of blockEvents) {
   t.blocks.push({
     lane: laneIdx[threadName['4:' + e.tid]],
     core: core,
+    /* NOT redundant with the task's funcId: a mixed scope's two halves share
+     * one taskId but carry different FuncIds on their blocks. */
+    fid: +(hint.match(/FuncId:(-?\d+)/) || [0, -1])[1],
     ts: hasOwnSetupEvents ? e.ts - setup : e.ts,
     dur: hasOwnSetupEvents ? e.dur + setup : e.dur,
     kdur: kdur,
@@ -329,9 +332,76 @@ taskMap.forEach((t) => {
   const sv = schedViewByTask[t.id] || [];
   const svAicpu = sv.map((x) => x.aicpu).sort((a, c) => a - c);
   const workerMean = sum(b.map((x) => x.dur)) / b.length;
+
+  /* ------------------------------------------------ scope -> kernel(s)
+   * ExpandMixedKernel splits a mixed InCore function into an AIC and an AIV
+   * kernel wrapped in a Group. The scheduler launches the Group, so both
+   * halves share ONE taskId -- but their blocks carry different FuncIds.
+   * Keying only on taskId therefore files the Vec half's core-time under the
+   * Cube half's name. Regroup by FuncId so the pair is visible. */
+  const kAcc = {};
+  b.forEach((x) => {
+    const k = (kAcc[x.fid] = kAcc[x.fid] || {
+      funcId: x.fid, name: nameMap.callable_id_to_name[String(x.fid)] || t.rawName,
+      engine: null, blocks: 0, cores: new Set(),
+      coreTime: 0, kernelTime: 0, setupTime: 0, durs: [],
+    });
+    const en = laneNames[x.lane].indexOf('AIC') === 0 ? 'aic' : 'aiv';
+    k.engine = k.engine === null || k.engine === en ? en : 'mix';
+    k.blocks += 1; k.cores.add(x.core);
+    k.coreTime += x.dur; k.kernelTime += x.kdur; k.setupTime += x.setup;
+    k.durs.push(x.dur);
+  });
+  const kernels = Object.keys(kAcc).map((f) => {
+    const k = kAcc[f];
+    const d = k.durs.slice().sort((a, c) => a - c);
+    return {
+      funcId: k.funcId, name: k.name, engine: k.engine,
+      blocks: k.blocks, cores: k.cores.size,
+      coreTime: r2(k.coreTime), kernelTime: r2(k.kernelTime), setupTime: r2(k.setupTime),
+      durMed: r2(d[Math.floor(d.length / 2)]), durMax: r2(d[d.length - 1]),
+      durMean: r2(k.coreTime / k.blocks),
+    };
+  }).sort((a, c) => c.coreTime - a.coreTime);
+
+  /* The scope is the source-level pl.spmd region; the kernels are what the
+   * device actually launched. They are 1:1 except for mixed scopes, where the
+   * two halves share the name_hint the scope was written with. */
+  const scopeName = (function () {
+    const ns = kernels.map((k) => k.name);
+    if (ns.length === 1) return ns[0];
+    const bases = Array.from(new Set(ns.map((n) => n.replace(/_(aic|aiv)$/, ''))));
+    return bases.length === 1 ? bases[0] : ns.slice().sort().join('+');
+  })();
+
+  const engineOf = (en) => {
+    const ks = kernels.filter((k) => k.engine === en);
+    if (!ks.length) return null;
+    return {
+      blocks: sum(ks.map((k) => k.blocks)),
+      cores: sum(ks.map((k) => k.cores)),
+      coreTime: r2(sum(ks.map((k) => k.coreTime))),
+      setupTime: r2(sum(ks.map((k) => k.setupTime))),
+      durMax: Math.max.apply(null, ks.map((k) => k.durMax)),
+      durMean: r2(sum(ks.map((k) => k.coreTime)) / sum(ks.map((k) => k.blocks))),
+      kernels: ks.map((k) => k.name),
+    };
+  };
+  const engines = { aic: engineOf('aic'), aiv: engineOf('aiv') };
+
   tasks.push({
     id: t.id, tag: t.tag, funcId: t.funcId,
-    callable: nameMap.callable_id_to_name[String(t.funcId)] || t.rawName,
+    callable: scopeName,
+    kernels: kernels,
+    kernelCount: kernels.length,
+    engines: engines,
+    /* Cube and Vec halves of one mixed kernel run concurrently on paired
+     * cores. If the two longest blocks are ~equal the halves are serialised
+     * inside the block; a large gap means one side waits on the other. */
+    pairRatio: (engines.aic && engines.aiv)
+      ? r3(Math.max(engines.aic.durMax, engines.aiv.durMax)
+           / Math.max(Math.min(engines.aic.durMax, engines.aiv.durMax), 1e-9))
+      : null,
     rawName: t.rawName,
     ring: +(t.tag.match(/r(\d+)/) || [0, 0])[1],
     kind: kind,
@@ -549,6 +619,12 @@ tasks.forEach((t) => {
     coreTime: 0, kernelTime: 0, setupTime: 0, aicpuTime: 0,
     blocks: 0, cores: new Set(), critNodes: 0,
     first: Infinity, last: -Infinity,
+    /* which device kernels this source scope compiled into */
+    kernelAcc: {},
+    /* core-time on each engine, so a mixed scope does not read as one number */
+    eng: {},
+    /* spmd fan-out: how wide the launch was and how evenly it filled */
+    fanCores: 0, fanBlocks: 0, waves: 0, imbalance: 0, coreSet: {},
   });
   sc.tasks.push(t.tag);
   sc.tags.push(t.tag);
@@ -559,6 +635,29 @@ tasks.forEach((t) => {
   if (t.svAicpuMean != null) sc.aicpuTime += t.svAicpuMean * t.svBlocks;
   sc.blocks += t.blockCount;
   sc.cores.add(t.coreCount);
+  (t.kernels || []).forEach((kn) => {
+    const a = (sc.kernelAcc[kn.name] = sc.kernelAcc[kn.name]
+      || { name: kn.name, engine: kn.engine, funcId: kn.funcId,
+           blocks: 0, cores: 0, coreTime: 0, setupTime: 0, durMax: 0 });
+    a.blocks += kn.blocks;
+    a.cores = Math.max(a.cores, kn.cores);
+    a.coreTime += kn.coreTime;
+    a.setupTime += kn.setupTime;
+    a.durMax = Math.max(a.durMax, kn.durMax);
+  });
+  ['aic', 'aiv'].forEach((en) => {
+    const e = t.engines && t.engines[en];
+    if (!e) return;
+    const a = (sc.eng[en] = sc.eng[en] || { blocks: 0, coreTime: 0, durMax: 0, cores: 0 });
+    a.blocks += e.blocks; a.coreTime += e.coreTime;
+    a.durMax = Math.max(a.durMax, e.durMax);
+    a.cores = Math.max(a.cores, e.cores);
+  });
+  sc.fanCores = Math.max(sc.fanCores, t.coreCount);
+  sc.fanBlocks = Math.max(sc.fanBlocks, t.blockCount);
+  sc.waves = Math.max(sc.waves, t.blockCount / Math.max(t.coreCount, 1));
+  sc.imbalance = Math.max(sc.imbalance, t.imbalance || 0);
+  sc.coreSet[t.coreCount] = (sc.coreSet[t.coreCount] || 0) + 1;
   if (t.onCrit) sc.critNodes++;
   sc.first = Math.min(sc.first, t.start);
   sc.last = Math.max(sc.last, t.end);
@@ -578,9 +677,48 @@ const scopes = Object.keys(scopeMap).map((k) => {
     wall += cur[1] - cur[0]; cur = r.slice();
   });
   if (cur) wall += cur[1] - cur[0];
+  const kernelList = Object.keys(sc.kernelAcc).map((n) => {
+    const a = sc.kernelAcc[n];
+    return {
+      name: a.name, engine: a.engine, funcId: a.funcId,
+      blocks: a.blocks, cores: a.cores,
+      coreTime: r2(a.coreTime), setupTime: r2(a.setupTime), durMax: r2(a.durMax),
+      share: r2((a.coreTime / Math.max(sc.coreTime, 1e-9)) * 100),
+    };
+  }).sort((a, c) => c.coreTime - a.coreTime);
+  const engOut = {};
+  ['aic', 'aiv'].forEach((en) => {
+    const a = sc.eng[en];
+    if (!a) return;
+    engOut[en] = {
+      blocks: a.blocks, cores: a.cores,
+      coreTime: r2(a.coreTime), durMax: r2(a.durMax),
+      share: r2((a.coreTime / Math.max(sc.coreTime, 1e-9)) * 100),
+    };
+  });
   return {
     name: k,
     kind: kind,
+    /* the device kernels this scope compiled into: 1, or 2 when mixed */
+    kernels: kernelList,
+    kernelCount: kernelList.length,
+    engines: engOut,
+    /* Cube vs Vec longest block. ~1 on a mixed scope means the two halves
+     * are serialised inside the block rather than overlapped. */
+    pairRatio: (engOut.aic && engOut.aiv)
+      ? r3(Math.max(engOut.aic.durMax, engOut.aiv.durMax)
+           / Math.max(Math.min(engOut.aic.durMax, engOut.aiv.durMax), 1e-9))
+      : null,
+    /* spmd launch shape */
+    spmd: {
+      cores: sc.fanCores,
+      blocks: sc.fanBlocks,
+      waves: r2(sc.waves),
+      launches: ts.length,
+      imbalance: r2(sc.imbalance),
+      /* the same scope relaunched at a different width is a real signal */
+      widths: Object.keys(sc.coreSet).map((n) => +n).sort((a, c) => a - c),
+    },
     taskCount: ts.length,
     tags: sc.tags,
     blocks: sc.blocks,
@@ -1255,13 +1393,16 @@ const passEvidenceIndex = (function () {
 
 /* ------------------------------------------------------------- findings */
 const pick = (name) => tasks.filter((t) => t.callable === name)[0];
+const nameMapCount = Object.keys(nameMap.callable_id_to_name || {}).length;
 
 const waitTasks = tasks.filter((t) => /_wait$/.test(t.callable || '')).sort((a, b) => b.span - a.span);
 const waitSpan = r2(sum(waitTasks.map((t) => t.span)));
 const mixTasks = tasks.filter((t) => t.kind === 'mix').sort((a, b) => b.span - a.span);
 const qkpv = mixTasks[0];
-/* the Vec-side counterpart, by convention the same name with an _aiv suffix */
-const qkpvPeer = qkpv ? pick(qkpv.callable.replace(/_aic$/, '_aiv')) : null;
+/* The Cube and Vec halves are two kernels on one launch; read them off the
+ * task's own FuncId split rather than guessing a peer name. */
+const qkAic = qkpv && qkpv.engines ? qkpv.engines.aic : null;
+const qkAiv = qkpv && qkpv.engines ? qkpv.engines.aiv : null;
 const worstImb = tasks.filter((t) => t.blockCount >= 32).sort((a, b) => b.imbalance - a.imbalance)[0];
 const worstHandoff = tasks.filter((t) => t.svOverhead != null && t.blockCount >= 8)
   .sort((a, b) => b.svOverhead - a.svOverhead)[0];
@@ -1459,21 +1600,32 @@ const findings = [
   },
   CAN.F9 && {
     id: 'F9', level: 'l1', severity: 'medium', axis: 'fusion',
-    title: qkpv.callable + ' 混合核跨 ' + qkpv.coreCount + ' 核，单块 ' + qkpv.durMean + ' us',
-    metric: 'span ' + qkpv.span + ' us，核上 ' + qkpv.durMean + ' us/块',
-    claim: '本 case 只有 ' + tasks.filter((t) => t.kind === 'mix').length + ' 个 mixed kernel 横跨全部 '
-      + qkpv.coreCount + ' 个核（AIC+AIV 同核），这是其中最贵的一个：span '
-      + qkpv.span + ' us 而单块 ' + qkpv.durMean + ' us，说明 span 几乎等于单块时长，Cube 与 Vec 段是串在块内的。'
-      + (qkpvPeer ? '同段还有 ' + qkpvPeer.tag + '（' + qkpvPeer.callable + '）作为 Vec 侧对应体。' : ''),
+    title: qkpv.callable + ' 的 Cube / Vec 两半串在块内，最长块 '
+      + (qkAic && qkAiv ? qkAic.durMax + ' vs ' + qkAiv.durMax + ' us' : qkpv.durMax + ' us'),
+    metric: qkAic && qkAiv
+      ? 'AIC ' + qkAic.coreTime + ' us / AIV ' + qkAiv.coreTime + ' us · 最长块 ' + qkpv.pairRatio + 'x'
+      : 'span ' + qkpv.span + ' us',
+    claim: '本 case 只有 ' + mixTasks.length + ' 个 mixed kernel。ExpandMixedKernel 把这个 scope 拆成 '
+      + qkpv.kernels.map((k) => k.name).join(' + ')
+      + ' 两个 kernel，它们共用一次 Group launch（同一个 taskId），在 trace 里是一个任务、两个 FuncId。'
+      + (qkAic && qkAiv
+        ? '实测 Cube 侧 ' + qkAic.blocks + ' 块 / ' + qkAic.coreTime + ' us，Vec 侧 ' + qkAiv.blocks + ' 块 / '
+          + qkAiv.coreTime + ' us；两侧最长块 ' + qkAic.durMax + ' 与 ' + qkAiv.durMax + ' us 相差只有 '
+          + qkpv.pairRatio + ' 倍，而整段 span 仅 ' + qkpv.span
+          + ' us —— 两半没有错开，是在块内串行执行的。'
+        : ''),
     evidence: [
       { artifact: 'merged_swimlane', locator: qkpv.tag + ' (' + qkpv.callable + ')', value: qkpv.blockCount + ' 块 / ' + qkpv.coreCount + ' 核，min ' + qkpv.durMin + ' / med ' + qkpv.durMed + ' / max ' + qkpv.durMax + ' us' },
+      qkAic && qkAiv ? { artifact: 'merged_swimlane（按 FuncId 拆）', locator: qkpv.kernels.map((k) => 'FuncId ' + k.funcId + ' = ' + k.name).join(' / '), value: 'AIC ' + qkAic.blocks + ' 块 ' + qkAic.coreTime + ' us（最长 ' + qkAic.durMax + '）· AIV ' + qkAiv.blocks + ' 块 ' + qkAiv.coreTime + ' us（最长 ' + qkAiv.durMax + '）' } : null,
+      { artifact: 'name_map.json', locator: 'callable_id_to_name', value: nameMapCount + ' 个 kernel 名 vs ' + R.scopes.length + ' 个 scope —— 差的正是被拆开的 mixed scope' },
       { artifact: 'deps.json', locator: 'task ' + qkpv.id, value: 'block_num=' + qkpv.blockNum + '，前驱 ' + qkpv.pred.length + ' 个，后继 ' + qkpv.succ.length + ' 个' },
       { artifact: 'critical path', locator: '是否在关键路径上', value: critTags.indexOf(qkpv.tag) >= 0 ? '在，第 ' + (critTags.indexOf(qkpv.tag) + 1) + ' 个节点' : '不在' },
-    ],
+    ].filter(Boolean),
     focus: { view: 'l1', task: qkpv.tag },
     lever: '按 Flash Attention 的 Cube→Vec→Cube→Vec 解耦思路，用 GM FIFO 让两侧真正并行，而不是块内串行。',
     guardrail: 'S1_TILE、预加载深度、FIFO 槽数与 UB 预算必须一起推导；只单独扫 Tile 会在 F4 的深度回退上撞墙。',
-    verify: '重测该任务 span 与单块时长的比值；解耦生效后 span 应显著小于 块数 × 单块时长 / 核数。',
+    verify: '重测两侧最长块与整段 span：解耦生效后 span 应明显小于 AIC 最长块 + AIV 最长块，'
+      + '两侧 durMax 的比值也会偏离 1。',
   },
   CAN.F10 && {
     id: 'F10', level: 'l2', severity: 'low', axis: 'reuse',

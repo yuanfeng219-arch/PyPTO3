@@ -661,7 +661,7 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-scoperows { display: grid; gap: 1px; }
 .tc-scoperow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 52px 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 30px 52px 40px 40px;
   gap: var(--space-2);
   align-items: baseline;
   width: 100%;
@@ -717,6 +717,49 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-scoperow > .n.muted { color: var(--foreground-muted); }
 /* zero slack on a fat scope: the combination worth acting on */
 .tc-scoperow > .n.hot { color: var(--warning); }
+
+/* ------------------------------------------------------- engine column
+ * C / V / C+V. Cube and Vec are the two core types a scope can compile to;
+ * a mixed scope reads C+V and expands into two kernels below. */
+.tc-scoperow > .e {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  letter-spacing: -0.02em;
+  color: var(--foreground-muted);
+}
+.tc-scoperow > .e.is-aic { color: var(--primary); }
+.tc-scoperow > .e.is-aiv { color: var(--accent); }
+.tc-scoperow > .e.is-mix { color: var(--warning); }
+.tc-scoperow.is-head > .e { color: var(--foreground-muted); }
+
+/* --------------------------------------------- engine-pairing sub-rows
+ * One source scope, then its kernels indented under it. The header row is
+ * shared with the ranking so the columns line up. */
+.tc-scoperow.is-pair { grid-template-columns: minmax(0, 1fr) 24px 52px 44px 44px; }
+.tc-scoperow.is-pair.is-sub > .l { padding-left: 12px; }
+.tc-pairhead {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-1);
+  color: var(--foreground);
+  font: var(--type-label);
+}
+.tc-pairhead > .nm {
+  font-family: var(--font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tc-pairhead > .ct { flex: none; color: var(--foreground-muted); font-family: var(--font-mono); }
+
+/* idle-window rows keep the original four columns */
+.tc-scoperow.is-idle { grid-template-columns: minmax(0, 1fr) 52px 44px 44px; }
+
+/* ------------------------------------------------------ spmd shape rows */
+.tc-scoperow.is-spmd { grid-template-columns: minmax(0, 1fr) 30px 36px 40px 44px; }
 
 /* ----------------------------------------------- launch-skew breakdown
  * Lives in the E2E inspector: the measured wait against the upper bound the
