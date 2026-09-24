@@ -1013,7 +1013,12 @@
       });
     }
 
-    const ROW_H = 8, ROW_GAP = 1;
+    /* Worker rows are deliberately roomier than the compact scheduler overlay:
+     * the worker view is where readers compare adjacent cores. The extra gap
+     * makes individual bars and lane labels scannable without turning the
+     * trace into a solid colour field. */
+    const ROW_H = 11, ROW_GAP = 3, ENGINE_GAP = 7;
+    const SCHED_ROW_H = 9, SCHED_ROW_GAP = 2;
     let laneLayout = [];
     function drawLanes() {
       const lanes = laneRows();
@@ -1022,8 +1027,16 @@
       const overlayRows = S.overlay === 'sched' ? rank.scheduler.lanes.length : 0;
       const readyH = S.overlay === 'ready' ? 46 : 0;
       const OCC_H = 26;
-      const top = 20 + OCC_H + (overlayRows ? overlayRows * (ROW_H + ROW_GAP) + 8 : 0) + readyH;
-      const h = top + lanes.length * (ROW_H + ROW_GAP) + 8;
+      const schedH = overlayRows ? overlayRows * (SCHED_ROW_H + SCHED_ROW_GAP) + 8 : 0;
+      const top = 20 + OCC_H + schedH + readyH;
+      const workerRows = [];
+      let workerBottom = top;
+      lanes.forEach((lane, i) => {
+        workerRows.push(workerBottom);
+        workerBottom += ROW_H + ROW_GAP;
+        if (i < lanes.length - 1 && lane.kind !== lanes[i + 1].kind) workerBottom += ENGINE_GAP;
+      });
+      const h = workerBottom + 8;
       const ctx = fitCanvas(laneCanvas, w, Math.max(h, laneHost.clientHeight || h));
       const sx = (t) => plotX + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
       drawTimeRuler(ctx, plotX, plotW, 12, S.t0, S.t1);
@@ -1095,15 +1108,15 @@
       /* AICPU scheduler lanes */
       if (overlayRows) {
         rank.scheduler.lanes.forEach((name, i) => {
-          const y = 20 + OCC_H + i * (ROW_H + ROW_GAP);
+          const y = 20 + OCC_H + i * (SCHED_ROW_H + SCHED_ROW_GAP);
           ctx.fillStyle = cssVar('--foreground-muted');
-          ctx.fillText(name, 4, y + ROW_H / 2);
+          ctx.fillText(name, 4, y + SCHED_ROW_H / 2);
           rank.scheduler.blocks[i].forEach((b) => {
             const x = sx(b[0]), x2 = sx(b[0] + b[1]);
             if (x2 < plotX || x > plotX + plotW) return;
             ctx.fillStyle = CMAP.colorForLaneKind('aicpu');
             ctx.globalAlpha = b[2] === 'complete' ? 0.95 : b[2] === 'dispatch' ? 0.7 : 0.45;
-            ctx.fillRect(Math.max(plotX, x), y, Math.max(0.8, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), ROW_H);
+            ctx.fillRect(Math.max(plotX, x), y, Math.max(0.8, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), SCHED_ROW_H);
             ctx.globalAlpha = 1;
           });
         });
@@ -1139,18 +1152,25 @@
       /* worker lanes */
       const markers = [];
       lanes.forEach((lane, i) => {
-        const y = top + i * (ROW_H + ROW_GAP);
+        const y = workerRows[i];
         const li = rank.swimlane.laneNames.indexOf(lane.name);
         laneLayout.push({ y: y, laneIdx: li, name: lane.name });
         const laneIsSubject = !!subjLane[lane.name];
+        /* A barely-there band restores the row rhythm in a dense trace while
+         * leaving task colour and idle washes as the primary signals. */
+        ctx.fillStyle = cssVar('--surface-2');
+        ctx.globalAlpha = i % 2 ? 0.32 : 0.16;
+        ctx.fillRect(plotX, y - 1, plotW, ROW_H + 2);
+        ctx.globalAlpha = 1;
         if (laneIsSubject) {
           ctx.fillStyle = cssVar('--warning');
           ctx.globalAlpha = 0.12;
-          ctx.fillRect(plotX, y - 1, plotW, ROW_H + 2);
+          ctx.fillRect(plotX, y - 2, plotW, ROW_H + 4);
           ctx.globalAlpha = 1;
         }
         ctx.fillStyle = laneIsSubject ? cssVar('--warning')
           : lane.util > 60 ? cssVar('--foreground-secondary') : cssVar('--foreground-muted');
+        ctx.font = (laneIsSubject ? '600' : '500') + ' 10px ' + cssVar('--font-sans');
         ctx.fillText(lane.name, 4, y + ROW_H / 2);
         rank.swimlane.blocks[li].forEach((b) => {
           const t = rank.tasks[b[2]];
@@ -1180,6 +1200,18 @@
           });
           ctx.globalAlpha = 1;
         });
+        /* A wider separator at each engine boundary makes the two core pools
+         * legible even when the chart is scrolled. */
+        if (i < lanes.length - 1 && lane.kind !== lanes[i + 1].kind) {
+          const separatorY = y + ROW_H + (ROW_GAP + ENGINE_GAP) / 2;
+          ctx.strokeStyle = cssVar('--border-default');
+          ctx.globalAlpha = 0.75;
+          ctx.beginPath();
+          ctx.moveTo(4, separatorY + 0.5);
+          ctx.lineTo(plotX + plotW, separatorY + 0.5);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
       });
 
       /* numbered markers matching the evidence chips, drawn last so nothing covers them */

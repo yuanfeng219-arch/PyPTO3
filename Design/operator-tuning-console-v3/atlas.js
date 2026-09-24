@@ -49,6 +49,7 @@
   }
   function group(n) { return Math.round(n).toLocaleString('en-US'); }
   function pct(a, b) { return b ? (a / b * 100).toFixed(1) : '0.0'; }
+  function num(v, d) { return v == null ? '—' : v.toFixed(d); }
 
   /* canvas 按设备像素比放大，否则 1px 的格子边在高分屏上糊成两像素 */
   function hidpi(cv, W, H) {
@@ -69,7 +70,26 @@
     });
   });
 
+  /* 三口径的配色与 atlas.css 的 --at-k/s/h 一致。绿 = 真正在算，
+   * 暖色 = 开销；和矩阵里的耗时档用的是同一批色值但不是同一套语义。 */
+  var CAL = [
+    { id: 'k', name: 'kernel',   color: '#4ec58c', note: '真正在算' },
+    { id: 's', name: 'setup',    color: '#ffbc52', note: '块内准备' },
+    { id: 'h', name: 'hand-off', color: '#e0685c', note: '派发到回收' },
+  ];
+  var SORTS = [
+    { k: 'sum', label: 'Σ core-time' },
+    { k: 'setup', label: 'setup 占比' },
+    { k: 'handoff', label: 'hand-off 占比' },
+    { k: 'prog', label: '下发序' },
+  ];
+  /* 胶片条一格的尺寸，和 .fs-scroll canvas 的 78px 高度对齐。
+   * cap 是画进 canvas 的格数上限：一格 46px、dpr 1.5，500 格约 34500 像素宽，
+   * 离浏览器 65535 的单边上限还有余量；再多就该换分页而不是继续拉长。 */
+  var FS = { cw: 40, gap: 6, top: 13, thumb: 48, bot: 13, cap: 500 };
+
   var S = {
+    screen: 'atlas',   /* atlas | detail */
     ci: 0,
     order: 'time',     /* time | core */
     pathOnly: false,
@@ -77,6 +97,9 @@
     win: null,         /* [t0, t1]，墙钟窗口 us */
     bands: {}, bandsOn: false,
     scopes: {}, scopesOn: false,
+    task: null,        /* r.tasks 的下标 */
+    face: 'core',      /* core | dur —— 同一批块的两种摆法 */
+    fsSort: 'sum',
     overlay: null,
   };
 
@@ -115,7 +138,7 @@
          * 几十处倒置），所以它能当第二条独立的轴用。 */
         var m = /^r(\d+)t(\d+)$/.exec(t.tag);
         blocks.push({
-          st: b[0], dur: b[1], lane: lane,
+          st: b[0], dur: b[1], lane: lane, tix: b[2],
           tag: t.tag, callable: t.callable || t.rawName,
           ring: m ? +m[1] : 0, ti: m ? +m[2] : 0,
           scope: sn,
@@ -160,6 +183,32 @@
       totalDur += b.dur; critN += b.crit;
     });
 
+    /* ---------------------------------------------- 每个 task 的画像
+     * kernel ⊂ +setup ⊂ +hand-off 是对同一个块的三次嵌套测量，
+     * 差分之后才是可以堆起来的三段。
+     * max(0, ·) 只是防负的护栏：本仓的三份 dump、594 个 task 上一次都没触发，
+     * 两个恒等式（k+s == durMean、busySum == kdurSum+setupSum）偏差都是 0，
+     * 所以这根堆叠条是精确分解，不是近似。 */
+    var blocksByTask = {};
+    blocks.forEach(function (b, i) {
+      (blocksByTask[b.tix] = blocksByTask[b.tix] || []).push(i);
+    });
+    var tasksV = r.tasks.map(function (t, i) {
+      var mt = /^r(\d+)t(\d+)$/.exec(t.tag);
+      var kk = t.kdurSum / Math.max(1, t.blockCount);
+      var ss = Math.max(0, t.durMean - kk);
+      var hh = Math.max(0, (t.svAicpuMean == null ? t.durMean : t.svAicpuMean) - t.durMean);
+      var tt = kk + ss + hh || 1;
+      return {
+        i: i, t: t,
+        name: tagScope[t.tag] || t.callable || t.rawName,
+        ring: mt ? +mt[1] : 0, ti: mt ? +mt[2] : 0,
+        k: kk, s: ss, h: hh, kp: kk / tt, sp: ss / tt, hp: hh / tt,
+        sum: t.busySum, crit: onCpm[t.tag] ? 1 : 0,
+        thumb: null,
+      };
+    });
+
     /* 下发序和时间序差多少：按任务数，不按块数（同一任务的块是一起下发的） */
     var prog = r.tasks.map(function (t, i) {
       var mm = /^r(\d+)t(\d+)$/.exec(t.tag);
@@ -171,6 +220,8 @@
     var V = {
       ent: ent, caseObj: c, rank: r,
       blocks: blocks, byProg: byProg, byTime: byTime, byCore: byCore,
+      tasksV: tasksV, blocksByTask: blocksByTask,
+      maxDur: blocks.reduce(function (m, b) { return b.dur > m ? b.dur : m; }, 0),
       legend: legend, scopes: scopes,
       span: sw.spanUs, lanes: sw.laneNames.length,
       totalDur: totalDur, critN: critN, inversions: inversions,
@@ -447,6 +498,7 @@
         b.addEventListener('click', function () {
           if (S.ci === i) return;
           S.ci = i;
+          S.task = null;
           clearFilters();
           paint();
         });
@@ -553,19 +605,420 @@
       tip.style.top = y + 'px';
     });
     cv.addEventListener('mouseleave', function () { tip.hidden = true; });
-    /* 点格子 = 按它的 scope 筛选，等价于点右栏那一行 */
+    /* 点格子 = 打开它所属 kernel 的详情，和参考图里点缩略图进详情页一样 */
     cv.addEventListener('click', function (e) {
       var r = cv.getBoundingClientRect();
       var b = hitMatrix(e.clientX - r.left, e.clientY - r.top);
       if (!b) return;
-      S.scopes[b.si] = !S.scopes[b.si];
-      syncSets();
+      tip.hidden = true;
+      openDetail(b.tix);
+    });
+
+    /* 胶片条：点一格换 kernel */
+    var fs = $('[data-canvas="strip"]');
+    fs.addEventListener('click', function (e) {
+      var r = fs.getBoundingClientRect();
+      var i = Math.floor((e.clientX - r.left) / (FS.cw + FS.gap));
+      var list = stripList();
+      if (i < 0 || i >= list.length) return;
+      S.task = list[i].i;
       paint();
     });
+    fs.addEventListener('mousemove', function (e) {
+      var r = fs.getBoundingClientRect();
+      var i = Math.floor((e.clientX - r.left) / (FS.cw + FS.gap));
+      var list = stripList();
+      if (i < 0 || i >= list.length) { tip.hidden = true; return; }
+      var x = list[i];
+      tip.textContent = '';
+      tip.appendChild(el('div', 't', x.name + (x.crit ? '  ◂ 关键路径' : '')));
+      tip.appendChild(el('div', 's',
+        x.t.tag + '  ·  ' + x.t.blockCount + ' 块 / ' + x.t.coreCount + ' 核'
+        + '  ·  Σ ' + group(x.sum) + ' us'
+        + '  ·  setup ' + (x.sp * 100).toFixed(1) + '%'
+        + '  ·  hand-off ' + (x.hp * 100).toFixed(1) + '%'));
+      tip.hidden = false;
+      var tx = Math.min(window.innerWidth - tip.offsetWidth - 12, e.clientX + 14);
+      tip.style.left = Math.max(8, tx) + 'px';
+      tip.style.top = (e.clientY + 18) + 'px';
+    });
+    fs.addEventListener('mouseleave', function () { tip.hidden = true; });
+  }
+
+  /* =================================================================
+   * 第二屏：kernel 详情
+   * ================================================================= */
+
+  /* 胶片条里放哪些 kernel：总览页筛剩下的那些。两屏因此是一个产品，
+   * 在矩阵上刷一段时间窗，详情页的候选集跟着变。 */
+  function selTasks() {
+    var V = view(), hit = {};
+    V.blocks.forEach(function (b) { if (pass(b)) hit[b.tix] = 1; });
+    var list = V.tasksV.filter(function (x) { return hit[x.i]; });
+    var key = S.fsSort;
+    list.sort(function (a, b) {
+      if (key === 'setup') return b.sp - a.sp || b.sum - a.sum;
+      if (key === 'handoff') return b.hp - a.hp || b.sum - a.sum;
+      if (key === 'prog') return a.ring - b.ring || a.ti - b.ti;
+      return b.sum - a.sum;
+    });
+    return list;
+  }
+
+  function curTask() {
+    var V = view();
+    if (S.task != null && V.tasksV[S.task]) return V.tasksV[S.task];
+    var l = selTasks();
+    if (!l.length) return null;
+    S.task = l[0].i;
+    return l[0];
+  }
+
+  /* 胶片条 = 候选集 + 当前这个。总览页的筛选一变，或者从右栏跳到一个
+   * 被筛掉的 kernel，当前这个就不在候选集里了 —— 那时候把它插在最前面，
+   * 而不是把页面弹回候选集的第一个：弹回去会让「构成相近」那一栏点不动，
+   * 而不插进来又会让 ‹ › 因为找不到位置变成死的。 */
+  function stripList() {
+    var l = selTasks();
+    if (S.task == null) return l;
+    for (var i = 0; i < l.length; i++) if (l[i].i === S.task) return l;
+    var v = view().tasksV[S.task];
+    return v ? [v].concat(l) : l;
+  }
+
+  function openDetail(tix) {
+    S.task = tix;
+    S.screen = 'detail';
+    paint();
+    /* 把当前这一格滚进胶片条的可视范围 */
+    var list = stripList(), at = -1;
+    list.forEach(function (x, i) { if (x.i === S.task) at = i; });
+    if (at >= 0) {
+      var sc = $('.fs-scroll');
+      var x = at * (FS.cw + FS.gap);
+      if (x < sc.scrollLeft || x + FS.cw > sc.scrollLeft + sc.clientWidth) {
+        sc.scrollLeft = Math.max(0, x - sc.clientWidth / 2 + FS.cw / 2);
+      }
+    }
+  }
+
+  /* 缩略图：把这个 task 的块按时长降序压成 cw 列。
+   * 纵轴按这个 task 自己的最长块归一 —— 用全 rank 的上限试过，
+   * 绝大多数 kernel 的柱子只有 5px 高，一条都读不出来。所以高度画的是
+   * 「形状」（平 = 均衡，陡 = 长尾），绝对大小交给颜色和下面的 Σ。 */
+  function thumbOf(V, x) {
+    if (x.thumb) return x.thumb;
+    var ids = V.blocksByTask[x.i] || [];
+    var ds = ids.map(function (i) { return V.blocks[i].dur; }).sort(function (a, b) { return b - a; });
+    var out = [];
+    for (var c = 0; c < FS.cw; c++) {
+      if (!ds.length) { out.push(0); continue; }
+      var a = Math.floor(c / FS.cw * ds.length);
+      out.push(ds[Math.min(ds.length - 1, a)]);
+    }
+    x.thumb = out;
+    return out;
+  }
+
+  function drawFilmstrip() {
+    var cv = $('[data-canvas="strip"]');
+    if (!cv) return;
+    var V = view(), list = stripList().slice(0, FS.cap);
+    var H = FS.top + FS.thumb + FS.bot + 4;
+    var W = Math.max(1, list.length * (FS.cw + FS.gap));
+    cv.style.width = W + 'px';
+    var g = hidpi(cv, W, H);
+    g.clearRect(0, 0, W, H);
+    var cur = curTask();
+
+    list.forEach(function (x, i) {
+      var x0 = i * (FS.cw + FS.gap);
+      var sel = cur && x.i === cur.i;
+      if (sel) {
+        g.fillStyle = 'rgba(255,255,255,0.09)';
+        g.fillRect(x0 - 3, 0, FS.cw + 6, H);
+      }
+      /* 上标：tag，选中的那个前面带一个点，和参考图一致 */
+      g.font = '8px ' + 'ui-monospace, monospace';
+      g.textAlign = 'left';
+      g.textBaseline = 'top';
+      g.fillStyle = sel ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.34)';
+      g.fillText((sel ? '● ' : '· ') + x.t.tag, x0, 2);
+
+      /* 缩略图：块时长剖面，按矩阵那五档上色 */
+      var th = thumbOf(V, x);
+      var base = FS.top + FS.thumb;
+      var top = th[0] || 1;
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillRect(x0, FS.top, FS.cw, FS.thumb);
+      for (var c = 0; c < FS.cw; c++) {
+        var d = th[c];
+        if (!d) continue;
+        var hh = Math.max(1, Math.round(d / top * (FS.thumb - 2)));
+        g.fillStyle = BANDS[bandOf(d)].color;
+        g.globalAlpha = sel ? 1 : 0.72;
+        g.fillRect(x0 + c, base - hh, 1, hh);
+        g.globalAlpha = 1;
+      }
+      /* 关键路径用右上角一小段 accent，不用整框 —— 整框会被当成"选中" */
+      if (x.crit) {
+        g.fillStyle = ACCENT;
+        g.fillRect(x0 + FS.cw - 8, FS.top, 8, 2);
+      }
+      if (sel) {
+        g.strokeStyle = 'rgba(255,255,255,0.7)';
+        g.lineWidth = 1;
+        g.strokeRect(x0 + 0.5, FS.top + 0.5, FS.cw - 1, FS.thumb - 1);
+      }
+      /* 下标：Σ core-time，压成 4 字符左右 */
+      g.fillStyle = sel ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.26)';
+      g.fillText('· ' + compact(x.sum), x0, base + 3);
+    });
+  }
+
+  function compact(n) {
+    if (n >= 10000) return (n / 1000).toFixed(0) + 'k';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return String(Math.round(n));
+  }
+
+  /* 中央主图：同一批块的两种摆法。按核看放置和错开，按时长看分布和长尾。 */
+  function drawPlot() {
+    var wrap = $('.dc-plot'), cv = $('[data-canvas="plot"]');
+    if (!wrap || !cv) return;
+    var W = Math.max(1, Math.round(wrap.clientWidth));
+    var H = Math.max(1, Math.round(wrap.clientHeight));
+    var g = hidpi(cv, W, H);
+    g.clearRect(0, 0, W, H);
+    var V = view(), x = curTask();
+    if (!x) return;
+    var ids = V.blocksByTask[x.i] || [];
+    if (!ids.length) return;
+    var bs = ids.map(function (i) { return V.blocks[i]; });
+
+    if (S.face === 'core') {
+      /* 只排这个 task 真正用到的核，空核不占行 */
+      var lanes = [];
+      var seen = {};
+      bs.forEach(function (b) { if (!seen[b.lane]) { seen[b.lane] = 1; lanes.push(b.lane); } });
+      lanes.sort(function (a, b) { return a - b; });
+      var row = {};
+      lanes.forEach(function (l, i) { row[l] = i; });
+      var t0 = x.t.start, t1 = x.t.end, span = (t1 - t0) || 1;
+      var rh = Math.min(16, Math.max(2, Math.floor(H / lanes.length)));
+      var gap = rh > 5 ? 1 : 0;
+      var top = Math.max(0, Math.round((H - lanes.length * rh) / 2));
+      bs.forEach(function (b) {
+        var y = top + row[b.lane] * rh;
+        var bx = (b.st - t0) / span * W;
+        var bw = Math.max(1, b.dur / span * W);
+        g.fillStyle = BANDS[b.band].color;
+        g.fillRect(bx, y, Math.min(bw, W - bx), rh - gap);
+      });
+    } else {
+      var ds = bs.map(function (b) { return b.dur; }).sort(function (a, b) { return b - a; });
+      var max = ds[0] || 1;
+      var bw2 = Math.max(1, W / ds.length);
+      ds.forEach(function (d, i) {
+        var hh = Math.max(1, d / max * (H - 2));
+        g.fillStyle = BANDS[bandOf(d)].color;
+        g.fillRect(i * bw2, H - hh, Math.max(1, bw2 - (bw2 > 3 ? 1 : 0)), hh);
+      });
+      /* 中位线：长尾有多长，靠它和柱顶的落差读 */
+      var med = ds[Math.floor(ds.length / 2)] || 0;
+      var my = H - Math.max(1, med / max * (H - 2));
+      g.strokeStyle = 'rgba(255,255,255,0.32)';
+      g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(0, my + 0.5); g.lineTo(W, my + 0.5); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = 'rgba(255,255,255,0.42)';
+      g.font = '9px ui-monospace, monospace';
+      g.textAlign = 'right'; g.textBaseline = 'bottom';
+      g.fillText('中位 ' + num(med, 2) + ' us', W - 2, my - 2);
+    }
+  }
+
+  function stack(host, x, h) {
+    host.textContent = '';
+    CAL.forEach(function (c) {
+      var i = el('i');
+      i.style.flex = String(Math.max(0.0001, x[c.id + 'p']));
+      i.style.background = c.color;
+      host.appendChild(i);
+    });
+    if (h) host.style.height = h + 'px';
+  }
+
+  function drawLeftRail() {
+    var V = view(), x = curTask();
+    if (!x) return;
+    var t = x.t;
+    $('[data-bind="dkName"]').textContent = x.name;
+    $('[data-bind="dkName"]').title = x.name;
+    var sub = $('[data-bind="dkSub"]');
+    sub.textContent = t.tag + ' · ' + String(t.kind).toUpperCase() + ' · ' + t.kernelCount + ' kernel';
+    sub.title = 'taskId ' + t.id + ' · FuncId ' + t.funcId;
+
+    stack($('[data-bind="dkBar"]'), x);
+
+    var key = $('[data-bind="dkKey"]');
+    key.textContent = '';
+    [[x.k, x.kp], [x.s, x.sp], [x.h, x.hp]].forEach(function (p, i) {
+      var c = CAL[i];
+      var row = el('div', 'row');
+      var hd = el('div', 'hd');
+      var sw = el('span', 'sw'); sw.style.background = c.color;
+      hd.appendChild(sw);
+      hd.appendChild(el('span', 'n', c.name));
+      hd.appendChild(el('span', 'v', (p[1] * 100).toFixed(1) + '%'));
+      row.appendChild(hd);
+      row.appendChild(el('div', 'u', num(p[0], 2) + ' us'));
+      row.title = c.name + '（' + c.note + '）：均值 ' + num(p[0], 2) + ' us，占一个块的 '
+        + (p[1] * 100).toFixed(1) + '%';
+      key.appendChild(row);
+    });
+
+    var f = $('[data-bind="dkFacts"]');
+    f.textContent = '';
+    function grp(name) { f.appendChild(el('div', 'g', name)); }
+    function fact(n, v, tone) {
+      var d = el('div', 'f' + (tone ? ' is-' + tone : ''));
+      d.appendChild(el('span', 'n', n));
+      d.appendChild(el('span', 'v', v));
+      f.appendChild(d);
+      return d;
+    }
+    grp('展开');
+    fact('核', String(t.coreCount));
+    fact('块', String(t.blockCount));
+    fact('波', num(t.blockCount / Math.max(1, t.coreCount), 2));
+    fact('span', num(t.span, 1) + ' us');
+
+    grp('离散');
+    fact('块中位', num(t.durMed, 2) + ' us');
+    fact('块最长', num(t.durMax, 2) + ' us');
+    fact('离散度', num(t.imbalance, 2) + 'x', t.imbalance > 3 ? 'bad' : t.imbalance > 2 ? 'warn' : null);
+
+    if (t.engines && (t.engines.aic || t.engines.aiv)) {
+      grp('引擎');
+      if (t.engines.aic) fact('AIC (Cube)', t.engines.aic.blocks + ' 块 / ' + t.engines.aic.cores + ' 核');
+      if (t.engines.aiv) fact('AIV (Vec)', t.engines.aiv.blocks + ' 块 / ' + t.engines.aiv.cores + ' 核');
+      if (t.pairRatio != null) fact('最长块比', t.pairRatio + 'x');
+    }
+
+    grp('路径');
+    fact('依赖关键路径', x.crit ? '在' : '不在', x.crit ? 'bad' : null);
+    fact('slack', t.slack == null ? '—' : num(t.slack, 0) + ' us');
+    fact('早派发', t.earlyDispatch ? '是' : '否');
+
+    if (t.src && t.src.file) {
+      grp('来源');
+      var d = fact(t.src.file, String(t.src.line));
+      d.title = t.src.file + ':' + t.src.line
+        + (t.src.exact ? '（scope 名精确命中）' : '（' + t.src.candidates + ' 个候选，未唯一）');
+    }
+  }
+
+  function drawSimList() {
+    var V = view(), cur = curTask();
+    if (!cur) return;
+    /* 「相近」= 三口径比例向量的 L1 距离。自己也在列表里并高亮，
+     * 和参考图一样 —— 没有参照物的时候形状本身看不出偏不偏。
+     * 搜索范围是整个 rank，不是总览页筛剩下的那些：这一栏回答的是
+     * 「这是一个问题还是一类问题」，被自己的筛选条件限住就没意义了。 */
+    var pool = view().tasksV;
+    var rank = pool.map(function (x) {
+      return { x: x, d: Math.abs(x.kp - cur.kp) + Math.abs(x.sp - cur.sp) + Math.abs(x.hp - cur.hp) };
+    }).sort(function (a, b) { return a.d - b.d || b.x.sum - a.x.sum; }).slice(0, 9);
+
+    var host = $('[data-bind="sim"]');
+    host.textContent = '';
+    rank.forEach(function (r) {
+      var x = r.x;
+      var b = el('button', 'sim' + (x.i === cur.i ? ' on' : ''));
+      b.type = 'button';
+      var bar = el('span', 'bar');
+      stack(bar, x);
+      b.appendChild(bar);
+      var tw = el('span', 't');
+      tw.appendChild(el('span', 'm', 'kernel'));
+      tw.appendChild(el('span', 'n', x.name));
+      b.appendChild(tw);
+      var vw = el('span', 'v');
+      vw.appendChild(el('span', 'm', 'Σ us'));
+      vw.appendChild(el('span', 'n', compact(x.sum)));
+      b.appendChild(vw);
+      b.title = x.name + ' · ' + x.t.tag
+        + '\nkernel ' + (x.kp * 100).toFixed(1) + '% · setup ' + (x.sp * 100).toFixed(1)
+        + '% · hand-off ' + (x.hp * 100).toFixed(1) + '%'
+        + '\nΣ core-time ' + group(x.sum) + ' us'
+        + (x.i === cur.i ? '\n（当前这个）' : '\n构成距离 ' + (r.d * 100).toFixed(1) + ' 个百分点');
+      b.addEventListener('click', function () { openDetail(x.i); });
+      host.appendChild(b);
+    });
+  }
+
+  function drawDetailChrome() {
+    var V = view(), x = curTask(), list = stripList();
+    var at = -1;
+    list.forEach(function (e, i) { if (x && e.i === x.i) at = i; });
+
+    var sel = selTasks();
+    var extra = list.length - sel.length;   /* 当前这个被筛掉时补进来的那一个 */
+
+    $('[data-bind="dCrumb"]').textContent = V.ent.label;
+    $('[data-bind="fsCount"]').textContent = String(sel.length);
+    var sortLabel = (SORTS.filter(function (s) { return s.k === S.fsSort; })[0] || SORTS[0]).label;
+    /* 两行写死，不靠自动换行：一行放不下时它会断在 core-time 中间 */
+    var lab = $('[data-bind="fsLabel"]');
+    lab.textContent = '';
+    lab.appendChild(el('div', null,
+      (anyFilter() ? '个 KERNEL 被选中' : '个 KERNEL')
+      + (extra > 0 ? ' + 当前 1 个' : '')
+      + (list.length > FS.cap ? '（条上显示前 ' + FS.cap + '）' : '')));
+    lab.appendChild(el('div', 'srt', '按 ' + sortLabel));
+    $('.fs-count').title = '总览页筛出来的 kernel，共 ' + sel.length + ' 个'
+      + (anyFilter() ? '（当前有筛选条件）' : '（未筛选，即全部）')
+      + (extra > 0 ? '。当前看的这个不在筛选结果里，已插在条首。' : '')
+      + '。点这里换排序：' + SORTS.map(function (s) { return s.label; }).join(' / ');
+
+    seg('face', [
+      { k: 'core', label: '按核' },
+      { k: 'dur', label: '按时长' },
+    ], S.face, function (k) { S.face = k; paint(); });
+
+    $('[data-act="prev"]').disabled = at <= 0;
+    $('[data-act="next"]').disabled = at < 0 || at >= list.length - 1;
+
+    $('[data-bind="dProv"]').textContent = x
+      ? (S.face === 'core'
+        ? '按核排 · ' + x.t.coreCount + ' 核 · t=' + num(x.t.start, 1) + ' → ' + num(x.t.end, 1) + ' us'
+        : '按时长降序 · ' + x.t.blockCount + ' 块 · ' + num(x.t.durMin, 2) + ' → ' + num(x.t.durMax, 2) + ' us')
+      : '';
+    $('[data-bind="dFootL"]').textContent = '数据源 ' + V.caseObj.source;
+    $('[data-bind="dFootC"]').textContent =
+      '三口径是对同一个块的三次嵌套测量，堆叠条画的是它们的差分';
+  }
+
+  function drawDetail() {
+    drawDetailChrome();
+    drawFilmstrip();
+    drawPlot();
+    drawLeftRail();
+    drawSimList();
+  }
+
+  function step(delta) {
+    var list = stripList(), x = curTask(), at = -1;
+    list.forEach(function (e, i) { if (x && e.i === x.i) at = i; });
+    var to = at + delta;
+    if (to < 0 || to >= list.length) return;
+    openDetail(list[to].i);
   }
 
   /* ------------------------------------------------------------- 浮层 */
   function sheetRead() {
+    if (S.screen === 'detail') return sheetReadDetail();
     var V = view();
     var hot = V.legend[NB - 1];
     var h = [];
@@ -586,7 +1039,8 @@
       + '颜色的断层就是这个核负载的变化。</span>'
       + '<span class="i">3</span><span class="d"><b>右栏两组筛选。</b>'
       + '上面一组是<b>单块耗时的五档</b>，它决定格子的颜色；下面一组是 <b>scope</b>，'
-      + '只筛不上色。两组都能多选，点矩阵里的格子等同于点它所属的 scope 那一行。</span>'
+      + '只筛不上色。两组都能多选。<b>点矩阵里的任意一格，进那个 kernel 的详情页</b>，'
+      + '详情页的候选集就是这里筛剩下的这些。</span>'
       + '<span class="i">4</span><span class="d"><b>数字。</b>'
       + '页面上唯一的大号文字，是当前选中的块数；下面一行给 Σ core-time、占比、铺在几个核上、跨多长时间。</span>'
       + '</div>');
@@ -605,6 +1059,52 @@
     h.push('<p class="warn">Σ core-time 大不等于拖慢墙钟：一个 scope 可能摊在 '
       + V.lanes + ' 个核上一次跑完。要判断值不值得动，看它在不在路径上，'
       + '而不是看它的格子多不多、颜色深不深。</p>');
+    return h.join('');
+  }
+
+  function sheetReadDetail() {
+    var V = view(), x = curTask();
+    var h = [];
+    h.push('<h2>怎么读 · KERNEL 详情</h2>');
+    h.push('<p>总览页看的是一次执行的全部块；这一页只看其中<b>一个 kernel</b>，'
+      + '把它的块摊开，再放到同类里比。</p>');
+    h.push('<div class="lay">'
+      + '<span class="i">1</span><span class="d"><b>顶部胶片条。</b>'
+      + '里面是<b>总览页筛剩下的</b> kernel —— 在矩阵上刷一段时间窗或点一档耗时，'
+      + '这里的候选集跟着变，所以两屏是一个东西。每一格是那个 kernel 的块时长剖面'
+      + '（按时长降序、纵轴开方、全 rank 共用一个高度上限，所以格子之间能比高矮），'
+      + '带白框的表示它在依赖关键路径上。点左上角的数字换排序。</span>'
+      + '<span class="i">2</span><span class="d"><b>中央主图，两种摆法。</b>'
+      + '「按核」是这些块在它用到的核上的真实落位，横轴是这个 kernel 自己的 span，'
+      + '看得见错开和拖尾；「按时长」把同一批块降序排开并画出中位线，'
+      + '柱顶和中位线的落差就是长尾。两面是同一批块，不是两次测量。</span>'
+      + '<span class="i">3</span><span class="d"><b>左栏：一个块的三口径。</b>'
+      + 'kernel（真正在算）⊂ +setup（块内准备）⊂ +hand-off（派发到回收）'
+      + '是对同一个块的三次嵌套测量，堆叠条画的是它们的<b>差分</b>，不是三次独立的量。'
+      + '下面按展开 / 离散 / 引擎 / 路径 / 来源分组列事实。</span>'
+      + '<span class="i">4</span><span class="d"><b>右栏：构成相近的 kernel。</b>'
+      + '在<b>整个 rank</b> 里按三口径比例向量的距离排 —— 不受上面那条胶片条的筛选影响，'
+      + '因为这一栏问的是「这是一个问题还是一类问题」，被自己的筛选条件限住就没意义了。'
+      + '迷你条和左栏那根是同一种编码，可以直接比形状；当前这个也在列表里并高亮 —— '
+      + '没有参照物的时候，形状本身看不出偏不偏。</span>'
+      + '</div>');
+    h.push('<h3>为什么这一栏值得看</h3>');
+    h.push('<p>本路 setup 占比从 <code>'
+      + (Math.min.apply(null, V.tasksV.map(function (t) { return t.sp; })) * 100).toFixed(2)
+      + '%</code> 到 <code>'
+      + (Math.max.apply(null, V.tasksV.map(function (t) { return t.sp; })) * 100).toFixed(1)
+      + '%</code>，hand-off 占比从 <code>'
+      + (Math.min.apply(null, V.tasksV.map(function (t) { return t.hp; })) * 100).toFixed(2)
+      + '%</code> 到 <code>'
+      + (Math.max.apply(null, V.tasksV.map(function (t) { return t.hp; })) * 100).toFixed(1)
+      + '%</code>。也就是说有的 kernel 绝大部分时间根本没在算。'
+      + '右栏告诉你这是<b>一个</b>问题还是<b>一类</b>问题 —— 后者才值得改编译或改框架。</p>');
+    if (x) {
+      h.push('<p class="warn">当前这个 <code>' + x.name + '</code>：kernel '
+        + (x.kp * 100).toFixed(1) + '% · setup ' + (x.sp * 100).toFixed(1)
+        + '% · hand-off ' + (x.hp * 100).toFixed(1) + '%。'
+        + '三口径都是本 task 所有块的均值，一次采集的观测值，不是多次统计量。</p>');
+    }
     return h.join('');
   }
 
@@ -644,12 +1144,19 @@
 
   /* ------------------------------------------------------------- 绘制 */
   function paint() {
-    drawChrome();
-    drawStrip('seq');
-    drawStrip('time');
-    drawMatrix();
-    drawLegend();
-    drawReadout();
+    var atlas = S.screen === 'atlas';
+    $('.atlas').hidden = !atlas;
+    $('.detail').hidden = atlas;
+    if (atlas) {
+      drawChrome();
+      drawStrip('seq');
+      drawStrip('time');
+      drawMatrix();
+      drawLegend();
+      drawReadout();
+    } else {
+      drawDetail();
+    }
     drawOverlay();
   }
 
@@ -682,6 +1189,26 @@
       paint();
     });
 
+    /* ------- 详情屏 ------- */
+    $('[data-act="back"]').addEventListener('click', function () {
+      S.screen = 'atlas';
+      paint();
+    });
+    $('[data-act="prev"]').addEventListener('click', function () { step(-1); });
+    $('[data-act="next"]').addEventListener('click', function () { step(1); });
+    $('[data-act="cycle-sort"]').addEventListener('click', function () {
+      var at = 0;
+      SORTS.forEach(function (s, i) { if (s.k === S.fsSort) at = i; });
+      S.fsSort = SORTS[(at + 1) % SORTS.length].k;
+      paint();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (S.screen !== 'detail' || S.overlay) return;
+      if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
+      if (e.key === 'Escape') { S.screen = 'atlas'; paint(); }
+    });
+
     bindBrush('seq');
     bindBrush('time');
     bindHover();
@@ -696,6 +1223,11 @@
       }, 120);
     });
 
+    /* 首屏不能只挂在 requestAnimationFrame 上：页面在后台标签里时它根本不触发，
+     * 打开是一片空白，直到用户改一次窗口大小。所以这里同步画一次，
+     * 再在 load 和下一帧各补一次，把 canvas 尺寸对齐到最终布局。 */
+    paint();
+    window.addEventListener('load', paint);
     requestAnimationFrame(paint);
   }
 

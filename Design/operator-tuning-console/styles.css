@@ -619,12 +619,18 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   flex: 1 1 auto;
   min-height: 220px;
   overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 68%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent);
 }
 .tc-canvas-host canvas { display: block; }
 .tc-canvas-host.is-grabbing canvas { cursor: grabbing; }
 .tc-canvas-host canvas.tc-lanes { cursor: crosshair; }
+.tc-canvas-host:has(canvas.tc-lanes) { scrollbar-gutter: stable; }
+.tc-canvas-host:has(canvas.tc-lanes):focus-within {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-subtle));
+}
 .tc-canvas-strip {
   position: relative;
   margin-inline: var(--tc-bleed);

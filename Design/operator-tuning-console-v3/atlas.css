@@ -454,3 +454,230 @@ body {
   .body { grid-template-columns: minmax(0, 1fr); }
   .rail { display: none; }
 }
+
+/* =============================================================
+ * 第二屏：kernel 详情
+ * 布局照着参考图的详情页：顶部胶片条 → 三栏（构成 / 主图 / 相似）。
+ * 三口径的配色复用上面那组取样色，但角色不同：这里绿 = 真正在算，
+ * 暖色 = 开销，所以单独起名，不要读成矩阵里的耗时档。
+ * ============================================================= */
+:root {
+  --at-k: #4ec58c;   /* kernel   —— 真正在算 */
+  --at-s: #ffbc52;   /* setup    —— 块内准备 */
+  --at-h: #e0685c;   /* hand-off —— 派发到回收 */
+}
+
+.detail {
+  position: fixed;
+  inset: 10px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hair);
+  overflow: hidden;
+}
+.dcrumb { min-width: 0; overflow: hidden; color: rgba(255, 255, 255, 0.34); text-overflow: ellipsis; white-space: nowrap; }
+
+/* --------------------------------------------------------- 胶片条 */
+.filmstrip {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--at-hair);
+}
+.fs-side { display: grid; gap: 1px; padding-top: 2px; }
+.fs-count {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1.1;
+  cursor: pointer;
+}
+.fs-count > .caret { color: rgba(255, 255, 255, 0.4); font-size: 12px; }
+.fs-count:hover > .caret { color: rgba(255, 255, 255, 0.9); }
+.fs-label { display: grid; gap: 1px; color: rgba(255, 255, 255, 0.34); font: var(--type-micro); letter-spacing: 0.06em; }
+.fs-label > .srt { color: var(--at-accent); font-family: var(--font-mono); }
+.fs-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.fs-scroll canvas { display: block; height: 78px; cursor: pointer; }
+
+/* ----------------------------------------------------------- 三栏 */
+.dbody {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr) 232px;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) 0;
+}
+.dleft, .dright {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.dright { border-left: 1px solid var(--at-hair); padding-left: var(--space-4); }
+.dleft { border-right: 1px solid var(--at-hair); padding-right: var(--space-4); }
+
+/* ------------------------------------------------------- 左栏构成 */
+.dk-name {
+  margin-top: 4px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.94);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dk-sub { color: rgba(255, 255, 255, 0.38); font: var(--type-micro); font-family: var(--font-mono); }
+
+/* 竖直堆叠条 = 这个 kernel 的一个块拆成三段。和右栏每行的迷你条
+ * 是同一种编码，所以两边可以直接比形状。 */
+.dk-comp {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  margin: var(--space-2) 0;
+}
+.dk-bar { display: flex; flex-direction: column; height: 86px; border-radius: 2px; overflow: hidden; }
+.dk-bar > i { display: block; min-height: 1px; }
+.dk-key { display: grid; align-content: start; gap: 7px; min-width: 0; }
+/* 名字 + 百分比一行，us 值另起一行：挤成一行在 232px 的栏里放不下 */
+.dk-key > .row { display: grid; gap: 0; min-width: 0; font: var(--type-micro); }
+.dk-key > .row > .hd {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+.dk-key > .row > .hd > .sw { width: 7px; height: 7px; border-radius: 1px; }
+.dk-key > .row > .hd > .n { color: rgba(255, 255, 255, 0.66); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-key > .row > .hd > .v { color: rgba(255, 255, 255, 0.92); font-family: var(--font-mono); white-space: nowrap; }
+.dk-key > .row > .u {
+  padding-left: 13px;
+  color: rgba(255, 255, 255, 0.32);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* 分组事实表，对应参考图的 TOPICS PER SUBJECT */
+.dk-facts { display: grid; gap: 2px; min-width: 0; }
+.dk-facts > .g {
+  margin-top: var(--space-2);
+  color: var(--at-accent);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.dk-facts > .g:first-child { margin-top: 0; }
+.dk-facts > .f {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font: var(--type-micro);
+}
+.dk-facts > .f > .v { color: rgba(255, 255, 255, 0.86); font-family: var(--font-mono); white-space: nowrap; }
+.dk-facts > .f > .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-facts > .f.is-bad > .v { color: var(--at-h); }
+.dk-facts > .f.is-warn > .v { color: var(--at-s); }
+
+/* --------------------------------------------------------- 中央图 */
+.dcenter { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.dc-prov {
+  color: rgba(255, 255, 255, 0.28);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dc-stage {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  min-height: 0;
+}
+.dc-nav {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dc-nav:hover { color: rgba(255, 255, 255, 0.92); }
+.dc-nav:disabled { opacity: 0.18; cursor: default; }
+.dc-plot { position: relative; min-width: 0; min-height: 0; height: 100%; }
+.dc-plot canvas { display: block; width: 100%; height: 100%; }
+.dc-face { padding: var(--space-2) 0 var(--space-3); text-align: center; }
+
+/* ----------------------------------------------------- 右栏相似列 */
+.simlist { display: grid; gap: 2px; min-width: 0; }
+.sim {
+  display: grid;
+  grid-template-columns: 11px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font: var(--type-micro);
+  text-align: left;
+  cursor: pointer;
+}
+.sim:hover { background: rgba(255, 255, 255, 0.055); color: rgba(255, 255, 255, 0.86); }
+.sim.on {
+  border-left-color: var(--at-accent);
+  background: rgba(255, 188, 82, 0.13);
+  color: rgba(255, 255, 255, 0.92);
+}
+.sim > .bar { display: flex; flex-direction: column; height: 30px; border-radius: 1px; overflow: hidden; }
+.sim > .bar > i { display: block; min-height: 1px; }
+/* 每行两个带小标签的字段，和参考图的 `page 370` / `year 1497` 同构 */
+.sim > .t, .sim > .v { display: grid; gap: 1px; min-width: 0; }
+.sim > .v { justify-items: end; }
+.sim > .t > .m, .sim > .v > .m {
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+.sim > .t > .n, .sim > .v > .n {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sim > .v > .n { color: rgba(255, 255, 255, 0.78); }
+
+/* 窄屏：两侧栏收掉，只留胶片条和主图 */
+@media (max-width: 1040px) {
+  .dbody { grid-template-columns: minmax(0, 1fr); }
+  .dleft, .dright { display: none; }
+}
