@@ -783,6 +783,40 @@
   }
 
   /* 中央主图：同一批块的两种摆法。按核看放置和错开，按时长看分布和长尾。 */
+  /* 主图留给坐标轴的边距：左边放 y 轴刻度（核名最长 AIV_71，7 个等宽字符），
+   * 下面两行，一行刻度值一行轴向说明。 */
+  var PAD = { l: 52, r: 12, t: 16, b: 28 };
+  var AXIS = 'rgba(255,255,255,0.22)';
+  var TICK = 'rgba(255,255,255,0.46)';
+  var CAP = 'rgba(255,255,255,0.34)';
+  var MONO9 = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+
+  /* 横轴：一条线 + 5 个刻度 + 一行轴向说明。tickFmt 拿到的是域内的值。 */
+  function drawXAxis(g, x0, y0, w, dom, tickFmt, caption) {
+    g.strokeStyle = AXIS;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x0, y0 + 0.5); g.lineTo(x0 + w, y0 + 0.5); g.stroke();
+    g.font = MONO9;
+    g.textBaseline = 'top';
+    /* 域退化成 0 宽时（1 块 / 1 核的 task）只画一个刻度，
+     * 否则五个刻度会打上同一个数，看着像刻度坏了。 */
+    var span = dom[1] - dom[0];
+    var n = span > 0 ? (w < 260 ? 2 : 4) : 0;
+    for (var i = 0; i <= n; i++) {
+      var f = n === 0 ? 0 : i / n;
+      var px = Math.round(x0 + f * w);
+      g.strokeStyle = AXIS;
+      g.beginPath(); g.moveTo(px + 0.5, y0 + 1); g.lineTo(px + 0.5, y0 + 4); g.stroke();
+      g.fillStyle = TICK;
+      g.textAlign = i === 0 ? 'left' : i === n ? 'right' : 'center';
+      g.fillText(tickFmt(dom[0] + f * (dom[1] - dom[0]), i, n), px, y0 + 6);
+    }
+    g.fillStyle = CAP;
+    g.textAlign = 'left';
+    g.fillText(caption, x0, y0 + 17);
+  }
+
   function drawPlot() {
     var wrap = $('.dc-plot'), cv = $('[data-canvas="plot"]');
     if (!wrap || !cv) return;
@@ -796,45 +830,96 @@
     if (!ids.length) return;
     var bs = ids.map(function (i) { return V.blocks[i]; });
 
+    var px0 = PAD.l, py0 = PAD.t;
+    var pw = Math.max(10, W - PAD.l - PAD.r);
+    var ph = Math.max(10, H - PAD.t - PAD.b);
+    var yAxis = py0 + ph;          /* 横轴所在的那条线 */
+
+    g.font = MONO9;
+
     if (S.face === 'core') {
       /* 只排这个 task 真正用到的核，空核不占行 */
-      var lanes = [];
-      var seen = {};
+      var lanes = [], seen = {};
       bs.forEach(function (b) { if (!seen[b.lane]) { seen[b.lane] = 1; lanes.push(b.lane); } });
       lanes.sort(function (a, b) { return a - b; });
       var row = {};
       lanes.forEach(function (l, i) { row[l] = i; });
-      var t0 = x.t.start, t1 = x.t.end, span = (t1 - t0) || 1;
-      var rh = Math.min(16, Math.max(2, Math.floor(H / lanes.length)));
+
+      var t0 = x.t.start, span = (x.t.end - t0) || 1;
+      var rh = Math.min(16, Math.max(2, Math.floor(ph / lanes.length)));
       var gap = rh > 5 ? 1 : 0;
-      var top = Math.max(0, Math.round((H - lanes.length * rh) / 2));
+      var top = py0 + Math.max(0, Math.round((ph - lanes.length * rh) / 2));
+
       bs.forEach(function (b) {
         var y = top + row[b.lane] * rh;
-        var bx = (b.st - t0) / span * W;
-        var bw = Math.max(1, b.dur / span * W);
+        var bx = px0 + (b.st - t0) / span * pw;
+        var bw = Math.max(1, b.dur / span * pw);
         g.fillStyle = BANDS[b.band].color;
-        g.fillRect(bx, y, Math.min(bw, W - bx), rh - gap);
+        g.fillRect(bx, y, Math.min(bw, px0 + pw - bx), rh - gap);
       });
+
+      /* 纵轴：核。行太多时只标首 / 中 / 尾三行，避免糊成一片 */
+      var names = V.rank.swimlane.laneNames;
+      var marks = lanes.length <= 3
+        ? lanes.map(function (_, i) { return i; })
+        : [0, Math.floor((lanes.length - 1) / 2), lanes.length - 1];
+      g.textAlign = 'right';
+      g.textBaseline = 'middle';
+      g.fillStyle = TICK;
+      marks.forEach(function (i) {
+        var y = top + i * rh + (rh - gap) / 2;
+        g.fillText(names[lanes[i]] || ('核 ' + lanes[i]), px0 - 7, y);
+        g.strokeStyle = AXIS;
+        g.beginPath(); g.moveTo(px0 - 4, y + 0.5); g.lineTo(px0 - 1, y + 0.5); g.stroke();
+      });
+      g.textAlign = 'left';
+      g.textBaseline = 'top';
+      g.fillStyle = CAP;
+      g.fillText('↓ 核（' + lanes.length + ' 个，按核号）', 2, 2);
+
+      drawXAxis(g, px0, yAxis, pw, [0, span],
+        function (v, i, n) { return num(v, span >= 200 ? 0 : 1) + (i === n ? ' us' : ''); },
+        '→ 墙钟时间，相对本 kernel 起点 t=' + num(t0, 1) + ' us');
     } else {
       var ds = bs.map(function (b) { return b.dur; }).sort(function (a, b) { return b - a; });
       var max = ds[0] || 1;
-      var bw2 = Math.max(1, W / ds.length);
+      var bw2 = Math.max(1, pw / ds.length);
       ds.forEach(function (d, i) {
-        var hh = Math.max(1, d / max * (H - 2));
+        var hh = Math.max(1, d / max * ph);
         g.fillStyle = BANDS[bandOf(d)].color;
-        g.fillRect(i * bw2, H - hh, Math.max(1, bw2 - (bw2 > 3 ? 1 : 0)), hh);
+        g.fillRect(px0 + i * bw2, yAxis - hh, Math.max(1, bw2 - (bw2 > 3 ? 1 : 0)), hh);
       });
+
       /* 中位线：长尾有多长，靠它和柱顶的落差读 */
       var med = ds[Math.floor(ds.length / 2)] || 0;
-      var my = H - Math.max(1, med / max * (H - 2));
+      var my = yAxis - Math.max(1, med / max * ph);
       g.strokeStyle = 'rgba(255,255,255,0.32)';
       g.setLineDash([3, 3]);
-      g.beginPath(); g.moveTo(0, my + 0.5); g.lineTo(W, my + 0.5); g.stroke();
+      g.beginPath(); g.moveTo(px0, my + 0.5); g.lineTo(px0 + pw, my + 0.5); g.stroke();
       g.setLineDash([]);
-      g.fillStyle = 'rgba(255,255,255,0.42)';
-      g.font = '9px ui-monospace, monospace';
-      g.textAlign = 'right'; g.textBaseline = 'bottom';
-      g.fillText('中位 ' + num(med, 2) + ' us', W - 2, my - 2);
+      g.fillStyle = 'rgba(255,255,255,0.5)';
+      g.textAlign = 'right';
+      g.textBaseline = 'bottom';
+      g.fillText('中位 ' + num(med, 2) + ' us', px0 + pw - 2, my - 2);
+
+      /* 纵轴：单块耗时，0 / 半 / 满三个刻度 */
+      g.textAlign = 'right';
+      g.textBaseline = 'middle';
+      [0, 0.5, 1].forEach(function (f) {
+        var y = yAxis - f * ph;
+        g.fillStyle = TICK;
+        g.fillText(num(max * f, max >= 100 ? 0 : 1), px0 - 7, y);
+        g.strokeStyle = AXIS;
+        g.beginPath(); g.moveTo(px0 - 4, y + 0.5); g.lineTo(px0 - 1, y + 0.5); g.stroke();
+      });
+      g.textAlign = 'left';
+      g.textBaseline = 'top';
+      g.fillStyle = CAP;
+      g.fillText('↑ 单块耗时 us', 2, 2);
+
+      drawXAxis(g, px0, yAxis, pw, [1, ds.length],
+        function (v, i, n) { return String(Math.max(1, Math.round(v))) + (i === n ? ' 块' : ''); },
+        '→ 块，按时长降序（共 ' + ds.length + ' 块）');
     }
   }
 
