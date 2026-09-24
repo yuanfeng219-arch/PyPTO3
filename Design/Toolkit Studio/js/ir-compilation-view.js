@@ -100,10 +100,10 @@
       route: 'resources', routeLabel: '去 Resources 验证实际资源压力',
       next: 'L0B 在编译阶段已经达到平台上限，但是否形成真实瓶颈仍需结合运行时数据判断。' },
     { id: 'intent', tone: 'warn', icon: '!', kind: 'intent', title: '流水线意图发生变化',
-      route: 'performance', routeLabel: '去 Performance 验证运行时影响',
+      route: 'performance', routeLabel: '在「执行」中查看性能证据',
       next: '当前只有编译阶段的意图信号，是否真的拖慢执行，需要映射到 Task 和运行时数据继续验证。' },
     { id: 'perf', tone: 'info', icon: '◇', kind: 'perf', title: '存在编译性能提示',
-      route: 'performance', routeLabel: '去 Performance 验证运行时影响',
+      route: 'performance', routeLabel: '在「执行」中查看性能证据',
       next: '编译器在这里给出了静态提示，需要映射到实际 Task 与运行期时间才能判断是否形成瓶颈。' }
   ];
 
@@ -404,9 +404,14 @@
   function contextHTML() {
     const c = compilationEntryContext();
     if (!c || c.from !== 'correctness') return '';
-    return '<section class="kc-context" aria-label="正确性诊断上下文">' +
-      '<span>来自「正确性」诊断</span><b>' + esc(c.finding || '数值精度 · 输出不一致') + '</b>' +
-      '<small>' + esc(c.intent || '正在定位编译语义分歧') + '</small></section>';
+    /* 与 task-history 的统一跨域 Context Banner 同构：来源 → 意图 → 失效模式。 */
+    const finding = c.finding || '数值精度 · 输出不一致';
+    const intent = c.intent || '正在定位编译语义分歧';
+    return '<section class="kf-cv-context" aria-label="跨域上下文">' +
+      '<span class="kf-cv-context-from">来自「正确性」</span>' +
+      '<div class="kf-cv-context-intent"><b>' + esc(finding) + '</b><i>→</i><b>' + esc(intent) + '</b></div>' +
+      (c.failureMode ? '<p class="kf-cv-context-focus">失效模式 · <b>' + esc(c.failureMode) + '</b></p>' : '') +
+      '</section>';
   }
 
   function toleranceText(nv) {
@@ -476,7 +481,7 @@
         const minInner = recs.reduce((a, r) => Math.min(a, r.innermost), Infinity);
         desc = '检测到窄数据搬运 / 向量化机会' +
           (isFinite(minInner) ? '（最小内层 ' + minInner + ' 元素，目标 ' + K.perfMinInnermost + ' 元素）' : '') +
-          '，需要到 Performance 验证实际影响。';
+          '，需要在「执行」中查看性能证据。';
         count = hits.length + ' Kernel · ' + recs.length + ' 处';
       }
       const top = hits.slice().sort((a, b) => worstMem(b).p - worstMem(a).p)[0];
@@ -617,7 +622,7 @@
     return '<article class="kc-transform' + (warn ? ' is-warn' : '') + (firstDivergence ? ' is-first-divergence' : '') + (expanded ? ' is-expanded' : '') + '">' +
       '<button type="button" class="kc-transform-toggle" data-kc-pass="' + p.i + '" aria-expanded="' + expanded + '">' +
         '<span class="kc-transform-dot"></span><span class="kc-transform-copy">' +
-          '<span class="kc-kind">' + (firstDivergence ? '首个异常 Pass' : '相关变换') + '</span><b>' + esc(p.name) + '</b>' +
+          '<span class="kc-kind">' + (firstDivergence ? '首个数值分歧 Pass' : '相关变换') + '</span><b>' + esc(p.name) + '</b>' +
           '<small>' + esc((meta && meta.s ? meta.s + ' ' + stratumName(meta.s) + ' · ' : '') + state +
             (p.st === 'observed' ? '' : ' · ' + p.n + ' 处变更') +
             (nvPass ? ' · ' + (nvPass.status === 'match' ? 'MATCH' : nvPass.status === 'mismatch' ? 'MISMATCH' : 'NOT CHECKED') : '')) + '</small>' +
@@ -1048,6 +1053,7 @@
         host.dataset.kcBound = '1';
       }
       paint();
+      if (runContext().runId === 'run_109' && st.expandedPass != null) focusExpandedPass(true);
       return true;
     },
     /* Execution 页签的「在 Compilation 查看」落到这里 */

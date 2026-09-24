@@ -511,11 +511,9 @@
     const on = r.id === st.run && t.id === st.task;
     return '<button type="button" class="kf-th-run' + (on ? ' is-sel' : '') +
       (r.purged ? ' is-purged' : '') + '" data-th-run="' + r.id + '" data-th-of="' + t.id + '">' +
-      '<span class="kf-th-rdot is-' + v[1] + '"></span>' +
       '<code>' + esc(runDisplayId(r)) + '</code>' +
       '<span class="kf-th-rv is-' + v[1] + '">' + v[0] + '</span>' +
-      '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small>' +
-      (r.live ? '<em>产物在库</em>' : '') +
+      '<small><i aria-hidden="true">◷</i>' + esc(r.time) + '</small>' +
     '</button>';
   }
 
@@ -548,17 +546,22 @@
      Keep the run identity together: the title is followed immediately by the
      immutable run id and timestamp. The live overview puts the two actionable
      metrics in a separate right-hand column. */
+  function runLifecycle(m) {
+    if (m.state === 'running') return '<span class="kf-rd-spinner" role="status" aria-label="运行中"></span>';
+    if (m.state === 'cancelled') return '<span class="kf-rd-cancelled">— 已取消</span>';
+    return '';
+  }
+
   function headline(t, r, L) {
-    const v = getRunDisplayStatus(r), m = getRunModel(r);
+    const m = getRunModel(r);
     const title = t.title;
     return '<section class="kf-rd-summary">' +
-      '<div class="kf-rd-head">' +
+      '<div class="kf-rd-identity">' +
+        '<span class="kf-rd-run-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 8.5h3l1.3-2h5.4l1.3 2h3v9.5H5z"/><circle cx="12" cy="13" r="3.2"/><path d="M7.5 5.5h2"/></svg></span>' +
         '<div class="kf-rd-id">' +
-          '<div class="kf-rd-eyebrow"><span><i></i>运行快照</span></div>' +
-          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' +
-            '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + esc(STATE_LABEL[m.state] || m.state) + '</span></div>' +
-          '<div class="kf-rd-run"><span>Run</span><code>' + esc(runDisplayId(r)) + '</code>' +
-            '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
+          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' + runLifecycle(m) + '</div>' +
+          '<div class="kf-rd-run"><span>Run · </span><code>' + esc(runDisplayId(r)) + '</code><i class="kf-rd-meta-sep" aria-hidden="true"></i>' +
+            '<small><i aria-hidden="true">◷</i>' + esc(r.time) + '</small></div>' +
         '</div>' +
       '</div>' +
     '</section>';
@@ -634,7 +637,7 @@
     } else if (isCorrectnessFailureStory(r)) {
       tiles = [
         { l: 'First divergence', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'max_abs_diff 0.382 · repeated-run instability' },
-        { l: 'Ordering evidence', v: '1', u: '项', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · missing edge' }
+        { l: 'Ordering evidence', v: '1', u: '', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · missing edge' }
       ];
     } else if (isPerformanceWarningStory(r)) {
       tiles = [
@@ -1213,6 +1216,7 @@
     const toggle = $('#inspectorToggle');
     const split = $('#ideMainSplit');
     if (!split) return;
+    const frame = split.closest('[data-ide-frame]');
     const panes = ['explorer', 'editor-preview', 'inspector']
       .map(name => split.querySelector(':scope > [data-ide-pane="' + name + '"]'));
 
@@ -1242,6 +1246,7 @@
         panes[1].style.width = 'auto';
       }
       if (toggle) toggle.hidden = true;
+      if (frame) frame.dataset.surface = 'solid';
       split.classList.add('kf-run-no-inspector');
       return;
     }
@@ -1277,6 +1282,7 @@
       }
     }
     split.classList.remove('kf-run-no-inspector');
+    if (frame) frame.removeAttribute('data-surface');
     if (toggle) toggle.hidden = false;
   }
 
@@ -2424,17 +2430,14 @@
 
       return '<div class="kf-th-item' + (open ? ' is-open' : '') + '">' +
         '<button type="button" class="kf-th-row" data-th-task="' + t.id + '" aria-expanded="' + open + '">' +
+          '<span class="kf-th-task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="m12 3 7 4v10l-7 4-7-4V7z"/><path d="m5 7 7 4 7-4M12 11v10M8.5 9l7 4"/></svg></span>' +
           '<span class="kf-th-dot is-' + v[1] + '"></span>' +
-          '<span class="kf-th-title">' + esc(t.title) + '</span>' +
-          '<span class="kf-th-verdict is-' + v[1] + '">' + v[0] + '</span>' +
-          '<span class="kf-th-sub">' + esc(t.kind) + ' · ' + esc(t.model) + ' · ' + esc(t.op) + '</span>' +
-          '<span class="kf-th-time">' + t.runs.length + ' 次运行 · 最近 ' + esc(head.time.slice(5, 16)) + '</span>' +
+          '<span class="kf-th-task-copy"><span class="kf-th-title">' + esc(t.title) + '</span>' +
+            '<span class="kf-th-task-meta">' + t.runs.length + ' 次运行 · ' + (liveN ? liveN + ' 次产物在库' : '暂无产物在库') + '</span></span>' +
         '</button>' +
         '<button type="button" class="kf-th-compare-icon" data-th-compare-open data-th-compare-task-id="' + t.id + '" aria-label="对比 ' + esc(t.title) + ' 的运行" title="对比此算子的运行"' + (t.runs.length < 2 ? ' disabled' : '') + '>⇄</button>' +
         (open
           ? '<div class="kf-th-runs">' +
-              '<div class="kf-th-arts-h">运行历史 · ' + t.runs.length + ' 次' +
-                (liveN ? ' · ' + liveN + ' 次产物在库' : '') + '</div>' +
               t.runs.map(r => runRow(t, r)).join('') +
             '</div>' +
             ''
