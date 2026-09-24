@@ -5,8 +5,9 @@
  * working surface for the tuning loop:
  *   E2E  -> L2 schedule -> L1/L0 core pipeline -> compiler lowering -> ISA / layout
  *
- * Every number rendered here comes from data.js, which build-data.cjs derives
- * from the run's own artifacts. Nothing is modelled or simulated.
+ * Timing and utilization numbers come from data.js, which build-data.cjs
+ * derives from the run's own artifacts.  E2E model-stage labels can be
+ * supplied by JSON; when absent, the screen marks its fallback rule grouping.
  *
  * Shared patterns used:
  *   ide-frame        page shell, panes, bottom dock, status strip
@@ -41,6 +42,7 @@
     view: 'e2e',
     task: D.derived.worstHandoff,
     finding: null,
+    chainStep: null,          /* 'C2:1' -- which ladder rung the reader is on */
     findingLevel: 'all',
     focus: null,               /* 'finding' | 'task' | 'hint' | 'pass' */
     laneFilter: 'all',
@@ -90,6 +92,16 @@
     { id: 'compiler', label: '编译器', hint: 'Pass、流水深度、搬运粒度' },
     { id: 'isa', label: 'ISA / 布局', hint: '布局与指令层证据' },
   ];
+  /* role -> how the reader should read this rung. 'stop' is deliberately a
+   * first-class rung: a chain that cannot go further says so here instead of
+   * ending on a guess. */
+  const ROLE = {
+    observe: { label: '现象', hint: '这一层看到了什么' },
+    descend: { label: '下探', hint: '往下一层追什么' },
+    root: { label: '落点', hint: '可以直接验证的地方' },
+    stop: { label: '止步', hint: '本 dump 到此为止' },
+  };
+
   const LEVEL_LABEL = {};
   LEVELS.forEach((l) => { LEVEL_LABEL[l.id] = l.label; });
 
@@ -149,6 +161,7 @@
     /* state that only makes sense inside one case */
     S.rank = D.defaultRank;
     S.finding = null;
+    S.chainStep = null;
     S.focus = null;
     S.focusEvidence = false;
     S.scopeReturn = null;
@@ -253,23 +266,41 @@
    * inspector happens to be showing. Everything below answers one question:
    * "which things on this screen are the evidence for the active finding?" */
   const activeFinding = () => (S.finding ? findingById[S.finding] : null);
+  /* the queue's own order, chains first: a hygiene item must never take a
+   * slot in a "top N" list while an attributed chain is left out */
+  const topChains = (n) => D.findings.filter((f) => f.kind !== 'hygiene').slice(0, n);
+
+  /* When the reader steps onto a rung of a chain, the marked objects are that
+   * rung's, not the whole chain's -- otherwise walking down to the compiler
+   * layer still leaves L2 tasks numbered on screen. */
+  function activeStep() {
+    const f = activeFinding();
+    if (!f || !S.chainStep || S.chainStep.indexOf(f.id + ':') !== 0) return null;
+    return (f.chain || [])[Number(S.chainStep.split(':')[1])] || null;
+  }
+  function activeSubjects() {
+    const st = activeStep();
+    if (st) return st.subjects;
+    const f = activeFinding();
+    return f ? f.subjects : null;
+  }
 
   function subjectTaskSet() {
-    const f = activeFinding();
+    const s = activeSubjects();
     const set = {};
-    if (f) f.subjects.tasks.forEach((t, i) => { set[t] = i + 1; });
+    if (s) s.tasks.forEach((t, i) => { set[t] = i + 1; });
     return set;
   }
   function subjectSiteSet() {
-    const f = activeFinding();
+    const s = activeSubjects();
     const set = {};
-    if (f) f.subjects.sites.forEach((s, i) => { set[s] = i + 1; });
+    if (s) s.sites.forEach((x, i) => { set[x] = i + 1; });
     return set;
   }
   function subjectLaneSet() {
-    const f = activeFinding();
+    const s = activeSubjects();
     const set = {};
-    if (f) f.subjects.lanes.forEach((s, i) => { set[s] = i + 1; });
+    if (s) s.lanes.forEach((x, i) => { set[x] = i + 1; });
     return set;
   }
 
@@ -283,7 +314,8 @@
       const t = tasksOf[S.rank][chip.id];
       S.task = chip.id;
       if (!f) S.focus = 'task';
-      if (t && (f.subjects.view === 'l2' || S.view === 'l2')) {
+      const home = (activeSubjects() || f.subjects).view;
+      if (t && (home === 'l2' || S.view === 'l2')) {
         S.view = 'l2';
         const pad = Math.max(40, t.span * 0.35);
         setWindow(t.start - pad, t.end + pad);
@@ -318,11 +350,23 @@
     if (!f) return;
     const bar = el('div', 'tc-findingbar');
     bar.dataset.sev = f.severity;
+    if (f.kind === 'hygiene') bar.classList.add('is-hygiene');
+
+    /* Which rung of the chain the reader is standing on. Without this the bar
+     * always speaks for the first layer, and a four-layer chain reads as one
+     * flat observation again. */
+    const chain = f.chain || [];
+    const rung = activeStep();
+    const stepIdx = rung ? chain.indexOf(rung) : -1;
+    const chips = rung ? rung.chips : f.chips;
 
     const hd = el('div', 'hd');
     hd.appendChild(el('span', 'id', f.id));
-    hd.appendChild(el('span', 'ti', f.title));
-    hd.appendChild(el('span', 'mt', f.metric));
+    hd.appendChild(el('span', 'ti', rung ? rung.headline : f.title));
+    hd.appendChild(el('span', 'mt', rung
+      ? (LEVEL_LABEL[rung.level] || rung.level) + ' · '
+        + (ROLE[rung.role] || { hint: '' }).hint
+      : f.metric + (f.cost ? ' · ' + f.cost.share + '% of makespan' : ' · 无归因')));
     const acts = el('div', 'acts');
     const onHomeView = f.subjects.view === S.view
       && (!f.subjects.tab || f.subjects.tab === S.compilerTab);
@@ -331,7 +375,7 @@
         size: 'sm', variant: 'solid',
         on: () => { applyFocus(f); S.view = f.subjects.view; render(); },
       }));
-    } else if (f.chips.length) {
+    } else if (chips.length) {
       acts.appendChild(btn('聚焦证据', {
         size: 'sm', selected: S.focusEvidence,
         title: '把非证据对象压暗，只留这条瓶颈牵涉到的部分',
@@ -346,10 +390,28 @@
     hd.appendChild(acts);
     bar.appendChild(hd);
 
-    if (f.chips.length) {
+    /* the ladder, walkable from the stage itself */
+    if (chain.length) {
+      const rungs = el('div', 'tc-rungs');
+      rungs.appendChild(el('span', 'lead', '链'));
+      chain.forEach((st, i) => {
+        if (i) rungs.appendChild(el('span', 'arrow', '→'));
+        const b = el('button', 'tc-rung' + (i === stepIdx ? ' is-current' : ''));
+        b.type = 'button';
+        b.dataset.role = st.role;
+        b.title = st.headline;
+        b.appendChild(el('span', 'lv', LEVEL_LABEL[st.level] || st.level));
+        b.appendChild(el('span', 'rl', (ROLE[st.role] || { label: st.role }).label));
+        b.addEventListener('click', () => { applyStep(f, st); render(); });
+        rungs.appendChild(b);
+      });
+      bar.appendChild(rungs);
+    }
+
+    if (chips.length) {
       const row = el('div', 'tc-evchips');
-      row.appendChild(el('span', 'lead', '证据 ' + f.chips.length));
-      f.chips.forEach((chip, i) => {
+      row.appendChild(el('span', 'lead', '证据 ' + chips.length));
+      chips.forEach((chip, i) => {
         const b = el('button', 'tc-evchip');
         b.type = 'button';
         const isCurrent = (chip.kind === 'task' && chip.id === S.task)
@@ -438,12 +500,50 @@
   }
   const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-  function drawTimeRuler(ctx, x0, w, y, t0, t1) {
+  function drawTimeRuler(ctx, x0, w, y, t0, t1, opts) {
+    const o = opts || {};
     const span = t1 - t0;
     const stepRaw = span / 8;
     const mag = Math.pow(10, Math.floor(Math.log10(stepRaw)));
     const step = [1, 2, 5, 10].map((m) => m * mag).find((v) => v >= stepRaw) || mag * 10;
     ctx.save();
+    if (o.dense) {
+      const bandH = 26;
+      const bandY = y;
+      const label = (t) => step >= 1000
+        ? (t / 1000).toFixed(1) + 'ms'
+        : Math.round(t) + 'us';
+      ctx.fillStyle = cssVar('--surface-3');
+      ctx.fillRect(x0, bandY, w, bandH);
+      ctx.strokeStyle = cssVar('--border-subtle');
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x0, bandY + bandH - 0.5);
+      ctx.lineTo(x0 + w, bandY + bandH - 0.5);
+      ctx.stroke();
+      const minor = step / 10;
+      const firstMinor = Math.ceil(t0 / minor) * minor;
+      for (let t = firstMinor; t <= t1 + minor * 0.001; t += minor) {
+        const x = x0 + ((t - t0) / span) * w;
+        const isMajor = Math.abs(t / step - Math.round(t / step)) < 0.0001;
+        ctx.strokeStyle = isMajor ? cssVar('--border-default') : cssVar('--border-subtle');
+        ctx.globalAlpha = isMajor ? 0.9 : 0.62;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x) + 0.5, bandY + (isMajor ? 14 : 18));
+        ctx.lineTo(Math.round(x) + 0.5, bandY + bandH - 4);
+        ctx.stroke();
+        if (isMajor) {
+          ctx.globalAlpha = 1;
+          ctx.font = '500 11px ' + cssVar('--font-sans');
+          ctx.fillStyle = cssVar('--foreground-secondary');
+          ctx.textBaseline = 'middle';
+          ctx.textAlign = t === t0 ? 'left' : 'center';
+          ctx.fillText(label(t), t === t0 ? x + 3 : x, bandY + 8);
+        }
+      }
+      ctx.restore();
+      return;
+    }
     ctx.font = '500 11px ' + cssVar('--font-sans');
     ctx.fillStyle = cssVar('--foreground-muted');
     ctx.strokeStyle = cssVar('--border-subtle');
@@ -520,56 +620,6 @@
     ['chip.run.validate', 1],
   ];
 
-  /* ------------------------------------------------------ evidence ladder
-   * Three layers, each with its input, the one question it settles, and
-   * what it cannot settle alone -- that last cell is a button to the layer
-   * that can, so a stated limitation is also the way out of it. */
-  const LAYER_STATE = {
-    ok: { label: '齐', cls: 'good' },
-    partial: { label: '部分', cls: 'warn' },
-    absent: { label: '缺', cls: 'bad' },
-  };
-
-  function renderEvidenceLadder(stage) {
-    const sec = el('section');
-    const have = D.evidence.filter((l) => l.state === 'ok').length;
-    sec.appendChild(sectionHead('证据层', D.evidence.length + ' 层 · ' + have + ' 层齐',
-      el('span', 'tc-readout', '每层写明不能单独证明什么')));
-    const rows = el('div', 'tc-ladder');
-    D.evidence.forEach((l) => {
-      const row = el('div', 'tc-ladder-row is-' + l.state);
-      const head = el('div', 'hd');
-      head.appendChild(el('span', 'nm', l.name));
-      head.appendChild(el('span', 'st ' + LAYER_STATE[l.state].cls, LAYER_STATE[l.state].label));
-      row.appendChild(head);
-
-      const grid = el('div', 'bd');
-      const cell = (k, v, cls) => {
-        const c = el('div', 'cell' + (cls ? ' ' + cls : ''));
-        c.appendChild(el('span', 'k', k));
-        if (v instanceof Node) c.appendChild(v); else c.appendChild(el('span', 'v', v));
-        return c;
-      };
-      grid.appendChild(cell('输入', l.input, 'mono'));
-      grid.appendChild(cell('回答', l.answers));
-      /* the limitation is navigation, not a footnote */
-      const jump = el('button', 'tc-ladder-jump');
-      jump.type = 'button';
-      jump.textContent = l.cannot;
-      jump.title = '这一层证明不了它。' + NL
-        + '去 ' + (LEVELS.filter((v) => v.id === l.cannotGoto)[0] || {}).label + ' 页签看能证明的那一层。';
-      jump.addEventListener('click', () => { S.view = l.cannotGoto; S.focus = null; render(); });
-      grid.appendChild(cell('不能单独证明', jump, 'is-cannot'));
-      row.appendChild(grid);
-
-      if (l.have) row.appendChild(el('div', 'ft is-have', '有：' + l.have));
-      if (l.note) row.appendChild(el('div', 'ft', l.note));
-      rows.appendChild(row);
-    });
-    sec.appendChild(rows);
-    stage.appendChild(sec);
-  }
-
   /* ------------------------------------------------- function summary
    * Sigma = N x mean is exact. Comparing against N x median says which of
    * the three causes is in play without inventing a verdict model. */
@@ -639,48 +689,263 @@
     return '<span class="muted">都不在 · slack ' + num(sc.minSlack, 0) + '</span>';
   }
 
-  function viewE2E(stage) {
-    renderEvidenceLadder(stage);
-    if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
-    /* --- gates: what must be true before any number is trusted --- */
-    const invCount = Object.keys(D.e2e[D.defaultRank]).length;
-    const gates = [
-      {
-        k: 'Case 固定', state: D.case.params.length ? 'pass' : 'warn',
-        v: D.case.params.length ? 'locked' : '未记录',
-        d: (D.case.params.length ? D.case.params.length + ' 个绑定参数' : '无 distributed_meta.json')
-          + ' · ' + D.case.backend + ' · ' + D.case.ranks.length + ' rank · ' + D.case.numCores + ' core',
-      },
-      {
-        k: '工具链', state: D.case.toolchain.ptoIsaRevision ? 'pass' : 'warn',
-        v: D.case.toolchain.platform,
-        d: (D.case.toolchain.ptoIsaRevision
-          ? 'pto-isa ' + D.case.toolchain.ptoIsaRevision.slice(0, 10)
-          : '无 binary_context.json')
-          + ' · runtime ' + (D.case.toolchain.runtimeName || '未记录'),
-      },
-      {
-        k: '迭代次数', state: 'warn', v: 'n = ' + invCount,
-        d: 'mean / median 不成立',
-      },
-      {
-        k: 'PMU', state: 'info', v: 'off',
-        d: 'trace 内无 counter · 不可与 PMU-on 比较',
-      },
-    ];
-    const gs = el('div', 'tc-gates');
-    gates.forEach((g) => {
-      const n = el('div', 'tc-gate');
-      n.dataset.state = g.state;
-      n.appendChild(el('span', 'k', g.k));
-      n.appendChild(el('span', 'v', g.v));
-      n.appendChild(el('span', 'd', g.d));
-      gs.appendChild(n);
+  /* ================================================= E2E model projection
+   *
+   * The raw dump deliberately has no model-stage taxonomy: it describes
+   * calls, ranks and device traces.  This adapter keeps that boundary clear.
+   * A future JSON can provide `e2eRuntime.operators[tag].stage` to replace the
+   * fallback rule below; until then the stage label is shown as “规则归类”.
+   * Timings always stay trace-derived, only the grouping is mocked/inferred.
+   */
+  const E2E_STAGES = [
+    { id: 'input', label: '输入 / 嵌入', hint: 'token、position、embedding' },
+    { id: 'attention', label: 'Attention', hint: 'QKV、attention、softmax' },
+    { id: 'communication', label: '通信 / 同步', hint: 'collective、wait、all-to-all' },
+    { id: 'moe', label: 'MoE 路由', hint: 'gate、expert、route' },
+    { id: 'ffn', label: 'FFN / 输出', hint: 'projection、matmul、norm' },
+    { id: 'runtime', label: '运行时 / 其他', hint: '未匹配的运行时任务' },
+  ];
+
+  function e2eStageOf(task) {
+    const supplied = D.e2eRuntime && D.e2eRuntime.operators
+      && D.e2eRuntime.operators[task.tag];
+    if (supplied && supplied.stage) return { id: supplied.stage, source: 'json' };
+    const name = String(task.callable || '').toLowerCase();
+    if (/wait|allgather|all_reduce|allreduce|reduce_scatter|a2a|collective|comm/.test(name)) return { id: 'communication', source: 'rule' };
+    if (/embed|token|position|rope/.test(name)) return { id: 'input', source: 'rule' };
+    if (/attn|attention|softmax|qk|q_proj|k_proj|v_proj|qkv|fa_/.test(name)) return { id: 'attention', source: 'rule' };
+    if (/expert|gate|router|route|moe/.test(name)) return { id: 'moe', source: 'rule' };
+    if (/proj|matmul|mlp|norm|ffn|down|up_|out_/.test(name)) return { id: 'ffn', source: 'rule' };
+    return { id: 'runtime', source: 'rule' };
+  }
+
+  function e2eProjection() {
+    const ranks = Object.keys(D.ranks);
+    const stages = {};
+    E2E_STAGES.forEach((s) => { stages[s.id] = { id: s.id, label: s.label, hint: s.hint, ranks: {} }; });
+    const operators = {};
+    let ruleCount = 0;
+    ranks.forEach((rank) => {
+      D.ranks[rank].tasks.forEach((task) => {
+        const classified = e2eStageOf(task);
+        const stage = stages[classified.id] || stages.runtime;
+        if (classified.source === 'rule') ruleCount += 1;
+        const existing = stage.ranks[rank] || { coreUs: 0, count: 0, max: null, source: classified.source };
+        existing.coreUs += task.span;
+        existing.count += 1;
+        if (!existing.max || task.span > existing.max.span) existing.max = task;
+        stage.ranks[rank] = existing;
+
+        const op = operators[task.callable] || {
+          name: task.callable, stage: stage.id, ranks: {}, pathRanks: [], source: classified.source,
+        };
+        const onCritical = D.ranks[rank].critical.tags.indexOf(task.tag) >= 0;
+        const stat = op.ranks[rank] || { coreUs: 0, count: 0, max: null, onCritical: false };
+        stat.coreUs += task.span;
+        stat.count += 1;
+        stat.onCritical = stat.onCritical || onCritical;
+        if (!stat.max || task.span > stat.max.span) stat.max = task;
+        op.ranks[rank] = stat;
+        if (onCritical && op.pathRanks.indexOf(rank) < 0) op.pathRanks.push(rank);
+        operators[task.callable] = op;
+      });
     });
-    const secGate = el('section');
-    secGate.appendChild(sectionHead('门禁', '4 项'));
-    secGate.appendChild(gs);
-    stage.appendChild(secGate);
+    return { ranks: ranks, stages: E2E_STAGES.map((s) => stages[s.id]), operators: Object.keys(operators).map((k) => operators[k]), ruleCount: ruleCount };
+  }
+
+  function e2eJump(rank, task) {
+    S.rank = rank;
+    S.task = task.tag;
+    S.focus = 'task';
+    S.view = 'l1';
+    render();
+  }
+
+  function renderE2ERuntimeOverview(stage, projection) {
+    const rankRows = projection.ranks.map((rank) => {
+      const match = TRACE_MATCH[rank];
+      const spans = D.e2e[rank][match.inv];
+      return { rank: rank, dev: spans['chip.run.runner_run.device_wall'].us, trace: D.ranks[rank].swimlane.spanUs };
+    });
+    const slow = rankRows.slice().sort((a, b) => b.dev - a.dev)[0];
+    const fast = rankRows.slice().sort((a, b) => a.dev - b.dev)[0];
+    const sec = el('section');
+    sec.appendChild(sectionHead('运行总览', '模型 → 阶段 → 算子 → rank / 卡',
+      el('span', 'tc-readout', '时延 / trace：测量 · 阶段：' + (projection.ruleCount ? '规则归类' : 'JSON'))));
+    const grid = el('div', 'tc-e2e-overview');
+    [
+      ['模型', D.case.model, D.case.level ? 'L' + D.case.level + ' · ' + D.case.backend : D.case.backend],
+      ['卡数', String(projection.ranks.length), D.case.device + ' · ' + D.case.numCores + ' cores / card'],
+      ['全局尾时延', num(slow.dev, 1) + ' us', slow.rank + ' · traced inv=' + TRACE_MATCH[slow.rank].inv],
+      ['卡间偏斜', num(slow.dev - fast.dev, 1) + ' us', slow.rank + ' vs ' + fast.rank],
+    ].forEach((item, i) => {
+      const card = el('div', 'tc-e2e-overview-card');
+      if (i === 2) card.dataset.tone = 'warn';
+      card.appendChild(el('span', 'k', item[0]));
+      card.appendChild(el('strong', 'v', item[1]));
+      card.appendChild(el('span', 'u', item[2]));
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+    stage.appendChild(sec);
+  }
+
+  function e2eStageLegend(projection) {
+    const legend = el('div', 'tc-e2e-legend');
+    projection.stages.filter((s) => projection.ranks.some((rank) => s.ranks[rank])).forEach((s) => {
+      const key = el('span', 'tc-e2e-legend-key');
+      key.dataset.stage = s.id;
+      key.appendChild(el('i'));
+      key.appendChild(el('span', null, s.label));
+      legend.appendChild(key);
+    });
+    return legend;
+  }
+
+  function e2ePackedTasks(tasks) {
+    const lanes = [];
+    return tasks.slice().sort((a, b) => a.start - b.start || b.span - a.span).map((task) => {
+      let lane = lanes.findIndex((end) => end <= task.start);
+      if (lane < 0) { lane = lanes.length; lanes.push(task.end); }
+      else lanes[lane] = task.end;
+      return { task: task, lane: lane };
+    });
+  }
+
+  /* Inspired by profiler timelines: rows are ranks, x is device time, and
+   * every mark is a real trace task.  The model-stage colour is a grouping
+   * layer, never a replacement for the underlying timing. */
+  function renderE2ETraceAtlas(stage, projection) {
+    const sec = el('section');
+    sec.appendChild(sectionHead('执行时间地图', '共用任务色语义 · 点击任一 span 下钻到 L1'));
+    sec.appendChild(e2eStageLegend(projection));
+    const atlas = el('div', 'tc-e2e-atlas');
+    projection.ranks.forEach((rank) => {
+      const rankData = D.ranks[rank];
+      const packed = e2ePackedTasks(rankData.tasks);
+      const laneCount = Math.max.apply(null, packed.map((x) => x.lane)) + 1;
+      const row = el('div', 'tc-e2e-atlas-row');
+      const label = el('button', 'tc-e2e-atlas-label' + (rank === S.rank ? ' is-armed' : ''));
+      label.type = 'button';
+      const deviceWall = D.e2e[rank][TRACE_MATCH[rank].inv]['chip.run.runner_run.device_wall'].us;
+      label.appendChild(el('strong', null, rank));
+      label.appendChild(el('span', null, 'wall ' + num(deviceWall, 0) + ' · trace ' + num(rankData.swimlane.spanUs, 0)));
+      label.appendChild(el('small', null, pct(rankData.occupancy.aicUtil, 0) + ' AIC · ' + pct(rankData.occupancy.aivUtil, 0) + ' AIV'));
+      label.addEventListener('click', () => { S.rank = rank; S.focus = null; render(); });
+      row.appendChild(label);
+      const track = el('div', 'tc-e2e-atlas-track');
+      track.style.height = Math.max(64, laneCount * 16 + 12) + 'px';
+      [0, 25, 50, 75, 100].forEach((p) => {
+        const tick = el('i', 'tick');
+        tick.style.left = p + '%';
+        if (p < 100) tick.appendChild(el('span', null, num(rankData.swimlane.spanUs * p / 100, 0)));
+        track.appendChild(tick);
+      });
+      packed.forEach((entry) => {
+        const task = entry.task;
+        const stageInfo = e2eStageOf(task);
+        const mark = el('button', 'tc-e2e-trace-mark');
+        mark.type = 'button';
+        mark.dataset.stage = stageInfo.id;
+        if (rankData.critical.tags.indexOf(task.tag) >= 0) mark.dataset.critical = 'true';
+        mark.style.left = clamp(task.start / rankData.swimlane.spanUs * 100, 0, 100).toFixed(3) + '%';
+        mark.style.width = Math.max(0.55, task.span / rankData.swimlane.spanUs * 100).toFixed(3) + '%';
+        mark.style.top = (entry.lane * 16 + 8) + 'px';
+        mark.title = task.callable + ' · ' + num(task.span, 2) + ' us · ' + (rankData.critical.tags.indexOf(task.tag) >= 0 ? '依赖关键路径' : 'trace task');
+        mark.setAttribute('aria-label', mark.title);
+        mark.addEventListener('click', () => e2eJump(rank, task));
+        track.appendChild(mark);
+      });
+      row.appendChild(track);
+      atlas.appendChild(row);
+    });
+    sec.appendChild(atlas);
+    stage.appendChild(sec);
+  }
+
+  /* A 100% composition bar separates “where the device spent trace work”
+   * from the wall-clock view above.  Each segment opens its longest scope. */
+  function renderE2EStageComposition(stage, projection) {
+    const sec = el('section');
+    sec.appendChild(sectionHead('阶段工作构成', '各卡独立归一 · segment 宽度 = trace core-time'));
+    const chart = el('div', 'tc-e2e-composition');
+    projection.ranks.forEach((rank) => {
+      const cells = projection.stages.filter((s) => s.ranks[rank]);
+      const total = cells.reduce((sum, s) => sum + s.ranks[rank].coreUs, 0) || 1;
+      const row = el('div', 'tc-e2e-composition-row');
+      const label = el('span', 'rank');
+      label.appendChild(el('strong', null, rank));
+      label.appendChild(el('small', null, num(total, 0) + ' us work'));
+      row.appendChild(label);
+      const barHost = el('div', 'tc-e2e-composition-bar');
+      cells.forEach((s) => {
+        const cell = s.ranks[rank];
+        const segment = el('button', 'tc-e2e-composition-segment');
+        segment.type = 'button';
+        segment.dataset.stage = s.id;
+        segment.style.flexGrow = cell.coreUs;
+        segment.title = s.label + ' · ' + num(cell.coreUs, 1) + ' us / ' + cell.count + ' tasks · 下钻到 ' + cell.max.callable;
+        segment.setAttribute('aria-label', segment.title);
+        if (D.ranks[rank].critical.tags.indexOf(cell.max.tag) >= 0) segment.dataset.critical = 'true';
+        segment.addEventListener('click', () => e2eJump(rank, cell.max));
+        barHost.appendChild(segment);
+      });
+      row.appendChild(barHost);
+      chart.appendChild(row);
+    });
+    sec.appendChild(chart);
+    stage.appendChild(sec);
+  }
+
+  /* A scatter plot makes cross-card skew visible without forcing the reader
+   * to compare two columns of numbers.  Upper-right = expensive on both;
+   * off-diagonal = rank-specific work or imbalance. */
+  function renderE2EOperatorScatter(stage, projection) {
+    const sec = el('section');
+    const ranks = projection.ranks.slice(0, 2);
+    if (ranks.length < 2) { renderFuncSummary(stage); return; }
+    const ops = projection.operators.map((op) => {
+      op.x = op.ranks[ranks[0]] ? op.ranks[ranks[0]].coreUs : 0;
+      op.y = op.ranks[ranks[1]] ? op.ranks[ranks[1]].coreUs : 0;
+      op.maxCore = Math.max(op.x, op.y);
+      op.jumpRank = op.x >= op.y ? ranks[0] : ranks[1];
+      return op;
+    }).filter((op) => op.maxCore > 0).sort((a, b) => a.maxCore - b.maxCore).slice(-32);
+    const max = Math.max.apply(null, ops.map((op) => Math.max(op.x, op.y))) || 1;
+    sec.appendChild(sectionHead('算子偏斜散点', ranks[0] + ' × ' + ranks[1] + ' · 右上 = 双卡共同热点，偏轴 = rank 偏斜'));
+    sec.appendChild(e2eStageLegend(projection));
+    const plot = el('div', 'tc-e2e-scatter');
+    plot.appendChild(el('span', 'axis axis-y', ranks[1] + ' core-time'));
+    plot.appendChild(el('span', 'axis axis-x', ranks[0] + ' core-time'));
+    ops.forEach((op) => {
+      const point = el('button', 'tc-e2e-scatter-point');
+      point.type = 'button';
+      point.dataset.stage = op.stage;
+      if (op.pathRanks.length) point.dataset.critical = 'true';
+      const scale = (value) => Math.log1p(value) / Math.log1p(max);
+      point.style.left = (6 + scale(op.x) * 88).toFixed(2) + '%';
+      point.style.bottom = (8 + scale(op.y) * 84).toFixed(2) + '%';
+      const size = 8 + scale(op.maxCore) * 14;
+      point.style.width = size.toFixed(1) + 'px';
+      point.style.height = size.toFixed(1) + 'px';
+      point.title = op.name + ' · ' + ranks[0] + ' ' + num(op.x, 1) + ' us · ' + ranks[1] + ' ' + num(op.y, 1) + ' us'
+        + (op.pathRanks.length ? ' · 依赖关键路径' : '');
+      point.setAttribute('aria-label', point.title);
+      point.addEventListener('click', () => e2eJump(op.jumpRank, op.ranks[op.jumpRank].max));
+      plot.appendChild(point);
+    });
+    sec.appendChild(plot);
+    stage.appendChild(sec);
+  }
+
+  function viewE2E(stage) {
+    if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
+
+    const projection = e2eProjection();
+    renderE2ERuntimeOverview(stage, projection);
+    renderE2ETraceAtlas(stage, projection);
+    renderE2EStageComposition(stage, projection);
+    renderE2EOperatorScatter(stage, projection);
 
     /* --- rank x invocation table --- */
     const rows = [];
@@ -702,7 +967,7 @@
     });
     const maxDev = Math.max.apply(null, rows.map((r) => r.dev));
     const secTab = el('section');
-    secTab.appendChild(sectionHead('每 rank / 每次调用', 'device_wall 为设备时钟',
+    secTab.appendChild(sectionHead('调用采样', 'device_wall 为设备时钟',
       el('span', 'tc-readout', '点行 = 选中要带去 L2 / L1 的 rank')));
     secTab.appendChild(table([
       { label: 'Rank', key: 'rank', mono: true },
@@ -927,7 +1192,7 @@
       const h = 74 + evRow;
       const ctx = fitCanvas(ribCanvas, w, h);
       const plotX = LBL, plotW = Math.max(40, w - LBL - 10);
-      drawTimeRuler(ctx, plotX, plotW, 14, S.t0, S.t1);
+      drawTimeRuler(ctx, plotX, plotW, 0, S.t0, S.t1, { dense: true });
       ctx.font = '500 11px ' + cssVar('--font-sans');
       ctx.fillStyle = cssVar('--foreground-muted');
       ctx.textAlign = 'left';
@@ -992,7 +1257,7 @@
         /* a tick above the bar marks a node that is ALSO on the dependency
          * floor -- touching one of those lowers the floor, not just the stall */
         if (node.onCpm) {
-          ctx.fillStyle = cssVar('--danger');
+          ctx.fillStyle = cssVar('--foreground');
           ctx.fillRect(Math.max(plotX, x), 27 + evRow, Math.max(2, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), 2);
         }
         /* gap markers are not task bars: page-local data-viz marks */
@@ -1028,7 +1293,7 @@
       const readyH = S.overlay === 'ready' ? 46 : 0;
       const OCC_H = 26;
       const schedH = overlayRows ? overlayRows * (SCHED_ROW_H + SCHED_ROW_GAP) + 8 : 0;
-      const top = 20 + OCC_H + schedH + readyH;
+      const top = 30 + OCC_H + schedH + readyH;
       const workerRows = [];
       let workerBottom = top;
       lanes.forEach((lane, i) => {
@@ -1039,7 +1304,7 @@
       const h = workerBottom + 8;
       const ctx = fitCanvas(laneCanvas, w, Math.max(h, laneHost.clientHeight || h));
       const sx = (t) => plotX + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
-      drawTimeRuler(ctx, plotX, plotW, 12, S.t0, S.t1);
+      drawTimeRuler(ctx, plotX, plotW, 0, S.t0, S.t1, { dense: true });
       ctx.font = '500 10px ' + cssVar('--font-sans');
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
@@ -1054,7 +1319,7 @@
         const wins = rank.occWindows;
         if (!wins || !wins.length) return;
         const ww = rank.occWindowUs;
-        const bandY = 20;
+        const bandY = 30;
         const strip = (OCC_H - 4) / 2;
         ctx.fillStyle = cssVar('--foreground-muted');
         ctx.font = '500 10px ' + cssVar('--font-sans');
@@ -1108,7 +1373,7 @@
       /* AICPU scheduler lanes */
       if (overlayRows) {
         rank.scheduler.lanes.forEach((name, i) => {
-          const y = 20 + OCC_H + i * (SCHED_ROW_H + SCHED_ROW_GAP);
+          const y = 30 + OCC_H + i * (SCHED_ROW_H + SCHED_ROW_GAP);
           ctx.fillStyle = cssVar('--foreground-muted');
           ctx.fillText(name, 4, y + SCHED_ROW_H / 2);
           rank.scheduler.blocks[i].forEach((b) => {
@@ -1124,7 +1389,7 @@
 
       /* ready-but-undispatched strip */
       if (readyH) {
-        const y0 = 22 + OCC_H, hh = readyH - 8;
+        const y0 = 32 + OCC_H, hh = readyH - 8;
         const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
         ctx.fillStyle = cssVar('--foreground-muted');
         ctx.fillText('READY', 4, y0 + hh / 2);
@@ -2801,8 +3066,8 @@
     }
     host.appendChild(s2);
 
-    const s3 = inspectorSection('瓶颈队列', 'top 3');
-    D.findings.slice(0, 3).forEach((f) => {
+    const s3 = inspectorSection('瓶颈链', topChains(3).length + ' 条');
+    topChains(3).forEach((f) => {
       s3.appendChild(btn(f.id + ' · ' + f.title, {
         size: 'sm',
         on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
@@ -2882,12 +3147,18 @@
     s3.appendChild(chips);
     host.appendChild(s3);
 
-    const rel = D.findings.filter((f) => f.focus && f.focus.task === t.tag);
+    /* a task belongs to a chain if ANY rung marks it, so walking down from
+     * L2 to a compiler site still shows the task its chain came from */
+    const rungsFor = (f) => (f.chain || []).filter((st) => st.subjects.tasks.indexOf(t.tag) >= 0);
+    const rel = D.findings.filter((f) => (f.focus && f.focus.task === t.tag)
+      || f.subjects.tasks.indexOf(t.tag) >= 0 || rungsFor(f).length);
     if (rel.length) {
       const s4 = inspectorSection('关联瓶颈', rel.length + ' 条');
       rel.forEach((f) => {
-        s4.appendChild(btn(f.id + ' · ' + f.title, {
-          size: 'sm', on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
+        const at = rungsFor(f).map((st) => LEVEL_LABEL[st.level] || st.level);
+        s4.appendChild(btn(f.id + ' · ' + f.title
+          + (at.length ? '（' + Array.from(new Set(at)).join(' / ') + '）' : ''), {
+          size: 'sm', on: () => { S.finding = f.id; S.chainStep = null; S.focus = 'finding'; applyFocus(f); render(); },
         }));
       });
       host.appendChild(s4);
@@ -2911,12 +3182,56 @@
 
   function renderFindingInspector(host, title, meta) {
     const f = findingById[S.finding];
-    title.textContent = f.id + ' · ' + LEVEL_LABEL[f.level];
-    meta.textContent = f.severity;
+    const chain = f.chain || [];
+    title.textContent = f.id + ' · ' + (f.kind === 'hygiene' ? '体检项' : '瓶颈链');
+    meta.textContent = f.cost ? f.cost.share + '% of makespan' : '无归因';
 
     const s1 = inspectorSection(f.title, f.metric);
+    if (f.cost) {
+      s1.appendChild(el('div', 'inspector-soft-card is-info',
+        '代价 ' + us(f.cost.us, 1) + '（makespan 的 ' + f.cost.share + '%）· 口径：' + f.cost.basis));
+    } else if (f.unattributed) {
+      s1.appendChild(el('div', 'inspector-soft-card is-warning', '不作为瓶颈：' + f.unattributed));
+    }
     s1.appendChild(el('p', 'tc-note', f.claim));
     host.appendChild(s1);
+
+    if (chain.length) {
+      const s0 = inspectorSection('跨层链条',
+        chain.map((st) => LEVEL_LABEL[st.level] || st.level).join(' → '));
+      const lad = el('div', 'tc-ladder');
+      chain.forEach((st, i) => {
+        const key = f.id + ':' + i;
+        const r = el('div', 'tc-ladder-step' + (S.chainStep === key ? ' is-selected' : ''));
+        r.dataset.role = st.role;
+        const hd = el('div', 'hd');
+        hd.appendChild(el('span', 'lv', LEVEL_LABEL[st.level] || st.level));
+        hd.appendChild(el('span', 'role', (ROLE[st.role] || { label: st.role }).label));
+        r.appendChild(hd);
+        r.appendChild(el('span', 'ti', st.headline));
+        if (st.detail) r.appendChild(el('span', 'dt', st.detail));
+        /* only a rung that names something on the stage is clickable; a stop
+         * rung has nothing to jump to and must not pretend otherwise */
+        if (st.chips.length || st.role !== 'stop') {
+          r.tabIndex = 0;
+          r.setAttribute('role', 'button');
+          r.classList.add('is-linked');
+          const go = () => { applyStep(f, st); render(); };
+          r.addEventListener('click', go);
+          r.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+          });
+        }
+        lad.appendChild(r);
+      });
+      s0.appendChild(lad);
+      if (f.terminus) {
+        s0.appendChild(el('div', 'inspector-soft-card'
+          + (f.terminus.level === 'compiler' ? ' is-info' : ' is-warning'),
+          '链止于 ' + (LEVEL_LABEL[f.terminus.level] || f.terminus.level) + '：' + f.terminus.reason));
+      }
+      host.appendChild(s0);
+    }
 
     const s2 = inspectorSection('证据', f.chips.length ? f.evidence.length + ' 项 · 已在中间标号' : f.evidence.length + ' 项');
     const list = el('div', 'tc-evidence');
@@ -3536,8 +3851,8 @@
     }
     host.appendChild(s2);
 
-    const s3 = inspectorSection('瓶颈队列', 'top ' + Math.min(3, D.findings.length));
-    D.findings.slice(0, 3).forEach((f) => {
+    const s3 = inspectorSection('瓶颈链', topChains(3).length + ' 条 · 体检项见左栏');
+    topChains(3).forEach((f) => {
       s3.appendChild(btn(f.id + ' · ' + f.title, {
         variant: 'ghost', size: 'sm',
         on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
@@ -3692,8 +4007,12 @@
     /* findings queue */
     const filterHost = $('#findingFilter');
     filterHost.textContent = '';
+    /* a chain spans several layers, so it counts under every layer it visits;
+     * filtering by "编译器" must not hide the chain that landed there */
     const counts = { all: D.findings.length };
-    D.findings.forEach((f) => { counts[f.level] = (counts[f.level] || 0) + 1; });
+    D.findings.forEach((f) => {
+      (f.levels || [f.level]).forEach((lv) => { counts[lv] = (counts[lv] || 0) + 1; });
+    });
     [{ id: 'all', label: '全部' }].concat(LEVELS.filter((l) => counts[l.id]).map((l) => ({ id: l.id, label: l.label })))
       .forEach((o) => {
         filterHost.appendChild(btn(o.label + ' ' + (counts[o.id] || 0), {
@@ -3704,29 +4023,58 @@
 
     const list = $('#findingList');
     list.textContent = '';
-    const shown = D.findings.filter((f) => S.findingLevel === 'all' || f.level === S.findingLevel);
+    const shown = D.findings.filter((f) => S.findingLevel === 'all'
+      || (f.levels || [f.level]).indexOf(S.findingLevel) >= 0);
     const logged = {};
     S.ledger.forEach((r) => { if (r.findingId) logged[r.findingId] = 1; });
-    shown.forEach((f) => {
+
+    const findingRow = (f) => {
       const b = el('button', 'tc-finding'
+        + (f.kind === 'hygiene' ? ' is-hygiene' : '')
         + (f.id === S.finding && S.focus === 'finding' ? ' is-selected' : '')
         + (logged[f.id] ? ' is-logged' : ''));
       b.type = 'button';
       b.dataset.sev = f.severity;
       const hd = el('div', 'hd');
       hd.appendChild(el('span', 'id', f.id));
-      hd.appendChild(el('span', 'lv', LEVEL_LABEL[f.level]));
+      /* a chain advertises the layers it crosses; that path IS its identity */
+      hd.appendChild(el('span', 'lv', (f.levels || [f.level])
+        .map((lv) => LEVEL_LABEL[lv] || lv).join(' → ')));
       b.appendChild(hd);
       b.appendChild(el('span', 'ti', f.title));
-      b.appendChild(el('span', 'mt', f.metric));
+      const mt = el('div', 'mt');
+      mt.appendChild(el('span', 'm', f.metric));
+      mt.appendChild(el('span', f.cost ? 'cost' : 'cost is-none',
+        f.cost ? f.cost.share + '%' : '无归因'));
+      b.appendChild(mt);
       b.addEventListener('click', () => {
         S.finding = f.id;
+        S.chainStep = null;
         S.focus = 'finding';
         applyFocus(f);
         render();
       });
-      list.appendChild(b);
-    });
+      return b;
+    };
+
+    /* Two groups, never interleaved: a chain carries a makespan attribution,
+     * a hygiene item carries the reason it does not. Mixing them is how a
+     * hint count ends up looking as urgent as a 39% finding. */
+    const group = (label, kicker, rows) => {
+      if (!rows.length) return;
+      const h = el('div', 'tc-finding-group');
+      h.appendChild(el('span', 'gl', label));
+      h.appendChild(el('span', 'gk', kicker));
+      list.appendChild(h);
+      rows.forEach((f) => list.appendChild(findingRow(f)));
+    };
+    const chains = shown.filter((f) => f.kind !== 'hygiene');
+    const hyg = shown.filter((f) => f.kind === 'hygiene');
+    group('瓶颈链', chains.length
+      ? '合计 ' + num(chains.reduce((n, f) => n + (f.cost ? f.cost.us : 0), 0), 0)
+        + ' us · 与 makespan 有时间重叠，不可相加'
+      : '本层无', chains);
+    group('体检项', hyg.length ? '无 makespan 归因' : '本层无', hyg);
     $('[data-bind="findingCount"]').textContent = shown.length + ' / ' + D.findings.length;
   }
 
@@ -3735,15 +4083,27 @@
    * the inspector is talking about. */
   function applyFocus(f) {
     if (!f) return;
-    const s = f.subjects || {};
-    S.view = s.view || (f.focus && f.focus.view) || S.view;
+    applySubjects(f.subjects || {}, f.focus && f.focus.pass);
+  }
+
+  /* A chain step is focusable in its own right: the reader walks the ladder
+   * and the stage follows one layer at a time, instead of the whole chain
+   * always dumping them on its first layer. */
+  function applyStep(f, st) {
+    if (!f || !st) return;
+    S.chainStep = f.id + ':' + (f.chain || []).indexOf(st);
+    applySubjects(st.subjects || {}, st.level === 'compiler' ? (f.rootPass || 'MemoryReuse') : null);
+  }
+
+  function applySubjects(s, passName) {
+    S.view = s.view || S.view;
     if (s.tab) S.compilerTab = s.tab;
     if (s.overlay) S.overlay = s.overlay;
     if (s.tasks && s.tasks.length && tasksOf[S.rank][s.tasks[0]]) S.task = s.tasks[0];
     if (s.sites && s.sites.length) S.hintSite = s.sites[0];
     if (s.lanes && s.lanes.length) S.laneFilter = s.lanes[0].indexOf('AIC') === 0 ? 'aic' : 'aiv';
-    if (f.focus && f.focus.pass) {
-      const p = D.passes.find((x) => x.name === f.focus.pass);
+    if (passName) {
+      const p = D.passes.find((x) => x.name === passName);
       if (p) S.pass = p.idx;
     }
     S.critOnly = false;
@@ -3844,9 +4204,12 @@
     });
     D.findings.forEach((f) => {
       idx.push({
-        kind: 'finding', text: f.id + ' ' + f.title + ' ' + f.axis, name: f.id + ' ' + f.title,
-        value: f.metric,
-        go: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); },
+        kind: 'finding',
+        text: [f.id, f.title, f.axis, f.kind].concat(f.levels || [])
+          .concat((f.chain || []).map((st) => st.headline)).join(' '),
+        name: f.id + ' ' + f.title,
+        value: f.cost ? f.cost.share + '% · ' + f.metric : '无归因 · ' + f.metric,
+        go: () => { S.finding = f.id; S.chainStep = null; S.focus = 'finding'; applyFocus(f); },
       });
     });
     D.passes.forEach((p) => {
@@ -3978,7 +4341,9 @@
       });
       b.appendChild(layers);
       b.appendChild(el('div', 'mt', run.ranks[run.defaultRank].tasks.length + ' 任务 · '
-        + run.findings.length + ' 条瓶颈 · ' + run.hints.length + ' 条提示'));
+        + (run.chainCount != null ? run.chainCount + ' 条瓶颈链 · ' + run.hygieneCount + ' 条体检项'
+          : run.findings.length + ' 条瓶颈')
+        + ' · ' + run.hints.length + ' 条提示'));
       b.addEventListener('click', () => switchCase(c.id));
       menu.appendChild(b);
     });

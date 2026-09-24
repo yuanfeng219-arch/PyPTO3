@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>L2 Scheduler · Tuning Console</title>
+  <meta name="description" content="极简 L2 调度视图：在一条时间线上查看调度器、ready queue 与核心泳道。">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="scheduler-page" aria-label="L2 调度视图">
+    <header class="app-header">
+      <a class="back-link" href="../../launch.html" aria-label="返回 PTO Demo">PTO</a>
+      <div class="title-block">
+        <p class="eyebrow">Tuning Console · Minimal</p>
+        <h1>L2 调度</h1>
+      </div>
+      <label class="case-picker">Run
+        <select id="caseSelect" aria-label="选择运行"></select>
+      </label>
+    </header>
+
+    <section class="summary" aria-label="当前运行概览">
+      <div class="summary-item"><span>Trace span</span><strong id="traceSpan">—</strong></div>
+      <div class="summary-item"><span>Scheduler busy</span><strong id="schedulerUtil">—</strong></div>
+      <div class="summary-item"><span>AIC busy</span><strong id="aicUtil">—</strong></div>
+      <div class="summary-item"><span>AIV busy</span><strong id="aivUtil">—</strong></div>
+      <div class="summary-item is-note"><span>当前问题</span><strong id="takeaway">—</strong></div>
+    </section>
+
+    <section class="workspace" aria-labelledby="chartTitle">
+      <header class="workspace-header">
+        <div>
+          <p class="eyebrow">同一时间轴</p>
+          <h2 id="chartTitle">Scheduler → Ready queue → Core lanes</h2>
+        </div>
+        <div class="controls" aria-label="泳道筛选">
+          <div class="segmented" role="group" aria-label="核类型">
+            <button type="button" data-filter="all" class="is-active">全部</button>
+            <button type="button" data-filter="aic">AIC</button>
+            <button type="button" data-filter="aiv">AIV</button>
+          </div>
+          <button type="button" class="quiet-button" id="resetButton">重置视图</button>
+        </div>
+      </header>
+
+      <div class="timeline-key" aria-label="图例">
+        <span><i class="dot dot-scheduler"></i>Scheduler phase</span>
+        <span><i class="dot dot-ready"></i>Ready queue</span>
+        <span><i class="dot dot-aic"></i>AIC</span>
+        <span><i class="dot dot-aiv"></i>AIV</span>
+        <span class="hint">悬停核心任务查看名称与时间</span>
+      </div>
+
+      <div class="chart-shell" id="chartShell">
+        <canvas id="timeline" tabindex="0" aria-label="Scheduler、ready queue 与核心泳道时间线"></canvas>
+        <div class="task-tooltip" id="taskTooltip" hidden></div>
+      </div>
+    </section>
+
+    <section class="reading-row" aria-label="调度读数">
+      <article class="reading-card">
+        <p class="eyebrow">Scheduler</p>
+        <h2 id="phaseTitle">—</h2>
+        <p id="phaseDetail">—</p>
+      </article>
+      <article class="reading-card">
+        <p class="eyebrow">Ready queue</p>
+        <h2 id="queueTitle">—</h2>
+        <p id="queueDetail">—</p>
+      </article>
+      <article class="reading-card is-selection">
+        <p class="eyebrow">选中任务</p>
+        <h2 id="selectionTitle">移动到泳道上选择一个任务</h2>
+        <p id="selectionDetail">这里仅保留定位该任务所需的信息。</p>
+      </article>
+    </section>
+  </main>
+
+  <script src="../operator-tuning-console/data.js?v=13"></script>
+  <script src="app.js"></script>
+</body>
+</html>
