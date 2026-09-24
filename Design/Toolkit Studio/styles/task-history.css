@@ -101,7 +101,7 @@
   padding-right: 34px;
 }
 .kf-th-row:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
-.kf-th-item.is-open > .kf-th-row { background: rgba(255,255,255,0.05); }
+.kf-th-item.is-open > .kf-th-row { background: color-mix(in srgb, var(--primary) 6%, transparent); }
 .kf-th-dot { grid-area: dot; width: 7px; height: 7px; border-radius: 50%; background: var(--foreground-muted); }
 .kf-th-dot.is-ok { background: var(--success); box-shadow: 0 0 7px color-mix(in srgb, var(--success) 60%, transparent); }
 .kf-th-dot.is-bad { background: var(--danger); box-shadow: 0 0 7px color-mix(in srgb, var(--danger) 60%, transparent); }
@@ -282,7 +282,7 @@
   background: color-mix(in srgb, var(--surface-1) 45%, transparent);
 }
 .kf-rd-art:hover { border-left-color: var(--primary); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
-.kf-rd-art.is-sel { border-left-color: var(--primary); background: var(--state-selected); }
+.kf-rd-art.is-sel { border-left-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
 .kf-rd-art-top { display: flex; align-items: center; gap: 7px; }
 .kf-rd-art-top i { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .kf-rd-art.is-ok .kf-rd-art-top i { background: var(--success); }
@@ -792,9 +792,9 @@
    the headline numbers stay above it because they are true of the run, not of
    one view of it. Living here also means the tabs only ever exist under
    任务与运行 — they cannot leak into the explorer or runs views. */
-.kf-rt { display: flex; gap: 2px;}
+.kf-rt { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }
 .kf-rtp { display: grid; gap: 14px; }
-.kf-tuning-embed { min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-1); }
+.kf-tuning-embed { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-1); }
 .kf-tuning-embed > header { display: flex; align-items: center; min-height: 38px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1)); }
 .kf-tuning-embed > header > div { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .kf-tuning-embed > header span { color: var(--foreground); font: 600 11px var(--font-mono); }
@@ -918,7 +918,7 @@
 .kf-rw-finding b { overflow: hidden; color: var(--foreground); font-size: var(--kf-type-2xs); text-overflow: ellipsis; white-space: nowrap; }
 /* the supporting line under a finding is a sentence, not an identifier */
 .kf-rw-finding small { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; white-space: nowrap; }
-.kf-rw-finding--numerical > div { display: grid; min-width: 0; gap: 2px; }.kf-rw-finding--numerical small { display: flex; gap: 7px; overflow: hidden; }.kf-rw-finding--numerical mark { overflow: hidden; padding: 0; color: var(--foreground-muted); background: transparent; text-overflow: ellipsis; white-space: nowrap; }.kf-rw-finding--numerical em { color: var(--primary); font: 600 10px var(--font-sans); font-style: normal; white-space: nowrap; }
+.kf-rw-finding--numerical > div { display: grid; min-width: 0; gap: 2px; }.kf-rw-finding--numerical i { color: var(--primary); font: 700 8px var(--font-mono); font-style: normal; letter-spacing: .08em; }.kf-rw-finding--numerical small { display: flex; gap: 7px; overflow: hidden; }.kf-rw-finding--numerical mark { overflow: hidden; padding: 0; color: var(--foreground-muted); background: transparent; text-overflow: ellipsis; white-space: nowrap; }.kf-rw-finding--numerical em { color: var(--primary); font: 600 10px var(--font-sans); font-style: normal; white-space: nowrap; }
 .kf-rw-evidence { border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); }
 .kf-rw-evidence summary { padding: 9px 0; cursor: pointer; font-size: var(--kf-type-2xs); }
 .kf-rw-evidence-body { display: grid; gap: 0; padding: 0 0 8px; }
@@ -931,37 +931,11 @@
 .kf-rw-runtime-empty { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .kf-rw-runtime-empty > div { display: grid; gap: 3px; padding: 9px; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); }.kf-rw-runtime-empty b { color: var(--foreground-secondary); font: 600 9px var(--font-mono); }.kf-rw-runtime-empty small { color: var(--foreground-muted); font: 8px var(--font-mono); }
 .kf-rw-runtime-empty > p { grid-column: 1 / -1; margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }.kf-rw-runtime-empty > button,.kf-rw-domain-empty > button { width: max-content; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); border-radius: var(--radius-sm); color: var(--primary); background: transparent; cursor: pointer; font-family: var(--font-sans); font-size: 11px; }
-/* Evidence 只是证据：平铺的等宽事实文本，无边框、无底色、无 hover、不可点。
-   和同一行里的 Object（灰描边、可点）、Action（主色描边、是操作）一眼分得开。 */
-.kf-oi-evidence {
-  display: inline-flex; align-items: center;
-  padding: 0; border: 0; border-radius: 0;
-  color: var(--foreground-muted); background: none;
-  font: 10px/1.6 var(--font-mono);
-}
-.kf-oi-evidence + .kf-oi-evidence { padding-left: 10px; border-left: 1px solid var(--border-subtle); }
+.kf-oi-evidence { padding: 4px 6px; border-radius: var(--radius-sm); color: var(--foreground-secondary); background: var(--surface-3); font: 8px/1.3 var(--font-mono); }
 .kf-oi { display: grid; gap: 12px; }.kf-oi.is-empty { padding: 8px 2px; }.kf-oi.is-empty p { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
 /* The eyebrow names the object kind (TASK / KERNEL / PASS) — a UI label. */
-.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { display: flex; align-items: center; gap: 6px; color: var(--primary); font: 700 9px var(--font-sans); letter-spacing: .08em; }.kf-oi-head > span > em { padding: 1px 5px; border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); color: var(--foreground-muted); background: var(--surface-3); font: 600 8px/1.4 var(--font-sans); font-style: normal; letter-spacing: .02em; }.kf-oi-head > span > em.is-bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--danger) 10%, transparent); }.kf-oi-head > span > em.is-warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 34%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 10%, transparent); }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
-.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font-family: var(--font-sans); font-size: 11px; line-height: 1.3; }
-/* 跨页跳转后保留的对象选择：被选中的 Object chip 用主色描边标出，和普通
-   Object 的灰描边区分，一眼看出「上一页带来的就是它」。 */
-.kf-oi-link.is-sel, .kf-oi-link[aria-pressed="true"] {
-  border-color: var(--primary); color: var(--primary);
-  background: var(--state-selected);
-}
-/* Object（Task / Tensor / Kernel / Pass）与 Action 都是可点的，但档位不同：
-   Object 是中性描边，Action 是主色描边 + 主色淡底 —— 「在「执行」中查看…」
-   这类跳转必须先被看成操作，而不是又一个对象。两者都补上键盘焦点环。 */
-.kf-oi-link:focus-visible, .kf-rw-health button:focus-visible, .kf-rw-finding:focus-visible, .kf-oi-actions button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent); outline-offset: 1px;
-}
-.kf-oi-actions button {
-  border-color: color-mix(in srgb, var(--primary) 46%, var(--border-subtle));
-  color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent);
-  font-weight: 600;
-}
-.kf-oi-actions button:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 9px var(--font-sans); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font-family: var(--font-sans); font-size: 11px; line-height: 1.3; }.kf-oi-actions button { color: var(--primary); }
 .kf-object-tooltip {
   position: fixed; z-index: 80; display: none;
   width: min(376px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 16px));
@@ -972,56 +946,22 @@
 .kf-object-tooltip.is-open { display: block; }
 .kf-object-tooltip .kf-oi { gap: 10px; }
 .kf-object-tooltip .kf-inspector-section { display: grid; gap: 5px; margin: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
-.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 600 9px var(--font-sans); letter-spacing: .08em; }
+.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 700 9px var(--font-sans); letter-spacing: .08em; }
 .kf-object-tooltip dl { display: grid; gap: var(--space-1); margin: 0; }
 .kf-object-tooltip dl > div { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: var(--space-2); align-items: baseline; }
 .kf-object-tooltip dt { color: var(--foreground-muted); font: var(--type-micro); }
 .kf-object-tooltip dd { min-width: 0; margin: 0; color: var(--foreground-secondary); font: var(--type-mono); overflow-wrap: anywhere; }
 
-/* ---------- 修复预览（轻量 dialog）----------
-   #106 → 执行 → 查看缺失依赖 的预览层：只展示建议改动，不写真实 patch。
-   应用后走既有的 createFollowupRun('dependency')。按钮复用 .btn / .btn-solid，
-   其余沿用 Surface / Border / Type token。 */
-.kf-rw-fix-modal {
-  position: fixed; z-index: 90; inset: 0;
-  display: grid; place-items: center; padding: var(--space-5);
-  background: rgb(3 6 14 / .72); backdrop-filter: blur(7px);
-}
-.kf-rw-fix-modal[hidden] { display: none; }
-.kf-rw-fix-dialog {
-  width: min(440px, calc(100vw - 32px)); overflow: hidden;
-  border: 1px solid var(--border-strong); border-radius: var(--radius-xl);
-  color: var(--foreground); background: var(--surface-1); box-shadow: var(--shadow-md);
-}
-.kf-rw-fix-dialog > header {
-  min-height: 56px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--surface-2);
-}
-.kf-rw-fix-dialog h2 { margin: 3px 0 0; font: var(--type-title-3); }
-.kf-rw-fix-dialog > header button {
-  width: 26px; height: 26px; border: 0; border-radius: var(--radius-sm);
-  color: var(--foreground-muted); background: transparent; cursor: pointer; font-size: var(--kf-type-lg);
-}
-.kf-rw-fix-dialog > header button:hover { color: var(--foreground); background: var(--surface-3); }
-.kf-rw-fix-body { display: grid; gap: var(--space-4); padding: var(--space-4); }
-.kf-rw-fix-body h3 { margin: 0 0 var(--space-1); color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
-.kf-rw-fix-body p { margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
-/* 同一区块里的标识符统一成段落字号：只换等宽字族，避免 code 比正文忽大忽小。 */
-.kf-rw-fix-body code { color: var(--foreground); font-family: var(--font-mono); font-size: inherit; font-weight: 500; }
-.kf-rw-fix-body pre {
-  margin: 0; padding: var(--space-3); overflow-x: auto;
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
-  color: var(--foreground-secondary); background: var(--surface-2);
-  font: var(--type-mono); line-height: 1.6;
-}
-.kf-rw-fix-add { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
-.kf-rw-fix-dialog > .kf-rw-fix-actions {
-  display: flex; justify-content: flex-end; gap: var(--space-2);
-  padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-subtle); background: var(--surface-2);
-}
-
 /* Correctness runtime task tooltip: identity → timing → data flow → evidence. */
 .kf-object-tooltip .kf-oi--task { gap: 0; }
+.kf-task-tip-head { display: grid; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.kf-task-tip-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.kf-task-tip-id > span { color: var(--primary); font: var(--type-mono); font-weight: var(--font-weight-bold); }
+.kf-task-tip-id > em { color: var(--foreground-muted); font: var(--type-label); font-style: normal; }
+.kf-task-tip-id > em.is-bad { color: var(--danger); }
+.kf-task-tip-id > em.is-warn { color: var(--warning); }
+.kf-task-tip-head h3 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
+.kf-task-tip-head small { color: var(--foreground-muted); font: var(--type-mono); }
 .kf-task-tip-metrics {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle);
@@ -1072,6 +1012,7 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
   border-radius: calc(var(--radius-lg) + 2px);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
   box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025);
 }
 .kf-rd-overview-left, .kf-rd-overview-right { min-width: 0; }
@@ -1082,7 +1023,7 @@
 
 .kf-rd-summary {
   position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 13px;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
+  padding: 17px 18px 15px; border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
   border-radius: calc(var(--radius-lg) + 2px);
   background:
     radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 52%),
@@ -1120,19 +1061,19 @@
 .kf-rd-eyebrow > em.is-archive { color: var(--foreground-muted); background: var(--surface-3); }
 .kf-rd-titleline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .kf-rd-titleline h2 { margin: 0; color: var(--foreground); font-size: clamp(18px, 3.4cqi, 23px); line-height: 1.15; letter-spacing: -.025em; }
-/* Run lifecycle：只保留最弱的两种表现，其余一律不显示。
-   运行中 = 轻量 spinner；已取消 = 弱化文字。不做成 chip、不用强警示色。 */
-.kf-rd-spinner {
-  flex: none; width: 13px; height: 13px;
-  border: 2px solid color-mix(in srgb, var(--primary) 26%, transparent);
-  border-top-color: var(--primary); border-radius: 50%;
-  animation: kf-spin .8s linear infinite;
+.kf-rd-status {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
+  color: var(--foreground-secondary); background: color-mix(in srgb, var(--surface-3) 70%, transparent);
+  font: 650 11px/1.3 var(--font-sans); white-space: nowrap;
 }
-.kf-rd-cancelled {
-  color: var(--foreground-muted); font-size: var(--kf-type-xs); font-weight: 500;
-}
-@keyframes kf-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .kf-rd-spinner { animation: none; } }
+.kf-rd-status i { width: 5px; height: 5px; border-radius: 50%; background: var(--foreground-muted); }
+.kf-rd-status.is-ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 28%, var(--border-subtle)); }
+.kf-rd-status.is-ok i { background: var(--success); box-shadow: 0 0 8px color-mix(in srgb, var(--success) 58%, transparent); }
+.kf-rd-status.is-warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 28%, var(--border-subtle)); }
+.kf-rd-status.is-warn i { background: var(--warning); }
+.kf-rd-status.is-bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 28%, var(--border-subtle)); }
+.kf-rd-status.is-bad i { background: var(--danger); }
 .kf-rd-id > p { margin: 6px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
 
 .kf-rd-summary .kf-rd-run {
@@ -1329,49 +1270,29 @@
   overflow: visible; font-size: 6.5px; text-overflow: clip;
 }
 
-/* 概览里的指标卡只占两行：标题一行，数值（含可视化）与说明文字同占主行。
-   说明文字原本独占第三行，现在接到主行末尾，卡片不再多留一条空行。 */
-.kf-rd-overview > .kf-rd-kpi,
-.kf-rd-overview-right .kf-rd-kpi {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  align-content: center;
-}
-.kf-rd-overview > .kf-rd-kpi > header,
-.kf-rd-overview-right .kf-rd-kpi > header { grid-column: 1 / -1; }
-.kf-rd-overview > .kf-rd-kpi > small,
-.kf-rd-overview-right .kf-rd-kpi > small {
-  grid-area: 2 / 2;
-  align-self: end;
-  padding-left: 12px;
-}
-
-/* 统一跨域 Context Banner：来源 → 意图 → 当前聚焦对象。
-   从一个 Domain 跳到另一个时，这是一条连续的锚点，三个读点固定：
-     来自「X」 / 结论 → 正在做什么 / 当前聚焦 · 对象 */
+/* Compilation → Execution context. This block is self-contained so the
+   handoff remains legible even when the Compilation workspace is not mounted. */
 .kf-cv-context {
-  display: grid; gap: 6px; padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
-  border-left: 3px solid var(--primary);
-  border-radius: var(--radius-md);
+  display: flex; min-width: 0; align-items: center; gap: 9px;
+  padding: 10px 12px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: color-mix(in srgb, var(--primary) 5%, var(--surface-1));
 }
-.kf-cv-context-from {
-  width: max-content; padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border-subtle));
+.kf-cv-context > span {
+  flex: none; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border-subtle));
   border-radius: var(--radius-pill); color: var(--primary);
   background: color-mix(in srgb, var(--primary) 9%, transparent);
   font: 600 9px/1.4 var(--font-mono); letter-spacing: .02em;
 }
-.kf-cv-context-intent { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
-.kf-cv-context-intent b { color: var(--foreground); font: 600 11px/1.45 var(--font-sans); }
-.kf-cv-context-intent i { color: var(--foreground-muted); font: 500 11px var(--font-sans); font-style: normal; }
-.kf-cv-context-focus { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
-.kf-cv-context-focus b { color: var(--primary); font: 600 10px var(--font-mono); }
+.kf-cv-context > b {
+  min-width: 0; overflow: hidden; color: var(--foreground);
+  font: 600 11px/1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-cv-context--execution { margin-top: 12px; }
 
 .kf-cv-summary {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  overflow: hidden; margin-top: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  overflow: hidden; border: 1px solid var(--border-subtle); border-top: 0;
   background: color-mix(in srgb, var(--surface-1) 78%, transparent);
 }
 .kf-cv-summary > div { display: grid; min-width: 0; gap: 4px; padding: 11px 12px 12px; }

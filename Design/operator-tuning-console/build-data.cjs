@@ -37,6 +37,9 @@ const CASES = [
     model: 'deepseek_v4_flash_dspark / decode_csa',
     sourceRoot: '/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark',
     binaryContext: 'next_levels/decode_csa_test/cache/binary_context.json',
+    /* the model source this run was compiled from; absolute, outside the dump */
+    sourceDir: path.join(DATA, 'DeepseekV4/deepseek_v4_flash_dspark'),
+    entryModule: 'decode_csa.py',
     ranks: [
       { key: 'rank0', dir: 'dfx_outputs/rank0/d0', trace: 'merged_swimlane_20260903_010746.json', host: 'host.2263908.log' },
       { key: 'rank1', dir: 'dfx_outputs/rank1/d0', trace: 'merged_swimlane_20260903_010747.json', host: 'host.2263922.log' },
@@ -53,6 +56,9 @@ const CASES = [
     model: 'qwen3 / 14b / decode_layer',
     sourceRoot: '/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/qwen3/14b',
     binaryContext: null,
+    /* the Qwen3 tree this was compiled from is not in the repo */
+    sourceDir: null,
+    entryModule: null,
     ranks: [
       { key: 'device0', dir: 'dfx_outputs', trace: 'merged_swimlane_20260625_185006.json', host: null },
     ],
@@ -174,9 +180,11 @@ const caseInfo = {
   },
   incoreScopes: incoreNames,
   sourceRoot: CASE.sourceRoot,
-  /* Neither dump carries a kernel -> source-file map: perf hints are anchored
-   * on source locations, the IR keeps only outlined incore scope names. */
+  /* No dump carries a kernel -> source map. For decode_csa one is rebuilt
+   * from the model source by name_hint (see sourceMap); without the source
+   * tree — decode_fwd_layers — there is none. */
   hasKernelSourceMap: false,
+  kernelSourceRebuilt: !!(CASE.sourceDir && fs.existsSync(CASE.sourceDir)),
   /* what this dump can and cannot answer — the UI reads these directly */
   artifacts: {
     hostSpans: CASE.ranks.every((r) => !!r.host),
@@ -498,14 +506,225 @@ const critical = {
   spanSum: r2(sum(critTags.map((tg) => byTag[tg].span))),
 };
 
+/* -------------------------------------------------------------- slack
+ * Standard forward/backward pass over the fanin/fanout DAG using the
+ * MEASURED span of each task. ES/EF from predecessors, LF/LS from
+ * successors, slack = LS - ES. This is structural slack: it says how much
+ * the dependency graph would tolerate, and deliberately ignores resource
+ * contention — two zero-slack tasks may still be fighting for the same core.
+ * Tasks on the measured critical path have slack 0 by construction. */
+const topo = tasks.slice().sort((a, b) => a.start - b.start);
+const ES = {}, EF = {}, LS = {}, LF = {};
+topo.forEach((t) => {
+  let es = 0;
+  t.pred.forEach((ptag) => { if (EF[ptag] != null && EF[ptag] > es) es = EF[ptag]; });
+  ES[t.tag] = es;
+  EF[t.tag] = es + t.span;
+});
+const makespan = Math.max.apply(null, topo.map((t) => EF[t.tag]));
+topo.slice().reverse().forEach((t) => {
+  let lf = null;
+  t.succ.forEach((stag) => { if (LS[stag] != null && (lf === null || LS[stag] < lf)) lf = LS[stag]; });
+  LF[t.tag] = lf === null ? makespan : lf;
+  LS[t.tag] = LF[t.tag] - t.span;
+});
+tasks.forEach((t) => {
+  t.es = r2(ES[t.tag]);
+  t.ef = r2(EF[t.tag]);
+  t.ls = r2(LS[t.tag]);
+  t.slack = r2(Math.max(0, LS[t.tag] - ES[t.tag]));
+  t.onCrit = critTags.indexOf(t.tag) >= 0;
+});
+
+/* ------------------------------------------------------------- scopes
+ * "Where did the time go" is asked per scope, not per block: every task
+ * carrying the same callable is one outlined scope. Σ core-time alone
+ * ranks the fat ones; pairing it with the scope's minimum slack separates
+ * "fat" from "fat AND on the critical path". */
+const scopeMap = {};
+tasks.forEach((t) => {
+  const k = t.callable;
+  const sc = (scopeMap[k] = scopeMap[k] || {
+    name: k, tasks: [], tags: [], kinds: {},
+    coreTime: 0, kernelTime: 0, setupTime: 0, aicpuTime: 0,
+    blocks: 0, cores: new Set(), critNodes: 0,
+    first: Infinity, last: -Infinity,
+  });
+  sc.tasks.push(t.tag);
+  sc.tags.push(t.tag);
+  sc.kinds[t.kind] = (sc.kinds[t.kind] || 0) + 1;
+  sc.coreTime += t.busySum;
+  sc.kernelTime += t.kdurSum || (t.busySum - t.setupSum);
+  sc.setupTime += t.setupSum;
+  if (t.svAicpuMean != null) sc.aicpuTime += t.svAicpuMean * t.svBlocks;
+  sc.blocks += t.blockCount;
+  sc.cores.add(t.coreCount);
+  if (t.onCrit) sc.critNodes++;
+  sc.first = Math.min(sc.first, t.start);
+  sc.last = Math.max(sc.last, t.end);
+});
+const totalCoreTime = sum(tasks.map((t) => t.busySum));
+const scopes = Object.keys(scopeMap).map((k) => {
+  const sc = scopeMap[k];
+  const ts = sc.tasks.map((tg) => byTag[tg]);
+  const slacks = ts.map((t) => t.slack);
+  const kind = Object.keys(sc.kinds).sort((a, b) => sc.kinds[b] - sc.kinds[a])[0];
+  /* wall time this scope actually occupies, merging overlapping tasks */
+  const iv = ts.map((t) => [t.start, t.end]).sort((a, b) => a[0] - b[0]);
+  let wall = 0, cur = null;
+  iv.forEach((r) => {
+    if (!cur) { cur = r.slice(); return; }
+    if (r[0] <= cur[1]) { cur[1] = Math.max(cur[1], r[1]); return; }
+    wall += cur[1] - cur[0]; cur = r.slice();
+  });
+  if (cur) wall += cur[1] - cur[0];
+  return {
+    name: k,
+    kind: kind,
+    taskCount: ts.length,
+    tags: sc.tags,
+    blocks: sc.blocks,
+    coreTime: r2(sc.coreTime),
+    coreShare: r2((sc.coreTime / totalCoreTime) * 100),
+    kernelTime: r2(sc.kernelTime),
+    setupTime: r2(sc.setupTime),
+    setupShare: r3(sc.setupTime / Math.max(sc.coreTime, 1e-9)),
+    aicpuTime: sc.aicpuTime ? r2(sc.aicpuTime) : null,
+    wall: r2(wall),
+    first: r2(sc.first), last: r2(sc.last),
+    minSlack: r2(Math.min.apply(null, slacks)),
+    medSlack: r2(slacks.slice().sort((a, b) => a - b)[Math.floor(slacks.length / 2)]),
+    critNodes: sc.critNodes,
+    onCrit: sc.critNodes > 0,
+    /* the fat scope that is also pinned to the critical path is the one worth
+     * touching first; a fat scope with slack is a parallelism question. */
+    critCoreTime: r2(sum(ts.filter((t) => t.onCrit).map((t) => t.busySum))),
+  };
+}).sort((a, b) => b.coreTime - a.coreTime);
+
+/* -------------------------------------------------- occupancy windows
+ * Bucket the run into fixed windows and measure how many cores were busy
+ * in each. This is what "which stretch was the machine idle" needs and it
+ * cannot be read off a per-task list. */
+const WIN_N = 240;
+const winW = SPAN / WIN_N;
+const occWindows = (function () {
+  const aicN = lanes.filter((l) => l.kind === 'aic').length || 1;
+  const aivN = lanes.filter((l) => l.kind === 'aiv').length || 1;
+  const aic = new Float64Array(WIN_N);
+  const aiv = new Float64Array(WIN_N);
+  lanes.forEach((l, li) => {
+    const acc = l.kind === 'aic' ? aic : aiv;
+    (laneBlocks[li] || []).forEach((b) => {
+      /* clamp: SPAN is rounded, so a block can end a hair past it */
+      const bs = Math.max(0, b[0]);
+      const be = Math.min(SPAN, b[0] + b[1]);
+      if (be <= bs) return;
+      const w0 = Math.max(0, Math.min(WIN_N - 1, Math.floor(bs / winW)));
+      const w1 = Math.max(0, Math.min(WIN_N - 1, Math.floor((be - 1e-9) / winW)));
+      for (let w = w0; w <= w1; w++) {
+        const ov = Math.min(be, (w + 1) * winW) - Math.max(bs, w * winW);
+        if (ov > 0) acc[w] += ov;
+      }
+    });
+  });
+  const out = [];
+  for (let i = 0; i < WIN_N; i++) {
+    out.push([
+      r2(i * winW),
+      r2((aic[i] / (winW * aicN)) * 100),
+      r2((aiv[i] / (winW * aivN)) * 100),
+    ]);
+  }
+  return out;
+})();
+
+/* contiguous stretches where both engines sat below the threshold */
+const IDLE_PCT = 15;
+const idleRuns = (function () {
+  const runs = [];
+  let start = null;
+  for (let i = 0; i < occWindows.length; i++) {
+    const low = occWindows[i][1] < IDLE_PCT && occWindows[i][2] < IDLE_PCT;
+    if (low && start === null) start = i;
+    if ((!low || i === occWindows.length - 1) && start !== null) {
+      const endI = low ? i : i - 1;
+      const t0 = start * winW;
+      const t1 = (endI + 1) * winW;
+      const slice = occWindows.slice(start, endI + 1);
+      runs.push({
+        t0: r2(t0), t1: r2(t1), us: r2(t1 - t0),
+        share: r2(((t1 - t0) / SPAN) * 100),
+        aic: r2(sum(slice.map((w) => w[1])) / slice.length),
+        aiv: r2(sum(slice.map((w) => w[2])) / slice.length),
+        /* blocks genuinely executing inside the window, by core-time */
+        running: (function () {
+          const acc = {};
+          let busy = 0;
+          lanes.forEach((l, li) => {
+            (laneBlocks[li] || []).forEach((b) => {
+              const bs = b[0], be = b[0] + b[1];
+              if (bs >= t1 || be <= t0) return;
+              const ov = Math.min(be, t1) - Math.max(bs, t0);
+              busy += ov;
+              const t = tasks[b[2]];
+              if (!t) return;
+              const a = (acc[t.callable] = acc[t.callable] || { callable: t.callable, us: 0, blocks: 0, onCrit: t.onCrit });
+              a.us += ov; a.blocks++;
+            });
+          });
+          return {
+            busyUs: r2(busy),
+            /* share of the window's total core capacity that was busy */
+            capacityPct: r2((busy / ((t1 - t0) * lanes.length)) * 100),
+            top: Object.keys(acc).map((k) => acc[k])
+              .sort((a, b) => b.us - a.us).slice(0, 3)
+              .map((a) => ({ callable: a.callable, us: r2(a.us), blocks: a.blocks, onCrit: a.onCrit })),
+          };
+        })(),
+        /* tasks whose envelope merely spans the window — usually the single
+         * block that everything else is waiting on */
+        spanning: tasks.filter((t) => t.start < t1 && t.end > t0)
+          .sort((a, b) => b.span - a.span).slice(0, 3)
+          .map((t) => ({ tag: t.tag, callable: t.callable, span: t.span, onCrit: t.onCrit, blocks: t.blockCount })),
+      });
+      start = null;
+    }
+  }
+  return runs.sort((a, b) => b.us - a.us);
+})();
+
 const aicLanes = lanes.filter((l) => l.kind === 'aic');
 const aivLanes = lanes.filter((l) => l.kind === 'aiv');
+
+/* ------------------------------------------------ Worker / Scheduler 口径
+ * The same block appears twice in this trace. Stating both totals next to
+ * each other is the only way to stop them being silently added together. */
+const workerTotal = r2(sum(tasks.map((t) => t.busySum)));
+const schedTotal = r2(sum(tasks.filter((t) => t.svAicpuMean != null)
+  .map((t) => t.svAicpuMean * t.svBlocks)));
+const accounting = {
+  workerBlocks: sum(tasks.map((t) => t.blockCount)),
+  schedBlocks: sum(tasks.map((t) => t.svBlocks)),
+  workerCoreTime: workerTotal,
+  workerKernelTime: r2(sum(tasks.map((t) => t.kdurSum || (t.busySum - t.setupSum)))),
+  workerSetupTime: r2(sum(tasks.map((t) => t.setupSum))),
+  schedCoreTime: schedTotal || null,
+  handoff: schedTotal ? r2(schedTotal - workerTotal) : null,
+  naiveSum: schedTotal ? r2(schedTotal + workerTotal) : null,
+};
 
 return {
   rank: rank,
   traceFile: traceFile,
   swimlane: { spanUs: SPAN, laneNames: laneNames, lanes: lanes, blocks: laneBlocks },
   tasks: tasks,
+  scopes: scopes,
+  occWindows: occWindows,
+  occWindowUs: r2(winW),
+  idleRuns: idleRuns,
+  idlePct: IDLE_PCT,
+  accounting: accounting,
   taskIndex: taskIndex,
   critical: critical,
   scheduler: {
@@ -553,6 +772,99 @@ const schedWindow = R.scheduler.window;
 const schedBusy = R.scheduler.busy;
 const rqStat = R.readyStat;
 const hbPairs = R.hbViolations;
+
+/* --------------------------------------------------- kernel -> source
+ * The dump has no kernel->source map, but the names are not invented: every
+ * outlined scope is named after a pl.spmd(..., name_hint="X") in the model
+ * source. Walking the entry module's transitive imports and indexing those
+ * hints reconstructs the mapping the dump omits.
+ *
+ * Two things this deliberately does NOT do:
+ *   - it does not claim a unique site when the same hint appears more than
+ *     once; those are reported as candidates
+ *   - it does not attribute measured time to a source line. The name says
+ *     where the scope was written, not which call site produced which block. */
+const SUFFIX = /_(aic|aiv)$|_\d+$/;
+const sourceIndex = (function () {
+  if (!CASE.sourceDir || !fs.existsSync(CASE.sourceDir)) return null;
+  const root = CASE.sourceDir;
+  const exists = (f) => fs.existsSync(path.join(root, f));
+  const seen = new Set();
+  const queue = [CASE.entryModule];
+  while (queue.length) {
+    const f = queue.shift();
+    if (!f || seen.has(f) || !exists(f)) continue;
+    seen.add(f);
+    const text = fs.readFileSync(path.join(root, f), 'utf8');
+    for (const m of text.matchAll(/^\s*(?:from|import)\s+([a-z_0-9]+)/gm)) {
+      const cand = m[1] + '.py';
+      if (exists(cand) && !seen.has(cand)) queue.push(cand);
+    }
+  }
+  const hints = {};
+  Array.from(seen).sort().forEach((f) => {
+    fs.readFileSync(path.join(root, f), 'utf8').split('\n').forEach((line, i) => {
+      const m = line.match(/name_hint="([^"]+)"/);
+      if (!m) return;
+      (hints[m[1]] = hints[m[1]] || []).push({ file: f, line: i + 1 });
+    });
+  });
+  return { modules: Array.from(seen).sort(), hints: hints };
+})();
+
+/* resolve one callable to its source site(s) */
+function sourceFor(callable) {
+  if (!sourceIndex) return null;
+  const direct = sourceIndex.hints[callable];
+  const base = callable.replace(SUFFIX, '');
+  const viaSuffix = direct ? null : sourceIndex.hints[base];
+  const sites = direct || viaSuffix;
+  if (!sites || !sites.length) return null;
+  return {
+    hint: direct ? callable : base,
+    exact: !!direct,
+    file: sites[0].file,
+    line: sites[0].line,
+    candidates: sites.length,
+    sites: sites.length > 1 ? sites : null,
+  };
+}
+
+const sourceMap = (function () {
+  if (!sourceIndex) return null;
+  const out = {};
+  let uniq = 0, ambiguous = 0, missing = 0;
+  Object.keys(RANKS).forEach((rk) => {
+    RANKS[rk].tasks.forEach((t) => {
+      if (out[t.callable] !== undefined) return;
+      const src = sourceFor(t.callable);
+      out[t.callable] = src;
+      if (!src) missing++;
+      else if (src.candidates > 1) ambiguous++;
+      else uniq++;
+    });
+  });
+  return {
+    root: path.basename(CASE.sourceDir),
+    entry: CASE.entryModule,
+    modules: sourceIndex.modules,
+    hintCount: Object.keys(sourceIndex.hints).length,
+    map: out,
+    covered: uniq + ambiguous,
+    total: uniq + ambiguous + missing,
+    unique: uniq,
+    ambiguous: ambiguous,
+    missing: missing,
+  };
+})();
+
+/* hang it on the tasks and scopes so every panel can read it */
+if (sourceMap) {
+  Object.keys(RANKS).forEach((rk) => {
+    RANKS[rk].tasks.forEach((t) => { t.src = sourceMap.map[t.callable] || null; });
+    RANKS[rk].scopes.forEach((sc) => { sc.src = sourceMap.map[sc.name] || null; });
+  });
+}
 
 /* ------------------------------------------------------- launch skew
  * Both host logs carry ts= on the same host CLOCK_MONOTONIC (sequential pids
@@ -1091,7 +1403,8 @@ const findings = [
     })),
     focus: { view: 'compiler', tab: 'granularity' },
     lever: '按 dtype 把末维凑到 512B：BF16 → 256 元素倍数，FP32 → 128，INT8 → 512。',
-    guardrail: '加大末维会同时抬高 L0/UB 占用，可能触发 F4 的深度回退；两项要一起看。',
+    guardrail: '加大末维会同时抬高 L0/UB 占用，可能触发 F4 的深度回退；两项要一起看。'
+      + (sourceMap ? ' scope→源码已可定位，但 perf hint 的行号来自编译器自身，两者是独立证据，不要互相当作确认。' : ''),
     verify: '重编译后核对 PH001 条数与最小末维，并复测对应 kernel 的 MTE 时间。',
   },
   CAN.F6 && {
@@ -1287,6 +1600,88 @@ passEvidenceIndex.forEach((detail) => {
   }
 });
 
+/* Investigations are the product-level objects built from this run's raw
+ * findings. Views remain evidence lenses; the task, its hypothesis and its
+ * experiment are what a developer actually carries through a tuning loop. */
+const investigationIds = new Set(findings.map((f) => f.id));
+const includeFinding = (id) => investigationIds.has(id) ? id : null;
+const compactIds = (ids) => ids.filter(Boolean);
+const investigations = [];
+const addInvestigation = (id, title, status, target, findingRefs, hypotheses, experiments) => {
+  investigations.push({
+    id, title, status, target,
+    baseline: '当前 run · ' + caseInfo.program,
+    owner: '待分派',
+    findings: compactIds(findingRefs), hypotheses, experiments,
+  });
+};
+
+if (investigationIds.has('F3') && investigationIds.has('F1')) {
+  addInvestigation('INV-024', '解释 rank 间尾部延迟', '需要实验',
+    '缩短关键路径上的通信等待，并验证是否改善端到端尾部。',
+    [includeFinding('F3'), includeFinding('F1'), includeFinding('F7'), includeFinding('F6')],
+    [
+      { id: 'H-01', title: 'rank 启动错位放大集合通信等待', level: '强支持',
+        claim: 'F3 的 launch skew 与 F1 的关键路径 wait 有同一条跨层时序锚点；它解释等待来源，但不排除其他成因。',
+        evidence: ['F3', 'F1'], need: '在不改通信算法的前提下，缩小启动错位后 wait span 是否同步下降。' },
+      { id: 'H-02', title: '调度队列可能是额外贡献因素', level: '待区分',
+        claim: 'F7/F6 同时出现，只能作为竞争解释，不能升级为 H-01 的因果前提。',
+        evidence: compactIds([includeFinding('F7'), includeFinding('F6')]),
+        need: '比较局部 dispatch 调整前后 ready>0 占比、complete 次数与 device wall。' },
+    ],
+    [{ id: 'EXP-024-01', status: '待执行', name: '只调整关键 rank 的启动 / dispatch 时序',
+      change: '不改通信算法、Tile、融合边界', measures: 'rank start skew · wait span · device wall',
+      guardrail: '结果校验、吞吐、host bind 时间' }]);
+} else if (investigationIds.has('F7') && investigationIds.has('F6')) {
+  addInvestigation('INV-031', '解释 AIC 任务已就绪但未派发', '需要实验',
+    '确认 ready queue 堵塞是否对 device wall 有可观测贡献。',
+    [includeFinding('F7'), includeFinding('F6'), includeFinding('F9')],
+    [
+      { id: 'H-01', title: '关键路径上的依赖 / dispatch 时机造成队列积压', level: '待验证',
+        claim: 'ready queue 指标说明 AIC 任务可运行但未派发；不能单独证明调度器是根因。', evidence: ['F7'],
+        need: '仅改变关键路径任务的 dispatch 时机，重测 queue 与 device wall。' },
+      { id: 'H-02', title: 'AICPU complete 开销是竞争解释', level: '待区分',
+        claim: 'complete 阶段的工作量可能延后派发，需要独立测量而不是与 queue 告警合并。', evidence: ['F6'],
+        need: '记录 complete 次数和单位任务开销是否与等待窗口同向变化。' },
+    ],
+    [{ id: 'EXP-031-01', status: '待执行', name: '关键路径局部提前 dispatch',
+      change: '不改变任务数量与 fusion 边界', measures: 'ready>0 · AIC util · device wall',
+      guardrail: '吞吐与正确性同基线回归' }]);
+} else {
+  const firstFinding = findings[0];
+  addInvestigation('INV-001', '建立首个可证伪的性能假设', '待分诊',
+    '用一个可回滚改动验证最高影响发现是否能改善端到端结果。', [firstFinding && firstFinding.id],
+    [{ id: 'H-01', title: '最高优先级发现值得进一步验证', level: '待建模',
+      claim: '当前只有同层观测，尚未形成跨层解释。', evidence: [firstFinding && firstFinding.id].filter(Boolean),
+      need: '先绑定端到端指标和最小改动，再开始实验。' }],
+    [{ id: 'EXP-001-01', status: '待规划', name: '定义最小单变量实验', change: '待选择',
+      measures: '局部指标 · device wall · 正确性', guardrail: '保持同一基线与采样条件' }]);
+}
+
+if (investigationIds.has('F2') || investigationIds.has('F9')) {
+  addInvestigation('INV-025', '评估混合核的任务边界', '待分诊',
+    '判断 hand-off 或块内串行是否值得以融合 / 解耦方式处理。',
+    [includeFinding('F2'), includeFinding('F9'), includeFinding('F8')],
+    [{ id: 'H-01', title: '任务边界引入可避免的 hand-off 或串行段', level: '待建模',
+      claim: '先区分任务领取、依赖等待和核内串行，再选择 fusion 或 FIFO 方案。',
+      evidence: compactIds([includeFinding('F2'), includeFinding('F9')]),
+      need: '定位最小 scope 并做一个只改变边界的对照实验。' }],
+    [{ id: 'EXP-025-01', status: '待规划', name: '选择一个 kernel scope 建立对照', change: '待确认',
+      measures: '任务 span · hand-off · util', guardrail: '避免形成新的独占核' }]);
+}
+
+if (investigationIds.has('F4') || investigationIds.has('F5')) {
+  addInvestigation('INV-026', '处理 Tile 与流水资源约束', '需要补证',
+    '确认搬运粒度改动是否会触发流水深度回退。', [includeFinding('F4'), includeFinding('F5')],
+    [{ id: 'H-01', title: '粒度与流水深度受同一 L0 / UB 预算约束', level: '约束耦合',
+      claim: 'F5 的修改可能触发 F4；它是 guardrail 关系，尚不是性能因果结论。',
+      evidence: compactIds([includeFinding('F4'), includeFinding('F5')]),
+      need: '在同一个 source scope 对比 Tile 预算、PH-MR-001 和 MTE 时间。' }],
+    [{ id: 'EXP-026-01', status: '待规划', name: '同 scope 的 Tile 预算对照',
+      change: '只调整末维或 pipeline depth 之一', measures: 'PH 提示 · MTE · L0/UB 预算',
+      guardrail: '不接受深度回退换来的局部收益' }]);
+}
+
 /* ---------------------------------------------------------------- write */
 const payload = {
   generatedBy: 'Design/operator-tuning-console/build-data.cjs',
@@ -1307,7 +1702,9 @@ const payload = {
   dsl: dsl,
   irPairs: irPairs,
   findings: findings,
+  investigations: investigations,
   launchSkew: launchSkew,
+  sourceMap: sourceMap,
   derived: {
     waitTasks: waitTasks.map((t) => t.tag), waitSpan: waitSpan,
     setupHeavy: setupHeavy.map((t) => t.tag),

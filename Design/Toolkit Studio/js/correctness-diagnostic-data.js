@@ -15,7 +15,6 @@
     type: 'numerical',
     source: 'mock',
     result: { verdict: 'fail', output: 'out', maxAbs: 0.382, maxRel: 0.117 },
-    deviceResult: { status: 'fail', label: 'MISMATCH' },
     reference: { source: 'PyTorch Golden', actual: 'Args Dump · Run #106', fixed: true, status: 'valid' },
     tolerance: { rtol: '5e-2', atol: '5e-2', status: 'valid' },
     expectedDifference: { status: 'none', reason: '未声明允许的数值偏差' },
@@ -91,11 +90,8 @@
       }
     },
     diagnosis: {
-      symptom: '输出不一致', failureMode: 'Data',
-      failureModeDescription: 'IR 语义正确，设备 / 运行时数据出现偏差',
-      causeDomain: 'Runtime / Dataflow',
       category: 'runtime_data_error', confidence: 'high', label: '可能原因',
-      summary: '缺少 WAR 排序依赖 · Task #182 → #197',
+      summary: '运行时排序缺失或有误',
       route: 'runtime',
       routeLabel: '定位运行时数据 / 执行排序',
       rationale: '结构校验与逐 Pass 数值校验均通过，但设备结果不匹配',
@@ -113,7 +109,6 @@
     source: 'fixture',
     fixture: 'compiler_semantic_error',
     result: { verdict: 'fail', output: 'out', maxAbs: 0.028, maxRel: 0.014 },
-    deviceResult: { status: 'not_evaluated', label: 'NOT EVALUATED' },
     reference: { source: 'PyTorch Golden', actual: 'Host IR execution · per-pass validation', fixed: true, status: 'valid' },
     tolerance: { rtol: '5e-2', atol: '5e-2', status: 'valid' },
     expectedDifference: { status: 'none', reason: '未声明允许的数值偏差' },
@@ -127,14 +122,11 @@
     semanticGraph: { ops: [], edges: [] },
     tensors: [],
     diagnosis: {
-      symptom: '输出不一致', failureMode: 'Semantic',
-      failureModeDescription: 'IR 语义已经偏离 Golden',
-      causeDomain: 'Compiler',
       category: 'compiler_semantic_error', confidence: 'high', label: '诊断结论',
       summary: '编译语义变换引入数值偏差',
       route: 'compilation',
       routeLabel: '定位编译语义变换',
-      rationale: 'Host IR 数值校验已定位分歧，尚未进入设备执行',
+      rationale: '结构校验通过，但 Host IR execution 在 ExpandMixedKernel 后首次偏离 Golden',
       evidence: ['PyTorch Golden reference 有效', 'Tolerance 有效，且未声明允许差异', '结构校验: PASS', 'ExpandMixedKernel: FIRST DIVERGENCE', '后续 Pass 持续 MISMATCH']
     }
   };

@@ -45,6 +45,8 @@
     focus: null,               /* 'finding' | 'task' | 'hint' | 'pass' */
     laneFilter: 'all',
     colorMode: 'semantic',
+    colorOn: true,          /* off => every bar goes neutral grey */
+    scopeReturn: null,      /* window + focus to restore when drilling back up */
     overlay: 'sched',
     critOnly: false,
     focusEvidence: false,
@@ -91,6 +93,19 @@
    * aic / aiv / aicpu lane-kind colors. No page-local palette. */
   const CMAP = SW.createTaskColormap();
 
+  /* Task colour has one decision point. With colouring off every bar goes to
+   * a flat neutral, which hands the contrast budget to the occupancy band,
+   * the idle wash, the critical path and the evidence markers. */
+  function taskColor(t) {
+    /* must be an opaque hex: the pattern lightens/alpha-blends baseColor and
+     * an rgba() token comes back out as white. --surface-4 is the quiet
+     * neutral in both themes. */
+    if (!S.colorOn) return cssVar('--surface-4');
+    return S.colorMode === 'engine'
+      ? CMAP.colorForTask({ laneKind: t.kind }, 'engine')
+      : CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic');
+  }
+
   /* ------------------------------------------------- derived per case */
   const curTask = () => tasksOf[S.rank][S.task] || R().tasks[0];
   let ledgerSeq = 0;
@@ -130,6 +145,7 @@
     S.finding = null;
     S.focus = null;
     S.focusEvidence = false;
+    S.scopeReturn = null;
     S.findingLevel = 'all';
     S.laneFilter = 'all';
     S.critOnly = false;
@@ -717,23 +733,40 @@
 
     /* --- worker swimlane --- */
     const laneSec = el('section', 'tc-stage-fill');
+    /* A 62-way categorical scale has no readable legend. With per-operator
+     * colouring the hue is an identity key for telling neighbouring blocks
+     * apart, not something to look up — the name comes from hover or the
+     * scope ranking. So: state the scale, don't enumerate it. */
     const legend = el('div', 'tc-legend');
-    if (S.colorMode === 'engine') {
+    if (S.colorOn && S.colorMode !== 'engine') {
+      legend.appendChild(el('span', 'tc-readout',
+        rank.scopes.length + ' scope 各一色 · 颜色只用于区分相邻块，名字看悬停或右侧排行'));
+    } else if (!S.colorOn) {
+      const s0 = el('span');
+      const i0 = el('i');
+      i0.style.background = cssVar('--surface-4');
+      s0.appendChild(i0);
+      s0.appendChild(el('span', null, '任务（配色已关）'));
+      legend.appendChild(s0);
+      const s1 = el('span');
+      const i1 = el('i');
+      i1.style.background = cssVar('--warning');
+      s1.appendChild(i1);
+      s1.appendChild(el('span', null, '空转窗口 ' + (rank.idleRuns || []).length + ' 段'));
+      legend.appendChild(s1);
+      const s2 = el('span');
+      const i2 = el('i');
+      i2.style.background = cssVar('--danger');
+      s2.appendChild(i2);
+      s2.appendChild(el('span', null, '关键路径 ' + crit.tags.length + ' 节点'));
+      legend.appendChild(s2);
+    } else if (S.colorMode === 'engine') {
       [['aic', 'AIC'], ['aiv', 'AIV'], ['mix', 'MIX']].forEach((p) => {
         const s = el('span');
         const i = el('i');
         i.style.background = CMAP.colorForTask({ laneKind: p[0] }, 'engine');
         s.appendChild(i);
         s.appendChild(el('span', null, p[1]));
-        legend.appendChild(s);
-      });
-    } else {
-      rank.tasks.slice().sort((a, b) => b.span - a.span).slice(0, 8).forEach((t) => {
-        const s = el('span');
-        const i = el('i');
-        i.style.background = CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic');
-        s.appendChild(i);
-        s.appendChild(el('span', null, t.callable));
         legend.appendChild(s);
       });
     }
@@ -810,7 +843,7 @@
         SW.drawTaskBar(ctx, {
           task: barTask(t, null, 'critical'),
           x: Math.max(plotX, x), y: 31 + evRow, width: Math.max(2, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), height: 18,
-          baseColor: CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, S.colorMode === 'engine' ? 'engine' : 'semantic'),
+          baseColor: taskColor(t),
           isSelected: !!subj[t.tag] || t.tag === S.task,
           isEmphasized: true,
           fontFamily: cssVar('--font-sans'),
@@ -842,7 +875,8 @@
       const plotX = LBL, plotW = Math.max(40, w - LBL - 10);
       const overlayRows = S.overlay === 'sched' ? rank.scheduler.lanes.length : 0;
       const readyH = S.overlay === 'ready' ? 46 : 0;
-      const top = 20 + (overlayRows ? overlayRows * (ROW_H + ROW_GAP) + 8 : 0) + readyH;
+      const OCC_H = 26;
+      const top = 20 + OCC_H + (overlayRows ? overlayRows * (ROW_H + ROW_GAP) + 8 : 0) + readyH;
       const h = top + lanes.length * (ROW_H + ROW_GAP) + 8;
       const ctx = fitCanvas(laneCanvas, w, Math.max(h, laneHost.clientHeight || h));
       const sx = (t) => plotX + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
@@ -852,10 +886,70 @@
       ctx.textAlign = 'left';
       laneLayout = [];
 
+      /* ---- occupancy band ----
+       * Two stacked strips (AIC, AIV) whose opacity tracks how many cores were
+       * busy in that window. The idle stretches are the point: they get a
+       * warning-tinted wash so a low-occupancy window is visible without
+       * reading 72 lanes of bars. */
+      (function drawOccBand() {
+        const wins = rank.occWindows;
+        if (!wins || !wins.length) return;
+        const ww = rank.occWindowUs;
+        const bandY = 20;
+        const strip = (OCC_H - 4) / 2;
+        ctx.fillStyle = cssVar('--foreground-muted');
+        ctx.font = '500 10px ' + cssVar('--font-sans');
+        ctx.fillText('AIC', 4, bandY + strip / 2);
+        ctx.fillText('AIV', 4, bandY + strip + 2 + strip / 2);
+        wins.forEach((win) => {
+          const x = sx(win[0]), x2 = sx(win[0] + ww);
+          if (x2 < plotX || x > plotX + plotW) return;
+          const xa = Math.max(plotX, x);
+          const wpx = Math.max(0.8, Math.min(plotX + plotW, x2) - xa);
+          [[win[1], bandY, 'aic'], [win[2], bandY + strip + 2, 'aiv']].forEach((cfg) => {
+            ctx.fillStyle = CMAP.colorForLaneKind(cfg[2]);
+            ctx.globalAlpha = 0.12 + (clamp(cfg[0], 0, 100) / 100) * 0.85;
+            ctx.fillRect(xa, cfg[1], wpx, strip);
+            ctx.globalAlpha = 1;
+          });
+        });
+        /* highlight the stretches where both engines were under the threshold */
+        (rank.idleRuns || []).forEach((r) => {
+          const x = sx(r.t0), x2 = sx(r.t1);
+          if (x2 < plotX || x > plotX + plotW) return;
+          const xa = Math.max(plotX, x);
+          const wpx = Math.min(plotX + plotW, x2) - xa;
+          if (wpx < 1) return;
+          ctx.fillStyle = cssVar('--warning');
+          ctx.globalAlpha = 0.14;
+          ctx.fillRect(xa, bandY, wpx, h - bandY - 4);
+          ctx.globalAlpha = 0.75;
+          ctx.strokeStyle = cssVar('--warning');
+          ctx.setLineDash([2, 2]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(Math.round(xa) + 0.5, bandY);
+          ctx.lineTo(Math.round(xa) + 0.5, h - 4);
+          ctx.moveTo(Math.round(xa + wpx) - 0.5, bandY);
+          ctx.lineTo(Math.round(xa + wpx) - 0.5, h - 4);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          if (wpx > 52) {
+            ctx.fillStyle = cssVar('--warning');
+            ctx.font = '500 10px ' + cssVar('--font-sans');
+            ctx.textAlign = 'center';
+            ctx.fillText(num(r.us, 0) + ' us 空转', xa + wpx / 2, bandY - 6);
+            ctx.textAlign = 'left';
+          }
+        });
+        ctx.font = '500 10px ' + cssVar('--font-sans');
+      })();
+
       /* AICPU scheduler lanes */
       if (overlayRows) {
         rank.scheduler.lanes.forEach((name, i) => {
-          const y = 20 + i * (ROW_H + ROW_GAP);
+          const y = 20 + OCC_H + i * (ROW_H + ROW_GAP);
           ctx.fillStyle = cssVar('--foreground-muted');
           ctx.fillText(name, 4, y + ROW_H / 2);
           rank.scheduler.blocks[i].forEach((b) => {
@@ -871,7 +965,7 @@
 
       /* ready-but-undispatched strip */
       if (readyH) {
-        const y0 = 22, hh = readyH - 8;
+        const y0 = 22 + OCC_H, hh = readyH - 8;
         const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
         ctx.fillStyle = cssVar('--foreground-muted');
         ctx.fillText('READY', 4, y0 + hh / 2);
@@ -924,9 +1018,7 @@
           ctx.globalAlpha = dim && !isSubj && !laneIsSubject ? 0.16 : 1;
           if (wBar < 2.2) {
             /* below task-bar legibility: draw a density tick, not a fake bar */
-            ctx.fillStyle = CMAP.colorForTask(
-              S.colorMode === 'engine' ? { laneKind: t.kind } : { colorKey: t.callable, label: t.callable },
-              S.colorMode === 'engine' ? 'engine' : 'semantic');
+            ctx.fillStyle = taskColor(t);
             ctx.fillRect(xa, y, wBar, ROW_H);
             ctx.globalAlpha = 1;
             return;
@@ -934,9 +1026,7 @@
           SW.drawTaskBar(ctx, {
             task: barTask(t, b, lane.name),
             x: xa, y: y, width: wBar, height: ROW_H, radius: 1,
-            baseColor: CMAP.colorForTask(
-              S.colorMode === 'engine' ? { laneKind: t.kind } : { colorKey: t.callable, label: t.callable },
-              S.colorMode === 'engine' ? 'engine' : 'semantic'),
+            baseColor: taskColor(t),
             isSelected: isSubj || t.tag === S.task,
             isRelated: !isSubj && t.tag !== S.task && !!critSet[t.tag] && !S.critOnly,
             isEmphasized: isSubj,
@@ -1156,7 +1246,8 @@
     /* --- compiler hints, honestly unlinked --- */
     const hintSec = el('section');
     const mods = ['all'].concat(D.tileFiles.map((f) => f.file));
-    hintSec.appendChild(sectionHead('编译提示', D.hints.length + ' 条 · 按模块聚合 · 无 kernel→源码映射',
+    hintSec.appendChild(sectionHead('编译提示', D.hints.length + ' 条 · 按模块聚合 · '
+      + (D.sourceMap ? 'scope→源码已重建，提示仍按 hint 自带的行号' : '无 kernel→源码映射'),
       field('模块', select(mods.map((m) => ({ id: m, label: m === 'all' ? '全部模块' : m })), S.hintModule,
         (v) => { S.hintModule = v; render(); }))));
     const hintRows = D.hints
@@ -1737,6 +1828,38 @@
     const missing = el('section');
     const A = D.case.artifacts;
 
+    /* kernel -> source: reconstructed, not read out of the dump */
+    const SM = D.sourceMap;
+    const srcSec = el('section');
+    if (SM) {
+      srcSec.appendChild(sectionHead('kernel → 源码',
+        SM.covered + '/' + SM.total + ' 覆盖 · ' + SM.unique + ' 唯一 · ' + SM.ambiguous + ' 多候选'));
+      srcSec.appendChild(table([
+        { label: '项', cell: (r) => esc(r[0]), mono: true },
+        { label: '值', cell: (r) => esc(r[1]) },
+      ], [
+        ['来源', '不在 dump 内 —— 由 ' + SM.root + '/ 的源码重建'],
+        ['入口', SM.entry + ' · 传递导入 ' + SM.modules.length + ' 个模块'],
+        ['依据', 'pl.spmd(..., name_hint="X") 与外联后的 callable 同名'],
+        ['索引到的 name_hint', String(SM.hintCount)],
+        ['唯一定位', SM.unique + ' 个 callable'],
+        ['多候选', SM.ambiguous + ' 个（同名 hint 出现在多处，名字消不掉歧义）'],
+        ['未匹配', String(SM.missing)],
+        ['不能做的事', '只给出 scope 写在哪里，不把实测块时长归到某一行'],
+      ], {}));
+    } else {
+      srcSec.appendChild(sectionHead('kernel → 源码', '源码树不在仓库内'));
+      srcSec.appendChild(table([
+        { label: '项', cell: (r) => esc(r[0]), mono: true },
+        { label: '值', cell: (r) => esc(r[1]) },
+        { label: '状态', cell: () => '<span class="bad">缺失</span>' },
+      ], [
+        ['模型源码', D.case.sourceRoot || '未记录'],
+        ['可重建性', '拿到源码树后可按 name_hint 重建，方法同 decode_csa'],
+      ], {}));
+    }
+    stage.appendChild(srcSec);
+
     /* PTOAS sources, when this dump carries them */
     if (A.ptoas) {
       const src = el('section');
@@ -1800,7 +1923,10 @@
     const meta = $('[data-bind="inspectorMeta"]');
 
     const focus = S.focus || defaultFocus();
-    if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
+    const crumb = scopeCrumb();
+    if (crumb) host.appendChild(crumb);
+    if (focus === 'scope') renderScopeInspector(host, title, meta);
+    else if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
     else if (focus === 'hint' && S.hintSite) renderHintInspector(host, title, meta);
     else if (focus === 'pass') renderPassInspector(host, title, meta);
     else if (focus === 'run') renderRunInspector(host, title, meta);
@@ -1809,11 +1935,188 @@
     host.appendChild(renderLedger());
   }
 
-  /* the inspector follows the view unless the user pinned something else */
+  /* the inspector follows the view unless the user pinned something else.
+   * L2 asks "which scope ate the time / when was the machine idle";
+   * L1 asks "what happened inside one kernel". Different panel. */
   function defaultFocus() {
     if (S.view === 'e2e' || S.view === 'isa') return 'run';
     if (S.view === 'compiler') return S.compilerTab === 'passes' ? 'pass' : (S.hintSite ? 'hint' : 'run');
+    if (S.view === 'l2') return 'scope';
     return 'task';
+  }
+
+  /* ------------------------------------------------------ L2 inspector
+   * Answers the two questions the swimlane alone cannot: where the core-time
+   * went by scope, and which stretches of wall time the machine sat idle.
+   * Σdur on its own ranks the fat scopes; pairing it with DAG slack separates
+   * "fat" from "fat and pinned to the critical path". */
+  const lanesOf = () => R().swimlane.lanes.length;
+
+  /* file:line, plus an honest marker when the name matches more than one
+   * source site or only matched after a compiler suffix was stripped */
+  function srcLabel(src) {
+    if (!src) return null;
+    return src.file + ':' + src.line
+      + (src.candidates > 1 ? ' +' + (src.candidates - 1) : '');
+  }
+  function srcTitle(src) {
+    if (!src) return '';
+    const bits = ['name_hint="' + src.hint + '"'];
+    if (!src.exact) bits.push('（callable 去掉编译器后缀后匹配）');
+    if (src.candidates > 1) {
+      bits.push(src.candidates + ' 处同名候选：'
+        + src.sites.map((x) => x.file + ':' + x.line).join('、'));
+    }
+    return bits.join('\n');
+  }
+
+  /* Restore the window and the panel the drill-down replaced. */
+  function scopeBack() {
+    const r = S.scopeReturn;
+    S.scopeReturn = null;
+    if (r) { S.t0 = r.t0; S.t1 = r.t1; S.task = r.task || S.task; }
+    S.focus = 'scope';
+    S.focusEvidence = false;
+    render();
+  }
+
+  /* A breadcrumb the drill-down can be undone from. Rendered by whichever
+   * panel the drill landed on, so the trail is visible where the user is. */
+  function scopeCrumb() {
+    const r = S.scopeReturn;
+    if (!r || S.view !== 'l2') return null;
+    /* a scope drill left the panel behind; an idle drill only moved the window */
+    const panelMoved = (S.focus || defaultFocus()) !== 'scope';
+    const bar = el('div', 'tc-crumb');
+    const back = el('button', 'tc-crumb-back',
+      panelMoved ? '← scope 排行' : '← 恢复时间窗');
+    back.type = 'button';
+    back.title = (panelMoved ? '回到 L2 面板，并恢复 ' : '恢复 ')
+      + num(r.t0, 0) + '–' + num(r.t1, 0) + ' us 的时间窗（Esc）';
+    back.addEventListener('click', scopeBack);
+    bar.appendChild(back);
+    bar.appendChild(el('span', 'sep', '/'));
+    bar.appendChild(el('span', 'cur',
+      r.scope || (num(S.t0, 0) + '–' + num(S.t1, 0) + ' us')));
+    return bar;
+  }
+
+  function renderScopeInspector(host, title, meta) {
+    const rank = R();
+    title.textContent = 'L2 · ' + S.rank;
+    meta.textContent = rank.scopes.length + ' scope';
+
+    /* --- 1. accounting: two views of the same block, stated once --- */
+    const A = rank.accounting;
+    const s0 = inspectorSection('统计口径', A.schedCoreTime ? 'Worker / Scheduler' : 'Worker');
+    s0.appendChild(kv([
+      ['Worker View', num(A.workerCoreTime, 0) + ' us · ' + A.workerBlocks + ' 块'],
+      ['  kernel', num(A.workerKernelTime, 0) + ' us'],
+      ['  setup', num(A.workerSetupTime, 0) + ' us'],
+      ['Scheduler View', A.schedCoreTime
+        ? num(A.schedCoreTime, 0) + ' us · ' + A.schedBlocks + ' 块' : '—'],
+      ['hand-off 差', A.handoff == null ? '—' : '+' + num(A.handoff, 0) + ' us'],
+    ]));
+    if (A.naiveSum) {
+      s0.appendChild(el('div', 'inspector-soft-card is-warning',
+        '同一个块在 trace 里出现两次。两边相加得 ' + num(A.naiveSum, 0)
+        + ' us —— 这是重复计数，不是总量。下面的 scope 排行只用 Worker View。'));
+    }
+    host.appendChild(s0);
+
+    /* --- 2. scope ranking: core-time × slack --- */
+    const top = rank.scopes.slice(0, 14);
+    const maxCore = top[0] ? top[0].coreTime : 1;
+    const s1 = inspectorSection('scope 排行', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
+    const rows = el('div', 'tc-scoperows');
+    const hd = el('div', 'tc-scoperow is-head');
+    ['scope', 'core-time', '占', 'slack'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
+    rows.appendChild(hd);
+    top.forEach((sc) => {
+      const b = el('button', 'tc-scoperow' + (sc.onCrit ? ' is-crit' : ''));
+      b.type = 'button';
+      b.title = sc.taskCount + ' 任务 / ' + sc.blocks + ' 块 · wall ' + num(sc.wall, 1) + ' us'
+        + (sc.onCrit ? ' · 关键路径上 ' + sc.critNodes + ' 个节点' : ' · 不在关键路径上')
+        + (sc.src ? '\n' + srcLabel(sc.src) + '\n' + srcTitle(sc.src) : '');
+      const nm = el('span', 'l');
+      nm.appendChild(el('i', 'bar'));
+      nm.lastChild.style.width = ((sc.coreTime / maxCore) * 100).toFixed(1) + '%';
+      nm.appendChild(el('span', 'tx', sc.name));
+      b.appendChild(nm);
+      if (sc.src) {
+        const sl = el('span', 'src' + (sc.src.candidates > 1 ? ' is-amb' : ''), srcLabel(sc.src));
+        nm.appendChild(sl);
+      }
+      b.appendChild(el('span', 'n', num(sc.coreTime, 0)));
+      b.appendChild(el('span', 'n muted', pct(sc.coreShare, 1)));
+      /* zero slack on a fat scope is the actionable combination */
+      b.appendChild(el('span', 'n' + (sc.minSlack === 0 ? ' hot' : ''),
+        sc.minSlack === 0 ? '0' : num(sc.minSlack, 0)));
+      b.addEventListener('click', () => {
+        const from = S.scopeReturn || { t0: S.t0, t1: S.t1, task: S.task, focus: S.focus };
+        S.scopeReturn = { t0: from.t0, t1: from.t1, scope: sc.name, task: from.task, focus: from.focus };
+        S.task = sc.tags[0];
+        S.focus = 'task';
+        const t = tasksOf[S.rank][sc.tags[0]];
+        if (t) { const pad = Math.max(40, t.span * 0.3); setWindow(t.start - pad, t.end + pad); }
+        render();
+      });
+      rows.appendChild(b);
+    });
+    s1.appendChild(rows);
+    s1.appendChild(el('div', 'inspector-soft-card',
+      'slack = DAG 上这个 scope 最紧的那个任务能被推迟多久（fanin/fanout + 实测 span 的'
+      + '前推/后推）。0 = 在关键路径上，动它直接缩短总时长；slack 大 = 它胖但不急，'
+      + '先看并行度。不含资源争抢。'));
+    host.appendChild(s1);
+
+    /* --- 3. idle windows --- */
+    const idle = rank.idleRuns || [];
+    const idleUs = idle.reduce((a, r) => a + r.us, 0);
+    const s2 = inspectorSection('空转窗口',
+      idle.length ? idle.length + ' 段 · ' + pct((idleUs / rank.swimlane.spanUs) * 100, 1) : '无');
+    if (!idle.length) {
+      s2.appendChild(el('div', 'inspector-soft-card',
+        '没有 AIC 与 AIV 同时低于 ' + rank.idlePct + '% 的窗口（窗宽 '
+        + num(rank.occWindowUs, 1) + ' us）。'));
+    } else {
+      const ir = el('div', 'tc-scoperows');
+      const ih = el('div', 'tc-scoperow is-head');
+      ['窗口', '时长', 'AIC', 'AIV'].forEach((t, i) => ih.appendChild(el('span', i ? 'n' : 'l', t)));
+      ir.appendChild(ih);
+      idle.slice(0, 8).forEach((r) => {
+        const b = el('button', 'tc-scoperow');
+        b.type = 'button';
+        b.title = '窗口内实际在跑：' + (r.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('，') || '无')
+          + String.fromCharCode(10) + '核容量占用 ' + pct(r.running.capacityPct, 1);
+        b.appendChild(el('span', 'l', num(r.t0, 0) + '–' + num(r.t1, 0) + ' us'));
+        b.appendChild(el('span', 'n hot', num(r.us, 0)));
+        b.appendChild(el('span', 'n muted', pct(r.aic, 0)));
+        b.appendChild(el('span', 'n muted', pct(r.aiv, 0)));
+        b.addEventListener('click', () => {
+          if (!S.scopeReturn) {
+            S.scopeReturn = { t0: S.t0, t1: S.t1, scope: null, task: S.task, focus: S.focus };
+          }
+          const pad = Math.max(30, r.us * 0.2);
+          setWindow(r.t0 - pad, r.t1 + pad);
+          redrawStage(); renderToolbar(); renderDock(); renderInspector();
+        });
+        ir.appendChild(b);
+      });
+      s2.appendChild(ir);
+      const worst = idle[0];
+      /* what is actually executing, by block overlap — not by task envelope */
+      const hog = worst.spanning.filter((t) => t.blocks <= 2 && t.onCrit)[0];
+      s2.appendChild(el('div', 'inspector-soft-card is-warning',
+        '最长一段 ' + num(worst.us, 0) + ' us（占 ' + pct(worst.share, 1) + '），'
+        + lanesOf() + ' 核只用掉 ' + pct(worst.running.capacityPct, 1) + ' 容量。'
+        + (worst.running.top.length
+          ? '窗口内在跑：' + worst.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('、')
+          : '窗口内没有任何块在执行。')
+        + (hog ? ' 跨越整段的是 ' + hog.callable + '（' + hog.blocks + ' 块，span ' + num(hog.span, 0)
+          + ' us，在关键路径上）——单块任务挡住全部核。' : '')));
+    }
+    host.appendChild(s2);
   }
 
   function renderRunInspector(host, title, meta) {
@@ -1911,7 +2214,16 @@
       ['kernel · setup', num(t.kdurSum / t.blockCount, 2) + ' · ' + num(t.setupMean, 2) + ' us'],
       ['AICPU 视角', t.svAicpuMean == null ? null : num(t.svAicpuMean, 1) + ' us（+' + num(t.svOverhead, 1) + '）'],
       ['前驱 / 后继', t.pred.length + ' / ' + t.succ.length],
+      ['源码', t.src ? srcLabel(t.src) : (D.sourceMap ? '未匹配' : '源码树不在仓库内')],
     ]));
+    if (t.src && (t.src.candidates > 1 || !t.src.exact)) {
+      s1.appendChild(el('div', 'inspector-soft-card',
+        (t.src.exact ? '' : 'callable 去掉编译器后缀后按 name_hint="' + t.src.hint + '" 匹配。')
+        + (t.src.candidates > 1
+          ? t.src.candidates + ' 处同名候选，名字本身消不掉歧义：'
+            + t.src.sites.map((x) => x.file + ':' + x.line).join('、')
+          : '')));
+    }
     host.appendChild(s1);
 
     if (t.args.length) {
@@ -2644,10 +2956,20 @@
         { id: 'aic', label: 'AIC ' + D.case.aicCount },
         { id: 'aiv', label: 'AIV ' + D.case.aivCount },
       ], S.laneFilter, (v) => { S.laneFilter = v; render(); })));
-      right.appendChild(field('着色', select([
-        { id: 'semantic', label: '按算子' },
-        { id: 'engine', label: '按引擎' },
-      ], S.colorMode, (v) => { S.colorMode = v; render(); })));
+      const colorField = el('div', 'tc-field');
+      colorField.appendChild(el('span', null, '着色'));
+      colorField.appendChild(btn(S.colorOn ? '开' : '关', {
+        size: 'sm', selected: S.colorOn,
+        title: S.colorOn ? '关闭算子配色，让占用率与空转段更突出' : '恢复算子配色',
+        on: () => { S.colorOn = !S.colorOn; render(); },
+      }));
+      if (S.colorOn) {
+        colorField.appendChild(select([
+          { id: 'semantic', label: '按算子' },
+          { id: 'engine', label: '按引擎' },
+        ], S.colorMode, (v) => { S.colorMode = v; render(); }));
+      }
+      right.appendChild(colorField);
       right.appendChild(field('叠加', select([
         { id: 'sched', label: 'AICPU 调度' },
         { id: 'ready', label: 'Ready queue' },
@@ -3081,6 +3403,10 @@
       }
     });
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && S.scopeReturn && S.view === 'l2'
+        && document.activeElement !== input && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault(); scopeBack(); return;
+      }
       if (e.key === '/' && document.activeElement !== input) { e.preventDefault(); input.focus(); }
       if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey
         && document.activeElement !== input && document.activeElement.tagName !== 'INPUT'
