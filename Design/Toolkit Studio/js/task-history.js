@@ -450,10 +450,9 @@
      back before demo-v2 shows it for any reason other than the IR tab. */
   function syncPanel() {
     const panel = $('#runTabPanel');
-    /* Compilation 页签交给 PTO_COMPILATION 之后，面板里是自绘的 .kc 视图，
-       而不是从 stage 2 搬来的 DOM。watchRunInspectorLayout 的 MutationObserver
-       会绕过 renderDetailBody 直接再跑一次 syncPanel，不在这里挡住就会把新视图
-       冲掉换成 Kernel Guard，并把借给它当页签的 #kgTrace 甩成游离节点。 */
+    /* Compilation 页签使用统一 schema 外壳，并借用 stage 2 的原始 #kgTrace。
+       watchRunInspectorLayout 可能直接调用 syncPanel；此处必须保留当前宿主，
+       否则会提前归还流程节点并把本页替换回 stage 2 内容。 */
     if (window.PTO_COMPILATION?.owns?.(panel)) {
       window.PTO_GUARD?.activate?.();
       return;
@@ -470,87 +469,169 @@
     window.PTO_GUARD?.activate?.();
     if (borrowed && borrowed.from === p.from && panel.contains(borrowed.nodes[0])) return;
     releaseBorrowed();
-    window.PTO_COMPILATION?.release?.();   // 归还 #kgTrace，否则它会跟着面板一起被冲掉
+    window.PTO_COMPILATION?.release?.();   // 释放上一张 Compilation schema 的宿主
     panel.innerHTML = '';        // after the release, only our own leftovers remain
     borrowInto(p.from, panel);
   }
 
-  /* Compilation 页签：只有当这次 Run 就是 IR 数据产出的那一次时，才交给新的
-     PTO_COMPILATION 渲染；其余情况（历史 Run、编译失败 Run）保持原有行为。
-     这样不会把 20260625_184941 的编译数据贴到别的 Run 上。 */
+  /* `compilationDataMatches` 仍只用于正确性 / 执行下钻的数据归属校验。
+     Compilation 页本身始终使用下面的统一 Validation Event schema，不会把一个
+     Run 的 IR 结果回退或贴到另一个 Run 上。 */
   function compilationDataMatches(r) {
     const K = window.PTO_IR_KERNELS;
     if (!K || !K.source || !r || !r.id) return false;
     return String(K.source).indexOf(String(r.id)) >= 0;
   }
 
-  /* 编译 IR 全流程只消费统一的 Validation Event。数值逐 Pass 结果仍来自
-     correctness fixture；这里仅适配为通用事件，避免再维护一套状态或指标。 */
+  /* Compilation 页只消费统一的 Validation Event。每个 Run 都产出同一份
+     schema：固定阶段 + 带锚点的验证事件；没有证据时明确写为 NOT COLLECTED，
+     不再回退到按 Run 拼接的失败故事或 Kernel 页面。 */
+  const COMPILATION_FLOW_STAGES = [
+    ['frontend', 'Frontend'], ['tensor', 'Tensor / Normalize'], ['hierarchy', 'Hierarchy'],
+    ['tile', 'Tile'], ['kernel', 'Kernel'], ['memory', 'Memory'], ['runtime', 'Runtime']
+  ];
   function compilerProfileForRun(r) {
     return window.PTO_CORRECTNESS_DIAGNOSTICS?.profiles?.[r?.id] || null;
   }
-  function compilationValidationEvents(profile) {
+  function compilationStageForPass(name) {
+    const pipeline = window.PTO_IR_PIPELINE;
+    const index = window.PTO_IR_KERNELS?.passNames?.indexOf(name);
+    const stratum = Number.isInteger(index) && pipeline?.strata?.find(s => index >= s.from && index <= s.to);
+    return ({ S0: 'frontend', S1: 'tensor', S2: 'hierarchy', S3: 'tile', S4: 'kernel', S5: 'memory', S6: 'runtime' })[stratum?.id] || 'kernel';
+  }
+  function compilationPassChanged(name) {
+    const pass = window.PTO_IR_PIPELINE?.passes?.find(item => item.name === name);
+    return pass ? (pass.d === null || pass.d > 0) : true;
+  }
+  function compilationEvent(run, data) {
+    return Object.assign({
+      id: 'compilation:' + run.id + ':' + data.anchor.type + ':' + data.anchor.id,
+      runId: run.id, domain: 'compilation', type: 'structural', status: 'not_collected',
+      severity: 'info', evidence: [], action: null, changed: false
+    }, data);
+  }
+  function compilationValidationEvents(r, profile) {
     const compiler = profile?.compiler || {};
     const structural = compiler.structuralVerification;
     const numerical = compiler.numericalValidation;
     const events = [];
     if (structural?.status) {
-      events.push({
-        id: 'compilation:structural', domain: 'compilation', type: 'structural',
+      events.push(compilationEvent(r, {
+        type: 'structural', anchor: { type: 'checkpoint', id: 'structural', stage: 'frontend' },
         status: structural.status === 'pass' ? 'pass' : structural.status === 'fail' ? 'error' : 'not_collected',
-        severity: structural.status === 'fail' ? 'error' : 'info', anchor: 0,
+        severity: structural.status === 'fail' ? 'error' : 'info',
         title: '结构校验', summary: structural.status === 'pass' ? '编译结构校验通过。' : '未采集结构校验结果。', evidence: structural
-      });
+      }));
     }
     if (numerical) {
       const first = numerical.firstDivergentPass;
-      const anchorFor = value => Number.isInteger(value) ? value : window.PTO_IR_KERNELS?.passNames?.indexOf(value);
-      const firstAnchor = anchorFor(first);
       if (Array.isArray(numerical.passes) && numerical.passes.length) {
         numerical.passes.forEach((pass, order) => {
-          const anchor = anchorFor(pass.index == null ? pass.name : pass.index);
-          if (!Number.isInteger(anchor) || anchor < 0) return;
-          const isFirst = anchor === firstAnchor;
-          events.push({
-            id: 'compilation:numerical:' + anchor, domain: 'compilation', type: 'numerical',
+          const name = pass.name || window.PTO_IR_KERNELS?.passNames?.[pass.index];
+          if (!name) return;
+          const isFirst = name === first;
+          events.push(compilationEvent(r, {
+            id: 'compilation:' + r.id + ':pass:' + name, type: 'numerical',
+            anchor: { type: 'pass', id: name, stage: compilationStageForPass(name) }, changed: compilationPassChanged(name),
             status: isFirst ? 'first_divergence' : pass.status === 'match' ? 'pass' : pass.status === 'mismatch' ? 'error' : 'not_collected',
-            severity: isFirst || pass.status === 'mismatch' ? 'error' : 'info', anchor,
-            title: pass.name, summary: isFirst ? 'Host IR execution 在该 Pass 后首次偏离 Golden。' :
+            severity: isFirst || pass.status === 'mismatch' ? 'error' : 'info',
+            title: name, summary: isFirst ? 'Host IR execution 在该 Pass 后首次偏离 Golden。' :
               pass.status === 'match' ? 'Host IR execution 与 Golden 匹配。' :
               pass.status === 'mismatch' ? 'Host IR execution 持续偏离 Golden。' : '该 Pass 未采集数值比对。',
             evidence: Object.assign({ order }, pass)
-          });
+          }));
+        });
+      } else if (numerical.status === 'pass' && Number.isFinite(numerical.total)) {
+        (window.PTO_IR_KERNELS?.passNames || []).slice(0, numerical.total).forEach(name => {
+          events.push(compilationEvent(r, {
+            id: 'compilation:' + r.id + ':pass:' + name, type: 'numerical',
+            anchor: { type: 'pass', id: name, stage: compilationStageForPass(name) }, changed: compilationPassChanged(name),
+            status: 'pass', title: name, summary: '已记录的逐 Pass Host IR 输出与 Golden 匹配。', evidence: numerical
+          }));
         });
       } else {
-        events.push({
-          id: 'compilation:numerical:flow', domain: 'compilation', type: 'numerical',
-          status: numerical.status === 'pass' ? 'pass' : numerical.status === 'fail' ? 'error' : 'not_collected',
-          severity: numerical.status === 'fail' ? 'error' : 'info', anchor: 'all', title: '数值校验',
-          summary: numerical.summary || '本次 Run 没有逐 Pass 数值证据。', evidence: numerical
-        });
+        events.push(compilationEvent(r, {
+          type: 'numerical', anchor: { type: 'checkpoint', id: 'numerical', stage: 'runtime' },
+          status: numerical.status === 'fail' ? 'error' : 'not_collected', severity: numerical.status === 'fail' ? 'error' : 'info',
+          title: '数值校验', summary: numerical.summary || '本次 Run 没有逐 Pass 数值证据。', evidence: numerical
+        }));
       }
     }
-    const output = profile?.result;
-    if (output?.verdict && !numerical?.firstDivergentPass) {
-      const isFailure = output.verdict === 'fail';
-      events.push({
-        id: 'correctness:output', domain: 'correctness', type: 'numerical',
-        status: isFailure ? 'error' : output.verdict === 'pass' ? 'pass' : 'not_collected',
-        severity: isFailure ? 'error' : 'info', anchor: 'run', title: '输出 ' + (output.output || '结果'),
-        summary: isFailure ? '输出与参考值不一致；最大绝对误差 ' + output.maxAbs + '。' : '输出与参考值匹配。', evidence: output
+    if (profile?.result?.verdict) {
+      const resultStatus = profile.result.verdict;
+      events.push(compilationEvent(r, {
+        id: 'validation:' + r.id + ':correctness:output', domain: 'correctness', type: 'numerical',
+        anchor: { type: 'checkpoint', id: 'output-validation', stage: 'runtime' }, changed: false,
+        status: resultStatus === 'pass' ? 'pass' : resultStatus === 'fail' ? 'error' : 'not_collected',
+        severity: resultStatus === 'fail' ? 'error' : 'info', title: 'Output validation',
+        summary: resultStatus === 'fail' ? '最终输出与 Golden 不匹配；需要结合前序验证判断首次出现的阶段。' :
+          '已记录最终输出与 Golden 的比较通过。', evidence: profile.result
+      }));
+    }
+    if (profile?.deviceResult?.status) {
+      const deviceStatus = profile.deviceResult.status;
+      events.push(compilationEvent(r, {
+        id: 'validation:' + r.id + ':execution:device', domain: 'execution', type: 'runtime',
+        anchor: { type: 'checkpoint', id: 'device-execution', stage: 'runtime' }, changed: false,
+        status: deviceStatus === 'pass' ? 'pass' : deviceStatus === 'not_evaluated' ? 'not_run' :
+          deviceStatus === 'fail' ? 'error' : 'not_collected',
+        severity: deviceStatus === 'fail' ? 'error' : 'info', title: 'Device execution',
+        summary: deviceStatus === 'not_evaluated' ? '本次 Run 未进入设备执行，不能据此归因 Runtime 或设备。' :
+          deviceStatus === 'fail' ? '设备结果与参考值不匹配；编译验证需与执行结果分开判断。' :
+          '已记录设备执行检查通过。', evidence: profile.deviceResult
+      }));
+    }
+    const compileFinding = getFindings(r).find(f => f.domain === 'compilation');
+    const knownPass = compileFinding?.affectedObjects?.find(object => object.kind === 'pass')?.id;
+    if (r.id !== 'run_105' && !events.some(event => event.status === 'error' || event.status === 'first_divergence') && knownPass) {
+      const findingStatus = compileFinding.severity === 'warning' ? 'warning' : 'error';
+      events.push(compilationEvent(r, {
+        id: 'compilation:' + r.id + ':pass:' + knownPass, type: 'constraint',
+        anchor: { type: 'pass', id: knownPass, stage: compilationStageForPass(knownPass) }, changed: true,
+        status: findingStatus, severity: findingStatus === 'error' ? 'error' : 'warning', title: knownPass, summary: compileFinding.summary,
+        evidence: compileFinding.evidence || [], action: { type: 'pass', id: knownPass, label: '查看 IR Diff →' }
+      }));
+    }
+    if (r.id === 'run_105') {
+      [
+        ['Frontend', 'frontend', 'pass'], ['InlineFunctions', 'tensor', 'pass'], ['InferLayout', 'hierarchy', 'pass'],
+        ['LegalizeIndexing', 'tile', 'error'], ['AllocateMemory', 'memory', 'not_run'], ['Codegen', 'runtime', 'not_run']
+      ].forEach(([name, stage, status]) => {
+        if (events.some(event => event.anchor?.id === name)) return;
+        events.push(compilationEvent(r, {
+        id: 'compilation:' + r.id + ':pass:' + name, type: status === 'error' ? 'constraint' : 'structural',
+        anchor: { type: 'pass', id: name, stage }, changed: !['AllocateMemory', 'Codegen'].includes(name),
+        status, severity: status === 'error' ? 'error' : 'info', title: name,
+        summary: status === 'error' ? 'IR Validation 失败，动态 index 约束无法通过。' :
+          status === 'not_run' ? '前序验证失败，尚未执行该阶段。' : '已记录的前序检查通过。',
+        evidence: status === 'error' ? {
+          facts: compileFinding?.evidence || [],
+          before: 'tensor.write(cache, value, index = dynamic_index)',
+          after: 'gm.store(base + cast_i64(dynamic_index) * stride, value)',
+          note: '约束冲突 · index 位宽 / 地址计算不一致'
+        } : [],
+        action: status === 'error' ? { type: 'pass', id: name, label: '查看 IR Diff →' } : null
+        }));
       });
     }
-    const device = profile?.deviceResult;
-    if (device?.status) {
-      events.push({
-        id: 'execution:device', domain: 'execution', type: 'runtime',
-        status: device.status === 'fail' ? 'error' : device.status === 'pass' ? 'pass' : 'not_collected',
-        severity: device.status === 'fail' ? 'error' : 'info', anchor: 'run', title: '设备执行',
-        summary: device.status === 'fail' ? '设备执行结果为 MISMATCH。' :
-          device.status === 'pass' ? '设备执行验证通过。' : '设备执行未进行，尚无 Runtime、Tensor 或 Task 验证结果。', evidence: device
-      });
-    }
+    const domain = getDomainVerdict(r, 'compilation');
+    COMPILATION_FLOW_STAGES.forEach(([stage, label]) => {
+      if (events.some(event => event.anchor?.stage === stage)) return;
+      const isNotRun = domain.verdict === 'not_evaluated' || domain.verdict === 'fail';
+      events.push(compilationEvent(r, {
+        type: 'checkpoint', anchor: { type: 'checkpoint', id: stage + '-checkpoint', stage },
+        status: isNotRun ? 'not_run' : 'not_collected', title: label + ' checkpoint',
+        summary: isNotRun ? '编译在前序阶段中止，未执行该 checkpoint。' : '本次 Run 未采集该阶段的验证结果。'
+      }));
+    });
     return events;
+  }
+  function compilationPageSchema(r, profile) {
+    return {
+      runId: r.id,
+      stages: COMPILATION_FLOW_STAGES.map(([id, label]) => ({ id, label })),
+      events: compilationValidationEvents(r, profile)
+    };
   }
 
   function renderCompilationTab(panel, r) {
@@ -571,35 +652,16 @@
         findings: getFindings(r),
         compilationEntry: entry,
         numericalValidation: entry?.numericalValidation || null,
-        validationEvents: compilationValidationEvents(profile)
+        validationEvents: compilationValidationEvents(r, profile),
+        compilationSchema: compilationPageSchema(r, profile)
       };
       if (entry?.numericalValidation) {
         view.setNumericalContext?.(entry.numericalValidation, entry);
       } else view.clearNumericalContext?.();
       window.PTO_GUARD?.refreshValidation?.();
-      if ((hasCompilerEvidence || compilationDataMatches(r) || entry?.numericalValidation) && view.render(panel)) return true;
+      if (view.render(panel)) return true;
     }
-    syncPanel();
     return false;
-  }
-
-  function isSemanticCompilationHandoff(r) {
-    return r?.id === 'run_109' && st.tab === 'compilation';
-  }
-
-  function semanticCompilationHandoff(t, r) {
-    const first = window.PTO_COMPILATION?.numericalFixtures?.compiler_semantic_error?.firstDivergentPass || 'ExpandMixedKernel';
-    return '<section class="kf-compile-handoff-wrap" aria-label="编译调查交接">' +
-      '<header class="kf-compile-identity"><b>' + esc(t.title) + '</b><span>Run ' + esc(runDisplayId(r)) + '</span></header>' +
-      '<section class="kf-compile-handoff">' +
-        '<p class="kf-compile-handoff__from">来自总览 · Compiler / ' + esc(first) + '</p>' +
-        '<div class="kf-compile-handoff__grid">' +
-          '<div><span class="kf-compile-handoff__label">当前发现</span><b>' + esc(first) + '</b><p>首个数值分歧 Pass。Host IR 在此处首次偏离 Golden；设备尚未执行。</p></div>' +
-          '<i class="kf-compile-handoff__arrow" aria-hidden="true">→</i>' +
-          '<div><span class="kf-compile-handoff__label">下一步调查</span><b>' + esc(first) + ' 前后 IR</b><p>确认该 Pass 引入了哪项语义变化。</p><button type="button" class="btn btn-solid btn-compact" data-th-compilation-diff="' + esc(first) + '">查看 IR Diff →</button></div>' +
-        '</div>' +
-      '</section>' +
-    '</section>';
   }
 
   /* Execution keeps the existing composition fan and trace timeline together.
@@ -2319,20 +2381,6 @@
     '</section>';
   }
 
-  function compilationFailureStoryPanel(r) {
-    const passes = COMPILE_STORY_PASSES;
-    return '<section class="kf-rd-sec" aria-label="编译失败已定位">' +
-      '<div class="kf-rd-h">Pass 序列<small>Mock 编译器证据 · 已确认失败 · 首个失败 Pass</small></div>' +
-      '<div class="kf-oi-links">' + passes.map(p =>
-        '<button type="button" class="kf-oi-link" data-ws-select-kind="pass" data-ws-select-id="' + esc(p[0]) + '" data-ws-source="compilation"' +
-          (p[0] === 'LegalizeIndexing' ? ' aria-pressed="true"' : '') + '>' + esc(p[0]) + ' · ' + esc(p[1]) + '</button>').join('') +
-      '</div>' +
-      '<div class="kf-rd-h">LegalizeIndexing 处的 IR 变化<small>上一个 Pass 合法 → 当前 lowering 产生了非法的 GM store 地址形式</small></div>' +
-      '<div class="kf-rd-art"><b>修改前</b><code>tensor.write(cache, value, index = dynamic_index)</code><b>修改后</b><code>gm.store(base + cast_i64(dynamic_index) * stride, value)</code><small>约束冲突 · index 位宽 / 地址计算不一致</small></div>' +
-      '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="pass" data-ws-select-id="LegalizeIndexing" data-ws-source="compilation">查看失败 Pass</button></div>' +
-    '</section>';
-  }
-
   /* ============================================================
      Correctness diagnosis view — Run #106
 
@@ -2954,8 +3002,8 @@
     releaseInvestigation();
     // never innerHTML over nodes on loan from another stage
     releaseBorrowed();
-    // 同理：Compilation 的第二个页签借用了 stage 2 的 #kgTrace，
-    // 不先还回去，重写 #runTabPanel 会把那个实体节点冲成游离节点。
+    // Compilation 页复用 stage 2 的原 Pass 流程；先归还它，再重写 Run 面板，
+    // 防止实体 trace 节点被 innerHTML 销毁。
     window.PTO_COMPILATION?.release?.();
     const t = TASKS.find(x => x.id === st.task);
     const r = t && t.runs.find(x => x.id === st.run);
@@ -2978,8 +3026,7 @@
     const L = LX;
     /* 统一 Domain Header 放在面板外面：页签切换、借用 stage DOM、编译视图重绘
        都只会重写 #runTabPanel，头部不会被冲掉，也不用参与借用 / 归还流程。 */
-    const semanticHandoff = isSemanticCompilationHandoff(r);
-    const shell = '<div class="kf-rtpwrap">' + investigationReturnBar() + (semanticHandoff ? semanticCompilationHandoff(t, r) : domainHead(st.tab, r)) +
+    const shell = '<div class="kf-rtpwrap">' + investigationReturnBar() + domainHead(st.tab, r) +
       '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div></div>';
     if (L) {
       /* Identity, verdict and the headline numbers stay above the tabs — they
@@ -3017,7 +3064,7 @@
       ? '<div class="kf-rd-signals">' + r.signals.map(s =>
           '<span class="is-' + s[0] + '"><i></i>' + esc(s[1]) + '</span>').join('') + '</div>'
       : '';
-    const storyOverview = semanticHandoff ? '' : (isCompileFailureStory(r) || isCorrectnessFailureStory(r) || isPerformanceWarningStory(r) || isValidatedOptimizationStory(r))
+    const storyOverview = (isCompileFailureStory(r) || isCorrectnessFailureStory(r) || isPerformanceWarningStory(r) || isValidatedOptimizationStory(r))
       ? '<section class="kf-rd-overview" style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr) minmax(0,.85fr);" aria-label="运行快照概览">' +
           '<div class="kf-rd-overview-left">' + head + '</div>' + historicalKpis(r) + '</section>'
       : head;
@@ -3028,18 +3075,7 @@
       panel.innerHTML = overviewPanel(r, null) + sig;
       mountInvestigation(r);
     } else if (st.tab === 'compilation') {
-      const renderedCompilation = renderCompilationTab(panel, r);
-      if (!renderedCompilation && isCompileFailureStory(r)) {
-        syncPanel();
-        panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
-      } else if (!renderedCompilation && getDomainVerdict(r, 'compilation').verdict === 'pass') {
-        /* 结论已经由统一 Domain Header 承担：模块能画就画模块视图，画不了就
-           只留头部，不再叠一层同义的编译摘要。 */
-        const view = window.PTO_COMPILATION;
-        if (!(view && view.ready && compilationDataMatches(r) && view.render(panel))) {
-          panel.innerHTML = '';
-        }
-      } else if (!renderedCompilation) panel.innerHTML = notEvaluatedEvidencePanel(r, 'compilation');
+      renderCompilationTab(panel, r);
     } else if (st.tab === 'correctness') {
       if (isCorrectnessFailureStory(r)) {
         dgReset(r.id);

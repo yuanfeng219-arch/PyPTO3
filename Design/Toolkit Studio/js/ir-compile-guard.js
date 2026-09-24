@@ -391,6 +391,10 @@
     return 'not_collected';
   }
   function validationAnchor(value) {
+    if (value && typeof value === 'object') {
+      if (value.type !== 'pass') return null;
+      value = value.id;
+    }
     if (value === 'all' || value === 'run') return value;
     if (Number.isInteger(value)) return value;
     const byName = PASSNAMES.indexOf(value);
@@ -1079,7 +1083,7 @@
       if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return true;
     },
-    selectPass(name) {
+    selectPass(name, options) {
       if (!els) return false;
       const index = Number.isInteger(name) ? name : PASSNAMES.indexOf(String(name));
       if (!Number.isInteger(index) || index < 0 || index >= PASSMETA.length) return false;
@@ -1087,7 +1091,14 @@
       activateVisuals();
       renderTrace(); renderLineage();
       const detail = els.trace && els.trace.querySelector('.kf-kg-pdetail');
-      if (detail) detail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (detail && !options?.silent) detail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return true;
+    },
+    clearPass() {
+      if (!els) return false;
+      st.pass = null; st.fact = 0;
+      activateVisuals();
+      renderTrace(); renderLineage();
       return true;
     }
   };
