@@ -647,25 +647,18 @@
     const demos = [
       {
         title: "算子调优控制台",
-        subtitle: "Tuning Console · 五层闭环",
+        subtitle: "Tuning Console · 多版本探索",
         category: "内存与性能",
-        status: "新增",
-        version: "01 / Console",
-        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，把调优闭环做成可操作界面：端到端分 rank 对账、L2 泳道与关键路径、单核 kernel/setup/hand-off 三口径拆解、片上预算试算、230 条编译提示按源码点归位，并用实验台账强制每轮只验证一个假设。",
-        href: "Design/operator-tuning-console/index.html",
+        status: "3 个版本",
+        version: "V1 · V2 · V3",
+        description: "围绕同一份 DeepSeek V4 decode_csa 真实上板执行，分别探索五层调优闭环、Investigations 开发任务流与一屏式 AICore 执行矩阵。选择版本进入对应 Demo。",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"]
-      },
-      {
-        title: "算子调优控制台 V2",
-        subtitle: "Tuning Console · Investigations",
-        category: "内存与性能",
-        status: "新增",
-        version: "02 / AI Flow",
-        description: "保留原始五层证据、Pass 轨迹和实验台账，并将入口重构为真实开发任务流：以 Investigation 管理基线、假设、证据和单变量实验；层级视图只在需要查证时打开。",
-        href: "Design/operator-tuning-console-v2/index.html",
-        preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["Investigations", "Hypotheses", "Evidence Links", "Single-variable Experiment"]
+        tags: ["Five-layer Loop", "Investigations", "Block Matrix", "Critical Path"],
+        variants: [
+          { label: "V1", href: "Design/operator-tuning-console/index.html" },
+          { label: "V2", href: "Design/operator-tuning-console-v2/index.html" },
+          { label: "V3", href: "Design/operator-tuning-console-v3/index.html" }
+        ]
       },
       {
         title: "调优故事九幕",

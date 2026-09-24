@@ -913,6 +913,19 @@ tasks.forEach((t) => {
   sc.first = Math.min(sc.first, t.start);
   sc.last = Math.max(sc.last, t.end);
 });
+/* every block duration, grouped by the scope it belongs to */
+const scopeBlockDur = {};
+laneBlocks.forEach((slices) => {
+  slices.forEach((b) => {
+    const t = tasks[b[2]];
+    if (!t) return;
+    (scopeBlockDur[t.callable] = scopeBlockDur[t.callable] || []).push(b[1]);
+  });
+});
+const qAt = (sorted, q) => (sorted.length
+  ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * q)))]
+  : 0);
+
 const totalCoreTime = sum(tasks.map((t) => t.busySum));
 const scopes = Object.keys(scopeMap).map((k) => {
   const sc = scopeMap[k];
@@ -947,9 +960,45 @@ const scopes = Object.keys(scopeMap).map((k) => {
       share: r2((a.coreTime / Math.max(sc.coreTime, 1e-9)) * 100),
     };
   });
+  /* --- cost decomposition over this scope's own blocks --- */
+  sc.spmdLaunches = ts.length;
+  sc.spmdWaves = sc.fanBlocks / Math.max(sc.fanCores, 1);
+  sc.spmdCores = sc.fanCores;
+  const bd = (scopeBlockDur[k] || []).slice().sort((a, b) => a - b);
+  const bMed = qAt(bd, 0.5);
+  const bP90 = qAt(bd, 0.9);
+  const bMax = bd.length ? bd[bd.length - 1] : 0;
+  const bMean = bd.length ? sc.coreTime / bd.length : 0;
+  /* Sigma = N x mean is the exact identity. Comparing against N x median
+   * says which side the spread falls on, and it is SIGNED: a scope whose
+   * median sits ABOVE its mean (qk_pv: med 782 vs mean 648) is left-skewed
+   * -- a few fast blocks, not a heavy tail. Clamping that to zero would
+   * hide the more interesting case. */
+  const uniform = bMed * bd.length;
+  const skew = r2(sc.coreTime - uniform);
+
   return {
     name: k,
     kind: kind,
+    /* Sigma = repeat x width x mean, an exact factorisation of the block
+     * count. Raw N conflates two different things: fa_fused's 72 blocks are
+     * 72 cores in ONE wave (wide), up_proj's 85 blocks are 85 separate
+     * launches on ONE core (repeated). Calling both "次数多" is wrong. */
+    cost: {
+      blocks: bd.length,
+      repeat: r2(sc.spmdLaunches * sc.spmdWaves),
+      width: sc.spmdCores,
+      mean: r2(bMean),
+      med: r2(bMed),
+      p90: r2(bP90),
+      max: r2(bMax),
+      min: r2(bd.length ? bd[0] : 0),
+      /* N x median, and how far Sigma sits from it (signed) */
+      uniform: r2(uniform),
+      skew: skew,
+      skewShare: r2((skew / Math.max(sc.coreTime, 1e-9)) * 100),
+      spread: bMed > 0 ? r3(bP90 / bMed) : null,
+    },
     /* the device kernels this scope compiled into: 1, or 2 when mixed */
     kernels: kernelList,
     kernelCount: kernelList.length,
@@ -2114,6 +2163,46 @@ const payload = {
   investigations: investigations,
   launchSkew: launchSkew,
   sourceMap: sourceMap,
+  /* ------------------------------------------------ evidence ladder
+   * Each layer names its input, the one question it answers, and -- the
+   * part that matters -- what it CANNOT settle on its own, with a pointer
+   * to the layer that can. A layer whose artifact this dump does not carry
+   * is a first-class state, not a blank row. */
+  evidence: [
+    {
+      id: 'serving', name: '服务层',
+      input: 'serving-strace-swimlane.json、端到端 benchmark',
+      answers: '哪个 WorkerProcess 负载或尾耗时异常',
+      cannot: 'AICore 内某个 kernel 为什么慢',
+      cannotGoto: 'l1',
+      state: 'absent',
+      note: '本 dump 是单进程 JIT run，没有 serving 侧采集；多 WorkerProcess 的负载与尾耗时无从谈起。',
+    },
+    {
+      id: 'hostdev', name: 'Host / Device',
+      input: 'BenchmarkStats、独立 benchmark',
+      answers: '延迟是 Host、Device，还是两者共同贡献',
+      cannot: 'Device 内的依赖与 pipe 根因',
+      cannotGoto: 'l2',
+      state: e2e ? 'partial' : 'absent',
+      have: e2e ? 'STRACE host span：bind / runner_run / device_wall / sched，两种时钟已对齐' : null,
+      note: e2e
+        ? 'BenchmarkStats 缺席：没有 rounds / warmup 统计量，本 case 只有 '
+          + Object.keys(e2e[RANK_KEYS[0]]).length + ' 次调用，给不出 mean / median。'
+        : '本 dump 没有 host STRACE log，Host 与 Device 的拆分整层缺席。',
+    },
+    {
+      id: 'funcs', name: '函数汇总',
+      input: 'name_map*.json + Swimlane',
+      answers: '慢来自单次慢、次数多，还是波动',
+      cannot: '是否影响 wall-clock',
+      cannotGoto: 'l2',
+      state: 'ok',
+      have: R.scopes.length + ' 个 scope / ' + nameMapCount + ' 个 kernel 名，每块时长齐全',
+      note: 'Σ core-time 大不等于拖慢墙钟 —— 一个 scope 可能摊在很多核上并行跑完。'
+        + '要不要动它，看它在不在路径上，那是下一层的事。',
+    },
+  ],
   derived: {
     waitTasks: waitTasks.map((t) => t.tag), waitSpan: waitSpan,
     setupHeavy: setupHeavy.map((t) => t.tag),

@@ -520,8 +520,128 @@
     ['chip.run.validate', 1],
   ];
 
+  /* ------------------------------------------------------ evidence ladder
+   * Three layers, each with its input, the one question it settles, and
+   * what it cannot settle alone -- that last cell is a button to the layer
+   * that can, so a stated limitation is also the way out of it. */
+  const LAYER_STATE = {
+    ok: { label: '齐', cls: 'good' },
+    partial: { label: '部分', cls: 'warn' },
+    absent: { label: '缺', cls: 'bad' },
+  };
+
+  function renderEvidenceLadder(stage) {
+    const sec = el('section');
+    const have = D.evidence.filter((l) => l.state === 'ok').length;
+    sec.appendChild(sectionHead('证据层', D.evidence.length + ' 层 · ' + have + ' 层齐',
+      el('span', 'tc-readout', '每层写明不能单独证明什么')));
+    const rows = el('div', 'tc-ladder');
+    D.evidence.forEach((l) => {
+      const row = el('div', 'tc-ladder-row is-' + l.state);
+      const head = el('div', 'hd');
+      head.appendChild(el('span', 'nm', l.name));
+      head.appendChild(el('span', 'st ' + LAYER_STATE[l.state].cls, LAYER_STATE[l.state].label));
+      row.appendChild(head);
+
+      const grid = el('div', 'bd');
+      const cell = (k, v, cls) => {
+        const c = el('div', 'cell' + (cls ? ' ' + cls : ''));
+        c.appendChild(el('span', 'k', k));
+        if (v instanceof Node) c.appendChild(v); else c.appendChild(el('span', 'v', v));
+        return c;
+      };
+      grid.appendChild(cell('输入', l.input, 'mono'));
+      grid.appendChild(cell('回答', l.answers));
+      /* the limitation is navigation, not a footnote */
+      const jump = el('button', 'tc-ladder-jump');
+      jump.type = 'button';
+      jump.textContent = l.cannot;
+      jump.title = '这一层证明不了它。' + NL
+        + '去 ' + (LEVELS.filter((v) => v.id === l.cannotGoto)[0] || {}).label + ' 页签看能证明的那一层。';
+      jump.addEventListener('click', () => { S.view = l.cannotGoto; S.focus = null; render(); });
+      grid.appendChild(cell('不能单独证明', jump, 'is-cannot'));
+      row.appendChild(grid);
+
+      if (l.have) row.appendChild(el('div', 'ft is-have', '有：' + l.have));
+      if (l.note) row.appendChild(el('div', 'ft', l.note));
+      rows.appendChild(row);
+    });
+    sec.appendChild(rows);
+    stage.appendChild(sec);
+  }
+
+  /* ------------------------------------------------- function summary
+   * Sigma = N x mean is exact. Comparing against N x median says which of
+   * the three causes is in play without inventing a verdict model. */
+  function renderFuncSummary(stage) {
+    const rank = R();
+    const sec = el('section');
+    const top = rank.scopes.slice(0, 12);
+    sec.appendChild(sectionHead('函数汇总 · 慢在哪一项',
+      'Σ = 重复 × 宽度 × 均值 · 前 ' + top.length + ' / ' + rank.scopes.length,
+      el('span', 'tc-readout', 'Σ 大 ≠ 拖慢墙钟 —— 末列才是')));
+    const obs = {};
+    rank.cpath.segments.forEach((sg) => { obs[sg.tag] = 1; });
+    sec.appendChild(table([
+      { label: 'scope', cell: (r) => esc(r.name), mono: true },
+      { label: 'Σ core-time', cell: (r) => num(r.coreTime, 0), mono: true, num: true },
+      { label: '块数', cell: (r) => String(r.cost.blocks), num: true },
+      { label: '重复', cell: (r) => num(r.cost.repeat, r.cost.repeat % 1 ? 1 : 0), num: true },
+      { label: '宽度', cell: (r) => r.cost.width + ' 核', num: true },
+      { label: '均值', cell: (r) => num(r.cost.mean, 2), mono: true, num: true },
+      { label: 'p90/中位', cell: (r) => (r.cost.spread == null ? '—'
+        : '<span class="' + (r.cost.spread > 1.5 ? 'bad' : r.cost.spread > 1.2 ? 'warn' : '') + '">'
+          + num(r.cost.spread, 2) + '</span>'), num: true },
+      { label: '偏离中位', cell: (r) => (r.cost.skew >= 0 ? '+' : '') + num(r.cost.skew, 0), mono: true, num: true },
+      { label: '主因', cell: (r) => causeOf(r, rank) },
+      /* the column that answers what this layer cannot */
+      { label: '在路径上', cell: (r) => pathCell(r, obs, rank) },
+    ], top, {
+      onPick: (r) => { S.view = 'l2'; S.focus = 'scope'; S.task = r.tags[0]; render(); },
+    }));
+    sec.appendChild(el('p', 'tc-note',
+      '块数 = 重复 × 宽度，Σ = 块数 × 均值，都是恒等式。'
+      + '重复 = launch 次数 × 波数（同一批核跑了几轮），宽度 = 一次铺开占几个核 —— '
+      + '把两者混成一个「次数」会把「宽」误读成「调用多」。'
+      + '偏离中位为负 = 中位高于均值，少数快块把均值拉低了，不是长尾。'
+      + '「主因」的倍数是相对本 run 所有 scope 的中位数。'
+      + '末列来自「路径归责」那一层 —— 本层自己证明不了一个 scope 是否拖慢墙钟。'));
+    stage.appendChild(sec);
+  }
+
+  /* Which factor carries the cost, measured against this run's own median
+   * rather than an absolute threshold, and reported as the multiple so the
+   * reader can see how lopsided it is instead of trusting a label. */
+  function causeOf(sc, rank) {
+    const midOf = (f) => {
+      const v = rank.scopes.map(f).slice().sort((a, b) => a - b);
+      return v[Math.floor(v.length / 2)] || 1;
+    };
+    const medMid = midOf((x) => x.cost.med);
+    const repMid = midOf((x) => x.cost.repeat);
+    const slowX = sc.cost.med / medMid;
+    const manyX = sc.cost.repeat / repMid;
+    const wobbly = sc.cost.spread != null && sc.cost.spread > 1.5;
+    const x = (n) => ' ×' + num(n, n >= 10 ? 0 : 1);
+    let main;
+    if (slowX < 2 && manyX < 2) main = '<span class="muted">无突出项</span>';
+    else if (slowX >= manyX * 3) main = '单次慢' + x(slowX);
+    else if (manyX >= slowX * 3) main = '次数多' + x(manyX);
+    else main = '两者兼有';
+    return main + (wobbly ? ' <span class="warn">+ 波动</span>' : '');
+  }
+
+  /* wall-clock relevance comes from the path layer, not from this table */
+  function pathCell(sc, obs, rank) {
+    const onObs = sc.tags.some((t) => obs[t]);
+    if (sc.onCrit) return '<span class="bad">依赖关键路径</span>';
+    if (onObs) return '<span class="warn">观测路径</span>';
+    return '<span class="muted">都不在 · slack ' + num(sc.minSlack, 0) + '</span>';
+  }
+
   function viewE2E(stage) {
-    if (!hasE2E()) { viewE2EAbsent(stage); return; }
+    renderEvidenceLadder(stage);
+    if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
     /* --- gates: what must be true before any number is trusted --- */
     const invCount = Object.keys(D.e2e[D.defaultRank]).length;
     const gates = [
@@ -670,6 +790,7 @@
       { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
     ], recRows, { onPick: (r) => { S.rank = r.rank; render(); } }));
     stage.appendChild(recSec);
+    renderFuncSummary(stage);
   }
 
   /* The L2 dump has no host STRACE log, so there is no end-to-end layer to

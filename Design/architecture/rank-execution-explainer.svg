@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
+  <title id="title">两 Rank 的 Host、Device 与通信执行过程</title>
+  <desc id="desc">一张说明分布式算子执行过程的架构图。两列分别代表 rank 0 与 rank 1：主机进程提交算子到各自设备，设备内的调度器、显存和 AIC/AIV 计算单元协同执行，通信引擎在两端交换分片张量并以同步事件汇合。下方时间轴显示通信与计算重叠。</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#eef2f7"/></linearGradient>
+    <linearGradient id="rankA" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f0fdfa"/><stop offset="1" stop-color="#e0f2fe"/></linearGradient>
+    <linearGradient id="rankB" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f5f3ff"/><stop offset="1" stop-color="#eef2ff"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#0f172a" flood-opacity=".10"/></filter>
+    <marker id="arrowSlate" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#475569"/></marker>
+    <marker id="arrowTeal" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#0f766e"/></marker>
+    <marker id="arrowViolet" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#7c3aed"/></marker>
+    <style>
+      .title { font: 700 34px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#0f172a; }
+      .subtitle { font: 400 16px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#475569; }
+      .section { font: 700 15px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#334155; letter-spacing:1px; }
+      .rankTitle { font: 700 21px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#0f172a; }
+      .label { font: 700 15px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#172033; }
+      .small { font: 400 13px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#475569; }
+      .micro { font: 400 12px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#64748b; }
+      .mono { font: 600 12px Consolas,'Cascadia Code',monospace; fill:#334155; }
+      .pill { font: 700 12px 'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif; fill:#fff; }
+    </style>
+  </defs>
+  <rect width="1600" height="1080" fill="url(#background)"/>
+  <rect x="42" y="31" width="1516" height="86" rx="20" fill="#fff" filter="url(#shadow)"/>
+  <circle cx="83" cy="73" r="20" fill="#0f766e"/><path d="M74 73h18M83 64v18" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <text x="120" y="70" class="title">Rank 级别的分布式算子执行</text>
+  <text x="120" y="96" class="subtitle">以 2-rank collective 为例：控制面留在 Host，数据面在 Device 与互联之间流动</text>
+  <g transform="translate(1278 56)"><rect width="236" height="35" rx="17.5" fill="#ecfdf5" stroke="#a7f3d0"/><text x="18" y="23" class="label" fill="#047857">示例：2 rank · 2 device</text></g>
+
+  <text x="65" y="153" class="section">① 资源归属与连接关系</text>
+  <text x="62" y="183" class="small">rank 是逻辑执行参与者；本图中每个 rank 绑定一个 Host 进程与一张设备。虚线框表示物理/逻辑边界。</text>
+
+  <!-- Rank containers -->
+  <g filter="url(#shadow)"><rect x="55" y="208" width="680" height="530" rx="24" fill="url(#rankA)" stroke="#99f6e4" stroke-width="2"/><rect x="865" y="208" width="680" height="530" rx="24" fill="url(#rankB)" stroke="#c4b5fd" stroke-width="2"/></g>
+  <g><rect x="79" y="228" width="104" height="31" rx="15" fill="#0f766e"/><text x="103" y="250" class="pill">RANK 0</text><text x="196" y="251" class="rankTitle">进程 / 设备对</text></g>
+  <g><rect x="889" y="228" width="104" height="31" rx="15" fill="#6d28d9"/><text x="913" y="250" class="pill">RANK 1</text><text x="1006" y="251" class="rankTitle">进程 / 设备对</text></g>
+
+  <!-- host zones -->
+  <g><rect x="79" y="280" width="632" height="132" rx="16" fill="#fff" stroke="#99f6e4"/><rect x="97" y="297" width="68" height="25" rx="12" fill="#ccfbf1"/><text x="110" y="315" class="mono">HOST</text>
+    <rect x="97" y="338" width="175" height="53" rx="10" fill="#f0fdfa" stroke="#5eead4"/><text x="113" y="360" class="label">rank0 runtime 进程</text><text x="113" y="380" class="micro">绑定参数 · 构图 · 提交</text>
+    <rect x="294" y="338" width="188" height="53" rx="10" fill="#f0fdfa" stroke="#5eead4"/><text x="310" y="360" class="label">CPU / Host 内存</text><text x="310" y="380" class="micro">输入、控制命令、描述符</text>
+    <rect x="504" y="338" width="184" height="53" rx="10" fill="#f0fdfa" stroke="#5eead4"/><text x="520" y="360" class="label">通信控制面</text><text x="520" y="380" class="micro">组网、collective、事件</text></g>
+  <g><rect x="889" y="280" width="632" height="132" rx="16" fill="#fff" stroke="#c4b5fd"/><rect x="907" y="297" width="68" height="25" rx="12" fill="#ede9fe"/><text x="920" y="315" class="mono">HOST</text>
+    <rect x="907" y="338" width="175" height="53" rx="10" fill="#f5f3ff" stroke="#c4b5fd"/><text x="923" y="360" class="label">rank1 runtime 进程</text><text x="923" y="380" class="micro">绑定参数 · 构图 · 提交</text>
+    <rect x="1104" y="338" width="188" height="53" rx="10" fill="#f5f3ff" stroke="#c4b5fd"/><text x="1120" y="360" class="label">CPU / Host 内存</text><text x="1120" y="380" class="micro">输入、控制命令、描述符</text>
+    <rect x="1314" y="338" width="184" height="53" rx="10" fill="#f5f3ff" stroke="#c4b5fd"/><text x="1330" y="360" class="label">通信控制面</text><text x="1330" y="380" class="micro">组网、collective、事件</text></g>
+
+  <!-- host arrows -->
+  <path d="M272 364H294M482 364H504" stroke="#0f766e" stroke-width="2" marker-end="url(#arrowTeal)"/>
+  <path d="M1082 364H1104M1292 364H1314" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrowViolet)"/>
+
+  <!-- Device zones -->
+  <g><rect x="79" y="435" width="632" height="279" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/><rect x="97" y="452" width="115" height="25" rx="12" fill="#e2e8f0"/><text x="110" y="470" class="mono">DEVICE d0</text>
+    <rect x="97" y="495" width="176" height="74" rx="10" fill="#eff6ff" stroke="#93c5fd"/><text x="113" y="520" class="label">设备调度器</text><text x="113" y="541" class="micro">接收 launch · 依赖解析</text><text x="113" y="558" class="micro">队列 / stream / completion</text>
+    <rect x="297" y="495" width="186" height="74" rx="10" fill="#eff6ff" stroke="#93c5fd"/><text x="313" y="520" class="label">HBM / 全局内存</text><text x="313" y="541" class="micro">本 rank 张量分片</text><text x="313" y="558" class="micro">通信 window / buffer</text>
+    <rect x="507" y="495" width="181" height="74" rx="10" fill="#f5f3ff" stroke="#c4b5fd"/><text x="523" y="520" class="label">通信引擎</text><text x="523" y="541" class="micro">DMA / 传输队列</text><text x="523" y="558" class="micro">send · recv · reduce</text>
+    <rect x="97" y="593" width="272" height="96" rx="12" fill="#ecfdf5" stroke="#5eead4"/><text x="113" y="620" class="label">AIC / Cube 计算簇</text><text x="113" y="643" class="small">矩阵乘、卷积等张量计算</text><rect x="113" y="657" width="88" height="19" rx="9" fill="#0f766e"/><text x="129" y="671" class="pill">24 cores</text>
+    <rect x="391" y="593" width="297" height="96" rx="12" fill="#fff7ed" stroke="#fdba74"/><text x="407" y="620" class="label">AIV / Vector 计算簇</text><text x="407" y="643" class="small">归一化、激活、逐元素与搬运</text><rect x="407" y="657" width="88" height="19" rx="9" fill="#ea580c"/><text x="423" y="671" class="pill">48 cores</text></g>
+  <g><rect x="889" y="435" width="632" height="279" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/><rect x="907" y="452" width="115" height="25" rx="12" fill="#e2e8f0"/><text x="920" y="470" class="mono">DEVICE d0</text>
+    <rect x="907" y="495" width="176" height="74" rx="10" fill="#eff6ff" stroke="#93c5fd"/><text x="923" y="520" class="label">设备调度器</text><text x="923" y="541" class="micro">接收 launch · 依赖解析</text><text x="923" y="558" class="micro">队列 / stream / completion</text>
+    <rect x="1107" y="495" width="186" height="74" rx="10" fill="#eff6ff" stroke="#93c5fd"/><text x="1123" y="520" class="label">HBM / 全局内存</text><text x="1123" y="541" class="micro">本 rank 张量分片</text><text x="1123" y="558" class="micro">通信 window / buffer</text>
+    <rect x="1317" y="495" width="181" height="74" rx="10" fill="#f5f3ff" stroke="#c4b5fd"/><text x="1333" y="520" class="label">通信引擎</text><text x="1333" y="541" class="micro">DMA / 传输队列</text><text x="1333" y="558" class="micro">send · recv · reduce</text>
+    <rect x="907" y="593" width="272" height="96" rx="12" fill="#ecfdf5" stroke="#5eead4"/><text x="923" y="620" class="label">AIC / Cube 计算簇</text><text x="923" y="643" class="small">矩阵乘、卷积等张量计算</text><rect x="923" y="657" width="88" height="19" rx="9" fill="#0f766e"/><text x="939" y="671" class="pill">24 cores</text>
+    <rect x="1201" y="593" width="297" height="96" rx="12" fill="#fff7ed" stroke="#fdba74"/><text x="1217" y="620" class="label">AIV / Vector 计算簇</text><text x="1217" y="643" class="small">归一化、激活、逐元素与搬运</text><rect x="1217" y="657" width="88" height="19" rx="9" fill="#ea580c"/><text x="1233" y="671" class="pill">48 cores</text></g>
+
+  <!-- vertical submission -->
+  <path d="M184 391V495M994 391V495" stroke="#475569" stroke-width="2.5" marker-end="url(#arrowSlate)"/><text x="194" y="446" class="micro">launch</text><text x="1004" y="446" class="micro">launch</text>
+  <!-- internal data arrows -->
+  <path d="M273 532H297M483 532H507M1083 532H1107M1293 532H1317" stroke="#475569" stroke-width="2" marker-end="url(#arrowSlate)"/>
+  <path d="M390 569V593M538 569V593M1200 569V593M1348 569V593" stroke="#475569" stroke-width="2" marker-end="url(#arrowSlate)"/>
+
+  <!-- Interconnect -->
+  <g filter="url(#shadow)"><rect x="746" y="476" width="108" height="116" rx="18" fill="#fff" stroke="#a78bfa" stroke-width="2"/></g>
+  <path d="M762 504h76M762 525h76M762 546h76" stroke="#a78bfa" stroke-width="4" stroke-linecap="round"/><text x="766" y="569" class="label" text-anchor="middle">互联</text><text x="800" y="584" class="micro" text-anchor="middle">fabric</text>
+  <path d="M688 532H746M854 532H912" stroke="#7c3aed" stroke-width="3" marker-start="url(#arrowViolet)" marker-end="url(#arrowViolet)"/><text x="800" y="465" class="small" text-anchor="middle" fill="#6d28d9">跨 rank：分片张量 / collective</text>
+
+  <!-- timeline -->
+  <text x="65" y="794" class="section">② 单次算子执行的控制流、数据流与重叠</text>
+  <rect x="55" y="818" width="1490" height="221" rx="22" fill="#fff" filter="url(#shadow)"/>
+  <text x="82" y="855" class="label">时间</text><path d="M152 850H1491" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowSlate)"/>
+  <g class="micro"><text x="211" y="871">t0</text><text x="445" y="871">t1</text><text x="710" y="871">t2</text><text x="995" y="871">t3</text><text x="1282" y="871">t4</text></g>
+  <text x="82" y="910" class="label">rank0</text><text x="82" y="971" class="label">rank1</text>
+  <rect x="177" y="888" width="225" height="38" rx="8" fill="#ccfbf1"/><text x="193" y="912" class="label">Host：bind / build</text>
+  <rect x="414" y="888" width="196" height="38" rx="8" fill="#dbeafe"/><text x="435" y="912" class="label">Device：预处理</text>
+  <rect x="622" y="888" width="261" height="38" rx="8" fill="#ecfdf5"/><text x="655" y="912" class="label">AIC/AIV：局部计算</text>
+  <rect x="813" y="888" width="272" height="38" rx="8" fill="#ede9fe" stroke="#8b5cf6" stroke-width="2"/><text x="840" y="912" class="label">通信：send / reduce</text>
+  <rect x="1097" y="888" width="276" height="38" rx="8" fill="#ecfdf5"/><text x="1122" y="912" class="label">AIC/AIV：后续计算</text>
+  <rect x="177" y="949" width="225" height="38" rx="8" fill="#ede9fe"/><text x="196" y="973" class="label">Host：collective ready</text>
+  <rect x="414" y="949" width="395" height="38" rx="8" fill="#ecfdf5"/><text x="508" y="973" class="label">AIC/AIV：局部计算</text>
+  <rect x="730" y="949" width="355" height="38" rx="8" fill="#ede9fe" stroke="#8b5cf6" stroke-width="2"/><text x="809" y="973" class="label">通信：recv / reduce</text>
+  <rect x="1097" y="949" width="276" height="38" rx="8" fill="#fff7ed"/><text x="1127" y="973" class="label">AIV：合并 / 写回</text>
+  <path d="M813 937V946" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4 4"/><path d="M1085 937V946" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4 4"/>
+  <rect x="1389" y="887" width="121" height="100" rx="14" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/><text x="1450" y="917" class="label" text-anchor="middle">同步点</text><text x="1450" y="940" class="micro" text-anchor="middle">wait / event</text><text x="1450" y="961" class="micro" text-anchor="middle">两端可继续</text>
+  <g transform="translate(82 1016)"><rect width="13" height="13" rx="3" fill="#ccfbf1"/><text x="21" y="12" class="micro">Host 控制</text><rect x="121" width="13" height="13" rx="3" fill="#dbeafe"/><text x="142" y="12" class="micro">设备准备 / 调度</text><rect x="282" width="13" height="13" rx="3" fill="#ecfdf5"/><text x="303" y="12" class="micro">设备计算</text><rect x="410" width="13" height="13" rx="3" fill="#ede9fe"/><text x="431" y="12" class="micro">跨 rank 通信</text><rect x="554" width="13" height="13" rx="3" fill="#fffbeb"/><text x="575" y="12" class="micro">同步 / 依赖</text><text x="795" y="12" class="micro">关键观察：通信可以与不依赖其结果的计算重叠；真正的等待发生在同步点。</text></g>
+</svg>

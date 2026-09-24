@@ -823,6 +823,61 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 }
 .tc-pairhead > .ct { flex: none; color: var(--foreground-muted); font-family: var(--font-mono); }
 
+/* ------------------------------------------------------ evidence ladder
+ * One row per layer. The left border carries the layer's state so a missing
+ * artifact reads as a state rather than an empty row, and the "cannot prove"
+ * cell is a button because a stated limitation should also be the way out. */
+.tc-ladder { display: grid; gap: var(--space-2); }
+.tc-ladder-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.tc-ladder-row.is-ok { border-left-color: var(--success); }
+.tc-ladder-row.is-partial { border-left-color: var(--warning); }
+.tc-ladder-row.is-absent { border-left-color: var(--danger); }
+.tc-ladder-row > .hd { display: flex; align-items: baseline; gap: var(--space-2); }
+.tc-ladder-row > .hd > .nm { color: var(--foreground); font: var(--type-label); }
+.tc-ladder-row > .hd > .st {
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.tc-ladder-row > .hd > .st.good { color: var(--success); }
+.tc-ladder-row > .hd > .st.warn { color: var(--warning); }
+.tc-ladder-row > .hd > .st.bad { color: var(--danger); }
+.tc-ladder-row > .bd {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-1) var(--space-3);
+}
+.tc-ladder-row .cell { display: grid; gap: 1px; min-width: 0; }
+.tc-ladder-row .cell > .k { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-ladder-row .cell > .v { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-ladder-row .cell.mono > .v { font-family: var(--font-mono); font-size: 11px; }
+.tc-ladder-jump {
+  justify-self: start;
+  max-width: 100%;
+  padding: 1px 0;
+  border: 0;
+  border-bottom: 1px dashed var(--warning);
+  background: transparent;
+  color: var(--warning);
+  font: var(--type-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.tc-ladder-jump:hover { color: var(--foreground); border-bottom-style: solid; }
+.tc-ladder-row > .ft {
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  line-height: 1.5;
+}
+.tc-ladder-row > .ft.is-have { color: var(--foreground-secondary); }
+
 /* ---------------------------------------------- critical-path rows
  * name / cause / stall / span. The cause chip is the whole point of the
  * table, so it gets its own column rather than living in the title. */

@@ -1,0 +1,456 @@
+/* =============================================================
+ * Tuning Atlas — 参照 The Visual Agency《Codex Atlanticus》的
+ * 单画布仪表盘结构：两条可刷选的总览带 → 一张全量色块矩阵 →
+ * 一列可点的图例 → 一个大号数字。除两个浮层外页面不放正文。
+ *
+ * 排版、间距、字体沿用 PTO Design System 的语义令牌。
+ * 分类色板设计系统里没有对应令牌，下面这组是从参考图原图上
+ * 逐像素取样得到的（画布底色 #10141a，五个分类色取自色块矩阵
+ * 中出现频次最高的填充），集中声明在此，不散落到规则里。
+ * ============================================================= */
+
+:root {
+  --at-canvas:  #10141a;
+  --at-page:    #000000;
+  --at-hair:    rgba(255, 255, 255, 0.09);
+  --at-hair-2:  rgba(255, 255, 255, 0.16);
+
+  /* 单块耗时的五档，冷→暖。五档正好对上参考图里的五个分类，
+   * 而且是完全划分：没有"其余"，矩阵里不会出现大片无信息的灰。 */
+  --at-c1: #3197cd;   /* < 5 us    */
+  --at-c2: #4ec58c;   /* 5 – 20    */
+  --at-c3: #ffbc52;   /* 20 – 100  */
+  --at-c4: #f8957c;   /* 100 – 400 */
+  --at-c5: #e0685c;   /* ≥ 400 us  */
+  --at-accent: #ffbc52;
+
+  --at-dim: 0.14;     /* 落选格子的不透明度 */
+}
+
+html, body { height: 100%; }
+
+/* 作者样式里的 display 会盖掉 UA 的 [hidden]{display:none}，
+ * 悬浮提示和浮层都是 display:grid，不加这条就一直铺在最上层截点击 */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--at-page);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ 画布 */
+.atlas {
+  position: fixed;
+  inset: 10px;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hair);
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------- 顶栏/底栏 */
+.bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 7px var(--space-4);
+  font: var(--type-micro);
+  color: rgba(255, 255, 255, 0.42);
+}
+/* 左边那组 run 切换会随 dump 数量变长。对称的 1fr auto 1fr 会把右侧
+ * 半屏留给两个短链接，同时把左侧裁掉；改成左列按内容取、右列吃掉余量
+ * 并靠右对齐，换来的代价只是「怎么读」不在页面正中。 */
+.bar-top {
+  /* 右列必须给 max-content 下限：给 0 的话窄屏下它会塌成 0px，而
+   * justify-self:end 让里面 172px 的两个链接向左溢出，压在 run 切换上。
+   * 左列反过来给 0 下限，它自己带横向滚动，缩得动。 */
+  grid-template-columns: minmax(0, auto) auto minmax(max-content, 1fr);
+  border-bottom: 1px solid var(--at-hair);
+}
+.bar-l {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bar-l::-webkit-scrollbar { display: none; }
+.bar-c { justify-self: center; }
+.bar-r { display: flex; align-items: center; gap: var(--space-3); justify-self: end; }
+.mono { font-family: var(--font-mono); letter-spacing: 0.02em; }
+
+/* 底栏三段都可能是长串（dump 名、免责一句话），全部给 minmax(0,·)
+ * 和省略号；否则 auto 轨道会按内容撑开，被 .atlas 的 overflow 悄悄切掉 */
+.bar-bot {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto;
+  border-top: 1px solid var(--at-hair);
+  color: rgba(255, 255, 255, 0.3);
+}
+.bar-bot > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-bot > span:nth-child(2) { text-align: center; }
+.bar-bot > span:nth-child(3) { text-align: right; }
+
+.wordmark {
+  color: rgba(255, 255, 255, 0.86);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.linkish {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.linkish:hover { color: rgba(255, 255, 255, 0.92); }
+
+/* --------------------------------------------------------- 分段控件 */
+.seg { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.seg button {
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.38);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.seg button:hover { color: rgba(255, 255, 255, 0.72); }
+.seg button.on {
+  border-color: var(--at-hair-2);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ------------------------------------------------------- 总览带 x2 */
+.strips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+.strip { display: grid; gap: 3px; min-width: 0; }
+.strip-hd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font: var(--type-micro);
+}
+.strip-hd > .k {
+  color: rgba(255, 255, 255, 0.82);
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.strip-hd > .v {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.34);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.strip-hd > .r {
+  margin-left: auto;
+  color: var(--at-accent);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.strip canvas { display: block; width: 100%; height: 46px; cursor: crosshair; }
+
+/* ----------------------------------------------------------- 控制行 */
+.controls {
+  display: flex;
+  flex-wrap: wrap;          /* 窄屏下换行，而不是溢出被 .atlas 悄悄切掉 */
+  align-items: center;
+  gap: 4px var(--space-2);
+  padding: 0 var(--space-4) var(--space-3);
+  font: var(--type-micro);
+  color: rgba(255, 255, 255, 0.34);
+}
+.ctl-lead { color: rgba(255, 255, 255, 0.3); white-space: nowrap; }
+.reset {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--at-hair-2);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.reset:hover { color: rgba(255, 255, 255, 0.92); border-color: rgba(255, 255, 255, 0.34); }
+.reset:disabled { opacity: 0.3; cursor: default; }
+
+/* ------------------------------------------------------------- 主体 */
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 232px;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: 0 var(--space-4);
+}
+.matrix-wrap { position: relative; min-width: 0; min-height: 0; }
+.matrix-wrap canvas { display: block; width: 100%; height: 100%; }
+
+/* ------------------------------------------------------------- 图例 */
+.rail {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+/* 标题和提示挤在一行：右栏要和矩阵同高，竖着堆会在小屏上被裁掉 */
+.rail-hd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+  min-width: 0;
+}
+.rail-hd-2 { margin-top: var(--space-2); }
+.rail-hd > .k {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.82);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+}
+.rail-hd > .v {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.3);
+  font: var(--type-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend { display: grid; gap: 2px; min-width: 0; }
+.lg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 2px 7px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: rgba(0, 0, 0, 0.78);
+  font: var(--type-micro);
+  text-align: left;
+  cursor: pointer;
+}
+.lg > .n {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lg > .c { font-family: var(--font-mono); opacity: 0.72; white-space: nowrap; }
+.lg.off { opacity: 0.3; }
+.lg:hover { border-color: rgba(255, 255, 255, 0.5); }
+
+/* scope 不占颜色（颜色已经给了耗时量级），所以做成中性的筛选行，
+ * 选中态只靠左边一道 accent，不跟矩阵的配色打架 */
+.scopes { display: grid; gap: 2px; min-width: 0; }
+.sc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 2px 7px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.46);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+.sc:hover { color: rgba(255, 255, 255, 0.84); background: rgba(255, 255, 255, 0.08); }
+.sc.on {
+  border-left-color: var(--at-accent);
+  background: rgba(255, 188, 82, 0.13);
+  color: rgba(255, 255, 255, 0.92);
+}
+.sc > .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc > .c { opacity: 0.66; white-space: nowrap; }
+
+/* 白边是矩阵上的第二重编码，只需要一行说明，不值得再起一组图例 */
+.pathnote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.4);
+  font: var(--type-micro);
+}
+.pathnote > i {
+  flex: 0 0 auto;
+  width: 10px; height: 14px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.95);
+}
+.pathnote > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pathnote > b { margin-left: auto; white-space: nowrap; color: rgba(255, 255, 255, 0.78); font-family: var(--font-mono); font-weight: 500; }
+
+/* --------------------------------------------- 唯一的大号文字：数字 */
+.readout { padding: var(--space-4) var(--space-4) var(--space-3); text-align: center; }
+.readout > .big {
+  color: rgba(255, 255, 255, 0.94);
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.readout > .big em {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.readout > .sub {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.34);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+}
+/* 每一项整块换行，不允许断在「关键路 / 径上」这种地方 */
+.readout > .sub > .p { white-space: nowrap; }
+.readout > .sub b { color: rgba(255, 255, 255, 0.62); font-weight: 500; }
+
+/* ------------------------------------------------------------- 悬浮 */
+.tip {
+  position: fixed;
+  z-index: 40;
+  display: grid;
+  gap: 1px;
+  padding: 6px 9px;
+  border: 1px solid var(--at-hair-2);
+  background: rgba(8, 10, 14, 0.96);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+.tip > .t { color: rgba(255, 255, 255, 0.92); }
+.tip > .s { color: rgba(255, 255, 255, 0.46); }
+
+/* ------------------------------------------------------- 文字在浮层 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.72);
+}
+.sheet {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--at-hair-2);
+  background: var(--at-canvas);
+}
+.sheet-x {
+  position: absolute;
+  top: 8px; right: 10px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sheet-x:hover { color: rgba(255, 255, 255, 0.9); }
+.sheet-bd h2 {
+  margin: 0 0 var(--space-4);
+  color: rgba(255, 255, 255, 0.9);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.sheet-bd h3 {
+  margin: var(--space-4) 0 var(--space-1);
+  color: rgba(255, 255, 255, 0.86);
+  font: var(--type-label);
+}
+.sheet-bd p {
+  margin: 0 0 var(--space-2);
+  color: rgba(255, 255, 255, 0.58);
+  font: var(--type-body-sm);
+  line-height: 1.7;
+}
+.sheet-bd code {
+  padding: 0 3px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.sheet-bd .lay {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0;
+}
+.sheet-bd .lay > .i {
+  color: var(--at-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.sheet-bd .lay > .d { color: rgba(255, 255, 255, 0.58); font: var(--type-body-sm); line-height: 1.6; }
+.sheet-bd .lay > .d b { color: rgba(255, 255, 255, 0.88); font-weight: 500; }
+.sheet-bd .warn {
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--at-c5);
+  color: rgba(255, 255, 255, 0.66);
+  font: var(--type-body-sm);
+  line-height: 1.7;
+}
+
+/* 窄屏下两条总览带叠起来，图例收到矩阵下方 */
+@media (max-width: 900px) {
+  .strips { grid-template-columns: 1fr; gap: var(--space-3); }
+  .body { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+}
