@@ -1,0 +1,193 @@
+{
+  "task": "softmax",
+  "task_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax",
+  "n_cases_total": 3,
+  "n_cases_valid": 3,
+  "geomean_speedup": 4.482410210757588,
+  "mean_speedup": 4.545724462745285,
+  "median_speedup": 4.559980334316618,
+  "min_speedup": 3.6173780487804885,
+  "max_speedup": 5.459815005138746,
+  "golden_reference_ratio_stats": {
+    "n_cases_valid": 3,
+    "geomean": 4.482410210757588,
+    "mean": 4.545724462745285,
+    "median": 4.559980334316618,
+    "min": 3.6173780487804885,
+    "max": 5.459815005138746
+  },
+  "n_default_target_cases": 3,
+  "n_cross_scope_cases": 3,
+  "mean_ref_us": 18.992333333333335,
+  "median_ref_us": 18.55,
+  "total_ref_us": 56.977000000000004,
+  "mean_asc_us": 4.071,
+  "median_asc_us": 4.068,
+  "total_asc_us": 12.213,
+  "aggregate_golden_reference_ratio": 4.66527470727913,
+  "total_speedup": 4.66527470727913,
+  "warmup": 3,
+  "repeats": 3,
+  "seed": 42,
+  "seed_source": "cli_override",
+  "device_id": 1,
+  "device_select_source": "cli",
+  "comparison_scope": "golden_e2e_to_pypto_target_kernel",
+  "ratio_semantics": "golden_per_iteration_e2e_us / pypto_target_kernel_us",
+  "default_target_metric": "golden_per_iteration_e2e_us / pypto_target_kernel_us",
+  "default_target_threshold": 1.0,
+  "default_target_met": false,
+  "default_target_status": "unavailable",
+  "valid_for_optimization_speedup": false,
+  "valid_for_target_met": false,
+  "golden_timing_method": "torch_npu.kernel_details.all_golden_npu_kernel_sum",
+  "golden_iterations": 1,
+  "performance_cases": {
+    "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/PERFORMANCE_CASES.json",
+    "sha256": "cc8b75f0eb84fb70ab2dbb641cdcdefbd7d68f74032c94f49394381e7d7a90ce",
+    "size_bytes": 487,
+    "type": "case_manifest",
+    "schema_version": 1,
+    "case_functions": {
+      "p0_batch1_n128": "test_softmax_p0_batch1_n128",
+      "p0_batch4_n2048": "test_softmax_p0_batch4_n2048",
+      "p0_batch32_n4096": "test_softmax_p0_batch32_n4096"
+    },
+    "golden_diagnostic": {
+      "status": "joined",
+      "iterations": 1
+    },
+    "golden_contract": {
+      "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/GOLDEN_PERF_REPORT.json",
+      "sha256": "ef99ca661725e345b30c582ff6cce88530b248b63f3d2fd21d853c37ebbc260d",
+      "size_bytes": 1560,
+      "protocol": {
+        "schema_version": 1,
+        "device_id": 1,
+        "iterations": 1,
+        "warmup": 3,
+        "repeats": 3,
+        "seed": 42,
+        "timing_scope": "all_golden_npu_kernels",
+        "aggregation": "median_of_repeat_totals"
+      }
+    }
+  },
+  "target_op_name": "_Z25softmax_tile_group_kernelPDhS_iiii",
+  "case_selector": {
+    "kind": "function_adapter",
+    "name": "PERFORMANCE_CASES.test_function"
+  },
+  "timing_method": "msprof.quick.Task_Duration",
+  "timing_source_metric": "task_time",
+  "profiling_mode": "quick",
+  "collection_id": "quick_20260831_224844_173104",
+  "deep_profile_round": null,
+  "per_case": [
+    {
+      "case": "p0_batch1_n128",
+      "shape": "[1,128]",
+      "dtype": "fp16",
+      "ref_us": 11.865000000000002,
+      "asc_us": 3.28,
+      "speedup": 3.6173780487804885,
+      "default_target_ratio": 3.6173780487804885,
+      "golden_reference_ratio": 3.6173780487804885,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": null,
+      "asc_prof_dir": null,
+      "deep_profile_dir": null,
+      "duration_samples_us": [
+        3.049,
+        3.304,
+        3.28
+      ],
+      "selected_op_names": [
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii"
+      ],
+      "timing_source_metric": "task_time",
+      "timing_source_files": [
+        "task_time_*.csv",
+        "task_time_*.csv",
+        "task_time_*.csv"
+      ],
+      "aggregation_method": "trimmed_mean",
+      "raw_prof_dir": null,
+      "repeat_bound_diagnoses": [],
+      "default_target_met": true
+    },
+    {
+      "case": "p0_batch4_n2048",
+      "shape": "[4,2048]",
+      "dtype": "fp16",
+      "ref_us": 18.55,
+      "asc_us": 4.068,
+      "speedup": 4.559980334316618,
+      "default_target_ratio": 4.559980334316618,
+      "golden_reference_ratio": 4.559980334316618,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": null,
+      "asc_prof_dir": null,
+      "deep_profile_dir": null,
+      "duration_samples_us": [
+        4.068,
+        4.103,
+        3.75
+      ],
+      "selected_op_names": [
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii"
+      ],
+      "timing_source_metric": "task_time",
+      "timing_source_files": [
+        "task_time_*.csv",
+        "task_time_*.csv",
+        "task_time_*.csv"
+      ],
+      "aggregation_method": "trimmed_mean",
+      "raw_prof_dir": null,
+      "repeat_bound_diagnoses": [],
+      "default_target_met": true
+    },
+    {
+      "case": "p0_batch32_n4096",
+      "shape": "[32,4096]",
+      "dtype": "fp16",
+      "ref_us": 26.562,
+      "asc_us": 4.865,
+      "speedup": 5.459815005138746,
+      "default_target_ratio": 5.459815005138746,
+      "golden_reference_ratio": 5.459815005138746,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": null,
+      "asc_prof_dir": null,
+      "deep_profile_dir": null,
+      "duration_samples_us": [
+        5.188,
+        4.865,
+        4.798
+      ],
+      "selected_op_names": [
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii"
+      ],
+      "timing_source_metric": "task_time",
+      "timing_source_files": [
+        "task_time_*.csv",
+        "task_time_*.csv",
+        "task_time_*.csv"
+      ],
+      "aggregation_method": "trimmed_mean",
+      "raw_prof_dir": null,
+      "repeat_bound_diagnoses": [],
+      "default_target_met": true
+    }
+  ]
+}

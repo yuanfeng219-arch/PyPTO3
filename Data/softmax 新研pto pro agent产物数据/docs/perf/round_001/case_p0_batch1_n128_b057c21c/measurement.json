@@ -1,0 +1,111 @@
+{
+  "collection_id": "compare_20260831_220259_39123",
+  "target_op_name": "_Z25softmax_tile_group_kernelPDhS_iiii",
+  "case": "p0_batch1_n128",
+  "duration_samples_us": [
+    3.149,
+    3.506,
+    3.25
+  ],
+  "selected_op_names": [
+    "_Z25softmax_tile_group_kernelPDhS_iiii",
+    "_Z25softmax_tile_group_kernelPDhS_iiii",
+    "_Z25softmax_tile_group_kernelPDhS_iiii"
+  ],
+  "timing_source_metric": "PipeUtilization",
+  "timing_source_files": [
+    "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_001/case_p0_batch1_n128_b057c21c/repeat_001/op_summary_PipeUtilization.csv",
+    "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_001/case_p0_batch1_n128_b057c21c/repeat_002/op_summary_PipeUtilization.csv",
+    "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_001/case_p0_batch1_n128_b057c21c/repeat_003/op_summary_PipeUtilization.csv"
+  ],
+  "aggregate_us": 3.25,
+  "aggregation_method": "trimmed_mean",
+  "repeat_evidence_dirs": [
+    "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_001/case_p0_batch1_n128_b057c21c/repeat_001",
+    "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_001/case_p0_batch1_n128_b057c21c/repeat_002",
+    "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_001/case_p0_batch1_n128_b057c21c/repeat_003"
+  ],
+  "repeat_bound_diagnoses": [
+    {
+      "schema_version": 1,
+      "evidence_kind": "op_summary_ratio_route",
+      "primary_core": "aiv",
+      "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+      "aicore_time_us": 0.0,
+      "aiv_time_us": 2.6,
+      "routing_label": "no_dominant_pipe",
+      "triggered_categories": [],
+      "ratios": {
+        "compute": {
+          "aiv_vec_ratio": 0.047
+        },
+        "data_movement": {
+          "aiv_mte2_ratio": 0.077,
+          "aiv_mte3_ratio": 0.073
+        },
+        "scalar": {
+          "aiv_scalar_ratio": 0.162
+        }
+      },
+      "scalar_route_triggered": false,
+      "roofline_terminal_status": "insufficient_evidence",
+      "pipeline_overlap_status": "unverified",
+      "completion_eligible": false,
+      "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+    },
+    {
+      "schema_version": 1,
+      "evidence_kind": "op_summary_ratio_route",
+      "primary_core": "aiv",
+      "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+      "aicore_time_us": 0.0,
+      "aiv_time_us": 2.93,
+      "routing_label": "no_dominant_pipe",
+      "triggered_categories": [],
+      "ratios": {
+        "compute": {
+          "aiv_vec_ratio": 0.031
+        },
+        "data_movement": {
+          "aiv_mte2_ratio": 0.071,
+          "aiv_mte3_ratio": 0.069
+        },
+        "scalar": {
+          "aiv_scalar_ratio": 0.188
+        }
+      },
+      "scalar_route_triggered": false,
+      "roofline_terminal_status": "insufficient_evidence",
+      "pipeline_overlap_status": "unverified",
+      "completion_eligible": false,
+      "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+    },
+    {
+      "schema_version": 1,
+      "evidence_kind": "op_summary_ratio_route",
+      "primary_core": "aiv",
+      "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+      "aicore_time_us": 0.0,
+      "aiv_time_us": 2.42,
+      "routing_label": "no_dominant_pipe",
+      "triggered_categories": [],
+      "ratios": {
+        "compute": {
+          "aiv_vec_ratio": 0.097
+        },
+        "data_movement": {
+          "aiv_mte2_ratio": 0.085,
+          "aiv_mte3_ratio": 0.042
+        },
+        "scalar": {
+          "aiv_scalar_ratio": 0.182
+        }
+      },
+      "scalar_route_triggered": false,
+      "roofline_terminal_status": "insufficient_evidence",
+      "pipeline_overlap_status": "unverified",
+      "completion_eligible": false,
+      "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+    }
+  ]
+}

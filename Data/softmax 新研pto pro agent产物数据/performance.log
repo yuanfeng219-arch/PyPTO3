@@ -1,0 +1,36 @@
+====================================================================================================
+PyPTO Performance Collection (msprof): softmax  (warmup=3, repeats=3, seed=42)
+Collection ID: compare_20260831_230218_210028
+Performance cases: case_manifest sha256=cc8b75f0eb84fb70ab2dbb641cdcdefbd7d68f74032c94f49394381e7d7a90ce path=/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/PERFORMANCE_CASES.json
+Golden target source status: joined
+Default target: golden_per_iteration_e2e_us / pypto_target_kernel_us >= 1.0 for every P0 case | status=met | valid=True
+Comparison scope: golden_e2e_to_pypto_target_kernel (valid for the default target; NOT baseline-to-final optimization speedup)
+Target Op Name: _Z25softmax_tile_group_kernelPDhS_iiii | Timing source: PipeUtilization
+Case selector: function_adapter:PERFORMANCE_CASES.test_function
+====================================================================================================
+Case  Shape                               dtype         GoldenE2E  PyPTOKernel  TargetRatio
+----------------------------------------------------------------------------------------------------
+p0_batch1_n128 [1,128]                             fp16              11.87         3.43     3.461x
+  samples_us=[3.428, 3.273, 3.44] selected_op_names=['_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii'] evidence=/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch1_n128_b057c21c
+  bound_route=['no_dominant_pipe', 'no_dominant_pipe', 'no_dominant_pipe'] scalar_candidate=False roofline=['insufficient_evidence'] pipeline=['unverified']
+p0_batch4_n2048 [4,2048]                            fp16              18.55         4.01     4.620x
+  samples_us=[4.069, 3.607, 4.015] selected_op_names=['_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii'] evidence=/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch4_n2048_230a7547
+  bound_route=['no_dominant_pipe', 'no_dominant_pipe', 'no_dominant_pipe'] scalar_candidate=False roofline=['insufficient_evidence'] pipeline=['unverified']
+p0_batch32_n4096 [32,4096]                           fp16              26.56         4.95     5.370x
+  samples_us=[4.946, 5.026, 4.913] selected_op_names=['_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii'] evidence=/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d
+  bound_route=['no_dominant_pipe', 'no_dominant_pipe', 'no_dominant_pipe'] scalar_candidate=False roofline=['insufficient_evidence'] pipeline=['unverified']
+----------------------------------------------------------------------------------------------------
+--- Golden default-target ratio (NOT baseline-to-final speedup) ---
+  Geomean : 4.41x
+  Mean    : 4.48x
+  Median  : 4.62x
+  Min/Max : 3.46x / 5.37x
+  Golden target cases: 3/3
+  Valid PyPTO measurements: 3/3
+--- PyPTO target-kernel Task Duration (us) ---
+  Golden E2E mean/median/total : 18.99 / 18.55 / 56.98
+  PyPTO mean/median/total : 4.13 / 4.01 / 12.39
+  Aggregate ratio (Σgolden E2E/ΣPyPTO kernel; not target criterion) : 4.60x
+Bound-route note: op_summary ratios are diagnostic only; terminal Roofline and overlap claims require a workload/traffic model plus timeline or equivalent dependency evidence in PERFORMANCE_REPORT.md.
+====================================================================================================
+[INFO] Total elapsed time: 1802.174s

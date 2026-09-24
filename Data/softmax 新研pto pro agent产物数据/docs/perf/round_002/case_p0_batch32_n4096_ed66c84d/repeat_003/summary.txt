@@ -1,0 +1,53 @@
+=== On-device performance statistics summary (msprof) ===
+Op: _Z25softmax_tile_group_kernelPDhS_iiii
+Type: _Z25softmax_tile_group_kernelPDhS_iiii | TaskType: AI_CORE | Duration: 4.913us | BlockDim: 11 (mix=0)
+
+[Note] msprof op_summary is a per-op aggregate value (not per-core min/avg/max);
+     For per-core data, switch to msprof op (requires the msopprof binary).
+
+--- Pipe ratios (dominant core = aiv) ---
+  aicore_time: 0.000us | aiv_time: 4.360us
+  aiv: vec= 32.20% | scalar=  9.60% | mte2=  9.70% | mte3=  8.00% | icache_miss= 12.70%
+
+--- Pipe ratios (dominant core = aiv) ---
+  aicore_time: 0.000us | aiv_time: 4.360us
+  aiv: vec= 32.20% | scalar=  9.60% | mte2=  9.70% | mte3=  8.00% | icache_miss= 12.70%
+
+--- Bound routing (ratio-derived; NOT terminal Roofline proof) ---
+  primary_core=aiv | routing_label=no_dominant_pipe | scalar_route_triggered=False
+  pipeline_overlap=unverified: op_summary ratios have no event ordering; use timeline/dependency evidence before claiming overlap.
+
+--- Overhead ---
+  Task Duration: 4.913us | max core time: 4.360us | overhead: 0.553us (11.3%)
+
+--- Memory bandwidth (aic-metrics=Memory) ---
+  aiv main_mem read: 0.10 GB/s
+  aiv main_mem write: 0.09 GB/s
+  aiv UB read: 8.81 GB/s
+  aiv UB write: 5.68 GB/s
+
+--- MemoryUB ---
+  UB read (vector): 2.09 GB/s
+  UB write (vector): 0.70 GB/s
+
+--- L2Cache ---
+  aiv read: hit=2046 miss=8 hit_rate=99.61%
+  aiv write: hit=256 miss=0 hit_rate=100.00%
+
+--- ResourceConflict ---
+  vec_bank_cflt=  0.10% | vec_resc_cflt= 87.90%
+
+--- Raw data location ---
+  Archived CSV : /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d/repeat_003/
+  source PROF (compare default cleanup): /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/
+  op_summary_<Metric>.csv split by aic-metrics have all been copied to the archive directory, 
+  for per-column inspection, just Read.
+
+--- Metric source ---
+  PipeUtilization        <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_PipeUtilization/PROF_000001_20260831232907894_00294571KMAHLAHG/mindstudio_profiler_output/op_summary_20260831232919.csv
+  ArithmeticUtilization  <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_ArithmeticUtilization/PROF_000001_20260831232927665_00295663QEORQPAC/mindstudio_profiler_output/op_summary_20260831232938.csv
+  Memory                 <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_Memory/PROF_000001_20260831232947026_00296829GBNLKBBG/mindstudio_profiler_output/op_summary_20260831232957.csv
+  MemoryL0               <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_MemoryL0/PROF_000001_20260831233005846_00297756HDDCMHDK/mindstudio_profiler_output/op_summary_20260831233015.csv
+  MemoryUB               <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_MemoryUB/PROF_000001_20260831233023952_00298542PHDFHKBA/mindstudio_profiler_output/op_summary_20260831233034.csv
+  L2Cache                <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_L2Cache/PROF_000001_20260831233043537_00299709MEFJALBK/mindstudio_profiler_output/op_summary_20260831233054.csv
+  ResourceConflictRatio  <- /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_210028_1788189705011300821/repeat_2/PROF_GROUP_20260831_232817/PROF_ResourceConflictRatio/PROF_000001_20260831233103061_00300723EHKMLCCN/mindstudio_profiler_output/op_summary_20260831233112.csv

@@ -1,0 +1,35 @@
+{
+  "collection_id": "compare_20260831_230218_210028",
+  "case": "p0_batch4_n2048",
+  "target_op_name": "_Z25softmax_tile_group_kernelPDhS_iiii",
+  "seven_metric_status": "complete",
+  "per_core_status": "unavailable:no_positive_core_cycles",
+  "per_core_claim_allowed": false,
+  "bound_diagnosis": {
+    "schema_version": 1,
+    "evidence_kind": "op_summary_ratio_route",
+    "primary_core": "aiv",
+    "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+    "aicore_time_us": 0.0,
+    "aiv_time_us": 3.1,
+    "routing_label": "no_dominant_pipe",
+    "triggered_categories": [],
+    "ratios": {
+      "compute": {
+        "aiv_vec_ratio": 0.166
+      },
+      "data_movement": {
+        "aiv_mte2_ratio": 0.103,
+        "aiv_mte3_ratio": 0.079
+      },
+      "scalar": {
+        "aiv_scalar_ratio": 0.147
+      }
+    },
+    "scalar_route_triggered": false,
+    "roofline_terminal_status": "insufficient_evidence",
+    "pipeline_overlap_status": "unverified",
+    "completion_eligible": false,
+    "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+  }
+}

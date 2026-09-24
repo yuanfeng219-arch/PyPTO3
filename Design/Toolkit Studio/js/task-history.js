@@ -1940,8 +1940,11 @@
       ? '<p class="kf-rd-note">可信基线 · <code>' + esc(m.baselineMeta.id) + '</code></p>' +
         '<details class="kf-rw-evidence"><summary>可复现性元数据</summary><div class="kf-rw-evidence-body"><p class="kf-rd-note">source commit · ' + esc(m.baselineMeta.sourceCommit) + ' · backend · ' + esc(m.baselineMeta.backend) + ' · environment · ' + esc(m.baselineMeta.environmentFingerprint) + ' · input · ' + esc(m.baselineMeta.inputShape) + ' · compiler · ' + esc(m.baselineMeta.compilerVersion) + ' · Run ID · ' + esc(m.baselineMeta.runId) + '</p></div></details>' : '';
     const map = window.PTO_RUN_INVESTIGATION?.build(r.id);
-    return (map ? investigationPanel(map) : '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>各 domain 的结论与支撑证据</small></div><div>' + states + '</div></section>' +
-      '<section class="kf-rd-sec"><div class="kf-rd-h">问题发现<small>用户需要处理的问题</small></div>' + findings + fixtureNote + lineage + baseline + optimizationActions + '</section>') +
+    /* 分析状态（kf-rw-health）始终保留；有调查地图时在其后追加调查地图，
+       不再用调查地图把 domain 结论整段顶掉。 */
+    return '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>各 domain 的结论与支撑证据</small></div><div>' + states + '</div></section>' +
+      (map ? investigationPanel(map) : '') +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">问题发现<small>用户需要处理的问题</small></div>' + findings + fixtureNote + lineage + baseline + optimizationActions + '</section>' +
       '<details class="kf-rw-evidence"><summary>诊断证据与产物</summary><div class="kf-rw-evidence-body kf-rw-coverage">' + evidence +
         '<p class="kf-rd-note">原始产物 · ' + raw + '</p></div></details>';
   }

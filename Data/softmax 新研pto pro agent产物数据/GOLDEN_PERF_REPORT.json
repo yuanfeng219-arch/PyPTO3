@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "golden_source": {
+    "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/softmax_golden.py",
+    "sha256": "34c1dd7659e767e84aa6627edb9130c3607e004f46e17eae2a3d3167363d5459",
+    "size_bytes": 16004
+  },
+  "case_manifest_source": {
+    "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/PERFORMANCE_CASES.json",
+    "sha256": "cc8b75f0eb84fb70ab2dbb641cdcdefbd7d68f74032c94f49394381e7d7a90ce",
+    "size_bytes": 487,
+    "schema_version": 1
+  },
+  "device_id": 1,
+  "iterations": 1,
+  "warmup": 3,
+  "repeats": 3,
+  "seed": 42,
+  "timing_scope": "all_golden_npu_kernels",
+  "aggregation": "median_of_repeat_totals",
+  "cases": [
+    {
+      "id": "p0_batch1_n128",
+      "shape": "[1,128]",
+      "dtype": "fp16",
+      "raw_repeat_e2e_us": [
+        12.143999999999998,
+        11.865000000000002,
+        11.838
+      ],
+      "median_total_us": 11.865000000000002,
+      "per_iteration_e2e_us": 11.865000000000002
+    },
+    {
+      "id": "p0_batch4_n2048",
+      "shape": "[4,2048]",
+      "dtype": "fp16",
+      "raw_repeat_e2e_us": [
+        18.703,
+        18.459000000000003,
+        18.55
+      ],
+      "median_total_us": 18.55,
+      "per_iteration_e2e_us": 18.55
+    },
+    {
+      "id": "p0_batch32_n4096",
+      "shape": "[32,4096]",
+      "dtype": "fp16",
+      "raw_repeat_e2e_us": [
+        26.562,
+        27.247999999999998,
+        25.848000000000006
+      ],
+      "median_total_us": 26.562,
+      "per_iteration_e2e_us": 26.562
+    }
+  ]
+}
