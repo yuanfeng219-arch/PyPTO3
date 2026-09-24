@@ -356,137 +356,149 @@
     const P = PASSMETA;
     return P.map(p => {
       const changed = p.d === null ? true : p.d > 0;
-      if (!changed) return { i: p.i, kind: 'same', touched: 0 };
+      if (!changed) return { i: p.i, kind: 'same', touched: 0, changed: false };
       const m = OP_MILESTONES[p.name];
       const r = m && m(P);
       const touched = touchedAt(p.i);
-      if (r) return { i: p.i, kind: r[0], text: r[1], touched, milestone: true };
-      return { i: p.i, kind: 'touch', text: p.desc || '改写了 IR', touched };
+      if (r) return { i: p.i, kind: r[0], text: r[1], touched, milestone: true, changed: true };
+      return { i: p.i, kind: 'touch', text: p.desc || '改写了 IR', touched, changed: true };
     });
   }
 
-  /* ---------- Pass 河 ---------------------------------------------------
-     The previous trace used one equal-width bar per pass. Keep that exact
-     data/selection model, but borrow Pass Atlas' more legible expression:
-     IR form bands above, strata bands behind the execution spine, and a
-     decision dot for meaningful transformations versus a tick for mechanical
-     rewrites. Every node still carries data-kg-p, so the existing detail panel
-     and real pass metadata remain the source of truth. */
-  function passRiver(ev) {
-    // 左槽只放"IR 形态""执行序 →"两个右对齐标签，实测最宽 50px。原先 padL=176
-    // 让 x=0–112 整段空着，而这张图在面板里只能看到约 505px 宽——一进来就有
-    // 五分之一是空的。收到 76（50 标签 + 12 间距 + 14 边距），W 同步减掉同样的
-    // 量，节点间距不变、横向滚动也少一截。
-    const padL = 76;
-    const padR = 28;
+  /* ---------- validation events -----------------------------------------
+     The trace is a Run diagnostic surface. Circle versus vertical bar shows
+     whether a Pass changed IR; its color carries validation only. Callers can
+     supply compilation, correctness, or execution events with one common
+     shape and a pass (or flow) anchor. */
+  const VALIDATION_ORDER = {
+    not_collected: 0, pass: 1, unresolved: 2, warning: 3, error: 4, first_divergence: 5
+  };
+  const VALIDATION_META = {
+    pass: { label: 'MATCH', color: 'var(--foreground-muted)' },
+    warning: { label: 'WARNING', color: 'var(--foreground-muted)' },
+    error: { label: 'MISMATCH', color: 'var(--warning)' },
+    first_divergence: { label: 'FIRST DIVERGENCE', color: 'var(--danger)' },
+    unresolved: { label: 'UNRESOLVED', color: 'var(--foreground-muted)' },
+    not_collected: { label: 'NOT COLLECTED', color: 'var(--foreground-muted)' }
+  };
+  function validationStatus(value) {
+    const key = String(value || '').toLowerCase();
+    if (['pass', 'match', 'passed', 'ok'].includes(key)) return 'pass';
+    if (['warning', 'warn'].includes(key)) return 'warning';
+    if (['error', 'fail', 'failed', 'mismatch'].includes(key)) return 'error';
+    if (['first_divergence', 'first-divergence', 'first divergence'].includes(key)) return 'first_divergence';
+    if (['unresolved', 'pending'].includes(key)) return 'unresolved';
+    return 'not_collected';
+  }
+  function validationAnchor(value) {
+    if (value === 'all' || value === 'run') return value;
+    if (Number.isInteger(value)) return value;
+    const byName = PASSNAMES.indexOf(value);
+    return byName >= 0 ? byName : null;
+  }
+  function fallbackValidationEvents() {
+    const nv = window.PTO_RUN_CONTEXT && window.PTO_RUN_CONTEXT.numericalValidation;
+    if (!nv) return [];
+    const first = validationAnchor(nv.firstDivergentPass);
+    if (Array.isArray(nv.passes) && nv.passes.length) {
+      return nv.passes.map(p => ({
+        id: 'numerical:' + (p.index == null ? p.name : p.index), domain: 'compilation', type: 'numerical',
+        status: p.index === first ? 'first_divergence' : validationStatus(p.status),
+        severity: p.index === first || p.status === 'mismatch' ? 'error' : 'info',
+        anchor: validationAnchor(p.index == null ? p.name : p.index), title: p.name,
+        summary: p.index === first ? 'Host IR execution 在该 Pass 后首次偏离 Golden。' : '', evidence: p
+      }));
+    }
+    return [{
+      id: 'numerical:flow', domain: 'compilation', type: 'numerical',
+      status: validationStatus(nv.status), severity: nv.status === 'fail' ? 'error' : 'info', anchor: 'all',
+      title: '数值校验', summary: nv.summary || '本次 Run 没有逐 Pass 数值证据。', evidence: nv
+    }];
+  }
+  function validationEvents() {
+    const supplied = window.PTO_RUN_CONTEXT && window.PTO_RUN_CONTEXT.validationEvents;
+    const source = Array.isArray(supplied) ? supplied : fallbackValidationEvents();
+    return source.map((event, order) => Object.assign({}, event, {
+      id: event.id || 'validation:' + order,
+      domain: event.domain || 'compilation', type: event.type || 'numerical',
+      status: validationStatus(event.status),
+      anchor: validationAnchor(event.anchor)
+    })).filter(event => event.anchor === 'all' || event.anchor === 'run' || event.anchor !== null);
+  }
+  function validationsAt(index, events) {
+    const matches = events.filter(event => event.anchor === 'all' || event.anchor === index);
+    if (!matches.length) return { status: 'not_collected', events: [] };
+    return matches.reduce((current, event) =>
+      VALIDATION_ORDER[event.status] > VALIDATION_ORDER[current.status]
+        ? { status: event.status, events: matches } : current,
+      { status: 'not_collected', events: matches });
+  }
+  function validationCounts(events) {
+    return PASSMETA.reduce((counts, pass) => {
+      const status = validationsAt(pass.i, events).status;
+      counts[status] = (counts[status] || 0) + 1;
+      return counts;
+    }, {});
+  }
+  function validationMessage(result) {
+    const event = (result.events || []).find(item => item.status === result.status) || result.events[0];
+    return event && event.summary ? event.summary :
+      result.status === 'not_collected' ? '本次 Run 未采集该 Pass 的验证结果。' :
+      result.status === 'pass' ? '已采集的验证结果匹配。' : '';
+  }
+  /* ---------- Pass flow --------------------------------------------------
+     IR form labels stay neutral context. Node colour, rings and labels only
+     express the Validation status of the current Run. */
+  function passRiver(ev, validation) {
+    const padL = 76, padR = 28;
     const W = Math.max(1140, PASSMETA.length * 26 + padL + padR);
-    const irY = 18;
-    const bandY = 52;
-    const bandH = 56;
-    const nodeY = bandY + 34;
-    const H = bandY + bandH + 28;
+    const irY = 18, bandY = 52, bandH = 56, nodeY = bandY + 34, H = bandY + bandH + 32;
     const x = (index) => padL + ((index + 0.5) / PASSMETA.length) * (W - padL - padR);
-    const tipText = (item) => {
-      const pass = PASSMETA[item.i];
-      const status = item.kind === 'same' ? '未改动 IR'
-        : item.kind === 'absent' ? '这个 kernel 轨迹中尚不存在'
-        : item.text || '改写了 IR';
-      return `${String(item.i).padStart(2, '0')} ${pass.name}|${status}${item.touched ? ` · 影响 ${item.touched} 个 kernel` : ''}`;
-    };
     const irLabels = {
-      S0: 'Tensor IR', S1: 'SSA / Tensor', S2: 'Structured IR',
-      S3: 'Tile IR', S4: 'AIC / AIV Kernel', S5: 'MemRef / 物理内存', S6: 'Runtime IR'
+      S0: 'Tensor IR', S1: 'SSA / Tensor', S2: 'Structured IR', S3: 'Tile IR',
+      S4: 'AIC / AIV Kernel', S5: 'MemRef / 物理内存', S6: 'Runtime IR'
     };
-    const milestoneKinds = new Set(['birth', 'struct', 'intent', 'bad', 'mem', 'rt']);
-    let svg = `<svg class="kf-kg-river" viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img" aria-label="IR Pass 河">`;
-    svg += '<defs>' +
-      '<linearGradient id="kgRiverBand" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0%" stop-color="var(--foreground)" stop-opacity=".055"/>' +
-        '<stop offset="100%" stop-color="var(--foreground)" stop-opacity=".015"/>' +
-      '</linearGradient>' +
+    let svg = `<svg class="kf-kg-river" viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img" aria-label="IR Pass 验证流程">`;
+    svg += '<defs><linearGradient id="kgRiverBand" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="var(--foreground)" stop-opacity=".055"/>' +
+      '<stop offset="100%" stop-color="var(--foreground)" stop-opacity=".015"/></linearGradient>' +
       '<linearGradient id="kgRiverSpine" gradientUnits="userSpaceOnUse" x1="' + padL + '" y1="0" x2="' + (W - padR) + '" y2="0">' +
-        '<stop offset="0%" stop-color="var(--foreground)" stop-opacity=".05"/>' +
-        '<stop offset="12%" stop-color="var(--foreground)" stop-opacity=".2"/>' +
-        '<stop offset="88%" stop-color="var(--foreground)" stop-opacity=".2"/>' +
-        '<stop offset="100%" stop-color="var(--foreground)" stop-opacity=".05"/>' +
-      '</linearGradient>' +
-      '</defs>';
-
-    STRATA.forEach((stratum) => {
-      const start = Math.max(0, stratum.from);
-      const end = Math.min(PASSMETA.length - 1, stratum.to);
+      '<stop offset="0%" stop-color="var(--foreground)" stop-opacity=".05"/><stop offset="12%" stop-color="var(--foreground)" stop-opacity=".2"/>' +
+      '<stop offset="88%" stop-color="var(--foreground)" stop-opacity=".2"/><stop offset="100%" stop-color="var(--foreground)" stop-opacity=".05"/></linearGradient></defs>';
+    STRATA.forEach(stratum => {
+      const start = Math.max(0, stratum.from), end = Math.min(PASSMETA.length - 1, stratum.to);
       if (end < start) return;
-      const left = x(start) - 11;
-      const right = x(end) + 11;
-      const color = `var(--irp-${stratum.id.toLowerCase()})`;
-      svg += `<rect class="kf-kg-river-band" x="${left}" y="${bandY}" width="${right - left}" height="${bandH}" rx="10" fill="url(#kgRiverBand)" stroke="${color}" stroke-opacity=".28"/>`;
+      const left = x(start) - 11, right = x(end) + 11;
+      svg += `<rect class="kf-kg-river-band" x="${left}" y="${bandY}" width="${right - left}" height="${bandH}" rx="10" fill="url(#kgRiverBand)" stroke="var(--border-default)" stroke-opacity=".8"/>`;
       svg += `<text class="kf-kg-river-band-label" x="${(left + right) / 2}" y="${bandY + 16}" text-anchor="middle">${esc(stratum.id + ' · ' + stratum.name)}</text>`;
-    });
-
-    STRATA.forEach((stratum) => {
-      const start = Math.max(0, stratum.from);
-      const end = Math.min(PASSMETA.length - 1, stratum.to);
-      if (end < start) return;
-      const left = x(start) - 9;
-      const right = x(end) + 9;
-      const label = irLabels[stratum.id] || stratum.name;
-      svg += `<rect class="kf-kg-river-irbox" x="${left}" y="${irY - 10}" width="${Math.max(46, right - left - 4)}" height="19" rx="9"/>`;
-      svg += `<text class="kf-kg-river-ir" x="${left + 10}" y="${irY + 3}">${esc(label)}</text>`;
+      const irLeft = x(start) - 9, irRight = x(end) + 9;
+      svg += `<rect class="kf-kg-river-irbox" x="${irLeft}" y="${irY - 10}" width="${Math.max(46, irRight - irLeft - 4)}" height="19" rx="9"/>`;
+      svg += `<text class="kf-kg-river-ir" x="${irLeft + 10}" y="${irY + 3}">${esc(irLabels[stratum.id] || stratum.name)}</text>`;
     });
     svg += `<text class="kf-kg-river-label" x="${padL - 12}" y="${irY + 3}" text-anchor="end">IR 形态</text>`;
     svg += `<line class="kf-kg-river-spine" x1="${padL}" y1="${nodeY}" x2="${W - padR}" y2="${nodeY}" stroke="url(#kgRiverSpine)"/>`;
-    svg += `<text class="kf-kg-river-label" x="${padL - 12}" y="${nodeY + 4}" text-anchor="end">执行序 →</text>`;
-
+    svg += `<text class="kf-kg-river-label" x="${padL - 12}" y="${nodeY + 4}" text-anchor="end">验证序 →</text>`;
     PASSMETA.forEach((pass, index) => {
-      const item = ev[index];
-      const meaningful = milestoneKinds.has(item.kind);
-      const selected = item.i === st.pass;
-      const color = `var(--irp-${(pass.s || 'S0').toLowerCase()})`;
-      const cls = ['kf-kg-river-node', meaningful ? 'is-milestone' : 'is-mechanical', selected ? 'is-sel' : ''].filter(Boolean).join(' ');
-      const nodeX = x(index);
-      const labelY = meaningful ? nodeY + 25 : nodeY + 22;
+      const item = ev[index], result = validationsAt(pass.i, validation), meta = VALIDATION_META[result.status];
+      const selected = item.i === st.pass, nodeX = x(index);
+      const changed = !!item.changed;
+      const hasError = result.status === 'first_divergence' || result.status === 'error';
+      const markerColor = hasError ? meta.color : 'var(--border-strong)';
+      const cls = ['kf-kg-river-node', 'is-' + result.status, selected ? 'is-sel' : ''].filter(Boolean).join(' ');
       const title = esc(`${String(pass.i).padStart(2, '0')} ${pass.name}`);
-      svg += `<g class="${cls}" data-kg-p="${pass.i}" data-kg-tip="${esc(tipText(item))}" tabindex="0" role="button" aria-label="${title}">`;
-      if (meaningful) {
-        svg += `<circle class="kf-kg-river-glow" cx="${nodeX}" cy="${nodeY}" r="13" fill="${color}"/>`;
-        svg += `<circle class="kf-kg-river-ring" cx="${nodeX}" cy="${nodeY}" r="9.5" fill="none" stroke="${color}" stroke-width="1"/>`;
-        svg += `<circle class="kf-kg-river-dot" cx="${nodeX}" cy="${nodeY}" r="6.5" fill="${color}" stroke="var(--background)" stroke-width="1.8"/>`;
-        svg += `<text class="kf-kg-river-index" x="${nodeX}" y="${labelY}" text-anchor="middle">${String(pass.i).padStart(2, '0')}</text>`;
+      const tip = `${String(pass.i).padStart(2, '0')} ${pass.name}|${meta.label} · ${validationMessage(result) || meta.label}`;
+      const label = result.status === 'first_divergence' ? 'FIRST' : String(pass.i).padStart(2, '0');
+      svg += `<g class="${cls}" data-kg-p="${pass.i}" data-kg-tip="${esc(tip)}" tabindex="0" role="button" aria-label="${title} · ${meta.label}">`;
+      if (changed) {
+        svg += `<circle class="kf-kg-river-glow" cx="${nodeX}" cy="${nodeY}" r="${result.status === 'first_divergence' ? 15 : 12}" fill="${markerColor}"/>`;
+        svg += `<circle class="kf-kg-river-ring" cx="${nodeX}" cy="${nodeY}" r="${result.status === 'first_divergence' ? 10.5 : 8.5}" fill="none" stroke="${markerColor}" stroke-width="${result.status === 'first_divergence' ? 2 : 1.2}"/>`;
+        svg += `<circle class="kf-kg-river-dot" cx="${nodeX}" cy="${nodeY}" r="${result.status === 'first_divergence' ? 6.8 : 5.8}" fill="${hasError ? markerColor : 'var(--surface-3)'}" stroke="${markerColor}" stroke-width="1.4"/>`;
       } else {
-        svg += `<circle class="kf-kg-river-glow" cx="${nodeX}" cy="${nodeY}" r="8" fill="var(--foreground)"/>`;
-        svg += `<line class="kf-kg-river-tick" x1="${nodeX}" y1="${nodeY - 4.5}" x2="${nodeX}" y2="${nodeY + 4.5}"/>`;
+        svg += `<line class="kf-kg-river-tick" x1="${nodeX}" y1="${nodeY - 6}" x2="${nodeX}" y2="${nodeY + 6}" stroke="${markerColor}"/>`;
       }
-      svg += `<title>${title}</title></g>`;
+      svg += `<text class="kf-kg-river-index" x="${nodeX}" y="${result.status === 'first_divergence' ? nodeY + 30 : nodeY + 25}" text-anchor="middle">${label}</text><title>${title}</title></g>`;
     });
-    svg += '</svg>';
-    return svg;
-  }
-
-  const KIND_LABEL = {
-    struct: '结构变换', intent: '意图相关', bad: '意图被破坏',
-    mem: '内存', rt: '运行时', touch: '普通改动',
-    same: '未改动', birth: '诞生', absent: '尚不存在'
-  };
-  const MILESTONE_KINDS = ['birth', 'struct', 'intent', 'bad', 'mem', 'rt'];
-
-  function strataBands() {
-    return STRATA.map(s => {
-      const n = s.to - s.from + 1;
-      return '<span style="--kg-c: var(--irp-' + s.id.toLowerCase() + '); flex:' + n + ' 1 0">' +
-        (n > 3 ? s.id + ' ' + s.name : n > 1 ? s.id : '') + '</span>';
-    }).join('');
-  }
-
-  function legendFor(ev) {
-    const present = [];
-    ['struct', 'intent', 'bad', 'mem', 'rt', 'touch', 'same', 'birth', 'absent']
-      .forEach(kd => { if (ev.some(e => e.kind === kd)) present.push(kd); });
-    return '<div class="kf-kg-legend">' + present.map(kd => {
-      const s = ev.find(e => e.kind === kd);
-      const strat = STRATA.find(x => s.i >= x.from && s.i <= x.to);
-      return '<span><i class="is-' + kd + (MILESTONE_KINDS.indexOf(kd) >= 0 ? ' is-milestone' : '') +
-        '" style="--kg-c: var(--irp-' + (strat ? strat.id.toLowerCase() : 's3') + ')"></i>' + KIND_LABEL[kd] + '</span>';
-    }).join('') + '</div>';
+    return svg + '</svg>';
   }
 
   /* ---------- kernel lineage ----------------------------------------------
@@ -588,15 +600,17 @@
 
   function renderTrace() {
     const ev = opEvents();
-    const miles = ev.filter(e => e.milestone);
+    const validation = validationEvents();
+    const counts = validationCounts(validation);
 
     // Selected pass → operator-level detail from the global per-pass record.
     const p = st.pass !== null ? PASSMETA[st.pass] : null;
     let detail = '';
     if (p) {
       const e = ev[st.pass];
+      const result = validationsAt(p.i, validation);
+      const resultMeta = VALIDATION_META[result.status];
       const prev = st.pass > 0 ? PASSMETA[st.pass - 1] : null;
-      const strat = STRATA.find(x => p.i >= x.from && p.i <= x.to);
       const props =
         p.gain.map(x => '<span class="kf-kg-prop">+' + x + '</span>').join('') +
         p.lose.map(x => '<span class="kf-kg-prop is-lost">−' + x + '</span>').join('') ||
@@ -618,7 +632,7 @@
             '<div class="kf-kg-pchg-list">' + changedKs.map(x => {
               const born = x.kp.st === 'born';
               return '<span class="kf-kg-pchg-item' + (born ? ' is-born' : '') + '">' +
-                '<i style="color:' + (TYPE_C[x.k.type] || TYPE_C.Unknown) + '">' +
+                '<i>' +
                   esc(x.k.type.slice(0, 3).toUpperCase()) + '</i>' +
                 '<b>' + esc(x.k.name) + '</b>' +
                 '<em>' + (born ? '在此 Pass 诞生' : '变更 ' + x.kp.n + ' 处') + '</em>' +
@@ -630,12 +644,14 @@
       detail =
         '<div class="kf-kg-pdetail">' +
           '<div class="kf-kg-pdhead">' +
-            '<span class="kf-kg-pdi" style="background: var(--irp-' + (strat ? strat.id.toLowerCase() : 's0') + ')">' +
+            '<span class="kf-kg-pdi is-' + result.status + '" style="background:' + resultMeta.color + '">' +
               String(p.i).padStart(2, '0') + '</span>' +
             '<b>' + esc(p.name) + '</b>' +
             '<span class="kf-kg-dtag">' + esc(p.c) + '</span>' +
-            '<span class="kf-kg-pdk">' + (e && e.touched ? '影响 ' + e.touched + ' / ' + K.kernels.length + ' 个 kernel' : '未改动 IR') + '</span>' +
+            '<span class="kf-kg-vtag is-' + result.status + '">' + resultMeta.label + '</span>' +
+            '<span class="kf-kg-pdk">' + (e && e.touched ? '影响 ' + e.touched + ' / ' + K.kernels.length + ' 个 kernel' : '无 kernel 变更') + '</span>' +
           '</div>' +
+          '<p class="kf-kg-vsummary">' + esc(validationMessage(result)) + '</p>' +
           '<p class="kf-kg-pdesc">' + esc(p.desc || '') + '</p>' +
           '<div class="kf-kg-pstats">' +
             stat('IR 行数', p.l, dl(p.l, prev && prev.l)) +
@@ -657,11 +673,14 @@
     els.trace.innerHTML =
       '<div class="kf-kg-thead">' +
         '<h4>编译 IR 全流程 · <b>' + esc(K.source.replace(/_\d{8}_\d{6}$/, '')) + '</b></h4>' +
-        '<span class="kf-kg-tmeta">' + miles.length + ' 个关键事件 · ' +
-          ev.filter(e => e.kind !== 'same').length + ' / ' + ev.length + ' 个 pass 改动了 IR</span>' +
+        '<span class="kf-kg-tmeta">' +
+          (counts.first_divergence ? '1 FIRST DIVERGENCE · ' : '') +
+          (counts.error || 0) + ' MISMATCH · ' + (counts.pass || 0) + ' MATCH · ' +
+          (counts.warning ? counts.warning + ' WARNING · ' : '') +
+          (counts.unresolved ? counts.unresolved + ' UNRESOLVED · ' : '') +
+          (counts.not_collected || 0) + ' NOT COLLECTED</span>' +
       '</div>' +
-      '<div class="kf-kg-river-wrap">' + passRiver(ev) + '</div>' +
-      legendFor(ev) +
+      '<div class="kf-kg-river-wrap">' + passRiver(ev, validation) + '</div>' +
       detail;
   }
   const stat = (t, v, d) =>
@@ -838,13 +857,13 @@
   /* ---------- per-kernel trace (inside an expanded row) ---------- */
   function kernelStrip(k) {
     const ev = eventsOf(k);
+    const validation = validationEvents();
     const slots = ev.map(e => {
-      const s = STRATA.find(x => e.i >= x.from && e.i <= x.to);
-      const what = e.kind === 'absent' ? '尚不存在' : e.kind === 'same' ? '未改动' : e.text;
-      return '<button type="button" class="kf-kg-slot is-' + e.kind + (e.milestone ? ' is-milestone' : '') +
+      const result = validationsAt(e.i, validation);
+      const what = VALIDATION_META[result.status].label + ' · ' + (validationMessage(result) || '未采集逐 Pass 证据');
+      return '<button type="button" class="kf-kg-slot is-' + result.status +
         (e.i === st.kpass ? ' is-sel' : '') + '"' +
         ' data-kg-kp="' + e.i + '" data-kg-tip="' + esc(String(e.i).padStart(2, '0') + ' ' + PASSNAMES[e.i] + '|' + what) + '"' +
-        ' style="--kg-c: var(--irp-' + (s ? s.id.toLowerCase() : 's0') + ')"' +
         ' aria-label="' + esc(PASSNAMES[e.i] + ' — ' + what) + '"><i></i><em>' +
         String(e.i).padStart(2, '0') + '</em></button>';
     }).join('');
@@ -855,7 +874,6 @@
       : '<p class="kf-kg-none">点击色块查看该 pass 对这个 kernel 做了什么。</p>';
 
     return '<div class="kf-kg-track is-mini">' +
-        '<div class="kf-kg-strata">' + strataBands() + '</div>' +
         '<div class="kf-kg-slots">' + slots + '</div>' +
       '</div>' + hunk;
   }
@@ -1034,6 +1052,11 @@
   // Let other panels drill into one kernel here (the run detail heatmap does).
   window.PTO_GUARD = {
     activate: activateVisuals,
+    refreshValidation() {
+      if (!els) return false;
+      if (visualsReady) { renderTrace(); renderLineage(); }
+      return true;
+    },
     /* #kgTrace 会被 Run → Compilation 借去当独立页签（见 ir-compilation-view.js）。
        用引用而不是 querySelector，节点被搬走、或被 innerHTML 冲成游离节点后
        仍能拿回来；归还用 appendChild —— kernelGuard 的末子节点就是它。 */
@@ -1054,6 +1077,17 @@
       syncHead();
       const row = els.list && els.list.querySelector('.kf-kg-item.is-open');
       if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return true;
+    },
+    selectPass(name) {
+      if (!els) return false;
+      const index = Number.isInteger(name) ? name : PASSNAMES.indexOf(String(name));
+      if (!Number.isInteger(index) || index < 0 || index >= PASSMETA.length) return false;
+      st.pass = index; st.fact = 0;
+      activateVisuals();
+      renderTrace(); renderLineage();
+      const detail = els.trace && els.trace.querySelector('.kf-kg-pdetail');
+      if (detail) detail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       return true;
     }
   };

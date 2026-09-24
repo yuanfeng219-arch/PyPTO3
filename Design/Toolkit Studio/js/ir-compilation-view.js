@@ -419,45 +419,6 @@
     return 'rtol ' + fmtNumber(nv.tolerance.rtol) + ' · atol ' + fmtNumber(nv.tolerance.atol);
   }
 
-  function numericalWindow(nv) {
-    const first = firstDivergentIndex(nv);
-    if (first < 0) return [];
-    const at = nv.passes.findIndex(p => p.index === first);
-    if (at < 0) return [];
-    return nv.passes.slice(Math.max(0, at - 3), Math.min(nv.passes.length, at + 4));
-  }
-
-  function numericalValidationHTML() {
-    const nv = numericalValidation();
-    const checked = nv.passes.filter(p => p.status !== 'not_checked');
-    const matched = nv.passed != null ? nv.passed : checked.filter(p => p.status === 'match').length;
-    const total = nv.total != null ? nv.total : checked.length;
-    const first = firstDivergentIndex(nv);
-    let tone = 'idle', status = 'NOT COLLECTED', message = '本次 Run 没有逐 Pass 数值证据。';
-    if (nv.status === 'pass') {
-      tone = 'ok'; status = matched + ' / ' + total + ' PASS';
-      message = '编译器未引入语义分歧，可继续查看「正确性」或「执行」。';
-    } else if (nv.status === 'fail') {
-      tone = 'bad'; status = 'FIRST DIVERGENCE · ' + (PASSNAMES[first] || nv.firstDivergentPass || '—');
-      message = 'Host execution 在该 Pass 之后首次偏离 Golden。';
-    }
-    const rows = nv.status === 'fail' ? numericalWindow(nv).map(p => {
-      const isFirst = p.index === first;
-      const label = isFirst ? 'FIRST DIVERGENCE' : p.status === 'match' ? 'MATCH' : p.status === 'mismatch' ? 'MISMATCH' : 'NOT CHECKED';
-      return '<button type="button" class="kc-nv-pass is-' + (isFirst ? 'first' : p.status) +
-        '" data-kc-pass="' + p.index + '"' + (isFirst ? ' aria-current="true"' : '') + '>' +
-        '<span>' + esc(p.name) + '</span><b>' + esc(label) + '</b><i>›</i></button>';
-    }).join('') : '';
-    return '<section class="kc-nv is-' + tone + '" aria-labelledby="kcNvTitle">' +
-      '<div class="kc-nv-head"><div><span class="kc-nv-kicker">编译语义</span>' +
-        '<h2 id="kcNvTitle">数值校验</h2></div>' +
-        '<div class="kc-nv-result"><b>' + esc(status) + '</b><span>' + esc(message) + '</span></div>' +
-        '<small>' + esc(toleranceText(nv)) + '</small></div>' +
-      (rows ? '<div class="kc-nv-passes" aria-label="Pass numerical validation sequence">' + rows + '</div>' : '') +
-      (nv.status === 'fail' ? '<p class="kc-nv-note">展示首个分歧附近的校验窗口。选择一个 Pass，可在既有 IR diff 中查看。</p>' : '') +
-    '</section>';
-  }
-
   function findingsHTML() {
     const s = findingSets();
     return '<div class="kc-findings">' + FINDINGS.map(f => {
@@ -803,7 +764,6 @@
     const semanticHandoff = runContext().runId === 'run_109' && numericalValidation().status === 'fail';
     return '<section class="kc" data-kc>' +
       (semanticHandoff ? '' : summaryHTML() + contextHTML()) +
-      numericalValidationHTML() +
       (semanticHandoff ? secondarySignalsHTML(findingCount) :
         '<div class="kc-sect"><div><h2>需要关注</h2>' +
           '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div>' +
@@ -865,6 +825,7 @@
     // activate() 会顺带把还没画过的河流图补上。
     if (G.select && st.kernel && byName(st.kernel)) G.select(st.kernel);
     else if (G.activate) G.activate();
+    if (st.expandedPass != null && G.selectPass) G.selectPass(st.expandedPass);
   }
 
   function paint() {
@@ -993,11 +954,10 @@
       const scroll = $('[data-kc-scroll]', host);
       const left = scroll ? scroll.scrollLeft : 0;
       const index = Number(pass.dataset.kcPass);
-      const fromNumericalSummary = !!pass.closest('.kc-nv');
-      openPass(index, { toggle: !fromNumericalSummary, scroll: fromNumericalSummary });
+      openPass(index, { toggle: true, scroll: false });
       requestAnimationFrame(() => {
         const next = $('[data-kc-scroll]', host);
-        if (next && !fromNumericalSummary) next.scrollLeft = left;
+        if (next) next.scrollLeft = left;
       });
       return;
     }
@@ -1026,7 +986,7 @@
     const key = [runContext().runId || '', nv.status, index].join(':');
     if (index < 0 || st.numericalFocusKey === key) return;
     st.numericalFocusKey = key;
-    st.pane = 'kernel';
+    st.pane = 'trace';
     st.expandedPass = index;
   }
 
@@ -1071,7 +1031,11 @@
       if (!host) return false;
       const index = PASSNAMES.indexOf(String(name));
       if (index < 0) return false;
-      openPass(index, { toggle: false, scroll: true });
+      st.pane = 'trace';
+      st.expandedPass = index;
+      showPane();
+      const selected = window.PTO_GUARD?.selectPass?.(index);
+      if (!selected) return false;
       return true;
     },
     /* Correctness 可将它已有的 compiler evidence 原样传入。若已知首个
