@@ -1,0 +1,1868 @@
+{
+  "op": "flash_attention_mha",
+  "device_id": "7",
+  "target": {
+    "metric": "latency_us",
+    "P_ref": 800.0,
+    "lower_is_better": true
+  },
+  "config": {
+    "stagnation_K": 7,
+    "infeasible_K": 16,
+    "staged_prior": true,
+    "wall_clock_limit_s": 100000000,
+    "eval_timeout_s": 300,
+    "eval_budget": null,
+    "global_stagnation_limit": null,
+    "stage_convergence": false,
+    "stage_min_gain": 0.01,
+    "bo_free_trials": 0,
+    "bo_startup_min_feasible": 5,
+    "stage_patience": 2,
+    "tile_bo": true,
+    "symptom_boost": 1.3,
+    "static_feasibility": true,
+    "action_preconditions": true,
+    "conversion_actions": true,
+    "block_budget_share": null
+  },
+  "_seq": 57,
+  "progress": {
+    "active_stage": "frontend",
+    "stage_stagnation": 0,
+    "evals_used": 27,
+    "wall_clock_s": 65644,
+    "_start_ts": 1789544728.6858408,
+    "global_stagnation": 0,
+    "best_J": 22.923,
+    "preopt_us": 4188.06,
+    "best_latency_us": 3489.94,
+    "best_speedup_vs_preopt": 1.2,
+    "cycle_productive": true,
+    "converged": false,
+    "static_rejected": 0,
+    "duplicate_rejected": 6,
+    "frontier_emptied_by_prune": 0,
+    "expansion_requests": 0,
+    "expansion_required": false,
+    "stop_reason": null,
+    "refine": {
+      "action": "u2",
+      "best": null,
+      "threshold_J": 22.923,
+      "n": 3,
+      "n_static": 0,
+      "dup_streak": 1
+    },
+    "block_evals": 4,
+    "early_close_refused": 1
+  },
+  "nodes": {
+    "closed": [
+      {
+        "id": "root",
+        "parent": null,
+        "stage": "frontend",
+        "code_hash": "c3b066faeff95f3b3eed8a6128ece5ca1a4d74dcef6317ff206dac4f36a0aafc",
+        "J": 19.1019,
+        "eval": {
+          "s": 1,
+          "p": 4188.06,
+          "m": {
+            "util": 79.71,
+            "bubble": 8.5602,
+            "aic_util": 87.16,
+            "aiv_util": 73.85,
+            "pred_stall": 18.49,
+            "aic_bubble": 3.03,
+            "aiv_bubble": 11.33
+          }
+        }
+      },
+      {
+        "id": "x57",
+        "parent": "root",
+        "stage": "frontend",
+        "code_hash": "15ece4199dcf644d559cf738831cef2218e7c99f8aef935ff2796792f74d50fd",
+        "J": 22.923,
+        "eval": {
+          "s": 1,
+          "p": 3489.94,
+          "m": {
+            "util": 85.71,
+            "bubble": 4.8231,
+            "aic_util": 92.14,
+            "aiv_util": 82.51,
+            "pred_stall": 12.08,
+            "aic_bubble": 0.53,
+            "aiv_bubble": 6.97
+          }
+        }
+      }
+    ],
+    "open": [
+      {
+        "id": "u2",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-2",
+        "delta": "increase per-loop compute via larger tiling or loop_unroll",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u3",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-3",
+        "delta": "reduce loop count by increasing tile size / chunking",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u4",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-4",
+        "delta": "hoist reshape(inplace=True) globally; fold squeeze/unsqueeze; combine axes",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u5",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-5",
+        "delta": "replace pypto.loop over a static axis with a Python for",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u6",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-6",
+        "delta": "merge independent loops that have no data dependency",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u7",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-7",
+        "delta": "chunk the outer dynamic axis to increase task count. Pairs with F-8: chunk here, then unroll the innermost loop; chunking alone raises granularity without raising parallelism.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u8",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-8",
+        "delta": "set inner-loop unroll_list. The values are PARALLEL BLOCK SIZES in descending priority order, not unroll counts: [8,4,2,1] asks for 8 blocks in parallel and falls back through 4, 2, 1. Innermost pypto.loop only (OL49), and no value above that loop's trip count. A bigger loop wants a longer list -- [8,4,2,1] is the adaptable default, [128,64,16,8,1] suits large ones, and [128,64,16,4,1] measured 3.3x to 8.9x on six GroupedMatmulSwigluQuant cases, bit-exact. Each value costs one compilation path (OL56), so length is paid in wall clock. Pairs with F-7: chunk the outer axis for task granularity, then unroll the inner one for parallelism -- neither alone reaches what the two do together.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u9",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-9",
+        "delta": "set Cube TileShape to the recommended config",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u10",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-10",
+        "delta": "set Vector tile shapes (set_vec_tile_shapes)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u11",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-11",
+        "delta": "tune constant config (BLOCK_SIZE etc.)",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u12",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-12",
+        "delta": "use NZ format for large weight matrices",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u13",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-13",
+        "delta": "optimize transpose fused with matmul",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u14",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-14",
+        "delta": "eliminate redundant concat/assemble data movement",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u17",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-17",
+        "delta": "cut GM traffic by materializing less -- recompute cheap intermediates on demand instead of storing them, or store fewer / smaller cache tensors (store-vs-recompute tradeoff). Highest-leverage lever on memory-bound kernels. Applies only to kernels that write large intermediates / caches to GM; N/A when nothing large is materialized",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "materializes_large_intermediate"
+        ]
+      },
+      {
+        "id": "u18",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-18",
+        "delta": "store internal tensors / carried state in BF16 while accumulating in FP32 (cast->compute->cast) to halve storage and data-movement traffic. Suited to precision-tolerant kernels whose spec tolerance allows reduced-precision storage",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u20",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-1",
+        "delta": "analyze core usage (analyze_core_usage.py) to guide balancing",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u21",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-2",
+        "delta": "increase task count by shrinking L0/L1 tiles to fill cores",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u22",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-3",
+        "delta": "rebalance load: sort subgraphs by total(us) and fix the bottleneck",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u23",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-4",
+        "delta": "manually merge vector subgraphs (sg_set_scope)",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u24",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-5",
+        "delta": "auto-merge short AIV tasks (nbuffer)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u25",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-20",
+        "delta": "REMOVE vec_nbuffer_setting, or narrow its key set from the all-subgraphs {-1: N} form to a targeted {index: N}. FORM and GRANULARITY are separable axes and conflating them is expensive: on glm_v4_5_ifa_attention the all-subgraphs form LOST 16 us across a heterogeneous vector pipeline (5 sites carrying 4 distinct tile shapes) while depth on the single homogeneous scope GAINED 22 us. Count the DISTINCT TILE SHAPES the pipeline governs before choosing the form: {-1: N} is a candidate only when that count is 1.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u26",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-6",
+        "delta": "enable Cube L1Reuse to remove repeated loads",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u27",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-18",
+        "delta": "REMOVE a cube_l1_reuse_setting entry, or drop the option entirely. The optimum is not always a positive depth: on glm_v4_5_ifa_attention the second matmul's best was NO ENTRY (none 105.78 vs depth 2 110.24 vs depth 8 115.90 us). The mechanism is structural rather than empirical -- that matmul's B operand supplies the K REDUCTION axis and is consumed exactly once per iteration, so no depth can amortize the GM->L1 fill. Depth pays only where the operand is streamed against a small M tile.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u28",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-7",
+        "delta": "merge homogeneous short cube subgraphs (CubeNBuffer)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u29",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-19",
+        "delta": "REMOVE cube_nbuffer_setting, or drop a subgraph from its key set. Merge granularity is UNIMODAL, not monotone: on glm_v4_5_ifa_attention 1/2/4/8 measured 110.88 / 102.56 / 109.56 / 132.78 us, so both too little and too much merging cost time, and granularity 1 sat inside the unset kernel's own band.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u30",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-8",
+        "delta": "combine L1Reuse + CubeNBuffer",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u31",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-9",
+        "delta": "tune stitch (stitch_function_max_num)",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u32",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-10",
+        "delta": "adjust scheduling (device_sched_mode)",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u33",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-11",
+        "delta": "deep-tune Cube TileShape (reduce reloads / K-axis split)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u34",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-12",
+        "delta": "deep-tune Vector TileShape aligned to up/downstream (swimlane-driven)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u35",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-13",
+        "delta": "optimize matmul core layout to raise L2 hit rate",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u36",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-14",
+        "delta": "fuse adjacent producer->consumer ops so the intermediate stays on-chip (L1/UB), eliminating the copy_out->copy_in Global-Memory round-trip",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u37",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-15",
+        "delta": "pipeline / double-buffer so MTE data-movement overlaps Cube and Vec compute -- copy, cube, and vec run concurrently to fill the idle bubble",
+        "V": 0.95,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u38",
+        "parent": "x57",
+        "stage": "swimlane",
+        "catalog_id": "S-16",
+        "delta": "tune JIT runtime_options stitch memory pools: raise stitch_function_inner_memory and stitch_function_outcast_memory (e.g. 128->1024) and optionally stitch_function_num_initial (128->256) -- larger inner/outcast lets the runtime pack more work per root-function / device-task (more fusion, fewer launches) on heavy multi-subgraph kernels. Distinct from S-9 (stitch_function_max_num)",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u40",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-1",
+        "delta": "Vector-preprocess (reshape) a small-shape matmul",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u41",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-2",
+        "delta": "set large weights NONE_CACHEABLE (batch for fused ops)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u42",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-13",
+        "delta": "clear NONE_CACHEABLE from a tensor that carries it. The hint costs nothing to set and is therefore easy to leave on a tensor that is in fact reused, where it defeats the cache it was meant to bypass. No measurement on this axis yet -- it is here so the axis is two-directional, not because removal is expected to win.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u43",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-3",
+        "delta": "duplicate data to break a dependency and free redundant compute",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u44",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-4",
+        "delta": "grow the tail axis (concat/transpose) for 32B alignment",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u45",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-5",
+        "delta": "review TileOperation impl against Ascend C",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u46",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-6",
+        "delta": "fix non-contiguous TileOperation inputs (reshape/transpose)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u47",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-7",
+        "delta": "gather via cube_tile (HBM->L1), scatter via assemble (L1->HBM)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u48",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-8",
+        "delta": "set submit_before_loop=True to overlap compute and data movement",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u49",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-12",
+        "delta": "clear or REMOVE submit_before_loop from the loop that carries it. This directive is NOT monotonically good and the two measurements point opposite ways: removing it entirely took flash_attention_mha from 21732 to ~8390 us (2.59x, the compiler's own pipelining took over), while setting it True on glm_v4_5_ifa_attention measured 667.54 us against an 80.6 us incumbent -- an 8x regression with util collapsing to 12.8%. Try removal wherever I-8 is already satisfied. If no loop carries the directive this edit is a no-op and the duplicate cache rejects it for free.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u50",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-9",
+        "delta": "mark valid_shape to avoid tail zero-pad compute",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u51",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-10",
+        "delta": "compute-once-and-reuse: remove redundant / recomputed intermediates to cut total op count",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "materializes_large_intermediate"
+        ]
+      },
+      {
+        "id": "u52",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-20",
+        "delta": "replace a vector reduction (sum / amax over an axis) with a matmul against a ones vector so the reduction runs on the Cube pipe instead of Vector -- Cube throughput on Ascend is far higher, and this also unlocks the cube-tiling actions for a kernel that had no matmul. Applies to kernels with a large reduction axis; N/A when the reduction is already a matmul or the axis is tiny",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u53",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-21",
+        "delta": "fuse two or more matmuls that SHARE A LEFT OPERAND into one: concatenate their right operands (and biases) on the host inside the wrapper, issue a single matmul over the combined N, and split the result back with pypto.view. The wrapper signature, shapes, dtypes and layout are unchanged, so the operator's public contract holds -- the concatenation is host work inside Layer K, exactly as F-16 pre-broadcasts on the host. This is a SOURCE rewrite and is NOT the same action as cube_l1_reuse_setting / cube_nbuffer_setting, which ask the compiler to merge two subgraphs that remain two matmuls; on fused_swiglu those passes cost 4-14 us while the source-level fusion reached the best kernel on record. Fusing changes the cube N extent, so the cube tile and the M-axis granularity must be re-tuned afterwards and any prune of those axes taken on the unfused program is stale",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u55",
+        "parent": "x57",
+        "stage": "frontend",
+        "catalog_id": "F-23",
+        "delta": "INTERLEAVE N iterations of an outer pypto.loop into an inner one, so N independent chains run concurrently instead of one after another. Replicate every loop-carried accumulator N times, fold the outer axis in with `for j in range(N)` and index it as `outer*N + j`, and divide the outer loop's trip count by N. Raises the number of independent work items without changing the total work, which is the lever when the profile says the pipes are idle and waiting on each other rather than saturated. Measured 8390 -> 4580 us on flash_attention_mha. THIS MUST BE A SOURCE REWRITE. The directive that would express it, F-8's unroll_list, cannot reach an outer loop: OL49 confines it to the innermost pypto.loop because an outer unroll_list causes exponential compile-path growth AND a register-copy pass defect that corrupts precision (pypto-precision-debug #223, #341). Do not attempt to relax that rule. THE TRAP, and it is silent: raising N WITHOUT replicating the accumulators leaves N independent chains sharing one running state. The kernel still compiles and still runs. Replicate first, then raise N. N must divide the outer trip count. Often pairs with F-5, because the inner loop has to become a Python `for` before the bodies can be interleaved at all.",
+        "V": 0.85,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_nested_pypto_loop"
+        ]
+      },
+      {
+        "id": "u56",
+        "parent": "x57",
+        "stage": "incore",
+        "catalog_id": "I-11",
+        "delta": "move a small matmul onto the Vector pipe when the Cube tile is mostly padding -- the inverse of I-1, for shapes where cube occupancy is so low that the fixed cost dominates. Applies only when a matmul's M or N is far below the cube tile granularity",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      }
+    ],
+    "pruned": [],
+    "held": [
+      {
+        "id": "u15",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-15",
+        "delta": "combine trailing broadcast axis (combine_axis)",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_broadcast"
+        ]
+      },
+      {
+        "id": "u16",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-16",
+        "delta": "pass low-rank tensors (beta / q_rstd / k_rstd / scale) pre-broadcast from the host as (B,N,S,D) so NO in-kernel expand is needed -- removes expand ops and the (1,L)->(L,D) GM traffic; host does the one-time broadcast. Strong on attention-like kernels that expand per-token scalars inside",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "has_broadcast"
+        ]
+      },
+      {
+        "id": "u19",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-19",
+        "delta": "retune the chunked-scan granularity (chunk size bt): larger amortizes per-chunk dispatch and cuts the number of serial recurrence steps, smaller fits on-chip; regenerate the chunk-constant matrices and re-tile to match. Applies only to kernels with a chunked scan / loop over a bt constant; N/A to kernels without chunking",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_chunked_scan"
+        ]
+      },
+      {
+        "id": "u39",
+        "parent": "root",
+        "stage": "swimlane",
+        "catalog_id": "S-17",
+        "delta": "fuse adjacent modules so the intermediate stays on-chip (no GM round-trip between modules) -- a design-level merge beyond the op-level fusion of S-14. Applies only when there are >=2 adjacent fusable modules (L1 multi-module kernels); N/A to single-module (L0) kernels",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "module_count >= 2"
+        ]
+      },
+      {
+        "id": "u54",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-22",
+        "delta": "move a layout obligation OUT of the kernel and INTO the host wrapper (Layer K), so the kernel stages each tile with a plain pypto.view instead of a copy. A pypto.reshape of a view-generated tensor is forced inplace=False -- a physical copy paid once per tile -- and an expand, transpose or concat whose result is a pure function of host-known shapes is the same trade in a different shape. Do the work once on the host, pass the already-shaped tensor in, and let the kernel index it; reshape the output back on the host, which is a free metadata view. The operator's PUBLIC contract -- wrapper name, arguments, shapes, dtypes, layout -- is unchanged, but the JIT entry's own rank and the config's compile-time scalars MAY change, and the kernel then needs the host-known extents to compute its flat offsets. F-16 (pre-broadcast a low-rank tensor on the host) and F-21 (concatenate right operands on the host) are two INSTANCES of this action carrying their own recipes and their own preconditions: reach for those when they apply, and for this one when neither does.",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "has_inkernel_layout_op"
+        ]
+      }
+    ]
+  },
+  "best_node": "x57",
+  "op_file": "/data/l00276318/y00960395_tomo/pypto-gym-cannbench/custom-pr/flash_attention_mha/panko-based-post/flash_attention_mha_impl.py",
+  "eval_cache": {
+    "c3b066faeff95f3b3eed8a6128ece5ca1a4d74dcef6317ff206dac4f36a0aafc": {
+      "s": 1,
+      "p": 4188.06,
+      "m": {
+        "util": 79.71,
+        "bubble": 8.5602,
+        "aic_util": 87.16,
+        "aiv_util": 73.85,
+        "pred_stall": 18.49,
+        "aic_bubble": 3.03,
+        "aiv_bubble": 11.33
+      }
+    },
+    "5f9a09617522821fae9c3369cc9d6dcb8fab8473db0c2ff9f5e6e95e27767698": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "cc3482036d24876ee532262610860376bfe23d1093b8567b8018d0bd2f222007": {
+      "s": 0,
+      "p": null,
+      "m": {},
+      "via": "block"
+    },
+    "1c14070eece78bf24017142b4339de7fe5014753c61a8292435633c99ac31aad": {
+      "s": 0,
+      "p": null,
+      "m": {},
+      "via": "block"
+    },
+    "7b9541a1a432c3216d5b13bb2f773740fae1fc74ab0746d8ea98c9143f892f11": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "a202609022c585d89cc2923b738534b39fa5343f9db07fc058e5bff5cde593dc": {
+      "s": 1,
+      "p": 3785.2,
+      "m": {
+        "util": 86.58,
+        "bubble": 4.5024,
+        "aic_util": 91.79,
+        "aiv_util": 85.08,
+        "pred_stall": 9.71,
+        "aic_bubble": 0.77,
+        "aiv_bubble": 6.37
+      }
+    },
+    "4d256732643a5fbdc164b1cddc717251f61efd588470b4bd4854a047a7ff0602": {
+      "s": 0,
+      "p": null,
+      "m": {},
+      "via": "block"
+    },
+    "fad20aa0db26f5a731d0f041cbace66ccd8e5a4a021d1a1c652bc74534d946b6": {
+      "s": 0,
+      "p": null,
+      "m": {},
+      "via": "block"
+    },
+    "f245e112ef6ce206f1867314de69dd6481e138b79df2653446acdc37db3208ab": {
+      "s": 1,
+      "p": 4091.3,
+      "m": {
+        "util": 80.72,
+        "bubble": 8.1399,
+        "aic_util": 87.44,
+        "aiv_util": 76.16,
+        "pred_stall": 15.74,
+        "aic_bubble": 2.01,
+        "aiv_bubble": 11.21
+      }
+    },
+    "6cc25fc264065af68abdf4ab984cbe8f3835857c72c49c292e230a3b431092ea": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "72e3bbe3b48077850e7e35b1f94a24fb4a44eb72277e00cbf702769631535cfe": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "5b354d6ce73c63689f3b9de8e76ac7fc4f991584fc516ca58252eef95cb6d761": {
+      "s": 1,
+      "p": 3696.14,
+      "m": {
+        "util": 83.07,
+        "bubble": 6.5578,
+        "aic_util": 93.14,
+        "aiv_util": 79.18,
+        "pred_stall": 13.66,
+        "aic_bubble": 0.7,
+        "aiv_bubble": 9.49
+      }
+    },
+    "46e4048be9925d4f625c4420de10584f48a18d08fbaa0ada834ab1ea7b6e32d1": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "0d695c8f9208e6252cca611b8db68f86f098f46cf49ac865dc77e214c982c1e9": {
+      "s": 1,
+      "p": 3541.72,
+      "m": {
+        "util": 84.6,
+        "bubble": 4.6707,
+        "aic_util": 93.86,
+        "aiv_util": 83.5,
+        "pred_stall": 11.14,
+        "aic_bubble": 0.51,
+        "aiv_bubble": 6.75
+      }
+    },
+    "faa28a103212fcc2ee50992713380172745fd9ea645044fde0dcdf654431d8c4": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "03a24f9a1c5a203b5e7e6a3904cc3256a6527784ef8859fe61771e3a37337c3a": {
+      "s": 1,
+      "p": 3573.38,
+      "m": {
+        "util": 84.07,
+        "bubble": 5.0004,
+        "aic_util": 91.93,
+        "aiv_util": 82.12,
+        "pred_stall": 12.35,
+        "aic_bubble": 0.7,
+        "aiv_bubble": 7.15
+      }
+    },
+    "15ece4199dcf644d559cf738831cef2218e7c99f8aef935ff2796792f74d50fd": {
+      "s": 1,
+      "p": 3489.94,
+      "m": {
+        "util": 85.71,
+        "bubble": 4.8231,
+        "aic_util": 92.14,
+        "aiv_util": 82.51,
+        "pred_stall": 12.08,
+        "aic_bubble": 0.53,
+        "aiv_bubble": 6.97
+      }
+    },
+    "43fc864311cd1cd1cd2cc3d3716e4740b35ec214db5f0fd26f29ed92a1de03c9": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "6cbf875e0ca03ff8007fcbddb8dfa4824989bc6e70706a39debb3bf9179dc714": {
+      "s": 1,
+      "p": 3563.4,
+      "m": {
+        "util": 84.23,
+        "bubble": 4.9965,
+        "aic_util": 91.82,
+        "aiv_util": 81.75,
+        "pred_stall": 12.73,
+        "aic_bubble": 0.59,
+        "aiv_bubble": 7.2
+      }
+    },
+    "66280007fbae2a2783341877a34272c7936c529288b6b24b1fb423e4fb2b9f3c": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "1672d169103b75a22fe0cddf563f91eca03d26f39a34dfa67574986281e456c0": {
+      "s": 1,
+      "p": 3794.64,
+      "m": {
+        "util": 79.91,
+        "bubble": 7.1079
+      }
+    },
+    "2bdbfa77f6c7105c2e8b3e32ec11a95c9f40237a858b33042b4d75d22e1c7aa9": {
+      "s": 1,
+      "p": 3528.74,
+      "m": {
+        "util": 85.38,
+        "bubble": 4.7786
+      }
+    },
+    "1d5e3e1e36cac896e8a58735e81d5156122d0899dcaf88e5518a5d7cfeacc9fd": {
+      "s": 1,
+      "p": 3540.62,
+      "m": {
+        "util": 85.57,
+        "bubble": 4.7648,
+        "aic_util": 92.91,
+        "aiv_util": 82.79,
+        "pred_stall": 11.8,
+        "aic_bubble": 0.48,
+        "aiv_bubble": 6.91
+      }
+    },
+    "a7c702f978b07678bd0892c84637d14a2f6a11b44bf1901eb2dcb1681c39d2f6": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "58ba4c5d38904deaabaa0cdd3d928ee33276764e2082e8ba85f34e77cabb93a6": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "5129a32589a0fedc2fc957ff4f351f1c33d627cac906aafcfa984868a6917312": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "f85fbd7e6b9407fc5f7fc7663fe31eed99e6ed65c42f69730f2968deef27bac7": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    }
+  },
+  "code_version": "aedb8d47",
+  "predicates": {
+    "has_cube_op": true,
+    "has_broadcast": false,
+    "has_chunked_scan": false,
+    "has_inkernel_layout_op": false,
+    "has_nested_pypto_loop": true,
+    "materializes_large_intermediate": true,
+    "module_count": 1,
+    "ub_occupancy": 0.6667,
+    "l1_occupancy": 1.3333,
+    "determined": true
+  },
+  "domain_fingerprint": {
+    "per_site": {},
+    "capacity_elems": 19660,
+    "views": [
+      [
+        256,
+        1
+      ],
+      [
+        256,
+        1
+      ],
+      [
+        256,
+        1
+      ],
+      [
+        256,
+        1
+      ]
+    ],
+    "live_tiles": 5,
+    "dtype_bytes": 2,
+    "notes": [],
+    "ub_bytes": 196608,
+    "vec_residency": {
+      "vec#0": 4,
+      "vec#1": 3,
+      "vec#2": 5,
+      "vec#3": 4
+    }
+  },
+  "semantic_fold_calls": 67,
+  "bo_memory": {
+    "u1|f4c6f00b2c33": {
+      "trials": [],
+      "ceiling": null
+    }
+  },
+  "bo_refusals": [],
+  "test_command": "cd /data/l00276318/y00960395_tomo/pypto-gym-cannbench/custom-pr/flash_attention_mha/panko-based-post && TILE_FWK_DEVICE_ID=7 python3 test_flash_attention_mha.py",
+  "live_tiles": 5,
+  "blocks": [
+    {
+      "action": "u1",
+      "reason": "F-1 Q_TILE 128->256 + cube M 128->256 moved view extents [128,1]->[256,1]; retile cube/vec pair on new structure (bounded retry)",
+      "live_tiles": 5,
+      "granted": 8,
+      "n_trials": 8,
+      "n_feasible": 0,
+      "stopped_early": false,
+      "aborted": null,
+      "fault_kind": null,
+      "fault_markers": [],
+      "env_faults": 0,
+      "failures": 2,
+      "learned_ceiling": null,
+      "best_latency": null,
+      "best_config": null,
+      "device_trials": 2,
+      "charged_now": 2,
+      "winner_hash": null,
+      "started_at": "2026-09-16T16:45:48",
+      "ended_at": "2026-09-16T16:55:49",
+      "trials": [
+        {
+          "status": "incorrect",
+          "config": {
+            "vec#0": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#0": {
+              "mL0": 128,
+              "mL1": 128,
+              "kL0": 128,
+              "kL1": 128,
+              "nL0": 64,
+              "nL1": 64
+            },
+            "vec#1": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#1": {
+              "mL0": 128,
+              "mL1": 128,
+              "kL0": 128,
+              "kL1": 128,
+              "nL0": 96,
+              "nL1": 192
+            },
+            "vec#2": {
+              "d0": 64,
+              "d1": 64
+            },
+            "vec#3": {
+              "d0": 64,
+              "d1": 64
+            }
+          },
+          "latency": null,
+          "reason": "Open the trace at https://ui.perfetto.dev/ \nOutput:  output/output_20260916_164614_264445_692427_liteserver-hps-148e-00002/merged_swimlane.json\nEnd time: 2026-09-16 08:50:41\nTime taken: 136 secs"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 64,
+              "d1": 48
+            },
+            "cube#0": {
+              "mL0": 16,
+              "mL1": 48,
+              "kL0": 16,
+              "kL1": 16,
+              "nL0": 192,
+              "nL1": 576
+            },
+            "vec#1": {
+              "d0": 96,
+              "d1": 192
+            },
+            "cube#1": {
+              "mL0": 128,
+              "mL1": 256,
+              "kL0": 512,
+              "kL1": 1536,
+              "nL0": 96,
+              "nL1": 96
+            },
+            "vec#2": {
+              "d0": 96,
+              "d1": 96
+            },
+            "vec#3": {
+              "d0": 64,
+              "d1": 2048
+            }
+          },
+          "latency": null,
+          "reason": "cube#1: L0A tile 131072B > 64KB (mL0=128, kL0=512, nL0=96 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 128,
+              "d1": 256
+            },
+            "cube#0": {
+              "mL0": 48,
+              "mL1": 192,
+              "kL0": 192,
+              "kL1": 384,
+              "nL0": 96,
+              "nL1": 96
+            },
+            "vec#1": {
+              "d0": 32,
+              "d1": 32
+            },
+            "cube#1": {
+              "mL0": 32,
+              "mL1": 32,
+              "kL0": 16,
+              "kL1": 64,
+              "nL0": 96,
+              "nL1": 384
+            },
+            "vec#2": {
+              "d0": 32,
+              "d1": 8192
+            },
+            "vec#3": {
+              "d0": 128,
+              "d1": 4096
+            }
+          },
+          "latency": null,
+          "reason": "vec#0: 32768 elements x 2B x 4 live = 262144B > 196608B UB"
+        },
+        {
+          "status": "incorrect",
+          "config": {
+            "vec#0": {
+              "d0": 4,
+              "d1": 256
+            },
+            "cube#0": {
+              "mL0": 128,
+              "mL1": 128,
+              "kL0": 128,
+              "kL1": 384,
+              "nL0": 64,
+              "nL1": 64
+            },
+            "vec#1": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#1": {
+              "mL0": 128,
+              "mL1": 384,
+              "kL0": 128,
+              "kL1": 128,
+              "nL0": 48,
+              "nL1": 96
+            },
+            "vec#2": {
+              "d0": 64,
+              "d1": 64
+            },
+            "vec#3": {
+              "d0": 4,
+              "d1": 64
+            }
+          },
+          "latency": null,
+          "reason": "INFO:detailed_tensor_compare:Tolerance Settings: rtol=0.005, atol=2.5e-05\nINFO:detailed_tensor_compare:\n✅ Tensor Matching: True\nINFO:detailed_tensor_compare:============================================================"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 64,
+              "d1": 128
+            },
+            "cube#0": {
+              "mL0": 512,
+              "mL1": 512,
+              "kL0": 96,
+              "kL1": 96,
+              "nL0": 64,
+              "nL1": 256
+            },
+            "vec#1": {
+              "d0": 384,
+              "d1": 256
+            },
+            "cube#1": {
+              "mL0": 256,
+              "mL1": 256,
+              "kL0": 256,
+              "kL1": 256,
+              "nL0": 192,
+              "nL1": 384
+            },
+            "vec#2": {
+              "d0": 384,
+              "d1": 64
+            },
+            "vec#3": {
+              "d0": 64,
+              "d1": 64
+            }
+          },
+          "latency": null,
+          "reason": "cube#0: L0A tile 98304B > 64KB (mL0=512, kL0=96, nL0=64 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 256,
+              "d1": 768
+            },
+            "cube#0": {
+              "mL0": 128,
+              "mL1": 256,
+              "kL0": 128,
+              "kL1": 128,
+              "nL0": 128,
+              "nL1": 256
+            },
+            "vec#1": {
+              "d0": 64,
+              "d1": 6144
+            },
+            "cube#1": {
+              "mL0": 64,
+              "mL1": 256,
+              "kL0": 128,
+              "kL1": 256,
+              "nL0": 32,
+              "nL1": 96
+            },
+            "vec#2": {
+              "d0": 64,
+              "d1": 192
+            },
+            "vec#3": {
+              "d0": 256,
+              "d1": 384
+            }
+          },
+          "latency": null,
+          "reason": "vec#0: 196608 elements x 2B x 4 live = 1572864B > 196608B UB"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 2,
+              "d1": 384
+            },
+            "cube#0": {
+              "mL0": 32,
+              "mL1": 32,
+              "kL0": 64,
+              "kL1": 256,
+              "nL0": 512,
+              "nL1": 512
+            },
+            "vec#1": {
+              "d0": 48,
+              "d1": 64
+            },
+            "cube#1": {
+              "mL0": 192,
+              "mL1": 192,
+              "kL0": 384,
+              "kL1": 384,
+              "nL0": 384,
+              "nL1": 768
+            },
+            "vec#2": {
+              "d0": 48,
+              "d1": 768
+            },
+            "vec#3": {
+              "d0": 2,
+              "d1": 768
+            }
+          },
+          "latency": null,
+          "reason": "cube#1: L0A tile 147456B > 64KB (mL0=192, kL0=384, nL0=384 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 1536,
+              "d1": 64
+            },
+            "cube#0": {
+              "mL0": 192,
+              "mL1": 576,
+              "kL0": 384,
+              "kL1": 768,
+              "nL0": 48,
+              "nL1": 192
+            },
+            "vec#1": {
+              "d0": 24,
+              "d1": 1024
+            },
+            "cube#1": {
+              "mL0": 512,
+              "mL1": 1024,
+              "kL0": 32,
+              "kL1": 96,
+              "nL0": 64,
+              "nL1": 192
+            },
+            "vec#2": {
+              "d0": 24,
+              "d1": 16
+            },
+            "vec#3": {
+              "d0": 1536,
+              "d1": 16384
+            }
+          },
+          "latency": null,
+          "reason": "cube#0: L0A tile 147456B > 64KB (mL0=192, kL0=384, nL0=48 at 2B)"
+        }
+      ]
+    },
+    {
+      "action": "u1",
+      "reason": "F-1 Q_TILE 256->384 moved view extents [256,1]->[384,1]; retile cube/vec pair on new structure",
+      "live_tiles": 5,
+      "granted": 12,
+      "n_trials": 12,
+      "n_feasible": 0,
+      "stopped_early": false,
+      "aborted": null,
+      "fault_kind": null,
+      "fault_markers": [],
+      "env_faults": 0,
+      "failures": 2,
+      "learned_ceiling": null,
+      "best_latency": null,
+      "best_config": null,
+      "device_trials": 2,
+      "charged_now": 2,
+      "winner_hash": null,
+      "started_at": "2026-09-16T17:44:37",
+      "ended_at": "2026-09-16T17:54:39",
+      "trials": [
+        {
+          "status": "incorrect",
+          "config": {
+            "vec#0": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#0": {
+              "mL0": 64,
+              "mL1": 64,
+              "kL0": 64,
+              "kL1": 128,
+              "nL0": 64,
+              "nL1": 64
+            },
+            "vec#1": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#1": {
+              "mL0": 64,
+              "mL1": 64,
+              "kL0": 64,
+              "kL1": 64,
+              "nL0": 96,
+              "nL1": 192
+            },
+            "vec#2": {
+              "d0": 64,
+              "d1": 64
+            },
+            "vec#3": {
+              "d0": 64,
+              "d1": 64
+            }
+          },
+          "latency": null,
+          "reason": "INFO:detailed_tensor_compare:Tolerance Settings: rtol=0.005, atol=2.5e-05\nINFO:detailed_tensor_compare:\n✅ Tensor Matching: True\nINFO:detailed_tensor_compare:============================================================"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 96,
+              "d1": 512
+            },
+            "cube#0": {
+              "mL0": 96,
+              "mL1": 96,
+              "kL0": 128,
+              "kL1": 256,
+              "nL0": 128,
+              "nL1": 128
+            },
+            "vec#1": {
+              "d0": 96,
+              "d1": 512
+            },
+            "cube#1": {
+              "mL0": 96,
+              "mL1": 96,
+              "kL0": 128,
+              "kL1": 128,
+              "nL0": 160,
+              "nL1": 320
+            },
+            "vec#2": {
+              "d0": 96,
+              "d1": 128
+            },
+            "vec#3": {
+              "d0": 96,
+              "d1": 128
+            }
+          },
+          "latency": null,
+          "reason": "vec#0: 49152 elements x 2B x 4 live = 393216B > 196608B UB"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 64,
+              "d1": 48
+            },
+            "cube#0": {
+              "mL0": 16,
+              "mL1": 48,
+              "kL0": 16,
+              "kL1": 16,
+              "nL0": 192,
+              "nL1": 576
+            },
+            "vec#1": {
+              "d0": 96,
+              "d1": 192
+            },
+            "cube#1": {
+              "mL0": 128,
+              "mL1": 256,
+              "kL0": 512,
+              "kL1": 1536,
+              "nL0": 96,
+              "nL1": 96
+            },
+            "vec#2": {
+              "d0": 96,
+              "d1": 96
+            },
+            "vec#3": {
+              "d0": 64,
+              "d1": 2048
+            }
+          },
+          "latency": null,
+          "reason": "cube#1: L0A tile 131072B > 64KB (mL0=128, kL0=512, nL0=96 at 2B)"
+        },
+        {
+          "status": "incorrect",
+          "config": {
+            "vec#0": {
+              "d0": 4,
+              "d1": 256
+            },
+            "cube#0": {
+              "mL0": 64,
+              "mL1": 64,
+              "kL0": 64,
+              "kL1": 192,
+              "nL0": 64,
+              "nL1": 64
+            },
+            "vec#1": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#1": {
+              "mL0": 64,
+              "mL1": 192,
+              "kL0": 64,
+              "kL1": 256,
+              "nL0": 96,
+              "nL1": 288
+            },
+            "vec#2": {
+              "d0": 64,
+              "d1": 64
+            },
+            "vec#3": {
+              "d0": 4,
+              "d1": 64
+            }
+          },
+          "latency": null,
+          "reason": "Open the trace at https://ui.perfetto.dev/ \nOutput:  output/output_20260916_175028_457873_1001933_liteserver-hps-148e-00002/merged_swimlane.json\nEnd time: 2026-09-16 09:53:18\nTime taken: 108 secs"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 64,
+              "d1": 256
+            },
+            "cube#0": {
+              "mL0": 512,
+              "mL1": 2048,
+              "kL0": 64,
+              "kL1": 128,
+              "nL0": 64,
+              "nL1": 256
+            },
+            "vec#1": {
+              "d0": 384,
+              "d1": 256
+            },
+            "cube#1": {
+              "mL0": 256,
+              "mL1": 256,
+              "kL0": 256,
+              "kL1": 256,
+              "nL0": 192,
+              "nL1": 384
+            },
+            "vec#2": {
+              "d0": 384,
+              "d1": 64
+            },
+            "vec#3": {
+              "d0": 64,
+              "d1": 64
+            }
+          },
+          "latency": null,
+          "reason": "cube#0: L1 tile 589824B > 512KB (A=2048x128 + B=128x256 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 256,
+              "d1": 768
+            },
+            "cube#0": {
+              "mL0": 64,
+              "mL1": 128,
+              "kL0": 32,
+              "kL1": 64,
+              "nL0": 16,
+              "nL1": 32
+            },
+            "vec#1": {
+              "d0": 64,
+              "d1": 6144
+            },
+            "cube#1": {
+              "mL0": 64,
+              "mL1": 256,
+              "kL0": 64,
+              "kL1": 128,
+              "nL0": 32,
+              "nL1": 128
+            },
+            "vec#2": {
+              "d0": 64,
+              "d1": 192
+            },
+            "vec#3": {
+              "d0": 256,
+              "d1": 384
+            }
+          },
+          "latency": null,
+          "reason": "vec#0: 196608 elements x 2B x 4 live = 1572864B > 196608B UB"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 2,
+              "d1": 384
+            },
+            "cube#0": {
+              "mL0": 32,
+              "mL1": 32,
+              "kL0": 48,
+              "kL1": 192,
+              "nL0": 512,
+              "nL1": 512
+            },
+            "vec#1": {
+              "d0": 48,
+              "d1": 64
+            },
+            "cube#1": {
+              "mL0": 192,
+              "mL1": 192,
+              "kL0": 96,
+              "kL1": 96,
+              "nL0": 384,
+              "nL1": 768
+            },
+            "vec#2": {
+              "d0": 48,
+              "d1": 768
+            },
+            "vec#3": {
+              "d0": 2,
+              "d1": 768
+            }
+          },
+          "latency": null,
+          "reason": "cube#1: L0B tile 73728B > 64KB (mL0=192, kL0=96, nL0=384 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 1536,
+              "d1": 64
+            },
+            "cube#0": {
+              "mL0": 192,
+              "mL1": 576,
+              "kL0": 384,
+              "kL1": 384,
+              "nL0": 48,
+              "nL1": 192
+            },
+            "vec#1": {
+              "d0": 24,
+              "d1": 1024
+            },
+            "cube#1": {
+              "mL0": 512,
+              "mL1": 1024,
+              "kL0": 384,
+              "kL1": 1152,
+              "nL0": 64,
+              "nL1": 192
+            },
+            "vec#2": {
+              "d0": 24,
+              "d1": 16
+            },
+            "vec#3": {
+              "d0": 1536,
+              "d1": 4096
+            }
+          },
+          "latency": null,
+          "reason": "cube#0: L0A tile 147456B > 64KB (mL0=192, kL0=384, nL0=48 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 384,
+              "d1": 2048
+            },
+            "cube#0": {
+              "mL0": 128,
+              "mL1": 512,
+              "kL0": 96,
+              "kL1": 288,
+              "nL0": 96,
+              "nL1": 192
+            },
+            "vec#1": {
+              "d0": 1,
+              "d1": 32
+            },
+            "cube#1": {
+              "mL0": 16,
+              "mL1": 48,
+              "kL0": 48,
+              "kL1": 192,
+              "nL0": 128,
+              "nL1": 128
+            },
+            "vec#2": {
+              "d0": 1,
+              "d1": 3072
+            },
+            "vec#3": {
+              "d0": 384,
+              "d1": 96
+            }
+          },
+          "latency": null,
+          "reason": "vec#0: 786432 elements x 2B x 4 live = 6291456B > 196608B UB"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 16,
+              "d1": 96
+            },
+            "cube#0": {
+              "mL0": 256,
+              "mL1": 512,
+              "kL0": 256,
+              "kL1": 1024,
+              "nL0": 384,
+              "nL1": 1152
+            },
+            "vec#1": {
+              "d0": 8,
+              "d1": 96
+            },
+            "cube#1": {
+              "mL0": 32,
+              "mL1": 128,
+              "kL0": 192,
+              "kL1": 384,
+              "nL0": 16,
+              "nL1": 64
+            },
+            "vec#2": {
+              "d0": 8,
+              "d1": 1024
+            },
+            "vec#3": {
+              "d0": 16,
+              "d1": 192
+            }
+          },
+          "latency": null,
+          "reason": "cube#0: L0A tile 131072B > 64KB (mL0=256, kL0=256, nL0=384 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 768,
+              "d1": 1024
+            },
+            "cube#0": {
+              "mL0": 48,
+              "mL1": 48,
+              "kL0": 512,
+              "kL1": 1024,
+              "nL0": 256,
+              "nL1": 256
+            },
+            "vec#1": {
+              "d0": 2,
+              "d1": 128
+            },
+            "cube#1": {
+              "mL0": 48,
+              "mL1": 48,
+              "kL0": 16,
+              "kL1": 16,
+              "nL0": 48,
+              "nL1": 96
+            },
+            "vec#2": {
+              "d0": 2,
+              "d1": 16384
+            },
+            "vec#3": {
+              "d0": 768,
+              "d1": 3072
+            }
+          },
+          "latency": null,
+          "reason": "cube#0: L0B tile 262144B > 64KB (mL0=48, kL0=512, nL0=256 at 2B)"
+        },
+        {
+          "status": "infeasible_static",
+          "config": {
+            "vec#0": {
+              "d0": 96,
+              "d1": 512
+            },
+            "cube#0": {
+              "mL0": 96,
+              "mL1": 96,
+              "kL0": 128,
+              "kL1": 256,
+              "nL0": 128,
+              "nL1": 128
+            },
+            "vec#1": {
+              "d0": 96,
+              "d1": 512
+            },
+            "cube#1": {
+              "mL0": 96,
+              "mL1": 96,
+              "kL0": 128,
+              "kL1": 128,
+              "nL0": 160,
+              "nL1": 320
+            },
+            "vec#2": {
+              "d0": 96,
+              "d1": 128
+            },
+            "vec#3": {
+              "d0": 96,
+              "d1": 128
+            }
+          },
+          "latency": null,
+          "reason": "vec#0: 49152 elements x 2B x 4 live = 393216B > 196608B UB"
+        }
+      ]
+    }
+  ]
+}

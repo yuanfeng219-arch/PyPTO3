@@ -495,6 +495,11 @@
     }).join('') + '</div>';
   }
 
+  function secondarySignalsHTML(count) {
+    return '<details class="kc-secondary"><summary><span>其他信号</span><small>' + count + ' 项</small><i>展开</i></summary>' +
+      findingsHTML() + '</details>';
+  }
+
   /* Orchestration 这类长类型名放不进 38px 的 chip，给一个显示缩写，完整名进 title */
   const TYPE_ABBR = { Orchestration: 'Orch' };
 
@@ -795,14 +800,14 @@
   function shellHTML() {
     const rows = listRows();
     const findingCount = FINDINGS.filter(f => (findingSets()[f.id] || []).length).length;
+    const semanticHandoff = runContext().runId === 'run_109' && numericalValidation().status === 'fail';
     return '<section class="kc" data-kc>' +
-      summaryHTML() +
-      contextHTML() +
+      (semanticHandoff ? '' : summaryHTML() + contextHTML()) +
       numericalValidationHTML() +
-      '<div class="kc-sect"><div><h2>需要关注</h2>' +
-        '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div>' +
-        '<span>' + findingCount + ' 项发现</span></div>' +
-      findingsHTML() +
+      (semanticHandoff ? secondarySignalsHTML(findingCount) :
+        '<div class="kc-sect"><div><h2>需要关注</h2>' +
+          '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div>' +
+          '<span>' + findingCount + ' 项发现</span></div>' + findingsHTML()) +
       /* 工作区两个页签：Kernel 列表 + 详情 / 编译 IR 全流程（借用 #kgTrace）。
          页签名已经写明是「Kernel 工作区」，面板头也写着「Kernel 列表」，
          所以这里不再重复一个小节标题。 */

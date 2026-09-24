@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>flash_attention_mha · Optimization Journey & Search Space</title>
+<style>
+:root{
+  --bg:#f7f8fa;
+  --panel:#ffffff;
+  --card:#f3f4f6;
+  --text:#111827;
+  --muted:#6b7280;
+  --border:#d1d5db;
+  --accent:#111827;
+  --accent-bg:#eef2ff;
+  --s3:#4f46e5;
+  --s4:#0f766e;
+  --s5:#7c3aed;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 20px 56px}
+h1,h2,h3,p{margin-top:0}
+.kicker{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.hero{display:flex;gap:24px;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px}
+.hero h1{font-size:34px;line-height:1.15;margin:6px 0 8px}
+.hero-sub{color:var(--muted);font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:999px;font-size:11px;background:#fff}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}
+.tab{border:1px solid var(--border);background:#fff;color:var(--text);border-radius:999px;padding:10px 16px;font-weight:700;cursor:pointer}
+.tab.on{background:var(--text);color:#fff;border-color:var(--text)}
+.view{display:none}.view.on{display:block}
+.journey-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:20px}
+.panel,.box{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px}
+.card{background:var(--card);border-radius:12px;padding:12px}
+.section-title{font-size:14px;font-weight:800;margin-bottom:12px}
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{width:100%;position:relative;text-align:left;border:1px solid var(--border);background:#fff;border-radius:14px;padding:14px 14px 14px 46px;cursor:pointer}
+.step.selected{border-color:var(--accent);background:var(--accent-bg)}
+.step .dot{position:absolute;left:12px;top:18px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--muted);color:#fff;font-size:9px}
+.step .row{display:flex;justify-content:space-between;gap:16px}
+.step .sub{margin-top:4px;font-size:12px;color:var(--muted)}
+.detail{align-self:start;position:sticky;top:16px}
+.detail h3{font-size:20px;margin:6px 0 10px}
+.detail p{font-size:14px;line-height:1.7;color:var(--muted)}
+.learning{border-top:1px solid var(--border);margin-top:16px;padding-top:16px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.stat b{display:block;margin-top:3px}
+.small{font-size:12px;color:var(--muted)}
+.callout{border-left:4px solid var(--s5);background:#fff;border-radius:12px;padding:16px;margin-top:18px}
+.callout.teal{border-left-color:var(--s4)}
+.funnel .item{margin-bottom:14px}
+.bar{height:7px;background:var(--border);border-radius:999px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--s4);border-radius:999px}
+.action-group{border:1px solid var(--border);border-radius:14px;padding:16px;background:#fff}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.action{padding:5px 8px;border:1px solid var(--border);border-radius:999px;font-size:11px;background:#fff}
+.action.focus{border-color:var(--s4);background:#ecfdf5}
+.evidence-list{display:flex;flex-direction:column;gap:10px}
+.evidence-item{border:1px solid var(--border);border-radius:12px;padding:12px}
+.metric{margin-bottom:14px}
+.metric .top{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.metric .bar i{background:var(--s3)}
+.footer-note{margin-top:24px;font-size:12px;color:var(--muted)}
+@media(max-width:860px){
+  .journey-grid,.grid2,.grid3,.grid5{grid-template-columns:1fr}
+  .detail{position:static}
+}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div>
+      <div class="kicker">flash_attention_mha · current PANKO snapshot</div>
+      <h1>4188.06 → 3489.94 µs</h1>
+      <div class="hero-sub">Stage-7 baseline → current archived best · <b>1.20× speedup / latency −16.67%</b></div>
+    </div>
+    <div class="chips">
+      <span class="chip">27 evals used</span>
+      <span class="chip">6 duplicates</span>
+      <span class="chip">active stage: Frontend</span>
+      <span class="chip">not converged</span>
+    </div>
+  </section>
+
+  <div class="tabs">
+    <button class="tab on" data-view="journey">优化旅程</button>
+    <button class="tab" data-view="space">Search Space</button>
+    <button class="tab" data-view="evidence">证据变化</button>
+  </div>
+
+  <section id="journey" class="view on">
+    <div class="journey-grid">
+      <div>
+        <div class="section-title">Incumbent 主路径</div>
+        <div class="steps">
+          <button class="step selected" data-step="0">
+            <span class="dot">0</span>
+            <div class="row"><b>Baseline</b><b>4188.06 µs</b></div>
+            <div class="sub">Q_TILE=128 · 初始 profile：AIC 87.16% / AIV 73.85%</div>
+          </button>
+
+          <button class="step" data-step="1">
+            <span class="dot" style="background:var(--s3)">1</span>
+            <div class="row"><b>F-1 · 放大 Q task granularity</b><b>3785.20 µs</b></div>
+            <div class="sub">Q_TILE 128 → 256 · −9.62%</div>
+          </button>
+
+          <button class="step" data-step="2">
+            <span class="dot" style="background:var(--s3)">2</span>
+            <div class="row"><b>Retune C1 / C2 M tile</b><b>3696.14 µs</b></div>
+            <div class="sub">Cube M 128 → 256 · 新结构下继续 retile</div>
+          </button>
+
+          <button class="step" data-step="3">
+            <span class="dot" style="background:var(--s3)">3</span>
+            <div class="row"><b>Retune C2 K tile</b><b>3541.72 µs</b></div>
+            <div class="sub">C2 中间 tile [128,128] → [128,256]</div>
+          </button>
+
+          <button class="step" data-step="4">
+            <span class="dot" style="background:var(--s4)">4</span>
+            <div class="row"><b>Retune C2 N tile · Best</b><b>3489.94 µs</b></div>
+            <div class="sub">C2 N [160,320] → [128,128] · F-1 closed</div>
+          </button>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <div class="row" style="display:flex;justify-content:space-between;gap:12px">
+            <b class="section-title" style="margin:0">被丢弃的邻近候选</b>
+            <span class="small">它们证明了局部空间的边界</span>
+          </div>
+          <div class="grid2" style="margin-top:12px">
+            <div class="card"><b>4091.30</b> µs · reverted</div>
+            <div class="card"><b>3573.38</b> µs · slower than incumbent</div>
+            <div class="card"><b>3563.40</b> µs · reverted</div>
+            <div class="card"><b>3528.74</b> µs · close, but worse</div>
+            <div class="card"><b>3540.62</b> µs · reverted</div>
+            <div class="card"><b>3794.64</b> µs · clear regression</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel detail">
+        <div class="kicker">Selected step</div>
+        <h3 id="detailTitle">Baseline · 4188.06 µs</h3>
+        <p id="detailBody">当前 kernel 的 Q_TILE=128。Profile 显示总 util 79.71%，bubble 8.56%，AIC util 87.16%，AIV util 73.85%，pred_stall 18.49%。F-1 因此尝试增大每个 q task 的粒度。</p>
+        <div class="learning">
+          <div class="small" style="font-weight:700;color:var(--text)">这一轮实际学到了什么</div>
+          <p id="learning" style="color:var(--text);margin-top:8px">更大的 task granularity 值得尝试，但 tile 必须跟随程序结构重新适配。</p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="callout">
+      <b>F-1 内部还有两次“局部 Search Space 爆炸 → 被约束迅速剪掉”</b>
+      <div class="grid2" style="margin-top:12px">
+        <div class="box">
+          <div class="row" style="display:flex;justify-content:space-between"><b>Q_TILE=256 后 retile block</b><b>8 trials</b></div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">6 static infeasible</span><span class="chip">2 device failures</span><span class="chip">0 feasible</span>
+          </div>
+          <p class="small" style="margin-top:10px">典型拒绝：L0A > 64KB、UB live tensors > 192KB。</p>
+        </div>
+        <div class="box">
+          <div class="row" style="display:flex;justify-content:space-between"><b>Q_TILE=384 后 retile block</b><b>12 trials</b></div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">10 static infeasible</span><span class="chip">2 device failures</span><span class="chip">0 feasible</span>
+          </div>
+          <p class="small" style="margin-top:10px">还出现 L1 > 512KB。说明继续扩大 granularity 的可行域已经很窄。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <div class="section-title">F-1 收敛之后，瓶颈发生迁移</div>
+      <div class="grid5">
+        <div class="card stat"><span class="small">Best latency</span><b>3489.94 µs</b></div>
+        <div class="card stat"><span class="small">AIC util</span><b>92.14%</b></div>
+        <div class="card stat"><span class="small">AIV util</span><b>82.51%</b></div>
+        <div class="card stat"><span class="small">pred stall</span><b>12.08%</b></div>
+        <div class="card stat"><span class="small">新判断</span><b>serial recurrence</b></div>
+      </div>
+      <p class="small" style="font-size:14px;line-height:1.7;margin-top:14px">PANKO 的解释是：Cube 已经较满、Vector 还有 slack，当前更像 <b>C1 Cube → softmax Vector → C2 Cube → state update Vector</b> 的串行 online-softmax recurrence 限制并行。因此下一轮不应继续死磕 Cube tile，而应增加独立链并发和 pipeline overlap。</p>
+    </div>
+  </section>
+
+  <section id="space" class="view">
+    <div class="journey-grid" style="grid-template-columns:.78fr 1.22fr">
+      <div>
+        <div class="panel funnel">
+          <div class="section-title">Search Space funnel</div>
+          <div class="item"><div class="row" style="display:flex;justify-content:space-between;font-size:12px"><span>Action catalog</span><b>56</b></div><div class="bar"><i style="width:100%"></i></div></div>
+          <div class="item"><div class="row" style="display:flex;justify-content:space-between;font-size:12px"><span>初始满足 precondition / open</span><b>51</b></div><div class="bar"><i style="width:91%"></i></div></div>
+          <div class="item"><div class="row" style="display:flex;justify-content:space-between;font-size:12px"><span>Held by precondition</span><b>5</b></div><div class="bar"><i style="width:9%"></i></div></div>
+          <div class="item"><div class="row" style="display:flex;justify-content:space-between;font-size:12px"><span>已完成主 action</span><b>F-1</b></div><div class="bar"><i style="width:2%"></i></div></div>
+        </div>
+
+        <div class="panel" style="margin-top:14px">
+          <div class="section-title">5 个当前不适用的方向</div>
+          <div class="small" style="line-height:1.9">
+            <div><b>F-15</b> combine broadcast axis — no broadcast</div>
+            <div><b>F-16</b> host pre-broadcast — no broadcast</div>
+            <div><b>F-19</b> chunked scan tuning — no chunked scan</div>
+            <div><b>F-22</b> move layout to host — no in-kernel layout op</div>
+            <div><b>S-17</b> module fusion — module_count=1</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="action-group">
+          <div class="small">Frontend</div><div class="section-title">23 actions · Program structure</div>
+          <div class="actions">
+            <span class="action focus"><b>F-1 ✓</b> granularity · completed</span>
+            <span class="action"><b>F-2 ◐</b> larger tiling / loop_unroll · active</span>
+            <span class="action">F-3 reduce loop count</span><span class="action">F-4 reshape/combine axis</span><span class="action">F-5 Python for</span><span class="action">F-6 merge loops</span><span class="action">F-7 chunk outer axis</span><span class="action">F-8 inner unroll</span><span class="action">F-9 Cube TileShape</span><span class="action">F-10 Vec TileShape</span><span class="action">F-11 constants</span><span class="action">F-12 NZ</span><span class="action">F-13 transpose+matmul</span><span class="action">F-14 eliminate concat</span><span class="action">F-17 less materialization</span><span class="action">F-18 BF16 storage</span><span class="action">F-20 reduction→Cube</span><span class="action">F-21 matmul fusion</span><span class="action focus"><b>F-23 ↑</b> interleave chains · V=0.85</span>
+          </div>
+        </div>
+
+        <div class="action-group">
+          <div class="small">InCore</div><div class="section-title">13 actions · Kernel implementation</div>
+          <div class="actions">
+            <span class="action">I-1 vector preprocess</span><span class="action">I-2 cache policy</span><span class="action">I-3 break dependency</span><span class="action">I-4 alignment</span><span class="action">I-5 TileOperation</span><span class="action">I-6 contiguous input</span><span class="action">I-7 gather/scatter</span><span class="action">I-8 submit_before_loop</span><span class="action">I-9 valid_shape</span><span class="action">I-10 compute once/reuse</span><span class="action">I-11 Cube→Vector</span><span class="action">I-12 remove submit_before_loop</span><span class="action">I-13 cache hint removal</span>
+          </div>
+        </div>
+
+        <div class="action-group">
+          <div class="small">Swimlane</div><div class="section-title">20 actions · Runtime execution</div>
+          <div class="actions">
+            <span class="action">S-1 core usage</span><span class="action">S-2 task count</span><span class="action">S-3 load balance</span><span class="action">S-4 vector merge</span><span class="action">S-5 vec nbuffer</span><span class="action">S-6 L1 reuse</span><span class="action">S-7 CubeNBuffer</span><span class="action">S-8 L1Reuse+NBuffer</span><span class="action">S-9 stitch</span><span class="action">S-10 scheduling</span><span class="action">S-11 Cube deep tile</span><span class="action">S-12 Vector deep tile</span><span class="action">S-13 L2 locality</span><span class="action">S-14 producer-consumer fusion</span><span class="action focus"><b>S-15 ↑</b> pipeline/double-buffer · V=0.95</span><span class="action">S-16 stitch memory</span><span class="action">S-18 remove L1 reuse</span><span class="action">S-19 remove CubeNBuffer</span><span class="action">S-20 narrow VecNBuffer</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout teal">
+      <b>Search Space 不是静态列表，而是被 evidence 动态重排</b>
+      <div class="grid3" style="margin-top:12px">
+        <div><span class="small">已经收敛</span><b style="display:block;margin-top:4px">F-1 · Task granularity</b><p class="small" style="line-height:1.6;margin-top:6px">Q_TILE 128→256 有效；继续向 384 扩展时 retile 几乎全被资源约束和 correctness 淘汰。</p></div>
+        <div><span class="small">正在试</span><b style="display:block;margin-top:4px">F-2 · Larger tiling / loop_unroll</b><p class="small" style="line-height:1.6;margin-top:6px">当前 refinement=u2，前三个 candidate 都失败，尚未形成新的 best。</p></div>
+        <div><span class="small">证据推高的下一步</span><b style="display:block;margin-top:4px">F-23 + S-15</b><p class="small" style="line-height:1.6;margin-top:6px">通过并发独立 online-softmax chains 与 pipeline overlap，针对新的 serial recurrence bottleneck。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="evidence" class="view">
+    <div class="grid2">
+      <div class="panel">
+        <div class="section-title">Profile：Baseline → Best</div>
+        <div class="metric"><div class="top"><span>Total util</span><span>79.71% → <b>85.71%</b></span></div><div class="bar"><i style="width:85.71%"></i></div></div>
+        <div class="metric"><div class="top"><span>AIC util</span><span>87.16% → <b>92.14%</b></span></div><div class="bar"><i style="width:92.14%"></i></div></div>
+        <div class="metric"><div class="top"><span>AIV util</span><span>73.85% → <b>82.51%</b></span></div><div class="bar"><i style="width:82.51%"></i></div></div>
+        <div class="metric"><div class="top"><span>Bubble</span><span>8.56% → <b>4.82%</b></span></div><div class="bar"><i style="width:48.2%"></i></div></div>
+        <div class="metric"><div class="top"><span>Pred stall</span><span>18.49% → <b>12.08%</b></span></div><div class="bar"><i style="width:60.4%"></i></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">因果链：为什么搜索方向改变</div>
+        <div class="evidence-list">
+          <div class="evidence-item"><span class="small">① Observation</span><b style="display:block;margin-top:4px">放大 Q_TILE 后，Cube 利用率显著提高</b></div>
+          <div class="evidence-item"><span class="small">② Constraint evidence</span><b style="display:block;margin-top:4px">L0A 64KB / UB 192KB / L1 512KB 开始夹紧 tile 空间</b></div>
+          <div class="evidence-item"><span class="small">③ Diagnosis</span><b style="display:block;margin-top:4px">继续增大 Cube tile 已不是主要杠杆</b></div>
+          <div class="evidence-item"><span class="small">④ New bottleneck</span><b style="display:block;margin-top:4px">online-softmax 的 Cube → Vec → Cube → Vec serial recurrence</b></div>
+          <div class="evidence-item"><span class="small">⑤ New search direction</span><b style="display:block;margin-top:4px">F-23 interleave chains + S-15 pipeline / double buffer</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer-note">Source basis: the uploaded panko-optimized-kernels-main snapshot, specifically flash_attention_mha optimization.md / searchstate.json / nodes / report as analyzed in this conversation.</div>
+</main>
+
+<script>
+const details=[
+  {t:'Baseline · 4188.06 µs',b:'Q_TILE=128。Profile：util 79.71%，bubble 8.56%，AIC util 87.16%，AIV util 73.85%，pred_stall 18.49%。当前仍有明显调度/流水空隙。',l:'F-1 被选中：先尝试增大每个 q task 的计算粒度，让单 task 做更多工作。'},
+  {t:'Q_TILE 128 → 256 · 3785.20 µs',b:'只把 Q_TILE 放大到 256 就形成第一个明确的新 incumbent，latency 下降约 9.6%。但结构变化后，原有 Cube/Vector tile 不再天然合适。',l:'结构参数变化会使底层 tile 搜索空间失效，因此 PANKO 立刻触发 retile block。'},
+  {t:'Cube M tile 128 → 256 · 3696.14 µs',b:'C1 和 C2 的主 M tile 跟随 Q_TILE 放大。保存的 candidate 中，set_cube_tile_shapes 的第一组从 [128,128] 调到 [256,256]。',l:'Q task granularity 和 Cube tile 不是独立旋钮，而是有结构依赖。'},
+  {t:'C2 K-side retune · 3541.72 µs',b:'继续调整第二个 MatMul（P×V）的 tile，candidate 将 C2 的中间 tile 从 [128,128] 调为 [128,256]，再次形成新 best。',l:'在 Q_TILE=256 的结构内，仍有局部 Cube tile 收益，但已经逐渐接近硬件容量边界。'},
+  {t:'C2 N tile retune · 3489.94 µs',b:'最终保存的 best 将 C2 最后一组 tile 从 [160,320] 调到 [128,128]。Profile：AIC 92.14%、AIV 82.51%、bubble 4.82%、pred_stall 12.08%。',l:'F-1 被关闭：这条轴取得 1.20×，继续放大 granularity / tile 的空间接近耗尽，下一轮瓶颈转向跨 pipe 的串行 recurrence。'}
+];
+
+document.querySelectorAll('.tab').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.getElementById(b.dataset.view).classList.add('on');
+  });
+});
+
+document.querySelectorAll('.step').forEach((b,i)=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.step').forEach(x=>x.classList.remove('selected'));
+    b.classList.add('selected');
+    document.getElementById('detailTitle').textContent=details[i].t;
+    document.getElementById('detailBody').textContent=details[i].b;
+    document.getElementById('learning').textContent=details[i].l;
+  });
+});
+</script>
+</body>
+</html>

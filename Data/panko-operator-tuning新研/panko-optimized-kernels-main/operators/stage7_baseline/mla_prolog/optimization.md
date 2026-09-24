@@ -1,0 +1,57 @@
+# mla_prolog — PANKO optimization
+
+## Baseline
+- preopt latency: 203.7 us | P_ref: 100.0 us | J0: 49.0918
+- device: 8
+
+## Trajectory
+- init: code_version=aedb8d47 anchoring=True seeded_symptoms=['occupancy', 'l1_occupancy', 'util'] open=52 held=4 predicates={'has_cube_op': True, 'has_broadcast': False, 'has_chunked_scan': False, 'has_inkernel_layout_op': True, 'has_nested_pypto_loop': False, 'materializes_large_intermediate': True, 'module_count': 4, 'ub_occupancy': 0.3333, 'l1_occupancy': 0.084, 'determined': True} semantic_fold_calls=67
+- infeasible[u1]: UB estimate 320KB (view 256KB + 2x tile 32KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- infeasible[u1]: UB estimate 320KB (view 256KB + 2x tile 32KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- infeasible[u1]: cube tile dim 4 is not 16-aligned (no device time; n=0 unchanged, n_static=0/16)
+- infeasible[u1]: UB estimate 2144KB (view 2048KB + 2x tile 48KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- infeasible[u1]: UB estimate 320KB (view 256KB + 2x tile 32KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- close[u1] -> (no candidate beat the best) | stagnation 1 (limit off) | NOT retired: n=0 of stagnation_K=7, so nothing was disproved
+- evolve: +0 insert, 0 update, 1 prune (0 permanent) | reasons: u1 (tile_bs granularity increase) is checker-infeasible for the current structure: tile_bs<16 -> cube mL0 not 16-aligned; tile_bs=8 -> q_nope_raw [8,128,128] GM-window view 256KB > 192KB UB; tile_bs=16 -> x_tile [16,7168] view 224KB > 192KB. NOTE: the static feasibility gate also rejects the BASELINE itself (256KB q_nope_raw view + cube dims 8 not 16-aligned), so any candidate retaining the q_nope/x_tile view structure is rejected until a structural change shrinks those GM-window views.
+- infeasible[u3]: UB estimate 608KB (view 512KB + 2x tile 48KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- close[u3] -> (no candidate beat the best) | stagnation 2 (limit off) | NOT retired: n=0 of stagnation_K=7, so nothing was disproved
+- evolve: +0 insert, 0 update, 1 prune (0 permanent) | reasons: u3 (F-3 tile_bs increase) is checker-infeasible for the current structure, same family as u1: tile_bs=16 -> q_nope_raw [16,128,128] GM-window view 512KB + x_tile [16,7168] 224KB both exceed 192KB UB; tile_bs=8 -> q_nope [8,128,128] 256KB still over; tile_bs<=5 -> cube mL0 not 16-aligned. The static gate rejects even the baseline (256KB q_nope view + cube dims not 16-aligned), so ANY candidate retaining the q_nope/x_tile GM-window view structure is rejected until a structural change (head-axis split / host-side layout move F-22 / fusion S-14) shrinks those views. Retiring conditionally: a restructure that shrinks the views re-admits tile_bs.
+- close[u17] -> (no candidate beat the best) | stagnation 3 (limit off) | NOT retired: n=0 of stagnation_K=7, so nothing was disproved
+- evolve: +0 insert, 0 update, 0 prune (1 permanent) | reasons: u17 (F-17 materialize-less / store-vs-recompute) is inexpressible on mla_prolog: the up-proj cube output q_b_tile [tile_bs,24576] BF16 (~393KB) exceeds the 192KB UB budget so it necessarily materializes to GM; the nope/rope split is strided per-head (not a contiguous column slice) so it cannot be split via pypto.view/matmul against the NZ weight without a weight-layout contract change; and no redundant/large intermediate exists to drop. The forced q_b_tile GM round-trip is instead attackable by fusion (S-14 u36 / S-39 u39), which are separate open actions.
+- infeasible[u2]: UB estimate 320KB (view 256KB + 2x tile 32KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- close[u2] -> (no candidate beat the best) | stagnation 4 (limit off) | NOT retired: n=0 of stagnation_K=7, so nothing was disproved
+- evolve: +1 insert, 2 update, 1 prune (0 permanent) | reasons: u2 (F-2) candidate unroll_list=[16,8,4,2,1] is statically infeasible: UB gate rejects view 256KB (q_nope_raw [8,128,128]) + 2x tile 32KB > 192KB. loop_unroll changes neither views nor cube tiles, so EVERY u2 candidate keeps the rejected structure -- the same wall that closed u1 and u3. Conditional prune: revives once a structural change shrinks the view.; Root cause of the whole stall: the static gate rejects the BASELINE structure itself on two fronts -- GM-window views counted as UB-resident (q_nope_raw [8,128,128]=256KB > 192KB) and cube mL0=8 flattened as not-16-aligned (only kL0 is actually 16-constrained). Inserting the nope head-axis split as the most direct view shrink (mirrors the head-group split already in pypto_stage_rope_3d).; Boosting u54 (F-22 host-side layout move) and u36 (S-14 fusion) -- the two other catalog structural escapes the trajectory already named -- so the search stops spending cycles on tile/granularity/loop_unroll actions that the gate rejects wholesale.
+- infeasible[u54]: UB estimate 512KB (view 256KB + 2x tile 128KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- infeasible[root]: UB estimate 320KB (view 256KB + 2x tile 32KB) > budget 192KB (no device time; n=0 unchanged, n_static=0/16)
+- infeasible[u54]: cube tile dim 8 is not 16-aligned (no device time; n=0 unchanged, n_static=0/16)
+- refine[u54] cand 0ba27ceb: s=1 p=468.62 J=21.3393 -> reverted (n=1)
+- infeasible[u54]: UB estimate 4144KB (view 4096KB + 2x tile 24KB) > budget 192KB (no device time; n=1 unchanged, n_static=1/16)
+- infeasible[u54]: UB estimate 320KB (view 256KB + 2x tile 32KB) > budget 192KB (no device time; n=1 unchanged, n_static=2/16)
+- refine[u54] cand 1111c29b: s=1 p=190.24 J=52.5652 -> kept (n=0)
+- refine[u54] cand 7c161474: s=0 p=0.0 J=0.0 -> reverted (n=1)
+- refine[u54] cand d3a551c9: s=1 p=197.44 J=50.6483 -> reverted (n=2)
+- refine[u54] cand 7c161474: DUPLICATE rejected (already measured; no budget charged, n unchanged at 2) | duplicates so far: 1
+- refine[u54] cand 49a9368f: s=1 p=208.08 J=48.0584 -> reverted (n=3)
+- refine[u54] cand e6f50012: s=1 p=192.4 J=51.9751 -> reverted (n=4)
+- refine[u54] cand 265bbfa3: s=1 p=206.92 J=48.3279 -> reverted (n=5)
+- refine[u54] cand ec3c95af: s=1 p=199.88 J=50.03 -> reverted (n=6)
+- refine[u54] cand 6c7a2b60: s=1 p=202.54 J=49.373 -> reverted (n=7)
+- close[u54] -> x58: best J=52.5652 p=190.24 (global best_J=52.5652) | stagnation 0 (limit off) | symptoms ['occupancy', 'l1_occupancy', 'bubble', 'util']
+- evolve: +0 insert, 0 update, 1 prune (0 permanent) | reasons: u54 (F-22 head-split) resolved at close: 4 groups = 190.24us is the new global best (speedup 1.071x vs 203.7us preopt). Grouping axis fully explored: 1 group [8,128,128]=256KB statically infeasible (UB 192KB budget), 2 groups [8,64,128]=128KB measured 202-208us (WORSE than root 203.7), 4 groups [8,32,128]=64KB won at 190.24. 4 groups is the sweet spot.; u57 (inserted 4-group head-split intent) is now realized by x58; re-issuing it would only re-measure 190.24 as a duplicate. Prune conditionally.; The 4-group structure re-admits the tile/granularity actions (u1/u2/u3, plus F-9/F-10/S-11/S-12) that were pruned on the old 256KB structure -- the head split's whole purpose was to unblock them, and 64KB views now fit the UB budget.; x58 profile: util 24.62 (low), ub_occupancy ~0.33, l1_occupancy ~0.084 (cube L1 nearly empty), bubble 12.81, aic 62.56 / aiv 14.89, pred_stall 84.71. Aggregate symptoms reboosted occupancy/l1_occupancy/bubble/util, pointing at cube/vec tile enlargement (F-9/S-11, F-10/S-12) and cube L1 reuse (S-6/S-7/S-8). Next lever is tile/granularity on the 4-group structure, not more grouping.
+- refine[u4] cand a01f5ab8: s=1 p=178.6 J=55.991 -> kept (n=0)
+- refine[u4] cand 5bf19d5d: s=1 p=176.84 J=56.5483 -> kept (n=0)
+- refine[u4] cand 8df9283d: s=1 p=200.7 J=49.8256 -> reverted (n=1)
+- refine[u4] cand 4fd0819f: s=1 p=363.36 J=27.5209 -> reverted (n=2)
+- refine[u4] cand 4fd0819f: DUPLICATE rejected (already measured; no budget charged, n unchanged at 2) | duplicates so far: 2
+- refine[u4] cand 54c57a98: s=0 p=0.0 J=0.0 -> reverted (n=3)
+- refine[u4] cand 6570281c: s=1 p=194.86 J=51.3189 -> reverted (n=4)
+- refine[u4] cand 67a0067b: s=0 p=0.0 J=0.0 -> reverted (n=5)
+- refine[u4] cand 811d7e73: s=1 p=586.82 J=17.041 -> reverted (n=6)
+- refine[u4] cand 16be6a08: s=0 p=0.0 J=0.0 -> reverted (n=7)
+- close[u4] -> x59: best J=56.5483 p=176.84 (global best_J=56.5483) | stagnation 0 (limit off) | symptoms ['occupancy', 'l1_occupancy', 'util']
+- evolve: +1 insert, 1 update, 0 prune (0 permanent) | reasons: u4 (reshape/combine-axes) closed as x59 at 176.84us (J=56.55). The pypto_stage_rope_3d num_groups axis is now FULLY SWEPT and settled: 32 optimal (176.84us), 64->200.7us, 16->194.86us, 8->363.36us, 4->586.82us, 128->s=0, 2->s=0 (F40005 UB overflow: OP ADD total 262144B > 196608B budget, heads_per_group=64 too wide). No further grouping exploration on this axis.; The transposed_batchmatmul rewrite (178.6us) was a KEPT u4 improvement alongside reshape-inplace, proving transpose+matmul restructuring is productive on this kernel's cube ops -> raising u13 (F-13 optimize-transpose-fused-with-matmul) V 0.3->0.6.; Best profile (x59): util 28.44, aic_util 72.76 but aiv_util only 20.49 and pred_stall 79.02 -> the vector pipe is starved waiting on cube predecessors in a serial recurrence. Inserting a nope/rope branch-overlap intent (strong overlap lever) to fill the idle bubble next.
+- close[u53] -> (no candidate beat the best) | stagnation 1 (limit off) | NOT retired: n=0 of stagnation_K=7, so nothing was disproved
+- evolve: +0 insert, 0 update, 0 prune (1 permanent) | reasons: F-21 fusion (u53) inexpressible on this operator: down_proj and kv_proj live in separate loops (MLA_M12_LOOP vs MLA_M3_LOOP) as a deliberate hard liveness boundary (merging them re-contaminates q_rope_out, the correctness fix from debugger cycle 4), and the two matmuls carry incompatible cube configs (down_proj enable_split_k=True + FP32 out; kv_proj BF16 out + set_matrix_size override) so a single fused matmul cannot express both output dtypes. Fused N=2112 divisibility is moot given 1 and 2.
+- refine[u57] cand 4ab35e6f: s=1 p=193.36 J=51.717 -> reverted (n=1)
+- refine[u57] cand 4ab35e6f: DUPLICATE rejected (already measured; no budget charged, n unchanged at 1) | duplicates so far: 3
+- refine[u57] cand 6d3149c2: s=1 p=173.92 J=57.4977 -> kept (n=0)

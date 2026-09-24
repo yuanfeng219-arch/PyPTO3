@@ -523,6 +523,25 @@
     syncPanel();
   }
 
+  function isSemanticCompilationHandoff(r) {
+    return r?.id === 'run_109' && st.tab === 'compilation';
+  }
+
+  function semanticCompilationHandoff(t, r) {
+    const first = window.PTO_COMPILATION?.numericalFixtures?.compiler_semantic_error?.firstDivergentPass || 'ExpandMixedKernel';
+    return '<section class="kf-compile-handoff-wrap" aria-label="编译调查交接">' +
+      '<header class="kf-compile-identity"><b>' + esc(t.title) + '</b><span>Run ' + esc(runDisplayId(r)) + '</span></header>' +
+      '<section class="kf-compile-handoff">' +
+        '<p class="kf-compile-handoff__from">来自总览 · Compiler / ' + esc(first) + '</p>' +
+        '<div class="kf-compile-handoff__grid">' +
+          '<div><span class="kf-compile-handoff__label">当前发现</span><b>' + esc(first) + '</b><p>首个数值分歧 Pass。Host IR 在此处首次偏离 Golden；设备尚未执行。</p></div>' +
+          '<i class="kf-compile-handoff__arrow" aria-hidden="true">→</i>' +
+          '<div><span class="kf-compile-handoff__label">下一步调查</span><b>' + esc(first) + ' 前后 IR</b><p>确认该 Pass 引入了哪项语义变化。</p><button type="button" class="btn btn-solid btn-compact" data-th-compilation-diff="' + esc(first) + '">查看 IR Diff →</button></div>' +
+        '</div>' +
+      '</section>' +
+    '</section>';
+  }
+
   /* Execution keeps the existing composition fan and trace timeline together.
      Their selection is handed to the shared object Inspector instead of a
      second, embedded Inspector. */
@@ -1815,27 +1834,53 @@
   }
 
   // Investigation is a view of the current Run, never a second diagnosis store.
-  const investigation = { runId: null, controller: null, savedState: null, entry: null };
+  const investigation = { runId: null, controller: null, savedStates: new Map(), activeCaseId: null, entry: null };
+
+  function investigationCases(run) {
+    return window.PTO_RUN_INVESTIGATION?.cases?.(run.id) || [];
+  }
+
+  function activeInvestigationCase(run) {
+    const cases = investigationCases(run);
+    if (!cases.length) return null;
+    const current = cases.find(item => item.id === investigation.activeCaseId) || cases[0];
+    investigation.activeCaseId = current.id;
+    return current;
+  }
+
+  function investigationContext(cases, active) {
+    if (cases.length < 2) return '<p class="kf-investigation__description">' + esc(active.description) + '</p>';
+    return '<div class="kf-investigation__cases" role="tablist" aria-label="调查案例">' +
+      cases.map(item => '<button type="button" class="btn btn-ghost kf-investigation__case is-' + esc(item.tone || 'warning') + '" role="tab" data-investigation-case="' + esc(item.id) + '"' +
+        ' aria-selected="' + String(item.id === active.id) + '" aria-controls="run-investigation-map">' +
+        '<span class="kf-investigation__case-marker">' + esc(item.marker || 'WARNING · 调查') + '</span><strong>' + esc(item.title) + '</strong><small>' + esc(item.location || '') + '</small></button>').join('') +
+      '</div><p class="kf-investigation__description">' + esc(active.description) + '</p>';
+  }
 
   function releaseInvestigation() {
     if (investigation.controller) {
-      investigation.savedState = investigation.controller.getState();
+      const key = investigation.runId + ':' + investigation.activeCaseId;
+      investigation.savedStates.set(key, investigation.controller.getState());
       investigation.controller.destroy();
       investigation.controller = null;
     }
     if (investigation.runId !== st.run) {
       investigation.runId = st.run;
-      investigation.savedState = null;
+      investigation.savedStates.clear();
+      investigation.activeCaseId = null;
       investigation.entry = null;
       clearSelection();
     }
   }
 
-  function investigationPanel(data) {
+  function investigationPanel(run) {
+    const active = activeInvestigationCase(run);
+    const count = investigationCases(run).length;
+    const data = active?.investigationData;
+    if (!data) return '';
     return '<section class="kf-investigation" aria-label="算子调查地图">' +
-      '<header class="kf-investigation-head"><div class="kf-rd-h">调查地图<small>正确性 · 证据 → 定位 → 假设 → 诊断</small></div>' +
-      '<p class="kf-rd-note">' + esc(data.summary) + '</p></header>' +
-      '<div data-run-investigation></div>' +
+      '<header class="kf-investigation__title so-section-title so-findings-section-title"><h2>诊断发现 <span class="kf-investigation__count">' + count + '</span></h2></header>' +
+      '<div data-run-investigation id="run-investigation-map" role="tabpanel"></div>' +
       '<footer class="kf-investigation-verdict"><div><span class="kf-rd-h">当前判断</span><p>' + esc(data.judgment) + '</p>' +
       '<p class="kf-rd-note">' + esc(data.nextStep) + '</p></div>' +
       (data.action ? '<button type="button" class="btn btn-solid" data-investigation-next>检查关键证据 →</button>' : '') +
@@ -1844,10 +1889,13 @@
 
   function mountInvestigation(run) {
     const root = $('[data-run-investigation]', els.detail);
-    const data = window.PTO_RUN_INVESTIGATION?.build(run.id);
+    const cases = investigationCases(run);
+    const active = activeInvestigationCase(run);
+    const data = active?.investigationData;
     if (!root || !data || !window.DiagnosticGraphController) return;
+    const stateKey = run.id + ':' + active.id;
     investigation.controller = new window.DiagnosticGraphController(root, data, {
-      evidenceMode: 'note', savedState: investigation.savedState,
+      evidenceMode: 'note', savedState: investigation.savedStates.get(stateKey), contextHTML: investigationContext(cases, active),
       typeTitles: { finding: '现象', reasoning: '缩小范围', entity: '定位对象', cause: '分支排查', hypothesis: '待验证假设', diagnosis: '当前判断' },
       openEvidence: openInvestigationEvidence
     });
@@ -1942,8 +1990,8 @@
     const map = window.PTO_RUN_INVESTIGATION?.build(r.id);
     /* 分析状态（kf-rw-health）始终保留；有调查地图时在其后追加调查地图，
        不再用调查地图把 domain 结论整段顶掉。 */
-    return '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>各 domain 的结论与支撑证据</small></div><div>' + states + '</div></section>' +
-      (map ? investigationPanel(map) : '') +
+    return '<section class="kf-rw-health"><div>' + states + '</div></section>' +
+      (map ? investigationPanel(r) : '') +
       '<section class="kf-rd-sec"><div class="kf-rd-h">问题发现<small>用户需要处理的问题</small></div>' + findings + fixtureNote + lineage + baseline + optimizationActions + '</section>' +
       '<details class="kf-rw-evidence"><summary>诊断证据与产物</summary><div class="kf-rw-evidence-body kf-rw-coverage">' + evidence +
         '<p class="kf-rd-note">原始产物 · ' + raw + '</p></div></details>';
@@ -2870,7 +2918,8 @@
     const L = LX;
     /* 统一 Domain Header 放在面板外面：页签切换、借用 stage DOM、编译视图重绘
        都只会重写 #runTabPanel，头部不会被冲掉，也不用参与借用 / 归还流程。 */
-    const shell = '<div class="kf-rtpwrap">' + investigationReturnBar() + domainHead(st.tab, r) +
+    const semanticHandoff = isSemanticCompilationHandoff(r);
+    const shell = '<div class="kf-rtpwrap">' + investigationReturnBar() + (semanticHandoff ? semanticCompilationHandoff(t, r) : domainHead(st.tab, r)) +
       '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div></div>';
     if (L) {
       /* Identity, verdict and the headline numbers stay above the tabs — they
@@ -2908,7 +2957,7 @@
       ? '<div class="kf-rd-signals">' + r.signals.map(s =>
           '<span class="is-' + s[0] + '"><i></i>' + esc(s[1]) + '</span>').join('') + '</div>'
       : '';
-    const storyOverview = (isCompileFailureStory(r) || isCorrectnessFailureStory(r) || isPerformanceWarningStory(r) || isValidatedOptimizationStory(r))
+    const storyOverview = semanticHandoff ? '' : (isCompileFailureStory(r) || isCorrectnessFailureStory(r) || isPerformanceWarningStory(r) || isValidatedOptimizationStory(r))
       ? '<section class="kf-rd-overview" style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr) minmax(0,.85fr);" aria-label="运行快照概览">' +
           '<div class="kf-rd-overview-left">' + head + '</div>' + historicalKpis(r) + '</section>'
       : head;
@@ -3216,8 +3265,17 @@
       toTab('overview');
       return;
     }
+    const caseSwitch = e.target.closest('[data-investigation-case]');
+    if (caseSwitch && caseSwitch.dataset.investigationCase !== investigation.activeCaseId) {
+      investigation.activeCaseId = caseSwitch.dataset.investigationCase;
+      investigation.entry = null;
+      clearSelection();
+      renderDetail();
+      return;
+    }
     if (e.target.closest('[data-investigation-next]')) {
-      openInvestigationEvidence(window.PTO_RUN_INVESTIGATION?.build(st.run)?.action);
+      const currentRun = TASKS.find(task => task.id === st.task)?.runs.find(run => run.id === st.run);
+      openInvestigationEvidence(currentRun ? activeInvestigationCase(currentRun)?.investigationData?.action : null);
       return;
     }
     const compareClose = e.target.closest('[data-th-compare-close]');
@@ -3326,6 +3384,11 @@
       const i = passNode.dataset.kgP || passNode.dataset.kgKp;
       const name = ((window.PTO_IR_KERNELS || {}).passNames || [])[Number(i)] || ('Pass ' + i);
       selectObject({ kind: 'pass', id: name, sourceTab: 'compilation' });
+      return;
+    }
+    const compilationDiff = e.target.closest('[data-th-compilation-diff]');
+    if (compilationDiff) {
+      window.PTO_COMPILATION?.selectPass?.(compilationDiff.dataset.thCompilationDiff);
       return;
     }
     const tb = e.target.closest('[data-th-tab]');
