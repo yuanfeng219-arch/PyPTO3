@@ -99,7 +99,7 @@
       route: 'runtime',
       routeLabel: '定位运行时数据 / 执行排序',
       rationale: '结构校验与逐 Pass 数值校验均通过，但设备结果不匹配',
-      evidence: ['上游 tensor 全部匹配', 'attention_out 是首个分歧点', '3 次重复运行结果不一致', 'Task #182 与 #197 时间线重叠', '两者之间缺少排序依赖边']
+      evidence: ['已采集的 q/k/v 及相关输入匹配；中间计算仍缺少 reference', 'attention_out 是已采集检查点中的首个分歧', '3 次重复运行结果不一致', 'Task #182 与 #197 时间线重叠', '两者之间缺少排序依赖边']
     }
   };
 

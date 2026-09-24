@@ -755,14 +755,20 @@
   function historicalKpis(r) {
     const m = getRunModel(r);
     let tiles = [];
-    if (isCompileFailureStory(r)) {
+    if (r.id === 'run_109') {
+      const f = window.PTO_COMPILATION?.numericalFixtures?.compiler_semantic_error;
+      tiles = [
+        { l: '首个分歧 Pass', v: esc(f?.firstDivergentPass || '未采集'), u: '', t: 'bad', tag: 'COMPILATION', s: 'Host IR 数值校验 · ' + (f?.status || '未采集') },
+        { l: '设备执行', v: '未执行', u: '', t: 'dim', tag: 'DEVICE', s: '没有 Runtime / Tensor / Task 执行证据' }
+      ];
+    } else if (isCompileFailureStory(r)) {
       tiles = [
         { l: '首个失败 Pass', v: 'FAIL', u: '', t: 'bad', tag: 'COMPILATION', s: 'LegalizeIndexing · IR verification' },
         { l: '证据', v: '3', u: '项', t: 'ok', tag: 'AVAILABLE', s: 'IR Validation · Pass Dump · Source Location' }
       ];
     } else if (isCorrectnessFailureStory(r)) {
       tiles = [
-        { l: 'First divergence', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'max_abs_diff 0.382 · repeated-run instability' },
+        { l: 'First divergence', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'attention_out max_abs_diff ' + (window.PTO_CORRECTNESS_DIAGNOSTICS?.profiles?.run_106?.tensors?.find(t => t.id === 'attention_out')?.maxAbs ?? '未采集') + ' · 重复运行不稳定' },
         { l: 'Ordering evidence', v: '1', u: '', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · missing edge' }
       ];
     } else if (isPerformanceWarningStory(r)) {
@@ -1927,7 +1933,7 @@
     const raw = (r.inventory || []).map(i => '<code>' + esc(i.where || i.label) + '</code>').join(' · ') || '<code>无挂载产物目录</code>';
     const lineage = m.derivedFrom
       ? '<p class="kf-rd-note">派生自 ' + esc(m.derivedFrom === 'run_105' ? '#105' : m.derivedFrom === 'run_106' ? '#106' : m.derivedFrom === 'run_107' ? '#107' : m.derivedFrom) + ' · ' + esc(m.change || (m.changes || []).join(' · ')) + '</p>' : '';
-    const fixtureNote = m.fixture ? '<p class="kf-rd-note is-dim">Demo fixture · ' + esc(m.fixtureLabel || '诊断用例') + '</p>' : '';
+    const fixtureNote = m.fixture ? '<p class="kf-rd-note is-dim">场景记录 · ' + esc(m.fixtureLabel || '诊断用例') + '</p>' : '';
     const optimizationActions = isValidatedOptimizationStory(r)
       ? '<div class="kf-oi-actions"><button type="button" data-ws-compare-with="run_107">与 #107 对比</button></div>' : '';
     const baseline = m.baseline && m.baselineMeta
@@ -2234,8 +2240,8 @@
      A tensor shows MATCH / MISMATCH only when both sides exist. Tensors
      with no reference are "no reference", never PASS.
 
-     All numbers below are mock, shaped like the real sources so swapping
-     to dfx_outputs is a data change only.
+     Values come from the selected diagnostic profile; replacing the source
+     with dfx_outputs remains a data-layer change.
      ============================================================ */
   /* Legacy inline DG fixture moved to correctness-diagnostic-data.js.
      Keep a single selected profile reference here so all existing graph,

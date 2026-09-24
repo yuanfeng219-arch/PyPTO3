@@ -773,7 +773,7 @@
       ? (PASSNAMES[nvFirst] || nv.firstDivergentPass) + ' 首次引入数值语义偏差。检查该 Pass 的 Before / After IR 与 Source mapping。'
       : F.next;
 
-    const runtimeAction = traceKernel(k.name)
+    const runtimeAction = runContext().runId !== 'run_109' && traceKernel(k.name)
       ? '<button type="button" data-kc-runtime="' + esc(k.name) + '" data-kc-finding="' + esc(kind) + '">在 Runtime 中验证影响 →</button>'
       : '';
     return '<div class="kc-dhead"><div><h3>' + esc(k.name) + '</h3>' +
