@@ -755,6 +755,18 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 }
 .tc-pairhead > .ct { flex: none; color: var(--foreground-muted); font-family: var(--font-mono); }
 
+/* ---------------------------------------------- critical-path rows
+ * name / cause / stall / span. The cause chip is the whole point of the
+ * table, so it gets its own column rather than living in the title. */
+.tc-scoperow.is-cpath { grid-template-columns: minmax(0, 1fr) 30px 42px 42px; }
+.tc-scoperow.is-cpath > .l > .bar { background: color-mix(in srgb, var(--warning) 20%, transparent); }
+.tc-scoperow.is-cpath.is-crit > .l > .bar { background: color-mix(in srgb, var(--danger) 22%, transparent); }
+.tc-scoperow > .e.is-data { color: var(--primary); }
+.tc-scoperow > .e.is-core { color: var(--warning); }
+.tc-scoperow > .e.is-front { color: var(--foreground-muted); }
+/* a *_wait span is occupancy, not work -- do not let it read as compute */
+.tc-scoperow > .n.is-wait { color: var(--warning); }
+
 /* idle-window rows keep the original four columns */
 .tc-scoperow.is-idle { grid-template-columns: minmax(0, 1fr) 52px 44px 44px; }
 

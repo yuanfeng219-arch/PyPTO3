@@ -2089,7 +2089,10 @@
     }
     host.appendChild(s0);
 
-    /* --- 2. scope ranking: core-time × slack --- */
+    /* --- 2. where the makespan went, attributed --- */
+    host.appendChild(renderCriticalPath(rank));
+
+    /* --- 3. scope ranking: core-time × slack --- */
     const top = rank.scopes.slice(0, 14);
     const maxCore = top[0] ? top[0].coreTime : 1;
     const s1 = inspectorSection('scope 排行', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
@@ -2137,7 +2140,7 @@
     s1.appendChild(el('div', 'inspector-soft-card',
       'slack = DAG 上这个 scope 最紧的那个任务能被推迟多久（fanin/fanout + 实测 span 的'
       + '前推/后推）。0 = 在关键路径上，动它直接缩短总时长；slack 大 = 它胖但不急，'
-      + '先看并行度。不含资源争抢。'));
+      + '先看并行度。不含资源争抢 —— 等核的那部分在上面的「关键路径归责」里记作 core-wait。'));
     host.appendChild(s1);
 
     /* --- 3. idle windows --- */
@@ -2193,6 +2196,131 @@
 
     /* --- 5. spmd launch shape --- */
     host.appendChild(renderSpmdShape(rank));
+  }
+
+  /* --------------------------------------------- critical path, attributed
+   * Ports simpler_setup.tools.critical_path. The scope ranking answers
+   * "what is fat"; this answers "what did the makespan actually consist of",
+   * and unlike the structural slack it can name WHY a task waited. */
+  const KIND_LABEL = { 'data-wait': '数据', 'core-wait': '核', 'front-gap': '启动' };
+  const KIND_FULL = {
+    'data-wait': 'data-wait —— 在等上游生产者',
+    'core-wait': 'core-wait —— 在等分到的核空出来（资源串行化）',
+    'front-gap': 'front-gap —— 第一个任务前的 launch / dispatch 延迟',
+  };
+  const BOUND_LABEL = {
+    dependency: '依赖受限', comm: '通信受限', resource: '资源受限',
+    stall: '调度受限', compute: '计算受限',
+  };
+
+  function renderCriticalPath(rank) {
+    const c = rank.cpath;
+    const sec = inspectorSection('关键路径归责',
+      c.segments.length + ' 节点 · ' + (c.tiling.exact ? '归责闭合' : '归责未闭合'));
+
+    if (!c.acyclic) {
+      sec.appendChild(el('div', 'inspector-soft-card is-warning',
+        'happens-before 图有环，静态 CPM 无法计算 —— 下面只有观测路径。'));
+    }
+
+    sec.appendChild(kv([
+      ['makespan', num(c.makespan, 0) + ' us'],
+      ['静态 CPM', num(c.cpm.len, 0) + ' us · ' + pct(c.cpm.share, 1)
+        + '（' + c.cpm.nodes + ' 节点）'],
+      ['真正计算', num(c.workSpan, 0) + ' us · ' + pct(c.workShare, 1)],
+      ['通信等待', c.waitNodes
+        ? num(c.waitSpan, 0) + ' us · ' + pct(c.waitShare, 1) + '（' + c.waitNodes + ' 个 *_wait）'
+        : '—'],
+      ['调度 stall', num(c.stallTotal, 0) + ' us · ' + pct(c.stallShare, 1)],
+      ['  data-wait', num(c.stallByKind['data-wait'], 1) + ' us'],
+      ['  core-wait', num(c.stallByKind['core-wait'], 1) + ' us'],
+      ['  front-gap', num(c.stallByKind['front-gap'], 1) + ' us'],
+    ]));
+
+    /* the invariant that makes the per-task attribution sound */
+    const tl = el('div', 'inspector-soft-card' + (c.tiling.exact ? '' : ' is-warning'));
+    tl.appendChild(el('div', 'hd', c.tiling.exact ? '归责闭合检查 ✓' : '归责闭合检查 ✗'));
+    tl.appendChild(el('div', 'bd',
+      'compute + stall = ' + num(c.tiling.sum, 2) + ' us vs makespan ' + num(c.tiling.makespan, 2)
+      + ' us，差 ' + num(c.tiling.delta, 2) + ' us。'
+      + (c.tiling.exact
+        ? '每一微秒都被归到了某个节点的计算或它前面的某一类等待上 —— 下面的逐节点归责成立。'
+        : '走查没有铺满 makespan，逐节点归责不成立，下面的数字不要引用。')));
+    sec.appendChild(tl);
+
+    /* the verdict */
+    const bd = el('div', 'inspector-soft-card' + (c.bound === 'compute' ? '' : ' is-warning'));
+    bd.appendChild(el('div', 'hd', BOUND_LABEL[c.bound] || c.bound));
+    bd.appendChild(el('div', 'bd', c.boundWhy));
+    sec.appendChild(bd);
+
+    /* --- path nodes, worst stall first --- */
+    const slow = c.segments.filter((sg) => sg.stall > 1)
+      .sort((a, b) => b.stall - a.stall);
+    const shown = (slow.length ? slow : c.segments.slice().sort((a, b) => b.compute - a.compute))
+      .slice(0, 10);
+    const rows = el('div', 'tc-scoperows');
+    const hd = el('div', 'tc-scoperow is-cpath is-head');
+    [['路径节点', 'l'], ['因', 'e'], ['stall', 'n'], ['span', 'n']]
+      .forEach((col) => hd.appendChild(el('span', col[1], col[0])));
+    rows.appendChild(hd);
+    const maxStall = shown[0] ? Math.max.apply(null, shown.map((x) => x.stall)) || 1 : 1;
+    shown.forEach((sg) => {
+      const b = el('button', 'tc-scoperow is-cpath' + (sg.onCpm ? ' is-crit' : ''));
+      b.type = 'button';
+      b.title = sg.tag + ' · ' + sg.callable + NL
+        + KIND_FULL[sg.kind] + NL
+        + 'stall ' + num(sg.stall, 2) + ' us · 本节点 span ' + num(sg.dur, 2)
+        + ' us · 非重叠计入 ' + num(sg.compute, 2) + ' us' + NL
+        + (sg.onCpm ? '也在静态 CPM 路径上 —— 动它能降依赖下界'
+                    : '只在观测路径上 —— 动它去掉的是 stall，不是依赖下界')
+        + (sg.isWait ? NL + '这是 *_wait，它的 span 是等待不是计算' : '');
+      const nm = el('span', 'l');
+      nm.appendChild(el('i', 'bar'));
+      nm.lastChild.style.width = ((sg.stall / maxStall) * 100).toFixed(1) + '%';
+      nm.appendChild(el('span', 'tx', (sg.stall > 1 ? '🐌 ' : '') + sg.callable));
+      b.appendChild(nm);
+      b.appendChild(el('span', 'e is-' + sg.kind.split('-')[0], KIND_LABEL[sg.kind]));
+      b.appendChild(el('span', 'n' + (sg.stall > 1 ? ' hot' : ' muted'), num(sg.stall, 1)));
+      b.appendChild(el('span', 'n muted' + (sg.isWait ? ' is-wait' : ''), num(sg.dur, 0)));
+      b.addEventListener('click', () => {
+        const from = S.scopeReturn || { t0: S.t0, t1: S.t1, task: S.task, focus: S.focus };
+        S.scopeReturn = { t0: from.t0, t1: from.t1, scope: null, task: from.task, focus: from.focus };
+        S.task = sg.tag;
+        S.focus = 'task';
+        const t = tasksOf[S.rank][sg.tag];
+        if (t) { const pad = Math.max(40, t.span * 0.3); setWindow(t.start - pad, t.end + pad); }
+        render();
+      });
+      rows.appendChild(b);
+    });
+    sec.appendChild(rows);
+    sec.appendChild(el('div', 'inspector-soft-card',
+      (slow.length ? '🐌 = 该节点前的 stall 超过 1 us（' + c.slowNodes + ' 个）。' : '路径上没有超过 1 us 的 stall。')
+      + '红色左边框 = 同时在静态 CPM 路径上，动它降依赖下界；'
+      + '否则只在观测路径上，动它去掉的是 stall。'
+      + 'span 是节点整段时长，stall 是它前面那段没人干活的时间。'));
+
+    /* the two paths are not interchangeable targets */
+    if (c.cpm.onlyOnCpm && c.cpm.onlyOnCpm.length) {
+      sec.appendChild(el('div', 'inspector-soft-card',
+        '静态 CPM 的 ' + c.cpm.nodes + ' 个节点里，' + c.cpm.shared
+        + ' 个也在观测路径上，另外 ' + c.cpm.onlyOnCpm.length
+        + ' 个观测路径从不经过（' + c.cpm.onlyOnCpm.join('、') + '）。'
+        + '动后者降的是依赖下界，动只在观测路径上的节点去掉的是 stall —— '
+        + '提优化建议时必须说清在动哪一条，两者不能互换。'));
+    }
+
+    /* --- how this was derived, and what it is not --- */
+    sec.appendChild(el('div', 'inspector-soft-card',
+      '依赖边按实测时间戳过滤：只有 end(前驱) ≤ start(本节点) + ' + num(c.tol, 3)
+      + ' us 且 start(前驱) < start(本节点) 才保留（' + c.edgesKept + ' 留 / '
+      + c.edgesDropped + ' 弃）。容差'
+      + (c.tolSource === 'clock' ? '取 2 个时钟 tick。' : '本 case 没记时钟频率，退回到时间戳精度的 2 个量子。')
+      + ' core-wait 的前驱是同一条泳道上此前被释放的最晚时刻（running max），'
+      + '所以流水重叠的块也算得对。'));
+
+    return sec;
   }
 
   /* ------------------------------------------------------ engine pairing

@@ -576,6 +576,230 @@ const critical = {
   spanSum: r2(sum(critTags.map((tg) => byTag[tg].span))),
 };
 
+/* ------------------------------------------ critical path, attributed
+ * Ports simpler_setup.tools.critical_path (repo/simpler). The structural
+ * slack below says how much the DEPENDENCY GRAPH would tolerate; it cannot
+ * say whether a task waited on a producer or on a busy core. This does.
+ *
+ *   static CPM   longest duration-weighted path in the happens-before DAG
+ *                = the dependency-limited floor with unlimited cores
+ *   observed     backward blame walk from the last-finishing task through
+ *                whichever predecessor -- data dependency or same-core
+ *                resource -- most tightly gated each task's start
+ *
+ * The observed walk's compute + stall must tile the makespan EXACTLY. That
+ * check is the only thing making the per-task attribution sound, so it is
+ * computed and shipped rather than asserted in prose. */
+
+/* The reference tool's tolerance is 2 clock ticks. Without a recorded clock
+ * there is nothing to convert, so fall back to two quanta of the timestamp
+ * resolution (r2 -> 0.01 us) and record which one was used. */
+const TOL = caseInfo.clockHz ? r3(2 / (caseInfo.clockHz / 1e6)) : 0.02;
+const TOL_SOURCE = caseInfo.clockHz ? 'clock' : 'quantum';
+
+const cpath = (function () {
+  const T0 = 0;
+  const st = {}, en = {}, dr = {};
+  tasks.forEach((t) => { st[t.tag] = t.start; en[t.tag] = t.end; dr[t.tag] = t.span; });
+
+  /* --- happens-before edges: a dependency edge is kept only when the
+   * producer actually finished before the consumer started, AND started
+   * strictly earlier. The strict-start test makes retention antisymmetric,
+   * so the kept graph is acyclic even under tick-level ties. */
+  const hbPred = {};
+  let kept = 0, dropped = 0;
+  tasks.forEach((t) => {
+    const keep = [];
+    t.pred.forEach((ptag) => {
+      if (ptag === t.tag || st[ptag] === undefined) return;
+      if (en[ptag] <= st[t.tag] + TOL && st[ptag] < st[t.tag]) { keep.push(ptag); kept++; }
+      else dropped++;
+    });
+    hbPred[t.tag] = keep;
+  });
+
+  /* --- same-core resource predecessor: when was the core this task first
+   * lands on freed? Running max over earlier slices on that lane, so a
+   * pipelined / overlapping slice is handled, not just the previous one. */
+  const corePrev = {};
+  laneBlocks.forEach((slices) => {
+    let bestEnd = -Infinity, bestTag = null;
+    slices.forEach((b) => {
+      const t = tasks[b[2]];
+      if (!t) return;
+      const bs = b[0], be = b[0] + b[1];
+      if (bestTag !== null && bestTag !== t.tag && bestEnd <= bs + TOL && bs === st[t.tag]) {
+        const cur = corePrev[t.tag];
+        if (!cur || bestEnd > cur[1]) corePrev[t.tag] = [bestTag, bestEnd];
+      }
+      if (be > bestEnd) { bestEnd = be; bestTag = t.tag; }
+    });
+  });
+
+  /* --- topological order over the kept graph */
+  const indeg = {}, succ = {};
+  tasks.forEach((t) => { indeg[t.tag] = 0; succ[t.tag] = []; });
+  tasks.forEach((t) => {
+    hbPred[t.tag].forEach((ptag) => { succ[ptag].push(t.tag); indeg[t.tag]++; });
+  });
+  const q = tasks.filter((t) => indeg[t.tag] === 0).map((t) => t.tag);
+  const order = [];
+  while (q.length) {
+    const u = q.shift();
+    order.push(u);
+    succ[u].forEach((v) => { if (--indeg[v] === 0) q.push(v); });
+  }
+  const acyclic = order.length === tasks.length;
+
+  /* --- static CPM: longest duration-weighted path */
+  let cpmPath = [], cpmLen = 0;
+  if (acyclic) {
+    const finish = {}, choice = {};
+    order.forEach((v) => {
+      let bp = null, bf = 0;
+      hbPred[v].forEach((ptag) => { if (finish[ptag] > bf) { bf = finish[ptag]; bp = ptag; } });
+      finish[v] = bf + dr[v];
+      choice[v] = bp;
+    });
+    let sink = null;
+    Object.keys(finish).forEach((k) => { if (sink === null || finish[k] > finish[sink]) sink = k; });
+    for (let v = sink; v; v = choice[v]) cpmPath.push(v);
+    cpmPath.reverse();
+    cpmLen = r2(finish[sink]);
+  }
+
+  /* --- observed: backward blame walk from the last-finishing task */
+  let sink = null;
+  tasks.forEach((t) => { if (sink === null || en[t.tag] > en[sink]) sink = t.tag; });
+  const walk = [];
+  const seen = {};
+  let v = sink;
+  while (v && !seen[v]) {
+    seen[v] = 1;
+    const cand = [];
+    hbPred[v].forEach((ptag) => {
+      if (en[ptag] <= st[v] + TOL && st[ptag] < st[v]) cand.push([en[ptag], ptag, 'data-wait']);
+    });
+    const cp = corePrev[v];
+    if (cp && cp[1] <= st[v] + TOL && st[cp[0]] < st[v]) cand.push([cp[1], cp[0], 'core-wait']);
+    if (!cand.length) { walk.push([v, 'front-gap']); break; }
+    cand.sort((a, b) => a[0] - b[0]);
+    const pickd = cand[cand.length - 1];
+    walk.push([v, pickd[2]]);
+    v = pickd[1];
+  }
+  walk.reverse();
+
+  /* --- frontier sweep: tile [t0, end(sink)] into compute + stall */
+  const segments = [];
+  const byKind = { 'data-wait': 0, 'core-wait': 0, 'front-gap': 0 };
+  let computeTotal = 0, stallTotal = 0, frontier = T0;
+  walk.forEach((w) => {
+    const tag = w[0], kind = w[1];
+    const a = st[tag], b = en[tag];
+    const gap = Math.max(0, a - frontier);
+    const eff = Math.max(0, b - Math.max(a, frontier));
+    const t = byTag[tag];
+    segments.push({
+      tag: tag, callable: t.callable, kind: kind,
+      start: r2(a), end: r2(b), dur: r2(dr[tag]),
+      compute: r2(eff), stall: r2(gap),
+      blocks: t.blockCount, cores: t.coreCount,
+      onCpm: cpmPath.indexOf(tag) >= 0,
+      /* A *_wait task's span occupies the path but is not work. The model
+       * calls every path span "compute"; keeping them apart is the
+       * difference between "compute-bound" and "waiting on a peer". */
+      isWait: /_wait$/.test(t.callable || ''),
+    });
+    byKind[kind] += gap;
+    computeTotal += eff;
+    stallTotal += gap;
+    frontier = Math.max(frontier, b);
+  });
+
+  const makespan = r2(Math.max.apply(null, tasks.map((t) => t.end)) - T0);
+  const tiled = r2(computeTotal + stallTotal);
+  /* the invariant: the walk must account for every microsecond. r2 rounding
+   * of the inputs is the only slack allowed, so compare at that resolution. */
+  const tilingDelta = r2(tiled - makespan);
+  const tilingExact = Math.abs(tilingDelta) <= 0.01;
+
+  /* kernel families on the observed path, ranked by compute contributed */
+  const fam = {};
+  segments.forEach((sg) => {
+    const f = (fam[sg.callable] = fam[sg.callable] || { callable: sg.callable, compute: 0, stall: 0, n: 0 });
+    f.compute += sg.compute; f.stall += sg.stall; f.n++;
+  });
+  const families = Object.keys(fam).map((k) => ({
+    callable: k, compute: r2(fam[k].compute), stall: r2(fam[k].stall), nodes: fam[k].n,
+    share: r2((fam[k].compute / Math.max(makespan, 1e-9)) * 100),
+  })).sort((a, b) => b.compute - a.compute);
+
+  /* The reference model counts every path span as "compute". On a run whose
+   * path is dominated by collective waits that reads as compute-bound, which
+   * is the opposite of the truth -- so split it before classifying. */
+  const waitSpan = r2(sum(segments.filter((sg) => sg.isWait).map((sg) => sg.compute)));
+  const workSpan = r2(computeTotal - waitSpan);
+  const waitShare = r2((waitSpan / Math.max(makespan, 1e-9)) * 100);
+  const workShare = r2((workSpan / Math.max(makespan, 1e-9)) * 100);
+
+  const cpmShare = r2((cpmLen / Math.max(makespan, 1e-9)) * 100);
+  const stallShare = r2((stallTotal / Math.max(makespan, 1e-9)) * 100);
+  const worstKind = Object.keys(byKind).sort((a, b) => byKind[b] - byKind[a])[0];
+  let bound, boundWhy;
+  if (cpmShare >= 85) {
+    bound = 'dependency';
+    boundWhy = '静态 CPM 占 makespan ' + cpmShare + '%，图本身就是地板，加核改善不了。';
+  } else if (waitShare >= 25) {
+    bound = 'comm';
+    boundWhy = '路径上 ' + segments.filter((sg) => sg.isWait).length + ' 个 *_wait 任务占 '
+      + waitShare + '%，真正算的只有 ' + workShare + '%。'
+      + '模型把路径任务的 span 一律记作 compute，这里必须拆开看。';
+  } else if (stallShare >= 40) {
+    bound = worstKind === 'core-wait' ? 'resource' : 'stall';
+    boundWhy = 'stall 占 ' + stallShare + '%，其中 ' + worstKind + ' 最大（'
+      + r2((byKind[worstKind] / Math.max(stallTotal, 1e-9)) * 100) + '% 的 stall）。';
+  } else {
+    bound = 'compute';
+    boundWhy = '真正计算占 ' + workShare + '%，等待 ' + waitShare + '%，stall ' + stallShare + '%。';
+  }
+
+  return {
+    tol: TOL, tolSource: TOL_SOURCE,
+    makespan: makespan,
+    edgesKept: kept, edgesDropped: dropped,
+    acyclic: acyclic,
+    cpm: {
+      tags: cpmPath, len: cpmLen, nodes: cpmPath.length, share: cpmShare,
+      /* nodes on the dependency floor that the observed path never visits:
+       * touching one lowers the floor, touching an observed-only node only
+       * removes stall. The two are not interchangeable. */
+      onlyOnCpm: cpmPath.filter(function (tg) { return !segments.some(function (sg) { return sg.tag === tg; }); }),
+      shared: cpmPath.filter(function (tg) { return segments.some(function (sg) { return sg.tag === tg; }); }).length,
+    },
+    segments: segments,
+    computeTotal: r2(computeTotal),
+    waitSpan: waitSpan,
+    workSpan: workSpan,
+    waitShare: waitShare,
+    workShare: workShare,
+    waitNodes: segments.filter((sg) => sg.isWait).length,
+    stallTotal: r2(stallTotal),
+    computeShare: r2((computeTotal / Math.max(makespan, 1e-9)) * 100),
+    stallShare: stallShare,
+    stallByKind: {
+      'data-wait': r2(byKind['data-wait']),
+      'core-wait': r2(byKind['core-wait']),
+      'front-gap': r2(byKind['front-gap']),
+    },
+    families: families.slice(0, 10),
+    tiling: { sum: tiled, makespan: makespan, delta: tilingDelta, exact: tilingExact },
+    bound: bound, boundWhy: boundWhy,
+    /* rows the reference skill would flag; 1 us is its threshold */
+    slowNodes: segments.filter((sg) => sg.stall > 1).length,
+  };
+})();
+
 /* -------------------------------------------------------------- slack
  * Standard forward/backward pass over the fanin/fanout DAG using the
  * MEASURED span of each task. ES/EF from predecessors, LF/LS from
@@ -865,6 +1089,7 @@ return {
   accounting: accounting,
   taskIndex: taskIndex,
   critical: critical,
+  cpath: cpath,
   scheduler: {
     processNames: processName, lanes: schedLanes, laneStats: schedLaneStats,
     phases: schedPhases, window: schedWindow, busy: schedBusy, blocks: schedBlocks,

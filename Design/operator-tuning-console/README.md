@@ -366,6 +366,105 @@ L1 视图里的试算器不是通用公式演示，它对着**本 run 的实测�
 
 ---
 
+## 关键路径归责：照着 simpler 的算法重写了一遍
+
+原来这里只有**结构 slack** —— 在 `deps.json` 上前推 ES/EF、后推 LS/LF。
+它能说「这个 scope 动了能缩短总时长」，说不了「这段时间到底在等什么」。
+面板里那句「不含资源争抢」就是在认这个账。
+
+`repo/simpler/simpler_setup/tools/critical_path.py` 正好补这一块。把它的算法搬了过来。
+
+### 两条路径，不是一条
+
+**静态 CPM** —— 依赖决定的延迟下界（无限核）。
+
+依赖边先按实测时间戳过滤，只有**真的先完成**的才算 happens-before：
+
+```js
+if (en[ptag] <= st[t.tag] + TOL && st[ptag] < st[t.tag]) keep.push(ptag);
+```
+
+`start(前驱) < start(本节点)` 这个严格条件让边保留是反对称的 ——
+**即使时间戳打平，保留下来的图也可证明无环**，后面的 DP 和反向走查才安全。
+decode_csa rank0 上 133 条边留 126、弃 7。
+
+**观测路径** —— 从最后完成的任务往回「归责」走，每步在两类前驱里挑卡得最紧的：
+
+| 前驱 | 记为 |
+|---|---|
+| 数据依赖（happens-before 边） | `data-wait` |
+| 同核资源（这条泳道上此前被释放的最晚时刻，running max） | `core-wait` |
+| 一个都没有 | `front-gap` |
+
+同核前驱用 running max 而不是「前一块」，所以流水重叠的切片也算得对。
+
+### 归责闭合检查
+
+正向 frontier sweep 保证 compute + stall **精确铺满** makespan：
+
+```js
+const gap = Math.max(0, a - frontier);
+const eff = Math.max(0, b - Math.max(a, frontier));
+frontier = Math.max(frontier, b);
+```
+
+三个 rank 全部 `delta 0.00`。**这个检查不过，下面的逐节点归责就不成立** ——
+所以它是算出来摆在面板上的，不是拿文字声称的。
+
+```
+decode_csa / rank0   4879.82 = 4879.82   ✓
+decode_csa / rank1   3774.04 = 3774.04   ✓
+decode_fwd_layers    993.24  = 993.24    ✓
+```
+
+### 照搬会错的一处：模型把等待算成了 compute
+
+`critical_path.py` 的 `dur = end - start` 是节点的 **wall span**。
+路径上的 `*_wait` 是通信等待，它的 span 占着路径但根本不是计算。直接套判据会得到：
+
+```
+rank0  compute 94.21%  stall 5.79%   →  "compute-bound"
+```
+
+而这 4597.5 us「compute」里有 **1791.82 us（39%）是 4 个 `*_wait`**。
+所以这里把 compute 拆成**真正计算**和**通信等待**，并让它参与判据：
+
+```
+rank0   真算 57.5%   等待 36.7%(4 个)   stall 5.8%   →  通信受限
+rank1   真算 93.4%   等待  0.1%(2 个)   stall 6.5%   →  计算受限
+```
+
+**这和 F3 是两条独立推导，结论一致。** F3 是从 host CLOCK_MONOTONIC 对齐推出
+rank1 晚启动 1153.79 us、rank0 在空等；归责走查从设备侧时间戳独立得到
+rank0 通信受限 / rank1 计算受限。而且 F1 的 36.72% 与归责的 `waitShare` 精确相等，
+4 个 `*_wait` 全部落在归责路径上。
+
+### 两条路径不能互换
+
+静态 CPM 的 14 个节点里，9 个也在观测路径上，**另外 5 个观测路径从不经过**。
+
+- 动只在 CPM 上的节点 → 降**依赖下界**
+- 动只在观测路径上的节点 → 去掉 **stall**
+
+面板上用红色左边框区分，并把 5 个 CPM-only 的 tag 直接列出来。
+提优化建议时必须说清在动哪一条。
+
+### 容差
+
+参考工具用 2 个时钟 tick。decode_csa 有 `clock_freq_hz = 50 MHz` → **0.04 us**。
+decode_fwd_layers **没记时钟频率**，退回到时间戳精度的 2 个量子（0.02 us），
+界面上标明用的是哪一种，不假装有时钟。
+
+### 还没有的
+
+- 参考工具按 `(task, core-block)` 切片建图，这里按 task 建图、用泳道块算同核前驱。
+  块级的 core-wait 比任务级更细。
+- 没有 `CPM_static.json` / `CPM_observed.json` 那种把 off-path 任务改名的 Perfetto 导出。
+- 归责用的 span 含 setup（泳道上块从 setup 起画），参考工具用的是裸 kernel tick。
+  对 core-wait 而言含 setup 更对 —— 核在 setup 期间确实被占着。
+
+---
+
 ## scope 和 kernel 不是一回事
 
 这两个词在通用 trace 工具里会混成一个，在 PTO 里不是。
@@ -526,6 +625,8 @@ callable，前 8 个任务里 5 个都是 `up_proj`，颜色还完全一样)。
   才能把结论推进到指令层。
 - **没有 PMU**。trace 里没有硬件 counter，门禁标为 `off`，并注明 PMU 打开会改变调度，不能与本基线直接比较。
 - **只有 2 次调用**。所以工具不显示 mean/median，只显示每次调用的值，并在门禁里把这点标成 warn。
+- **只有一次采集**。每个百分比都来自单次 run。同一负载两次采集的 stall 占比能差几个百分点，所以不要拿「各采一次」的两个配置做对比 —— 参考 skill 的原话是 one capture, one sample。另外 makespan 含首轮 warm-up，不是稳态。
+- **归责是任务级，不是块级**。参考工具按 (task, core-block) 切片建 happens-before 图；这里按 task 建图，只有同核前驱用到了泳道块。块级的 core-wait 会比任务级更细。
 
 ---
 
