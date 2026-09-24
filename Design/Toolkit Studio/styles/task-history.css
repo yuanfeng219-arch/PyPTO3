@@ -827,6 +827,23 @@
   spinner / muted 文字出现在顶部 headline；这里只说分析结论 PASS / WARNING /
   FAIL / NOT EVALUATED。所以结论用直角 monospace 小片，不抢 Run 标题。 */
 .kf-rtpwrap { display: grid; gap: 14px; min-width: 0; }
+.kf-compile-handoff-wrap { display: grid; gap: var(--space-2); min-width: 0; }
+.kf-compile-identity { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; padding: 0 2px; }
+.kf-compile-identity b { overflow: hidden; color: var(--foreground); font: var(--type-title-3); text-overflow: ellipsis; white-space: nowrap; }
+.kf-compile-identity span { color: var(--foreground-muted); font: var(--type-body-sm); white-space: nowrap; }
+.kf-compile-handoff { display: grid; gap: var(--space-2); padding: var(--space-3) 2px; border-block: 1px solid var(--border-subtle); }
+.kf-compile-handoff__from { margin: 0; color: var(--foreground-muted); font: var(--type-body-sm); }
+.kf-compile-handoff__grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-4); align-items: center; }
+.kf-compile-handoff__grid > div { display: grid; min-width: 0; gap: 3px; }
+.kf-compile-handoff__label { color: var(--foreground-muted); font: var(--type-body-sm); }
+.kf-compile-handoff__grid b { overflow: hidden; color: var(--foreground); font: var(--type-title-3); text-overflow: ellipsis; white-space: nowrap; }
+.kf-compile-handoff__grid p { margin: 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-compile-handoff__arrow { color: var(--foreground-muted); font: 18px/1 var(--font-sans); font-style: normal; }
+.kf-compile-handoff .btn { justify-self: start; margin-top: var(--space-1); }
+@container (max-width: 620px) {
+  .kf-compile-handoff__grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .kf-compile-handoff__arrow { display: none; }
+}
 /* 顶部 summary strip：单一连续 surface —— 最左结论锚点（Domain + 结论 +
    状态符号，状态色只染这一格），后面一组并列事实列（label 在上、value 在
    下，用间距不用框线分隔），最右一句弱说明。Tabs 下方只有这一条，诊断解释

@@ -1,8 +1,27 @@
 /* Domain layout only; graph nodes and evidence notes belong to the shared pattern. */
 .kf-investigation { display: grid; gap: var(--space-4); min-width: 0; }
-.kf-investigation-head .kf-rd-h { margin: 0; }
-.kf-investigation-head p { margin: var(--space-2) 0 0; }
-.kf-investigation [data-run-investigation] { --dg-height: clamp(420px, 62vh, 760px); }
+.kf-investigation__title { display: flex; align-items: center; min-height: 34px; margin: 0; }
+.kf-investigation__title h2 { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--foreground); font: var(--type-title-2); }
+.kf-investigation__count { display: inline-flex; min-width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--foreground); font: var(--type-body); }
+.kf-investigation [data-run-investigation] { --dg-height: clamp(510px, 68vh, 820px); }
+.kf-investigation [data-run-investigation].has-context .diagnostic-graph__context {
+  position: absolute; z-index: 3; inset: 0 0 auto; min-height: 92px;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle); background: var(--surface-1);
+}
+.kf-investigation [data-run-investigation].has-context .diagnostic-graph__viewport { top: 92px; }
+.kf-investigation [data-run-investigation].has-context .diagnostic-graph__toolbar { top: calc(92px + var(--space-3)); }
+.kf-investigation__cases { display: flex; align-items: stretch; gap: var(--space-2); min-width: 0; }
+.kf-investigation__case { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 7px var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-2); color: var(--foreground); text-align: left; }
+.kf-investigation__case:hover { background: var(--surface-3); border-color: var(--border-default); }
+.kf-investigation__case:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--focus-ring); }
+.kf-investigation__case[aria-selected="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, var(--surface-2)); }
+.kf-investigation__case-marker { flex: 0 0 auto; padding: 4px 7px; border-radius: var(--radius-md); font: var(--type-body-sm); font-weight: 650; white-space: nowrap; }
+.kf-investigation__case.is-danger .kf-investigation__case-marker { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, var(--surface-3)); }
+.kf-investigation__case.is-warning .kf-investigation__case-marker { color: var(--warning); background: color-mix(in srgb, var(--warning) 16%, var(--surface-3)); }
+.kf-investigation__case strong { flex: 0 0 auto; font: var(--type-body); font-weight: 650; white-space: nowrap; }
+.kf-investigation__case small { overflow: hidden; color: var(--foreground-secondary); font: var(--type-body-sm); text-overflow: ellipsis; white-space: nowrap; }
+.kf-investigation__description { max-width: 760px; margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
 .kf-investigation-verdict { display: flex; align-items: center; gap: var(--space-5); padding: var(--space-3) 0; }
 .kf-investigation-verdict > div { flex: 1; min-width: 0; }
 .kf-investigation-verdict p { margin: var(--space-2) 0; font: var(--type-body); }
@@ -10,5 +29,11 @@
 .kf-investigation-return { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3); }
 .kf-investigation-return span { color: var(--foreground-secondary); font: var(--type-body-sm); }
 @media (max-width: 800px) {
+  .kf-investigation [data-run-investigation] { --dg-height: clamp(480px, 66vh, 700px); }
+  .kf-investigation [data-run-investigation].has-context .diagnostic-graph__context { min-height: 116px; padding-inline: var(--space-3); }
+  .kf-investigation [data-run-investigation].has-context .diagnostic-graph__viewport { top: 116px; }
+  .kf-investigation [data-run-investigation].has-context .diagnostic-graph__toolbar { top: calc(116px + var(--space-2)); }
+  .kf-investigation__cases { overflow-x: auto; padding-bottom: var(--space-1); }
+  .kf-investigation__case { flex: 0 0 auto; }
   .kf-investigation-verdict { align-items: flex-start; flex-direction: column; }
 }

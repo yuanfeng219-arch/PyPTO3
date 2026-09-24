@@ -18,6 +18,35 @@ test('strict Run identity and valid graph references',()=>{
   assert.doesNotMatch(JSON.stringify(g),/mock|fixture|一键修复/i);
  }
 });
+test('Run #106 exposes two investigation cases with explicit horizontal spines',()=>{
+ const w=load(), api=w.PTO_RUN_INVESTIGATION;
+ const cases=api.cases('run_106');
+ assert.deepEqual(JSON.parse(JSON.stringify(cases.map(item=>item.title))),['输出偏差','排序风险']);
+ assert.deepEqual(JSON.parse(JSON.stringify(cases.map(item=>item.marker))),['FAIL · 正确性','WARNING · Runtime']);
+ assert.deepEqual(JSON.parse(JSON.stringify(cases.map(item=>item.location))),['attention_out → Task #182','B2 · Task #182 / #197']);
+ assert.equal(cases[0].description.includes('attention_out'),true);
+ assert.equal(cases[1].description.includes('WAR'),true);
+ for (const item of cases) {
+  const spine=item.investigationData.nodes.filter(node=>Number.isFinite(node.spineIndex)).sort((a,b)=>a.spineIndex-b.spineIndex);
+  assert.equal(spine.length,7);
+  assert.deepEqual(JSON.parse(JSON.stringify(spine.map(node=>node.spineIndex))),[0,1,2,3,4,5,6]);
+  for (const node of item.investigationData.nodes) {
+   assert.ok(node.evidenceRefs.every(ref=>item.investigationData.evidenceById[ref]));
+  }
+ }
+ assert.deepEqual(JSON.parse(JSON.stringify(api.cases('unknown'))),[]);
+});
+test('Run #109 compiler investigation uses an explicit horizontal spine and peripheral branches',()=>{
+ const w=load(), graph=w.PTO_RUN_INVESTIGATION.build('run_109');
+ const spine=graph.nodes.filter(node=>Number.isFinite(node.spineIndex)).sort((a,b)=>a.spineIndex-b.spineIndex);
+ assert.deepEqual(JSON.parse(JSON.stringify(spine.map(node=>node.id))),[
+  'compiler-validation','validation-split','expand-mixed-kernel','adjacent-pass-ir','compiler-diagnosis'
+ ]);
+ assert.deepEqual(JSON.parse(JSON.stringify(spine.map(node=>node.spineIndex))),[0,1,2,3,4]);
+ assert.equal(graph.nodes.find(node=>node.id==='structure').lane,'above');
+ assert.equal(graph.nodes.find(node=>node.id==='device-scope').lane,'below');
+ assert.equal(graph.edges.some(edge=>edge.source==='device-scope'&&edge.target==='compiler-diagnosis'),false);
+});
 test('distinct errors and missing reference downgrade',()=>{
  const w=load(), p=w.PTO_CORRECTNESS_DIAGNOSTICS.profiles.run_106, api=w.PTO_RUN_INVESTIGATION;
  let g=api.build('run_106');

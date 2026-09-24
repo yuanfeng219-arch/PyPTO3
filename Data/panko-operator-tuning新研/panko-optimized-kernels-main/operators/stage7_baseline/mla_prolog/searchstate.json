@@ -1,0 +1,1105 @@
+{
+  "op": "mla_prolog",
+  "device_id": "8",
+  "target": {
+    "metric": "latency_us",
+    "P_ref": 100.0,
+    "lower_is_better": true
+  },
+  "config": {
+    "stagnation_K": 7,
+    "infeasible_K": 16,
+    "staged_prior": true,
+    "wall_clock_limit_s": 1000000000,
+    "eval_timeout_s": 1800,
+    "eval_budget": null,
+    "global_stagnation_limit": null,
+    "stage_convergence": false,
+    "stage_min_gain": 0.01,
+    "bo_free_trials": 0,
+    "bo_startup_min_feasible": 5,
+    "stage_patience": 2,
+    "tile_bo": true,
+    "symptom_boost": 1.3,
+    "static_feasibility": true,
+    "action_preconditions": true,
+    "conversion_actions": true,
+    "block_budget_share": null
+  },
+  "_seq": 60,
+  "progress": {
+    "active_stage": "frontend",
+    "stage_stagnation": 1,
+    "evals_used": 21,
+    "wall_clock_s": 62791,
+    "_start_ts": 1789546151.146253,
+    "global_stagnation": 1,
+    "best_J": 56.5483,
+    "preopt_us": 203.7,
+    "best_latency_us": 176.84,
+    "best_speedup_vs_preopt": 1.1519,
+    "cycle_productive": true,
+    "converged": false,
+    "static_rejected": 12,
+    "duplicate_rejected": 3,
+    "frontier_emptied_by_prune": 0,
+    "expansion_requests": 0,
+    "expansion_required": false,
+    "stop_reason": null,
+    "refine": {
+      "action": "u57",
+      "best": {
+        "code_hash": "6d3149c2f823b1a38bc8afa740e3cb3c5b30a89062b19efa1e1cee4cc82d4d8d",
+        "J": 57.4977,
+        "p": 173.92,
+        "m": {
+          "util": 33.95,
+          "bubble": 5.2033,
+          "aic_util": 77.59,
+          "aiv_util": 23.18,
+          "pred_stall": 76.37,
+          "aic_bubble": 2.13,
+          "aiv_bubble": 7.04
+        }
+      },
+      "threshold_J": 56.5483,
+      "n": 0,
+      "n_static": 0,
+      "dup_streak": 0
+    }
+  },
+  "nodes": {
+    "closed": [
+      {
+        "id": "root",
+        "parent": null,
+        "stage": "frontend",
+        "code_hash": "5c6ece7839c40b1df0729e9bbff184d3f5e01473059c3ae45858828714aa78c8",
+        "J": 49.0918,
+        "eval": {
+          "s": 1,
+          "p": 203.7,
+          "m": {
+            "util": 29.1,
+            "bubble": 6.6992,
+            "aic_util": 60.69,
+            "aiv_util": 21.79,
+            "pred_stall": 77.64,
+            "aic_bubble": 2.13,
+            "aiv_bubble": 9.44
+          }
+        }
+      },
+      {
+        "id": "x58",
+        "parent": "root",
+        "stage": "frontend",
+        "code_hash": "1111c29bd7f679bdb21b880148c0cc1893be8106748df11e7f66470f3612cd45",
+        "J": 52.5652,
+        "eval": {
+          "s": 1,
+          "p": 190.24,
+          "m": {
+            "util": 24.62,
+            "bubble": 12.8124,
+            "aic_util": 62.56,
+            "aiv_util": 14.89,
+            "pred_stall": 84.71,
+            "aic_bubble": 2.13,
+            "aiv_bubble": 18.15
+          }
+        }
+      },
+      {
+        "id": "x59",
+        "parent": "x58",
+        "stage": "frontend",
+        "code_hash": "5bf19d5d2635e0c107c03dfc2bbaac76b5b65672e11464af96a4ea3372049c0d",
+        "J": 56.5483,
+        "eval": {
+          "s": 1,
+          "p": 176.84,
+          "m": {
+            "util": 28.44,
+            "bubble": 6.6918,
+            "aic_util": 72.76,
+            "aiv_util": 20.49,
+            "pred_stall": 79.02,
+            "aic_bubble": 2.6,
+            "aiv_bubble": 8.74
+          }
+        }
+      }
+    ],
+    "open": [
+      {
+        "id": "u1",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-1",
+        "delta": "increase task granularity (larger Matmul M/N tiling / more rows per task)",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 1,
+        "requires": [],
+        "pruned_on": "38a9d6052293"
+      },
+      {
+        "id": "u2",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-2",
+        "delta": "increase per-loop compute via larger tiling or loop_unroll",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 1,
+        "requires": [],
+        "pruned_on": "38a9d6052293"
+      },
+      {
+        "id": "u3",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-3",
+        "delta": "reduce loop count by increasing tile size / chunking",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 1,
+        "requires": [],
+        "pruned_on": "38a9d6052293"
+      },
+      {
+        "id": "u5",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-5",
+        "delta": "replace pypto.loop over a static axis with a Python for",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u6",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-6",
+        "delta": "merge independent loops that have no data dependency",
+        "V": 0.78,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u7",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-7",
+        "delta": "chunk the outer dynamic axis to increase task count. Pairs with F-8: chunk here, then unroll the innermost loop; chunking alone raises granularity without raising parallelism.",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u8",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-8",
+        "delta": "set inner-loop unroll_list. The values are PARALLEL BLOCK SIZES in descending priority order, not unroll counts: [8,4,2,1] asks for 8 blocks in parallel and falls back through 4, 2, 1. Innermost pypto.loop only (OL49), and no value above that loop's trip count. A bigger loop wants a longer list -- [8,4,2,1] is the adaptable default, [128,64,16,8,1] suits large ones, and [128,64,16,4,1] measured 3.3x to 8.9x on six GroupedMatmulSwigluQuant cases, bit-exact. Each value costs one compilation path (OL56), so length is paid in wall clock. Pairs with F-7: chunk the outer axis for task granularity, then unroll the inner one for parallelism -- neither alone reaches what the two do together.",
+        "V": 0.78,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u9",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-9",
+        "delta": "set Cube TileShape to the recommended config",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u10",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-10",
+        "delta": "set Vector tile shapes (set_vec_tile_shapes)",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u11",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-11",
+        "delta": "tune constant config (BLOCK_SIZE etc.)",
+        "V": 0.6591,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u12",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-12",
+        "delta": "use NZ format for large weight matrices",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u13",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-13",
+        "delta": "optimize transpose fused with matmul",
+        "V": 0.6,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u14",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-14",
+        "delta": "eliminate redundant concat/assemble data movement",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u18",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-18",
+        "delta": "store internal tensors / carried state in BF16 while accumulating in FP32 (cast->compute->cast) to halve storage and data-movement traffic. Suited to precision-tolerant kernels whose spec tolerance allows reduced-precision storage",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u20",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-1",
+        "delta": "analyze core usage (analyze_core_usage.py) to guide balancing",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u21",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-2",
+        "delta": "increase task count by shrinking L0/L1 tiles to fill cores",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u22",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-3",
+        "delta": "rebalance load: sort subgraphs by total(us) and fix the bottleneck",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u23",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-4",
+        "delta": "manually merge vector subgraphs (sg_set_scope)",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u24",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-5",
+        "delta": "auto-merge short AIV tasks (nbuffer)",
+        "V": 0.78,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u25",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-20",
+        "delta": "REMOVE vec_nbuffer_setting, or narrow its key set from the all-subgraphs {-1: N} form to a targeted {index: N}. FORM and GRANULARITY are separable axes and conflating them is expensive: on glm_v4_5_ifa_attention the all-subgraphs form LOST 16 us across a heterogeneous vector pipeline (5 sites carrying 4 distinct tile shapes) while depth on the single homogeneous scope GAINED 22 us. Count the DISTINCT TILE SHAPES the pipeline governs before choosing the form: {-1: N} is a candidate only when that count is 1.",
+        "V": 0.78,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u26",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-6",
+        "delta": "enable Cube L1Reuse to remove repeated loads",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u27",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-18",
+        "delta": "REMOVE a cube_l1_reuse_setting entry, or drop the option entirely. The optimum is not always a positive depth: on glm_v4_5_ifa_attention the second matmul's best was NO ENTRY (none 105.78 vs depth 2 110.24 vs depth 8 115.90 us). The mechanism is structural rather than empirical -- that matmul's B operand supplies the K REDUCTION axis and is consumed exactly once per iteration, so no depth can amortize the GM->L1 fill. Depth pays only where the operand is streamed against a small M tile.",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u28",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-7",
+        "delta": "merge homogeneous short cube subgraphs (CubeNBuffer)",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u29",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-19",
+        "delta": "REMOVE cube_nbuffer_setting, or drop a subgraph from its key set. Merge granularity is UNIMODAL, not monotone: on glm_v4_5_ifa_attention 1/2/4/8 measured 110.88 / 102.56 / 109.56 / 132.78 us, so both too little and too much merging cost time, and granularity 1 sat inside the unset kernel's own band.",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u30",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-8",
+        "delta": "combine L1Reuse + CubeNBuffer",
+        "V": 0.6591,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u31",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-9",
+        "delta": "tune stitch (stitch_function_max_num)",
+        "V": 0.39,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u32",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-10",
+        "delta": "adjust scheduling (device_sched_mode)",
+        "V": 0.39,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u33",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-11",
+        "delta": "deep-tune Cube TileShape (reduce reloads / K-axis split)",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u34",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-12",
+        "delta": "deep-tune Vector TileShape aligned to up/downstream (swimlane-driven)",
+        "V": 1.0,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u35",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-13",
+        "delta": "optimize matmul core layout to raise L2 hit rate",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u36",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-14",
+        "delta": "fuse adjacent producer->consumer ops so the intermediate stays on-chip (L1/UB), eliminating the copy_out->copy_in Global-Memory round-trip",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u37",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-15",
+        "delta": "pipeline / double-buffer so MTE data-movement overlaps Cube and Vec compute -- copy, cube, and vec run concurrently to fill the idle bubble",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u38",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-16",
+        "delta": "tune JIT runtime_options stitch memory pools: raise stitch_function_inner_memory and stitch_function_outcast_memory (e.g. 128->1024) and optionally stitch_function_num_initial (128->256) -- larger inner/outcast lets the runtime pack more work per root-function / device-task (more fusion, fewer launches) on heavy multi-subgraph kernels. Distinct from S-9 (stitch_function_max_num)",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u39",
+        "parent": "x59",
+        "stage": "swimlane",
+        "catalog_id": "S-17",
+        "delta": "fuse adjacent modules so the intermediate stays on-chip (no GM round-trip between modules) -- a design-level merge beyond the op-level fusion of S-14. Applies only when there are >=2 adjacent fusable modules (L1 multi-module kernels); N/A to single-module (L0) kernels",
+        "V": 1.0,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "module_count >= 2"
+        ]
+      },
+      {
+        "id": "u40",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-1",
+        "delta": "Vector-preprocess (reshape) a small-shape matmul",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u41",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-2",
+        "delta": "set large weights NONE_CACHEABLE (batch for fused ops)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u42",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-13",
+        "delta": "clear NONE_CACHEABLE from a tensor that carries it. The hint costs nothing to set and is therefore easy to leave on a tensor that is in fact reused, where it defeats the cache it was meant to bypass. No measurement on this axis yet -- it is here so the axis is two-directional, not because removal is expected to win.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u43",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-3",
+        "delta": "duplicate data to break a dependency and free redundant compute",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u44",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-4",
+        "delta": "grow the tail axis (concat/transpose) for 32B alignment",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u45",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-5",
+        "delta": "review TileOperation impl against Ascend C",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u46",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-6",
+        "delta": "fix non-contiguous TileOperation inputs (reshape/transpose)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u47",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-7",
+        "delta": "gather via cube_tile (HBM->L1), scatter via assemble (L1->HBM)",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u48",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-8",
+        "delta": "set submit_before_loop=True to overlap compute and data movement",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u49",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-12",
+        "delta": "clear or REMOVE submit_before_loop from the loop that carries it. This directive is NOT monotonically good and the two measurements point opposite ways: removing it entirely took flash_attention_mha from 21732 to ~8390 us (2.59x, the compiler's own pipelining took over), while setting it True on glm_v4_5_ifa_attention measured 667.54 us against an 80.6 us incumbent -- an 8x regression with util collapsing to 12.8%. Try removal wherever I-8 is already satisfied. If no loop carries the directive this edit is a no-op and the duplicate cache rejects it for free.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u50",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-9",
+        "delta": "mark valid_shape to avoid tail zero-pad compute",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u51",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-10",
+        "delta": "compute-once-and-reuse: remove redundant / recomputed intermediates to cut total op count",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "materializes_large_intermediate"
+        ]
+      },
+      {
+        "id": "u52",
+        "parent": "x59",
+        "stage": "frontend",
+        "catalog_id": "F-20",
+        "delta": "replace a vector reduction (sum / amax over an axis) with a matmul against a ones vector so the reduction runs on the Cube pipe instead of Vector -- Cube throughput on Ascend is far higher, and this also unlocks the cube-tiling actions for a kernel that had no matmul. Applies to kernels with a large reduction axis; N/A when the reduction is already a matmul or the axis is tiny",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": []
+      },
+      {
+        "id": "u56",
+        "parent": "x59",
+        "stage": "incore",
+        "catalog_id": "I-11",
+        "delta": "move a small matmul onto the Vector pipe when the Cube tile is mostly padding -- the inverse of I-1, for shapes where cube occupancy is so low that the fixed cost dominates. Applies only when a matmul's M or N is far below the cube tile granularity",
+        "V": 0.6591,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_cube_op"
+        ]
+      },
+      {
+        "id": "u57",
+        "parent": "x59",
+        "stage": "frontend",
+        "delta": "Split the nope head-axis (128) into G groups inside M2 so the q_nope_raw view literal drops below the 192KB UB budget and the static feasibility gate stops rejecting every candidate. Concretely: replace `q_nope_raw = pypto.view(q_reshape,[8,128,128],[0,0,0])` (256KB) with a Python `for g in range(4)` that views `pypto.view(q_reshape,[8,32,128],[0,g*32,0])` (64KB), slices the batch weight per group via `pypto.view(w_uk,[32,128,512],[g*32,0,0])`, runs the existing permute->matmul->permute on each group, and assembles into q_nope_out at [bs_offset,g*32,0] -- exactly mirroring the head split already in pypto_stage_rope_3d. This shrinks the max GM-window view from 256KB to ~112KB (x_tile) and raises task count (4 groups).",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "pruned_on": "ea109294b361"
+      },
+      {
+        "id": "u60",
+        "parent": "x59",
+        "stage": "swimlane",
+        "delta": "overlap the data-independent nope (cube matmul) and rope (vector rope_3d) branches so they run concurrently instead of as a serial cube-then-vector recurrence: issue the two branches so the vector pipe's rope_3d work fills the bubble while the cube pipe runs the q_nope matmuls (and vice versa). Both branches are independent until the final combine/concat, so there is no data dependency forcing serialization. Targets the 20.49% vector utilisation and the 79.02% predecessor stall directly.",
+        "V": 0.8,
+        "prior_gain": 0.9,
+        "tried": 0
+      }
+    ],
+    "pruned": [
+      "u17",
+      "u53"
+    ],
+    "held": [
+      {
+        "id": "u15",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-15",
+        "delta": "combine trailing broadcast axis (combine_axis)",
+        "V": 0.3,
+        "prior_gain": 0.3,
+        "tried": 0,
+        "requires": [
+          "has_broadcast"
+        ]
+      },
+      {
+        "id": "u16",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-16",
+        "delta": "pass low-rank tensors (beta / q_rstd / k_rstd / scale) pre-broadcast from the host as (B,N,S,D) so NO in-kernel expand is needed -- removes expand ops and the (1,L)->(L,D) GM traffic; host does the one-time broadcast. Strong on attention-like kernels that expand per-token scalars inside",
+        "V": 0.9,
+        "prior_gain": 0.9,
+        "tried": 0,
+        "requires": [
+          "has_broadcast"
+        ]
+      },
+      {
+        "id": "u19",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-19",
+        "delta": "retune the chunked-scan granularity (chunk size bt): larger amortizes per-chunk dispatch and cuts the number of serial recurrence steps, smaller fits on-chip; regenerate the chunk-constant matrices and re-tile to match. Applies only to kernels with a chunked scan / loop over a bt constant; N/A to kernels without chunking",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_chunked_scan"
+        ]
+      },
+      {
+        "id": "u55",
+        "parent": "root",
+        "stage": "frontend",
+        "catalog_id": "F-23",
+        "delta": "INTERLEAVE N iterations of an outer pypto.loop into an inner one, so N independent chains run concurrently instead of one after another. Replicate every loop-carried accumulator N times, fold the outer axis in with `for j in range(N)` and index it as `outer*N + j`, and divide the outer loop's trip count by N. Raises the number of independent work items without changing the total work, which is the lever when the profile says the pipes are idle and waiting on each other rather than saturated. Measured 8390 -> 4580 us on flash_attention_mha. THIS MUST BE A SOURCE REWRITE. The directive that would express it, F-8's unroll_list, cannot reach an outer loop: OL49 confines it to the innermost pypto.loop because an outer unroll_list causes exponential compile-path growth AND a register-copy pass defect that corrupts precision (pypto-precision-debug #223, #341). Do not attempt to relax that rule. THE TRAP, and it is silent: raising N WITHOUT replicating the accumulators leaves N independent chains sharing one running state. The kernel still compiles and still runs. Replicate first, then raise N. N must divide the outer trip count. Often pairs with F-5, because the inner loop has to become a Python `for` before the bodies can be interleaved at all.",
+        "V": 0.6,
+        "prior_gain": 0.6,
+        "tried": 0,
+        "requires": [
+          "has_nested_pypto_loop"
+        ]
+      }
+    ]
+  },
+  "best_node": "x59",
+  "op_file": "/data/l00276318/y00960395_tomo/pypto-gym-cannbench/custom-pr/mla_prolog/panko-based-post/mla_prolog_impl.py",
+  "eval_cache": {
+    "5c6ece7839c40b1df0729e9bbff184d3f5e01473059c3ae45858828714aa78c8": {
+      "s": 1,
+      "p": 203.7,
+      "m": {
+        "util": 29.1,
+        "bubble": 6.6992,
+        "aic_util": 60.69,
+        "aiv_util": 21.79,
+        "pred_stall": 77.64,
+        "aic_bubble": 2.13,
+        "aiv_bubble": 9.44
+      }
+    },
+    "0ba27ceba5085442d0f9627bcb2129e773f0a2b52f73f1909c8bc34e17c5e290": {
+      "s": 1,
+      "p": 468.62,
+      "m": {
+        "util": 30.17,
+        "bubble": 12.2285,
+        "aic_util": 85.09,
+        "aiv_util": 17.3,
+        "pred_stall": 81.38,
+        "aic_bubble": 0.58,
+        "aiv_bubble": 18.05
+      }
+    },
+    "1111c29bd7f679bdb21b880148c0cc1893be8106748df11e7f66470f3612cd45": {
+      "s": 1,
+      "p": 190.24,
+      "m": {
+        "util": 24.62,
+        "bubble": 12.8124,
+        "aic_util": 62.56,
+        "aiv_util": 14.89,
+        "pred_stall": 84.71,
+        "aic_bubble": 2.13,
+        "aiv_bubble": 18.15
+      }
+    },
+    "7c161474252f8997fd73daaf68d7334a436b070267e2c67d4db1f161a3af2dfe": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "d3a551c9d27db26404d359615b2d26b041a1bf83ae716b79d21658bd15c5412d": {
+      "s": 1,
+      "p": 197.44,
+      "m": {
+        "util": 24.91,
+        "bubble": 10.5743,
+        "aic_util": 54.17,
+        "aiv_util": 18.84,
+        "pred_stall": 80.61,
+        "aic_bubble": 3.53,
+        "aiv_bubble": 14.09
+      }
+    },
+    "49a9368f6eee72a2448a830a949b9a0e8d5c65f50699b9b5d975eca68d0003fa": {
+      "s": 1,
+      "p": 208.08,
+      "m": {
+        "util": 25.34,
+        "bubble": 8.1955,
+        "aic_util": 57.89,
+        "aiv_util": 20.19,
+        "pred_stall": 79.18,
+        "aic_bubble": 2.62,
+        "aiv_bubble": 10.98
+      }
+    },
+    "e6f500122fae6a66db2b7754233220eb0c879bc893e58252b7e59c83915e50b9": {
+      "s": 1,
+      "p": 192.4,
+      "m": {
+        "util": 26.99,
+        "bubble": 22.6037,
+        "aic_util": 60.68,
+        "aiv_util": 19.76,
+        "pred_stall": 79.22,
+        "aic_bubble": 2.62,
+        "aiv_bubble": 32.59
+      }
+    },
+    "265bbfa379106d82f382dbd9ab209f5fabb1100533ba59303f9408ab5fc35a12": {
+      "s": 1,
+      "p": 206.92,
+      "m": {
+        "util": 25.17,
+        "bubble": 7.7344,
+        "aic_util": 50.9,
+        "aiv_util": 17.28,
+        "pred_stall": 82.22,
+        "aic_bubble": 2.32,
+        "aiv_bubble": 10.44
+      }
+    },
+    "ec3c95afd16fd7e7997defb3a1713261580b87c3ff5b0836c5af1e6e0a2c8ec2": {
+      "s": 1,
+      "p": 199.88,
+      "m": {
+        "util": 24.05,
+        "bubble": 10.5999,
+        "aic_util": 53.7,
+        "aiv_util": 17.78,
+        "pred_stall": 81.65,
+        "aic_bubble": 3.76,
+        "aiv_bubble": 14.02
+      }
+    },
+    "6c7a2b60ed5230123d250a460f00c420d517fb2343bbf80b13e5f9d88e093631": {
+      "s": 1,
+      "p": 202.54,
+      "m": {
+        "util": 25.34,
+        "bubble": 10.2289,
+        "aic_util": 53.41,
+        "aiv_util": 18.83,
+        "pred_stall": 80.56,
+        "aic_bubble": 2.38,
+        "aiv_bubble": 14.15
+      }
+    },
+    "a01f5ab8963a32ae15c32662f15d55e6ba06309b934568231a1ca1b946af56e6": {
+      "s": 1,
+      "p": 178.6,
+      "m": {
+        "util": 28.94,
+        "bubble": 5.6913
+      }
+    },
+    "5bf19d5d2635e0c107c03dfc2bbaac76b5b65672e11464af96a4ea3372049c0d": {
+      "s": 1,
+      "p": 176.84,
+      "m": {
+        "util": 28.44,
+        "bubble": 6.6918,
+        "aic_util": 72.76,
+        "aiv_util": 20.49,
+        "pred_stall": 79.02,
+        "aic_bubble": 2.6,
+        "aiv_bubble": 8.74
+      }
+    },
+    "8df9283da609d32ee60984261ab169eb538c761f554f39ed45d0f6027edb54b9": {
+      "s": 1,
+      "p": 200.7,
+      "m": {
+        "util": 26.92,
+        "bubble": 14.8112,
+        "aic_util": 71.3,
+        "aiv_util": 18.59,
+        "pred_stall": 80.01,
+        "aic_bubble": 2.17,
+        "aiv_bubble": 21.13
+      }
+    },
+    "4fd0819fcd362ae8e122eded36ee85db8b33c2b9f894e99678f6adc679992500": {
+      "s": 1,
+      "p": 363.36,
+      "m": {
+        "util": 23.37,
+        "bubble": 4.5279,
+        "aic_util": 61.32,
+        "aiv_util": 28.38,
+        "pred_stall": 71.38,
+        "aic_bubble": 3.08,
+        "aiv_bubble": 5.61
+      }
+    },
+    "54c57a984f261b040c58d4ce52b22b353ef0eb98b45acb3d34bd1c9a8ceb073d": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "6570281ca48af6fb85f977a6e4b059fff76e8470271e020bef75492bf317d7ed": {
+      "s": 1,
+      "p": 194.86,
+      "m": {
+        "util": 30.17,
+        "bubble": 3.4023,
+        "aic_util": 75.55,
+        "aiv_util": 24.37,
+        "pred_stall": 75.39,
+        "aic_bubble": 1.92,
+        "aiv_bubble": 4.45
+      }
+    },
+    "67a0067bf2e274cc8f81378cd7fe4ac45472efd67e1fd84c138c04de8a547b1b": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "811d7e7389c953f8e961c553785cd2f3dc35dd619382f4c5134b41214678a814": {
+      "s": 1,
+      "p": 586.82,
+      "m": {
+        "util": 15.37,
+        "bubble": 3.8959,
+        "aic_util": 56.52,
+        "aiv_util": 22.76,
+        "pred_stall": 77.05,
+        "aic_bubble": 2.05,
+        "aiv_bubble": 5.54
+      }
+    },
+    "16be6a082a9d2315d18c6ba8cfd6cd095a6e95b8a48396fe47ceeadcf09374c9": {
+      "s": 0,
+      "p": 0.0,
+      "m": {}
+    },
+    "4ab35e6f9e4533615df0d914dde952d24d77bc5d53f99fff4653f93ac140d5e3": {
+      "s": 1,
+      "p": 193.36,
+      "m": {
+        "util": 25.54,
+        "bubble": 13.3647
+      }
+    },
+    "6d3149c2f823b1a38bc8afa740e3cb3c5b30a89062b19efa1e1cee4cc82d4d8d": {
+      "s": 1,
+      "p": 173.92,
+      "m": {
+        "util": 33.95,
+        "bubble": 5.2033,
+        "aic_util": 77.59,
+        "aiv_util": 23.18,
+        "pred_stall": 76.37,
+        "aic_bubble": 2.13,
+        "aiv_bubble": 7.04
+      }
+    }
+  },
+  "code_version": "aedb8d47",
+  "predicates": {
+    "has_cube_op": true,
+    "has_broadcast": false,
+    "has_chunked_scan": false,
+    "has_inkernel_layout_op": true,
+    "has_nested_pypto_loop": false,
+    "materializes_large_intermediate": true,
+    "module_count": 4,
+    "ub_occupancy": 0.25,
+    "l1_occupancy": 0.1693,
+    "determined": true
+  },
+  "domain_fingerprint": {
+    "per_site": {},
+    "capacity_elems": 19660,
+    "views": [
+      [
+        8,
+        32
+      ],
+      [
+        8,
+        32
+      ],
+      [
+        8,
+        16,
+        128
+      ],
+      [
+        8,
+        7168
+      ],
+      [
+        8,
+        64
+      ],
+      [
+        8,
+        64
+      ],
+      [
+        8,
+        128,
+        64
+      ],
+      [
+        8,
+        7168
+      ],
+      [
+        8,
+        64
+      ],
+      [
+        8,
+        64
+      ],
+      [
+        8,
+        512
+      ],
+      [
+        8,
+        64
+      ]
+    ],
+    "live_tiles": 5,
+    "dtype_bytes": 2,
+    "notes": [],
+    "ub_bytes": 196608,
+    "vec_residency": {
+      "vec#0": 1,
+      "vec#1": 4,
+      "vec#2": 2,
+      "vec#3": 3,
+      "vec#4": 2,
+      "vec#5": 4,
+      "vec#6": 4,
+      "vec#7": 2,
+      "vec#8": 5,
+      "vec#9": 2,
+      "vec#10": 2,
+      "vec#11": 2,
+      "vec#12": 2,
+      "vec#13": 2,
+      "vec#14": 5
+    }
+  },
+  "semantic_fold_calls": 67
+}

@@ -176,6 +176,12 @@
     renderShell() {
       this.root.className = ['diagnostic-graph', this.actions.className].filter(Boolean).join(' ');
       this.root.replaceChildren();
+      const contextHTML = this.actions.contextHTML || '';
+      if (contextHTML) {
+        this.root.classList.add('has-context');
+        this.context = el('div', 'diagnostic-graph__context');
+        this.context.innerHTML = contextHTML;
+      }
       this.toolbar = el('div', 'diagnostic-graph__toolbar');
       this.toolbar.setAttribute('aria-label', this.actions.toolbarLabel || '诊断图画布控制');
       [['−', '缩小画布', 'zoom-out'], ['+', '放大画布', 'zoom-in'], ['Fit', '适应画布', 'fit'], ['100%', '恢复 100% 比例', 'hundred']].forEach(([text, label, action]) => {
@@ -199,7 +205,7 @@
       this.world.append(this.edgeSvg, this.nodeLayer);
       this.overlay = el('div', 'diagnostic-graph__overlay');
       this.viewport.append(this.world, this.overlay);
-      this.root.append(this.toolbar, this.viewport);
+      this.root.append(this.context || document.createDocumentFragment(), this.toolbar, this.viewport);
 
       if (this.actions.showInfo !== false) {
         const info = el('details', 'dg-context-info');
@@ -389,6 +395,10 @@
 
     ranks() {
       const ranks = new Map(this.data.nodes.map(node => [node.id, 0]));
+      const fixedRanks = new Map(this.data.nodes
+        .filter(node => Number.isFinite(node.spineIndex))
+        .map(node => [node.id, node.spineIndex]));
+      fixedRanks.forEach((rank, id) => ranks.set(id, rank));
       const incoming = new Map(this.data.nodes.map(node => [node.id, 0]));
       const outgoing = new Map(this.data.nodes.map(node => [node.id, []]));
       this.data.edges.forEach(edge => {
@@ -400,7 +410,7 @@
       while (queue.length) {
         const source = queue.shift();
         outgoing.get(source).forEach(edge => {
-          ranks.set(edge.target, Math.max(ranks.get(edge.target), ranks.get(source) + 1));
+          if (!fixedRanks.has(edge.target)) ranks.set(edge.target, Math.max(ranks.get(edge.target), ranks.get(source) + 1));
           incoming.set(edge.target, incoming.get(edge.target) - 1);
           if (incoming.get(edge.target) === 0) queue.push(edge.target);
         });
@@ -409,6 +419,11 @@
     }
 
     primaryPath() {
+      const explicit = this.data.nodes
+        .filter(node => Number.isFinite(node.spineIndex))
+        .sort((a, b) => a.spineIndex - b.spineIndex)
+        .map(node => node.id);
+      if (explicit.length) return explicit;
       const incoming = new Map(this.data.nodes.map(node => [node.id, 0]));
       const outgoing = new Map(this.data.nodes.map(node => [node.id, []]));
       this.data.edges.forEach(edge => {
@@ -471,25 +486,27 @@
       };
 
       layers.forEach(nodes => {
-        const spineIndex = nodes.findIndex(node => primary.has(node.id));
-        if (spineIndex < 0) {
+        const spine = nodes.find(node => primary.has(node.id));
+        if (!spine) {
           const total = nodes.reduce((sum, node) => sum + sizes.get(node.id).occupiedHeight, 0) + Math.max(0, nodes.length - 1) * branchGap;
           let y = center - total / 2;
           nodes.forEach(node => { place(node, y); y += sizes.get(node.id).occupiedHeight + branchGap; });
           return;
         }
-        const spine = nodes[spineIndex];
         const spineSize = sizes.get(spine.id);
         const spineY = center - spineSize.height / 2;
         place(spine, spineY);
         let upper = spineY - groupGap;
-        nodes.slice(0, spineIndex).reverse().forEach(node => {
+        const branches = nodes.filter(node => node.id !== spine.id);
+        const above = branches.filter(node => node.lane === 'above');
+        const below = branches.filter(node => node.lane !== 'above');
+        above.reverse().forEach(node => {
           upper -= sizes.get(node.id).occupiedHeight;
           place(node, upper);
           upper -= branchGap;
         });
         let lower = spineY + spineSize.occupiedHeight + groupGap;
-        nodes.slice(spineIndex + 1).forEach(node => {
+        below.forEach(node => {
           place(node, lower);
           lower += sizes.get(node.id).occupiedHeight + branchGap;
         });
@@ -568,8 +585,10 @@
         const inSiblings = incoming.get(edge.target) || [edge];
         const inIndex = inSiblings.indexOf(edge);
 
-        const start = { x: from.x + from.width, y: from.y + port(outIndex, outSiblings.length, from.height) };
-        const end = { x: to.x, y: to.y + port(inIndex, inSiblings.length, to.height) };
+        const isSpineEdge = Number.isFinite(this.nodesById.get(edge.source)?.spineIndex) &&
+          this.nodesById.get(edge.target)?.spineIndex === this.nodesById.get(edge.source)?.spineIndex + 1;
+        const start = { x: from.x + from.width, y: from.y + (isSpineEdge ? from.height / 2 : port(outIndex, outSiblings.length, from.height)) };
+        const end = { x: to.x, y: to.y + (isSpineEdge ? to.height / 2 : port(inIndex, inSiblings.length, to.height)) };
 
         const fromRank = this.rankOf.get(edge.source);
         const toRank = this.rankOf.get(edge.target);

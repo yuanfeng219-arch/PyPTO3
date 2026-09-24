@@ -1,0 +1,77 @@
+- normalize: ok=True tunable 7 -> 10
+# ds_v32_sparse_attention_antiquant — PANKO optimization
+
+## Baseline
+- preopt latency: 255.26 us | P_ref: 100.0 us | J0: 39.1757
+- device: 7
+
+## Trajectory
+- init: code_version=aedb8d4 anchoring=True seeded_symptoms=['occupancy', 'l1_occupancy', 'bubble', 'util', 'cube_starved'] open=53 held=3 predicates={'has_cube_op': True, 'has_broadcast': False, 'has_chunked_scan': False, 'has_inkernel_layout_op': True, 'has_nested_pypto_loop': True, 'materializes_large_intermediate': True, 'module_count': None, 'ub_occupancy': 0.1667, 'l1_occupancy': 0.4583, 'determined': True} semantic_fold_calls=67
+- refine[u1] cand 860c35bb: s=0 p=0.0 J=0.0 -> reverted (n=1)
+- refine[u1] cand b948855b: s=1 p=268.66 J=37.2218 -> reverted (n=2)
+- refine[u1] cand 25b9e966: s=1 p=257.18 J=38.8833 -> reverted (n=3)
+- refine[u1] cand b948855b: DUPLICATE rejected (already measured; no budget charged, n unchanged at 3) | duplicates so far: 1
+- refine[u1] cand 860c35bb: DUPLICATE rejected (already measured; no budget charged, n unchanged at 3) | duplicates so far: 2
+- refine[u1] cand b948855b: DUPLICATE rejected (already measured; no budget charged, n unchanged at 3) | duplicates so far: 3
+- close[u1] -> (no candidate beat the best) | stagnation 1 (limit off) | NOT retired: n=3 of stagnation_K=7, so nothing was disproved
+- evolve: +1 insert, 1 update, 0 prune (0 permanent) | reasons: F-1 task-granularity exhausted: N_L0 {128,256,512} and M_L1 {128,256} all measured, all regress (255.26 base vs 268.66/257.18/s=0); profile is consistently Vector-bound with the Cube near idle (aic_util 14-20%) so larger matmul tiles are the wrong lever; profile (aiv_util ~85%, aic_util ~14%, pred_stall ~85%) shows the vector pipe saturated AND stalling -> the lever is fewer vector ops / moving vector work to the idle Cube, not bigger cube tiles; the dequant chain (4 full-width vector passes over the [tile_len,512] tile) is the largest single vector consumer; dropping the FP16 intermediate is the cheapest concrete cut
+- refine[u2] cand 84ade208: s=1 p=254.88 J=39.2341 -> kept (n=0)
+- refine[u2] cand 93545252: s=1 p=328.08 J=30.4804 -> reverted (n=1)
+- refine[u2] cand 438ce60c: s=1 p=276.46 J=36.1716 -> reverted (n=2)
+- refine[u2] cand 746c0a0a: s=0 p=0.0 J=0.0 -> reverted (n=3)
+- refine[u2] cand 84ade208: DUPLICATE rejected (already measured; no budget charged, n unchanged at 3) | duplicates so far: 4
+- refine[u2] cand 307d4024: s=1 p=251.98 J=39.6857 -> kept (n=0)
+- refine[u2] cand 926e7d38: s=1 p=259.22 J=38.5773 -> reverted (n=1)
+- refine[u2] cand af857bb4: s=1 p=254.56 J=39.2835 -> reverted (n=2)
+- refine[u2] cand 307d4024: DUPLICATE rejected (already measured; no budget charged, n unchanged at 2) | duplicates so far: 5
+- refine[u2] cand 438ce60c: DUPLICATE rejected (already measured; no budget charged, n unchanged at 2) | duplicates so far: 6
+- refine[u2] cand af857bb4: DUPLICATE rejected (already measured; no budget charged, n unchanged at 2) | duplicates so far: 7
+- close[u2] -> x58: best J=39.6857 p=251.98 (global best_J=39.6857) | stagnation 0 (limit off) | symptoms ['occupancy', 'util', 'cube_starved']
+- evolve: +0 insert, 1 update, 0 prune (0 permanent) | reasons: F-2 tile/unroll axis exhausted: 7 candidates, 2 keeps (254.88, 251.98), 5 regressions; net 255.26->251.98 (1.3%). Profile consistently Vector-bound (aiv_util ~85%, aic_util ~14%, pred_stall ~85%): cube idle, vector saturated AND stalling. Lever = structural: cut vector passes (u57 dequant FP16 drop) or move vector reduction to idle Cube (u52 F-20). Cube-tile increases regress; do not re-tile.
+- block[u3]: 97 trials (8 feasible), best=301.28 stopped_early=True device_trials=2 charged=1 env_faults=0 failures=0 replayed=0 free=dup:6/static:89 ceiling=None live_tiles=5 | reason: S2_TILE 512->1024 (F-3) changed the matmul N/K extents (tile_len up to 1024) and the vec tile footprint; re-tune cube+vec tile shapes for the new chunk size
+- refine[u3] cand b5d008bf: s=1 p=301.28 J=33.1917 -> reverted (n=1)
+- infeasible[u3]: UB estimate 256KB (view 64KB + 2x tile 96KB) > budget 192KB (no device time; n=1 unchanged, n_static=1/16)
+- refine[u3] cand 0d597e02: s=0 p=0.0 J=0.0 -> reverted (n=2)
+- refine[u3] cand 307d4024: DUPLICATE rejected (already measured; no budget charged, n unchanged at 2) | duplicates so far: 8
+- block[u3]: 6 trials (2 feasible), best=301.28 stopped_early=False device_trials=0 charged=0 env_faults=0 failures=0 replayed=2 free=static:4 ceiling=None live_tiles=5 | reason: S2_TILE 512->768 (F-3) changed the matmul N/K extents (tile_len up to 768); re-tune cube+vec tile shapes for the new chunk size
+- refine[u3] cand 0ae664c7: s=1 p=301.28 J=33.1917 -> reverted (n=3)
+- refine[u3] cand 0d597e02: DUPLICATE rejected (already measured; no budget charged, n unchanged at 3) | duplicates so far: 9
+- refine[u3] cand 9a4b643e: s=0 p=0.0 J=0.0 -> reverted (n=4)
+- refine[u3] cand 855b7e22: s=1 p=862.34 J=11.5964 -> reverted (n=5)
+- refine[u3] cand 0d597e02: DUPLICATE rejected (already measured; no budget charged, n unchanged at 5) | duplicates so far: 10
+- refine[u3] cand 8a1b47cd: s=0 p=0.0 J=0.0 -> reverted (n=6)
+- refine[u3] cand cbfdf53b: s=0 p=0.0 J=0.0 -> reverted (n=7)
+- close[u3] -> (no candidate beat the best) | stagnation 1 (limit off) | retired against the current structure (revives if it changes)
+- evolve: +0 insert, 0 update, 0 prune (0 permanent) | reasons: u3 (F-3 chunk-size increase) retired after 7 non-improving candidates: S2_TILE 768 -> 301.28us and 1024 -> 301.28us, both ~20% slower than S2_TILE 512 (251.98us). S2_TILE 896 additionally FAILS the L1 tail_topk1000 precision gate (max_error_ratio 0.0049 > 0), so the online-softmax running-max/li recurrence is precision-bounded above 768. Larger chunks are both slower AND less precise -> the S2_TILE-increase axis is closed; do not revisit. Kernel remains Vector-bound (aiv_util ~85%, pred_stall ~85%), so the dequant vector chain (u57) and the serial softmax dependency remain the highest-leverage targets.
+- block[u17]: 98 trials (9 feasible), best=327.42 stopped_early=True device_trials=2 charged=1 env_faults=0 failures=0 replayed=0 free=dup:7/static:89 ceiling=None live_tiles=5 | reason: u17 (F-17) split the [128,512] FP32 oi accumulator into two [128,256] halves, halving the accumulator view width 512->256 and adding the end-of-loop concat; re-tune vec/cube tile shapes for the new accumulator structure
+- refine[u17] cand 3688edc6: s=1 p=327.42 J=30.5418 -> reverted (n=1)
+- block[u17]: 276 trials (0 feasible), best=None stopped_early=False device_trials=6 charged=6 env_faults=0 failures=6 replayed=0 free=static:270 ceiling=None live_tiles=5 | ABORTED: 6 consecutive candidates the device would not run | reason: u17 dropped FP16 intermediate in pypto_stage_dequant (int8->FP32 direct cast); views 17->11 and intermediate dtype FP16->FP32 moved the tile space
+- refine[u17] cand 0c2166cb: s=0 p=0.0 J=0.0 -> reverted (n=2)
+- block[u17]: 754 trials (0 feasible), best=None stopped_early=False device_trials=6 charged=6 env_faults=0 failures=6 replayed=0 free=refused:6/static:742 ceiling=None live_tiles=5 | ABORTED: 6 consecutive candidates the device would not run | reason: u17 (F-17) FP16-domain dequant multiply: dropped kn_f32, added sc_f16, mul in FP16; views 17->11 and intermediate dtype FP32->FP16 moved the tile space
+- refine[u17] cand cd3a08f3: s=0 p=0.0 J=0.0 -> reverted (n=3)
+- block[u17]: 1049 trials (0 feasible), best=None stopped_early=False device_trials=6 charged=6 env_faults=0 failures=6 replayed=0 free=refused:12/static:1031 ceiling=None live_tiles=5 | ABORTED: 6 consecutive candidates the device would not run | reason: u17 BF16-domain dequant (int8->BF16 single cast, mul in BF16) dropped the FP16/FP32 intermediate passes, reshaping the dequant views 17->11; retune vec tile shapes for the new structure
+- refine[u17] cand 2c44a30e: s=0 p=0.0 J=0.0 -> reverted (n=4)
+- refine[u17] cand f26492fd: s=1 p=248.26 J=40.2804 -> kept (n=0)
+- refine[u17] cand 61465b31: s=0 p=0.0 J=0.0 -> reverted (n=1)
+- refine[u17] cand cbe9425d: s=1 p=248.32 J=40.2706 -> reverted (n=2)
+- refine[u17] cand 751fdecb: s=0 p=0.0 J=0.0 -> reverted (n=3)
+- refine[u17] cand cc2ab402: s=1 p=291.26 J=34.3336 -> reverted (n=4)
+- refine[u17] cand a9cb29ce: s=0 p=0.0 J=0.0 -> reverted (n=5)
+- refine[u17] cand 47b540f6: s=1 p=294.82 J=33.919 -> reverted (n=6)
+- refine[u17] cand 9081d6d3: s=1 p=215.04 J=46.503 -> kept (n=0)
+- refine[u17] cand 25174a88: s=1 p=209.8 J=47.6644 -> kept (n=0)
+- refine[u17] cand 2c80fd23: s=0 p=0.0 J=0.0 -> reverted (n=1)
+- refine[u17] cand 31f4d8fc: s=1 p=224.8 J=44.484 -> reverted (n=2)
+- refine[u17] cand a0c64188: s=0 p=0.0 J=0.0 -> reverted (n=3)
+- refine[u17] cand 22b33682: s=0 p=0.0 J=0.0 -> reverted (n=4)
+- refine[u17] cand 90dc8763: s=1 p=208.98 J=47.8515 -> kept (n=0)
+- refine[u17] cand 55c5a6b2: s=0 p=0.0 J=0.0 -> reverted (n=1)
+- refine[u17] cand d18dcbde: s=0 p=0.0 J=0.0 -> reverted (n=2)
+- refine[u17] cand df10f937: s=0 p=0.0 J=0.0 -> reverted (n=3)
+- refine[u17] cand df10f937: DUPLICATE rejected (already measured; no budget charged, n unchanged at 3) | duplicates so far: 11
+- refine[u17] cand e5126705: s=1 p=231.04 J=43.2825 -> reverted (n=4)
+- refine[u17] cand bd949060: s=1 p=275.46 J=36.3029 -> reverted (n=5)
+- refine[u17] cand 3942d98b: s=0 p=0.0 J=0.0 -> reverted (n=6)
+- refine[u17] cand ea1210b8: s=1 p=255.0 J=39.2157 -> reverted (n=7)
+- close[u17] -> x59: best J=47.8515 p=208.98 (global best_J=47.8515) | stagnation 0 (limit off) | symptoms ['occupancy', 'bubble', 'util']
+- evolve: +0 insert, 1 update, 1 prune (0 permanent) | reasons: u17 (F-17 materialize-less) closed at p=208.98 (J=47.85), a 22% win over preopt 255.26. The win was structural: split C1 into nope[128,512]+rope[128,64] matmuls so the [tile_len,576] concat is never materialized, plus moving the softmax_scale multiply to the host wrapper (q scaled once on host instead of sij*scale every tile). This proves concat/assemble elimination is a strong lever on this kernel -> raise u14 (F-14 eliminate redundant concat/assemble) V 0.3->0.75.; sg_set_scope=1 wrapped around the dequant cast chain (int8->FP16->FP32->mul->BF16) inside pypto_stage_dequant measured p=255.0, a regression vs both the 251.98 global best and the 208.98 local best: merging the 4 dequant vector passes into one subgraph does not reduce the vector work and hurts scheduling. The dequant chain should stay a separate subgraph; the existing sg_set_scope around the nope+rope add -> softmax section (part of the 208.98 win) is the productive use.; dequant simplification axis (u57) disproved: dropping the FP16 intermediate via a direct int8->FP32 cast was refused by the device (block aborted, 6 consecutive ERR_PARAM_DTYPE_UNSUPPORTED failures, 0 feasible of 276 trials); FP16-domain and BF16-domain dequant variants both fail the precision gate (s=0). The int8->FP16->FP32->mul->BF16 chain is the only precision-safe formulation on this build, so the ~25%-pass-cut is inexpressible -> prune u57.; kernel remains Vector-bound: aiv_util ~82%, aic_util ~16%, pred_stall ~83% (vector cores waiting on cube predecessors in the C1->softmax->C2->state serial recurrence). Highest-leverage remaining levers are u52 (F-20 move amax/sum reductions to the idle Cube) and u55 (F-23 interleave the outer loop to break the serial chain).
