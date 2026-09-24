@@ -24,8 +24,9 @@
      Run can still carry a correctness failure or a performance warning. */
   const DOMAIN_ORDER = ['compilation', 'correctness', 'execution', 'performance', 'resources'];
   /* 一级导航与 Overview 的 domain 卡共用这份标签。Performance 不作为一个页签存在
-     （证据已并入 Execution），所以它的 domain 卡名保持英文，避免读成「性能页签」。 */
-  const DOMAIN_LABEL = { compilation: '编译', correctness: '正确性', execution: '执行', performance: 'Performance', resources: '资源' };
+     （结论与证据都已并入 Execution），所以它在这里是一个域名称「性能」，而不是
+     一个英文页签名 —— 免得用户回头去找一个不存在的页签。 */
+  const DOMAIN_LABEL = { compilation: '编译', correctness: '正确性', execution: '执行', performance: '性能', resources: '资源' };
   const DOMAIN_VERDICT = {
     pass: ['PASS', 'ok'], warning: ['WARNING', 'warn'], fail: ['FAIL', 'bad'],
     not_evaluated: ['NOT EVALUATED', 'idle'], unknown: ['UNKNOWN', 'idle']
@@ -222,7 +223,7 @@
             golden_compare: { status: 'available' }, ir_validation: { status: 'available' },
             tensor_dump: { status: 'partial' }, dependency_graph: { status: 'available' },
             runtime_timeline: { status: 'available' }, pmu: { status: 'not_collected' }, scope_stats: { status: 'not_collected' }
-          }, [{ id: 'F001', severity: 'warning', domain: 'performance', title: 'RoPE 的 lo/hi 半维被拆成两次搬运', summary: '实际搬运宽度低于目标，影响内存效率。', affectedObjects: [{ kind: 'kernel', id: 'rope_qkv' }], evidence: ['实际宽度 128 / 256 B', '目标宽度 512 B', '16 次触发'], action: { label: '查看性能证据', route: 'performance' } }]),
+          }, [{ id: 'F001', severity: 'warning', domain: 'performance', title: 'RoPE 的 lo/hi 半维被拆成两次搬运', summary: '实际搬运宽度低于目标，影响内存效率。', affectedObjects: [{ kind: 'kernel', id: 'rope_qkv' }], evidence: ['实际宽度 128 / 256 B', '目标宽度 512 B', '16 次触发'], action: { label: '在「执行」中查看性能证据', route: 'performance' } }]),
           time: r ? r.time : '2026-06-25 18:49:41',
           target: r ? r.target : 'Ascend 910B',   // no real compile duration on disk
           dir: r ? 'Data/' + r.dir : '',
@@ -290,7 +291,7 @@
           compilation: { verdict: 'pass', summary: '61 Kernel · IR Validation pass' }, correctness: { verdict: 'pass', summary: '逐层 checkpoint match' },
           execution: { verdict: 'pass', summary: '整网替换完成' }, performance: { verdict: 'warning', summary: 'MoE 路由分支未覆盖' }, resources: { verdict: 'unknown', summary: '未采集 Scope Stats' }
         }, { ir_validation: { status: 'available' }, tensor_dump: { status: 'partial' }, dependency_graph: { status: 'available' }, runtime_timeline: { status: 'partial' } },
-        [{ id: 'F004', severity: 'warning', domain: 'performance', title: 'MoE 路由分支未覆盖', summary: '当前性能结论不覆盖所有路由组合。', affectedObjects: [], evidence: ['覆盖集不完整'], action: { label: '查看性能证据', route: 'performance' } }]),
+        [{ id: 'F004', severity: 'warning', domain: 'performance', title: 'MoE 路由分支未覆盖', summary: '当前性能结论不覆盖所有路由组合。', affectedObjects: [], evidence: ['覆盖集不完整'], action: { label: '在「执行」中查看性能证据', route: 'performance' } }]),
         artifacts: [
           Object.assign({}, ART().overview, { meta: 'MoE · CSA / HCA', tone: 'ok' }),
           Object.assign({}, ART().source, { label: '模型源码', meta: 'torch_npu 融合替换后', tone: 'ok' }),
@@ -341,6 +342,7 @@
   };
   let els = null;
   let objectTooltip = null, objectTooltipTarget = null, objectTooltipTimer = null, objectTooltipShowTimer = null;
+  let fixPreview = null;
   /* 悬浮不立刻出卡，留一点反应时间；已打开时切换目标直接跟随 */
   const TOOLTIP_SHOW_DELAY = 260;
   const TOOLTIP_GAP = 12;
@@ -387,6 +389,15 @@
     objectTooltip.setAttribute('role', 'tooltip');
     objectTooltip.setAttribute('aria-hidden', 'true');
     document.body.appendChild(objectTooltip);
+
+    /* 修复预览（轻量 dialog）：挂在 body 上，不进 run detail 的 DOM —— 页签
+       切换重写 #runTabPanel 时不会被冲掉，也不用参与借用 / 归还流程。 */
+    fixPreview = document.createElement('div');
+    fixPreview.className = 'kf-rw-fix-modal';
+    fixPreview.id = 'runFixPreview';
+    fixPreview.hidden = true;
+    document.body.appendChild(fixPreview);
+
     els = { root, detail, list: $('#thList', root), filters: $('#thFilters', root), compareBox: $('#thCompareBox', root) };
     return true;
   }
@@ -488,16 +499,26 @@
     }
     const view = window.PTO_COMPILATION;
     if (view && view.ready) {
+      // #109 reuses the loaded workspace; only its numerical evidence differs.
+      const compilerFixture = r.id === 'run_109';
+      const profile = compilerFixture ? window.PTO_CORRECTNESS_DIAGNOSTICS?.get?.(r.id) : null;
+      const entry = compilerFixture ? Object.assign({}, st.compilationEntry || { from: 'compilation' }, {
+        runId: r.id,
+        finding: '数值精度 · 输出不一致',
+        failureMode: 'Semantic',
+        intent: '正在定位编译语义分歧',
+        numericalValidation: profile?.compiler?.numericalValidation || view.numericalFixtures.compiler_semantic_error
+      }) : st.compilationEntry;
       window.PTO_RUN_CONTEXT = {
         runId: r.id,
         findings: getFindings(r),
-        compilationEntry: st.compilationEntry,
-        numericalValidation: st.compilationEntry?.numericalValidation || null
+        compilationEntry: entry,
+        numericalValidation: entry?.numericalValidation || null
       };
-      if (st.compilationEntry?.numericalValidation) {
-        view.setNumericalContext?.(st.compilationEntry.numericalValidation, st.compilationEntry);
+      if (entry?.numericalValidation) {
+        view.setNumericalContext?.(entry.numericalValidation, entry);
       } else view.clearNumericalContext?.();
-      if ((compilationDataMatches(r) || st.compilationEntry?.numericalValidation) && view.render(panel)) return;
+      if ((compilerFixture || compilationDataMatches(r) || entry?.numericalValidation) && view.render(panel)) return;
     }
     syncPanel();
   }
@@ -555,9 +576,7 @@
       const summary = indices.length === 1
         ? '1 个逻辑运行时任务 · ' + rtUs(task.s) + ' → ' + rtUs(task.e) + ' · ' + task.c + ' 个 ' + backend + ' 核'
         : indices.length + ' 个逻辑运行时任务 · 当前选择 ' + task.id + ' · ' + rtUs(task.e - task.s);
-      panel.insertAdjacentHTML('beforeend', '<section class="kf-cv-context kf-cv-context--execution">' +
-        '<span>来自「编译」</span><b>' + esc(runtimeFindingLabel(ctx.findingId)) + ' · ' + esc(ctx.kernelName) +
-        ' · Task ' + esc(task.id) + '</b></section>' +
+      panel.insertAdjacentHTML('beforeend', contextBanner('编译', runtimeFindingLabel(ctx.findingId), '定位运行时证据', 'Task #' + task.id + ' · ' + ctx.kernelName) +
         '<section class="kf-cv-summary"><div><span>运行时证据</span><b>' + esc(ctx.kernelName) + '</b><small>' +
         esc(summary) +
         '</small></div><div><span>关键链</span><b>' + esc(chainText) +
@@ -607,11 +626,9 @@
     const on = r.id === st.run && t.id === st.task;
     return '<button type="button" class="kf-th-run' + (on ? ' is-sel' : '') +
       (r.purged ? ' is-purged' : '') + '" data-th-run="' + r.id + '" data-th-of="' + t.id + '">' +
-      '<span class="kf-th-rdot is-' + v[1] + '"></span>' +
       '<code>' + esc(runDisplayId(r)) + '</code>' +
       '<span class="kf-th-rv is-' + v[1] + '">' + v[0] + '</span>' +
-      '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small>' +
-      (r.live ? '<em>产物在库</em>' : r.model?.fixture ? '<em>Demo fixture</em>' : '') +
+      '<small><i aria-hidden="true">◷</i>' + esc(r.time) + '</small>' +
     '</button>';
   }
 
@@ -644,17 +661,33 @@
      Keep the run identity together: the title is followed immediately by the
      immutable run id and timestamp. The live overview puts the two actionable
      metrics in a separate right-hand column. */
+  /* Run lifecycle 是最弱的信息，不抢注意力：
+     运行中 = 标题旁一个轻量 spinner；已取消 = 弱化文字「— 已取消」；
+     完成 / 失败 / 不完整 一律不显示任何 lifecycle 文案 —— 结论交给各 Domain。 */
+  function runLifecycle(m) {
+    if (m.state === 'running') return '<span class="kf-rd-spinner" role="status" aria-label="运行中"></span>';
+    if (m.state === 'cancelled') return '<span class="kf-rd-cancelled">— 已取消</span>';
+    return '';
+  }
   function headline(t, r, L) {
-    const v = getRunDisplayStatus(r), m = getRunModel(r);
+    const m = getRunModel(r);
     const title = t.title;
     return '<section class="kf-rd-summary">' +
-      '<div class="kf-rd-head">' +
+      '<div class="kf-rd-identity">' +
+        /* 运行快照图标 · 翻转摄像头。Pixso 导出的 28 网格几何原样保留，
+           去掉掩膜 / 滤镜与 opacity=0 的图层，描边改为跟随容器的 currentColor。 */
+        '<span class="kf-rd-run-icon" aria-hidden="true">' +
+          '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M7.68301 4.60802C7.97 3.60702 8.88501 2.91602 9.927 2.91602L17.712 2.91602C18.645 2.91602 19.489 3.47202 19.856 4.33002L20.849 6.64602C20.941 6.86002 21.152 6.99902 21.385 6.99902L23.917 6.99902C25.528 6.99902 26.834 8.30502 26.834 9.91602L26.834 21.583C26.834 23.516 25.267 25.083 23.334 25.083L4.66699 25.083C2.73401 25.083 1.16699 23.516 1.16699 21.583L1.16699 9.91602C1.16699 8.30502 2.47299 6.99902 4.08401 6.99902L6.56 6.99902C6.82101 6.99902 7.04999 6.82702 7.121 6.57601L7.68301 4.60802Z"/>' +
+            '<circle cx="11" cy="6" r="1" fill="currentColor" stroke="none"/>' +
+            '<path d="M1.83291 0.0484024C0.711538 0.984976 0 2.38162 0 3.94168C0 6.76162 2.32482 9.04762 5.19262 9.04762C5.61257 9.04762 6.02081 8.99862 6.41186 8.9061M1.89143 1.40364L1.89143 0" transform="matrix(-1,0,0,-1,19,19.051)"/>' +
+            '<path d="M10.833 11.002C9.71201 11.938 9 13.335 9 14.895C9 17.715 11.325 20.001 14.193 20.001C14.617 20.001 15.03 19.951 15.425 19.856M10.891 12.357L10.891 10.953"/>' +
+          '</svg>' +
+        '</span>' +
         '<div class="kf-rd-id">' +
-          '<div class="kf-rd-eyebrow"><span><i></i>运行快照</span></div>' +
-          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' +
-            '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + esc(STATE_LABEL[m.state] || m.state) + '</span></div>' +
-          '<div class="kf-rd-run"><span>Run</span><code>' + esc(runDisplayId(r)) + '</code>' +
-            '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
+          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' + runLifecycle(m) + '</div>' +
+          '<div class="kf-rd-run"><span>Run · </span><code>' + esc(runDisplayId(r)) + '</code><i class="kf-rd-meta-sep" aria-hidden="true"></i>' +
+            '<small><i aria-hidden="true">◷</i>' + esc(r.time) + '</small></div>' +
         '</div>' +
       '</div>' +
     '</section>';
@@ -735,8 +768,8 @@
       ];
     } else if (isCorrectnessFailureStory(r)) {
       tiles = [
-        { l: '首个分歧', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'max_abs_diff 0.382 · 重复运行不稳定' },
-        { l: '排序证据', v: '1', u: '项', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · 缺少依赖' }
+        { l: 'First divergence', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'attention_out max_abs_diff ' + (window.PTO_CORRECTNESS_DIAGNOSTICS?.profiles?.run_106?.tensors?.find(t => t.id === 'attention_out')?.maxAbs ?? '未采集') + ' · 重复运行不稳定' },
+        { l: 'Ordering evidence', v: '1', u: '', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · missing edge' }
       ];
     } else if (isPerformanceWarningStory(r)) {
       tiles = [
@@ -1274,7 +1307,7 @@
         '<div><span>证据</span><b>重复运行由不稳定 → 稳定 · ' + esc(firstTensor) + ' 分歧 → 无</b></div>' +
         '<div class="is-ok"><span>结论</span><b>正确性已恢复</b></div>' +
       '</section>' +
-      '<p class="kf-rd-note">#106 正确性未通过，因此 Performance 为 NOT EVALUATED；#107 正确性通过后，才进入后续 Performance 诊断。</p>' +
+      '<p class="kf-rd-note">#106 正确性未通过，因此性能结论为 NOT EVALUATED；#107 正确性通过后才进入性能诊断 —— 性能证据在「执行」中查看。</p>' +
     '</section>';
   }
 
@@ -1346,6 +1379,7 @@
     const toggle = $('#inspectorToggle');
     const split = $('#ideMainSplit');
     if (!split) return;
+    const frame = split.closest('[data-ide-frame]');
     const panes = ['explorer', 'editor-preview', 'inspector']
       .map(name => split.querySelector(':scope > [data-ide-pane="' + name + '"]'));
 
@@ -1375,6 +1409,7 @@
         panes[1].style.width = 'auto';
       }
       if (toggle) toggle.hidden = true;
+      if (frame) frame.dataset.surface = 'solid';
       split.classList.add('kf-run-no-inspector');
       return;
     }
@@ -1410,12 +1445,27 @@
       }
     }
     split.classList.remove('kf-run-no-inspector');
+    if (frame) frame.removeAttribute('data-surface');
     if (toggle) toggle.hidden = false;
   }
 
   function traceData() { return window.PTO_RUN_TRACE || null; }
-  function objectButton(kind, id, label, sourceTab) {
-    return '<button type="button" class="kf-oi-link" data-ws-select-kind="' + esc(kind) + '" data-ws-select-id="' + esc(id) + '" data-ws-source="' + esc(sourceTab || st.tab) + '">' + esc(label) + '</button>';
+  function objectButton(kind, id, label, sourceTab, selected) {
+    return '<button type="button" class="kf-oi-link' + (selected ? ' is-sel' : '') + '" data-ws-select-kind="' + esc(kind) + '" data-ws-select-id="' + esc(id) + '" data-ws-source="' + esc(sourceTab || st.tab) + '"' +
+      (selected ? ' aria-pressed="true"' : '') + '>' + esc(label) + '</button>';
+  }
+
+  /* 统一 Object Header：Task / Tensor / Kernel / Pass 共用同一个身份头。
+     结构固定为「种类 · 标题（身份）· 附带说明」，同一对象跨页后读起来是同一个
+     东西，差别只体现在下面的证据区。role 是可选的角色小片（如 Task 的生产者 /
+     可疑写入），带色调但不喧宾夺主。 */
+  const KIND_LABEL = { op: '算子', tensor: '张量', task: '任务', kernel: 'Kernel',
+                        dependency: '依赖', buffer: '缓冲区', pass: 'Pass', timeline: '时间线', finding: '发现' };
+  function objectHead(kind, title, meta, role) {
+    const eyebrow = KIND_LABEL[kind] || String(kind).toUpperCase();
+    return '<div class="kf-oi-head"><span>' + esc(eyebrow) +
+      (role ? '<em class="' + esc(role.tone || '') + '">' + esc(role.label) + '</em>' : '') +
+      '</span><h3>' + esc(title) + '</h3>' + (meta ? '<small>' + esc(meta) + '</small>' : '') + '</div>';
   }
 
   function objectInspector(selection) {
@@ -1423,7 +1473,7 @@
     const L = liveRun();
     if (!selection) return '<div id="kfObjectInspector" class="kf-oi is-empty"><p>选择 Task、Tensor、Kernel、依赖、Pass 或 Buffer 查看属性与证据。</p></div>';
     const kind = selection.kind, id = selection.id;
-    let title = kind, meta = String(id), body = '', customHead = '', variantClass = '';
+    let title = kind, meta = String(id), body = '', role = null, variantClass = '';
     const section = (label, content) => '<section class="kf-inspector-section"><h2 class="kf-inspector-title">' + label + '</h2>' + content + '</section>';
     const rows = (items) => dl(items);
     const current = TASKS.find(x => x.id === st.task)?.runs.find(x => x.id === st.run);
@@ -1485,12 +1535,13 @@
       if (t.semantic) flowRows.push(['语义映射', t.semantic]);
 
       variantClass = ' kf-oi--task';
-      customHead = '<div class="kf-task-tip-head">' +
-        '<div class="kf-task-tip-id"><span>Task #' + esc(t.id) + '</span><em class="' + roleTone.trim() + '">' + esc(t.label) + '</em></div>' +
-        '<h3>' + esc(t.note) + '</h3>' +
-        '<small>' + esc(t.core) + (t.semantic ? ' · ' + esc(t.semantic) : '') + '</small>' +
-      '</div>';
-      body = (tlRow ? '<div class="kf-task-tip-metrics" aria-label="时间线摘要">' +
+      /* 身份头走统一 Object Header：任务 = Task #182，角色作为小片挂在种类旁，
+         下面只放证据，不再另起一套头部。 */
+      role = { label: t.label, tone: roleTone.trim() };
+      title = 'Task #' + t.id;
+      meta = t.core + (t.semantic ? ' · ' + t.semantic : '');
+      body = (t.note ? '<p class="kf-ri-note">' + esc(t.note) + '</p>' : '') +
+        (tlRow ? '<div class="kf-task-tip-metrics" aria-label="时间线摘要">' +
           '<div><span>开始</span><b>' + tlRow.s + ' μs</b></div>' +
           '<div><span>结束</span><b>' + tlRow.e + ' μs</b></div>' +
           '<div><span>耗时</span><b>' + (tlRow.e - tlRow.s) + ' μs</b></div>' +
@@ -1529,10 +1580,13 @@
         section('证据', '<div class="kf-oi-links"><span class="kf-oi-evidence">时间线重叠</span><span class="kf-oi-evidence">共享 buffer</span><span class="kf-oi-evidence">输出非确定性</span></div>') +
         section('源码映射', '<p class="kf-ri-note"><code>decode_layer.py:728</code> → Task #182 读取 → Task #197 覆盖写入 → 排序依赖缺失</p>') +
         section('建议修复', '<p class="kf-ri-note"><code>deps=[reader_tid]</code></p>') +
-        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="Runtime task dependency">定位源码</button><button type="button" data-ws-fix-dependency>添加显式依赖并重跑</button></div>');
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="Runtime task dependency">定位源码</button><button type="button" data-ws-fix-dependency>预览修复</button></div>');
     } else if (kind === 'task' && D && D.tasks[Number(id)]) {
       const i = Number(id), t = D.tasks[i], K = D.kernels[t.k] || {};
-      title = t.kn || K.name || 'Task'; meta = t.id || ('task ' + i);
+      /* 身份 = Task 编号，和 Correctness 的「Task #182」同一种读法；kernel 名与
+         核数归到说明行，不再抢占标题。 */
+      title = 'Task #' + (t.id != null ? t.id : i);
+      meta = (t.kn || K.name || '') + ' · ' + t.c + ' 核';
       const pre = D.edges.filter(e => e[1] === i), suc = D.edges.filter(e => e[0] === i);
       body = section('身份与状态', rows([['任务 ID', t.id], ['时间', usFmt(t.s) + ' → ' + usFmt(t.e)], ['墙上时间', usFmt(t.e - t.s)], ['下沉 Kernel', (t.ks || []).map(x => x.kn).join(' + ')], ['调度域', t.sc || '—'], ['核心', t.c + ' 核']])) +
         section('Tensor 数据流', t.io && t.io.length ? '<div class="kf-oi-links">' + t.io.map(a => objectButton('tensor', a.x, (a.t === 'in' ? '输入 ' : '输出 ') + a.i + ' · ' + a.d + ' [' + a.sh.join('×') + ']', 'execution')).join('') + '</div>' : '<p class="kf-ri-note is-dim">未采集参数表。</p>') +
@@ -1570,11 +1624,7 @@
         section('证据', '<div class="kf-oi-links">' + (f && f.evidence || []).map(x => '<span class="kf-oi-evidence">✓ ' + esc(x) + '</span>').join('') + '</div>') +
         section('下一步', '<div class="kf-oi-actions"><button type="button" data-ws-route="' + esc(f?.action?.route || f?.domain || 'overview') + '">' + esc(f?.action?.label || '查看证据') + '</button></div>');
     }
-    // 头部类型标签：工程对象保留惯用英文名，其余转中文
-    const KIND_LABEL = { op: '算子', tensor: '张量', task: '任务', kernel: 'Kernel',
-                        dependency: '依赖', buffer: '缓冲区', pass: 'Pass', timeline: '时间线', finding: '发现' };
-    const kindLabel = KIND_LABEL[kind] || kind.toUpperCase();
-    const head = customHead || '<div class="kf-oi-head"><span>' + esc(kindLabel) + '</span><h3>' + esc(title) + '</h3><small>' + esc(meta) + '</small></div>';
+    const head = objectHead(kind, title, meta, role);
     return '<div id="kfObjectInspector" class="kf-oi' + variantClass + '">' + head + body + '</div>';
   }
 
@@ -1680,6 +1730,59 @@
 
   function renderInspector() {
     // Object detail belongs to the hover tooltip in Run workspace.
+  }
+
+  /* ---------- 修复预览 ----------
+     #106 → 执行 → 查看缺失依赖 的下一步。这里只做「看」：不写真实 patch、不碰
+     源码文件。应用时直接复用既有的 createFollowupRun('dependency') 生成 #107，
+     和这条链路原来的行为一致，只是中间多了一次确认。 */
+  function fixPreviewHTML() {
+    const diff = [
+      'with pl.at(',
+      '    level=pl.Level.CORE_GROUP,',
+      '<span class="kf-rw-fix-add">+   deps=[reader_tid]</span>',
+      '):'
+    ].join('\n');
+    return '<section class="kf-rw-fix-dialog" role="dialog" aria-modal="true" aria-labelledby="fixPreviewTitle">' +
+      '<header><div><span class="kf-eyebrow">FIX PREVIEW</span><h2 id="fixPreviewTitle">修复预览</h2></div>' +
+        '<button type="button" data-rw-fix-close aria-label="关闭">×</button></header>' +
+      '<div class="kf-rw-fix-body">' +
+        '<div><h3>运行时问题</h3><p><code>Task #182 → Task #197</code> 缺少排序依赖</p></div>' +
+        '<div><h3>源码映射</h3><p><code>decode_layer.py:728</code></p></div>' +
+        '<div><h3>建议修改</h3><pre>' + diff + '</pre></div>' +
+        '<div><h3>说明</h3><p>Task #182 是当前 Run 的 runtime ID；<br>源码通过 <code>reader_tid</code> 建立 dependency。</p></div>' +
+      '</div>' +
+      '<footer class="kf-rw-fix-actions"><button type="button" class="btn" data-rw-fix-cancel>取消</button>' +
+        '<button type="button" class="btn btn-solid" data-rw-fix-apply>应用修改并重新运行</button></footer>' +
+    '</section>';
+  }
+
+  function openFixPreview() {
+    if (!fixPreview) return;
+    hideObjectTooltip();
+    fixPreview.innerHTML = fixPreviewHTML();
+    fixPreview.hidden = false;
+    const cancel = fixPreview.querySelector('[data-rw-fix-cancel]');
+    if (cancel && cancel.focus) cancel.focus({ preventScroll: true });
+  }
+
+  function closeFixPreview() {
+    if (!fixPreview || fixPreview.hidden) return;
+    fixPreview.hidden = true;
+    fixPreview.innerHTML = '';
+  }
+
+  function bindFixPreview() {
+    if (!fixPreview) return;
+    fixPreview.addEventListener('click', e => {
+      if (e.target === fixPreview) { closeFixPreview(); return; }   // 点遮罩关闭
+      if (e.target.closest('[data-rw-fix-close], [data-rw-fix-cancel]')) { closeFixPreview(); return; }
+      if (e.target.closest('[data-rw-fix-apply]')) {
+        closeFixPreview();
+        createFollowupRun('dependency');
+      }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFixPreview(); });
   }
 
   function clearSelection() { st.selection = null; hideObjectTooltip(); }
@@ -1805,13 +1908,16 @@
     const profile = isCorrectnessFailureStory(r) ? diagnosisViewForRun(r.id) : null;
     const findings = getFindings(r).map(f => {
       const severity = f.severity === 'critical' ? 'bad' : f.severity === 'warning' ? 'warn' : 'dim';
+      /* Numerical Accuracy 卡的信息层级：Domain 在 span，Finding 是标题，
+         Scenario（数值精度）与 Localization（首个分歧）在 metadata 行 ——
+         一行说「差多少」，一行说「从哪儿开始」，Scenario 不做成第二个 eyebrow。 */
       if (f.domain === 'correctness' && profile?.type === 'numerical') {
         const first = profile.tensors?.find(t => t.id === profile.firstDivergence?.id);
         const firstLabel = [profile.firstDivergence?.id, first?.tid].filter(Boolean).join(' / ') || '—';
-        const firstCaption = profile.firstDivergence?.kind === 'pass' ? '首个异常 Pass' : '首个分歧';
+        const firstCaption = profile.firstDivergence?.kind === 'pass' ? '首个数值分歧 Pass' : '首个分歧 Tensor';
         const maxAbs = profile.result?.maxAbs != null ? profile.result.maxAbs : '—';
         return '<button type="button" class="kf-rw-finding kf-rw-finding--numerical is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
-          '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + DOMAIN_LABEL.correctness + '</span><div><i>NUMERICAL</i><b>输出不一致</b><small>最大绝对误差 · ' + esc(maxAbs) + ' <mark>' + esc(firstCaption) + ' · ' + esc(firstLabel) + '</mark></small></div><em>查看诊断 →</em></button>';
+          '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + DOMAIN_LABEL.correctness + '</span><div><b>输出不一致</b><small>数值精度 · 最大绝对误差 ' + esc(maxAbs) + ' <mark>' + esc(firstCaption) + ' · ' + esc(firstLabel) + '</mark></small></div><em>查看诊断 →</em></button>';
       }
       return '<button type="button" class="kf-rw-finding is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
         '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + esc(DOMAIN_LABEL[f.domain] || f.domain) + '</span><b>' + esc(f.title) + '</b><small>' + esc(f.location || f.summary) + ' →</small></button>';
@@ -1923,8 +2029,13 @@
       ? '<button type="button" data-ws-new-run="correctness">运行正确性校验</button>'
       : key === 'resources' && d.verdict === 'unknown'
         ? '<button type="button" data-ws-new-run="resources">重新运行并采集资源数据</button>' : '';
+    /* 有统一 Domain Header 的页签，结论只在头部说一次；这里退回成一个小节标题。
+       资源页没有头部，保持原来的「结论 · 摘要」写法不变。 */
+    const head = DOMAIN_HEAD_KEYS[key]
+      ? '<div class="kf-rd-h">' + esc(content.title) + '</div>'
+      : '<div class="kf-rd-h">' + esc(content.title) + '<small>' + v[0] + ' · ' + esc(d.summary) + '</small></div>';
     return '<section class="kf-rd-sec" aria-label="' + esc(DOMAIN_LABEL[key]) + ' evidence">' +
-      '<div class="kf-rd-h">' + esc(content.title) + '<small>' + v[0] + ' · ' + esc(d.summary) + '</small></div>' +
+      head +
       '<div class="kf-oi-links">' + content.signals.map(x => '<span class="kf-oi-evidence">' + esc(x) + '</span>').join('') + '</div>' +
       '<div class="kf-rd-art"><b>' + esc(content.art[0]) + '</b><code>' + esc(content.art[1]) + '</code><small>' + esc(content.art[2]) + '</small></div>' + action +
     '</section>';
@@ -1935,25 +2046,38 @@
     return !!(item && (item.status === 'available' || item.status === 'partial'));
   }
 
-  function compilationSummaryPanel(r) {
-    const d = getDomainVerdict(r, 'compilation');
-    return '<section class="kf-rd-sec" aria-label="编译结果">' +
-      '<div class="kf-rd-h">编译<small>' + esc(d.verdict.toUpperCase()) + ' · ' + esc(d.summary) + '</small></div>' +
-      '<div class="kf-oi-links"><span class="kf-oi-evidence">IR Validation · ' + (hasEvidence(r, 'ir_validation') ? 'PASS' : '未采集') + '</span>' +
-        '<span class="kf-oi-evidence">阻塞错误 · 0</span><span class="kf-oi-evidence">设备代码 · 已生成</span></div>' +
-      '<p class="kf-rd-note">编译链已完成，未发现阻塞性 IR 约束。</p>' +
-    '</section>';
-  }
+  /* ---------- 统一 Domain Header（编译 / 正确性 / 执行）--------------------
+     这三个页签此前各有一套自己的结论头：编译页用 kc-summary，正确性页用
+     kf-dg-diagnosis-head，执行页只是一行 kf-rd-h 加几个证据 chip。同一个位置
+     三种读法，跨页签切换时像三个产品。这里收敛成一个轻量组件：
 
-  function correctnessPassPanel(r) {
-    const d = getDomainVerdict(r, 'correctness');
-    return '<section class="kf-rd-sec" aria-label="正确性校验结果">' +
-      '<div class="kf-rd-h">正确性<small>PASS · ' + esc(d.summary) + '</small></div>' +
-      '<div class="kf-oi-links"><span class="kf-oi-evidence">Golden Compare · PASS</span>' +
-        '<span class="kf-oi-evidence">Oracle · 3 / 3</span><span class="kf-oi-evidence">Checkpoints · 12 / 12 匹配</span></div>' +
-      '<div class="kf-rd-art"><b>校验结论</b><code>未发现分歧</code><small>输出与中间 checkpoint 均未发现回归。</small></div>' +
-    '</section>';
-  }
+       Domain 名称 · PASS / WARNING / FAIL / NOT EVALUATED · 一句话结论 · 关键指标
+
+     它只说分析结论。Run 的运行状态（已完成 / 运行中）只出现在顶部 headline，
+     两套词汇不混用 —— 一次「已完成」的运行照样可以正确性 FAIL。
+     指标全部沿用各页签原有的证据值，这里只换排版，不引入新数据。 */
+  const DOMAIN_HEAD_KEYS = { compilation: 1, correctness: 1, execution: 1 };
+
+  /* 一句话结论：页签里原本写在 kf-rd-note / 校验结论上的结论句搬到这里，
+     其余用 domain summary —— 它本来就是「这次 Run 在这个域上得出的结论」。 */
+  const DOMAIN_CONCLUSION = {
+    compilation: { pass: '编译链已完成，未发现阻塞性 IR 约束。' },
+    correctness: { pass: '输出与中间 checkpoint 均未发现回归。' }
+  };
+
+  /* 编译失败 Run 的 Pass 序列：Domain Header（首个失败 Pass）和失败故事面板
+     共用一份，避免同一条序列在两处各写一遍。 */
+  const COMPILE_STORY_PASSES = [
+    ['Frontend', 'PASS'], ['InlineFunctions', 'PASS'], ['InferLayout', 'PASS'],
+    ['LegalizeIndexing', 'FAIL'], ['AllocateMemory', 'NOT RUN'], ['Codegen', 'NOT RUN']
+  ];
+
+  /* 指标 = [标签, 值, 结论色]。色只在值真的是结论时才给，未采集一律保持中性。 */
+  const evidenceState = (r, key) => hasEvidence(r, key) ? '可用' : '未采集';
+  const stateMetric = (label, r, key, okText) => {
+    const ok = hasEvidence(r, key);
+    return [label, ok ? okText : '未采集', ok ? 'ok' : null];
+  };
 
   function domainHeadMetrics(key, r) {
     if (key === 'compilation') {
@@ -2064,7 +2188,7 @@
   function validatedPerformancePanel(r) {
     const m = getRunModel(r), metrics = m.compareMetrics || {};
     return '<section class="kf-rd-sec" aria-label="已验证的性能结果">' +
-      '<div class="kf-rd-h">Performance<small>PASS · 达到延迟目标</small></div>' +
+      '<div class="kf-rd-h">性能<small>PASS · 达到延迟目标</small></div>' +
       '<div class="kf-oi-links"><span class="kf-oi-evidence">Latency · ' + esc(metrics.latency || '1.36 ms') + '</span>' +
         '<span class="kf-oi-evidence">目标 · &lt; 1.50 ms</span><span class="kf-oi-evidence">Critical Path · ' + esc(metrics.criticalPath || '0.98 ms') + '</span>' +
         '<span class="kf-oi-evidence">Task #182 · ' + esc(metrics.task182 || '147 µs') + '</span></div>' +
@@ -2085,12 +2209,9 @@
   }
 
   function compilationFailureStoryPanel(r) {
-    const passes = [
-      ['Frontend', 'PASS'], ['InlineFunctions', 'PASS'], ['InferLayout', 'PASS'],
-      ['LegalizeIndexing', 'FAIL'], ['AllocateMemory', 'NOT RUN'], ['Codegen', 'NOT RUN']
-    ];
+    const passes = COMPILE_STORY_PASSES;
     return '<section class="kf-rd-sec" aria-label="编译失败已定位">' +
-      '<div class="kf-rd-h">编译<small>Mock 编译器证据 · 已确认失败 · 首个失败 Pass</small></div>' +
+      '<div class="kf-rd-h">Pass 序列<small>Mock 编译器证据 · 已确认失败 · 首个失败 Pass</small></div>' +
       '<div class="kf-oi-links">' + passes.map(p =>
         '<button type="button" class="kf-oi-link" data-ws-select-kind="pass" data-ws-select-id="' + esc(p[0]) + '" data-ws-source="compilation"' +
           (p[0] === 'LegalizeIndexing' ? ' aria-pressed="true"' : '') + '>' + esc(p[0]) + ' · ' + esc(p[1]) + '</button>').join('') +
@@ -2155,13 +2276,16 @@
   const dg = { run: null, sel: null, runtime: false, view: 'tasks' };
   let dgRO = null;
 
-  function dgOp(id) { return DG.ops.find(o => o.id === id) || null; }
+  /* DG 只有在 Correctness 页签渲染后才会被 dgReset 载入。用户直接进执行页就
+     hover 对象时 DG 仍是 null，这里要兜底，否则 find 会抛 TypeError。 */
+  function dgOp(id) { return DG ? DG.ops.find(o => o.id === id) || null : null; }
   function dgTensor(id) {
+    if (!DG) return null;
     if (id === '37') id = 'attention_out';            // F106 仍按旧的内部编号选
     if (id === '41') id = 'out';
     return DG.tensors.find(t => t.id === id) || null;
   }
-  function dgTask(id) { return DG.tasks.find(t => t.id === String(id)) || null; }
+  function dgTask(id) { return DG ? DG.tasks.find(t => t.id === String(id)) || null : null; }
   function dgStateText(state) {
     return state === 'match' ? '匹配'
       : state === 'first' ? '不一致'
@@ -2454,8 +2578,8 @@
 
   function dgCompilerDivergence() {
     const numerical = DG.compiler.numericalValidation;
-    return '<section class="kf-rd-art" aria-label="首个异常编译 Pass">' +
-      '<b>首个分歧</b><code>' + esc(numerical.firstDivergentPass) + '</code>' +
+    return '<section class="kf-rd-art" aria-label="首个数值分歧 Pass">' +
+      '<b>首个数值分歧 Pass</b><code>' + esc(numerical.firstDivergentPass) + '</code>' +
       '<small>该 Pass 后的 Host IR execution 首次偏离 Golden；后续 Pass 持续 MISMATCH。</small>' +
     '</section>';
   }
@@ -2472,7 +2596,7 @@
     const C = DG.cause;
     const numerical = DG.compiler?.numericalValidation || {};
     const action = numerical.status === 'fail' && numerical.firstDivergentPass != null
-      ? '<div class="kf-oi-actions"><button type="button" data-dg-route="compilation">在「编译」中查看首个异常 Pass</button></div>'
+      ? '<div class="kf-oi-actions"><button type="button" data-dg-route="compilation">在「编译」中查看首个数值分歧 Pass</button></div>'
       : DG.diagnosis?.category === 'runtime_data_error'
         ? '<div class="kf-oi-actions"><button type="button" data-dg-route="execution">在「执行」中查看排序证据</button></div>'
         : '';
@@ -2552,7 +2676,12 @@
     if (route === 'execution') {
       const entry = correctnessExecutionEntry();
       dg.runtime = true; dg.view = 'timeline';
-      if (entry.focusTask) dg.sel = { kind: 'task', id: String(entry.focusTask) };
+      /* 跨页尽量保留对象选择：把聚焦的 Task 记进 st.selection，执行页的
+         Context Banner 与排序证据里的对象 chip 都会读到它，保持连续性。 */
+      if (entry.focusTask) {
+        dg.sel = { kind: 'task', id: String(entry.focusTask) };
+        selectObject({ kind: 'task', id: String(entry.focusTask), sourceTab: 'correctness' });
+      }
       toTab('execution', { executionEntry: entry });
       requestAnimationFrame(() => focusCorrectnessExecutionEvidence(entry));
       return;
@@ -2585,18 +2714,31 @@
     dgRO.observe(canvas);
   }
 
+  /* 统一跨域 Context Banner：来源 → 意图 → 当前聚焦对象。
+     从一个 Domain 跳到另一个时给读者一个连续的锚点，三行固定读法：
+       来自「X」 / 结论 → 正在做什么 / 当前聚焦 · 对象 */
+  function contextBanner(from, intentFrom, intentTo, focus) {
+    return '<section class="kf-cv-context" aria-label="跨域上下文">' +
+      '<span class="kf-cv-context-from">来自「' + esc(from) + '」</span>' +
+      '<div class="kf-cv-context-intent"><b>' + esc(intentFrom) + '</b><i>→</i><b>' + esc(intentTo) + '</b></div>' +
+      (focus ? '<p class="kf-cv-context-focus">当前聚焦 · <b>' + esc(focus) + '</b></p>' : '') +
+    '</section>';
+  }
+
   function correctnessExecutionStoryPanel() {
     const entry = st.executionEntry;
     const enteredFromCorrectness = entry?.from === 'correctness' || entry?.from === 'investigation';
     const profileTimeline = DG?.timeline?.overlap ?
       '<div class="kf-dg-rt-body" data-dg-rtbody="timeline">' + dgRuntimeTimeline() + '</div>' : '';
+    const focusedTask = enteredFromCorrectness && entry.focusTask ? 'Task #' + entry.focusTask : '';
+    const selTaskId = st.selection && st.selection.kind === 'task' ? String(st.selection.id) : null;
     return '<section class="kf-rd-sec" aria-label="排序证据">' +
       (enteredFromCorrectness ? contextBanner(entry.from === 'investigation' ? '调查地图' : '正确性', entry.finding, '正在验证' + entry.suspectedCause, focusedTask) : '') +
       '<div class="kf-rd-h">排序证据<small>Task 依赖与执行时间线（Timeline）</small></div>' +
       '<div class="kf-oi-links">' +
-        objectButton('task', '182', 'Task #182 · 读取方', 'execution') +
+        objectButton('task', '182', 'Task #182 · 读取方', 'execution', selTaskId === '182') +
         objectButton('buffer', 'B2', 'B2 · 共享 buffer', 'execution') +
-        objectButton('task', '197', 'Task #197 · 写入方 / 覆盖', 'execution') +
+        objectButton('task', '197', 'Task #197 · 写入方 / 覆盖', 'execution', selTaskId === '197') +
       '</div>' +
       '<div class="kf-rd-art"><b>缺少预期排序</b><code>Task #182  →  Task #197</code><small>#182 仍在读取 · #197 开始覆盖写入 · 写入方在读取方完成前开始写入</small></div>' +
       profileTimeline +
@@ -2607,7 +2749,7 @@
   function performanceWarningStoryPanel() {
     const chain = ['Task #141', 'Task #178', 'Task #182 · Long pole', 'Task #196', 'Task #201'];
     return '<section class="kf-rd-sec" aria-label="性能关键路径">' +
-      '<div class="kf-rd-h">Performance<small>时间主要花在哪里？</small></div>' +
+      '<div class="kf-rd-h">性能<small>时间主要花在哪里？</small></div>' +
       '<div class="kf-oi-links">' +
         '<span class="kf-oi-evidence">Latency · 1.82 ms</span><span class="kf-oi-evidence">目标 · &lt; 1.50 ms</span><span class="kf-oi-evidence">Critical Path · 1.41 ms</span><span class="kf-oi-evidence">等待 / 停顿 · 37%</span>' +
       '</div>' +
@@ -2734,8 +2876,7 @@
         '<div class="kf-rd-overview-left">' + head + '</div>' +
         kpis(r, L) +
         '</section>';
-      els.detail.innerHTML = overview + tabStrip() +
-        '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
+      els.detail.innerHTML = overview + tabStrip() + shell;
       const panel = $('#runTabPanel', els.detail);
 
       if (st.tab === 'overview') {
@@ -2769,7 +2910,7 @@
           '<div class="kf-rd-overview-left">' + head + '</div>' + historicalKpis(r) + '</section>'
       : head;
     // its recorded artifact list is in the right rail too (riArchivedArts)
-    els.detail.innerHTML = storyOverview + tabStrip() + '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
+    els.detail.innerHTML = storyOverview + tabStrip() + shell;
     const panel = $('#runTabPanel', els.detail);
     if (st.tab === 'overview') {
       panel.innerHTML = overviewPanel(r, null) + sig;
@@ -2781,9 +2922,11 @@
         syncPanel();
         panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
       } else if (getDomainVerdict(r, 'compilation').verdict === 'pass') {
+        /* 结论已经由统一 Domain Header 承担：模块能画就画模块视图，画不了就
+           只留头部，不再叠一层同义的编译摘要。 */
         const view = window.PTO_COMPILATION;
         if (!(view && view.ready && compilationDataMatches(r) && view.render(panel))) {
-          panel.innerHTML = compilationSummaryPanel(r);
+          panel.innerHTML = '';
         }
       } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'compilation');
     } else if (st.tab === 'correctness') {
@@ -2792,7 +2935,7 @@
         panel.innerHTML = correctnessDiagnosisPanel();
         dgDraw(panel); dgWatch();
       }
-      else if (getDomainVerdict(r, 'correctness').verdict === 'pass' && hasEvidence(r, 'golden_compare')) panel.innerHTML = correctnessPassPanel(r);
+      else if (getDomainVerdict(r, 'correctness').verdict === 'pass' && hasEvidence(r, 'golden_compare')) panel.innerHTML = '';
       else panel.innerHTML = notEvaluatedEvidencePanel(r, 'correctness');
     } else if (st.tab === 'execution') {
       if (r.id === 'run_106') {
@@ -2800,7 +2943,6 @@
         panel.innerHTML = correctnessExecutionStoryPanel(r);
       } else if (hasEvidence(r, 'dependency_graph') || hasEvidence(r, 'runtime_timeline')) {
         renderExecution(panel);
-        panel.prepend(document.createRange().createContextualFragment(executionSummaryPanel(r)));
       } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'execution');
     } else if (st.tab === 'performance') {
       if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
@@ -2826,17 +2968,14 @@
 
       return '<div class="kf-th-item' + (open ? ' is-open' : '') + '">' +
         '<button type="button" class="kf-th-row" data-th-task="' + t.id + '" aria-expanded="' + open + '">' +
+          '<span class="kf-th-task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M20.6604 8.15501L20.6604 15.845C20.6604 16.56 20.2792 17.22 19.6604 17.577L13.0001 21.423C12.3813 21.78 11.6189 21.78 11.0001 21.423L4.33984 17.577C3.72105 17.22 3.33984 16.56 3.33984 15.845L3.33984 8.15501C3.33984 7.44002 3.72105 6.78001 4.33984 6.42301L11.0001 2.57702C11.6189 2.22002 12.3813 2.22002 13.0001 2.57702L19.6604 6.42301C20.2792 6.78001 20.6604 7.44002 20.6604 8.15501Z" fill-rule="evenodd" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path d="M20.3252 7.19398L13.9506 10.874M9.95794 10.821L3.55273 7.12299" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path d="M12 21L12 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path d="M8.5023 7.442L9.15181 7.067L11.2499 5.856C11.7499 5.567 12.2499 5.567 12.7499 5.856L14.8479 7.067L15.4975 7.442C15.7861 7.609 15.8471 7.836 15.6805 8.125C15.5138 8.414 15.2861 8.475 14.9975 8.308L14.3479 7.933L12.2499 6.722C12.0832 6.625 11.9165 6.625 11.7499 6.722L9.65181 7.933L9.0023 8.308C8.71361 8.475 8.48591 8.414 8.31931 8.125C8.15261 7.836 8.21361 7.609 8.5023 7.442ZM17.696 11.25L17.696 12L17.696 14.423C17.696 15 17.446 15.433 16.946 15.722L14.8479 16.933L14.1984 17.308C13.9097 17.475 13.6821 17.414 13.5154 17.125C13.3487 16.836 13.4097 16.609 13.6984 16.442L14.3479 16.067L16.446 14.856C16.6127 14.759 16.696 14.615 16.696 14.423L16.696 12L16.696 11.25C16.696 10.917 16.8627 10.75 17.196 10.75C17.5294 10.75 17.696 10.917 17.696 11.25ZM9.80131 17.308L9.15181 16.933L7.05371 15.722C6.55371 15.433 6.30371 15 6.30371 14.423L6.30371 12L6.30371 11.25C6.30371 10.917 6.47041 10.75 6.80371 10.75C7.13701 10.75 7.30371 10.917 7.30371 11.25L7.30371 12L7.30371 14.423C7.30371 14.615 7.38701 14.759 7.55371 14.856L9.65181 16.067L10.3013 16.442C10.59 16.609 10.651 16.836 10.4843 17.125C10.3176 17.414 10.09 17.475 9.80131 17.308ZM15.4701 7.449L15.4975 7.442C15.7399 7.582 15.8205 7.883 15.6805 8.125C15.5405 8.367 15.2399 8.448 14.9975 8.308L14.9901 8.281L15.4701 7.449ZM9.00961 8.281L9.0023 8.308C8.75981 8.448 8.4593 8.367 8.31931 8.125C8.17931 7.883 8.25981 7.582 8.5023 7.442L8.52961 7.449L9.00961 8.281ZM6.32371 11.27L6.30371 11.25C6.30371 10.97 6.5237 10.75 6.80371 10.75C7.08371 10.75 7.30371 10.97 7.30371 11.25L7.28371 11.27L6.32371 11.27ZM10.274 16.449L10.3013 16.442C10.5438 16.582 10.6243 16.883 10.4843 17.125C10.3443 17.367 10.0438 17.448 9.80131 17.308L9.79401 17.281L10.274 16.449ZM14.2057 17.281L14.1984 17.308C13.9559 17.448 13.6554 17.367 13.5154 17.125C13.3754 16.883 13.4559 16.582 13.6984 16.442L13.7257 16.449L14.2057 17.281ZM16.716 11.27L16.696 11.25C16.696 10.97 16.916 10.75 17.196 10.75C17.476 10.75 17.696 10.97 17.696 11.25L17.676 11.27L16.716 11.27Z" fill="currentColor" fill-rule="nonzero"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/></svg></span>' +
           '<span class="kf-th-dot is-' + v[1] + '"></span>' +
-          '<span class="kf-th-title">' + esc(t.title) + '</span>' +
-          '<span class="kf-th-verdict is-' + v[1] + '">' + v[0] + '</span>' +
-          '<span class="kf-th-sub">' + esc(t.kind) + ' · ' + esc(t.model) + ' · ' + esc(t.op) + '</span>' +
-          '<span class="kf-th-time">' + t.runs.length + ' 次运行 · 最近 ' + esc(head.time.slice(5, 16)) + '</span>' +
+          '<span class="kf-th-task-copy"><span class="kf-th-title">' + esc(t.title) + '</span>' +
+            '<span class="kf-th-task-meta">' + t.runs.length + ' 次运行 · ' + (liveN ? liveN + ' 次产物在库' : '暂无产物在库') + '</span></span>' +
         '</button>' +
         '<button type="button" class="kf-th-compare-icon" data-th-compare-open data-th-compare-task-id="' + t.id + '" aria-label="对比 ' + esc(t.title) + ' 的运行" title="对比此算子的运行"' + (t.runs.length < 2 ? ' disabled' : '') + '>⇄</button>' +
         (open
           ? '<div class="kf-th-runs">' +
-              '<div class="kf-th-arts-h">运行历史 · ' + t.runs.length + ' 次' +
-                (liveN ? ' · ' + liveN + ' 次产物在库' : '') + '</div>' +
               t.runs.map(r => runRow(t, r)).join('') +
             '</div>' +
             ''
@@ -2940,7 +3079,7 @@
             summary: '端到端延迟 1.82 ms，目标 < 1.50 ms；Task #182 是当前主要的最长任务。', location: 'Task #182 · attention_incore_2',
             affectedObjects: [{ kind: 'task', id: '182' }, { kind: 'kernel', id: 'attention_incore_2' }],
             evidence: ['total latency: 1.82 ms', 'target: < 1.50 ms', 'Task #182 duration: 214 µs', 'baseline/reference task duration: 147 µs', 'Task #182 位于 Critical Path 上'],
-            action: { label: '查看 Performance', route: 'performance' }
+            action: { label: '在「执行」中查看性能证据', route: 'performance' }
           }, {
             id: 'F107K', severity: 'warning', domain: 'performance',
             title: 'RoPE lo/hi 半维被拆成两次窄搬运',
@@ -3090,7 +3229,7 @@
     const fixRerun = e.target.closest('[data-ws-fix-rerun]');
     if (fixRerun) { createFollowupRun('compilation'); return; }
     const fixDependency = e.target.closest('[data-ws-fix-dependency]');
-    if (fixDependency) { createFollowupRun('dependency'); return; }
+    if (fixDependency) { openFixPreview(); return; }
     const optimizeRerun = e.target.closest('[data-ws-optimize-rerun]');
     if (optimizeRerun) { createFollowupRun('performance'); return; }
     const openSource = e.target.closest('[data-ws-open-source]');
@@ -3222,6 +3361,7 @@
     if (els.root) els.root.addEventListener('click', onRunClick);
     if (els.detail) els.detail.addEventListener('click', onRunClick);
     bindObjectTooltips();
+    bindFixPreview();
     window.addEventListener('pto:compilation-runtime', event => {
       const ctx = event.detail || {};
       const task = TASKS.find(t => t.id === st.task);
@@ -3352,10 +3492,10 @@
         id: 'F109', severity: 'critical', domain: 'correctness',
         title: 'ExpandMixedKernel 引入数值语义偏差',
         summary: '结构校验通过，但该 Pass 后的 Host IR execution 首次偏离 PyTorch Golden。',
-        location: 'ExpandMixedKernel · 首个异常 Pass',
+        location: 'ExpandMixedKernel · 首个数值分歧 Pass',
         affectedObjects: [{ kind: 'pass', id: 'ExpandMixedKernel' }],
         evidence: ['PyTorch Golden 有效', 'Tolerance 有效', '结构校验: PASS', '数值校验: FAIL', '后续 Pass: MISMATCH'],
-        action: { label: '定位首个异常 Pass', route: 'correctness' }
+        action: { label: '定位首个数值分歧 Pass', route: 'correctness' }
       }], {
         correctnessStory: true, fixture: true, fixtureLabel: '编译器语义错误',
         source: { file: 'decode_layer.py', line: 728 }

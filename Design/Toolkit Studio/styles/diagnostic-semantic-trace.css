@@ -124,13 +124,21 @@
 .kf-dg-rt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px 7px; border-bottom: 1px dashed color-mix(in srgb, var(--warning) 26%, var(--dg-line)); }
 .kf-dg-rt-title { color: var(--warning); font: 700 9px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; }
 .kf-dg-rt-sub { color: var(--foreground-muted); font: 9px var(--font-mono); }
-.kf-dg-rt-views { display: flex; gap: 2px; margin-left: auto; }
-.kf-dg-rt-views button {
-  padding: 3px 8px; border: 1px solid transparent; border-radius: var(--radius-sm);
-  color: var(--foreground-muted); background: transparent; font-size: 10px;
+/* 局部 View Switch（任务 / 时间线）：只切换 Runtime Expansion 这一块的内容，
+   所以做成一颗凹陷胶囊里的分段控件 —— 形状、底色、字重都和一级页签
+   （.kf-rt 的下划线）不同，不会被读成第二个一级导航。 */
+.kf-dg-rt-views {
+  display: inline-flex; gap: 1px; margin-left: auto; padding: 2px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--dg-line) 65%, transparent);
 }
-.kf-dg-rt-views button:hover { color: var(--foreground-secondary); background: var(--surface-2); }
-.kf-dg-rt-views button.is-on { border-color: var(--dg-line2); color: var(--foreground); background: var(--surface-2); }
+.kf-dg-rt-views button {
+  padding: 2px 10px; border: 0; border-radius: var(--radius-pill);
+  color: var(--foreground-muted); background: transparent;
+  font: 500 10px/1.6 var(--font-sans); cursor: pointer;
+}
+.kf-dg-rt-views button:hover { color: var(--foreground); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.kf-dg-rt-views button.is-on { color: var(--foreground); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dg-line2); }
 .kf-dg-rt-x { padding: 3px 6px; border: 0; color: var(--foreground-muted); background: transparent; font-size: 10px; }
 .kf-dg-rt-x:hover { color: var(--foreground); }
 .kf-dg-rt-body { display: grid; gap: 14px; padding: 12px; }
