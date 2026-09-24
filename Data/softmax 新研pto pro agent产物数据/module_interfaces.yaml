@@ -1,0 +1,39 @@
+schema_version: 1
+op: softmax
+module_count: 1
+has_cross_core: false
+is_fusion: false
+# L0: is_fusion=false（纯 Vector/VF，无 cube）→ stage4_path=L0，一口气开发
+primary_inputs:
+  - {name: x, shape: "[B, N]", dtype: float16}
+modules:
+  - id: 1
+    name: softmax_vf_row_reduce
+    description: >
+      单 Module 完成数值稳定行 softmax 的全部三遍：pass1 行 max（fp16 精确归约，
+      vf.reduce_max + vf.max 合并 + vf.full 广播）；pass2 行 sum-of-exp
+      （vf.exp_sub fp16→fp32 + vf.reduce_sum fp32 累加 + vf.full 广播）；
+      pass3 逐元素 div + 写回（vf.exp_sub + vf.div + vf.astype fp32→fp16
+      + vf.store_align）。整行在单个 UB tile（fp16 [TILE_ROWS, MAX_N]）内，
+      m/s 为 VF 内寄存器标量，无需跨块持久化；无 cube、无 cross-core。
+    section: vector
+    golden_steps:
+      - "row_max: m[b] = max_j(x[b,j])  # per-row reduction, fp16-exact"
+      - "exp_shift: e[b,i] = exp(x[b,i] - m[b])  # via vf.exp_sub fp16->fp32"
+      - "row_sum: s[b] = sum_j(e[b,j])  # fp32 accumulation"
+      - "normalize: y[b,i] = e[b,i] / s[b]  # fp32 div, then astype fp32->fp16 store"
+    inputs:
+      - {name: x, source: primary}
+    outputs:
+      - {name: y, shape: "[B, N]", dtype: float16}
+    golden_stage_fn: softmax_golden_stage1
+final_outputs:
+  - {name: y, source: module_1}
+composition_verification:
+  atol: 0.001
+  rtol: 0.001
+  seeds: [42, 123, 456]
+  shapes:
+    - {x: "[1, 128]"}
+    - {x: "[4, 2048]"}
+    - {x: "[32, 4096]"}

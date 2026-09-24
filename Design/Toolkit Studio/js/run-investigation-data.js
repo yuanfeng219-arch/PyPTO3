@@ -23,7 +23,10 @@
   }
 
   function node(id, kind, state, title, signal, summary, evidenceRefs) {
-    return { id, kind, statusLabel: signal.includes('未采集') ? '未采集' : signal === '未执行' ? '未执行' : state === 'normal' ? '已检查且匹配' : null, state: STATES.has(state) ? state : 'unresolved', title, signal, summary, evidenceRefs };
+    /* `state` only shapes cause-exploration cards; every other kind derives its
+       emphasis from `kind` itself (finding / reasoning / entity / hypothesis /
+       diagnosis). `signal` is pure content — it never toggles the DOM structure. */
+    return { id, kind, state: kind === 'cause' ? (STATES.has(state) ? state : 'unresolved') : undefined, title, signal, summary, evidenceRefs };
   }
 
   function edge(from, to, type, label) {
@@ -99,17 +102,19 @@
 
     const runtimeEvidenceReady = hasOutput && hasFirst && hasProducer && hasOverlap && tasks.some(t => t.id === '197' && t.expectsAfter === '182');
     const nodes = [
-      node('output-out', 'finding', hasOutput ? 'abnormal' : 'unresolved', '输出 out 不一致', hasOutput ? 'max abs ' + result.maxAbs : '输出比较未采集', hasOutput ? '输出偏差已观察到。' : '无法确认输出状态。', ['output']),
-      node('device-result', 'finding', hasOutput ? 'abnormal' : 'unresolved', '设备结果偏差', hasOutput ? '已记录输出比较' : '未采集', '沿已采集检查点定位。', ['output']),
-      node('intermediate-gap', 'reasoning', 'unresolved', '中间计算证据缺口', '未采集 reference', 'attn_score / softmax_p 缺少参考值，尚不能排除中间计算。', ['unchecked-intermediates']),
-      node('repeatability', 'reasoning', 'unresolved', '重复运行线索', hasRepeatability ? repeatability.runs + ' 次运行' : '未采集', hasRepeatability && !repeatability.stable ? '结果不稳定，支持进一步检查排序。' : '尚无不稳定性支持证据。', ['repeatability']),
-      node('input-observed', 'entity', inputsKnown ? 'normal' : 'unresolved', '已观察到的上游输入', inputsKnown ? '已采集输入匹配' : '上游输入比较未完整采集', '这只覆盖已采样输入，不证明全部输入或整个计算链。', ['observed-inputs', 'unchecked-intermediates']),
-      node('first-attention-out', 'finding', hasFirst ? 'abnormal' : 'unresolved', 'attention_out 是已采集检查点中的首个分歧', hasFirst ? 'max abs ' + attention.maxAbs : '首个分歧未采集', hasFirst ? '分歧在 Attention 输出处出现。' : '无法确认首个分歧。', ['first-divergence']),
-      node('attention-182', 'entity', hasProducer ? 'abnormal' : 'unresolved', 'Attention / Task #182', hasProducer ? '产生 attention_out' : 'Task 映射未采集', hasProducer ? '继续检查该生产任务的执行排序。' : '缺少生产任务证据。', ['producer-task']),
-      node('b2-overlap', 'finding', hasOverlap ? 'abnormal' : 'unresolved', 'B2 重叠访问', hasOverlap ? 'Task #182 与 #197 重叠' : '时间线未采集', hasOverlap ? '重叠是待验证的运行时风险信号。' : '无法判断共享缓冲区关系。', ['buffer-overlap']),
-      node('war-hypothesis', 'hypothesis', runtimeEvidenceReady ? 'unresolved' : 'unresolved', '缺少 WAR 排序依赖', runtimeEvidenceReady ? '待验证：#182 → #197' : '证据不足，待验证', '时间线支持此假设，但尚未证明其为根因。', ['buffer-overlap', 'producer-task', 'repeatability']),
-      node('compiler-checks', 'reasoning', structuralKnown && passesKnown ? 'normal' : 'unresolved', '编译检查未发现已记录分歧', passesKnown ? validation.passed + '/' + validation.total + ' selected output 通过' : '检查未完整采集', '该证据范围有限，不能证明所有输入或计算正确。', ['compiler-checks']),
-      node('runtime-judgment', 'diagnosis', runtimeEvidenceReady ? 'unresolved' : 'unresolved', 'Runtime 判断待验证', runtimeEvidenceReady ? '优先验证 B2 的 WAR 排序' : '关键证据缺失，不能归因', '运行时数据流是假设方向，尚不能形成确认结论。', ['buffer-overlap', 'repeatability', 'unchecked-intermediates'])
+      // Primary investigation spine — one visual center line, left → right.
+      node('output-out', 'finding', undefined, '输出 out 不一致', hasOutput ? String(result.maxAbs) : '未采集', hasOutput ? '最大绝对误差 · 输出偏差已观察到' : '无法确认输出状态。', ['output']),
+      node('device-result', 'reasoning', undefined, '设备结果偏差', hasOutput ? 'MISMATCH' : '未采集', '沿已采集检查点定位。', ['output']),
+      // Side checks / support evidence — kept out of the spine's visual weight.
+      node('input-observed', 'cause', inputsKnown ? 'normal' : 'unresolved', '上游输入', inputsKnown ? '匹配' : '未采集', '只覆盖已采样输入，不证明整个计算链。', ['observed-inputs', 'unchecked-intermediates']),
+      node('first-attention-out', 'entity', undefined, 'attention_out 首个分歧', hasFirst ? String(attention.maxAbs) : '未采集', hasFirst ? '分歧在 Attention 输出处出现。' : '无法确认首个分歧。', ['first-divergence']),
+      node('compiler-checks', 'cause', structuralKnown && passesKnown ? 'normal' : 'unresolved', '编译检查', passesKnown ? validation.passed + '/' + validation.total : '未采集', '结构检查通过 · 已记录 Pass 输出匹配。', ['compiler-checks']),
+      node('attention-182', 'entity', undefined, 'Attention / Task #182', hasProducer ? 'Task #182' : '未采集', hasProducer ? '产生 attention_out · 继续检查执行排序。' : '缺少生产任务证据。', ['producer-task']),
+      node('intermediate-gap', 'cause', 'unresolved', '中间计算证据缺口', '未采集', 'attn_score / softmax_p 缺少参考值，尚不能排除中间计算。', ['unchecked-intermediates']),
+      node('b2-overlap', 'cause', hasOverlap ? 'abnormal' : 'unresolved', 'B2 重叠访问', hasOverlap ? '182 × 197' : '未采集', hasOverlap ? '重叠是待验证的运行时风险信号。' : '无法判断共享缓冲区关系。', ['buffer-overlap']),
+      node('repeatability', 'cause', 'unresolved', '重复运行', hasRepeatability ? (repeatability.stable ? '稳定' : '不稳定') : '未采集', hasRepeatability && !repeatability.stable ? '结果不稳定，支持进一步检查排序。' : '尚无不稳定性支持证据。', ['repeatability']),
+      node('war-hypothesis', 'hypothesis', undefined, '缺少 WAR 排序依赖', '待验证', '时间线支持此假设，但尚未证明其为根因。', ['buffer-overlap', 'producer-task', 'repeatability']),
+      node('runtime-judgment', 'diagnosis', undefined, 'Runtime / Dataflow 诊断', '待验证', '运行时数据流是当前调查方向，根因待 WAR 排序验证。', [])
     ];
     const edges = [
       edge('output-out', 'device-result', 'locate', '设备比较'),
@@ -155,12 +160,12 @@
       ['设备执行'], [['未执行']], 'Run #109 执行阶段记录', '设备阶段', false, null);
     refs.structure = evidence('structure', '结构校验', structural === 'pass' ? '结构校验通过；不代表数值语义等价。' : '结构校验记录缺失。', ['检查', '状态'], [['结构', structural || '未采集']], 'Run #109 编译结构校验', '已检查 IR 结构', structural !== 'pass', action('run_109', 'compilation', 'pass', firstName || null));
     const nodes = [
-      node('structure', 'reasoning', structural === 'pass' ? 'normal' : 'unresolved', '结构校验', structural === 'pass' ? '通过' : '未采集', '结构有效不代表数值等价。', ['structure']),
-      node('compiler-validation', 'finding', sourceReady ? 'abnormal' : 'unresolved', 'Host IR 数值校验出现分歧', sourceReady ? text(first?.status) : '校验未采集', '依据本次 Host IR 校验记录。', ['compiler-numerical-validation', 'compiler-tolerance']),
-      node('expand-mixed-kernel', 'finding', sourceReady ? 'abnormal' : 'unresolved', 'ExpandMixedKernel 是首个记录分歧', sourceReady ? text(firstName) : '首个 Pass 未采集', '首个分歧定位不等于已知具体变换。', ['compiler-numerical-validation']),
-      node('adjacent-pass-ir', 'reasoning', adjacent ? 'normal' : 'unresolved', '相邻 Pass IR 对比', adjacent ? text(adjacent.name) + ' → ' + text(firstName) : '相邻 Pass 未采集', '需要对这一区间的精确变换做 IR diff。', ['adjacent-pass']),
-      node('device-scope', 'entity', 'unresolved', '设备阶段未执行', '未执行', '没有设备证据，不能形成运行时诊断。', ['device-not-evaluated']),
-      node('compiler-diagnosis', 'diagnosis', sourceReady && adjacent ? 'unresolved' : 'unresolved', 'Compiler 阶段诊断待精确变换验证', sourceReady ? '首个分歧后继续比对 IR' : '数值证据不完整', '当前仅定位到编译阶段和 Pass 边界。', ['compiler-numerical-validation', 'adjacent-pass', 'device-not-evaluated'])
+      node('structure', 'cause', structural === 'pass' ? 'normal' : 'unresolved', '结构校验', structural === 'pass' ? '通过' : '未采集', '结构有效不代表数值等价。', ['structure']),
+      node('compiler-validation', 'finding', undefined, 'Host IR 数值校验出现分歧', sourceReady ? String(first?.maxAbs) : '未采集', '依据本次 Host IR 校验记录。', ['compiler-numerical-validation', 'compiler-tolerance']),
+      node('expand-mixed-kernel', 'entity', undefined, 'ExpandMixedKernel', sourceReady ? '首个分歧' : '未采集', '首个分歧定位不等于已知具体变换。', ['compiler-numerical-validation']),
+      node('adjacent-pass-ir', 'reasoning', undefined, '相邻 Pass IR 对比', adjacent ? '相邻 IR' : '未采集', '需要对这一区间的精确变换做 IR diff。', ['adjacent-pass']),
+      node('device-scope', 'cause', 'unresolved', '设备阶段未执行', '未执行', '没有设备证据，不能形成运行时诊断。', ['device-not-evaluated']),
+      node('compiler-diagnosis', 'diagnosis', undefined, 'Compiler 阶段诊断', '待验证', '当前仅定位到编译阶段和 Pass 边界。', [])
     ];
     const edges = [
       edge('compiler-validation', 'structure', 'checked', '结构检查'),

@@ -1,0 +1,28 @@
+command_argv=["bash", "/data/x00952168/pypto-gym-cann/cannbot-skills/ops/pypto-pro-op-perf-tune/scripts/msprof_profile_run.sh", "--warm-up=3", "--output=/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2", "--", "/root/miniconda3/envs/xzh/bin/python3", "/data/x00952168/pypto-gym-cann/cannbot-skills/ops/pypto-pro-op-perf-tune/scripts/msprof_perf_summary.py", "--run-case-function", "--test-script", "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/test_softmax.py", "--case-manifest", "custom/softmax/PERFORMANCE_CASES.json", "--case-id", "p0_batch32_n4096"]
+returncode=0
+--- stdout ---
+=== msprof profiling ===
+App      : /root/miniconda3/envs/xzh/bin/python3 /data/x00952168/pypto-gym-cann/cannbot-skills/ops/pypto-pro-op-perf-tune/scripts/msprof_perf_summary.py --run-case-function --test-script /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/test_softmax.py --case-manifest custom/softmax/PERFORMANCE_CASES.json --case-id p0_batch32_n4096
+Output   : /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920
+Warm-up  : 3
+--- Warm-up x3 ---
+  warm-up 1/3
+  warm-up 2/3
+  warm-up 3/3
+--- aic-metrics=PipeUtilization -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_PipeUtilization ---
+--- aic-metrics=ArithmeticUtilization -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_ArithmeticUtilization ---
+--- aic-metrics=Memory -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_Memory ---
+--- aic-metrics=MemoryL0 -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_MemoryL0 ---
+--- aic-metrics=MemoryUB -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_MemoryUB ---
+--- aic-metrics=L2Cache -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_L2Cache ---
+--- aic-metrics=ResourceConflictRatio -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_ResourceConflictRatio ---
+--- sample-based (per-core load balance) -> /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920/PROF_Sample ---
+
+[INFO] Total elapsed time: 196.351s
+
+=== Done. PROF group = /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920 ===
+Next:
+  python3 /data/x00952168/pypto-gym-cann/cannbot-skills/ops/pypto-pro-op-perf-tune/scripts/msprof_perf_summary.py /data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/.msprof/standard_39123_1788186167090258776/repeat_2/PROF_GROUP_20260831_222920 <ops_dir>
+  # Stage 5 协议：discovery 后可用 --list-op-names 列出精确 lowering 名称，再带 --op-name 解析
+
+--- stderr ---

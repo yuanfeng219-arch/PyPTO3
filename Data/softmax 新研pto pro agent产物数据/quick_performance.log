@@ -1,0 +1,31 @@
+====================================================================================================
+PyPTO Performance Collection (msprof): softmax  (warmup=3, repeats=3, seed=42)
+Collection ID: quick_20260831_224844_173104
+Performance cases: case_manifest sha256=cc8b75f0eb84fb70ab2dbb641cdcdefbd7d68f74032c94f49394381e7d7a90ce path=/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/PERFORMANCE_CASES.json
+Golden target source status: joined
+Default target: golden_per_iteration_e2e_us / pypto_target_kernel_us >= 1.0 for every P0 case | status=unavailable | valid=False
+Comparison scope: golden_e2e_to_pypto_target_kernel (valid for the default target; NOT baseline-to-final optimization speedup)
+Target Op Name: _Z25softmax_tile_group_kernelPDhS_iiii | Timing source: task_time
+Case selector: function_adapter:PERFORMANCE_CASES.test_function
+====================================================================================================
+Case  Shape                               dtype         GoldenE2E  PyPTOKernel  TargetRatio
+----------------------------------------------------------------------------------------------------
+p0_batch1_n128 [1,128]                             fp16              11.87         3.28     3.617x
+  samples_us=[3.049, 3.304, 3.28] selected_op_names=['_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii'] evidence=quick-summary-only
+p0_batch4_n2048 [4,2048]                            fp16              18.55         4.07     4.560x
+  samples_us=[4.068, 4.103, 3.75] selected_op_names=['_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii'] evidence=quick-summary-only
+p0_batch32_n4096 [32,4096]                           fp16              26.56         4.87     5.460x
+  samples_us=[5.188, 4.865, 4.798] selected_op_names=['_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii', '_Z25softmax_tile_group_kernelPDhS_iiii'] evidence=quick-summary-only
+----------------------------------------------------------------------------------------------------
+--- Golden default-target ratio (NOT baseline-to-final speedup) ---
+  Geomean : 4.48x
+  Mean    : 4.55x
+  Median  : 4.56x
+  Min/Max : 3.62x / 5.46x
+  Golden target cases: 3/3
+  Valid PyPTO measurements: 3/3
+--- PyPTO target-kernel Task Duration (us) ---
+  Golden E2E mean/median/total : 18.99 / 18.55 / 56.98
+  PyPTO mean/median/total : 4.07 / 4.07 / 12.21
+  Aggregate ratio (Σgolden E2E/ΣPyPTO kernel; not target criterion) : 4.67x
+====================================================================================================

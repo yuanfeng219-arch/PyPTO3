@@ -1,0 +1,295 @@
+{
+  "schema_version": 3,
+  "op": "softmax",
+  "class_id": ".",
+  "invariants": [
+    {
+      "reference": "patterns/vec-row-reduce-broadcast.md",
+      "invariant": "[optional_patterns:\"R01\" | [\"Applies when > Each row independently reduces its last dimension to one scalar and then uses that scalar across the same row\", \"Dataflow > reduce each row to row_max / broadcast and subtract / apply exp / reduce each row to row_sum / broadcast and divide\"]] Kernel processes row-tiles [TILE_ROWS, MAX_N] fp16; per row the VF runs reduce_max→broadcast-subtract→exp→reduce_sum→broadcast-divide; each row's m,s are VF-local register scalars; rows distributed across cores via strided pl.range.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/vec-row-reduce-broadcast.md",
+      "invariant": "[optional_patterns:\"R02\" | [\"Decision checks > Padding cannot participate in max, sum, or the final store\"]] Tail fp16 register masked via vf.update_mask(valid_lanes, dtype=FP16) BEFORE reduce_max and before exp_sub; only valid lanes participate in reduce and store; row-tail handled by set_validshape([valid_rows, cols]) so rows beyond valid_rows are not processed.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/online-softmax-tail.md",
+      "invariant": "[optional_patterns:\"R01\" | [\"Where the tail mask enters > 1. mask the reduction-axis (score-column) tail -- before any max\", \"Where the tail mask enters > 5. mask the row-axis tail -- here, not earlier\"]] Column (reduction-axis) tail: the tail fp16 register is masked with vf.update_mask BEFORE pass1 reduce_max (mask-before-max). Row tail: set_validshape([valid_rows, cols]) narrows the row-tile; the VF inner loop runs only valid_rows rows, so the row-tail is excluded before any subtract (rows beyond valid_rows never enter the VF). The two tails are handled at distinct points (column-tail pre-max in VF, row-tail pre-load via set_validshape), not merged.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/online-softmax-tail.md",
+      "invariant": "[optional_patterns:\"R02\" | [\"Tail and precision requirements > Keep m, l, and the accumulation for o in FP32 unless the official implementation for the detected target proves another contract\"]] row_sum (l) accumulated in fp32: exp_sub(reg_fp16, row_max_fp16, dtype=DT_FP32) produces fp32, reduce_sum on fp32 results accumulates in fp32. row_max (m) kept as fp16 (exact max) and used as exp_sub src1 which internally casts to fp32 for the subtraction. The effective compute chain is fp16(in)→fp32(exp/sum/div)→fp16(out), matching the SPEC cast chain.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/online-softmax-tail.md",
+      "invariant": "[optional_patterns:\"R03\" | [\"Use a finite sentinel, not -inf > Write the invalid lanes to a large finite negative value: NEG_LARGE = -1.0e30\", \"Use a finite sentinel, not -inf > In PyPTO-Pro a module-level float(\\\"inf\\\") does not even compile: it renders as the undeclared C++ identifier inff and bisheng rejects the generated kernel.cpp\"]] Pass1 row_max initialized via vf.full(-1e30, preg, dtype=pl.DT_FP16) before the register reduce loop; no float('inf') or float('-inf') anywhere in the kernel.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/buffer-reuse-lifetime.md",
+      "invariant": "[optional_patterns:\"R01\" | [\"Safe workflow > 3. Use a multi-slot tile group only when iterations are intentionally rotated\", \"Safe workflow > 4. Advance a rotating group once per logical iteration\", \"Safe workflow > 5. Keep persistent state outside the loop and do not rotate it\"]] in_group and out_group each have depth=2 (double-buffer); .next() advances once per row-tile iteration to overlap MTE2 load of tile k+1 with V compute of tile k and MTE3 store of tile k-1. m/s are register-resident (not rotated); the 3-pass over registers happens within one VF call on the current in_slot.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/buffer-reuse-lifetime.md",
+      "invariant": "[optional_patterns:\"R02\" | [\"How many slots > required slots >= (overlapped beats) * (simultaneously live roles)\", \"How many slots > mutex_ids must lie in [0, 31] and be mutually distinct, so 32 is the hard ceiling on simultaneous rotating buffer slots\"]] Total rotating slots = 4 (in_group depth 2 + out_group depth 2); mutex_ids distinct: in_group=[0,1], out_group=[2,3]; all in [0,31]. No reduction group (m/s in registers). 4 <= 32 ceiling.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "patterns/buffer-reuse-lifetime.md",
+      "invariant": "[optional_patterns:\"R03\" | [\"Safe workflow > 6. Set the valid shape before every operation that consumes a partial tile\"]] Per row-tile: pl.set_validshape(in_slot, [valid_rows, cols]) and pl.set_validshape(out_slot, [valid_rows, cols]) BEFORE pl.load and the VF call, where valid_rows = pl.min(TILE_ROWS, B - row_off). Applied every iteration (stateful API).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/vec.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Conditional authoring rule > Use vf.* when explicit lane masks, register-level control, or an instruction composition unavailable at tile level is required\", \"Shared correctness requirements > 1. A row reduction writes a row scalar, conventionally a [rows, 1] result, which is broadcast back over the row by the matching expand operation\"]] Use @pl.vector_function + vf.reduce_max / vf.max / vf.exp_sub / vf.reduce_sum / vf.add / vf.div / vf.full / vf.astype / vf.load_align / vf.store_align / vf.create_mask / vf.update_mask. Row scalar (m, s) produced in lane0 via reduce, broadcast via vf.full.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/vec.md",
+      "invariant": "[required_constraints:\"R02\" | [\"Shared correctness requirements > 2. Padding lanes must be excluded from reductions and stores\"]] Tail register masked via vf.update_mask(valid_lanes, dtype=FP16) for fp16 ops and vf.update_mask(valid_fp32, dtype=FP32) for fp32 reduce_sum; store_align writes only valid lanes (mreg governs).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/vec.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Shared correctness requirements > 3. Accumulation dtype follows the numerical contract; use FP32 unless a documented, validated alternative is allowed\"]] Sum (s) accumulated in fp32: exp_sub produces fp32, reduce_sum on fp32. Max (m) computed in fp16 (exact, validated narrower path for max) and used as exp_sub src1 which internally casts to fp32. Output div in fp32, narrowed to fp16 before store.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/sync-stitch.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Rule > Use make_tile_group(..., auto_mutex=True) for rotation and intra-kernel buffer ownership that the target API documents as auto-managed. Do not add manual synchronization to the same managed dependency without evidence.\"]] @pl.jit(auto_mutex=True); in_group/out_group carry mutex_ids=[0,1]/[2,3]; no manual sync_src/sync_dst for the in/out MTE2→V→MTE3 rotation. The 3-pass max/sum/div phases run within one @pl.vector_function (V pipe, register-resident m/s), so phase stitching is register-internal (no cross-section event).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/sync-stitch.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Historical failed configuration > A delivered wrapper must launch exactly once; otherwise report a design blocker\"]] Wrapper softmax_wrapper(x): validate x.dtype==fp16 and x.ndim==2; y = torch.empty_like(x); softmax_tile_group_kernel[None, block_dim](x, y); return y. Exactly one kernel launch, no host loop, no torch.npu.synchronize in wrapper.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/tiling.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Checks > 2. For each live tile, record shape, dtype bytes, memory space, layout, address, slot count, and lifetime\", \"Checks > 3. Sum simultaneous allocations separately for each memory space\"]] §2 Tile attribute table records each tile's shape [3,8192], dtype FP16 (2B), memory Vec, layout — (default), slot count 2, lifetime rotating. §3 address table records start/end bytes per slot.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/tiling.md",
+      "invariant": "[required_constraints:\"R02\" | [\"Checks > 4. Compare each sum with the matching platform source/configuration\"]] UB high-water = 0x30000 (196608) / 253952 = 77.4%. No L1/L0A/L0B/L0C used.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/tiling.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Checks > 6. For dynamic tails, keep a legal physical tile and set the runtime valid window on every operation that reads or writes it\", \"Checks > 7. Re-run correctness for aligned, single-tail, multi-tail, and multi-tile cases\"]] TileType(shape=[3,8192], dtype=FP16, target_memory=Vec, valid_shape=[-1,-1]); per row-tile set_validshape([valid_rows, cols]); per register update_mask for the tail. §8 test cases cover aligned/single-tail/2d-tail/multi-tile.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/memory-layout.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Rule > Treat Vec, Mat, Left, Right, and Acc as separate address spaces. Within each space, allocate non-overlapping byte ranges for tiles whose lifetimes overlap.\", \"Address review > tile | layout | start_byte | size_bytes_per_slot | slots | lifetime | end_byte_exclusive\"]] §3 UB address table: VA_IN0=[0x0,0xC000), VA_IN1=[0xC000,0x18000), VA_OUT0=[0x18000,0x24000), VA_OUT1=[0x24000,0x30000). No overlap; only Vec space used.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/memory-layout.md",
+      "invariant": "[required_constraints:\"R02\" | [\"Address review > If a row aggregates contiguous slots, use start_byte + slots * size_bytes_per_slot; otherwise list each slot's start and exclusive end separately\"]] in_group contiguous: 0x0 + 2×0xC000 = ends 0x18000; out_group contiguous: 0x18000 + 2×0xC000 = ends 0x30000. Each slot 49152 B (48KB).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/memory-layout.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Rule > Reject the design if ... an address violates alignment\"]] All UB tile start addresses are multiples of 32 bytes: 0, 49152, 98304, 147456 ∈ {k×32}.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/tail-validshape.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Checklist > 1. Compute work-item counts with ceiling division\", \"Checklist > 2. Compute each remaining extent from the actual tensor dimension\", \"Checklist > 3. Clamp the extent to the physical tile size\"]] num_tiles=(B+TILE_ROWS-1)//TILE_ROWS; valid_rows=pl.min(TILE_ROWS, B-row_off); n_regs=(N+LANES_FP16-1)//LANES_FP16; valid_lanes=pl.min(LANES_FP16, N-r*LANES_FP16).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/tail-validshape.md",
+      "invariant": "[required_constraints:\"R02\" | [\"Checklist > 4. Set the valid shape before load, compute, reduction, and store as required by the installed API\", \"常见问题 > 在load之后设置valid_shape\"]] Per row-tile: pl.set_validshape(in_slot, [valid_rows, cols]) then pl.load(in_slot, x, [row_off,0]); pl.set_validshape(out_slot, [valid_rows, cols]) before VF writes and pl.store. Order: set_validshape BEFORE load (not after).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/tail-validshape.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Checklist > 5. Neutralize invalid lanes for reductions when valid shape alone does not define the reduction identity\", \"何时需要pad和fillpad > 求最大值或softmax前的最大值归约 | pl.TilePad.min\"]] row_max init = vf.full(-1e30, preg, dtype=FP16) (reduce_max identity via finite sentinel); tail register mreg=vf.update_mask(valid_lanes, dtype=FP16) selects only valid lanes for reduce_max/reduce_sum. No pl.fillpad needed (VF register-level mask handles it; fillpad is for tile-op Vec tiles which we do not use).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/precision.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Checklist > 1. Record input, intermediate, accumulator, and output dtypes\"]] Input: fp16 (GM x, UB in_tile). Intermediate: row_max fp16 (exact, as exp_sub src1); exp results fp32 (exp_sub dtype=FP32); row_sum fp32 (reduce_sum fp32); div result fp32. Output: fp16 (astype fp32→fp16, store_align to fp16 out_tile, GM y).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/precision.md",
+      "invariant": "[required_constraints:\"R02\" | [\"Widening a narrow-dtype reduction > The register-level reduce primitives (vf.reduce_*) are same-type ... There is no narrow-in / wide-accumulate reduce to lean on. The widening is yours to write.\", \"Widening a narrow-dtype reduction > The order that holds is widen → compute → reduce, with the whole chain in the wide type, narrowing again only at the store\"]] Widen→compute→reduce for the sum: exp_sub(dtype=FP32) widens fp16→fp32 and computes exp in fp32 (cast happens inside exp_sub, before exp, satisfying widen-before-overflow); reduce_sum on fp32 results. Narrow only at store: astype fp32→fp16 before store_align. Max is exact in fp16 (max of fp16 inputs is representable), so no widen needed for reduce_max.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/precision.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Widening a narrow-dtype reduction > The transcendentals are narrower still ... vf.exp covers FP16 and FP32 only, and vf.exp_sub's dtype table has exactly two rows — FP16|FP16→FP32 and FP32|FP32→FP32\", \"Widening a narrow-dtype reduction > layout selects interleaved lanes, not a contiguous half. ZERO takes the even lanes and ONE the odd ones, and reassembling a full narrow register means interleaving the two results, not concatenating them.\"]] Per fp16 register (128 elem): pass2 uses exp_sub(reg, row_max_b, mreg_fp16, dtype=FP32, layout=ZERO) → 64 fp32 (even lanes) AND exp_sub(..., layout=ONE) → 64 fp32 (odd lanes); reduce_sum each, vf.add to combine. Pass3: exp_sub ZERO/ONE → div → astype(dtype=FP16, layout=ZERO/ONE) → vf.add to reassemble 128 fp16 (disjoint even/odd slots) → store_align. The astype/exp_sub layout ZERO/ONE semantics (even/odd lanes) are followed exactly per the corrected reading in precision.md.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/precision.md",
+      "invariant": "[required_constraints:\"R04\" | [\"Checklist > 5. Derive tolerances from the project standard for the actual output dtype and algorithm; never copy a tolerance from an unrelated sample\"]] Comparison: NPU y (fp16) and CPU golden (fp32) both promoted to fp32, torch.testing.assert_close(rtol=1e-3, atol=1e-3), matching the official softmax sample's comparison recipe.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/precision.md",
+      "invariant": "[required_constraints:\"R05\" | [\"Checklist > 6. Validate boundary values, tails, and representative random inputs\"]] §8 test cases include aligned/tail/multi-tile/P0; golden _validate covers N=1, large_pos, large_neg, one_hot, dynamic-axis (1,1) and (1024,8192). max-subtract guarantees exp input ≤0 (no overflow).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/vec-mask-width.md",
+      "invariant": "[required_constraints:\"R01\" | [\"Why it works > a MaskReg is a fixed 256-bit object, and width is not a property of the register. It is the stride at which the consuming instruction reads it — b8 reads bit i, b16 bit 2*i, b32 bit 4*i\"]] Two separate mask families: mreg_fp16 = vf.create_mask(pattern=ALL, dtype=FP16) / vf.update_mask(valid_lanes, dtype=FP16) for fp16-register ops (load_align, exp_sub src0/src1, astype fp32→fp16, store_align); mreg_fp32 = vf.create_mask(pattern=ALL, dtype=FP32) / vf.update_mask(valid_fp32, dtype=FP32) for fp32-register ops (reduce_sum, div on fp32 exp results). No MaskReg shared across fp16/fp32 ops.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/arch-a5.md",
+      "invariant": "[required_constraints:\"R02\" | [\"Design checks > Derive each live tile's byte size from shape and dtype\", \"Design checks > Sum simultaneous allocations separately for Vec, Mat, Left, Right, and Acc. Compare those sums with the detected target's corresponding limits.\"]] Per-slot bytes = 3×8192×2 = 49152; total Vec = 4×49152 = 196608 B ≤ 253952 (ub_size). No Mat/L0A/L0B/L0C allocations.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/arch-a5.md",
+      "invariant": "[required_constraints:\"R03\" | [\"Design checks > Read launch width from runtime platform information rather than hard-coding a SKU's core count\"]] block_dim = min(get_platform_info().vector_core_num, num_tiles) where num_tiles=ceil(B/TILE_ROWS); kernel[None, block_dim](x, y). No hard-coded core count.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/wrapper-boundary.md",
+      "invariant": "[required_constraints:\"R01\" | [\"The rule > Casting, slicing, transposing, padding, concatenating, and any other data shape or dtype processing MUST happen inside the @pl.jit kernel. The wrapper may only validate arguments, read ... metadata, derive Python integers, use torch.empty to allocate outputs declared by its current contract, and launch one kernel.\", \"What to do instead > .to(torch.float32) on input | load the native dtype into UB, then convert on-chip — pl.cast at tile level or vf.astype at register level (there is no vf.cast)\"]] softmax_wrapper(x): assert x.dtype==torch.float16 and x.ndim==2 and x.is_contiguous() (or read stride); y=torch.empty_like(x); block_dim=min(get_platform_info().vector_core_num, ceil(x.shape[0]/TILE_ROWS)); softmax_tile_group_kernel[None, block_dim](x, y); return y. No .to()/.contiguous()/.reshape()/.movedim()/.t()/torch.zeros/torch.npu.synchronize on host. All fp16↔fp32 conversion is vf.exp_sub(dtype=FP32)/vf.astype inside @pl.vector_function.",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    },
+    {
+      "reference": "constraints/wrapper-boundary.md",
+      "invariant": "[required_constraints:\"R02\" | [\"There is no exception > torch.empty is the only torch.* function a generated wrapper may call\", \"How this is checked > KB_USAGE.json must record the invariant, and the verifier fails any class whose wrapper performs an action outside the allowlist\"]] DESIGN.md §0 'Wrapper 边界外操作' = 空. Wrapper performs no arithmetic (softmax math is entirely in the kernel); the only torch.* call is torch.empty_like (allocates y).",
+      "implementation": {
+        "file": "custom/softmax/test_softmax.py",
+        "symbol": "softmax_tile_group_kernel / softmax_rows_vf / softmax_wrapper",
+        "status": "implemented"
+      }
+    }
+  ]
+}

@@ -1,0 +1,624 @@
+{
+  "task": "softmax",
+  "task_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax",
+  "n_cases_total": 3,
+  "n_cases_valid": 3,
+  "geomean_speedup": 4.41195070428168,
+  "mean_speedup": 4.483925512224436,
+  "median_speedup": 4.620174346201744,
+  "min_speedup": 3.4612018669778304,
+  "max_speedup": 5.370400323493733,
+  "golden_reference_ratio_stats": {
+    "n_cases_valid": 3,
+    "geomean": 4.41195070428168,
+    "mean": 4.483925512224436,
+    "median": 4.620174346201744,
+    "min": 3.4612018669778304,
+    "max": 5.370400323493733
+  },
+  "n_default_target_cases": 3,
+  "n_cross_scope_cases": 3,
+  "mean_ref_us": 18.992333333333335,
+  "median_ref_us": 18.55,
+  "total_ref_us": 56.977000000000004,
+  "mean_asc_us": 4.129666666666666,
+  "median_asc_us": 4.015,
+  "total_asc_us": 12.389,
+  "aggregate_golden_reference_ratio": 4.598999112115587,
+  "total_speedup": 4.598999112115587,
+  "warmup": 3,
+  "repeats": 3,
+  "seed": 42,
+  "seed_source": "cli_override",
+  "device_id": 1,
+  "device_select_source": "cli",
+  "comparison_scope": "golden_e2e_to_pypto_target_kernel",
+  "ratio_semantics": "golden_per_iteration_e2e_us / pypto_target_kernel_us",
+  "default_target_metric": "golden_per_iteration_e2e_us / pypto_target_kernel_us",
+  "default_target_threshold": 1.0,
+  "default_target_met": true,
+  "default_target_status": "met",
+  "valid_for_optimization_speedup": false,
+  "valid_for_target_met": true,
+  "golden_timing_method": "torch_npu.kernel_details.all_golden_npu_kernel_sum",
+  "golden_iterations": 1,
+  "performance_cases": {
+    "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/PERFORMANCE_CASES.json",
+    "sha256": "cc8b75f0eb84fb70ab2dbb641cdcdefbd7d68f74032c94f49394381e7d7a90ce",
+    "size_bytes": 487,
+    "type": "case_manifest",
+    "schema_version": 1,
+    "case_functions": {
+      "p0_batch1_n128": "test_softmax_p0_batch1_n128",
+      "p0_batch4_n2048": "test_softmax_p0_batch4_n2048",
+      "p0_batch32_n4096": "test_softmax_p0_batch32_n4096"
+    },
+    "golden_diagnostic": {
+      "status": "joined",
+      "iterations": 1
+    },
+    "golden_contract": {
+      "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/GOLDEN_PERF_REPORT.json",
+      "sha256": "ef99ca661725e345b30c582ff6cce88530b248b63f3d2fd21d853c37ebbc260d",
+      "size_bytes": 1560,
+      "protocol": {
+        "schema_version": 1,
+        "device_id": 1,
+        "iterations": 1,
+        "warmup": 3,
+        "repeats": 3,
+        "seed": 42,
+        "timing_scope": "all_golden_npu_kernels",
+        "aggregation": "median_of_repeat_totals"
+      }
+    }
+  },
+  "target_op_name": "_Z25softmax_tile_group_kernelPDhS_iiii",
+  "case_selector": {
+    "kind": "function_adapter",
+    "name": "PERFORMANCE_CASES.test_function"
+  },
+  "timing_method": "msprof.op_summary.Task_Duration",
+  "timing_source_metric": "PipeUtilization",
+  "profiling_mode": "compare",
+  "collection_id": "compare_20260831_230218_210028",
+  "deep_profile_round": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002",
+  "per_case": [
+    {
+      "case": "p0_batch1_n128",
+      "shape": "[1,128]",
+      "dtype": "fp16",
+      "ref_us": 11.865000000000002,
+      "asc_us": 3.428,
+      "speedup": 3.4612018669778304,
+      "default_target_ratio": 3.4612018669778304,
+      "golden_reference_ratio": 3.4612018669778304,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": null,
+      "asc_prof_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch1_n128_b057c21c",
+      "deep_profile_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch1_n128_b057c21c",
+      "duration_samples_us": [
+        3.428,
+        3.273,
+        3.44
+      ],
+      "selected_op_names": [
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii"
+      ],
+      "timing_source_metric": "PipeUtilization",
+      "timing_source_files": [
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch1_n128_b057c21c/repeat_001/op_summary_PipeUtilization.csv",
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch1_n128_b057c21c/repeat_002/op_summary_PipeUtilization.csv",
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch1_n128_b057c21c/repeat_003/op_summary_PipeUtilization.csv"
+      ],
+      "aggregation_method": "trimmed_mean",
+      "raw_prof_dir": null,
+      "repeat_bound_diagnoses": [
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 2.92,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.031
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.076,
+              "aiv_mte3_ratio": 0.076
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.147
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        },
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 2.76,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.086
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.073,
+              "aiv_mte3_ratio": 0.031
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.2
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        },
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 2.65,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.034
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.086,
+              "aiv_mte3_ratio": 0.084
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.163
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        }
+      ],
+      "default_target_met": true,
+      "terminal_evidence": {
+        "schema_version": 1,
+        "platform": {
+          "ini_file": "950PR_958x.ini",
+          "soc_version": "Ascend950PR_9589",
+          "npu_arch": "3510",
+          "vec_freq_mhz": 1650,
+          "vector_core_cnt": 64,
+          "l2_size_bytes": 134217728,
+          "peak_vf_throughput_per_core_instr_per_s": 1650000000.0,
+          "peak_hbm_bandwidth_bytes_per_s": 1689600000000.0,
+          "peak_bandwidth_formula": "vector_core_cnt * VectorCoreMemoryRates.ddr_rate * vec_freq = 64 * 16 * 1.65e9",
+          "bandwidth_provenance_note": "ddr_rate units from ini are not self-consistent (a5-roofline-and-levers.md); 1.69 TB/s consistent with measured aligned MTE2 ~1.7 TB/s"
+        },
+        "workload_model": {
+          "dominant_core_rows": 1,
+          "n_full_registers": 1,
+          "vf_instructions_per_core": 28,
+          "vf_instruction_breakdown": "setup=5, per_row=23 (pass1=3*1, pass2=7*1, pass3=9*1, full=4), rows=1",
+          "necessary_gm_bytes_per_core": 512,
+          "necessary_gm_bytes_note": "read 1*128*2 + write 1*128*2 = 512 B",
+          "l2_resident": true,
+          "l2_input_bytes": 256,
+          "l2_hit_rate_percent": 99.8
+        },
+        "roofline_model": {
+          "compute_floor_us": 0.017,
+          "compute_floor_formula": "28 instr / 1.65e+09 instr/s",
+          "memory_floor_us": 0.0003,
+          "memory_floor_formula": "512 B / 1.69e+12 B/s per core (peak 1.69e+12/1)",
+          "compute_to_memory_ratio": 56.0,
+          "achieved_vf_throughput_instr_per_s": 311111111.111,
+          "achieved_vf_utilization_percent": 18.9,
+          "achieved_bandwidth_bytes_per_s_per_core": 1150561797.8,
+          "achieved_bandwidth_utilization_percent": 0.1,
+          "vf_utilization_exceeds_bw_utilization": true,
+          "status": "compute_bound",
+          "derivation_note": "compute floor (0.0170 us) > memory floor (0.0003 us) by 56.0x; VF util 18.9% > BW util 0.1%; data L2-resident"
+        },
+        "pipeline_evidence": {
+          "status": "not_applicable_with_dag",
+          "dag_description": "Single linear chain per core: {MTE2 load tile_0 -> VF compute tile_0 -> MTE3 store tile_0}",
+          "tiles_per_core": 1,
+          "overlap_possible": false,
+          "reason": "block_dim=1, num_tiles=ceil(B/TILE_ROWS)=1, 1 tile/core -> single work item, no pipelinable edge",
+          "timeline_capture_attempted": true,
+          "timeline_capture_result": "failed",
+          "timeline_failure_reason": "msprof_perf_summary.py --timeline preflight sets ASCEND_RT_VISIBLE_DEVICES=1 (via _profile_env with tile_fwk=False default), conflicting with TILE_FWK_DEVICE_ID=1; device remaps to logical 0, making TILE_FWK_DEVICE_ID=1 invalid (NPU error 107001). DAG proof independently establishes not_applicable_with_dag and does not depend on timeline capture.",
+          "timeline_does_not_replace_dag": true
+        },
+        "scalar_evidence": {
+          "dominant": false,
+          "scalar_ratio_percent": 14.7,
+          "threshold_percent": 30.0,
+          "scalar_route_triggered": false,
+          "note": "scalar 14.7% < 30% threshold; icache_miss constant 12.7% (3-pass instruction footprint), not scalar-bound"
+        },
+        "completion_eligible": true
+      }
+    },
+    {
+      "case": "p0_batch4_n2048",
+      "shape": "[4,2048]",
+      "dtype": "fp16",
+      "ref_us": 18.55,
+      "asc_us": 4.015,
+      "speedup": 4.620174346201744,
+      "default_target_ratio": 4.620174346201744,
+      "golden_reference_ratio": 4.620174346201744,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": null,
+      "asc_prof_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch4_n2048_230a7547",
+      "deep_profile_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch4_n2048_230a7547",
+      "duration_samples_us": [
+        4.069,
+        3.607,
+        4.015
+      ],
+      "selected_op_names": [
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii"
+      ],
+      "timing_source_metric": "PipeUtilization",
+      "timing_source_files": [
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch4_n2048_230a7547/repeat_001/op_summary_PipeUtilization.csv",
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch4_n2048_230a7547/repeat_002/op_summary_PipeUtilization.csv",
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch4_n2048_230a7547/repeat_003/op_summary_PipeUtilization.csv"
+      ],
+      "aggregation_method": "trimmed_mean",
+      "raw_prof_dir": null,
+      "repeat_bound_diagnoses": [
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 3.53,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.157
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.099,
+              "aiv_mte3_ratio": 0.072
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.137
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        },
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 3.1,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.166
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.103,
+              "aiv_mte3_ratio": 0.079
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.147
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        },
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 3.48,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.147
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.093,
+              "aiv_mte3_ratio": 0.07
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.162
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        }
+      ],
+      "default_target_met": true,
+      "terminal_evidence": {
+        "schema_version": 1,
+        "platform": {
+          "ini_file": "950PR_958x.ini",
+          "soc_version": "Ascend950PR_9589",
+          "npu_arch": "3510",
+          "vec_freq_mhz": 1650,
+          "vector_core_cnt": 64,
+          "l2_size_bytes": 134217728,
+          "peak_vf_throughput_per_core_instr_per_s": 1650000000.0,
+          "peak_hbm_bandwidth_bytes_per_s": 1689600000000.0,
+          "peak_bandwidth_formula": "vector_core_cnt * VectorCoreMemoryRates.ddr_rate * vec_freq = 64 * 16 * 1.65e9",
+          "bandwidth_provenance_note": "ddr_rate units from ini are not self-consistent (a5-roofline-and-levers.md); 1.69 TB/s consistent with measured aligned MTE2 ~1.7 TB/s"
+        },
+        "workload_model": {
+          "dominant_core_rows": 3,
+          "n_full_registers": 16,
+          "vf_instructions_per_core": 929,
+          "vf_instruction_breakdown": "setup=5, per_row=308 (pass1=3*16, pass2=7*16, pass3=9*16, full=4), rows=3",
+          "necessary_gm_bytes_per_core": 24576,
+          "necessary_gm_bytes_note": "read 3*2048*2 + write 3*2048*2 = 24576 B",
+          "l2_resident": true,
+          "l2_input_bytes": 16384,
+          "l2_hit_rate_percent": 99.8
+        },
+        "roofline_model": {
+          "compute_floor_us": 0.563,
+          "compute_floor_formula": "929 instr / 1.65e+09 instr/s",
+          "memory_floor_us": 0.0291,
+          "memory_floor_formula": "24576 B / 8.45e+11 B/s per core (peak 1.69e+12/2)",
+          "compute_to_memory_ratio": 19.35,
+          "achieved_vf_throughput_instr_per_s": 1673873873.874,
+          "achieved_vf_utilization_percent": 101.4,
+          "achieved_bandwidth_bytes_per_s_per_core": 40621487603.3,
+          "achieved_bandwidth_utilization_percent": 4.8,
+          "vf_utilization_exceeds_bw_utilization": true,
+          "status": "compute_bound",
+          "derivation_note": "compute floor (0.5630 us) > memory floor (0.0291 us) by 19.4x; VF util 101.4% > BW util 4.8%; data L2-resident"
+        },
+        "pipeline_evidence": {
+          "status": "not_applicable_with_dag",
+          "dag_description": "Single linear chain per core: {MTE2 load tile_0 -> VF compute tile_0 -> MTE3 store tile_0}",
+          "tiles_per_core": 1,
+          "overlap_possible": false,
+          "reason": "block_dim=2, num_tiles=ceil(B/TILE_ROWS)=2, 1 tile/core -> single work item, no pipelinable edge",
+          "timeline_capture_attempted": true,
+          "timeline_capture_result": "failed",
+          "timeline_failure_reason": "msprof_perf_summary.py --timeline preflight sets ASCEND_RT_VISIBLE_DEVICES=1 (via _profile_env with tile_fwk=False default), conflicting with TILE_FWK_DEVICE_ID=1; device remaps to logical 0, making TILE_FWK_DEVICE_ID=1 invalid (NPU error 107001). DAG proof independently establishes not_applicable_with_dag and does not depend on timeline capture.",
+          "timeline_does_not_replace_dag": true
+        },
+        "scalar_evidence": {
+          "dominant": false,
+          "scalar_ratio_percent": 13.7,
+          "threshold_percent": 30.0,
+          "scalar_route_triggered": false,
+          "note": "scalar 13.7% < 30% threshold; icache_miss constant 12.7% (3-pass instruction footprint), not scalar-bound"
+        },
+        "completion_eligible": true
+      }
+    },
+    {
+      "case": "p0_batch32_n4096",
+      "shape": "[32,4096]",
+      "dtype": "fp16",
+      "ref_us": 26.562,
+      "asc_us": 4.946,
+      "speedup": 5.370400323493733,
+      "default_target_ratio": 5.370400323493733,
+      "golden_reference_ratio": 5.370400323493733,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": null,
+      "asc_prof_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d",
+      "deep_profile_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d",
+      "duration_samples_us": [
+        4.946,
+        5.026,
+        4.913
+      ],
+      "selected_op_names": [
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii",
+        "_Z25softmax_tile_group_kernelPDhS_iiii"
+      ],
+      "timing_source_metric": "PipeUtilization",
+      "timing_source_files": [
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d/repeat_001/op_summary_PipeUtilization.csv",
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d/repeat_002/op_summary_PipeUtilization.csv",
+        "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/docs/perf/round_002/case_p0_batch32_n4096_ed66c84d/repeat_003/op_summary_PipeUtilization.csv"
+      ],
+      "aggregation_method": "trimmed_mean",
+      "raw_prof_dir": null,
+      "repeat_bound_diagnoses": [
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 4.47,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.308
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.094,
+              "aiv_mte3_ratio": 0.077
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.117
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        },
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 4.52,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.309
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.092,
+              "aiv_mte3_ratio": 0.075
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.127
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        },
+        {
+          "schema_version": 1,
+          "evidence_kind": "op_summary_ratio_route",
+          "primary_core": "aiv",
+          "primary_core_source": "max(aicore_time(us), aiv_time(us))",
+          "aicore_time_us": 0.0,
+          "aiv_time_us": 4.36,
+          "routing_label": "no_dominant_pipe",
+          "triggered_categories": [],
+          "ratios": {
+            "compute": {
+              "aiv_vec_ratio": 0.322
+            },
+            "data_movement": {
+              "aiv_mte2_ratio": 0.097,
+              "aiv_mte3_ratio": 0.08
+            },
+            "scalar": {
+              "aiv_scalar_ratio": 0.096
+            }
+          },
+          "scalar_route_triggered": false,
+          "roofline_terminal_status": "insufficient_evidence",
+          "pipeline_overlap_status": "unverified",
+          "completion_eligible": false,
+          "note": "Aggregate pipe ratios route the next experiment only; a workload/traffic model plus timeline or equivalent dependency evidence is required to prove the terminal bound and pipeline overlap."
+        }
+      ],
+      "default_target_met": true,
+      "terminal_evidence": {
+        "schema_version": 1,
+        "platform": {
+          "ini_file": "950PR_958x.ini",
+          "soc_version": "Ascend950PR_9589",
+          "npu_arch": "3510",
+          "vec_freq_mhz": 1650,
+          "vector_core_cnt": 64,
+          "l2_size_bytes": 134217728,
+          "peak_vf_throughput_per_core_instr_per_s": 1650000000.0,
+          "peak_hbm_bandwidth_bytes_per_s": 1689600000000.0,
+          "peak_bandwidth_formula": "vector_core_cnt * VectorCoreMemoryRates.ddr_rate * vec_freq = 64 * 16 * 1.65e9",
+          "bandwidth_provenance_note": "ddr_rate units from ini are not self-consistent (a5-roofline-and-levers.md); 1.69 TB/s consistent with measured aligned MTE2 ~1.7 TB/s"
+        },
+        "workload_model": {
+          "dominant_core_rows": 3,
+          "n_full_registers": 32,
+          "vf_instructions_per_core": 1841,
+          "vf_instruction_breakdown": "setup=5, per_row=612 (pass1=3*32, pass2=7*32, pass3=9*32, full=4), rows=3",
+          "necessary_gm_bytes_per_core": 49152,
+          "necessary_gm_bytes_note": "read 3*4096*2 + write 3*4096*2 = 49152 B",
+          "l2_resident": true,
+          "l2_input_bytes": 262144,
+          "l2_hit_rate_percent": 99.8
+        },
+        "roofline_model": {
+          "compute_floor_us": 1.1158,
+          "compute_floor_formula": "1841 instr / 1.65e+09 instr/s",
+          "memory_floor_us": 0.32,
+          "memory_floor_formula": "49152 B / 1.54e+11 B/s per core (peak 1.69e+12/11)",
+          "compute_to_memory_ratio": 3.49,
+          "achieved_vf_throughput_instr_per_s": 1336964415.396,
+          "achieved_vf_utilization_percent": 81.0,
+          "achieved_bandwidth_bytes_per_s_per_core": 64250980392.2,
+          "achieved_bandwidth_utilization_percent": 41.8,
+          "vf_utilization_exceeds_bw_utilization": true,
+          "status": "compute_bound",
+          "derivation_note": "compute floor (1.1158 us) > memory floor (0.3200 us) by 3.5x; VF util 81.0% > BW util 41.8%; data L2-resident"
+        },
+        "pipeline_evidence": {
+          "status": "not_applicable_with_dag",
+          "dag_description": "Single linear chain per core: {MTE2 load tile_0 -> VF compute tile_0 -> MTE3 store tile_0}",
+          "tiles_per_core": 1,
+          "overlap_possible": false,
+          "reason": "block_dim=11, num_tiles=ceil(B/TILE_ROWS)=11, 1 tile/core -> single work item, no pipelinable edge",
+          "timeline_capture_attempted": true,
+          "timeline_capture_result": "failed",
+          "timeline_failure_reason": "msprof_perf_summary.py --timeline preflight sets ASCEND_RT_VISIBLE_DEVICES=1 (via _profile_env with tile_fwk=False default), conflicting with TILE_FWK_DEVICE_ID=1; device remaps to logical 0, making TILE_FWK_DEVICE_ID=1 invalid (NPU error 107001). DAG proof independently establishes not_applicable_with_dag and does not depend on timeline capture.",
+          "timeline_does_not_replace_dag": true
+        },
+        "scalar_evidence": {
+          "dominant": false,
+          "scalar_ratio_percent": 11.7,
+          "threshold_percent": 30.0,
+          "scalar_route_triggered": false,
+          "note": "scalar 11.7% < 30% threshold; icache_miss constant 12.7% (3-pass instruction footprint), not scalar-bound"
+        },
+        "completion_eligible": true
+      }
+    }
+  ],
+  "terminal_evidence_summary": {
+    "all_cases_terminal": "compute_bound",
+    "all_cases_pipeline": "not_applicable_with_dag",
+    "all_cases_scalar_dominant": false,
+    "all_cases_completion_eligible": true,
+    "roofline_derivation_source": "950PR_958x.ini + op_summary_PipeUtilization.csv (round_002 repeat_001)",
+    "instruction_count_source": "test_softmax.py softmax_rows_vf (3-pass: max, exp+sum, div+store)"
+  }
+}

@@ -1,0 +1,617 @@
+{
+  "schema_version": 1,
+  "bindings": [
+    {
+      "class_id": ".",
+      "selection_field": "optional_patterns",
+      "reference": "patterns/vec-row-reduce-broadcast.md",
+      "selection_reason": "softmax 对每行沿末维归约（max、sum-of-exp）为标量并广播回该行：模式 'Softmax, row normalization, and row scaling have this topology'，直接命名 softmax 并含已验证骨架；提供寄存器级 reduce+broadcast、tile 对齐规则（W*itemsize%32=0、TR%8=0）与 fp16 widen-compute-narrow 的 3x 向量开销洞察（与 mixed_precision 关键设计点对应）。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Applies when > Each row independently reduces its last dimension to one scalar and then uses that scalar across the same row",
+            "Dataflow > reduce each row to row_max / broadcast and subtract / apply exp / reduce each row to row_sum / broadcast and divide"
+          ],
+          "status": "applies",
+          "class_evidence": "SPEC formula y[b,i]=exp(x[b,i]-m[b])/s[b], m[b]=max_j(x[b,j]), s[b]=sum_j(exp(x[b,j]-m[b])) is exactly the row-reduce-then-broadcast topology over the last axis; rows are independent (B rows parallelizable).",
+          "invariant": "Kernel processes row-tiles [TILE_ROWS, MAX_N] fp16; per row the VF runs reduce_max→broadcast-subtract→exp→reduce_sum→broadcast-divide; each row's m,s are VF-local register scalars; rows distributed across cores via strided pl.range.",
+          "planned_location": "DESIGN.md §0 Module list + 归约轴容量结论; §1 Module 1 VF 3-pass; test_softmax.py: softmax_tile_group_kernel / softmax_rows_vf (@pl.vector_function).",
+          "verification_method": "runtime correctness on P0 cases ([1,128],[4,2048],[32,4096]) and §8 tail cases against softmax_golden_cpu; static check that VF follows reduce→broadcast order."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Decision checks > Padding cannot participate in max, sum, or the final store"
+          ],
+          "status": "applies",
+          "class_evidence": "Dynamic N in [1,8192] with LANES_FP16=128 produces a partial tail register when N%128!=0; B dynamic in [1,1024] with TILE_ROWS=3 produces a partial row-tile when B%3!=0.",
+          "invariant": "Tail fp16 register masked via vf.update_mask(valid_lanes, dtype=FP16) BEFORE reduce_max and before exp_sub; only valid lanes participate in reduce and store; row-tail handled by set_validshape([valid_rows, cols]) so rows beyond valid_rows are not processed.",
+          "planned_location": "DESIGN.md §1 pass1/pass2/pass3 update_mask; §7 tail handling; test_softmax.py: col-tail cases ([3,200],[4,200],[7,200]).",
+          "verification_method": "runtime correctness on col-tail and row-tail shapes; static check that update_mask precedes every reduce_max/reduce_sum on the tail register."
+        },
+        {
+          "req_id": "R03",
+          "kind": "validation_scope",
+          "source_anchors": [
+            "Validation status > validated skeleton for the tile-operation form. A vector-function form is a separate implementation choice and must be validated against the target SDK's current API.",
+            "Sizing the row tile — two alignment rules > The data tile [TR, W] is RowMajor, so W*itemsize must be a multiple of 32; the reduction tile [TR,1] that a dim=0 reduce writes carries layout=pl.DN, so TR*4 must be a multiple of 32"
+          ],
+          "status": "applies",
+          "class_evidence": "Pattern's validated skeleton is the tile-op form (pl.row_max/pl.row_sum writing DN [TR,1] tiles); our design uses the VF form validated independently by the official sample pro_ops/vf_api/test_softmax_tile_group_vf.py. The DN-reduction-tile TR%8 rule applies only to tile-op dim=0 reduce; VF register-level reduce writes no DN tile, so TR is not constrained to a multiple of 8.",
+          "invariant": "Use @pl.vector_function + vf.* (register-level reduce/broadcast) rather than tile-op pl.row_max/pl.row_sum; the W*itemsize%32=0 data-tile rule is still honored (UB addresses 32-byte aligned, see §3) but the DN-tile TR%8=0 rule does not bind the VF form. TILE_ROWS=3 is legal for VF.",
+          "planned_location": "DESIGN.md §1 (VF form chosen, validated by official sample); §2 (TILE_ROWS=3, no DN reduction tile); test_softmax.py: VF implementation mirroring pro_ops/vf_api/test_softmax_tile_group_vf.py.",
+          "verification_method": "static: API usage matches official softmax VF sample; runtime: correctness pass on all §8 cases."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "optional_patterns",
+      "reference": "patterns/online-softmax-tail.md",
+      "selection_reason": "P0 最大 N=4096 在 UB 248KB 与 fp32 加宽约束下大概率超出单 tile，reduction 轴须分块流式更新 running max/sum。该模式给出与本算子直接相关的具体设计约束：列尾 mask 须在 max 之前、行尾 mask 在 sub 之后、用有限负哨兵 NEG_LARGE（-1e30）而非 inf（inf 在 PyPTO-Pro 不编译）、m/l/累加保持 FP32、全无效行需短路。与 vec-row-reduce-broadcast（单 tile 情形）形成互补，设计作用独立。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Where the tail mask enters > 1. mask the reduction-axis (score-column) tail -- before any max",
+            "Where the tail mask enters > 5. mask the row-axis tail -- here, not earlier"
+          ],
+          "status": "applies",
+          "class_evidence": "Reduction axis N is dynamic; the last fp16 register of each row is partial when N%128!=0 (column/reduction-axis tail). Row axis B is dynamic; the last row-tile is partial when B%TILE_ROWS!=0 (row-axis tail).",
+          "invariant": "Column (reduction-axis) tail: the tail fp16 register is masked with vf.update_mask BEFORE pass1 reduce_max (mask-before-max). Row tail: set_validshape([valid_rows, cols]) narrows the row-tile; the VF inner loop runs only valid_rows rows, so the row-tail is excluded before any subtract (rows beyond valid_rows never enter the VF). The two tails are handled at distinct points (column-tail pre-max in VF, row-tail pre-load via set_validshape), not merged.",
+          "planned_location": "DESIGN.md §1 pass1 (update_mask before reduce_max); §7 tail (column-tail mask-before-max + row-tail set_validshape); test_softmax.py: row-tail and col-tail cases.",
+          "verification_method": "runtime: col-tail cases ([3,200],[4,200],[7,200]) and row-tail cases ([4,128],[4,2048]); static: update_mask precedes reduce_max; set_validshape precedes load."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Tail and precision requirements > Keep m, l, and the accumulation for o in FP32 unless the official implementation for the detected target proves another contract"
+          ],
+          "status": "applies",
+          "class_evidence": "reduce_sum is same-type (fp16 src accumulates in fp16, per reduce_sum.md table1); N up to 8192 with fp16 accumulation would exceed atol/rtol=1e-3, so the sum (l) must be fp32. Max of fp16 values is exact (the max IS one of the fp16 inputs), so m stored as fp16 is exact; exp_sub internally casts both operands to fp32 (cast_f16_to_f32), so the exp(x-m) computation is fp32-internal.",
+          "invariant": "row_sum (l) accumulated in fp32: exp_sub(reg_fp16, row_max_fp16, dtype=DT_FP32) produces fp32, reduce_sum on fp32 results accumulates in fp32. row_max (m) kept as fp16 (exact max) and used as exp_sub src1 which internally casts to fp32 for the subtraction. The effective compute chain is fp16(in)→fp32(exp/sum/div)→fp16(out), matching the SPEC cast chain.",
+          "planned_location": "DESIGN.md §1 pass2 (fp32 reduce_sum) + 超越函数数值安全边界; test_softmax.py: pass2 VF; precision verified at N=4096 P0 case.",
+          "verification_method": "runtime: torch.testing.assert_close vs softmax_golden_cpu at atol=1e-3, rtol=1e-3 on [32,4096] (large N stresses fp16-vs-fp32 accumulation)."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Use a finite sentinel, not -inf > Write the invalid lanes to a large finite negative value: NEG_LARGE = -1.0e30",
+            "Use a finite sentinel, not -inf > In PyPTO-Pro a module-level float(\"inf\") does not even compile: it renders as the undeclared C++ identifier inff and bisheng rejects the generated kernel.cpp"
+          ],
+          "status": "applies",
+          "class_evidence": "Pass1 row_max accumulator must be initialized to the reduce identity (minimum). float('inf') is not compilable in PyPTO-Pro; the official softmax sample uses NEG_INF = -1e30 for exactly this purpose.",
+          "invariant": "Pass1 row_max initialized via vf.full(-1e30, preg, dtype=pl.DT_FP16) before the register reduce loop; no float('inf') or float('-inf') anywhere in the kernel.",
+          "planned_location": "DESIGN.md §1 pass1 init; §1 数值边界; test_softmax.py: softmax_rows_vf pass1 row_max = vf.full(NEG_INF, ...).",
+          "verification_method": "static: grep kernel for float('inf')/float('-inf') returns none; NEG_INF=-1e30 present; runtime: correctness on rows with all-negative values (golden covers large_neg case)."
+        },
+        {
+          "req_id": "R04",
+          "kind": "obligation",
+          "source_anchors": [
+            "Complete recurrence > m_new = max(m_old, m_chunk); alpha = exp((m_old - m_new)*scale); l_new = l_old*alpha + row_sum(p)",
+            "Status > Conceptual guidance only. The KB has no retained runnable PyPTO-Pro reference that validates the complete streaming QK/softmax/PV pipeline. The retained single-tile softmax sample validates only the case where an entire row fits one tile."
+          ],
+          "status": "not_triggered",
+          "class_evidence": "The whole row fits in one UB tile: fp16 [TILE_ROWS=3, MAX_N=8192] = 48KB/slot, double-buffered in+out = 192KB ≤ 248KB UB (§3). MAX_N=8192 covers the full dynamic range N∈[1,8192], so no N-chunking is required. The pattern's retained single-tile softmax sample validates exactly this case; the streaming recurrence (alpha rescale across chunks) is not needed.",
+          "invariant": "No cross-chunk running max/sum rescale: m and s are VF-local register scalars accumulated within a single @pl.vector_function call over the row's registers (3-pass: max, then exp+sum, then div). No persistent UB m/s tiles, no alpha rescale. If a future design must chunk N beyond MAX_N, this recurrence becomes applies and requires persistent m/s + rescale.",
+          "planned_location": "DESIGN.md §0 归约轴容量结论 (single-tile, no streaming); §1 (one VF call, m/s VF-local).",
+          "verification_method": "static: UB budget §3 proves whole row fits one tile; no streaming recurrence code present; runtime: correctness on N up to 8192 (golden dynamic-axis case)."
+        },
+        {
+          "req_id": "R05",
+          "kind": "obligation",
+          "source_anchors": [
+            "Use a finite sentinel, not -inf > The sentinel has one hazard, and it is the all-invalid row. On a row where every lane is masked, m_new is itself the sentinel ... so an all-invalid row must be excluded or short-circuited explicitly"
+          ],
+          "status": "not_triggered",
+          "class_evidence": "SPEC shape_constraints require N>=1 and B>=1, so every row within valid_rows has at least 1 valid column; rows beyond valid_rows are excluded by set_validshape and never enter the VF. No row can be all-invalid (every processed row has >=1 valid lane).",
+          "invariant": "No all-invalid-row short-circuit guard is needed: the VF inner loop bound is valid_rows (rows with >=1 valid column per SPEC N>=1), and the column-tail mask always selects >=1 lane. The pattern's all-invalid hazard does not arise for SPEC-legal shapes.",
+          "planned_location": "DESIGN.md §0 shape constraints (N>=1, B>=1); §7 (valid_rows loop bound).",
+          "verification_method": "static: SPEC N>=1,B>=1 guarantees no all-invalid row; runtime: N=1 and B=1 cases pass (golden covers N=1)."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "optional_patterns",
+      "reference": "patterns/buffer-reuse-lifetime.md",
+      "selection_reason": "softmax 3-pass（max/sum/div）需在同一 in_tile 上多趟读、in/out tile group 跨行轮转，模式直接以 softmax 实现为验证骨架（'rotating input, output, scratch, and reduction groups in the retained softmax implementation'）。给出 slot 计数律（B×K≤32 mutex 上限）、轮转组 advance 时机、partial tile 须 set_validshape、auto_mutex 不覆盖 V 管内 scratch 须 vf.mem_bar 等具体约束。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Safe workflow > 3. Use a multi-slot tile group only when iterations are intentionally rotated",
+            "Safe workflow > 4. Advance a rotating group once per logical iteration",
+            "Safe workflow > 5. Keep persistent state outside the loop and do not rotate it"
+          ],
+          "status": "applies",
+          "class_evidence": "The 3-pass reads the in_tile three times (max, exp+sum, div) within one VF call; the in_group and out_group rotate across row-tiles (each row-tile load→compute→store). m/s are VF-local register scalars (not persistent UB tiles), so no rotating reduction group is needed.",
+          "invariant": "in_group and out_group each have depth=2 (double-buffer); .next() advances once per row-tile iteration to overlap MTE2 load of tile k+1 with V compute of tile k and MTE3 store of tile k-1. m/s are register-resident (not rotated); the 3-pass over registers happens within one VF call on the current in_slot.",
+          "planned_location": "DESIGN.md §2 TileGroup槽位访问表; §3 addresses (VA_IN0/IN1/OUT0/OUT1); §4 loop (in_slot=in_group.next(), out_slot=out_group.next()); test_softmax.py: in_group/out_group make_tile_group + .next().",
+          "verification_method": "static: depth=2, .next() once per row-tile; runtime: correctness + no stale-value symptoms on multi-tile cases ([7,200],[32,4096])."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "How many slots > required slots >= (overlapped beats) * (simultaneously live roles)",
+            "How many slots > mutex_ids must lie in [0, 31] and be mutually distinct, so 32 is the hard ceiling on simultaneous rotating buffer slots"
+          ],
+          "status": "applies",
+          "class_evidence": "One overlapped beat (load tile k+1 while computing tile k): in_group needs 2 slots (in-flight + computing), out_group needs 2 slots (computing + storing). Total 4 rotating slots; mutex_ids [0,1] (in) and [2,3] (out) are 4 distinct IDs well within [0,31].",
+          "invariant": "Total rotating slots = 4 (in_group depth 2 + out_group depth 2); mutex_ids distinct: in_group=[0,1], out_group=[2,3]; all in [0,31]. No reduction group (m/s in registers). 4 <= 32 ceiling.",
+          "planned_location": "DESIGN.md §2 TileGroup表 (depth=2 each, mutex_ids [0,1]/[2,3]); §3; test_softmax.py: make_tile_group(mutex_ids=[0,1]) / make_tile_group(mutex_ids=[2,3]).",
+          "verification_method": "static: 4 distinct mutex_ids in [0,31]; depth matches slot count."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Safe workflow > 6. Set the valid shape before every operation that consumes a partial tile"
+          ],
+          "status": "applies",
+          "class_evidence": "B dynamic in [1,1024] with TILE_ROWS=3 yields partial row-tiles when B%3!=0; the last row-tile of each core carries valid_rows < 3. set_validshape must narrow the tile before load/VF/store.",
+          "invariant": "Per row-tile: pl.set_validshape(in_slot, [valid_rows, cols]) and pl.set_validshape(out_slot, [valid_rows, cols]) BEFORE pl.load and the VF call, where valid_rows = pl.min(TILE_ROWS, B - row_off). Applied every iteration (stateful API).",
+          "planned_location": "DESIGN.md §4 loop body; §7 row-tail; test_softmax.py: set_validshape before load.",
+          "verification_method": "runtime: row-tail cases ([4,128],[4,2048],[7,200],[1,128]) produce correct output; static: set_validshape precedes load."
+        },
+        {
+          "req_id": "R04",
+          "kind": "validation_scope",
+          "source_anchors": [
+            "Safe workflow > Compile and run the exact schedule on the target SDK; mutex and address behavior is version- and target-sensitive",
+            "How many slots > slot identity is what auto_mutex orders against"
+          ],
+          "status": "applies",
+          "class_evidence": "All VF intermediates (exp results, div results) are register-resident within one @pl.vector_function call; no UB scratch store→load between VF ops. auto_mutex covers the MTE2(load)→V(VF)→MTE3(store) cross-pipe dependencies via the in/out group mutex_ids. No vf.mem_bar is needed because there is no V-pipe-internal scratch store→load hazard.",
+          "invariant": "No VF-internal UB scratch tile: exp_sub/reduce_sum/div/astype results stay in registers until vf.store_align writes the fp16 out_slot. If the coder ever materializes a VF scratch tile (store then load within V pipe), vf.mem_bar(VST_VLD) must be inserted; the current design does not.",
+          "planned_location": "DESIGN.md §1 (all intermediates register-resident); §6 (auto_mutex covers MTE2/V/MTE3).",
+          "verification_method": "static: no scratch tile declared; runtime: correctness (no stale-value failure signature)."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/vec.md",
+      "selection_reason": "row-reduction 拓扑路由：softmax 为逐行归约+广播，Vector 计算须遵守 vec 通用约束。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Conditional authoring rule > Use vf.* when explicit lane masks, register-level control, or an instruction composition unavailable at tile level is required",
+            "Shared correctness requirements > 1. A row reduction writes a row scalar, conventionally a [rows, 1] result, which is broadcast back over the row by the matching expand operation"
+          ],
+          "status": "applies",
+          "class_evidence": "Softmax needs per-register lane masks (update_mask) for the dynamic N tail, register-level reduce across multiple registers (n_regs=ceil(N/128)), and the fp16→fp32 exp_sub path (layout ZERO/ONE) — all unavailable as tile-op. The official VF softmax sample validates this choice.",
+          "invariant": "Use @pl.vector_function + vf.reduce_max / vf.max / vf.exp_sub / vf.reduce_sum / vf.add / vf.div / vf.full / vf.astype / vf.load_align / vf.store_align / vf.create_mask / vf.update_mask. Row scalar (m, s) produced in lane0 via reduce, broadcast via vf.full.",
+          "planned_location": "DESIGN.md §1 Module 1 API sequence; test_softmax.py: softmax_rows_vf @pl.vector_function.",
+          "verification_method": "static: only vf.* / pl.load / pl.store / pl.set_validshape / pl.make_tile_group used in V section; runtime: correctness."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Shared correctness requirements > 2. Padding lanes must be excluded from reductions and stores"
+          ],
+          "status": "applies",
+          "class_evidence": "Dynamic N produces a partial tail fp16 register; padding lanes must not enter reduce_max, reduce_sum, or store_align.",
+          "invariant": "Tail register masked via vf.update_mask(valid_lanes, dtype=FP16) for fp16 ops and vf.update_mask(valid_fp32, dtype=FP32) for fp32 reduce_sum; store_align writes only valid lanes (mreg governs).",
+          "planned_location": "DESIGN.md §1 pass1/2/3; §7 tail; test_softmax.py: update_mask on tail register.",
+          "verification_method": "runtime: col-tail cases ([3,200],[4,200],[7,200]); compare vs golden."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Shared correctness requirements > 3. Accumulation dtype follows the numerical contract; use FP32 unless a documented, validated alternative is allowed"
+          ],
+          "status": "applies",
+          "class_evidence": "reduce_sum is same-type (fp16 src → fp16 accumulation, per reduce_sum.md); N up to 8192 fp16 accumulation exceeds atol/rtol=1e-3. Max of fp16 values is exact (the max is one of the inputs), a validated narrower path for max.",
+          "invariant": "Sum (s) accumulated in fp32: exp_sub produces fp32, reduce_sum on fp32. Max (m) computed in fp16 (exact, validated narrower path for max) and used as exp_sub src1 which internally casts to fp32. Output div in fp32, narrowed to fp16 before store.",
+          "planned_location": "DESIGN.md §1 pass1/2/3 dtype; §1 数值边界; test_softmax.py.",
+          "verification_method": "runtime: assert_close at atol=rtol=1e-3 on [32,4096] (large N)."
+        },
+        {
+          "req_id": "R04",
+          "kind": "precondition",
+          "source_anchors": [
+            "Shared correctness requirements > 4. Input, output, reduction, and workspace tiles must fit the detected platform's vector-memory budget"
+          ],
+          "status": "met",
+          "class_evidence": "§3 UB budget: 4 fp16 slots × [3,8192]×2B = 4×48KB = 192KB ≤ 248KB (ub_size=253952, 950PR_957x.ini). No fp32 work tile (widen in registers).",
+          "invariant": "Total UB = 192KB ≤ 248KB. No workspace tile (VF intermediates register-resident).",
+          "planned_location": "DESIGN.md §3 address table + 高水位; §2 Tile attribute table.",
+          "verification_method": "static: byte sum 196608 ≤ 253952."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/sync-stitch.md",
+      "selection_reason": "multi-phase-fusion 拓扑路由：softmax 含 max/sum/div 多个依赖阶段且状态（m,s）跨阶段携带，须遵守阶段衔接同步约束。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Rule > Use make_tile_group(..., auto_mutex=True) for rotation and intra-kernel buffer ownership that the target API documents as auto-managed. Do not add manual synchronization to the same managed dependency without evidence."
+          ],
+          "status": "applies",
+          "class_evidence": "in_group/out_group rotation across row-tiles is auto-managed by make_tile_group + @pl.jit(auto_mutex=True); the official softmax sample uses exactly this pattern with no manual sync for the in/out rotation.",
+          "invariant": "@pl.jit(auto_mutex=True); in_group/out_group carry mutex_ids=[0,1]/[2,3]; no manual sync_src/sync_dst for the in/out MTE2→V→MTE3 rotation. The 3-pass max/sum/div phases run within one @pl.vector_function (V pipe, register-resident m/s), so phase stitching is register-internal (no cross-section event).",
+          "planned_location": "DESIGN.md §3 (make_tile_group + auto_mutex); §6 (no cross-core); test_softmax.py: @pl.jit(auto_mutex=True).",
+          "verification_method": "static: auto_mutex=True, no sync_src/sync_dst for in/out; runtime: correctness + no aicore-timeout."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Rule > Cross-section or AIC/AIV handoff is not implied by auto_mutex. When the data flow crosses engines or sub-blocks, copy the producer/consumer event sequence from a matching official example"
+          ],
+          "status": "not_triggered",
+          "class_evidence": "Single Vector section, no Cube, no AIC↔AIV data handoff, no cross-block shared state. Rows are partitioned across cores (each core writes disjoint output rows); no inter-core data dependency.",
+          "invariant": "No set_cross_core/wait_cross_core; no INTER_BLOCK/INTER_SUBBLOCK/UNICAST_BLOCK events. Row-tiles are independent across cores (disjoint output regions).",
+          "planned_location": "DESIGN.md §6 (不涉及cross_core).",
+          "verification_method": "static: no cross-core API in kernel; runtime: multicore correctness on [32,4096] (B=32, 11 row-tiles across cores)."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Historical failed configuration > A delivered wrapper must launch exactly once; otherwise report a design blocker"
+          ],
+          "status": "applies",
+          "class_evidence": "Single @pl.jit kernel; wrapper allocates y via torch.empty and launches once.",
+          "invariant": "Wrapper softmax_wrapper(x): validate x.dtype==fp16 and x.ndim==2; y = torch.empty_like(x); softmax_tile_group_kernel[None, block_dim](x, y); return y. Exactly one kernel launch, no host loop, no torch.npu.synchronize in wrapper.",
+          "planned_location": "DESIGN.md §5 (launch合同); §0 Wrapper边界; test_softmax.py: softmax_wrapper.",
+          "verification_method": "static: wrapper audit (one kernel[...] call, no .to/.contiguous/.reshape loop); runtime: single launch produces correct y."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/tiling.md",
+      "selection_reason": "long_axis 属性路由：N 最大 8192（P0=4096）为长轴，超出单 tile 须多 tile 遍历，遵守 tiling 约束；亦为 buffer-reuse-lifetime slot 上限依据。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checks > 2. For each live tile, record shape, dtype bytes, memory space, layout, address, slot count, and lifetime",
+            "Checks > 3. Sum simultaneous allocations separately for each memory space"
+          ],
+          "status": "applies",
+          "class_evidence": "Only Vec (UB) space used; in_group/out_group fp16 [3,8192].",
+          "invariant": "§2 Tile attribute table records each tile's shape [3,8192], dtype FP16 (2B), memory Vec, layout — (default), slot count 2, lifetime rotating. §3 address table records start/end bytes per slot.",
+          "planned_location": "DESIGN.md §2 Tile属性表; §3 片上地址映射表.",
+          "verification_method": "static: tables complete; runtime: correctness."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checks > 4. Compare each sum with the matching platform source/configuration"
+          ],
+          "status": "applies",
+          "class_evidence": "UB sum = 4 slots × 3×8192×2 = 196608 B = 192KB; platform ub_size=253952 (248KB) per 950PR_957x.ini (arch-a5.md).",
+          "invariant": "UB high-water = 0x30000 (196608) / 253952 = 77.4%. No L1/L0A/L0B/L0C used.",
+          "planned_location": "DESIGN.md §3 各空间地址高水位.",
+          "verification_method": "static: 196608 ≤ 253952."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checks > 6. For dynamic tails, keep a legal physical tile and set the runtime valid window on every operation that reads or writes it",
+            "Checks > 7. Re-run correctness for aligned, single-tail, multi-tail, and multi-tile cases"
+          ],
+          "status": "applies",
+          "class_evidence": "Dynamic B and N; physical tile [3,8192] is the legal maximum; runtime valid window narrows per row-tile and per register.",
+          "invariant": "TileType(shape=[3,8192], dtype=FP16, target_memory=Vec, valid_shape=[-1,-1]); per row-tile set_validshape([valid_rows, cols]); per register update_mask for the tail. §8 test cases cover aligned/single-tail/2d-tail/multi-tile.",
+          "planned_location": "DESIGN.md §2 TileType; §4 loop; §7 tail; §8 test cases.",
+          "verification_method": "runtime: §8 cases (aligned [3,128], row-tail [4,128], col-tail [3,200], 2d-tail [4,200], multi-tile [7,200])."
+        },
+        {
+          "req_id": "R04",
+          "kind": "precondition",
+          "source_anchors": [
+            "Two structural ceilings > A Tile may have at most two dimensions",
+            "Two structural ceilings > mutex_ids must lie in [0, 31] and be mutually distinct"
+          ],
+          "status": "met",
+          "class_evidence": "All tiles 2D [3,8192]; mutex_ids [0,1] and [2,3] are 4 distinct IDs in [0,31].",
+          "invariant": "Tiles are 2D; 4 distinct mutex_ids; 4 ≤ 32 slot ceiling.",
+          "planned_location": "DESIGN.md §2.",
+          "verification_method": "static: 2D shapes, distinct mutex_ids."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/memory-layout.md",
+      "selection_reason": "unaligned_shapes 属性路由：动态 N∈[1,8192] 含非对齐 shape，须遵守 UB 内存布局约束。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Rule > Treat Vec, Mat, Left, Right, and Acc as separate address spaces. Within each space, allocate non-overlapping byte ranges for tiles whose lifetimes overlap.",
+            "Address review > tile | layout | start_byte | size_bytes_per_slot | slots | lifetime | end_byte_exclusive"
+          ],
+          "status": "applies",
+          "class_evidence": "Only Vec (UB) space; in_group [0, 96KB) and out_group [96KB, 192KB) are non-overlapping half-open intervals; in and out slots are simultaneously live (double-buffered) so they must not alias.",
+          "invariant": "§3 UB address table: VA_IN0=[0x0,0xC000), VA_IN1=[0xC000,0x18000), VA_OUT0=[0x18000,0x24000), VA_OUT1=[0x24000,0x30000). No overlap; only Vec space used.",
+          "planned_location": "DESIGN.md §3 片上地址映射表.",
+          "verification_method": "static: half-open intervals pairwise disjoint."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Address review > If a row aggregates contiguous slots, use start_byte + slots * size_bytes_per_slot; otherwise list each slot's start and exclusive end separately"
+          ],
+          "status": "applies",
+          "class_evidence": "Each group's 2 slots are contiguous (in_group [0,96KB), out_group [96KB,192KB)); recorded as start + 2×slot_bytes.",
+          "invariant": "in_group contiguous: 0x0 + 2×0xC000 = ends 0x18000; out_group contiguous: 0x18000 + 2×0xC000 = ends 0x30000. Each slot 49152 B (48KB).",
+          "planned_location": "DESIGN.md §3 address table + double-buffer规划.",
+          "verification_method": "static: end = start + slots×slot_bytes."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Rule > Reject the design if ... an address violates alignment"
+          ],
+          "status": "applies",
+          "class_evidence": "load_align/store_align require 32-byte tile address alignment (EXPLORE_REPORT §7); 49152 = 1536×32 so all slot starts (0x0, 0xC000, 0x18000, 0x24000) are 32-byte aligned.",
+          "invariant": "All UB tile start addresses are multiples of 32 bytes: 0, 49152, 98304, 147456 ∈ {k×32}.",
+          "planned_location": "DESIGN.md §3 address table 备注.",
+          "verification_method": "static: each addr % 32 == 0."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/tail-validshape.md",
+      "selection_reason": "tail_blocks/unaligned_shapes/dynamic_dims 属性路由：B=1,4<TILE_ROWS 产生行尾块；动态 N 产生寄存器尾；须 set_validshape + 尾 mask 处理。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checklist > 1. Compute work-item counts with ceiling division",
+            "Checklist > 2. Compute each remaining extent from the actual tensor dimension",
+            "Checklist > 3. Clamp the extent to the physical tile size"
+          ],
+          "status": "applies",
+          "class_evidence": "B dynamic [1,1024], TILE_ROWS=3 → num_tiles=ceil(B/3); N dynamic [1,8192], LANES_FP16=128 → n_regs=ceil(N/128).",
+          "invariant": "num_tiles=(B+TILE_ROWS-1)//TILE_ROWS; valid_rows=pl.min(TILE_ROWS, B-row_off); n_regs=(N+LANES_FP16-1)//LANES_FP16; valid_lanes=pl.min(LANES_FP16, N-r*LANES_FP16).",
+          "planned_location": "DESIGN.md §4 动态循环上界; §7 tail; test_softmax.py.",
+          "verification_method": "runtime: row-tail ([4,*]) and col-tail ([*,200]) cases."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checklist > 4. Set the valid shape before load, compute, reduction, and store as required by the installed API",
+            "常见问题 > 在load之后设置valid_shape"
+          ],
+          "status": "applies",
+          "class_evidence": "set_validshape is stateful and must precede load to constrain the GM→UB transfer; applies to both in_slot (load) and out_slot (store).",
+          "invariant": "Per row-tile: pl.set_validshape(in_slot, [valid_rows, cols]) then pl.load(in_slot, x, [row_off,0]); pl.set_validshape(out_slot, [valid_rows, cols]) before VF writes and pl.store. Order: set_validshape BEFORE load (not after).",
+          "planned_location": "DESIGN.md §4 loop body; §7; test_softmax.py.",
+          "verification_method": "static: set_validshape precedes load; runtime: row-tail cases."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checklist > 5. Neutralize invalid lanes for reductions when valid shape alone does not define the reduction identity",
+            "何时需要pad和fillpad > 求最大值或softmax前的最大值归约 | pl.TilePad.min"
+          ],
+          "status": "applies",
+          "class_evidence": "reduce_max on the tail fp16 register: invalid lanes must not raise the max; valid_shape alone does not define the reduce identity at register level, so update_mask + init-to-NEG_LARGE is required.",
+          "invariant": "row_max init = vf.full(-1e30, preg, dtype=FP16) (reduce_max identity via finite sentinel); tail register mreg=vf.update_mask(valid_lanes, dtype=FP16) selects only valid lanes for reduce_max/reduce_sum. No pl.fillpad needed (VF register-level mask handles it; fillpad is for tile-op Vec tiles which we do not use).",
+          "planned_location": "DESIGN.md §1 pass1 init; §7 tail; test_softmax.py: update_mask on tail register.",
+          "verification_method": "runtime: col-tail cases with all-negative rows (golden large_neg) do not corrupt max."
+        },
+        {
+          "req_id": "R04",
+          "kind": "obligation",
+          "source_anchors": [
+            "Exception: compact=1 tiles > Checklist item 4 is wrong for any tile declared compact=1"
+          ],
+          "status": "not_triggered",
+          "class_evidence": "Pure Vec ND tail (no fractal/cube/Acc path); compact is None/0 (default) for Vec ND load/store per tail_block_handling.md. No compact=1 tile anywhere.",
+          "invariant": "No compact=1 tile; compact defaults to None. The compact=1 valid-window-pinning hazard does not arise.",
+          "planned_location": "DESIGN.md §7 (compact=None for Vec ND).",
+          "verification_method": "static: no compact argument in TileType/make_tile_group."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/precision.md",
+      "selection_reason": "mixed_precision 属性路由：fp16 输入/输出但累加须升 fp32（reduce_sum fp16 源在 fp16 精度累加），须遵守精度链约束。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checklist > 1. Record input, intermediate, accumulator, and output dtypes"
+          ],
+          "status": "applies",
+          "class_evidence": "SPEC: x fp16 in, y fp16 out; cast chain fp16(in)→fp32(acc)→fp16(out) per SPEC kernel-contract supplement.",
+          "invariant": "Input: fp16 (GM x, UB in_tile). Intermediate: row_max fp16 (exact, as exp_sub src1); exp results fp32 (exp_sub dtype=FP32); row_sum fp32 (reduce_sum fp32); div result fp32. Output: fp16 (astype fp32→fp16, store_align to fp16 out_tile, GM y).",
+          "planned_location": "DESIGN.md §1 数值边界 + Module 1 dtype; test_softmax.py.",
+          "verification_method": "static: dtype chain documented; runtime: precision pass."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Widening a narrow-dtype reduction > The register-level reduce primitives (vf.reduce_*) are same-type ... There is no narrow-in / wide-accumulate reduce to lean on. The widening is yours to write.",
+            "Widening a narrow-dtype reduction > The order that holds is widen → compute → reduce, with the whole chain in the wide type, narrowing again only at the store"
+          ],
+          "status": "applies",
+          "class_evidence": "reduce_sum is same-type (fp16→fp16 accumulation); N up to 8192 fp16 sum exceeds 1e-3 tolerance. Must widen BEFORE the sum: exp_sub(reg_fp16, max_fp16, dtype=FP32) performs cast_f16_to_f32 then exp, producing fp32; reduce_sum on the fp32 result accumulates in fp32.",
+          "invariant": "Widen→compute→reduce for the sum: exp_sub(dtype=FP32) widens fp16→fp32 and computes exp in fp32 (cast happens inside exp_sub, before exp, satisfying widen-before-overflow); reduce_sum on fp32 results. Narrow only at store: astype fp32→fp16 before store_align. Max is exact in fp16 (max of fp16 inputs is representable), so no widen needed for reduce_max.",
+          "planned_location": "DESIGN.md §1 pass2 (exp_sub dtype=FP32 → reduce_sum fp32) + pass3 (astype fp32→fp16 before store); §1 数值边界; test_softmax.py.",
+          "verification_method": "runtime: atol=rtol=1e-3 on [32,4096] (N=4096 stresses fp16-vs-fp32 sum accumulation)."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Widening a narrow-dtype reduction > The transcendentals are narrower still ... vf.exp covers FP16 and FP32 only, and vf.exp_sub's dtype table has exactly two rows — FP16|FP16→FP32 and FP32|FP32→FP32",
+            "Widening a narrow-dtype reduction > layout selects interleaved lanes, not a contiguous half. ZERO takes the even lanes and ONE the odd ones, and reassembling a full narrow register means interleaving the two results, not concatenating them."
+          ],
+          "status": "applies",
+          "class_evidence": "Input is FP16 (not BF16), so vf.exp_sub FP16→FP32 path is native (exp_sub.md constraint table: FP16|FP16→FP32 supported on 950). Each exp_sub call processes 64 of 128 fp16 elements (layout ZERO=even lanes, ONE=odd lanes); covering one full fp16 register needs ZERO+ONE calls, interleaved (not concatenated).",
+          "invariant": "Per fp16 register (128 elem): pass2 uses exp_sub(reg, row_max_b, mreg_fp16, dtype=FP32, layout=ZERO) → 64 fp32 (even lanes) AND exp_sub(..., layout=ONE) → 64 fp32 (odd lanes); reduce_sum each, vf.add to combine. Pass3: exp_sub ZERO/ONE → div → astype(dtype=FP16, layout=ZERO/ONE) → vf.add to reassemble 128 fp16 (disjoint even/odd slots) → store_align. The astype/exp_sub layout ZERO/ONE semantics (even/odd lanes) are followed exactly per the corrected reading in precision.md.",
+          "planned_location": "DESIGN.md §1 pass2/pass3 ZERO/ONE handling; §1 数值边界; test_softmax.py.",
+          "verification_method": "static: ZERO+ONE paired calls, vf.add reassembly; runtime: correctness (no every-other-element error)."
+        },
+        {
+          "req_id": "R04",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checklist > 5. Derive tolerances from the project standard for the actual output dtype and algorithm; never copy a tolerance from an unrelated sample"
+          ],
+          "status": "applies",
+          "class_evidence": "Tolerance atol=rtol=1e-3 from SPEC, sourced from the official softmax sample (test_softmax_tile_group_vf.py line 173) for fp16/fp32 softmax — directly applicable, not an unrelated sample.",
+          "invariant": "Comparison: NPU y (fp16) and CPU golden (fp32) both promoted to fp32, torch.testing.assert_close(rtol=1e-3, atol=1e-3), matching the official softmax sample's comparison recipe.",
+          "planned_location": "DESIGN.md §8 composition; test_softmax.py: assert_close call.",
+          "verification_method": "runtime: assert_close at the SPEC tolerance on all §8 cases."
+        },
+        {
+          "req_id": "R05",
+          "kind": "obligation",
+          "source_anchors": [
+            "Checklist > 6. Validate boundary values, tails, and representative random inputs"
+          ],
+          "status": "applies",
+          "class_evidence": "SPEC §9 boundary: N=1, all-same row, large positive (65504), large negative (-65504), one-hot mix; §8 tail cases; P0 random cases.",
+          "invariant": "§8 test cases include aligned/tail/multi-tile/P0; golden _validate covers N=1, large_pos, large_neg, one_hot, dynamic-axis (1,1) and (1024,8192). max-subtract guarantees exp input ≤0 (no overflow).",
+          "planned_location": "DESIGN.md §8; §1 数值边界; test_softmax.py + golden.",
+          "verification_method": "runtime: golden _validate passes; §8 cases pass."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/vec-mask-width.md",
+      "selection_reason": "mixed_precision 属性路由：fp16 与 fp32 计算需各自 create_mask，mask 粒度随 dtype 变化（fp16=128 元素×2bit，fp32=64×4bit），须遵守 mask 宽度约束。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "Why it works > a MaskReg is a fixed 256-bit object, and width is not a property of the register. It is the stride at which the consuming instruction reads it — b8 reads bit i, b16 bit 2*i, b32 bit 4*i"
+          ],
+          "status": "applies",
+          "class_evidence": "The design mixes fp16 ops (load_align, exp_sub src, store_align) and fp32 ops (reduce_sum on fp32 exp results, div). Mask width differs: fp16 mask = 128 elements × 2bit, fp32 mask = 64 elements × 4bit. A single MaskReg cannot serve both widths.",
+          "invariant": "Two separate mask families: mreg_fp16 = vf.create_mask(pattern=ALL, dtype=FP16) / vf.update_mask(valid_lanes, dtype=FP16) for fp16-register ops (load_align, exp_sub src0/src1, astype fp32→fp16, store_align); mreg_fp32 = vf.create_mask(pattern=ALL, dtype=FP32) / vf.update_mask(valid_fp32, dtype=FP32) for fp32-register ops (reduce_sum, div on fp32 exp results). No MaskReg shared across fp16/fp32 ops.",
+          "planned_location": "DESIGN.md §1 (mreg_fp16, mreg_fp32 declared separately); §7 tail mask counts; test_softmax.py.",
+          "verification_method": "static: two distinct mask_reg objects with matching dtype per use; runtime: correctness (mask-width mismatch would corrupt every-other-element)."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/arch-a5.md",
+      "selection_reason": "target_gated：运行时未指定 target，按工作流默认 A5（SoC 950）加载；可用设备 TILE_FWK_DEVICE_ID=1 为 A5 类，官方 softmax 样例 @pytest.mark.soc('950')。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "precondition",
+          "source_anchors": [
+            "Platform gate > 1. Detect the target ... 3. Select the platform file matching that exact installed version and SKU",
+            "Design checks > Read dtype-dependent contraction geometry from the matching platform file"
+          ],
+          "status": "met",
+          "class_evidence": "SPEC §12 default A5 (SoC 950); official softmax sample @pytest.mark.soc('950'); exp_sub.md / astype.md / reduce_sum.md / cast.md product support tables all list 'Ascend 950PR/Ascend 950DT：支持'. TILE_FWK_DEVICE_ID=1 is A5-class.",
+          "invariant": "Target = Ascend 950 (A5). VF/cast/reduce APIs confirmed supported on 950PR/950DT. No cube/fractal geometry needed (pure VF).",
+          "planned_location": "DESIGN.md §0 (target A5); §1 (API product-support verified); test_softmax.py.",
+          "verification_method": "static: API product-support tables cite 950 support; runtime: kernel compiles and runs on device 1."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "Design checks > Derive each live tile's byte size from shape and dtype",
+            "Design checks > Sum simultaneous allocations separately for Vec, Mat, Left, Right, and Acc. Compare those sums with the detected target's corresponding limits."
+          ],
+          "status": "applies",
+          "class_evidence": "ub_size=253952 (248KB) per 950PR_957x.ini (arch-a5.md settles the UB dispute at 248KB). Only Vec space used; sum = 196608 B.",
+          "invariant": "Per-slot bytes = 3×8192×2 = 49152; total Vec = 4×49152 = 196608 B ≤ 253952 (ub_size). No Mat/L0A/L0B/L0C allocations.",
+          "planned_location": "DESIGN.md §3 高水位 (UB 196608/253952 = 77.4%).",
+          "verification_method": "static: 196608 ≤ 253952."
+        },
+        {
+          "req_id": "R03",
+          "kind": "obligation",
+          "source_anchors": [
+            "Design checks > Read launch width from runtime platform information rather than hard-coding a SKU's core count"
+          ],
+          "status": "applies",
+          "class_evidence": "Host must query get_platform_info().vector_core_num (pure-Vector kernel) and cap by num_tiles; JIT does not truncate over-limit block_dim.",
+          "invariant": "block_dim = min(get_platform_info().vector_core_num, num_tiles) where num_tiles=ceil(B/TILE_ROWS); kernel[None, block_dim](x, y). No hard-coded core count.",
+          "planned_location": "DESIGN.md §5 host block_dim; test_softmax.py: softmax_wrapper.",
+          "verification_method": "static: get_platform_info() used; runtime: multicore run on [32,4096] uses min(vector_core_num, 11) cores."
+        }
+      ]
+    },
+    {
+      "class_id": ".",
+      "selection_field": "required_constraints",
+      "reference": "constraints/wrapper-boundary.md",
+      "selection_reason": "mandatory：公开可调用入口不得在单次 PyPTO-Pro kernel launch 周围分派 host 侧 tensor kernel；适用 architect/coder/verifier。",
+      "requirements": [
+        {
+          "req_id": "R01",
+          "kind": "obligation",
+          "source_anchors": [
+            "The rule > Casting, slicing, transposing, padding, concatenating, and any other data shape or dtype processing MUST happen inside the @pl.jit kernel. The wrapper may only validate arguments, read ... metadata, derive Python integers, use torch.empty to allocate outputs declared by its current contract, and launch one kernel.",
+            "What to do instead > .to(torch.float32) on input | load the native dtype into UB, then convert on-chip — pl.cast at tile level or vf.astype at register level (there is no vf.cast)"
+          ],
+          "status": "applies",
+          "class_evidence": "Input/output are fp16; all fp16↔fp32 conversion done inside the VF via exp_sub(dtype=FP32) and vf.astype (no pl.cast needed since widening is register-level). Wrapper must not .to() the tensor.",
+          "invariant": "softmax_wrapper(x): assert x.dtype==torch.float16 and x.ndim==2 and x.is_contiguous() (or read stride); y=torch.empty_like(x); block_dim=min(get_platform_info().vector_core_num, ceil(x.shape[0]/TILE_ROWS)); softmax_tile_group_kernel[None, block_dim](x, y); return y. No .to()/.contiguous()/.reshape()/.movedim()/.t()/torch.zeros/torch.npu.synchronize on host. All fp16↔fp32 conversion is vf.exp_sub(dtype=FP32)/vf.astype inside @pl.vector_function.",
+          "planned_location": "DESIGN.md §0 Wrapper边界外操作=空; §1 (cast inside VF); §5 (single launch); test_softmax.py: softmax_wrapper.",
+          "verification_method": "static: wrapper source audit (only assert/empty_like/kernel[...]); runtime: wrapper runs as the single device op."
+        },
+        {
+          "req_id": "R02",
+          "kind": "obligation",
+          "source_anchors": [
+            "There is no exception > torch.empty is the only torch.* function a generated wrapper may call",
+            "How this is checked > KB_USAGE.json must record the invariant, and the verifier fails any class whose wrapper performs an action outside the allowlist"
+          ],
+          "status": "applies",
+          "class_evidence": "DESIGN.md §0 Wrapper边界外操作正文 must be 空; wrapper does no arithmetic (anti-cheat) and no host tensor ops.",
+          "invariant": "DESIGN.md §0 'Wrapper 边界外操作' = 空. Wrapper performs no arithmetic (softmax math is entirely in the kernel); the only torch.* call is torch.empty_like (allocates y).",
+          "planned_location": "DESIGN.md §0; test_softmax.py: softmax_wrapper.",
+          "verification_method": "static: §0 body is 空; wrapper audit; runtime: anti-cheat (no host arithmetic)."
+        }
+      ]
+    }
+  ]
+}

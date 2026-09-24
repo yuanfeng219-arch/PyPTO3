@@ -1,0 +1,50 @@
+{
+  "collection_id": "compare_20260831_220259_39123",
+  "mode": "compare",
+  "status": "complete",
+  "operator_dir": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax",
+  "target_op_name": "_Z25softmax_tile_group_kernelPDhS_iiii",
+  "device_id": 1,
+  "seed": 42,
+  "seed_source": "cli_override",
+  "warmup": 3,
+  "repeats": 3,
+  "expected_cases": [
+    "p0_batch1_n128",
+    "p0_batch4_n2048",
+    "p0_batch32_n4096"
+  ],
+  "performance_cases": {
+    "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/PERFORMANCE_CASES.json",
+    "sha256": "cc8b75f0eb84fb70ab2dbb641cdcdefbd7d68f74032c94f49394381e7d7a90ce",
+    "size_bytes": 487,
+    "type": "case_manifest",
+    "schema_version": 1,
+    "case_functions": {
+      "p0_batch1_n128": "test_softmax_p0_batch1_n128",
+      "p0_batch4_n2048": "test_softmax_p0_batch4_n2048",
+      "p0_batch32_n4096": "test_softmax_p0_batch32_n4096"
+    },
+    "golden_diagnostic": {
+      "status": "joined",
+      "iterations": 1
+    },
+    "golden_contract": {
+      "path": "/data/x00952168/softmax-opencode-benchmark-41-20260831-194403/custom/softmax/GOLDEN_PERF_REPORT.json",
+      "sha256": "ef99ca661725e345b30c582ff6cce88530b248b63f3d2fd21d853c37ebbc260d",
+      "size_bytes": 1560,
+      "protocol": {
+        "schema_version": 1,
+        "device_id": 1,
+        "iterations": 1,
+        "warmup": 3,
+        "repeats": 3,
+        "seed": 42,
+        "timing_scope": "all_golden_npu_kernels",
+        "aggregation": "median_of_repeat_totals"
+      }
+    }
+  },
+  "created_at": "2026-08-31T22:02:59+0800",
+  "completed_cases": 3
+}
