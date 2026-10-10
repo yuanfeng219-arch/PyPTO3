@@ -10,7 +10,34 @@
   var kb = function (b) { return b >= 1024 ? (b / 1024).toFixed(b % 1024 ? 1 : 0) + ' KB' : b + ' B'; };
   var TONE = { tiling: 'var(--l-tiling)', memory: 'var(--l-memory)', deps: 'var(--l-deps)', sync: 'var(--l-sync)' };
   var byName = {};
-  A.passes.forEach(function (p) { if (!byName[p.name]) byName[p.name] = p; });
+  A.passes.forEach(function (p, i) {
+    // Keep the displayed step number aligned with the current PassManager
+    // recipe. The atlas data keeps the source-backed entries readable, while
+    // the array order remains the single source of truth for the pipeline.
+    p.order = i + 1;
+    if (!byName[p.name]) byName[p.name] = p;
+  });
+  A.meta.total = A.passes.length;
+  A.meta.unique = Object.keys(byName).length;
+
+  // Rebuild the property index from the current pass declarations so the
+  // timeline cannot lag behind when a new pass is added to the recipe.
+  var propNames = {};
+  A.passes.forEach(function (p) {
+    ['required', 'produced', 'invalidated'].forEach(function (field) {
+      (p[field] || []).forEach(function (name) { propNames[name] = true; });
+    });
+  });
+  var propGraph = {};
+  Object.keys(propNames).forEach(function (name) {
+    propGraph[name] = { produced_by: [], required_by: [], invalidated_by: [] };
+  });
+  A.passes.forEach(function (p) {
+    (p.produced || []).forEach(function (name) { if (propGraph[name]) propGraph[name].produced_by.push(p.name); });
+    (p.required || []).forEach(function (name) { if (propGraph[name]) propGraph[name].required_by.push(p.name); });
+    (p.invalidated || []).forEach(function (name) { if (propGraph[name]) propGraph[name].invalidated_by.push(p.name); });
+  });
+  A.props = propGraph;
 
   var state = { view: 'overview', sel: 'MemoryReuse', soc: 'a5', railAll: true, q: '',
                 pkCase: 'acc', pkFrame: 0, pkSel: null, hwMode: 'topo' };
@@ -105,7 +132,7 @@
 
 
   function viewOverview() {
-    var h = '<div class="wrap"><h1 class="h1">一次编译，49 步</h1>' +
+    var h = '<div class="wrap"><h1 class="h1">一次编译，' + A.passes.length + ' 步</h1>' +
       '<p class="lead">这份图鉴的每一条都来自源码快照 <code>' + esc(A.meta.src) + '</code>：' +
       '流水线顺序取自 <code>pass_manager.py</code>，每个 Pass 的作用取自 <code>passes.h</code> 的 doxygen 与各自的实现文件，' +
       '<strong>上下游关系不是我画的，是从 <code>pass_properties.h</code> 里每个 Pass 声明的 required / produced / invalidated 算出来的</strong>。</p></div>';
@@ -144,6 +171,8 @@
 
   function viewPipe() {
     var P = A.passes, n = P.length;
+    var initMemRef = P.filter(function (p) { return p.name === 'InitMemRef'; })[0];
+    var ssaConsumers = A.props.SSAForm ? A.props.SSAForm.required_by.length : 0;
     var W = Math.max(1240, n * 26 + 200), padL = 176, padR = 30;
     var x = function (i) { return padL + (i + 0.5) / n * (W - padL - padR); };
 
@@ -161,14 +190,18 @@
         '<stop offset="100%" stop-color="var(--foreground)" stop-opacity=".05"/></linearGradient>' +
       '</defs>';
 
+    var at = function (name) {
+      var i = P.findIndex(function (p) { return p.name === name; });
+      return i < 0 ? 0 : i;
+    };
     var IR = [
-      { at: 0,  t: 'Tensor IR' },
-      { at: 7,  t: '编排 / InCore 分家' },
-      { at: 10, t: 'Tile 算子' },
-      { at: 21, t: 'AIC / AIV kernel' },
-      { at: 31, t: 'MemRef' },
-      { at: 34, t: '真实地址' },
-      { at: 37, t: '任务依赖图' }
+      { at: at('InlineFunctions'), t: 'Tensor IR' },
+      { at: at('OutlineHierarchyScopes'), t: '编排 / InCore 分家' },
+      { at: at('ConvertTensorToTileOps'), t: 'Tile 算子' },
+      { at: at('ExpandMixedKernel'), t: 'AIC / AIV kernel' },
+      { at: at('InitMemRef'), t: 'MemRef' },
+      { at: at('AllocateMemoryAddr'), t: '真实地址' },
+      { at: at('DeriveCallDirections'), t: '任务依赖图' }
     ];
     IR.forEach(function (m, i) {
       var x0 = x(m.at) - 9, x1 = (i + 1 < IR.length ? x(IR[i + 1].at) - 9 : W - padR);
@@ -259,7 +292,7 @@
     s2 += '</svg>';
 
     return '<div class="wrap">' +
-      '<h1 class="h1">一次编译，49 步</h1>' +
+      '<h1 class="h1">一次编译，' + A.passes.length + ' 步</h1>' +
       '<p class="lead">上图是流水线本身：<strong>实心圆点是决策点</strong>（在多个合法方案里选一个），竖线是机械改写（输入定则输出唯一）；' +
       '顶部那条带子标出 IR 在每个阶段的形态。下图是同一条时间轴上的 <strong>IRProperty 生命线</strong>——' +
       '绿点是属性被建立的位置，渐隐的绿线是它有效的区间，线上的小圈是每一个要求它的 Pass，' +
@@ -273,8 +306,8 @@
       '<span class="card__m">python/pypto/ir/pass_manager.py</span></div><div class="scroll">' + s + '</div></div>' +
       '<div class="card"><div class="card__h"><span class="card__t">IRProperty 生命线 · 被消费最多的 12 个</span>' +
       '<span class="card__m">include/pypto/ir/transforms/pass_properties.h</span></div><div class="scroll">' + s2 + '</div>' +
-      '<p class="n">看第二行 <code>SSAForm</code>：第 4 步 ConvertToSSA 建立，被 21 个 Pass 消费，' +
-      '<strong>在第 32 步 InitMemRef 被一个红叉终结</strong>——变量一旦绑上物理 MemRef，SSA 就不成立了。' +
+      '<p class="n">看第二行 <code>SSAForm</code>：第 4 步 ConvertToSSA 建立，被 ' + ssaConsumers + ' 个 Pass 消费，' +
+      '<strong>在第 ' + (initMemRef ? initMemRef.order : '—') + ' 步 InitMemRef 被一个红叉终结</strong>——变量一旦绑上物理 MemRef，SSA 就不成立了。' +
       '所有内存相关的 Pass 都排在这条线断掉之后，这不是巧合，是排序的结果。' +
       '再看最后一行 <code>AivSplitValid</code>：它是<strong>三段</strong>——两次「先失效再重建」，' +
       '为的是等内存侧变得可观测之后强制重验一次。</p></div></div>';
