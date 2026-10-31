@@ -670,12 +670,12 @@
       },
       {
         title: "Hardware-Native 主线",
-        subtitle: "一条硬件裁决的路 · 代码在硅片上的落点",
+        subtitle: "一条硬件裁决的路 · 源码 ⇄ 算子逻辑 ⇄ 硅片落点",
         category: "开发工具",
         status: "新增",
         version: "01b / HN Path",
         updatedAt: "2026-10-31",
-        description: "Hardware-Native Lens 的单主线版本，只讲一条路：把 decode_layer 中 fa_fused 的 pl.pipeline 从 stage=2 调到 4。五步依次展示改动、落点、裁决、改法和复查。右侧是第二块画布，画出一个 AI Core block 的 GM、AIC（L1 / L0A / L0B / Cube / L0C）、C2V / V2C、AIV 的 Vec(UB) 地址条和 24 个 block 的阵列；悬停源码行、Vec 缓冲或硅片区域会双向联动。Vec 高水位 184.6 KB 超过实际可用的 184 KB（抽象自 pto-isa #170），但没超过分配器的 192 KB 预算：编译和运行都不报错，输出静默出 NaN。改法给出降级流水、缩小 KV 块、复用中间量三种，分别说明压力转到时间、运行时或证据上，并标注哪些结论仍需编译产物、上板或 profiling 确认。",
+        description: "Hardware-Native Lens 的单主线版本，只讲一条路：把 decode_layer 中 fa_fused 的 pl.pipeline 从 stage=2 调到 4。右栏是改动、落点、裁决、改法、复查五个可折叠章节，标题行实时显示结论。中栏上方是算子逻辑图：spmd × 24 ⊃ grid-stride 取块 ⊃ pipeline × 8 头三层循环，内含打分、局部 softmax、加权求和三段计算链，softmax 段按在飞的头数叠层；下方是硅片落点，画出一个 block 的 GM、AIC（L1 / L0A / L0B / Cube / L0C）、C2V / V2C、AIV 的 Vec(UB) 地址条和 24 个 block 的阵列。源码行、逻辑节点、Vec 缓冲与硅片区域三向联动。Vec 高水位 184.6 KB 超过实际可用的 184 KB（抽象自 pto-isa #170），但没超过分配器的 192 KB 预算：编译和运行都不报错，输出静默出 NaN。改法给出降级流水、缩小 KV 块、复用中间量三种，分别说明压力转到时间、运行时或证据上，并标注哪些结论仍需编译产物、上板或 profiling 确认。",
         href: "Design/hardware-native-ide/path.html",
         preview: "Design/assets/launch-previews/decode-layer-graph.png",
         tags: ["PyPTO", "昇腾", "Hardware-Native", "Vec UB", "静默 NaN", "pto-isa#170", "decode_layer"]

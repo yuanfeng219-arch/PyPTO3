@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hardware-Native 主线</title>
-  <link rel="stylesheet" href="./styles/path.css?v=20261031-1" />
+  <link rel="stylesheet" href="./styles/path.css?v=20261031-2" />
 </head>
 <body>
   <div class="hp-app">
@@ -23,8 +23,6 @@
       </div>
     </header>
 
-    <nav class="hp-steps" id="hpSteps" aria-label="主线步骤"></nav>
-
     <main class="hp-main">
       <section class="hp-pane hp-code" aria-label="源码节选">
         <header class="hp-pane-head">
@@ -34,18 +32,29 @@
         <div class="hp-code-body" id="hpCode"></div>
       </section>
 
-      <section class="hp-pane hp-chip" aria-label="硅片落点">
-        <header class="hp-pane-head">
-          <span class="hp-pane-title">硅片落点</span>
-          <span class="hp-pane-meta" id="hpChipMeta">示意 · 不按比例 · Vec 地址条按比例</span>
-        </header>
-        <div class="hp-chip-body">
-          <div class="hp-svg" id="hpSvg"></div>
-          <div class="hp-caption" id="hpCaption" aria-live="polite"></div>
+      <section class="hp-pane hp-mid" aria-label="算子逻辑与硅片落点">
+        <div class="hp-logic">
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">算子逻辑</span>
+            <span class="hp-pane-meta" id="hpLogicMeta">fa_fused · 循环嵌套与计算链</span>
+          </header>
+          <div class="hp-logic-svg" id="hpLogic"></div>
         </div>
+        <div class="hp-chip">
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">硅片落点</span>
+            <span class="hp-pane-meta" id="hpChipMeta">示意 · 不按比例 · Vec 地址条按比例</span>
+          </header>
+          <div class="hp-svg" id="hpSvg"></div>
+        </div>
+        <div class="hp-caption" id="hpCaption" aria-live="polite"></div>
       </section>
 
-      <aside class="hp-pane hp-story" aria-label="当前步骤">
+      <aside class="hp-pane hp-story" aria-label="主线">
+        <header class="hp-pane-head">
+          <span class="hp-pane-title">主线</span>
+          <span class="hp-pane-meta">stage 2 → 4 会发生什么</span>
+        </header>
         <div class="hp-story-body" id="hpStory"></div>
       </aside>
     </main>
@@ -56,6 +65,6 @@
     </footer>
   </div>
 
-  <script src="./js/path.js?v=20261031-1"></script>
+  <script src="./js/path.js?v=20261031-2"></script>
 </body>
 </html>

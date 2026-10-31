@@ -5,6 +5,8 @@
  * 越过实际可用的 184 KB、但没越过分配器按名义容量发的 192 KB → 编译、运行都不报错，
  * 输出静默 NaN（抽象自 pto-isa#170）→ 三种改法各把压力推到不同地方 → 复查。
  *
+ * 三个视图共用一个焦点：源码行 ⇄ 算子逻辑图（循环与计算链）⇄ 硅片落点（区域与 Vec 缓冲）。
+ *
  * 源码取自 Design/Toolkit Studio/decode_layer.py 728–798 行（缩进去掉 8 格）。
  * Vec 高水位口径与 js/model.js 的 derive() 一致：每级 5 个 [Q_HEAD_PAD, SEQ_TILE] FP32
  * + 1 个同形 BF16 + 2 个 [Q_HEAD_PAD, 1] FP32，外加常驻区 Q_HEAD_PAD × (HEAD_DIM × 4 + 8)。
@@ -36,7 +38,7 @@
     A: {
       cfg: { stage: 3, seq: 128, page: 128, reuse: false },
       title: '降一级流水', sub: 'stage = 3', scope: '改动 · 算子 1 行',
-      to: '时间', cost: function (c) {
+      to: '时间', cost: function () {
         return 'AIC / AIV 少一级重叠。<em>能少多少收益，只能靠 profiling 回答</em>，本页不给数字。';
       }
     },
@@ -51,7 +53,7 @@
     C: {
       cfg: { stage: 4, seq: 128, page: 128, reuse: true },
       title: '复用 softmax 中间量', sub: 'stage 保持 4', scope: '改动 · 依赖编译器内存复用',
-      to: '证据', cost: function (c) {
+      to: '证据', cost: function () {
         return '前提是 <code>set_validshape</code> / <code>fillpad</code> 不新开缓冲。'
           + '<em>在编译产物的内存映射确认之前，这只是假设</em>，不能算已修复。';
       }
@@ -69,6 +71,7 @@
     { id: 'cur_mi', line: 783, name: 'cur_mi', kind: 'row' },
     { id: 'cur_li', line: 785, name: 'cur_li', kind: 'row' }
   ];
+  const ALL_BUFS = BUFS.map(function (b) { return b.id; });
 
   function bufSize(b, c) {
     if (c.reuse && b.alias) return 0;
@@ -76,6 +79,7 @@
     if (b.kind === 'bf16') return Q_HEAD_PAD * c.seq * 2;
     return Q_HEAD_PAD * 4;
   }
+  function bufById(id) { return BUFS.filter(function (b) { return b.id === id; })[0]; }
 
   function calc(c) {
     const stage = Math.min(c.stage, GP_SIZE);
@@ -101,7 +105,8 @@
     else if (hw > UB_USABLE * 0.92) verdict = 'tight';
     return {
       cfg: c, stage: stage, per: per, carry: carry, hw: hw, layout: layout, intruders: intruders,
-      verdict: verdict, kTile: c.seq * HEAD_DIM * 2, kDB: c.seq * HEAD_DIM * 4,
+      verdict: verdict, bad: verdict === 'silent' || verdict === 'compile',
+      kTile: c.seq * HEAD_DIM * 2, kDB: c.seq * HEAD_DIM * 4,
       acc: Q_HEAD_PAD * c.seq * 4, blocks: blocks, tableCap: SEQ_LENS.length * (MAX_SEQ / c.seq),
       pageOk: c.seq === c.page
     };
@@ -119,9 +124,10 @@
   function chosenKey(c) {
     return Object.keys(OPTIONS).filter(function (k) { return same(OPTIONS[k].cfg, c); })[0] || null;
   }
+  function uniq(list) { return list.filter(function (v, i) { return list.indexOf(v) === i; }); }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 源码节选与代码 → 硅片映射
+  // 源码节选
   // ════════════════════════════════════════════════════════════════════════════
   const SOURCE = [
     { no: 728, t: 'with pl.spmd(' },
@@ -159,29 +165,35 @@
     { no: 798, t: '            all_cur_li = pl.assemble(all_cur_li, cur_li, [g_base + sb * Q_HEAD_PAD, 0])' }
   ];
 
-  // 行 → 硅片上的区域 / Vec 缓冲
-  const LINE_MAP = {
-    728: { regions: ['cores'] }, 729: { regions: ['cores'] }, 734: { regions: ['cores'] },
-    731: { regions: ['aic', 'aiv'] },
-    744: { regions: ['cores', 'gm-table'] },
-    758: { regions: ['gm-table', 'gm-kcache', 'gm-vcache'] },
-    764: { regions: ['ub'], bufs: 'all' },
-    768: { regions: ['l0a'] },
-    773: { regions: ['gm-kcache', 'l0b'] },
-    774: { regions: ['cube', 'l0c', 'ch-c2v'] },
-    775: { bufs: ['scores_scaled'], regions: ['ch-c2v'] },
-    781: { bufs: ['scores_valid'] }, 782: { bufs: ['scores'] },
-    783: { bufs: ['cur_mi'] }, 784: { bufs: ['rexp', 'exp'] }, 785: { bufs: ['cur_li'] },
-    786: { bufs: ['exp_bf16'], regions: ['ch-v2c'] },
-    789: { regions: ['gm-vcache', 'l0b'] },
-    790: { regions: ['cube', 'l0c', 'ch-v2c'] },
-    796: { regions: ['gm-out'] }, 797: { regions: ['gm-out'] }, 798: { regions: ['gm-out'] }
-  };
-  const REGION_LINES = {
-    cores: [728, 729, 734, 744], aic: [731], aiv: [731], 'gm-kcache': [773], 'gm-vcache': [789],
-    'gm-table': [744, 758], 'gm-out': [796, 797, 798], l0a: [768], l0b: [773, 789],
-    cube: [774, 790], l0c: [774, 790], 'ch-c2v': [774, 775], 'ch-v2c': [786, 790], ub: [764]
-  };
+  // ════════════════════════════════════════════════════════════════════════════
+  // 联动的单一真相源：算子逻辑节点 = 源码行 + 硅片区域 + Vec 缓冲
+  // 循环框也是节点；源码行和硅片区域上的联动都从这张表反查。
+  // ════════════════════════════════════════════════════════════════════════════
+  const NODES = [
+    { id: 'f-spmd', frame: true, lines: [728, 729, 730, 731, 732, 733, 734], regions: ['cores', 'aic', 'aiv'] },
+    { id: 'f-stride', frame: true, lines: [744], regions: ['cores', 'gm-table'] },
+    { id: 'f-pipe', frame: true, lines: [764], regions: ['ub'], bufs: ALL_BUFS },
+    { id: 'tbl', unit: 'gm', lines: [758], regions: ['gm-table', 'gm-kcache', 'gm-vcache'],
+      name: 'block_table → 物理页', sub: function (c) { return 'fa_pbid · 一页 ' + c.page + ' 行'; } },
+    { id: 'q', unit: 'gm', lines: [768], regions: ['l0a'], name: 'q_padded', sub: function () { return '[16,128] BF16'; } },
+    { id: 'k', unit: 'gm', lines: [773], regions: ['gm-kcache', 'l0b'], name: 'k_tile', sub: function (c) { return '[' + c.seq + ',128] BF16'; } },
+    { id: 'qk', unit: 'aic', lines: [774], regions: ['cube', 'l0c', 'ch-c2v'], name: 'QK matmul', sub: function () { return 'Q·Kᵀ → FP32'; } },
+    { id: 'scale', unit: 'aiv', lines: [775], bufs: ['scores_scaled'], name: '× scale', sub: function () { return 'scores_scaled'; } },
+    { id: 'valid', unit: 'aiv', lines: [781], bufs: ['scores_valid'], name: 'set_validshape', sub: function () { return '只标 5 行有效'; } },
+    { id: 'fill', unit: 'aiv', lines: [782], bufs: ['scores'], name: 'fillpad −inf', sub: function () { return '填充行不进 max'; } },
+    { id: 'max', unit: 'aiv', lines: [783], bufs: ['cur_mi'], name: 'row_max', sub: function () { return 'cur_mi'; } },
+    { id: 'exp', unit: 'aiv', lines: [784], bufs: ['rexp', 'exp'], name: 'exp(x − max)', sub: function () { return 'exp_scores'; } },
+    { id: 'sum', unit: 'aiv', lines: [785], bufs: ['cur_li'], name: 'row_sum', sub: function () { return 'cur_li'; } },
+    { id: 'cast', unit: 'aiv', lines: [786], bufs: ['exp_bf16'], regions: ['ch-v2c'], name: 'cast BF16', sub: function () { return '→ V2C 送回 Cube'; } },
+    { id: 'v', unit: 'gm', lines: [789], regions: ['gm-vcache', 'l0b'], name: 'v_tile', sub: function (c) { return '[' + c.seq + ',128] BF16'; } },
+    { id: 'sv', unit: 'aic', lines: [790], regions: ['cube', 'l0c', 'ch-v2c'], name: 'SV matmul', sub: function () { return 'P·V → oi_tmp'; } },
+    { id: 'out', unit: 'gm', lines: [796, 797, 798], regions: ['gm-out'], name: '写回部分结果', sub: function () { return 'oi · mi · li → GM'; } }
+  ];
+  const SOFTMAX_NODES = ['scale', 'valid', 'fill', 'max', 'exp', 'sum', 'cast'];
+  function nodeById(id) { return NODES.filter(function (n) { return n.id === id; })[0]; }
+  function nodesWhere(fn) { return NODES.filter(fn).map(function (n) { return n.id; }); }
+  // 源码行上能否悬停：有逻辑节点覆盖的行
+  function lineMapped(no) { return NODES.some(function (n) { return n.lines.indexOf(no) >= 0; }); }
 
   function lineCaption(no, k) {
     const c = k.cfg, n = k.stage;
@@ -198,11 +210,14 @@
     const map = {
       728: '<code>pl.spmd(NUM_CORES)</code>：' + NUM_CORES + ' 个 block 并行，<b>每个 block 用同一份片上地址分配</b>。',
       729: '<code>NUM_CORES = ' + NUM_CORES + '</code>：常驻 block 数。',
-      734: '每个 block 取自己的编号，再从 work table 里按 grid-stride 取块。',
+      730: '任务名 <code>fa_fused</code>：QK → softmax → SV 融合在一个根任务里。',
       731: '<code>UP_DOWN</code> 切分：同一个根任务里 AIC 做 matmul、AIV 做 softmax，经 C2V / V2C 交接。',
-      744: 'grid-stride 从 work table 取号：batch 16 的真实块 <b>' + k.blocks + '</b> 个，摊到 ' + NUM_CORES + ' 个 block。',
+      732: '依赖 work table 构建与 RoPE 写 KV 完成之后再启动。',
+      733: '返回任务句柄 <code>fa_tid</code>，供后面的 online_softmax 依赖。',
+      734: '每个 block 取自己的编号，再从 work table 里按 grid-stride 取块。',
+      744: 'grid-stride 从 work table 取号：batch 16 的真实块 <b>' + k.blocks + '</b> 个，摊到 ' + NUM_CORES + ' 个 block，每个 block 约 ' + Math.ceil(k.blocks / NUM_CORES) + ' 块。',
       758: 'block_table 把逻辑块翻成物理页。前提：<code>SEQ_TILE == page_size</code>（当前 ' + c.seq + ' / ' + c.page + '）。',
-      764: '<code>stage=' + c.stage + '</code>：Vec 里同时驻留 <b>' + n + ' 份</b> softmax 链，每份 ' + kb(k.per) + '，合计 <b>' + kb(k.per * n) + '</b>。',
+      764: '<code>stage=' + c.stage + '</code>：同时有 <b>' + n + ' 个头</b>在飞，Vec 里驻留 ' + n + ' 份 softmax 链，每份 ' + kb(k.per) + '，合计 <b>' + kb(k.per * n) + '</b>。',
       768: '<code>q_padded [16, 128] BF16</code> 4 KB → L0A(Left)。5 行真实 Q 填到 16 行，对齐 Cube M。',
       773: '<code>k_tile [' + c.seq + ', 128] BF16</code> ' + kb(k.kTile) + '：GM 物理页 → L0B(Right)；双缓冲估算 ' + kb(k.kDB) + ' / 64 KB。',
       774: 'QK matmul 在 Cube 上算，FP32 结果 <code>[16, ' + c.seq + ']</code> ' + kb(k.acc) + ' 进 L0C(Acc)，再经 C2V 交给 AIV。',
@@ -232,24 +247,34 @@
     };
     return map[id] || '';
   }
+  function nodeCaption(id, k) {
+    if (id === 'f-spmd') return lineCaption(728, k);
+    if (id === 'f-stride') return lineCaption(744, k);
+    if (id === 'f-pipe') {
+      return lineCaption(764, k) + '<br>逻辑上 8 个头依次处理；流水把相邻 ' + k.stage + ' 个头叠在一起，所以中间量要同时存 ' + k.stage + ' 份。';
+    }
+    const n = nodeById(id);
+    return n.lines.map(function (no) { return lineCaption(no, k); }).filter(Boolean).slice(0, 1).join('');
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // 状态
   // ════════════════════════════════════════════════════════════════════════════
-  const STEPS = [
-    { name: '改动', line: '只改了一个调度参数' },
-    { name: '落点', line: '它在硅片上复制了什么' },
-    { name: '裁决', line: '硬件说了不，编译器没说' },
-    { name: '改法', line: '压力推到哪里去' },
-    { name: '复查', line: '本页能证明到哪一步' }
+  const SECTIONS = [
+    { name: '改动', q: '只改了一个调度参数' },
+    { name: '落点', q: '它在硅片上复制了什么' },
+    { name: '裁决', q: '硬件说了不，编译器没说' },
+    { name: '改法', q: '压力推到哪里去' },
+    { name: '复查', q: '本页能证明到哪一步' }
   ];
-  const state = { step: 1, cfg: Object.assign({}, BASE), preview: null, hover: null, hoverRow: null };
+  // step = 当前展开的章节（0 = 全部收起）
+  const state = { step: 1, cfg: Object.assign({}, BASE), preview: null, hover: null };
 
   function current() { return calc(state.cfg); }
   function shown() { return calc(state.preview ? OPTIONS[state.preview].cfg : state.cfg); }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 代码
+  // 源码
   // ════════════════════════════════════════════════════════════════════════════
   const KW = { 'for': 1, 'in': 1, 'with': 1, 'as': 1, 'if': 1, 'else': 1, 'True': 1, 'False': 1, 'None': 1, 'return': 1 };
 
@@ -286,23 +311,23 @@
     let html = '<span class="stage-ctl" role="group" aria-label="pl.pipeline stage">';
     for (let s = 1; s <= 4; s++) {
       const on = state.cfg.stage === s;
-      const bad = on && k.verdict === 'silent';
+      const bad = on && k.bad;
       html += '<button type="button" data-stage="' + s + '" class="' + (on ? 'is-on' : '') + (bad ? ' is-bad' : '')
         + '" aria-pressed="' + on + '">' + s + '</button>';
     }
     return html + '</span>';
   }
 
+  function intruderLines(k) {
+    const out = {};
+    if (!k.bad) return out;
+    out[764] = 1;
+    k.intruders.forEach(function (r) { const b = bufById(r.id); if (b) out[b.line] = 1; });
+    return out;
+  }
+
   function renderCode() {
-    const k = current(), c = state.cfg;
-    const alertLines = {};
-    if (k.verdict === 'silent' || k.verdict === 'compile') {
-      alertLines[764] = 1;
-      k.intruders.forEach(function (r) {
-        const b = BUFS.filter(function (x) { return x.id === r.id; })[0];
-        if (b) alertLines[b.line] = 1;
-      });
-    }
+    const k = current(), c = state.cfg, alertLines = intruderLines(k);
     const html = SOURCE.map(function (row) {
       if (row.fold) return '<div class="cl-fold"><span></span><span></span><span>… ' + row.fold + ' 行</span></div>';
       let text;
@@ -313,95 +338,173 @@
       } else text = hl(row.t, c);
       const modified = (row.no === 764 && c.stage !== BASE.stage) || ((row.no === 773 || row.no === 789) && c.seq !== BASE.seq)
         || ((row.no === 781 || row.no === 782) && c.reuse);
-      const cls = ['cl', LINE_MAP[row.no] ? 'is-mapped' : '', modified ? 'is-modified' : '', alertLines[row.no] ? 'is-alert' : ''].join(' ');
+      const cls = ['cl', lineMapped(row.no) ? 'is-mapped' : '', modified ? 'is-modified' : '', alertLines[row.no] ? 'is-alert' : ''].join(' ');
       return '<div class="' + cls + '" data-line="' + row.no + '"><span class="cl-mark"></span><span class="cl-no">' + row.no
         + '</span><span class="cl-text">' + text + '</span></div>';
     }).join('');
     document.getElementById('hpCode').innerHTML = html;
   }
 
+  // ── SVG 小工具 ──
+  function txt(x, y, s, cls, anchor) {
+    return '<text x="' + x + '" y="' + y + '" class="' + (cls || 'sv-text') + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + s + '</text>';
+  }
+  function markers(prefix) {
+    return '<marker id="' + prefix + 'Arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#555"/></marker>'
+      + '<marker id="' + prefix + 'ArrowHot" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#e8e8e8"/></marker>';
+  }
+
   // ════════════════════════════════════════════════════════════════════════════
-  // 硅片画布
+  // 算子逻辑图：spmd × 24 ⊃ grid-stride 取块 ⊃ pipeline × 8 头 ⊃ 三段计算链
   // ════════════════════════════════════════════════════════════════════════════
-  const BAR = { x: 404, w: 62, top: 176, bottom: 474 };
-  const INSET = { x: 486, w: 82, top: 262, bottom: 430, lo: 176 * 1024, hi: 192 * 1024 };
+  const LG = {
+    // 节点位置（viewBox 720 × 300）
+    tbl: [32, 58, 210], q: [44, 140, 96], k: [148, 140, 92], qk: [44, 186, 96], scale: [148, 186, 92],
+    valid: [258, 140, 88], fill: [354, 140, 88], max: [450, 140, 88],
+    exp: [258, 186, 88], sum: [354, 186, 88], cast: [450, 186, 88],
+    v: [566, 140, 112], sv: [566, 186, 112], out: [566, 232, 112]
+  };
+  const LG_H = 34;
+  const LG_EDGES = [
+    'M92 174 V 186', 'M194 174 L 124 186', 'M140 203 H 148',
+    'M240 203 H 248 V 157 H 258', 'M346 157 H 354', 'M442 157 H 450',
+    'M494 174 V 180 H 302 V 186', 'M346 203 H 354', 'M302 220 V 226 H 494 V 220',
+    'M538 203 H 566', 'M622 174 V 186', 'M622 220 V 232'
+  ];
+
+  function logicNode(id, k, badIds) {
+    const n = nodeById(id), p = LG[id];
+    const cls = 'lg-node u-' + n.unit + (badIds.indexOf(id) >= 0 ? ' is-bad' : '');
+    return '<g class="lg-hit" data-node="' + id + '">'
+      + '<rect x="' + p[0] + '" y="' + p[1] + '" width="' + p[2] + '" height="' + LG_H + '" rx="3" class="' + cls + '"/>'
+      + '<rect x="' + p[0] + '" y="' + p[1] + '" width="3" height="' + LG_H + '" class="lg-stripe u-' + n.unit + '"/>'
+      + txt(p[0] + 9, p[1] + 14, n.name, 'sv-strong') + txt(p[0] + 9, p[1] + 27, n.sub(k.cfg), 'sv-text')
+      + '</g>';
+  }
+
+  function renderLogic() {
+    const k = shown(), c = k.cfg;
+    const badIds = k.bad ? uniq(k.intruders.map(function (r) {
+      return nodesWhere(function (n) { return (n.bufs || []).indexOf(r.id) >= 0 && !n.frame; })[0];
+    }).filter(Boolean)) : [];
+    let s = '<svg viewBox="0 0 720 304" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
+      + '<defs>' + markers('lg') + '</defs>';
+    // 三层循环框
+    s += '<g class="lg-hit" data-node="f-spmd"><rect x="8" y="8" width="704" height="290" rx="4" class="lg-frame"/>'
+      + txt(20, 25, 'PL.SPMD × ' + NUM_CORES + '  ·  每个 block 跑一份 fa_fused', 'sv-title') + '</g>';
+    s += '<g class="lg-legend">'
+      + '<rect x="560" y="17" width="10" height="10" class="lg-stripe u-aic"/>' + txt(574, 26, 'AIC', 'sv-label')
+      + '<rect x="604" y="17" width="10" height="10" class="lg-stripe u-aiv"/>' + txt(618, 26, 'AIV', 'sv-label')
+      + '<rect x="648" y="17" width="10" height="10" class="lg-stripe u-gm"/>' + txt(662, 26, 'GM 读写', 'sv-label') + '</g>';
+    s += '<g class="lg-hit" data-node="f-stride"><rect x="20" y="34" width="680" height="258" rx="4" class="lg-frame"/>'
+      + txt(32, 50, 'FOR fa_w IN range(core, total, ' + NUM_CORES + ')  ·  每个 block 轮到约 ' + Math.ceil(k.blocks / NUM_CORES) + ' 个 KV 块（共 ' + k.blocks + '）', 'sv-title') + '</g>';
+    s += '<g class="lg-hit" data-node="f-pipe"><rect x="32" y="100" width="656" height="186" rx="4" class="lg-frame lg-frame-pipe' + (k.bad ? ' is-bad' : '') + '"/>'
+      + txt(44, 116, 'FOR gp IN pl.pipeline(' + GP_SIZE + ', stage=' + c.stage + ')  ·  ' + GP_SIZE + ' 个 KV 头，同时在飞 ' + k.stage + ' 个', 'sv-title') + '</g>';
+    s += logicNode('tbl', k, badIds);
+    s += txt(252, 79, '逻辑块 → 物理页；SEQ_TILE 必须等于 page_size', 'sv-label');
+
+    // 三段标题
+    s += txt(44, 133, '① 打分', 'sv-label') + txt(258, 133, '② 局部 softmax', 'sv-label') + txt(566, 133, '③ 加权求和', 'sv-label');
+
+    // softmax 段：在飞几个头，就叠几份
+    for (let i = k.stage - 1; i >= 1; i--) {
+      s += '<rect x="' + (250 + i * 4) + '" y="' + (124 + i * 4) + '" width="296" height="146" rx="4" class="lg-ghost' + (k.bad && i === k.stage - 1 ? ' is-bad' : '') + '"/>';
+    }
+    s += '<rect x="250" y="124" width="296" height="146" rx="4" class="lg-group' + (k.bad ? ' is-bad' : '') + '"/>';
+    s += txt(258, 248, '× ' + k.stage + ' 份同时驻留 Vec · 每份 ' + kb(k.per), k.bad ? 'sv-text sv-bad' : 'sv-text');
+    s += txt(258, 262, k.bad ? '第 ' + k.stage + ' 份的尾部落进 UB 保留区' : '份数 = 在飞的头数 = stage', k.bad ? 'sv-label sv-bad' : 'sv-label');
+
+    s += LG_EDGES.map(function (d) { return '<path d="' + d + '" class="lg-edge"/>'; }).join('');
+    ['q', 'k', 'qk', 'scale', 'valid', 'fill', 'max', 'exp', 'sum', 'cast', 'v', 'sv', 'out'].forEach(function (id) {
+      s += logicNode(id, k, badIds);
+    });
+    s += txt(44, 262, 'Q 来自前序 RoPE，按头取 16 行', 'sv-label');
+    s += '</svg>';
+    document.getElementById('hpLogic').innerHTML = s;
+    document.getElementById('hpLogicMeta').textContent = state.preview
+      ? '预览 · 方案 ' + state.preview + ' · stage=' + c.stage + ' · SEQ_TILE=' + c.seq
+      : 'fa_fused · 循环嵌套与计算链';
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // 硅片画布（viewBox 720 × 470）
+  // ════════════════════════════════════════════════════════════════════════════
+  const BAR = { x: 418, w: 60, top: 160, bottom: 440 };
+  const INSET = { x: 498, w: 80, top: 240, bottom: 400, lo: 176 * 1024, hi: 192 * 1024 };
   function ubY(addr) { return BAR.bottom - addr / UB_NOMINAL * (BAR.bottom - BAR.top); }
   function insetY(addr) { return INSET.bottom - (addr - INSET.lo) / (INSET.hi - INSET.lo) * (INSET.bottom - INSET.top); }
 
   function region(id, inner) { return '<g class="sv-region" data-region="' + id + '">' + inner + '</g>'; }
-  function txt(x, y, s, cls, anchor) {
-    return '<text x="' + x + '" y="' + y + '" class="' + (cls || 'sv-text') + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + s + '</text>';
-  }
 
   function bufClass(r) {
     if (r.id === 'carry') return 'k-carry';
-    const b = BUFS.filter(function (x) { return x.id === r.id; })[0];
-    return 'k-' + b.kind;
+    return 'k-' + bufById(r.id).kind;
   }
 
   function renderSvg() {
-    const k = shown(), c = k.cfg, ref = state.preview ? current() : null;
-    const bad = k.verdict === 'silent' || k.verdict === 'compile';
-    let s = '<svg viewBox="0 0 600 604" role="img" aria-label="fa_fused 在一个 AI Core block 上的落点">'
-      + '<defs>'
-      + '<marker id="hpArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#555"/></marker>'
-      + '<marker id="hpArrowHot" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#e8e8e8"/></marker>'
+    const k = shown(), c = k.cfg, ref = state.preview ? current() : null, bad = k.bad;
+    let s = '<svg viewBox="0 0 720 470" role="img" aria-label="fa_fused 在一个 AI Core block 上的落点">'
+      + '<defs>' + markers('hp')
       + '<pattern id="hpHatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#2a1716"/><line x1="0" y1="0" x2="0" y2="5" stroke="#ff6b5b" stroke-width="1.4" opacity=".55"/></pattern>'
       + '<clipPath id="hpInsetClip"><rect x="' + INSET.x + '" y="' + INSET.top + '" width="' + INSET.w + '" height="' + (INSET.bottom - INSET.top) + '"/></clipPath>'
       + '</defs>';
 
     // GM
-    s += '<rect x="12" y="10" width="576" height="80" class="sv-frame"/>' + txt(24, 27, 'GM · HBM', 'sv-title');
-    s += region('gm-kcache', '<rect x="24" y="36" width="138" height="44" class="sv-mem"/>' + pages(30, 56, c.page)
-      + txt(30, 50, 'k_cache · paged', 'sv-strong') + txt(30, 75, '页 = ' + c.page + ' 行', 'sv-label'));
-    s += region('gm-vcache', '<rect x="170" y="36" width="138" height="44" class="sv-mem"/>' + pages(176, 56, c.page)
-      + txt(176, 50, 'v_cache · paged', 'sv-strong') + txt(176, 75, '页 = ' + c.page + ' 行', 'sv-label'));
-    s += region('gm-table', '<rect x="316" y="36" width="124" height="44" class="sv-mem"/>'
-      + txt(322, 50, 'block / work table', 'sv-strong') + txt(322, 68, k.blocks + ' 真实块', 'sv-text'));
-    s += region('gm-out', '<rect x="448" y="36" width="128" height="44" class="sv-mem"/>'
-      + txt(454, 50, 'all_oi_tmp', 'sv-strong') + txt(454, 68, 'mi / li · 部分结果', 'sv-text'));
+    s += '<rect x="12" y="8" width="696" height="74" class="sv-frame"/>' + txt(24, 25, 'GM · HBM', 'sv-title');
+    s += region('gm-kcache', '<rect x="24" y="32" width="150" height="42" class="sv-mem"/>' + pages(30, 52, c.page)
+      + txt(30, 46, 'k_cache · paged', 'sv-strong') + txt(30, 70, '页 = ' + c.page + ' 行', 'sv-label'));
+    s += region('gm-vcache', '<rect x="182" y="32" width="150" height="42" class="sv-mem"/>' + pages(188, 52, c.page)
+      + txt(188, 46, 'v_cache · paged', 'sv-strong') + txt(188, 70, '页 = ' + c.page + ' 行', 'sv-label'));
+    s += region('gm-table', '<rect x="340" y="32" width="170" height="42" class="sv-mem"/>'
+      + txt(346, 46, 'block / work table', 'sv-strong') + txt(346, 64, k.blocks + ' 个真实块', 'sv-text'));
+    s += region('gm-out', '<rect x="518" y="32" width="178" height="42" class="sv-mem"/>'
+      + txt(524, 46, 'all_oi_tmp / mi / li', 'sv-strong') + txt(524, 64, '每块的部分结果', 'sv-text'));
 
     // block 外框
-    s += '<rect x="12" y="104" width="576" height="390" class="sv-frame"/>'
-      + txt(576, 122, 'FA_FUSED · 1 个 BLOCK（共 ' + NUM_CORES + ' 个，地址分配相同）', 'sv-title', 'end');
+    s += '<rect x="12" y="92" width="584" height="370" class="sv-frame"/>'
+      + txt(588, 108, 'FA_FUSED · 1 个 BLOCK', 'sv-title', 'end');
 
     // AIC
-    s += region('aic', '<rect x="24" y="132" width="250" height="350" class="sv-box"/>' + txt(36, 150, 'AIC · CUBE', 'sv-title'));
-    s += '<rect x="36" y="160" width="226" height="30" class="sv-dimmem"/>' + txt(44, 179, 'L1 · Mat', 'sv-label') + txt(254, 179, '本例未建模', 'sv-label', 'end');
-    s += region('l0a', '<rect x="36" y="202" width="106" height="66" class="sv-mem"/>' + txt(44, 218, 'L0A · LEFT', 'sv-label')
-      + '<rect x="44" y="226" width="' + (90 * 4 / 64) + '" height="8" class="sv-fill-lime"/>'
-      + txt(44, 250, 'q_padded', 'sv-strong') + txt(44, 262, '[16,128] · 4 KB', 'sv-text'));
+    s += region('aic', '<rect x="24" y="116" width="262" height="336" class="sv-box"/>' + txt(36, 134, 'AIC · CUBE', 'sv-title'));
+    s += '<rect x="36" y="142" width="238" height="28" class="sv-dimmem"/>' + txt(44, 160, 'L1 · Mat', 'sv-label') + txt(266, 160, '本例未建模', 'sv-label', 'end');
+    s += region('l0a', '<rect x="36" y="180" width="112" height="62" class="sv-mem"/>' + txt(44, 195, 'L0A · LEFT', 'sv-label')
+      + '<rect x="44" y="202" width="' + (96 * 4 / 64) + '" height="7" class="sv-fill-lime"/>'
+      + txt(44, 224, 'q_padded', 'sv-strong') + txt(44, 236, '[16,128] · 4 KB', 'sv-text'));
     const l0bRatio = Math.min(1, k.kDB / L0B_CAP);
-    s += region('l0b', '<rect x="150" y="202" width="112" height="66" class="sv-mem"/>' + txt(158, 218, 'L0B · RIGHT', 'sv-label')
-      + '<rect x="158" y="226" width="96" height="8" fill="#262626"/>'
-      + '<rect x="158" y="226" width="' + (96 * l0bRatio) + '" height="8" class="' + (k.kDB > L0B_CAP * 0.75 ? 'sv-fill-warn' : 'sv-fill-lav') + '"/>'
-      + txt(158, 250, 'K / V 双缓冲', 'sv-strong') + txt(158, 262, kb(k.kDB) + ' / 64 KB 估算', 'sv-text'));
-    s += region('cube', '<rect x="36" y="282" width="226" height="70" class="sv-mem"/>' + txt(44, 298, 'CUBE', 'sv-label')
-      + txt(44, 318, 'QK  [16,128] × [128,' + c.seq + ']', 'sv-strong') + txt(44, 338, 'SV  [16,' + c.seq + '] × [' + c.seq + ',128]', 'sv-strong'));
-    s += region('l0c', '<rect x="36" y="366" width="226" height="62" class="sv-mem"/>' + txt(44, 382, 'L0C · ACC', 'sv-label')
-      + '<rect x="44" y="390" width="' + Math.max(6, k.acc / 1024 * 3) + '" height="8" class="sv-fill-amber"/>'
-      + txt(44, 418, 'raw_scores ' + kb(k.acc) + ' · oi_tmp 8 KB', 'sv-text'));
-    s += txt(36, 468, 'Left / Acc 容量本页未建模', 'sv-label');
+    s += region('l0b', '<rect x="156" y="180" width="118" height="62" class="sv-mem"/>' + txt(164, 195, 'L0B · RIGHT', 'sv-label')
+      + '<rect x="164" y="202" width="102" height="7" fill="#262626"/>'
+      + '<rect x="164" y="202" width="' + (102 * l0bRatio) + '" height="7" class="' + (k.kDB > L0B_CAP * 0.75 ? 'sv-fill-warn' : 'sv-fill-lav') + '"/>'
+      + txt(164, 224, 'K / V 双缓冲', 'sv-strong') + txt(164, 236, kb(k.kDB) + ' / 64 KB 估算', 'sv-text'));
+    s += region('cube', '<rect x="36" y="252" width="238" height="62" class="sv-mem"/>' + txt(44, 267, 'CUBE', 'sv-label')
+      + txt(44, 286, 'QK  [16,128] × [128,' + c.seq + ']', 'sv-strong') + txt(44, 304, 'SV  [16,' + c.seq + '] × [' + c.seq + ',128]', 'sv-strong'));
+    s += region('l0c', '<rect x="36" y="324" width="238" height="56" class="sv-mem"/>' + txt(44, 339, 'L0C · ACC', 'sv-label')
+      + '<rect x="44" y="346" width="' + Math.max(6, k.acc / 1024 * 3) + '" height="7" class="sv-fill-amber"/>'
+      + txt(44, 370, 'raw_scores ' + kb(k.acc) + ' · oi_tmp 8 KB', 'sv-text'));
+    s += txt(36, 440, 'Left / Acc 容量本页未建模', 'sv-label');
 
     // GM → L1 → L0B 搬运
-    s += region('gm-kcache', '<path d="M96 80 V 97 H 180 V 158" class="sv-arrow"/>');
-    s += region('gm-vcache', '<path d="M240 80 V 158" class="sv-arrow"/>');
-    s += region('l0b', '<path d="M206 190 V 200" class="sv-arrow"/>');
+    s += region('gm-kcache', '<path d="M99 74 V 87 H 190 V 140" class="sv-arrow"/>');
+    s += region('gm-vcache', '<path d="M257 74 V 140" class="sv-arrow"/>');
+    s += region('l0b', '<path d="M215 170 V 178" class="sv-arrow"/>');
 
     // C2V / V2C
-    s += region('ch-c2v', '<rect x="276" y="290" width="58" height="26" class="sv-hit"/><path d="M276 302 H 334" class="sv-arrow"/>' + txt(305, 296, 'C2V', 'sv-label', 'middle'));
-    s += region('ch-v2c', '<rect x="276" y="320" width="58" height="26" class="sv-hit"/><path d="M334 336 H 276" class="sv-arrow"/>' + txt(305, 350, 'V2C', 'sv-label', 'middle'));
+    s += region('ch-c2v', '<rect x="288" y="268" width="60" height="24" class="sv-hit"/><path d="M288 282 H 348" class="sv-arrow"/>' + txt(318, 276, 'C2V', 'sv-label', 'middle'));
+    s += region('ch-v2c', '<rect x="288" y="298" width="60" height="24" class="sv-hit"/><path d="M348 312 H 288" class="sv-arrow"/>' + txt(318, 326, 'V2C', 'sv-label', 'middle'));
 
     // AIV
-    s += region('aiv', '<rect x="336" y="132" width="240" height="350" class="sv-box"/>' + txt(348, 150, 'AIV · VECTOR', 'sv-title'));
+    s += region('aiv', '<rect x="350" y="116" width="236" height="336" class="sv-box"/>' + txt(362, 134, 'AIV · VECTOR', 'sv-title'));
     s += ubSvg(k, ref, bad);
 
     // 核阵列
-    s += region('cores', '<rect x="12" y="504" width="576" height="94" class="sv-hit"/>'
-      + txt(24, 522, 'PL.SPMD × ' + NUM_CORES, 'sv-title')
-      + txt(588 - 12, 522, bad ? '同一份越界分配 × ' + NUM_CORES : '同一份 Vec 分配 × ' + NUM_CORES, bad ? 'sv-text sv-bad' : 'sv-label', 'end')
+    s += region('cores', '<rect x="604" y="92" width="104" height="370" class="sv-hitframe"/>'
+      + txt(612, 108, 'PL.SPMD × ' + NUM_CORES, 'sv-title')
       + '<g class="sv-cores' + (bad ? ' is-bad' : '') + '">' + cores() + '</g>'
-      + txt(24, 590, 'grid-stride：' + k.blocks + ' 个真实块 → ' + NUM_CORES + ' 个 block', 'sv-label'));
+      + txt(612, 286, bad ? '同一份越界' : '同一份 Vec', bad ? 'sv-text sv-bad' : 'sv-text')
+      + txt(612, 300, '分配 × ' + NUM_CORES, bad ? 'sv-text sv-bad' : 'sv-text')
+      + txt(612, 326, 'grid-stride', 'sv-label')
+      + txt(612, 340, k.blocks + ' 个真实块', 'sv-label')
+      + txt(612, 354, '→ ' + NUM_CORES + ' 个 block', 'sv-label')
+      + txt(612, 380, '每格一个 block', 'sv-label'));
     s += '</svg>';
     document.getElementById('hpSvg').innerHTML = s;
     document.getElementById('hpChipMeta').textContent = state.preview
@@ -411,16 +514,17 @@
 
   function pages(x, y, page) {
     const n = 128 / page * 4;      // 同一段长度里画出的页数随页大小变化
-    const w = 120 / n;
+    const w = 128 / n;
     let out = '';
-    for (let i = 0; i < n; i++) out += '<rect x="' + (x + i * w) + '" y="' + y + '" width="' + (w - 2) + '" height="8" class="sv-fill-lav" opacity=".75"/>';
+    for (let i = 0; i < n; i++) out += '<rect x="' + (x + i * w) + '" y="' + y + '" width="' + (w - 2) + '" height="7" class="sv-fill-lav" opacity=".75"/>';
     return out;
   }
 
   function cores() {
     let out = '';
-    for (let i = 0; i < NUM_CORES; i++) out += '<rect x="' + (24 + i * 23.4) + '" y="534" width="19" height="19" rx="2" class="sv-core"/>';
-    out += txt(24, 572, '每格为一个 block，同一份 AIC / AIV 片上分配', 'sv-label');
+    for (let i = 0; i < NUM_CORES; i++) {
+      out += '<rect x="' + (614 + (i % 4) * 22) + '" y="' + (120 + Math.floor(i / 4) * 24) + '" width="17" height="17" rx="2" class="sv-core"/>';
+    }
     return out;
   }
 
@@ -471,7 +575,7 @@
       const y1 = insetY(Math.min(r.hi, INSET.hi)), y2 = insetY(Math.max(r.lo, INSET.lo));
       s += '<rect x="' + (INSET.x + 1) + '" y="' + y1 + '" width="' + (INSET.w - 2) + '" height="' + Math.max(1.5, y2 - y1) + '" class="sv-buf ' + bufClass(r)
         + '" data-buf="' + r.id + '" data-stage="' + r.stage + '"/>';
-      if (y2 - y1 > 11) s += txt(INSET.x + 5, (y1 + y2) / 2 + 3, shortName(r) , 'sv-text');
+      if (y2 - y1 > 11) s += txt(INSET.x + 5, (y1 + y2) / 2 + 3, shortName(r), 'sv-text');
     });
     s += '<rect x="' + INSET.x + '" y="' + INSET.top + '" width="' + INSET.w + '" height="' + (insetY(UB_USABLE) - INSET.top) + '" class="sv-reserved" opacity=".75"/>';
     if (k.hw > UB_USABLE) {
@@ -493,46 +597,67 @@
 
   function shortName(r) {
     if (r.id === 'carry') return '常驻';
-    const b = BUFS.filter(function (x) { return x.id === r.id; })[0];
-    return 's' + r.stage + ' ' + b.name.replace('row_expand_sub 临时量', 'rexp_tmp');
+    return 's' + r.stage + ' ' + bufById(r.id).name.replace('row_expand_sub 临时量', 'rexp_tmp');
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 选中 / 悬停：代码行 ⇄ 硅片区域 ⇄ Vec 缓冲
+  // 焦点：源码行 ⇄ 逻辑节点 ⇄ 硅片区域 ⇄ Vec 缓冲
   // ════════════════════════════════════════════════════════════════════════════
-  function stepFocus(k) {
-    if (state.step === 1) return { lines: [764], regions: ['ub'], bufs: [] };
-    if (state.step === 2) return { lines: [775, 781, 782, 783, 784, 785, 786], regions: [], bufs: BUFS.map(function (b) { return b.id; }) };
+  function fromNodes(ids) {
+    const f = { lines: [], regions: [], bufs: [], nodes: ids.slice() };
+    ids.forEach(function (id) {
+      const n = nodeById(id);
+      f.lines = f.lines.concat(n.lines);
+      f.regions = f.regions.concat(n.regions || []);
+      f.bufs = f.bufs.concat(n.bufs || []);
+    });
+    return f;
+  }
+
+  function sectionFocus(k) {
+    if (state.step === 1) return fromNodes(['f-pipe']);
+    if (state.step === 2) {
+      const f = fromNodes(SOFTMAX_NODES);
+      f.regions = [];
+      return f;
+    }
     if (state.step === 3 && k.intruders.length) {
       const ids = k.intruders.map(function (r) { return r.id; });
-      const lines = BUFS.filter(function (b) { return ids.indexOf(b.id) >= 0; }).map(function (b) { return b.line; });
-      return { lines: lines.concat([764]), regions: ['cores'], bufs: ids };
+      const nodes = nodesWhere(function (n) { return !n.frame && (n.bufs || []).some(function (b) { return ids.indexOf(b) >= 0; }); });
+      const f = fromNodes(nodes);
+      f.bufs = ids;
+      f.lines.push(764);
+      f.regions = ['cores'];
+      return f;
     }
-    return { lines: [], regions: [], bufs: [] };
+    return { lines: [], regions: [], bufs: [], nodes: [] };
   }
 
   function focusFor(h) {
     if (!h) return null;
-    if (h.type === 'line') {
-      const m = LINE_MAP[h.no] || {};
-      let bufs = m.bufs === 'all' ? BUFS.map(function (b) { return b.id; }) : (m.bufs || []).slice();
-      if (state.cfg.reuse && (h.no === 781 || h.no === 782)) bufs = ['scores_scaled'];
-      return { lines: [h.no], regions: m.regions || [], bufs: bufs };
+    let f;
+    if (h.type === 'node') f = fromNodes([h.id]);
+    else if (h.type === 'line') {
+      f = fromNodes(nodesWhere(function (n) { return n.lines.indexOf(h.no) >= 0; }));
+      f.lines = [h.no];
+    } else if (h.type === 'buf') {
+      if (h.id === 'carry') return { lines: [], regions: ['ub'], bufs: ['carry'], nodes: ['f-pipe'] };
+      f = fromNodes(nodesWhere(function (n) { return !n.frame && (n.bufs || []).indexOf(h.id) >= 0; }));
+      f.bufs = [h.id];
+      f.regions = [];
+    } else {
+      f = fromNodes(nodesWhere(function (n) { return (n.regions || []).indexOf(h.id) >= 0; }));
+      f.regions = [h.id];
+      if (h.id !== 'ub') f.bufs = [];
     }
-    if (h.type === 'buf') {
-      const b = BUFS.filter(function (x) { return x.id === h.id; })[0];
-      if (!b) return { lines: [], regions: ['ub'], bufs: [] };
-      const lines = [b.line];
-      if (state.cfg.reuse && b.id === 'scores_scaled') lines.push(781, 782);
-      return { lines: lines, regions: [], bufs: [b.id] };
-    }
-    const id = h.id;
-    return { lines: REGION_LINES[id] || [], regions: [id], bufs: id === 'ub' ? BUFS.map(function (b) { return b.id; }) : [] };
+    // 复用方案下，被省掉的两块指向 scores_scaled
+    if (state.cfg.reuse) f.bufs = f.bufs.map(function (b) { return bufById(b) && bufById(b).alias ? 'scores_scaled' : b; });
+    return f;
   }
 
   function applyFocus() {
     const k = shown();
-    const f = focusFor(state.hover) || stepFocus(k);
+    const f = focusFor(state.hover) || sectionFocus(k);
     document.querySelectorAll('.cl').forEach(function (el) {
       el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0);
     });
@@ -544,6 +669,9 @@
     document.querySelectorAll('.sv-buf').forEach(function (el) {
       el.classList.toggle('is-hot', f.bufs.indexOf(el.dataset.buf) >= 0);
     });
+    document.querySelectorAll('.lg-hit').forEach(function (el) {
+      el.classList.toggle('is-hot', f.nodes.indexOf(el.dataset.node) >= 0);
+    });
     document.querySelectorAll('.map-table tr[data-line]').forEach(function (el) {
       el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0);
     });
@@ -553,17 +681,21 @@
   function renderCaption(k) {
     const h = state.hover;
     let key = '', body = '';
-    if (h && h.type === 'line') { key = 'line ' + h.no + ' → 硅片'; body = lineCaption(h.no, k); }
-    else if (h && h.type === 'buf') {
-      const b = BUFS.filter(function (x) { return x.id === h.id; })[0];
-      if (b) { key = 'Vec 缓冲 → line ' + b.line; body = lineCaption(b.line, k); }
-      else { key = 'Vec 常驻区'; body = '常驻区 ' + kb(k.carry) + '：沿用 Lens 的估算口径（o_i / m_i / l_i），跨级不复制。'; }
-    } else if (h && h.type === 'region') { key = '硅片 → line ' + (REGION_LINES[h.id] || []).join(' / '); body = regionCaption(h.id, k); }
+    if (h && h.type === 'line') { key = 'line ' + h.no + ' → 逻辑 · 硅片'; body = lineCaption(h.no, k); }
+    else if (h && h.type === 'node') {
+      const n = nodeById(h.id);
+      key = '逻辑 → line ' + n.lines[0] + (n.lines.length > 1 ? '–' + n.lines[n.lines.length - 1] : '') + ' · 硅片';
+      body = nodeCaption(h.id, k);
+    } else if (h && h.type === 'buf') {
+      const b = bufById(h.id);
+      if (b) { key = 'Vec 缓冲 → 逻辑 · line ' + b.line; body = lineCaption(b.line, k); }
+      else { key = 'Vec 常驻区'; body = '常驻区 ' + kb(k.carry) + '：沿用 Lens 的估算口径（o_i / m_i / l_i），不随 stage 复制。'; }
+    } else if (h && h.type === 'region') { key = '硅片 → 逻辑 · line ' + (nodesWhere(function (n) { return (n.regions || []).indexOf(h.id) >= 0; }).map(function (id) { return nodeById(id).lines[0]; }).join(' / ') || '—'); body = regionCaption(h.id, k); }
     if (!body) {
-      key = '悬停源码行或硅片区域，查看对应关系';
+      key = '悬停源码行、逻辑节点或硅片区域，三处会一起亮起';
       if (k.verdict === 'silent') {
         body = '落进保留区的是 <b>stage ' + (k.stage - 1) + '</b> 的 ' + k.intruders.map(function (r) {
-          return '<code>' + (BUFS.filter(function (b) { return b.id === r.id; })[0] || {}).name + '</code>';
+          return '<code>' + (bufById(r.id) || {}).name + '</code>';
         }).join('、') + '：都在最高地址，正好对上“只有最高地址的 tile 出 NaN”。';
       } else body = regionCaption('ub', k);
     }
@@ -571,68 +703,68 @@
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 右栏：每一步的叙事
+  // 右栏：五个可折叠章节，标题行实时给出结论
   // ════════════════════════════════════════════════════════════════════════════
   function meter(k) {
-    const cls = k.verdict === 'silent' || k.verdict === 'compile' ? 'is-bad' : (k.verdict === 'tight' ? 'is-warn' : 'is-good');
+    const cls = k.bad ? 'is-bad' : (k.verdict === 'tight' ? 'is-warn' : 'is-good');
     return '<div class="meter"><span class="meter-k">Vec(UB) 高水位</span><span class="meter-v ' + cls + '">' + kb(k.hw)
       + ' <small>/ 184 KB 可用</small></span><div class="meter-bar"><span style="width:' + Math.min(100, k.hw / UB_NOMINAL * 100) + '%;'
-      + (cls === 'is-bad' ? 'background:var(--red)' : '') + '"></span><i style="left:' + (UB_USABLE / UB_NOMINAL * 100) + '%"></i><em style="left:100%"></em></div></div>';
+      + (cls === 'is-bad' ? 'background:var(--red)' : '') + '"></span><i style="left:' + (UB_USABLE / UB_NOMINAL * 100) + '%"></i><em style="left:calc(100% - 1px)"></em></div></div>';
+  }
+  function next(n, label) {
+    return '<button class="btn btn-primary" type="button" data-act="open" data-step="' + n + '">' + label + '</button>';
   }
 
-  function story1() {
-    const k = current(), base = calc(BASE), changed = calc(CHANGED);
-    return '<p class="st-k">01 · 改动</p>'
-      + '<h2 class="st-h">你只改了一个调度参数：<br><code>stage</code> 2 → 4</h2>'
+  function body1() {
+    const base = calc(BASE), changed = calc(CHANGED), isChanged = same(state.cfg, CHANGED);
+    return '<h2 class="st-h">你只改了一个调度参数：<code>stage</code> 2 → 4</h2>'
       + '<p class="st-p">目的是让第 i+1 个头的 QK（AIC）与第 i 个头的 softmax（AIV）多重叠几轮。'
       + '在源码层面，这个改动<b>不改语义、不改数值</b>，读代码看不出任何风险。</p>'
-      + '<p class="st-p">在源码 <code>764</code> 行直接点 stage 的值，或用下面的按钮。右边的 Vec 地址条会跟着长高。</p>'
-      + meter(k)
+      + '<p class="st-p">在源码 <code>764</code> 行直接点 stage 的值，或用下面的按钮。逻辑图里 softmax 段会多叠几层，Vec 地址条会跟着长高。</p>'
+      + meter(current())
       + '<div class="st-actions">'
-      + (same(state.cfg, CHANGED) ? '' : '<button class="btn btn-primary" type="button" data-act="apply-changed">把 stage 改成 4</button>')
-      + '<button class="btn' + (same(state.cfg, CHANGED) ? ' btn-primary' : '') + '" type="button" data-act="go" data-step="2">下一步：它落在哪里</button>'
+      + (isChanged ? '' : '<button class="btn btn-primary" type="button" data-act="apply-changed">把 stage 改成 4</button>')
+      + (isChanged ? next(2, '展开：它落在哪里') : '<button class="btn" type="button" data-act="open" data-step="2">展开：它落在哪里</button>')
       + '</div>'
       + '<p class="note">stage 2：' + kb(base.hw) + ' · stage 4：' + kb(changed.hw) + '。数值按每个中间量各占一块估算，与 Lens 工作台口径一致。</p>';
   }
 
-  function story2() {
+  function body2() {
     const k = current(), c = state.cfg;
     const rows = BUFS.map(function (b) {
       const size = bufSize(b, c);
       return '<tr data-line="' + b.line + '"><td>' + b.line + '</td><td><code>' + b.name + '</code></td><td class="num">'
         + (size ? bytes(size) : '复用') + '</td><td class="num">' + (size ? bytes(size * k.stage) : '—') + '</td></tr>';
     }).join('');
-    return '<p class="st-k">02 · 落点</p>'
-      + '<h2 class="st-h">stage 不是循环参数。它在 Vec 里把整条 softmax 链复制了 ' + k.stage + ' 份。</h2>'
-      + '<p class="st-p">这 7 行源码各自产生一个中间量，全部落在 AIV 的 Vec(UB) 上。每多驻留一级，就多一份 <b>' + kb(k.per) + '</b>。'
-      + '悬停表格行或源码行，右边对应的缓冲会在每一级同时亮起。</p>'
+    return '<h2 class="st-h">stage 不是循环参数。它在 Vec 里把整条 softmax 链复制了 ' + k.stage + ' 份。</h2>'
+      + '<p class="st-p">逻辑图里：pipeline 让相邻 ' + k.stage + ' 个头同时在飞，② 段因此叠成 ' + k.stage + ' 层。'
+      + '硅片上：这 7 行源码的中间量全部落在 AIV 的 Vec(UB)，每多一级就多一份 <b>' + kb(k.per) + '</b>。</p>'
       + '<table class="map-table"><thead><tr><th>行</th><th>中间量</th><th>每级</th><th>× ' + k.stage + ' 级</th></tr></thead><tbody>' + rows
       + '</tbody><tfoot><tr><td></td><td>+ 常驻区</td><td class="num"></td><td class="num">' + kb(k.carry) + '</td></tr>'
       + '<tr><td></td><td>高水位</td><td class="num"></td><td class="num">' + kb(k.hw) + '</td></tr></tfoot></table>'
-      + '<p class="note">QK / SV 的操作数在 AIC 一侧（L0A / L0B / L0C），不随 stage 复制；这条路的压力只在 Vec。</p>'
-      + '<div class="st-actions"><button class="btn btn-primary" type="button" data-act="go" data-step="3">下一步：硬件怎么判</button></div>';
+      + '<p class="note">① 打分和 ③ 加权求和的操作数在 AIC 一侧（L0A / L0B / L0C），不随 stage 复制；这条路的压力只在 Vec。</p>'
+      + '<div class="st-actions">' + next(3, '展开：硬件怎么判') + '</div>';
   }
 
-  function story3() {
+  function body3() {
     const k = current();
-    const head = '<p class="st-k">03 · 裁决</p>';
     const thresholds = '<div class="thresholds">'
       + '<div class="th-row is-hw"><span>本配置高水位</span><b class="' + (k.hw > UB_USABLE ? 'is-bad' : 'is-good') + '">' + kb(k.hw) + '</b></div>'
       + '<div class="th-row"><span>实际可用</span><b class="is-bad">184 KB</b><small>顶部约 8 KB 被运行时保留（ReserveBufferOp / pipe init）· pto-isa#170 · a2a3；随平台与 CANN 版本变化</small></div>'
       + '<div class="th-row"><span>分配器预算</span><b>192 KB</b><small>上游分配器按名义容量放行</small></div>'
       + '</div>';
     if (k.verdict !== 'silent') {
-      return head + '<h2 class="st-h">' + (k.verdict === 'compile' ? '超过名义容量，分配器会直接报错' : '当前配置没有越过保留区') + '</h2>'
+      return '<h2 class="st-h">' + (k.verdict === 'compile' ? '超过名义容量，分配器会直接报错' : '当前配置没有越过保留区') + '</h2>'
         + thresholds
         + '<div class="callout ' + (k.verdict === 'compile' ? '' : 'is-ok') + '">'
         + (k.verdict === 'compile' ? '这是能看见的失败：编译期就报出来。' : '距 184 KB 边界还有 ' + bytes(UB_USABLE - k.hw) + '。')
         + '</div>'
-        + (same(state.cfg, BASE) ? '<div class="st-actions"><button class="btn btn-primary" type="button" data-act="apply-changed">回到第 1 步的改动：stage = 4</button></div>' : '')
-        + '<div class="st-actions"><button class="btn" type="button" data-act="go" data-step="5">去复查</button></div>';
+        + '<div class="st-actions">'
+        + (same(state.cfg, BASE) ? '<button class="btn btn-primary" type="button" data-act="apply-changed">套用改动：stage = 4</button>' : '')
+        + '<button class="btn" type="button" data-act="open" data-step="5">展开复查</button></div>';
     }
-    const names = k.intruders.map(function (r) { return (BUFS.filter(function (b) { return b.id === r.id; })[0] || {}).name; });
-    return head
-      + '<h2 class="st-h">越过实际可用线 ' + bytes(k.hw - UB_USABLE) + '，但离分配器预算还有 ' + bytes(UB_NOMINAL - k.hw) + '：<span class="is-bad">没有任何一环会报错</span></h2>'
+    const names = k.intruders.map(function (r) { return (bufById(r.id) || {}).name; });
+    return '<h2 class="st-h">越过实际可用线 ' + bytes(k.hw - UB_USABLE) + '，但离分配器预算还有 ' + bytes(UB_NOMINAL - k.hw) + '：<span class="is-bad">没有任何一环会报错</span></h2>'
       + thresholds
       + '<p class="st-sec">如果没有在编码期拦下</p>'
       + '<ol class="timeline">'
@@ -644,10 +776,10 @@
       + '</ol>'
       + '<div class="callout">' + NUM_CORES + ' 个 block 共用同一份地址分配，所以这不是个别核偶发的问题。</div>'
       + '<p class="note">依据：<a href="' + ISSUE_URL + '" target="_blank" rel="noopener noreferrer">pto-isa#170</a>。时间线描述的是该 Issue 的失效方式，本页没有对这份源码做编译或上板。</p>'
-      + '<div class="st-actions"><button class="btn btn-primary" type="button" data-act="go" data-step="4">下一步：怎么改</button></div>';
+      + '<div class="st-actions">' + next(4, '展开：怎么改') + '</div>';
   }
 
-  function story4() {
+  function body4() {
     const chosen = chosenKey(state.cfg);
     const cards = Object.keys(OPTIONS).map(function (key) {
       const o = OPTIONS[key], k = calc(o.cfg);
@@ -661,19 +793,18 @@
         + '<button class="btn' + (chosen === key ? '' : ' btn-primary') + '" type="button" data-act="choose" data-opt="' + key + '">'
         + (chosen === key ? '已采用' : '采用并复查') + '</button></div></div>';
     }).join('');
-    return '<p class="st-k">04 · 改法</p>'
-      + '<h2 class="st-h">三种改法都能回到 184 KB 以内，但压力会被推到不同地方</h2>'
-      + '<p class="st-p">悬停卡片，在右边预览这个方案的地址条；虚线是当前配置的高水位。</p>'
+    return '<h2 class="st-h">三种改法都能回到 184 KB 以内，但压力会被推到不同地方</h2>'
+      + '<p class="st-p">悬停卡片，逻辑图和地址条会切到这个方案的样子；地址条上的虚线是当前配置的高水位。</p>'
       + cards
       + '<p class="note">本页不推荐唯一答案：A 的代价要 profiling 才知道，B 要动运行时，C 要编译产物证明。</p>';
   }
 
-  function story5() {
+  function body5() {
     const k = current(), before = calc(CHANGED), key = chosenKey(state.cfg);
-    if (k.verdict === 'silent' || k.verdict === 'compile') {
-      return '<p class="st-k">05 · 复查</p><h2 class="st-h">当前配置仍然越界</h2>'
+    if (k.bad) {
+      return '<h2 class="st-h">当前配置仍然越界</h2>'
         + '<div class="callout">高水位 ' + kb(k.hw) + '，超过 184 KB。先选一种改法。</div>'
-        + '<div class="st-actions"><button class="btn btn-primary" type="button" data-act="go" data-step="4">回到改法</button></div>';
+        + '<div class="st-actions">' + next(4, '展开改法') + '</div>';
     }
     function row(name, a, b, cls, ev, evText) {
       return '<tr><td>' + name + '</td><td class="v">' + a + '</td><td class="v ' + (cls || '') + '">' + b + '</td><td><span class="ev ' + ev + '">' + evText + '</span></td></tr>';
@@ -691,29 +822,46 @@
       'Profiling 对比 stage 2 / 3 / 4 的 fa_fused 耗时，确认改法没把收益吃掉'];
     if (state.cfg.page !== BASE.page) checks.push('运行时 KV 分页同步改为 ' + state.cfg.page + '，并核对其它层与 block_table 生成');
     if (state.cfg.reuse) checks.push('编译产物中 scores_valid / scores 确实复用 scores_scaled 的地址');
-    return '<p class="st-k">05 · 复查</p>'
-      + '<h2 class="st-h">回到了 184 KB 以内。再看压力被推到了哪里</h2>'
+    return '<h2 class="st-h">回到了 184 KB 以内。再看压力被推到了哪里</h2>'
       + meter(k) + table
       + '<p class="st-sec">本页能证明的到此为止，接下来要看</p>'
       + '<ul class="checklist">' + checks.map(function (t) { return '<li><span>' + t + '</span></li>'; }).join('') + '</ul>'
-      + '<div class="st-actions"><button class="btn" type="button" data-act="go" data-step="4">换个方案</button>'
+      + '<div class="st-actions"><button class="btn" type="button" data-act="open" data-step="4">换个方案</button>'
       + '<button class="btn" type="button" data-act="reset">从头再走一遍</button></div>';
   }
 
-  function renderStory() {
-    const fn = [story1, story2, story3, story4, story5][state.step - 1];
-    document.getElementById('hpStory').innerHTML = fn();
+  // 每章标题行上的实时结论：收起时也能看到这条路走到了哪里
+  function sectionSummary(n, k) {
+    const c = state.cfg, key = chosenKey(c);
+    if (n === 1) return c.stage === BASE.stage ? { t: '未改动 · stage=' + c.stage } : { t: 'stage ' + BASE.stage + ' → ' + c.stage, cls: 'is-warn' };
+    if (n === 2) return { t: 'softmax 链 × ' + k.stage + ' · ' + kb(k.per * k.stage) };
+    if (n === 3) {
+      if (k.verdict === 'silent') return { t: '越界 ' + bytes(k.hw - UB_USABLE) + ' · 无报错', cls: 'is-bad' };
+      if (k.verdict === 'compile') return { t: '超过 192 KB · 编译报错', cls: 'is-bad' };
+      return { t: '余量 ' + bytes(UB_USABLE - k.hw), cls: 'is-good' };
+    }
+    if (n === 4) return key ? { t: '已采用 ' + key + ' · ' + OPTIONS[key].title, cls: 'is-good' } : { t: '3 个方案' };
+    if (k.bad) return { t: '仍越界' , cls: 'is-bad' };
+    return same(c, BASE) ? { t: '—' } : { t: '待编译产物 / 上板确认', cls: 'is-warn' };
   }
 
-  function renderSteps() {
+  function renderStory() {
     const k = current();
-    document.getElementById('hpSteps').innerHTML = STEPS.map(function (s, i) {
-      const n = i + 1;
-      const cls = ['hp-step', n === state.step ? 'is-active' : '', n < state.step ? 'is-done' : '',
-        n === 3 && k.verdict === 'silent' ? 'is-alert' : ''].join(' ');
-      return '<button type="button" class="' + cls + '" data-act="go" data-step="' + n + '"' + (n === state.step ? ' aria-current="step"' : '') + '>'
-        + '<span class="hp-step-no">0' + n + '</span><span class="hp-step-name">' + s.name + '</span><span class="hp-step-line">' + s.line + '</span></button>';
+    const bodies = [body1, body2, body3, body4, body5];
+    const html = SECTIONS.map(function (sec, i) {
+      const n = i + 1, open = state.step === n, sum = sectionSummary(n, k);
+      return '<section class="sec' + (open ? ' is-open' : '') + '" data-sec="' + n + '">'
+        + '<button class="sec-head" type="button" data-act="toggle" data-step="' + n + '" aria-expanded="' + open + '" aria-controls="sec-body-' + n + '">'
+        + '<span class="sec-no">0' + n + '</span>'
+        + '<span class="sec-name">' + sec.name + '</span>'
+        + '<span class="sec-q">' + sec.q + '</span>'
+        + '<span class="sec-sum ' + (sum.cls || '') + '">' + sum.t + '</span>'
+        + '<span class="sec-chev" aria-hidden="true"></span>'
+        + '</button>'
+        + (open ? '<div class="sec-body" id="sec-body-' + n + '">' + bodies[i]() + '</div>' : '')
+        + '</section>';
     }).join('');
+    document.getElementById('hpStory').innerHTML = html;
   }
 
   function renderStatus() {
@@ -734,7 +882,16 @@
   }
 
   function render() {
-    renderSteps(); renderCode(); renderSvg(); renderStory(); renderStatus(); applyFocus();
+    renderCode(); renderLogic(); renderSvg(); renderStory(); renderStatus(); applyFocus();
+  }
+
+  function openSection(n, scroll) {
+    state.step = n; state.preview = null; state.hover = null;
+    render();
+    if (scroll && n) {
+      const el = document.querySelector('.sec[data-sec="' + n + '"]');
+      if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -748,29 +905,35 @@
     const act = e.target.closest('[data-act]');
     if (!act) return;
     const a = act.dataset.act;
-    if (a === 'go') { state.step = Number(act.dataset.step); state.preview = null; state.hover = null; render(); }
+    if (a === 'toggle') { const n = Number(act.dataset.step); openSection(state.step === n ? 0 : n, false); }
+    else if (a === 'open') { openSection(Number(act.dataset.step), true); }
     else if (a === 'apply-changed') { setCfg(CHANGED); }
     else if (a === 'choose') { state.step = 5; setCfg(OPTIONS[act.dataset.opt].cfg); }
     else if (a === 'reset') { state.step = 1; state.hover = null; setCfg(BASE); }
   });
   document.getElementById('hpReset').addEventListener('click', function () { state.step = 1; state.hover = null; setCfg(BASE); });
 
-  // 悬停：代码行、表格行、硅片区域、Vec 缓冲
+  // 悬停：代码行、表格行、逻辑节点、硅片区域、Vec 缓冲
+  function hoverFrom(target) {
+    const buf = target.closest('.sv-buf');
+    if (buf) return { type: 'buf', id: buf.dataset.buf };
+    const reg = target.closest('.sv-region');
+    if (reg) return { type: 'region', id: reg.dataset.region };
+    const node = target.closest('.lg-hit');
+    if (node) return { type: 'node', id: node.dataset.node };
+    const line = target.closest('.cl.is-mapped, .map-table tr[data-line]');
+    if (line) return { type: 'line', no: Number(line.dataset.line) };
+    return null;
+  }
   document.addEventListener('mouseover', function (e) {
-    let h = null;
-    const buf = e.target.closest('.sv-buf');
-    const reg = e.target.closest('.sv-region');
-    const line = e.target.closest('.cl.is-mapped, .map-table tr[data-line]');
-    if (buf) h = { type: 'buf', id: buf.dataset.buf };
-    else if (reg) h = { type: 'region', id: reg.dataset.region };
-    else if (line) h = { type: 'line', no: Number(line.dataset.line) };
+    const h = hoverFrom(e.target);
     const opt = e.target.closest('.opt[data-opt]');
     const preview = opt ? opt.dataset.opt : null;
     const hChanged = JSON.stringify(h) !== JSON.stringify(state.hover);
     if (preview !== state.preview) {
       state.preview = preview;
       state.hover = h;
-      renderSvg();
+      renderLogic(); renderSvg();
       document.querySelectorAll('.opt').forEach(function (el) { el.classList.toggle('is-preview', el.dataset.opt === preview); });
       applyFocus();
     } else if (hChanged) {
@@ -780,7 +943,7 @@
   });
   document.addEventListener('focusin', function (e) {
     const opt = e.target.closest('.opt[data-opt]');
-    if (opt && opt.dataset.opt !== state.preview) { state.preview = opt.dataset.opt; renderSvg(); applyFocus(); }
+    if (opt && opt.dataset.opt !== state.preview) { state.preview = opt.dataset.opt; renderLogic(); renderSvg(); applyFocus(); }
   });
 
   render();
