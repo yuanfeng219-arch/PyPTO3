@@ -10,11 +10,15 @@
   <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css" />
-  <link rel="stylesheet" href="./styles/app.css?v=20261031-7" />
+  <link rel="stylesheet" href="./styles/app.css?v=20261031-10" />
   <link rel="stylesheet" href="./styles/reference-theme.css?v=20261031-1" />
+  <link rel="stylesheet" href="./styles/ai-infra-theme.css?v=20261031-24" />
+  <link rel="stylesheet" href="./styles/capacity-decision.css?v=2" />
+  <link rel="stylesheet" href="./styles/native-flow.css?v=2" />
 </head>
 <body>
-  <section class="pto-ide-frame" data-ide-frame data-host="standalone"
+  <div id="nativeFlow" class="nf-app" aria-label="硬件执行路径工作台"></div>
+  <section class="pto-ide-frame" data-ide-frame data-host="standalone" inert
            aria-label="Hardware-Native Lens · decode_layer 硬件语义工作台">
 
     <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
@@ -32,6 +36,7 @@
           <span class="hn-brand">HARDWARE-NATIVE LENS</span>
         </div>
         <button class="hn-topbtn" type="button" id="backOverview">总览</button>
+        <button class="hn-topbtn" type="button" id="openNativeFlow">执行路径</button>
       </div>
 
       <div class="pto-ide-frame__topbar-center">
@@ -87,7 +92,7 @@
               <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="hnExplorer">
                 <header class="pto-ide-frame__pane-header">
                   <span class="pto-ide-frame__pane-title">语义目录</span>
-                  <span class="pto-ide-frame__pane-meta">15 OBJECTS</span>
+                  <span class="pto-ide-frame__pane-meta" id="catalogCount"></span>
                 </header>
                 <div class="pto-ide-frame__pane-body hn-side">
                   <div class="hn-catalog" id="catalog"></div>
@@ -103,7 +108,15 @@
                 </div>
                 <div class="hn-editor-toolbar" aria-label="代码标注控制">
                   <span class="hn-editor-toolbar-label">代码标注</span>
+                  <button class="config-inline-toggle" type="button" data-config-inline aria-pressed="true" title="在源码引用处代入当前配置；关闭后显示变量名">配置代入</button>
                   <div class="hn-lens-panel" id="lensPanel" role="group" aria-label="显示或隐藏代码标注"></div>
+                </div>
+                <div class="issue-navigation" role="group" aria-label="真实 Issue 约束参考">
+                  <span>Issue 参考</span>
+                  <button type="button" data-issue-open="capacity" aria-expanded="false">Right buffer</button>
+                  <button type="button" data-issue-open="capability" aria-expanded="false">算子能力</button>
+                  <button type="button" data-issue-open="safety" aria-expanded="false">安全</button>
+                  <span>只读示例 · 非通用源码检查</span>
                 </div>
                 <div class="pto-ide-frame__pane-body hn-editor" id="editorBody" role="document"
                      aria-label="decode_layer.py 语义标注视图"></div>
@@ -143,9 +156,11 @@
 
   <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
-  <script src="./js/source-extra.js?v=20261031-6"></script>
-  <script src="./js/model.js?v=20261031-7"></script>
-  <script src="./js/viz.js?v=20261031-8"></script>
-  <script src="./js/app.js?v=20261031-9"></script>
+  <script src="./js/source-extra.js?v=20261031-7"></script>
+  <script src="./js/model.js?v=20261031-10"></script>
+  <script src="./js/ai-infra-visual-system.js?v=20261031-1"></script>
+  <script src="./js/viz.js?v=20261031-11"></script>
+  <script src="./js/app.js?v=20261031-35"></script>
+  <script src="./js/native-flow.js?v=2"></script>
 </body>
 </html>

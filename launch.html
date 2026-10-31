@@ -663,10 +663,22 @@
         status: "新增",
         version: "01 / HN Lens",
         updatedAt: "2026-10-31",
-        description: "IDE 内的单页设计：用 Qwen3-14B 的 decode_layer 算子，演示昇腾 Hardware-Native 体系的「可表达」与「约束前移」。编辑器里保留源码行号，在行内叠加四类语义标注——Tensor/Tile（形状、dtype、片上空间与字节数）、Scope（manual_scope 关闭 tensormap、pl.at 的 submit 粒度、嵌套 scope 色带）、并行请求（pl.parallel / pl.spmd 栅格 / pl.pipeline 重叠 / grid-stride 取号）、内部布局（Q_HEAD_PAD 填充与 set_validshape、paged KV 的逻辑块到物理页、split-K 切片与上一层 slab 的 1:1 对齐）。四个透镜可逐个收起。左栏目录、源码里的高亮符号与右栏约束行是同一个选中模型的三个入口：右栏一列到底，选中对象的详情与 SVG 可视化在上，9 条硬件约束的实时判定在下，选中对象时下方标出「相关约束 N / 9」并压暗其余；底部是 10 个硬件配置旋钮：改动 SEQ_TILE、QKV_OK、DOWN_TN、GP_SIZE 等任一项，源码里的形状、布局图与波浪线即时重算，约束状态在编码期就给出判定，不经编译、不上板。视觉语言参考 AI_Infra 的 demo（近黑灰阶 + lime/lavender/amber/sky 四色强调 + 单一告警红，等宽宽字距标签，浅底深字选中态）；代码按分词后的上下文着色，函数调用、函数定义、关键字实参、类型/dtype、常量、模块与属性分别取色。",
+        description: "IDE 内的单页设计：用 Qwen3-14B 的 decode_layer 算子，演示昇腾 Hardware-Native 体系的「可表达」与「约束前移」。编辑器里保留源码行号，在行内叠加四类语义标注——Tensor/Tile（形状、dtype、片上空间与字节数）、Scope（manual_scope 关闭 tensormap、pl.at 的 submit 粒度、嵌套 scope 色带）、并行请求（pl.parallel / pl.spmd 栅格 / pl.pipeline 重叠 / grid-stride 取号）、内部布局（Q_HEAD_PAD 填充与 set_validshape、paged KV 的逻辑块到物理页、split-K 切片与上一层 slab 的 1:1 对齐）。四个透镜可逐个收起。左栏目录、源码里的高亮符号与右栏约束行是同一个选中模型的三个入口：右栏一列到底，选中对象的详情与 SVG 可视化在上，10 条硬件约束的实时判定在下，选中对象时下方标出相关约束并压暗其余；底部是 11 个硬件配置旋钮：改动 SEQ_TILE、FA_STAGE、QKV_OK、DOWN_TN、GP_SIZE 等任一项，源码里的形状、布局图与判定即时重算，约束状态在编码期就给出结论，不经编译、不上板。每条约束都声明了自己依赖哪几个旋钮，所以预警就地发生在参数上：填了一个让约束不成立的值，旋钮标签旁出现状态标记、下拉框描边转色，正下方直接列出受影响的约束与一句话结论，点一下就在右栏打开它的原因图并定位源码。其中 Vec(UB) 预算这条抽象自 pto-isa #170：名义 192 KB 的 Vec UB 顶部约 8 KB 被运行时保留，分配器按名义容量发预算，所以越过可用上限的配置在编码期之后就没人拦了；它的原因图是一条 UB 地址空间，按地址排出 carry 与流水各级的占位、标出名义上限／可用上限／顶部保留带和越界那一块，并把「高水位 / 分配器的预算 / 真正能用的」三行算式摆在一起 —— 两个数不一样，就是全部原因。视觉语言参考 AI_Infra 的 demo（近黑灰阶 + lime/lavender/amber/sky 四色强调 + 单一告警红，等宽宽字距标签，浅底深字选中态）；代码按分词后的上下文着色，函数调用、函数定义、关键字实参、类型/dtype、常量、模块与属性分别取色。",
         href: "Design/hardware-native-ide/index.html",
         preview: "Design/assets/launch-previews/decode-layer-graph.png",
         tags: ["PyPTO", "昇腾", "Hardware-Native", "可表达", "约束前移", "Tensor/Tile", "Scope", "decode_layer"]
+      },
+      {
+        title: "Hardware-Native 主线",
+        subtitle: "一条硬件裁决的路 · 代码在硅片上的落点",
+        category: "开发工具",
+        status: "新增",
+        version: "01b / HN Path",
+        updatedAt: "2026-10-31",
+        description: "Hardware-Native Lens 的单主线版本，只讲一条路：把 decode_layer 中 fa_fused 的 pl.pipeline 从 stage=2 调到 4。五步依次展示改动、落点、裁决、改法和复查。右侧是第二块画布，画出一个 AI Core block 的 GM、AIC（L1 / L0A / L0B / Cube / L0C）、C2V / V2C、AIV 的 Vec(UB) 地址条和 24 个 block 的阵列；悬停源码行、Vec 缓冲或硅片区域会双向联动。Vec 高水位 184.6 KB 超过实际可用的 184 KB（抽象自 pto-isa #170），但没超过分配器的 192 KB 预算：编译和运行都不报错，输出静默出 NaN。改法给出降级流水、缩小 KV 块、复用中间量三种，分别说明压力转到时间、运行时或证据上，并标注哪些结论仍需编译产物、上板或 profiling 确认。",
+        href: "Design/hardware-native-ide/path.html",
+        preview: "Design/assets/launch-previews/decode-layer-graph.png",
+        tags: ["PyPTO", "昇腾", "Hardware-Native", "Vec UB", "静默 NaN", "pto-isa#170", "decode_layer"]
       },
       {
         title: "PyPTO Agent Decision Explorer",

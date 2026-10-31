@@ -5,6 +5,17 @@
 window.HNV = (function () {
   'use strict';
 
+  const P = window.VisualSystem;
+  let infraDiagramId = 0;
+  function infraSvg(body, width, height, label) {
+    const prefix = 'hn-infra-' + (++infraDiagramId) + '-';
+    return P.wrap(body, width, height)
+      .replace('<svg ', '<svg class="hv infra-diagram" ')
+      .replace('aria-label="对象与关系示例"', 'aria-label="' + esc(label) + '"')
+      .replace(/id="(arrow|bind|map)"/g, function (_, id) { return 'id="' + prefix + id + '"'; })
+      .replace(/url\(#(arrow|bind|map)\)/g, function (_, id) { return 'url(#' + prefix + id + ')'; });
+  }
+
   // ── SVG 原子 ──────────────────────────────────────────────────────────────
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -387,39 +398,25 @@ window.HNV = (function () {
   // ════════════════════════════════════════════════════════════════════════════
   // 语义视图：分别表达片上空间、任务汇合和提交边界。
   function matmulSpaces(d) {
-    let s = t(18, 20, 'MATMUL · 片上空间与数据流', 'hv-t hv-dim');
-    const boxes = [
-      { x: 18, name: 'A / LEFT', shape: '[' + d.BATCH + ', 256] BF16', bytes: d.bytes(d.BATCH * 256 * 2), cls: 'hv-aic' },
-      { x: 202, name: 'B / RIGHT', shape: '[256, 256] BF16', bytes: d.bytes(256 * 256 * 2), cls: 'hv-page' },
-      { x: 386, name: 'C / ACC', shape: '[' + d.BATCH + ', 256] FP32', bytes: d.bytes(d.BATCH * 256 * 4), cls: 'hv-aiv' }
-    ];
-    boxes.forEach(function (b) {
-      s += r(b.x, 38, 156, 78, b.cls, 5);
-      s += t(b.x + 12, 59, b.name, 'hv-t hv-strong');
-      s += t(b.x + 12, 80, b.shape, 'hv-t');
-      s += t(b.x + 12, 101, b.bytes, 'hv-t hv-dim');
-    });
-    s += t(189, 82, '×', 'hv-t hv-strong', 'middle');
-    s += t(373, 82, '→', 'hv-t hv-strong', 'middle');
-    s += t(18, 143, d.QKV_K_CHUNKS + ' 次 K chunk · matmul_acc 在 Acc 上累加', 'hv-t hv-dim');
-    return svg(560, 158, s);
+    let s = P.edge(200, 152, 320, 152) + P.edge(580, 152, 700, 152);
+    s += P.edge(450, 108, 450, 128);
+    s += P.data({ id: 'a', label: 'A · 输入块', role: 'activation', shape: [d.BATCH, 256], dtype: 'BF16' }, 40, 120);
+    s += P.data({ id: 'b', label: 'B · 权重块', role: 'weight', shape: [256, 256], dtype: 'BF16' }, 370, 44);
+    s += P.node('op', 'matmul', 'MatMul', 320, 128);
+    s += P.data({ id: 'c', label: 'C · 结果块', role: 'activation', shape: [d.BATCH, 256], dtype: 'FP32' }, 700, 120);
+    s += t(40, 238, '源码逻辑块 · 实际片上切分需查看下沉 IR', 'hv-t hv-dim');
+    return infraSvg(s, 900, 260, 'MatMul 的输入、权重与累加输出');
   }
 
   function atomicMerge(d) {
-    const n = Math.min(d.QKV_OK, 10);
-    let s = t(18, 20, 'SPLIT-K · 并行写入同一 N-TILE', 'hv-t hv-dim');
-    const x0 = 36, width = 488, gap = 5, cell = (width - gap * (n - 1)) / n;
-    for (let i = 0; i < n; i++) {
-      const x = x0 + i * (cell + gap);
-      s += r(x, 42, cell, 34, 'hv-tensor', 3);
-      s += t(x + cell / 2, 63, 'K' + i, 'hv-t hv-strong', 'middle');
-      s += arrow(x + cell / 2, 80, 280, 112, 'hv-l hv-flow');
-    }
-    s += r(165, 116, 230, 46, 'hv-aic', 4);
-    s += t(280, 135, 'atomic Add → q_proj', 'hv-t hv-strong', 'middle');
-    s += t(280, 151, 'GM · FP32', 'hv-t hv-dim', 'middle');
-    s += t(18, 185, d.QKV_OK + ' 个 K 分片 / N-tile · 共 ' + d.Q_TASK_TOTAL + ' 个 task', 'hv-t hv-dim');
-    return svg(560, 198, s);
+    let s = P.edge(220, 78, 375, 134) + P.edge(220, 198, 375, 158) + P.edge(423, 146, 640, 146);
+    s += P.data({ id: 'partial-0', label: 'K0 · 部分结果', role: 'activation', shape: [d.BATCH, d.TN], dtype: 'FP32' }, 60, 46);
+    s += P.data({ id: 'partial-1', label: 'K1 · 部分结果', role: 'activation', shape: [d.BATCH, d.TN], dtype: 'FP32' }, 60, 166);
+    s += P.node('add', 'atomic-add', '', 375, 122);
+    s += P.data({ id: 'q-proj', label: 'q_proj · GM', role: 'activation', shape: [d.BATCH, d.HIDDEN], dtype: 'FP32' }, 640, 114);
+    s += t(399, 198, 'atomic Add', 'hv-t hv-strong', 'middle');
+    s += t(60, 270, '示例显示两个部分结果；每个输出块共有 ' + d.QKV_OK + ' 个 K 分片。', 'hv-t hv-dim');
+    return infraSvg(s, 900, 292, 'Split-K 部分结果通过原子累加写入 q_proj');
   }
 
   function submitBoundary(d) {
@@ -462,6 +459,23 @@ window.HNV = (function () {
     }
     let cells = '';
     for (let i = 0; i < count; i++) cells += '<span data-tile-chunk="' + i + '">' + (i + 1) + '</span>';
+    function chunkGlyph(id, role, shape, x, y) {
+      let index = 0;
+      return P.data({ id: id, label: '', role: role, shape: shape, dtype: 'BF16' }, x, y, { expanded: true })
+        .replace(/ data-element="true"/g, function () { return ' data-element="true" data-tile-chunk="' + (index++) + '"'; })
+        .replace(/<text[^>]*>[^<]*<\/text>(?=<\/g>$)/, '');
+    }
+    let graph = P.edge(45 + count * 24, 100, 320, 158)
+      + P.edge(69, 244, 320, 178) + P.edge(580, 168, 700, 168);
+    graph += chunkGlyph('q-input-chunks', 'activation', [1, count], 45, 88);
+    graph += chunkGlyph('q-weight-chunks', 'weight', [count, 1], 45, 232);
+    graph += P.node('op', 'q-matmul', 'MatMul / Acc', 320, 144);
+    graph += P.data({ id: 'q-output', label: 'C · 部分结果', role: 'activation', shape: [d.BATCH, d.TN], dtype: 'FP32' }, 700, 136);
+    graph += t(45, 66, 'A · 输入：沿 K 取列块', 'hv-t hv-strong');
+    graph += t(45, 216, 'B · 权重：沿 K 取行块', 'hv-t hv-strong');
+    graph += t(320, 222, '首块 MatMul · 后续 MatMul Acc', 'hv-t hv-dim');
+    graph += t(45, 400, '方格代表 chunk，不表示张量元素；逻辑块 A [' + d.BATCH + ', ' + d.TK + '] × B [' + d.TK + ', ' + d.TN + ']。', 'hv-t hv-dim');
+    const graphSvg = infraSvg(graph, 900, 420, 'Q 投影输入、权重分块和 MatMul 累加示意');
     let slices = '';
     for (let i = 0; i < d.QKV_OK; i++) {
       slices += i === 0
@@ -479,41 +493,26 @@ window.HNV = (function () {
       + '<div class="tile-n-track"><span style="width:' + (d.TN / d.HIDDEN * 100) + '%"></span></div>'
       + '<div class="tile-axis-ends"><span>0 · 当前输出子块</span><span>' + d.HIDDEN + '</span></div>'
       + '<p>下方展示选中 K 切片中的各 chunk，计算结果累加到选中的 N 子块。</p></div>'
-      + '<div class="tile-animation-grid">'
-      + '<section class="tile-matrix tile-matrix-a"><div class="tile-matrix-label">A · 输入 <small>LEFT / L0A</small></div>'
-      + '<div class="tile-a-blocks">' + cells + '</div><p>沿 K 维取列块</p><small>单块 ' + d.BATCH + ' × ' + d.TK + ' · BF16</small></section>'
-      + '<span class="tile-operator">×</span>'
-      + '<section class="tile-matrix tile-matrix-b"><div class="tile-matrix-label">B · 权重 <small>RIGHT / L0B</small></div>'
-      + '<div class="tile-b-blocks">' + cells + '</div><p>沿 K 维取对应行块</p><small>单块 ' + d.TK + ' × ' + d.TN + ' · BF16</small></section>'
-      + '<span class="tile-operator">→</span>'
-      + '<section class="tile-matrix tile-matrix-c"><div class="tile-matrix-label">C · 结果 <small>ACC / L0C</small></div>'
-      + '<div class="tile-acc"><b data-tile-acc>0</b><span>个块已累加</span><div class="tile-acc-track"><i data-tile-progress></i></div></div>'
-      + '<p>部分结果累加到 C</p><small>' + d.BATCH + ' × ' + d.TN + ' · FP32</small></section></div>'
+      + '<div class="tile-glyph-diagram">' + graphSvg + '</div>'
+      + '<div class="tile-glyph-progress"><span>已累加 <b data-tile-acc>0</b> / ' + count + ' 个 chunk</span><div class="tile-acc-track"><i data-tile-progress></i></div></div>'
       + '<div class="tile-animation-step" data-tile-description aria-live="off"></div>'
       + '<div class="tile-animation-controls"><button type="button" data-tile-action="toggle">暂停</button>'
       + '<button type="button" data-tile-action="prev">上一步</button><button type="button" data-tile-action="next">下一步</button>'
-      + '<span>示意图 · 展示一个 task 内 K chunk 的计算</span></div></div>';
+      + '<span>逻辑分块示意 · 实际片上切分需查看编译产物</span></div></div>';
   }
 
   function dependencyMap(d) {
-    let s = t(16, 20, 'MANUAL SCOPE  /  一个 Q 投影任务', 'hv-t hv-dim');
-    s += r(16, 38, 210, 58, 'hv-page', 5);
-    s += t(29, 58, '上层 normed slab', 'hv-t hv-strong');
-    s += t(29, 77, 'prev_normed_tids[q_ks]', 'hv-t');
-    s += r(16, 112, 210, 58, 'hv-aiv', 5);
-    s += t(29, 132, 'q_seed · 目标清零', 'hv-t hv-strong');
-    s += t(29, 151, 'q_seed_tid', 'hv-t');
-    s += arrow(231, 67, 304, 94, 'hv-l hv-flow');
-    s += arrow(231, 141, 304, 113, 'hv-l hv-flow');
-    s += r(310, 73, 234, 82, 'hv-aic', 5);
-    s += t(324, 95, 'q_proj task', 'hv-t hv-strong');
-    s += t(324, 115, 'deps=[slab tid, seed tid]', 'hv-t');
-    s += t(324, 135, '两个前置任务均完成后执行', 'hv-t hv-dim');
+    let s = P.edge(300, 76, 540, 140) + P.edge(300, 204, 540, 140);
+    s += P.node('task', 'slab', 'normed slab', 40, 46);
+    s += P.node('task', 'seed', 'q_seed', 40, 174);
+    s += P.node('task', 'q-proj', 'q_proj', 540, 110);
+    s += t(40, 126, 'prev_normed_tids[q_ks]', 'hv-t hv-dim');
+    s += t(40, 254, 'q_seed_tid · 清零目标', 'hv-t hv-dim');
+    s += t(540, 194, 'deps=[slab tid, seed tid]', 'hv-t hv-dim');
     const aligned = d.QKV_K_SLICE === d.DOWN_TN;
-    s += r(16, 188, 528, 42, aligned ? 'hv-page' : 'hv-straddle', 4);
-    s += t(28, 205, '切片 ' + d.QKV_K_SLICE + '  /  slab ' + d.DOWN_TN, 'hv-t hv-strong');
-    s += t(28, 221, aligned ? '宽度一致：一条 slab 依赖对应一个切片' : '宽度不一致：需重新检查依赖覆盖', aligned ? 'hv-t hv-ok-text' : 'hv-t hv-err-text');
-    return svg(560, 244, s);
+    s += t(40, 294, '切片 ' + d.QKV_K_SLICE + ' / slab ' + d.DOWN_TN + ' · '
+      + (aligned ? '一条 slab 依赖对应一个切片' : '宽度不一致，需检查依赖覆盖'), aligned ? 'hv-t hv-ok-text' : 'hv-t hv-err-text');
+    return infraSvg(s, 900, 310, 'Q 投影任务的显式依赖');
   }
 
   function handoffMap() {
@@ -693,18 +692,17 @@ window.HNV = (function () {
       }
     },
     'tile:q-acc': {
-      lens: 'tile', kind: 'Tile', title: 'pl.matmul 的三块 tile', sub: 'Left / Right / Acc',
+      lens: 'tile', kind: 'Tile', title: 'pl.matmul 的三块 tile', sub: '逻辑分块与片上映射',
       facts: function (d) {
         return [
-          ['A (Left)', '[' + d.BATCH + ', 256] BF16 · ' + d.bytes(d.BATCH * 256 * 2)],
-          ['B (Right)', '[256, 256] BF16 · ' + d.bytes(256 * 256 * 2)],
-          ['C (Acc)', '[' + d.BATCH + ', 256] FP32 · ' + d.bytes(d.BATCH * 256 * 4)],
+          ['A 逻辑块', '[' + d.BATCH + ', 256] BF16 · ' + d.bytes(d.BATCH * 256 * 2)],
+          ['B 逻辑块', '[256, 256] BF16 · ' + d.bytes(256 * 256 * 2)],
+          ['C 逻辑块', '[' + d.BATCH + ', 256] FP32 · ' + d.bytes(d.BATCH * 256 * 4)],
           ['K chunk 数', d.QKV_K_CHUNKS + ' × TK 256'],
-          ['累加', 'matmul_acc 原地累加在 Acc 上']
+          ['片上映射', 'Left / Right / Acc；具体切分需查看下沉 IR']
         ];
       },
-      note: '一次 matmul 就把三个片上空间的占用写清楚了：A 进 Left，B 进 Right，'
-        + 'C 留在 Acc。容量能不能装下，在这一行就能判断。',
+      note: '图中大小来自源码的逻辑块，不代表完整块同时驻留片上。B 逻辑块为 128 KiB，高于示例 Right 容量 64 KiB；实际切分和驻留须查看目标的下沉 IR 或生成代码。',
       viz: function (d) { return tileMap(d); }
     },
     'tile:k-tile': {
@@ -713,8 +711,8 @@ window.HNV = (function () {
         return [
           ['切法', 'k_cache[cache_row : cache_row + SEQ_TILE, :]'],
           ['形状', '[' + d.SEQ_TILE + ', ' + d.HEAD_DIM + '] BF16'],
-          ['片上空间', 'Right (L0B) · ' + d.K_TILE_KB + ' KB'],
-          ['双缓冲', d.K_TILE_DB_KB + ' KB / 64 KB'],
+          ['逻辑块大小', d.K_TILE_KB + ' KB'],
+          ['双缓冲估算', d.K_TILE_DB_KB + ' KB / 示例容量 64 KiB'],
           ['来源', 'block_table 查到的物理页']
         ];
       },

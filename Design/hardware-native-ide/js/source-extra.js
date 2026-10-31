@@ -798,7 +798,7 @@ window.HN_EXTRA_SOURCE = [
   },
   {
     "no": 764,
-    "t": "                for gp in pl.pipeline(GP_SIZE, stage=2):"
+    "t": "                for gp in pl.pipeline(GP_SIZE, stage={{FA_STAGE}}):"
   },
   {
     "no": 765,

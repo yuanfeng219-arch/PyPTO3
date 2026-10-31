@@ -298,15 +298,6 @@ body {
 .rb.is-end { margin-bottom: 5px; }
 
 .ed-code { flex: none; white-space: pre; tab-size: 4; }
-.has-error .ed-code {
-  text-decoration: underline wavy var(--hn-error);
-  text-underline-offset: 3px; text-decoration-skip-ink: none;
-}
-.has-warn .ed-code {
-  text-decoration: underline wavy var(--hn-warn);
-  text-underline-offset: 3px; text-decoration-skip-ink: none;
-}
-
 /* 代码着色 */
 .tk-cmt { color: var(--tk-cmt); }
 .tk-str { color: var(--tk-str); }
@@ -579,6 +570,45 @@ html[data-lens-parallel="off"] .rb-pipeline { background: #2a2a2a; opacity: .5; 
 .knob select:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: 1px; }
 .knob select option { background: #282828; color: #eee; }
 
+/* ── 旋钮就地预警 · 设值的瞬间就说清楚哪条约束不成立 ─────────────────────── */
+.knob.has-warn select { border-color: rgb(242 196 95 / 62%); }
+.knob.has-error select { border-color: rgb(253 86 68 / 68%); }
+.knob-flag {
+  display: inline-grid; place-items: center; width: 14px; height: 14px; padding: 0;
+  border: 0; border-radius: 2px; font: 600 10px/1 var(--hn-sans); font-style: normal;
+}
+.knob-flag.is-warn { background: rgb(242 196 95 / 20%); color: var(--hn-warn); cursor: pointer; }
+.knob-flag.is-warn:hover { background: var(--hn-warn); color: #111; }
+.knob-flag.is-warn:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: 2px; }
+.knob-flag.is-error { background: rgb(253 86 68 / 20%); color: var(--hn-error); }
+/* 说明文字放不进 132px 的格子，所以展开预警的旋钮占两列宽 */
+.knob-group:not(:last-child) .knob.has-error { width: 282px; }
+.knob-group:last-child .knob.has-error { grid-column: span 2; }
+.knob-alerts { display: flex; flex-direction: column; gap: 5px; }
+.knob-alert {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 7px;
+  align-items: start; padding: 6px 8px; text-align: left; cursor: pointer;
+  border: 1px solid var(--hn-line); border-left-width: 2px; border-radius: 2px;
+  background: var(--hn-raise);
+}
+.knob-alert .dot { margin-top: 4px; }
+.knob-alert-main { min-width: 0; }
+.knob-alert b {
+  display: block; color: var(--hn-text); font: 500 10.5px/1.5 var(--hn-sans);
+}
+.knob-alert small {
+  display: block; margin-top: 2px; color: var(--hn-muted); font: 10px/1.6 var(--hn-sans);
+}
+.knob-alert em {
+  color: var(--hn-faint); font: 9.5px/1.5 var(--hn-mono); font-style: normal;
+  letter-spacing: .6px; white-space: nowrap;
+}
+.knob-alert.is-warn { border-left-color: var(--hn-warn); }
+.knob-alert.is-error { border-left-color: var(--hn-error); }
+.knob-alert:hover { border-color: var(--hn-line-strong); }
+.knob-alert:hover em { color: var(--hn-text); }
+.knob-alert:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: 2px; }
+
 /* ── status strip ────────────────────────────────────────────────────────── */
 .pto-ide-frame__status-strip {
   gap: 14px; border-top: 1px solid var(--hn-line-soft); transition: background .3s ease;
@@ -662,6 +692,11 @@ html[data-lens-parallel="off"] .rb-pipeline { background: #2a2a2a; opacity: .5; 
 .cat-head .lens-swatch, .lens-row .lens-swatch { border-radius: 2px; }
 .cat-row { margin: 1px 0; padding: 7px 9px; border: 1px solid transparent; border-radius: 5px; }
 .cat-row b { color: #c1cad6; font-size: 11.5px; }
+.cat-row { flex-direction: row; align-items: center; }
+.cat-description { padding: 0 8px 5px; color: #8293a4; font: 10px/1.4 var(--hn-sans); }
+.cat-row .lens-swatch { margin-right: 7px; }
+.hn-cons-note { margin: 0; padding: 0 16px 9px; color: #91a2b2; font: 10px/1.5 var(--hn-sans); }
+.hn-kind { color: #a8c6d7; }
 .cat-row:hover { background: #232a33; }
 .cat-row.is-active { background: #283a47; border-color: #426174; }
 .cat-row.is-active b { color: #d8f1fa; }
@@ -754,6 +789,22 @@ html[data-lens-parallel="off"] .rb-pipeline { background: #2a2a2a; opacity: .5; 
 .tile-animation-empty { padding: 16px; color: #f2c45f; font: 12px/1.6 var(--hn-sans); }
 @media (max-width: 700px) { .tile-animation-grid { grid-template-columns: 1fr; } .tile-operator { transform: rotate(90deg); } .tile-matrix { padding: 10px; } .tile-a-blocks, .tile-b-blocks, .tile-acc { height: 68px; } }
 @media (prefers-reduced-motion: reduce) { .tile-a-blocks span, .tile-b-blocks span, .tile-acc-track i { transition: none; } }
+
+/* 分块动画沿用图例库的数据与算子图元；高亮仅表示当前步骤。 */
+.tile-glyph-diagram { margin-top: 14px; padding: 12px; border: 1px solid #353535; border-radius: 5px; background: #131313; }
+.tile-glyph-diagram .infra-diagram { display: block; width: 100%; height: auto; }
+.tile-glyph-diagram [data-tile-chunk] { transition: fill-opacity .25s, stroke .25s; }
+.tile-glyph-diagram [data-tile-chunk].is-current { fill-opacity: .85; stroke: #f0f0f0; stroke-width: 2; }
+.tile-glyph-diagram [data-tile-chunk].is-done { fill-opacity: .4; }
+.tile-glyph-progress { display: flex; align-items: center; gap: 12px; margin-top: 10px; color: #bcbcbc; font: 11px/1.5 var(--hn-sans); }
+.tile-glyph-progress b { color: #e8e8e8; font-family: var(--hn-mono); }
+.tile-glyph-progress .tile-acc-track { flex: 1; margin-top: 0; background: #353535; }
+.tile-glyph-progress .tile-acc-track i { background: #b1ef6b; }
+.tile-map-slice.is-selected { border-color: #b1ef6b; background: #273624; }
+.tile-map-chunks span { background: #465d3f; }
+.tile-map-chunks span.is-current { background: #b1ef6b; }
+.tile-map-chunks span.is-done { background: #719b59; }
+@media (prefers-reduced-motion: reduce) { .tile-glyph-diagram [data-tile-chunk] { transition: none; } }
 .inline-content .insp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 6px; width: 100%; }
 .inline-content .insp-facts > div { display: block; padding: 9px 10px; border: 1px solid #303945; border-radius: 5px; background: #202730; }
 .inline-content .insp-facts dt { color: #91a2b2; font-size: 10px; letter-spacing: .03em; }

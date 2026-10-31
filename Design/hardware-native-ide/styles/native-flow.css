@@ -1,0 +1,43 @@
+.nf-app { position: fixed; inset: 0; z-index: 1000; overflow: auto; background: #101110; color: #dedfda; font: 13px/1.5 Inter, 'Microsoft YaHei', sans-serif; }
+.nf-app[hidden] { display: none; }
+.nf-app * { box-sizing: border-box; }
+.nf-app button { font: inherit; cursor: pointer; }
+.nf-app button:focus-visible, .nf-app a:focus-visible { outline: 2px solid #c1e17f; outline-offset: 3px; }
+.nf-header { min-height: 56px; padding: 0 28px; border-bottom: 1px solid #303330; display: flex; justify-content: space-between; align-items: center; gap: 16px; background: #151715; }
+.nf-header > div { display: flex; align-items: center; gap: 20px; }
+.nf-header b { color: #ecf0e7; letter-spacing: .09em; font: 700 12px monospace; white-space: nowrap; }
+.nf-header b span { color: #b7d879; }
+.nf-header i { height: 19px; border-left: 1px solid #434643; }
+.nf-header span { color: #9a9f98; font: 11px monospace; }
+.nf-header .nf-target { color: #bddc85; }
+.nf-header button, .nf-reset { color: #c9cec6; background: #202320; border: 1px solid #444a43; padding: 7px 11px; }
+.nf-main { max-width: 1680px; margin: auto; padding: 28px 32px 40px; }
+.nf-heading { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 23px; }
+.nf-heading h1 { font-size: 26px; letter-spacing: -.04em; margin: 5px 0; font-weight: 600; color: #f2f3ef; }
+.nf-heading p { margin: 0; color: #9ca39a; }
+.nf-eyebrow, .nf-panel-head small, .nf-detail-head small, .nf-validation > small, .nf-consequence > small { color: #a9c778; font: 10px/1.4 monospace; letter-spacing: .11em; }
+.nf-context { display: flex; align-items: stretch; gap: 0; border: 1px solid #363a35; background: #1a1c1a; margin-bottom: 14px; }
+.nf-context > div { display: grid; gap: 3px; padding: 10px 22px; border-right: 1px solid #363a35; }
+.nf-context small { color: #8f958e; font-size: 10px; }.nf-context b { font-size: 12px; font-weight: 500; }.nf-context > span { margin: auto 18px auto auto; color: #858d83; font-size: 11px; }
+.nf-layout { display: grid; grid-template-columns: minmax(250px, .9fr) minmax(420px, 1.55fr) minmax(290px, .95fr); gap: 12px; align-items: stretch; }
+.nf-panel { min-width: 0; border: 1px solid #363a35; background: #191b19; padding: 20px; }
+.nf-panel-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.nf-panel-head h2 { color: #eff1ea; font-size: 16px; font-weight: 600; margin: 5px 0 0; }.nf-panel-head > span { color: #858d83; font: 10px monospace; text-align: right; }
+.nf-explain { color: #9fa69d; font-size: 12px; line-height: 1.6; margin: 17px 0; }
+.nf-param { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #3d423a; background: #141714; }
+.nf-param div { padding: 12px; display: grid; gap: 3px; }.nf-param div + div { border-left: 1px solid #3d423a; }.nf-param span { color: #9ca89a; font: 10px monospace; }.nf-param strong { color: #d4e9ae; font: 24px monospace; }.nf-param small { color: #90988c; font-size: 10px; }
+.nf-code-label { display: flex; justify-content: space-between; margin-top: 24px; color: #a5aca1; font-size: 11px; }.nf-code-label span:last-child { color: #727a70; }
+.nf-source { overflow: auto; white-space: pre; color: #d9dfd4; background: #111311; border-left: 2px solid #a8c978; padding: 16px 12px; font: 11px/1.8 Consolas, monospace; min-height: 110px; }
+.nf-linkage { display: grid; gap: 5px; border: 1px solid #414a3d; padding: 12px; background: #20261e; }.nf-linkage span, .nf-linkage small { color: #9ca99a; font-size: 11px; }.nf-linkage b { color: #d9e7ca; font: 12px monospace; }
+.nf-node-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 23px; }
+.nf-node:not(:last-child) { position: relative; }.nf-node:not(:last-child)::after { content: '›'; position: absolute; right: -7px; top: 50%; transform: translateY(-50%); z-index: 1; color: #b9ce99; font: 16px monospace; }
+.nf-node { display: grid; align-content: start; gap: 8px; text-align: left; padding: 11px; min-width: 0; min-height: 142px; background: #202320; border: 1px solid #434941; color: #e1e7dd; }
+.nf-node.selected { background: #282f23; border-color: #b6d480; box-shadow: inset 0 2px #b6d480; }.nf-node-top { display: flex; justify-content: space-between; gap: 4px; align-items: center; }.nf-node-top i { font: 10px monospace; color: #b3cc8d; font-style: normal; }.nf-node-top small { color: #90998d; font-size: 9px; text-align: right; }.nf-node b { font-size: 12px; }.nf-node > span:not(.nf-node-top) { color: #abb2a6; font-size: 10px; }.nf-node em { color: #e9b596; font-size: 10px; font-style: normal; }
+.nf-detail { margin-top: 12px; border: 1px solid #4c5747; background: #141714; padding: 18px; min-height: 255px; }.nf-detail-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }.nf-detail-head h3 { margin: 5px 0; font-size: 15px; color: #e9ede4; }.nf-detail-head > span { font-size: 10px; color: #9fa99c; }.nf-detail-text { color: #aab2a6; font-size: 12px; line-height: 1.7; }
+.nf-buffer { background: #20261e; border: 1px solid #3e4c38; padding: 13px; margin: 12px 0; }.nf-buffer-top { display: flex; justify-content: space-between; align-items: baseline; color: #c2dba1; font: 11px monospace; }.nf-buffer-top b { color: #eef1e9; font-size: 18px; }.nf-buffer-top small { font-size: 11px; color: #97a193; }.nf-track { margin-top: 14px; height: 30px; position: relative; background: #1a1b1a; }.nf-capacity { position: absolute; height: 100%; background: #293626; border: 1px dashed #849d69; }.nf-fill { position: absolute; top: 4px; height: 22px; display: flex; }.nf-fill span { width: 50%; display: grid; place-items: center; background: #b1cc80; color: #182014; font: 10px monospace; }.nf-fill span + span { background: #b5a6d4; }.nf-track i { position: absolute; top: -5px; height: 40px; border-left: 2px dashed #f0aa9b; }.nf-scale { display: flex; justify-content: space-between; margin-top: 7px; color: #a6ada3; font: 10px monospace; }.nf-buffer p { margin: 12px 0 0; color: #d7dfd1; font: 11px monospace; }.nf-buffer p em { color: #9ca89a; font-style: normal; }
+.nf-focus-explain { margin: 15px 0; padding: 18px; background: #20261e; border: 1px solid #414d3b; display: grid; gap: 8px; }.nf-focus-explain b { color: #c4dd9f; }.nf-focus-explain span { color: #d2d9ce; }.nf-provenance { margin-top: 13px; color: #929b90; font-size: 10px; }.nf-provenance a { color: #bcd98d; }
+.nf-verdict { display: grid; gap: 5px; padding: 14px; margin: 21px 0 0; border-left: 2px solid #e69e8b; background: #2b2220; }.nf-verdict.good { border-color: #b5d57b; background: #242c20; }.nf-verdict small { color: #c3aaa1; }.nf-verdict b { color: #f1c6ba; font-size: 14px; }.nf-verdict.good b { color: #d2e9b3; }.nf-verdict span { color: #b6b5ae; font-size: 11px; }
+.nf-plans { display: grid; gap: 7px; }.nf-plans button { display: flex; gap: 10px; text-align: left; color: #e2e5dd; padding: 10px; background: #202320; border: 1px solid #414740; }.nf-plans button[aria-pressed="true"] { border-color: #b1d078; background: #293024; }.nf-plans i { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid #697763; color: #c4dd9f; font: 11px monospace; font-style: normal; flex: none; }.nf-plans span { display: grid; gap: 3px; }.nf-plans b { font-size: 12px; }.nf-plans small { color: #a0aa9c; font-size: 10px; }
+.nf-consequence, .nf-validation { border-top: 1px solid #3d423b; margin-top: 18px; padding-top: 14px; }.nf-consequence p { color: #d1d8cc; font-size: 12px; line-height: 1.7; }.nf-validation div { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 9px; color: #c1cabd; font-size: 11px; }.nf-validation p { color: #8f998b; font-size: 10px; }
+@media (max-width: 1100px) { .nf-layout { grid-template-columns: 1fr 1.5fr; }.nf-decision { grid-column: 1 / -1; }.nf-plans { grid-template-columns: repeat(3, 1fr); }.nf-node-grid { grid-template-columns: repeat(2, 1fr); }.nf-node { min-height: 110px; } }
+@media (max-width: 700px) { .nf-main { padding: 20px 14px; }.nf-header { padding: 12px 14px; flex-wrap: wrap; }.nf-header > div { gap: 10px; }.nf-header .nf-target { display: none; }.nf-heading { align-items: start; }.nf-heading h1 { font-size: 21px; }.nf-context { flex-wrap: wrap; }.nf-context > span { margin: 10px; }.nf-context > div { padding: 9px; }.nf-layout { grid-template-columns: 1fr; }.nf-decision { grid-column: auto; }.nf-plans { grid-template-columns: 1fr; } }

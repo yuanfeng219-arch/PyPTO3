@@ -21,6 +21,13 @@ window.HNL = (function () {
   const CUBE_M_FRACTAL = 16;      // matmul L0 内维对齐粒度
   const L0B_CAP = 64 * 1024;      // Right(L0B) 容量
 
+  // ── Vec(UB) 预算：名义容量与实际可用容量不是一个数 ──
+  // 抽象自 pto-isa#170：a2a3 的 Vec UB 名义 192 KB，但顶部约 8 KB 被运行时保留，
+  // 上游分配器按名义容量放行，落在保留区的 tile 读写垃圾 → 静默 NaN。
+  const UB_NOMINAL = 192 * 1024;              // 分配器用的预算
+  const UB_RESERVED = 8 * 1024;               // 顶部保留（ReserveBufferOp / pipe init）
+  const UB_USABLE = UB_NOMINAL - UB_RESERVED; // 真正能安全使用的上限
+
   // 一个有长度倾斜的 ragged decode batch（用于块级负载均衡演示）
   const SEQ_LENS = [
     3972, 1184, 2560, 640, 3328, 896, 2048, 1472,
@@ -41,6 +48,7 @@ window.HNL = (function () {
     { id: 'QKV_OK',       label: 'QKV split-K',       note: 'atomic-add 切片数',     options: [4, 5, 10],       def: 5 },
     { id: 'DOWN_TN',      label: 'DOWN_TN / MLP_TN',  note: '输出 N-tile 宽度',      options: [512, 1024, 2048], def: 1024 },
     { id: 'GP_SIZE',      label: 'GP_SIZE',           note: '每 work item 的头数',   options: [2, 4, 8],        def: 8 },
+    { id: 'FA_STAGE',     label: 'fa_fused stage',    note: '内层流水同时驻留几级；每级各占一份 softmax 中间量，直接决定 Vec(UB) 高水位。实际驻留不会超过循环次数 GP_SIZE。', options: [1, 2, 3, 4], def: 2 },
     { id: 'NUM_CORES',    label: 'fa_fused cores',    note: '常驻 spmd block 数',    options: [20, 24, 32],     def: 24 },
     { id: 'ROPE_CORES',   label: 'rope_qkv cores',    note: '单次 spmd 栅格',        options: [16, 24, 32],     def: 32 }
   ];
@@ -104,6 +112,21 @@ window.HNL = (function () {
     const ACC_TILE_B = Q_HEAD_PAD * SEQ_TILE * 4;      // FP32 scores
     const PAD_WASTE = (Q_HEAD_PAD - Q_HEAD_BATCH) / Q_HEAD_PAD;
 
+    // ── fa_fused 内层流水的 Vec(UB) 高水位 ──
+    // 每个驻留级一份 softmax 链：5 个 [Q_HEAD_PAD, SEQ_TILE] FP32 中间量
+    // (scores_scaled / scores_valid / scores / row_expand_sub 的展开 temp / exp_scores)
+    // + 1 个同形 BF16 (exp_scores_bf16) + 2 个 [Q_HEAD_PAD, 1] 行向量 (cur_mi / cur_li)。
+    // 这是按「每个中间量各占一块」估算；是否复用、是否就地要按编译产物核对。
+    const FA_STAGE = cfg.FA_STAGE;
+    const FA_STAGE_EFF = Math.min(FA_STAGE, GP_SIZE);   // 流水深度不会超过循环次数
+    const VEC_SCORE_B = Q_HEAD_PAD * SEQ_TILE * 4;
+    const VEC_SCORE_BF16_B = Q_HEAD_PAD * SEQ_TILE * 2;
+    const VEC_ROW_B = Q_HEAD_PAD * 4;
+    const VEC_PER_STAGE = VEC_SCORE_B * 5 + VEC_SCORE_BF16_B + VEC_ROW_B * 2;
+    // 跨块常驻的 online-softmax carry：o_i 累加器 + m_i / l_i
+    const VEC_CARRY = Q_HEAD_PAD * (HEAD_DIM * 4 + 8);
+    const VEC_HW = VEC_PER_STAGE * FA_STAGE_EFF + VEC_CARRY;
+
     const d = {
       NUM_HEADS: NUM_HEADS, INTERMEDIATE: INTERMEDIATE, MAX_SEQ: MAX_SEQ,
       TK: TK, TN: TN, QKV_N_TILE: QKV_N_TILE, RMSNORM_K_CHUNK: RMSNORM_K_CHUNK,
@@ -120,6 +143,10 @@ window.HNL = (function () {
       MAX_CORE: MAX_CORE, MIN_CORE: MIN_CORE, SKEW: SKEW,
       K_TILE_B: K_TILE_B, K_TILE_DB: K_TILE_DB, Q_TILE_B: Q_TILE_B, ACC_TILE_B: ACC_TILE_B,
       PAD_WASTE: PAD_WASTE,
+      FA_STAGE: FA_STAGE, FA_STAGE_EFF: FA_STAGE_EFF,
+      VEC_SCORE_B: VEC_SCORE_B, VEC_SCORE_BF16_B: VEC_SCORE_BF16_B, VEC_ROW_B: VEC_ROW_B,
+      VEC_PER_STAGE: VEC_PER_STAGE, VEC_CARRY: VEC_CARRY, VEC_HW: VEC_HW,
+      UB_NOMINAL: UB_NOMINAL, UB_RESERVED: UB_RESERVED, UB_USABLE: UB_USABLE,
       FA_TASKS: NUM_CORES, Q_TASKS: Q_ON * QKV_OK, KV_TASKS: KV_ON * QKV_OK
     };
 
@@ -139,6 +166,30 @@ window.HNL = (function () {
     d.FA_TABLE_CAP_FMT = num(d.FA_TABLE_CAP);
     d.Q_TASK_TOTAL = Q_ON * QKV_OK;
     d.RMS_CHUNKS = HIDDEN / RMSNORM_K_CHUNK;
+
+    // Vec(UB) 预算的展示值
+    function kb(n) { return (n / 1024).toFixed(n % 1024 ? 1 : 0); }
+    d.VEC_HW_KB = kb(VEC_HW);
+    d.VEC_PER_STAGE_KB = kb(VEC_PER_STAGE);
+    d.VEC_CARRY_KB = kb(VEC_CARRY);
+    d.UB_NOMINAL_KB = kb(UB_NOMINAL);
+    d.UB_USABLE_KB = kb(UB_USABLE);
+    d.UB_RESERVED_KB = kb(UB_RESERVED);
+    d.VEC_HW_PCT = (VEC_HW / UB_USABLE * 100).toFixed(1);
+    d.VEC_OVER_USABLE = Math.max(0, VEC_HW - UB_USABLE);
+    d.VEC_OVER_USABLE_FMT = bytes(d.VEC_OVER_USABLE);
+    d.VEC_UNDER_NOMINAL = Math.max(0, UB_NOMINAL - VEC_HW);
+    d.VEC_UNDER_NOMINAL_FMT = bytes(d.VEC_UNDER_NOMINAL);
+    d.FA_STAGE_CLAMPED = FA_STAGE_EFF < FA_STAGE;
+    // 高水位的构成，给地址图用（自低地址向高地址排）
+    d.vecBuffers = (function () {
+      const out = [];
+      out.push({ name: 'online carry (o_i / m_i / l_i)', size: VEC_CARRY, kind: 'carry' });
+      for (let s = 0; s < FA_STAGE_EFF; s++) {
+        out.push({ name: 'stage ' + s + ' · softmax 链', size: VEC_PER_STAGE, kind: 'stage', stage: s });
+      }
+      return out;
+    })();
     d.bytes = bytes;
     d.num = num;
     return d;
@@ -153,7 +204,8 @@ window.HNL = (function () {
       lens: 'layout',
       title: 'Q 头打包行数必须对齐 cube M fractal',
       rule: 'Q_HEAD_PAD = ceil(Q_HEAD_BATCH / 16) × 16',
-      origin: 'AIC matmul 的 L0 内维以 16 行为 fractal；tile 物理行数低于 16 会触发 alloc_tile 对齐失败。',
+      knobs: ['NUM_KV_HEADS'],
+      origin: '本例以 16 行作为 Cube M 方向对齐模型；具体 tile 布局和合法性需按目标芯片、dtype 与编译产物核对。set_validshape 另外标识有效区域。',
       late: '编译期 alloc_tile 报错，或 tile 被静默放大导致 C2V 传输量翻倍。',
       lines: [127, 768, 781],
       eval: function (d) {
@@ -173,6 +225,7 @@ window.HNL = (function () {
       lens: 'layout',
       title: 'SEQ_TILE 必须等于 runtime 的物理页大小',
       rule: 'SEQ_TILE == runtime.page_size',
+      knobs: ['SEQ_TILE', 'PAGE_SIZE'],
       origin: 'decode 经 block_table 读 paged KV。一个逻辑块必须正好落在一个物理页上，否则会跨到物理 id 无关的另一页。',
       late: '运行时读到另一个请求的 KV —— 数值错误，且不一定复现。',
       lines: [176, 758, 773],
@@ -190,19 +243,62 @@ window.HNL = (function () {
     {
       id: 'l0b-capacity',
       lens: 'tile',
-      title: 'K tile 双缓冲必须装进 Right(L0B)',
+      title: 'K tile 双缓冲的 Right(L0B) 容量估算',
       rule: 'SEQ_TILE × HEAD_DIM × 2B × 2 ≤ 64 KB',
-      origin: 'Right buffer 容量 64 KB。QK matmul 需要 K tile 双缓冲才能让 AIC 连续发射。',
+      knobs: ['SEQ_TILE', 'HEAD_DIM'],
+      origin: '此估算假设两个完整 K tile 同时驻留 Right，并采用示例中的 64 KiB 容量。实际是否双缓冲、如何切分和驻留需查看目标配置与编译产物。',
       late: 'ptoas 分配失败，或退化为单缓冲 —— AIC 每拍等搬运。',
       lines: [176, 773],
       eval: function (d) {
         const r = d.K_TILE_DB / L0B_CAP;
         return {
-          status: r > 1 ? 'error' : (r > 0.75 ? 'warn' : 'ok'),
+          status: r > 0.75 ? 'warn' : 'ok',
           value: d.K_TILE_DB_KB + ' KB / 64 KB',
           detail: r > 1
-            ? '超出 ' + ((r - 1) * 100).toFixed(0) + '%，双缓冲放不下。'
-            : '占用 ' + (r * 100).toFixed(0) + '%，双缓冲成立。'
+            ? '按完整 tile 双缓冲估算超出 ' + ((r - 1) * 100).toFixed(0) + '%；实际映射待核实。'
+            : '假设完整 tile 双缓冲，占示例容量 ' + (r * 100).toFixed(0) + '%；实际映射待核实。'
+        };
+      }
+    },
+    {
+      id: 'ub-usable-headroom',
+      lens: 'tile',
+      title: 'Vec 高水位必须留出 UB 顶部的保留区',
+      rule: 'vec_high_water ≤ UB_NOMINAL − UB_RESERVED（184 KB，而非 192 KB）',
+      knobs: ['FA_STAGE', 'SEQ_TILE', 'HEAD_DIM', 'NUM_KV_HEADS', 'GP_SIZE'],
+      viz: 'ub-budget',
+      origin: 'Vec UB 名义 192 KB，但顶部约 8 KB 被运行时保留（ReserveBufferOp / pipe init）。'
+        + '上游分配器按名义 192 KB 发预算，所以落在保留区的 tile 能通过编译，运行时读写的是垃圾。'
+        + '保留区大小随平台与 CANN 版本变化，需按目标配置核对。',
+      late: '最坏的一种：编译不报错、运行不报错，最高地址的那块 tile 出 NaN。'
+        + '现象只在高水位越过保留区边界时出现，改小 tile 或把流水降到 stage=1 就消失，'
+        + '所以极易被当成数值问题或偶发故障。',
+      lines: [764, 775, 782, 784, 786],
+      eval: function (d) {
+        const hw = d.VEC_HW;
+        if (hw > UB_NOMINAL) {
+          return {
+            status: 'error',
+            value: d.VEC_HW_KB + ' KB / ' + d.UB_NOMINAL_KB + ' KB',
+            detail: '超出名义容量 ' + bytes(hw - UB_NOMINAL) + '，分配器自己会报错 —— 这反而是能看见的失败。'
+          };
+        }
+        if (hw > UB_USABLE) {
+          return {
+            status: 'error',
+            value: d.VEC_HW_KB + ' KB / ' + d.UB_USABLE_KB + ' KB 可用',
+            detail: '越过可用上限 ' + d.VEC_OVER_USABLE_FMT + '，但距名义上限还有 '
+              + d.VEC_UNDER_NOMINAL_FMT + '：编译通过、运行不报错，最高地址的 tile 静默出 NaN。'
+          };
+        }
+        return {
+          status: hw > UB_USABLE * 0.92 ? 'warn' : 'ok',
+          value: d.VEC_HW_KB + ' KB / ' + d.UB_USABLE_KB + ' KB 可用',
+          detail: d.FA_STAGE_EFF + ' 级 × ' + d.VEC_PER_STAGE_KB + ' KB + carry '
+            + d.VEC_CARRY_KB + ' KB，占可用容量 ' + d.VEC_HW_PCT + '%；'
+            + '距保留区边界还有 ' + bytes(UB_USABLE - hw) + '。'
+            + (d.FA_STAGE_CLAMPED ? ' stage=' + d.FA_STAGE + ' 被循环次数 GP_SIZE='
+              + d.GP_SIZE + ' 限制为 ' + d.FA_STAGE_EFF + ' 级。' : '')
         };
       }
     },
@@ -211,6 +307,7 @@ window.HNL = (function () {
       lens: 'scope',
       title: 'split-K 切片宽度必须等于上一层 normed slab 宽度',
       rule: 'QKV_K_SLICE == DOWN_TN',
+      knobs: ['QKV_OK', 'DOWN_TN', 'HEAD_DIM'],
       origin: 'manual_scope 内 tensormap 关闭，q_proj 只能用 deps=[prev_normed_tids[q_ks]] 精确挂到上一层第 q_ks 个 slab 写者。',
       late: '依赖边挂错 slab：要么整父张量 WAW 串行化（性能塌陷），要么读到未写完的数据。',
       lines: [166, 262, 441],
@@ -230,6 +327,7 @@ window.HNL = (function () {
       lens: 'tile',
       title: '输出 N-tile 必须整除 HIDDEN 且是流水子块的整数倍',
       rule: 'HIDDEN % DOWN_TN == 0 且 DOWN_TN % 256 == 0',
+      knobs: ['DOWN_TN', 'HEAD_DIM'],
       origin: 'down/MLP 以 DOWN_TN 为单位 atomic-add 回 HIDDEN；silu 的内层流水以 256 列为子块。',
       late: '尾块形状不规整，assemble 偏移越界或退化成标量搬运。',
       lines: [262, 264],
@@ -249,6 +347,7 @@ window.HNL = (function () {
       lens: 'scope',
       title: 'split-K 切片数必须整除 K 维',
       rule: 'HIDDEN % QKV_OK == 0',
+      knobs: ['QKV_OK', 'HEAD_DIM'],
       origin: 'QKV 投影按 K 切片后 atomic-add 累加；切不齐则最后一片形状不同，无法共用同一 task 体。',
       late: '编译期形状推导失败。',
       lines: [165, 166],
@@ -267,6 +366,7 @@ window.HNL = (function () {
       lens: 'parallel',
       title: 'work table 编码 (b, block) 时 GP_SIZE 必须覆盖全部 KV 头',
       rule: 'GP_SIZE == NUM_KV_HEADS',
+      knobs: ['GP_SIZE', 'NUM_KV_HEADS'],
       origin: 'fa_work_table[w] 只编码 b × MAX_CTX_BLOCKS + p，没有头维；一个 work item 必须一次处理该块的所有头。',
       late: '部分头永远不被调度 —— 输出静默缺失一部分 attention。',
       lines: [208, 744, 764],
@@ -286,6 +386,7 @@ window.HNL = (function () {
       lens: 'parallel',
       title: 'spmd 静态栅格必须整除 work item 数',
       rule: '(KV heads × batch) % ROPE_CORES == 0',
+      knobs: ['ROPE_CORES', 'BATCH', 'NUM_KV_HEADS'],
       origin: 'rope_qkv 用固定 item/core 的仿射索引，不做 grid-stride 兜底。',
       late: '尾部 item 不被执行，或越界读 inv_rms_states。',
       lines: [234, 615, 628],
@@ -305,12 +406,13 @@ window.HNL = (function () {
       lens: 'parallel',
       title: '块级 grid-stride 的整数打包偏差',
       rule: 'ceil(real_blocks / cores) / (real_blocks / cores) ≲ 1.25',
+      knobs: ['NUM_CORES', 'BATCH', 'SEQ_TILE'],
       origin: '每个 work item 是一个等价的 SEQ_TILE 块，均衡度只受整数打包限制，与 batch 内长度倾斜无关。',
       late: '上线后才看到核间等待，需要回到 tile 配置重做。',
       lines: [223, 744],
       eval: function (d) {
         return {
-          status: d.SKEW > 1.5 ? 'error' : (d.SKEW > 1.25 ? 'warn' : 'ok'),
+          status: d.SKEW > 1.25 ? 'warn' : 'ok',
           value: d.SKEW_FMT + '× 理想',
           detail: d.REAL_BLOCKS + ' 个真实块分到 ' + d.NUM_CORES + ' 核：最忙 ' + d.MAX_CORE
             + ' 块，最闲 ' + d.MIN_CORE + ' 块。'
@@ -471,12 +573,12 @@ window.HNL = (function () {
     {
       no: 445, t: '                    q_acc = pl.matmul(normed_in[:, q_k_base : q_k_base + TK],',
       focus: 'tile:q-acc',
-      inlay: [{ lens: 'tile', text: 'A [{{BATCH}}, 256] → Left(L0A)' }]
+      inlay: [{ lens: 'tile', text: 'A 逻辑块 [{{BATCH}}, 256] BF16' }]
     },
     {
       no: 447, t: '                                      wq[kk : kk + TK, n0 : n0 + TN], out_dtype=pl.FP32)',
       focus: 'tile:q-acc',
-      inlay: [{ lens: 'tile', text: 'B [256, 256] → Right · C FP32 → Acc(L0C)' }]
+      inlay: [{ lens: 'tile', text: 'B 逻辑块 [256, 256] · C FP32；片上切分待核实' }]
     },
     {
       no: 450, t: '                    for kc in pl.pipeline(1, QKV_K_CHUNKS, stage=2):',
@@ -539,7 +641,7 @@ window.HNL = (function () {
     {
       no: 773, t: '                    k_tile = k_cache[cache_row : cache_row + SEQ_TILE, :]',
       focus: 'tile:k-tile',
-      inlay: [{ lens: 'tile', text: '[{{SEQ_TILE}}, {{HEAD_DIM}}] BF16 → Right · {{K_TILE_KB}} KB' }]
+      inlay: [{ lens: 'tile', text: 'K 逻辑块 [{{SEQ_TILE}}, {{HEAD_DIM}}] BF16 · {{K_TILE_KB}} KB' }]
     },
     {
       no: 774, t: '                    raw_scores = pl.matmul(q_padded, k_tile, b_trans=True, out_dtype=pl.FP32)',
