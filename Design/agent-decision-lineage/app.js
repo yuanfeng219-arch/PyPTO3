@@ -9,9 +9,10 @@ function neighborhood(){const set=new Set(selected?[selected]:[]);if(!selected)r
 function reset(){selected=null;fullTrace=false;render()}
 let analysisActive=false,analysisOrigin=null,lineageScroll=0,mainScroll=0,analysisContextId=null,analysisScroll=0;
 function choose(id){if(!data.nodes.some(n=>n.id===id))return;
- NodeTooltip.hide();selected=id;fullTrace=false;render();AnalysisWorkspace.open(id);
+ NodeTooltip.hide();selected=id;fullTrace=false;render();AnalysisWorkspace.open(id);window.LineageDock.inspect(id);
 }
 function showAnalysis(id){analysisContextId=id;window.DecisionInspector?.clear();$('detail').replaceChildren();$('analysis-title').textContent=data.nodes.find(n=>n.id===id)?.title||id;
+ if(window.SchedulingAnalysis?.open(id))return;
  if(window.UBBufferAnalysis?.open(id))return;
  if(window.SingleTileAnalysis?.open(id))return;
  if(window.ReviewInspector?.open(id))return;
@@ -23,10 +24,10 @@ window.AnalysisWorkspace={open(id){analysisActive=true;
  $('analysis').hidden=false;if(analysisContextId!==id||!$('detail').children.length){showAnalysis(id);analysisScroll=0}$('analysis').scrollTop=analysisScroll;
  $('analysis-title').focus({preventScroll:true});
 },back(){analysisScroll=$('analysis').scrollTop;analysisActive=false;$('analysis').hidden=true;
- $('graph').focus({preventScroll:true});
+ window.LineageDock.expand();$('graph').focus({preventScroll:true});
 }};
 $('analysis-back').onclick=()=>AnalysisWorkspace.back();
-document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;NodeTooltip.hide();if(analysisActive)AnalysisWorkspace.back()});
+document.addEventListener('keydown',event=>{if(event.key!=='Escape'||event.defaultPrevented)return;NodeTooltip.hide();if(analysisActive)AnalysisWorkspace.back()});
 function activate(node,fn){node.setAttribute('tabindex','0');node.setAttribute('role','button');node.addEventListener('click',e=>{e.stopPropagation();fn()});node.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();fn()}})}
 function render(){window.ExploreDesignHover?.clear();const g=$('graph');g.replaceChildren();const related=neighborhood(),positions=new Map(),groups=new Map(view.groups.map(g=>[g.id,g]));
 let box;
@@ -96,3 +97,5 @@ $('stage-scroll-back').onclick=()=>navigateStage(-1);
 graphScroller.addEventListener('scroll',scheduleStageNavigation,{passive:true});
 new ResizeObserver(scheduleStageNavigation).observe(graphScroller);
 scheduleStageNavigation();
+
+window.selectLineageNode=choose;
