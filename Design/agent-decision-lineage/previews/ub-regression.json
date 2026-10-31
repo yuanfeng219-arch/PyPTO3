@@ -1,0 +1,67 @@
+{
+  "viewports": [
+    "1440x900",
+    "1600x900"
+  ],
+  "results": [
+    {
+      "slot": 0,
+      "text": "SELECTED SLOT\nin0 · Input PING\n\nin_group · Mutex ID 0 · FP16 · [3, 8192] · 48 KiB\n\nAddress [0x00000, 0x0C000) · 输入 Tile 的轮转缓冲\n\n查看地址源码 ↗"
+    },
+    {
+      "slot": 1,
+      "text": "SELECTED SLOT\nin1 · Input PONG\n\nin_group · Mutex ID 1 · FP16 · [3, 8192] · 48 KiB\n\nAddress [0x0C000, 0x18000) · 输入 Tile 的轮转缓冲\n\n查看地址源码 ↗"
+    },
+    {
+      "slot": 2,
+      "text": "SELECTED SLOT\nout0 · Output PING\n\nout_group · Mutex ID 2 · FP16 · [3, 8192] · 48 KiB\n\nAddress [0x18000, 0x24000) · 接收 VF 输出并由 pl.store 写回 GM\n\n查看地址源码 ↗"
+    },
+    {
+      "slot": 3,
+      "text": "SELECTED SLOT\nout1 · Output PONG\n\nout_group · Mutex ID 3 · FP16 · [3, 8192] · 48 KiB\n\nAddress [0x24000, 0x30000) · 接收 VF 输出并由 pl.store 写回 GM\n\n查看地址源码 ↗"
+    },
+    {
+      "addressCode": "test_softmax.py · L51–53\n关闭\n51  VA_IN1 = VA_IN0 + SLOT_BYTES    # 0x0C000 (49152)\n\n\n52  VA_OUT0 = VA_IN1 + SLOT_BYTES   # 0x18000 (98304)\n\n\n53  VA_OUT1 = VA_OUT0 + SLOT_BYTES  # 0x24000 (147456)"
+    },
+    {
+      "closePreservesIn1": true
+    },
+    {
+      "rotationCode": "test_softmax.py · L214–219\n关闭\n214              in_slot = in_group.next()\n\n\n215              pl.set_validshape(in_slot, [valid_rows, cols])\n\n\n216              pl.load(in_slot, x, [row_off, 0])\n\n\n217  \n\n\n218              out_slot = out_group.next()\n\n\n219              pl.set_validshape(out_slot, [valid_rows, cols])"
+    },
+    {
+      "ratios": [
+        0.19354769283746556,
+        0.19354769283746556,
+        0.19354769283746556,
+        0.19354769283746556,
+        0.22580384814049587
+      ]
+    },
+    {
+      "outputGroupCode": "test_softmax.py · L200–201\n关闭\n200      out_group = pl.make_tile_group(type=fp16_tt, addrs=[VA_OUT0, VA_OUT1], mutex_ids=[2, 3])\n201  "
+    },
+    {
+      "sharedP0Return": "true"
+    },
+    {
+      "regression": "d-schedule",
+      "contentLength": 2560
+    },
+    {
+      "regression": "d-precision",
+      "contentLength": 6614
+    },
+    {
+      "regression": "d-vf",
+      "contentLength": 2560
+    },
+    {
+      "collapse": true
+    },
+    {
+      "stageScroll": 524
+    }
+  ],
+  "consoleErrors": []
+}
