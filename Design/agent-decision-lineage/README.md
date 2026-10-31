@@ -109,3 +109,43 @@ Overview / Optimize 使用 `experiment-river.js` 与 `lineage-layout.js` 的展�
 `06 OPEN OPPORTUNITIES` 是产品呈现章节，不是 Orchestrator 第六阶段。配置位于 `LINEAGE_VIEW.river.postRunOpportunities`，按 PERFORMANCE_REPORT.md §7 的原始原因归纳为“目标已达成”和“需要改设计”。三个候选复用 x-rows / x-reuse / x-fusion，原始事实模型及实验父子关系保持不变。
 
 统一从 Target / Stop 右侧分叉，以中性曲线连接类别区域；候选仍调用原有 Inspector，类别与候选的悬停/聚焦同步强调所属分叉。完整 SVG 继续由实际元素 bounds 计算 viewBox。
+
+## Lineage Dock 精修（2026-10-31）
+
+复用 PTO `ide-frame`（direct embedding）和现有 surface、foreground、primary、success、danger tokens。保留已确认的单主 Pane 和深色主题；未替换 shell、未引入框架或 Liquid Glass。参考 AI_Infra Spatial Systems UI 的开放结构、语义缩放及中性选择态，没有引入时间比例。无新增私有视觉 token 或 preview 审批项。
+
+### 视觉与语义
+
+- 原先的矩形 Stage 底色与下方重复上下文已移除，当前上下文合并到顶行，Dock 高度 108px。
+- Explore / Design 是共同主干上的集合节点，不是执行序列；Design picker 只列出本次采用的五项决策。未采用分支根据 parent 定位所属 Stage。
+- Optimize 的成功主干、Finding、Tail Handling 与 Runtime if 失败端分开呈现；选择使用白色轮廓，保留红色失败身份。
+- Open Opportunities 根据现有 categories 分成两条原因支路；未尝试，不带完成勾选。
+- Compact projection 包含 stageId、nodeId、groupId、relationType、status、compactPosition。选中状态读取 app.js 唯一 selected 的只读 getter，不保存第二份选择。关系来自 view.groups / view.river / data.edges；几何是展示尺度，不编码时长或收益。
+
+### 状态与滚动
+
+统一入口为 `selectLineageNode` → `enterInspect(nodeId)`；关闭 Analysis、Escape、展开按钮和上滚手势均进入 `returnToOverview(reason)`。四种状态为 overview、entering-inspect、inspect、returning-overview。
+
+高度交接使用 Web Animations API 300ms，不缩放 SVG；等待动画完成及下一布局帧后，按 Analysis、主 Pane、Dock 的实际矩形定位。程序定位立即完成，不遗留平滑滚动尾部；过渡期禁止手势返回。Reduced Motion 跳过动画。禁用主 Pane scroll anchoring，Analysis 不再拥有主阅读范围的内部滚动。
+
+上滚恢复要求：inspect、详情顶部附近、前一个 scroll 观测也已到顶，且不处于刚到达顶部的短暂窗口；随后累计向上意图达到 78px 才返回。滚轮、触摸下拉、键盘上翻共享这一判定。Code Preview、Picker、输入控件的事件保留给局部组件。反向滚动或离开顶部清空累计。返回时统一隐藏 Analysis、保留节点、恢复图谱横向位置与主 Pane 顶部。只有重新明确选择节点才会再进入 Inspect。
+
+### 截图与快速回归
+
+截图目录：`previews/dock-refinement/`。
+
+| 状态 | 截图 |
+|---|---|
+| 修改前 | [before.png](previews/dock-refinement/before.png) |
+| 新 Design / 默认 Inspect | [design-1440.png](previews/dock-refinement/design-1440.png) |
+| UB Buffer | [ub-buffer-1440.png](previews/dock-refinement/ub-buffer-1440.png) |
+| Runtime if | [runtime-if-1440.png](previews/dock-refinement/runtime-if-1440.png) |
+| Open Opportunities | [opportunities-1440.png](previews/dock-refinement/opportunities-1440.png) |
+| Design Picker | [picker-1440.png](previews/dock-refinement/picker-1440.png) |
+| Opportunity Picker | [opportunities-picker-1440.png](previews/dock-refinement/opportunities-picker-1440.png) |
+| 返回全图 | [returned-overview.png](previews/dock-refinement/returned-overview.png) |
+| 1600 / 800px | [1600](previews/dock-refinement/design-1600.png) / [800](previews/dock-refinement/design-800.png) |
+
+按用户要求只做快速 Chrome 回归：默认全图、选中、标题位于 Dock 下、详情切换、中段上滚、到顶不立即返回、小幅上滚不返回、继续上滚恢复、失败身份和选中共存、Picker Escape、页面 Escape、1600/800 无整体横向溢出、Reduced Motion、键盘上滚、Console 无异常均通过。机器记录见 [regression.json](previews/dock-refinement/regression.json)。另有 1440×900 截图检查。
+
+限制：没有真实 Mac 触控板惯性或触屏设备实测；未全面重跑各 Analysis 业务回归。Single Tile、UB Buffer、Scheduling 等业务模块源码未修改；Shared Tile State 沿用现有模块。未 commit、push、合并或部署。
