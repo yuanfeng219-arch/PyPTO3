@@ -12,6 +12,7 @@ function choose(id){if(!data.nodes.some(n=>n.id===id))return;
  NodeTooltip.hide();selected=id;fullTrace=false;render();AnalysisWorkspace.open(id);
 }
 function showAnalysis(id){analysisContextId=id;window.DecisionInspector?.clear();$('detail').replaceChildren();$('analysis-title').textContent=data.nodes.find(n=>n.id===id)?.title||id;
+ if(window.UBBufferAnalysis?.open(id))return;
  if(window.SingleTileAnalysis?.open(id))return;
  if(window.ReviewInspector?.open(id))return;
  if(window.ExperimentInspector?.open(id))return;
