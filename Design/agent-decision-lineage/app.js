@@ -1,4 +1,5 @@
 const data=window.LINEAGE_DATA,view=window.LINEAGE_VIEW,$=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+window.LineageSelection={get nodeId(){return selected}};
 let selected=null,fullTrace=false;
 const semanticEdges=[...window.EXPLORE_DESIGN_RELATIONS.map(r=>({source:r.sourceId,target:r.targetId,type:r.relationType,evidenceRefs:r.evidenceRefs})),...data.edges.filter(e=>!['workflow','stage_membership'].includes(e.type)),...view.branches.filter(b=>['x-rows','x-reuse'].includes(b.id)).map(b=>({source:b.parent,target:b.id,type:'not_explored',evidenceRefs:[{sourceId:'PERFORMANCE_REPORT.md',location:'§7 Candidate Coverage Ledger（优化方向关系，非执行因果）'}]}))];
 const relationNames={open_opportunity:'未执行的开放机会',includes:'组成部分',observed_in:'观测线索',not_explored:'未探索方向',not_explored:'未探索方向',informs:'依据 → 设计',constrains:'约束',rules_out:'设计未触发',implemented_by:'produces',validated_by:'validated by',measured_by:'测量结果',motivates:'improved by',replaced_by:'失败尝试被替代',supports:'支持停止'};
@@ -9,7 +10,7 @@ function neighborhood(){const set=new Set(selected?[selected]:[]);if(!selected)r
 function reset(){selected=null;fullTrace=false;render()}
 let analysisActive=false,analysisOrigin=null,lineageScroll=0,mainScroll=0,analysisContextId=null,analysisScroll=0;
 function choose(id){if(!data.nodes.some(n=>n.id===id))return;
- NodeTooltip.hide();selected=id;fullTrace=false;render();AnalysisWorkspace.open(id);window.LineageDock.inspect(id);
+ NodeTooltip.hide();selected=id;fullTrace=false;render();AnalysisWorkspace.open(id);window.LineageDock.enterInspect(id);
 }
 function showAnalysis(id){analysisContextId=id;window.DecisionInspector?.clear();$('detail').replaceChildren();$('analysis-title').textContent=data.nodes.find(n=>n.id===id)?.title||id;
  if(window.SchedulingAnalysis?.open(id))return;
@@ -23,11 +24,11 @@ function showAnalysis(id){analysisContextId=id;window.DecisionInspector?.clear()
 window.AnalysisWorkspace={open(id){analysisActive=true;
  $('analysis').hidden=false;if(analysisContextId!==id||!$('detail').children.length){showAnalysis(id);analysisScroll=0}$('analysis').scrollTop=analysisScroll;
  $('analysis-title').focus({preventScroll:true});
-},back(){analysisScroll=$('analysis').scrollTop;analysisActive=false;$('analysis').hidden=true;
- window.LineageDock.expand();$('graph').focus({preventScroll:true});
-}};
+} ,closeContent(){analysisActive=false;$('analysis').hidden=true;},
+back(reason='explicit'){return window.LineageDock.returnToOverview(reason)}
+};
 $('analysis-back').onclick=()=>AnalysisWorkspace.back();
-document.addEventListener('keydown',event=>{if(event.key!=='Escape'||event.defaultPrevented)return;NodeTooltip.hide();if(analysisActive)AnalysisWorkspace.back()});
+document.addEventListener('keydown',event=>{if(event.key!=='Escape'||event.defaultPrevented)return;NodeTooltip.hide();if(analysisActive)AnalysisWorkspace.back('escape')});
 function activate(node,fn){node.setAttribute('tabindex','0');node.setAttribute('role','button');node.addEventListener('click',e=>{e.stopPropagation();fn()});node.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();fn()}})}
 function render(){window.ExploreDesignHover?.clear();const g=$('graph');g.replaceChildren();const related=neighborhood(),positions=new Map(),groups=new Map(view.groups.map(g=>[g.id,g]));
 let box;
