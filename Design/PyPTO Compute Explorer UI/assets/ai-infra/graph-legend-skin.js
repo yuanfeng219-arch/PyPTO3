@@ -19,7 +19,7 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
   const info=node.overlay||{};
   const fields=[layers.shape?info.shape:null,layers.shape&&info.valid?`Valid ${info.valid}`:null,layers.precision?info.precision:null,layers.memory?[info.memory,info.executionUnit].filter(Boolean).join(' · '):null].filter(Boolean);
   el.classList.toggle('is-control-object',!!layers.control&&!!info.control);
-  el.innerHTML=icon+`<span class="legend-text"><b>${esc(node.title)}</b>${fields.length?`<small>${esc(fields.join(' · '))}</small>`:''}</span>`+(node.expandable?`<span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">+</span>`:'');
+  el.innerHTML=icon+`<span class="legend-text"><b>${esc(node.title)}</b>${fields.length?`<small>${esc(fields.join(' · ').replace(/输出/g,'Output').replace(/跨/g,'Across '))}</small>`:''}</span>`+(node.expandable?`<span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">+</span>`:'');
   if(data){
    const role=root.PtoAIInfraPresentation.semanticRole(node);
    el.dataset.semanticRole=role.key;el.style.setProperty('--data-role',role.color);

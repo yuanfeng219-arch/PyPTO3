@@ -28,7 +28,7 @@
     host.classList.add('viz2-graph');
     host.innerHTML = `<div class="viz2-graph-body"><div class="viz2-graph-stage">
       <div class="kf-pypa-graph__viewport viz2-graph-viewport" role="group" tabindex="0" aria-label="${adapter?'Block 内计算图':'Block 间完整计算图'}，滚轮缩放，拖拽平移"><div class="kf-pypa-graph__scene viz2-graph-scene" data-viz2-graph-scene></div><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
-      <footer class="viz2-graph-footer"><span data-viz2-graph-context>完整计算图</span><div class="viz2-graph-footer__controls"><button class="btn btn-ghost btn-sm" data-viz2-graph-layer="data" aria-pressed="${layers.data}">${layerNames.data}</button><details class="viz2-graph-layer-menu"><summary>图层</summary><div class="viz2-graph-layer-menu__content" role="group" aria-label="信息叠加">${Object.entries(layerNames).filter(([key])=>key!=='data').map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-viz2-graph-layer="${key}" aria-pressed="${layers[key]}">${label}</button>`).join('')}</div></details><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="0.8" aria-label="缩小 Graph">−</button><output data-viz2-graph-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="1.25" aria-label="放大 Graph">＋</button><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-fit>Fit to View</button></div></div></footer>
+      <footer class="viz2-graph-footer"><span data-viz2-graph-context>完整计算图</span><div class="viz2-graph-footer__controls"><details class="viz2-graph-layer-menu"><summary><svg class="ai-layer-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg><span>图层</span></summary><div class="viz2-graph-layer-menu__content" role="group" aria-label="信息叠加">${Object.entries(layerNames).map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-viz2-graph-layer="${key}" aria-pressed="${layers[key]}">${label}</button>`).join('')}</div></details><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="0.8" aria-label="缩小 Graph">−</button><output data-viz2-graph-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="1.25" aria-label="放大 Graph">＋</button><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-fit>Fit to View</button></div></div></footer>
       </div><aside class="pto-ide-frame__pane viz2-graph-inspector" aria-label="Graph 节点详情" hidden><header class="pto-ide-frame__pane-header"><b data-viz2-graph-title></b><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-close aria-label="关闭 Graph 详情">×</button></header><div class="pto-ide-frame__pane-body" data-viz2-graph-detail></div></aside></div>`;
     const viewport = host.querySelector('.viz2-graph-viewport'), scene = host.querySelector('[data-viz2-graph-scene]');
     const events=new AbortController();
@@ -45,7 +45,7 @@
       scene.innerHTML='';labels?.remove();
       const overview=!adapter && !layers.data;
       const visibleModel=model;
-      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:false,rootLayerGap:150,childLayerGap:110,...adapter?.layoutOptions});
+      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,...adapter?.layoutOptions});
       // Reserve the same visual footprint in Structure and Weight so switching
       // decoration never moves nodes. Front card dimensions remain unchanged.
       const counts=staticExecutionData(graph);
@@ -53,7 +53,7 @@
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
       }));
-      const layoutOptions={flowLayout:true,overviewLayout:false,rootLayerGap:150,childLayerGap:110,executionFootprints,...adapter?.layoutOptions};
+      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,executionFootprints,...adapter?.layoutOptions};
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
       if(!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
@@ -85,7 +85,7 @@
       const blocks=preparation?prepBlocks:attentionBlocks;
       const label=document.createElement('div');label.className='viz2-graph-stage-title';
       label.dataset.viz2StageBlocks=blocks.join(',');label.dataset.viz2Stage=group.id;
-      label.innerHTML=adapter?.stageLabel?adapter.stageLabel(group):`<b>${escape(group.label)}</b>${preparation?'<small>Projection · 外部输入</small>':attention?'<small>Cache Append · Attention / Output</small>':''}`;
+      label.innerHTML=adapter?.stageLabel?adapter.stageLabel(group):`<b>${escape(group.label)}</b>${preparation?'<small>Projection · External Inputs</small>':attention?'<small>Cache Append · Attention / Output</small>':''}`;
       labels.append(label);
       let blockRail=null;
       if(!adapter&&(preparation||attention)){
@@ -245,6 +245,7 @@
       const nextLayers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true,...view.overlays};
       const nextExpanded=new Set(view.expanded||[]),nextKey=JSON.stringify([{...nextLayers,execution:undefined},[...nextExpanded],selection?.task,global.PtoPagedAttentionContext?.scenario?.seqLen]);
       if(layers.execution!==nextLayers.execution)executionKey='';
+      const dataVisibilityChanged=layers.data!==nextLayers.data;
       layers=nextLayers;scene.dataset.overlayExecution=String(layers.execution);
       if(nextKey!==layoutKey){layoutKey=nextKey;layers=nextLayers;expanded=nextExpanded;rebuild();inspectorKey='';}
       host.querySelectorAll('[data-viz2-graph-block]').forEach(button=>{
@@ -271,6 +272,7 @@
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
       host.querySelector('[data-viz2-graph-context]').hidden=true;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
+      if(dataVisibilityChanged){pendingFocus=false;onView({camera:fitted()});return;}
       if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;if(!adapter||!camera){onView({camera:initialCamera()});return;}}
       if(!camera){onView({camera:initialCamera()});return;}
       if(pendingFocus){pendingFocus=false;if(!adapter&&focus.related.length){focusRelated(focus);return;}}

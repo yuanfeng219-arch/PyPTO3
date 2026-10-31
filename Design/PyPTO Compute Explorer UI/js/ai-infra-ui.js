@@ -4,7 +4,7 @@
   // Presentation-only Chinese vocabulary. Source code and semantic IDs stay intact.
   const uiTerms = [
     ['QKV Preparation','QKV 准备'],['Aux Inputs','辅助输入'],['scaled / masked','缩放／掩码后的'],['PV partial','PV 部分结果'],['Key Cache','键缓存'],['Value Cache','值缓存'],['Cache Append','缓存追加'],['Mask','掩码'],['Projection','投影'],['Scaling','缩放'],['Preparation','准备'],['Inputs','输入'],['Outputs','输出'],['Static','静态'],['Producer','生产者'],['Consumer','消费者'],['Buffer','缓冲区'],['Feedback','反馈'],['rescale','重缩放'],
-    ['Compute Explorer','计算浏览器'],['Attention+Output','注意力与输出'],['Attention Tasks + Output','注意力任务与输出'],
+    ['Attention+Output','注意力与输出'],['Attention Tasks + Output','注意力任务与输出'],
     ['Work Generation','工作项生成'],['Task Generation','任务生成'],['Block Assignment','执行块分配'],['Active Blocks','活跃执行块'],
     ['Static Execution Weight','静态执行次数'],['Execution Weight','执行次数'],['Fit to View','适应视图'],
     ['Logical Tick','逻辑步'],['Task Inputs','任务输入'],['Task Output','任务输出'],['Tile Shape','分配形状'],['Valid Shape','有效形状'],
@@ -16,12 +16,13 @@
     ['Normalize','归一化'],['Accumulate','累加'],['Store','写回'],['Append','追加'],['Feedback','反馈'],['State','状态'],['Data','数据'],
     ['Batches','批次'],['Batch','批次'],['Blocks','执行块'],['Block','执行块'],['Tasks','任务'],['Task','任务'],
     ['Stacks','分块'],['Stack','分块'],['Pages','页'],['Page','页'],['Slots','槽位'],['Slot','槽位'],
-    ['Paged Attention','分页注意力'],['BATCH','批次'],['BLOCK','执行块'],['token','词元'],['Head','头'],['Norm','归一化'],['MatMul','矩阵乘'],['Matmul','矩阵乘'],['Reduce','归约'],['Maximum','最大值'],['Update','更新'],['Context','上下文'],['Output','输出'],['Input','输入'],['Cache','缓存'],['Shape','形状'],['Precision','精度'],['Memory','存储'],['Valid','有效'],['Allocated','分配'],['Cast','类型转换'],
+    ['BATCH','批次'],['BLOCK','执行块'],['token','词元'],['Head','头'],['Norm','归一化'],['MatMul','矩阵乘'],['Matmul','矩阵乘'],['Reduce','归约'],['Maximum','最大值'],['Update','更新'],['Context','上下文'],['Output','输出'],['Input','输入'],['Cache','缓存'],['Shape','形状'],['Precision','精度'],['Memory','存储'],['Valid','有效'],['Allocated','分配'],['Cast','类型转换'],
     ['tokens','词元'],['Items','工作项'],['Per','每'],['Lane','通道'],['Tick','逻辑步']
   ];
+  const objectTerms = new Set(['Batch','Batches','Block','Blocks','Task','Tasks','Stack','Stacks','Page','Pages','Slot','Slots','Q Heads','KV Head','Q Head','Q Tile','Head','BATCH','BLOCK']);
   function localizeText(value) {
     let result=value;
-    for(const [english,chinese] of uiTerms) result=result.replace(new RegExp('\\b'+english.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','g'),chinese);
+    for(const [english,chinese] of uiTerms.filter(([term])=>!objectTerms.has(term))) result=result.replace(new RegExp('\\b'+english.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','g'),chinese);
     return result;
   }
   function localizeUI(scope) {
@@ -29,10 +30,10 @@
     const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);
     let node;
     while((node=walker.nextNode())){
-      if(node.parentElement?.closest('script,style,pre,code,#dslEditor,#sourceRegionBar,[data-compute-code],[data-intra-code]')) continue;
+      if(node.parentElement?.closest('script,style,pre,code,.ai-presentation-overlay,.viz2-header .pto-ide-frame__pane-title,.viz2-graph-scene,.viz2-graph-stage-title,.viz2-graph-block-rail,.ai-semantic-legend,#dslEditor,#sourceRegionBar,[data-compute-code],[data-intra-code]')) continue;
       const translated=localizeText(node.nodeValue); if(translated!==node.nodeValue) node.nodeValue=translated;
     }
-    for(const element of [scope,...scope.querySelectorAll('[aria-label],[data-ai-tip]')]) for(const attr of ['aria-label','data-ai-tip']){
+    for(const element of [scope,...scope.querySelectorAll('[aria-label],[data-ai-tip]')].filter(el=>!el.closest('.viz2-graph-scene,.viz2-graph-block-rail'))) for(const attr of ['aria-label','data-ai-tip']){
       const old=element.getAttribute(attr); if(old){const next=localizeText(old);if(next!==old)element.setAttribute(attr,next);}
     }
   }
@@ -115,7 +116,7 @@
     root.querySelectorAll('#viz2-graph-inter,#viz2-graph-intra').forEach(host=>{
       if(host.querySelector('.ai-semantic-legend')) return;
       const legend=document.createElement('div');legend.className='ai-semantic-legend';legend.setAttribute('aria-label','图元语义色');
-      legend.innerHTML='<span><i style="--role-color:#80B7F7"></i>激活 / KV 数据</span><span><i style="--role-color:#F2C45F"></i>中间量 / 归约</span><span><i style="--role-color:#B0B0B0"></i>元数据</span>';host.append(legend);
+      legend.innerHTML='<span><i style="--role-color:#80B7F7"></i>Activation / KV Data</span><span><i style="--role-color:#F2C45F"></i>Intermediate / Reduction</span><span><i style="--role-color:#B0B0B0"></i>Metadata</span>';host.append(legend);
     });
     root.querySelectorAll('[data-am-play],[data-p0-play]').forEach(b=>transport(b));
     root.querySelectorAll('[data-am-replay],[data-p0-replay]').forEach(b=>transport(b,true));
@@ -200,6 +201,9 @@
   dialog.setAttribute('aria-labelledby','ai-usage-title');
   dialog.innerHTML = `<header><h2 id="ai-usage-title">Compute Explorer · 使用说明</h2><button type="button" data-ai-close aria-label="关闭使用说明">×</button></header>
     <h3>价值</h3><p>沿同一份算子源码，查看数据与任务归属、流水结构和计算依赖。本页直接查看 Paged Attention；原 IDE 入口保留源码与 Decode CSA 场景。</p>
+    <h3>Graph 同步事件</h3><p>QK_READY、SOFTMAX_READY 与 PV_READY 标记计算和搬运之间的 SET／WAIT 依赖。它们表示源码中的同步顺序，不表示运行耗时；可在图层菜单中控制同步关系的显示。</p>
+    <h3>流水线图例</h3><p>准备阶段：每排对应一条 AIV Lane，每个正方形对应一个 Batch × KV Head 预处理工作项。方格表示工作归属，不表示数据量或执行耗时。未选中时去色，选中对应 Block 时恢复语义色。</p>
+    <h3>任务分配图例</h3><p>任务矩阵：一格 = Q Head，每个 Task 固定 5 个。Block 分组：一格 = Stack，每个 Stack 最多 512 tokens。Batch 侧方格表示 Stack。双击 Task 查看内部；此视图显示静态映射，不表示执行时序。</p>
     <h3>使用</h3><p>选择 Assignment、Pipeline 或 Graph。点击对象查看详情，展开模块或进入 Block 内部；通过源码入口回到具体文件与行段。Assignment 支持拖动平移与滚轮缩放；Pipeline 总览纵向滚动浏览 Block，详情卡内滚动浏览 Stack；底栏切换 Task，适应按钮返回全览，返回按钮回到上一层。</p>
     <div class="ai-prompt"><button type="button" data-ai-copy aria-label="复制继续调查 prompt"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg></button><pre>使用 ai-infra-investigation，核查 PyPTO Compute Explorer 中的 [文件 / 视图 / 对象]。结合页面中的源码行段与参数验证其映射关系，保留现有交互，不修改算子。</pre></div><p data-ai-copy-status role="status"></p>
     <h3>扩展</h3><p>新增场景需接入源码快照、独立领域模型与对象映射；不能仅替换图上的名称。当前页面呈现源码与静态逻辑关系，运行耗时需要额外的设备数据。</p>
@@ -232,10 +236,12 @@
     }
     described = null;
   }
+  document.addEventListener('toggle',event=>{if(event.target.matches?.('.viz2-graph-layer-menu')&&event.target.open)hide();},true);
   function show(event) {
     const selector = 'button,summary,select,input,[role="button"],[role="checkbox"]';
     const target = event.target.closest(event.type === 'focusin' ? selector + ',[tabindex][aria-label]' : selector);
     if (!target || target === described) return;
+    if(target.matches('.viz2-graph-layer-menu[open] > summary')){hide();return;}
     if (!target.closest('.viz2,.csa-explorer,.ai-usage')) return;
     hide();
     const domainObject = target.closest('.kf-pa-map__viewport,.viz2-graph-viewport,.viz2-anatomy-svg,.viz2-intra-svg,.viz2-pipeline-viewport,.csa-qk-canvas-viewport');

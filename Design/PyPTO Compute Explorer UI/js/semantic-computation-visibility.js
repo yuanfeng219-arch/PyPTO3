@@ -25,8 +25,20 @@
       for (const next of outgoing.get(last.t)) follow([...chain, next], nextSeen);
     }
     for (const edge of graph.edges) if (!hidden.has(edge.s)) follow([edge], new Set([edge.s]));
-    return { ...graph, nodes, edges,
-      edgeRoutes: root.PTO_COMPUTATION_LAYOUT.routeEdges(nodes, edges, graph.width - 88, options) };
+    // Compact the visible ranks after contraction; hidden tensors leave no empty ranks.
+    const ranks=[...new Set(nodes.map(n=>n.y))].sort((a,b)=>a-b), positions=[];
+    ranks.forEach((y,i)=>positions.push(i ? positions[i-1]+Math.max(...nodes.filter(n=>n.y===ranks[i-1]).map(n=>n.h))+56 : 76));
+    const project=y=>{
+      if(!ranks.length)return y;
+      if(y<=ranks[0])return positions[0]+y-ranks[0];
+      for(let i=1;i<ranks.length;i++)if(y<=ranks[i])return positions[i-1]+(y-ranks[i-1])/(ranks[i]-ranks[i-1])*(positions[i]-positions[i-1]);
+      return positions.at(-1)+y-ranks.at(-1);
+    };
+    const compactNodes=nodes.map(n=>({...n,y:project(n.y),...(n.groupHeight?{groupHeight:project(n.y+n.groupHeight)-project(n.y)}:{})}));
+    const groups=(graph.groups||[]).map(g=>({...g,y:project(g.y),h:project(g.y+g.h)-project(g.y)}));
+    const height=Math.max(0,...compactNodes.map(n=>n.y+n.h),...groups.map(g=>g.y+g.h))+40;
+    return { ...graph, nodes:compactNodes, groups, edges, height,
+      edgeRoutes: root.PTO_COMPUTATION_LAYOUT.routeEdges(compactNodes, edges, graph.width - 88, options) };
   }
   // Level 1 keeps the operator contract visible while contracting transient
   // values. Each replacement edge records the semantic edges it represents.

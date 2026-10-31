@@ -109,7 +109,7 @@
     root.setAttribute('aria-label', 'Compute Explorer');
     root.innerHTML = `<header class="pto-ide-frame__pane-header viz2-header">
       <button type="button" class="btn btn-ghost btn-sm" data-viz2-back>← 返回代码</button>
-      <span class="pto-ide-frame__pane-title">Compute Explorer</span>
+      <span class="pto-ide-frame__pane-title">PyPTO Compute Explorer</span>
       <span class="pto-ide-frame__pane-meta">paged_attention_pypto.py</span>
     </header>
     <div class="viz2-content">
@@ -243,6 +243,7 @@
     root.querySelector('[data-viz2-selection]').textContent=selection?.task != null ? taskDescription(selection.task) : selection?.kind==='block' ? `Block ${selection.block} → ${tasksForBlock(selection.block).join(', ')} · Task ID % ${constants.blocks}` : `任务矩阵：一格 = Q Head（固定 5 个）· Block 分组：一格 = Stack（最多 512 tokens）`;
   }
   function render(state, action) {
+    document.dispatchEvent(new CustomEvent('compute-view-change',{detail:state}));
     root.hidden=!state.open;
     phase0Controller?.update(state.selection, state.views.assignment.phase0Camera, {
       active:state.open && state.activeTab==='assignment' && state.views.assignment.phase==='phase0' && state.views.assignment.subview!=='block',

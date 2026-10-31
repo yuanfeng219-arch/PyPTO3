@@ -1,71 +1,111 @@
 # PyPTO Agent Decision Explorer
 
-直接打开 agent-decision-lineage-softmax.html 即可，无构建依赖。数据通过 lineage-data.js 加载，lineage-data.json 为同一模型的可读版本。
+历史 Softmax Agent Run 的交互审查原型：从需求与设计进入源码、正确性、性能实验和停止证据。仅展示历史材料，不连接 Agent 执行器，不声称在线重跑或硬件控制。
 
-## 工程与模型
+## 预览与完整旅程
 
-- HTML / page.css / app.js：三栏基础框架、阶段和类型筛选、节点详情与证据链接。
-- nodes：id、type、title、status、stage、reason、relatedNodeIds、evidenceRefs、assertionBasis。
-- edges：source、target、type；当前仅 expresses relates_to，不推断时间顺序或因果。
-- sources：文件 ID、快照路径、SHA256；evidenceRefs.location 记录章节或 JSON 字段。
-- evidence/：10 份原始材料快照，不改原始材料。
-- assets/design-system/：从 V3 同源设计系统复制 tokens、CSS、ide-frame 与 workbench-shell。
+当前本机服务：http://127.0.0.1:8765/agent-decision-lineage-softmax.html 。未部署 GitHub Pages。
 
-状态区分 completed / recorded / adopted / considered_not_adopted / attempted_failed / not_attempted / validated。采用与验证是不同概念，验证结果通过证据节点和引用表达。列表数量只是本页人工整理节点数量，不代表 Agent 实验或候选总数。
+服务停止时，在本目录执行 `python3 -m http.server 8765 --bind 127.0.0.1`。也可直接打开 HTML；证据数据通过本地 JS 包加载，无 npm 构建依赖。
 
-## V3 复用审计
+1. Overview：识别纯 Vector/VF、五阶段完成、8/8 PASS、大用例 Baseline→Final。
+2. 选择 Mixed Precision、Single Tile、UB 或 Scheduling，自动定位 Decision Inspector，查看可选对象与高亮代码。
+3. 详情上方「下一步」沿审查顺序进入 Kernel、8 个正确性用例、Baseline、性能线索、优化假设、修改、失败与替代、Final 和 Stop。此导航是阅读顺序，不表示新增实验或因果。
+4. Experiment Inspector 的 Journey / Comparison / Evidence 共享 Shape；候选与下一步导航同步主 Lineage 选中身份。
+5. 「返回 Lineage」保留当前节点并选择适合的 Design/Optimize 范围；Fit to View 恢复当前范围，Focus Selection 聚焦选中对象及关联。Overview/Design/Optimize 或空白重置选择；返回全局恢复全局缩放。
 
-原 V3 为单文件 HTML，业务 CSS/JS 内联；外链包含 IDE Frame、workbench shell、AIC/AIV、memory/hardware、矩阵/张量、播放条和 candidate-population-lineage。当前仅复用基础 shell 依赖；不移植 MatMul、Cube、播放条或候选图。
+顶部 IDE 标题栏和底部状态栏固定，main 工作区独立纵向滚动，代码区可独立滚动并通过 Tab、PageDown 操作。Inspector 出现后焦点到上下文标题。
 
-映射：V3 topbar → ide-frame topbar；pane/header/body/status → 同名共享类；业务控件 → btn btn-ghost；旧业务画布 → 节点索引。未创建新视觉组件或 preview page。直接嵌入 ide-frame，三栏内容与深色主题依据原 V3 和本阶段需求推断。页面不覆写 pane 背景与阴影，无私有装饰边框。
+## 工程结构
 
-## 信息边界
+| 文件 | 责任 |
+|---|---|
+| agent-decision-lineage-softmax.html / page.css | IDE shell、滚动、Lineage 与详情容器及局部视觉 |
+| app.js | Lineage 渲染、语义高亮、聚焦、共享详情选择和滚动定位 |
+| lineage-data.json / lineage-data.js | 同一事实模型的 JSON 和浏览器包；节点、关系、证据引用与 evidenceKinds |
+| lineage-layout.js | 语义展示投影：分组、固定坐标、分支、主线来源；带宽不编码数量 |
+| decision-inspector.js / decision-evidence.js | Precision、Tile/Memory、Scheduling；原始设计材料包 |
+| experiment-inspector.js / experiment-data.js | Journey、正式对比、PMU 与停止审查；实验数据与前后源码包 |
+| review-inspector.js / audit-evidence.js | 连续审查导航、统一证据语义、Kernel 和全部正确性用例 |
+| evidence/ | 11 份原始快照，记录 SHA256；包括 Baseline test_softmax.py.bak_stage5 |
+| assets/ | 从 V3 同源设计系统复制的 tokens、CSS、IDE Frame / workbench 依赖；原 V3 未改 |
+| checks/ | 可重复执行的证据审计与真实浏览器回归脚本 |
+| previews/ | 关键状态截图与机器可读审计结果 |
 
-无法可靠恢复完整 Agent 对话、每次思考时间、完整候选总数、实验总次数和未记录失败。stage_retry_count=0 不代表零实验。Stage 3 约束分析不是编译记录。KB_SELECTION、DESIGN_BINDINGS、KB_USAGE 为知识选择/绑定/使用材料，不是执行候选账本。
+继续使用 `ide-frame` direct embedding 与共享深色 tokens。没有复刻 Cube/Load3D/C→V，也没有使用候选数量收敛模型；详情专题不取代主图谱。
 
-Stage 5 基线与 Final 正式采集、quick A/B 和 Golden 的范围不能混合。performance.json 的 repeat_bound_diagnoses 是路由诊断；terminal_evidence 才是报告停止证据。原始报告判定 compute_bound，小 case 仍有启动开销主导的限定。timeline preflight 失败不等于流水线失败。
+## 模型与证据规则
 
-未运行 NPU 测试，也未新增测试。未实现 Lineage 图或性能图表。
+节点含 id / type / status / stage / reason / relatedNodeIds / evidenceRefs / assertionBasis / evidenceKinds。类型为 Workflow、Decision、Experiment、Evidence、Finding。关系有独立来源位置；阶段归属不绘制成发散连线。
 
-## Agent Decision Lineage 主交互
+| 证据分类 | 含义 |
+|---|---|
+| Measured | 历史正确性、Kernel 计时或 Profiler 材料；不代表本机复测 |
+| Derived | 源码、资源约束、Roofline 模型或 Tile DAG 推导 |
+| Design Decision | 采用的方案或优化假设 |
+| Reported Attempt | 报告记录的真实尝试，可能缺少失败版本源码或原始日志 |
+| Not Attempted | 未执行；没有性能结果或排名 |
+| Missing Evidence | 缺失或采集失败；不等同于 Kernel 执行失败 |
 
-中央改为 SVG 节点群与曲线连接，复制 V3 的 candidate-population-lineage CSS 作为视觉基础；不使用其候选数量驱动的 JS。默认显示少量关键决策、失败与未尝试分支；点击阶段展开全部该阶段业务节点，点击节点高亮上游/下游语义关系，空白和「返回全局」重置。支持 Tab/Enter/Space 操作节点。
+证据种类与候选状态分别表达。同一 Stop 结论可引用多类证据。原始材料/Workflow 节点不强制标成尝试。
 
-新增知识选择、API 适配、设计约束、Precision、Tiling、Memory、Scheduling、Kernel、正确性和 Final 节点，均引用既有材料。关系有独立 evidenceRefs；workflow、stage_membership 和实际决策关系分开。原始 evidence 快照未改动。
+### 本轮语义修正
 
-浏览器检查受工具 file:// 协议安全策略阻止，未绕过策略；尚未实际确认布局和点击表现。未新增或运行测试。
+- Journey `8/8 PASS` → `x-verify`，展示全部 8 个实际报告用例；不再跳至 Final 性能节点。
+- `f-mask` 为报告中的循环内 mask 线索；`h-mask` 为优化假设；`x-mask` 为实施修改。不是三次新增实验。
+- `x-tail` 为 Mask Lifting 的组成部分，关系 `includes`；没有独立性能归因。
+- `x-reuse` / `x-fusion` 分别表示 Exp Reuse / Pass Fusion，主图与 Candidate Ledger 身份一致。
+- Scheduling 入口直接命名，消除仅使用「行块跨核 striding」的可发现性问题。
 
-## 阶段 2 信息架构重构（2026-10-31，取代前述三栏/阶段发散布局）
+### 数值口径与边界
 
-- Workflow-first 改为 Decision-first + Experiment-first；五阶段成为轻量标尺，不再绘制阶段归属边。
-- 默认全宽图谱：SPEC → 知识/API/硬件约束 → 采用设计节点群 → Kernel → Correctness → Baseline → Mask Lifting → Final。
-- 保留 ide-frame direct embedding 与原深色主题；复用 V3 连续带、局部节点群和分流视觉原则。带宽固定，不表示数量。没有引入硬件视图或性能 Dashboard。
-- `lineage-layout.js` 为语义展示投影：groups/items、branches/parent/relation、links/source citation。原 `lineage-data.json/js` 与 evidence 快照未修改。主线中工作流交接不是实验因果；所有展示关系记录文件与位置。
-- 同一布局坐标用于 Overview / Design / Optimize；通过 viewBox 和 clipPath 聚焦，不根据选择重新排列节点。任务导航默认折叠，Inspector 在下方按需打开。
-- 单击节点默认高亮直接上下游；可切换完整语义溯源。Fit to View 恢复当前范围，返回全局清除选择并恢复全局缩放。Focus Selection 适配选中节点及其关联边界。
-- 正式大用例 kernel：5.926 → 4.946 μs（1.198×）；保留小用例 3.250 → 3.428 μs 未获益限定。Golden E2E 比值未改为优化加速比。
+- 正式 Kernel Duration 取 3 samples 的 trimmed mean（去最大/最小，等于中间值）。Baseline / Final 为 3.250→3.428、4.714→4.015、5.926→4.946 μs。
+- 耗时变化为 `(Final−Baseline)/Baseline`：+5.48%、−14.83%、−16.54%；speedup 为 Baseline/Final。报告小用例的约 5.2% 未直接复制为同口径变化率。
+- Golden E2E / PyPTO target kernel 是跨范围默认目标，不能当作本次优化 speedup。
+- 大用例 Profiling 表单次 Task Duration 5.834→4.946 μs，与正式基线中位数 5.926 分开。PMU 百分比不是可相加的执行时间分解；vec_resc_cflt=121.50% 不解释为超100%利用率。
+- 8 个正确性用例来自 PERFORMANCE_REPORT §8，matched_ratio、max_abs_error逐项保留。通过不等于穷举整个动态范围。
+- compute_bound 是 Roofline 推导；小用例实际时间仍以启动/setup 为主。not_applicable_with_dag 为每核一个工作项的依赖证明。
+- Timeline 因设备重映射变量冲突在 preflight 失败，未画成算法失败或伪造时间轴。
+- Stage retry 次数、KB Pattern 数、页面节点数均不是实验次数或候选总数。
 
-### HTTP 与可视验收
+## 可重复验收
 
-本机 HTTP 入口：`http://127.0.0.1:8765/agent-decision-lineage-softmax.html`。若服务已停止，可在本目录执行 `python3 -m http.server 8765 --bind 127.0.0.1`。
+### 证据审计
 
-已在 1440×1000 视口实际打开 Overview、Design、Optimize 并截图；页面 scrollWidth=1440，与视口相等。检查了 Runtime if 失败 Inspector、TILE_ROWS 未尝试 Inspector、Focus Selection、Fit to View、返回全局。截图见 `previews/overview-1440.png`、`design-1440.png`、`optimize-1440.png`。未重跑 NPU 性能或正确性测试。
+在本目录执行：
 
-### 仍有限制
+`python3 checks/audit_evidence.py http://127.0.0.1:8765/`
 
-这是单次 Softmax Run 的语义布局，不是支持任意拓扑的通用自动布局器。默认 Overview 为保留完整故事采用较密文字；聚焦视图使用原坐标裁切，留白较多。低于 900px 的窄屏保留画布滚动。记录不足的因果不补画；timeline 工具失败仅在说明中披露。硬件、性能详细视图仍未开发。
+不传 HTTP 参数时只审计本地材料。检查原始文件与快照、SHA256、全部证据文件的 HTTP 内容、JS/JSON 与代码包一致性、正式 samples/中间值、8用例数据、唯一ID、关系与引用。
 
-## 阶段 3：Design Decision Explorer
+结果：`previews/evidence-audit.json`，82 项通过。
 
-新增 `decision-inspector.js`（三个专题与对象交互）、`decision-evidence.js`（从 evidence 原样打包的五份材料，支持 file/HTTP 两种打开方式），在 HTML 与 app.js 中接入。未改变 Lineage 主干、坐标或原数据模型。page.css 添加专题局部样式，保留主工作区独立滚动。
+### 浏览器回归
 
-Design Focus 选择 Mixed Precision、Single Tile、UB、Scheduling 或 Vector/VF 即进入专题 Inspector。专题标签同步对应 Lineage 选择；「返回 Lineage」滚动回图谱。对象选择更新约束解释及高亮代码片段；代码行号通过快照逐行定位，未编造行号。
+`checks/e2e.cua.mjs` 导出 `runReviewRegression({tab,browser,width,writeFile,directory})`，在具备文档化 cua 浏览器句柄的 cua_repl 中调用。仅使用公开 DOM/键盘/点击/滚动 API；不注入应用状态或调用隐藏业务方法。分别传入 width=1440、1600，height 固定为900。测试结束应 reset viewport。
 
-- Precision：Input/Max/Exp/Sum/Divide/Output，明确 FP16 max、exp_sub 内部 FP32 widen、FP32 sum/div、astype ZERO/ONE narrow；Pass 3 重算 Exp。全 FP16 / 全 FP32 为探索备选，不提供伪造实测数据。
-- Memory：真实 [7,200] 与 [32,4096] 用例；Tile 行区间和有效尾行，关联每核独立 UB 的 in0/out0；四槽按字节比例，支持 Slot 地址、容量、mutex 和实现选择，192/248 KiB=77.4%，剩余 56 KiB。第二槽表示预留轮转资源，未声称已流水重叠。
-- Scheduling：P0 静态分核映射、Load→三趟VF→Store、Tail mask、next 与 auto_mutex。区分设计义务、静态代码、Profiling 运行事实。
-- 证据：DESIGN 章节入口、DESIGN_BINDINGS 的 reference/req_id/status/invariant、KB_USAGE 对应 reference/req_id 实现记录、test_softmax.py 实际片段；找不到同 ID 时明确披露。未将知识条目数量解释为实验数。
+本轮两种视口各48项通过。记录：`previews/regression-1440.json`、`regression-1600.json`。覆盖 Overview/Design/Optimize、三个设计专题、Kernel、8正确性用例、全部候选、3 Shape/Samples、PMU/Stop、连续下一步与返回、键盘焦点、内部代码滚动、主区滚动、选择清理、Fit/Focus、横向溢出和Console。
 
-已通过本地 HTTP 在 1440×900、1600×900 操作 Precision 步骤、Tile 尾块与 Slot、执行阶段、专题切换与返回。检查 Inline code 与高亮、not_triggered 绑定、Inspector 纵向滚动与页面无横向溢出。未运行 NPU 测试，未重新采集性能。
+截图：`audit-overview-{width}.png`、`audit-design-{width}.png`、`audit-optimize-{width}.png`、`audit-experiment-{width}.png`、`audit-stop-{width}.png`，width为1440或1600。截图反映独立滚动区域，Overview底部分支可继续下滚查看。
 
-缺失证据仍包括逐步骤精度误差、其他 TILE_ROWS 性能比较、备选 dtype 路线本次实测对照、运行时 Tile→Slot 时间轨迹和真实重叠时间轴。远端页面读取失败，本阶段事实依据为工作区原始材料和现有 evidence 快照；未声称同步线上内容或部署。
+## 已知限制与未验证部分
+
+这是为一次 Softmax Run 编排的语义布局，不是任意拓扑自动布局器。Overview文字密度高，聚焦视图有留白；<900px 窄屏保留画布横向滚动，不属于本轮桌面验收范围。
+
+没有逐步精度误差、其他 TILE_ROWS 性能对照、全FP16/全FP32路线本次实测对照、Runtime-if失败源码/编译日志快照、真实Cycle Timeline、逐指令因果或统计显著性依据。也没有完整 Agent 对话和逐次事件时间戳。对这些内容只披露限制，不补造数据。
+
+本轮未运行 NPU 测试，未连接执行器，未发布、commit、push 或合并。只修改本 Demo；事实依据为本地原始材料与快照，线上版本不自动同步。
+
+## 紧凑 Experiment River
+
+Overview / Optimize 使用 `experiment-river.js` 与 `lineage-layout.js` 的展示几何：Baseline→Finding线索→Mask Lifting→Final→Stop；Finding是同一主段的轻量注释，不是新增实验。Runtime if从候选展示分岔处分出、红色封口、不汇入Final。三个机会从Stop附近并列以虚线和淡出端点呈现，不互为下游，不表示已执行。
+
+主带宽32、失败支线10、机会支线3均为叙事层级，绝不编码数量/性能/概率。布局画布由1688×500承载完整全局（此前1540×750）；Optimize内部叙事带保持约350逻辑像素高。设计区原有节点坐标保留。新增junction仅属于展示层，不记录为历史节点。Stop→opportunity为审查关系，有PERFORMANCE_REPORT §7/§11依据；不表示时间执行因果。点击开放机会直接进入对应Not Attempted说明和停止审查。
+
+更新后的两视口回归仍各48项通过。新增截图：`previews/river-overview-1440.png`、`river-optimize-1440.png`。1440下完整Optimize节点与机会端点可见，不需要滚动很长页面；Inspector继续按需自动定位并独立滚动。
+
+## 运行后未探索方向
+
+`06 OPEN OPPORTUNITIES` 是产品呈现章节，不是 Orchestrator 第六阶段。配置位于 `LINEAGE_VIEW.river.postRunOpportunities`，按 PERFORMANCE_REPORT.md §7 的原始原因归纳为“目标已达成”和“需要改设计”。三个候选复用 x-rows / x-reuse / x-fusion，原始事实模型及实验父子关系保持不变。
+
+统一从 Target / Stop 右侧分叉，以中性曲线连接类别区域；候选仍调用原有 Inspector，类别与候选的悬停/聚焦同步强调所属分叉。完整 SVG 继续由实际元素 bounds 计算 viewBox。

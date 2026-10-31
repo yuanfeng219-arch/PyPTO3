@@ -101,12 +101,12 @@
       batchSequences.push({ node: seq, parts: drawSequence(seq, len, { x: 24, y: layout.sources[0].h - 8, width: layout.sources[0].w - 30, height: 7 }) });
     }
     layout.groups.forEach(group => {
-      svg('text', { x: 8, y: group.y + group.height / 2, class: 'viz2-am-group-label', 'data-am-group': group.index }, groupLabels).textContent = group.label;
+      svg('text', { x: layout.columns[0].x - 14, y: group.y + group.height / 2, 'text-anchor': 'end', class: 'viz2-am-group-label', 'data-am-group': group.index }, groupLabels).textContent = group.label;
     });
     const blockNodes = layout.blockRects.map((r, block) => {
       const group = svg('g', { 'data-pa-block': block, class: 'viz2-am-block', role: 'button', tabindex: '-1', 'aria-label': `SPMD Block ${block}: Tasks ${layout.assignments[block].join(', ')}` }, blockLayer);
       svg('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-am-block-frame' }, group);
-      svg('text', { x: r.x + 7, y: r.y + 15, class: 'viz2-am-block-label' }, group).textContent = `Block ${String(block).padStart(2, '0')} · ${layout.assignments[block].length} Tasks`;
+      svg('text', { x: r.x + 7, y: r.y + 15, class: 'viz2-am-block-label' }, group).textContent = `Block ${String(block).padStart(2, '0')} · ${layout.assignments[block].length} Task`;
       return group;
     });
     const qEncodings = [], seqEncodings = [];
@@ -146,6 +146,9 @@
     }
     function draw(p) {
       progress = clamp(p);
+      // Keep the Block matrix centered without reserving the Batch metadata gutter.
+      const offset = -(layout.columns[0].x + (layout.columns.at(-1).x + layout.columns.at(-1).width - layout.columns[0].x) / 2 - layout.width / 2) * progress;
+      [columnLayer,generation,blockLayer,groupLabels,taskLayer,hitLayer].forEach(layer=>layer.setAttribute('transform',`translate(${offset} 0)`));
       host.dataset.amProgress = String(progress);
       generation.style.opacity = String(clamp(1 - progress / .2));
       const alpha = clamp((progress - .82) / .18);

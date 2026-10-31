@@ -75,7 +75,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       modelGraphviz = false, compactNodes = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
     const labelMeasure = document.createElement('canvas').getContext('2d');
     labelMeasure.font = '500 15px -apple-system, BlinkMacSystemFont, "PingFang SC", Arial, sans-serif';
-    const opWidth = node => Math.ceil(labelMeasure.measureText(window.PtoAIInfraPresentation?.localizeText?.(node.title) || node.title).width) + (node.expandable ? 88 : 58);
+    const opWidth = node => Math.ceil(labelMeasure.measureText(node.title).width) + (node.expandable ? 88 : 58);
     const fitOp = node => view === 'compute' && window.PtoAIInfraPresentation && node.kind !== 'data' && !node.expandedGroup;
     const placedNodes = graph.nodes.map((node) => ({
       ...node, w: fitOp(node) ? opWidth(node) : node.w, x: fitOp(node) ? node.x + (node.w - opWidth(node)) / 2 : node.x, expandable: options.allowExpand === false ? false : node.expandable,

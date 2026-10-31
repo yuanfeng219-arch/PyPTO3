@@ -133,12 +133,14 @@
         if(related){ctx.fillStyle='#262626';ctx.fillRect(0,y,layout.width,layout.row);}
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(0,y+layout.row);ctx.lineTo(layout.width,y+layout.row);ctx.stroke();
         ctx.fillStyle=related?fg:secondary;ctx.font=`12px ${mono}`;if (!transitionMasked) ctx.fillText(String(lane.block).padStart(2,'0'),layout.labelX+8,y+layout.row/2);
-        // Equal-size AIV strips encode work ownership, not Phase0 execution time.
+        // One square = one Batch × KV Head work item; each row is an AIV Lane.
         lane.phase0Lanes.forEach((aiv,index)=>{
-          const y0=y+3+index*(layout.row-6)/lane.phase0Lanes.length, h=(layout.row-8)/lane.phase0Lanes.length;
-          ctx.fillStyle=aiv.groups.length?(related?colors.phase0:'#505050'):color('--surface-3');ctx.globalAlpha=aiv.groups.length?.65:.5;
-          ctx.fillRect(layout.phaseX,y0,layout.phaseW,h);ctx.globalAlpha=1;
-          aiv.groups.forEach((group,i)=>{const w=(layout.phaseW-8)/aiv.groups.length;ctx.fillStyle=fg;ctx.globalAlpha=.25;ctx.fillRect(layout.phaseX+4+i*w,y0+2,Math.max(1,w-3),Math.max(1,h-4));ctx.globalAlpha=1;});
+          const laneH=(layout.row-6)/Math.max(1,lane.phase0Lanes.length);
+          const side=Math.max(1,Math.min(laneH-2,(layout.phaseW-8)/Math.max(1,aiv.groups.length)-3));
+          const gap=Math.max(1,side*.25), width=aiv.groups.length*side+Math.max(0,aiv.groups.length-1)*gap;
+          const x0=layout.phaseX+(layout.phaseW-width)/2, y0=y+3+index*laneH+(laneH-side)/2;
+          ctx.fillStyle=related?colors.phase0:'#686868';
+          aiv.groups.forEach((group,i)=>ctx.fillRect(x0+i*(side+gap),y0,side,side));
         });
         if(!lane.phase0Groups){ctx.fillStyle=muted;ctx.font=`10px ${family}`;ctx.fillText('无有效预处理',layout.phaseX+12,y+layout.row/2);}
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(layout.phaseX+layout.phaseW+2,y+layout.row/2);ctx.lineTo(layout.syncX-6,y+layout.row/2);ctx.moveTo(layout.syncX+6,y+layout.row/2);ctx.lineTo(layout.taskX-5,y+layout.row/2);ctx.stroke();
@@ -166,7 +168,7 @@
       const lane=model.lanes[selection.block];
       if(!lane){inspector.hidden=true;return;}
       host.querySelector('[data-bem-title]').textContent=`Block ${String(lane.block).padStart(2,'0')}`;
-      detail.innerHTML=`<section><h3>Phase0</h3><p>${lane.phase0Groups?`${lane.phase0Lanes.length} 条 AIV Lane · ${lane.phase0Groups} 组预处理`:'无有效预处理工作'}<br>参与 SYNCALL 后进入 Attention。</p>${selection.kind==='lane'?`<p>保留 Assignment 焦点：AIV Lane ${selection.lane}</p>`:''}</section><section><h3>Attention · stride ${model.blocks}</h3><p>${lane.tasks.length} Tasks · ${lane.totalStacks} Stacks</p><div class="viz2-pipeline-task-list">${lane.tasks.map(t=>`<button class="btn btn-ghost btn-sm" type="button" data-bem-select="${t.id}">Task ${t.id}<span>${t.stacks} Stacks</span></button>`).join('')}</div></section><section><h3>Output</h3><p>每个 Task 末尾独立 Normalize 并以 BF16 写回；图中的 N↓ 为等宽符号。</p></section>`;
+      detail.innerHTML=`<section><h3>Phase0</h3><p>${lane.phase0Groups?`${lane.phase0Lanes.length} 条 AIV Lane · ${lane.phase0Groups} 组预处理`:'无有效预处理工作'}<br>每排对应一条 AIV Lane，每个方格对应一个 Batch × KV Head 预处理工作项。<br>参与 SYNCALL 后进入 Attention。</p>${selection.kind==='lane'?`<p>保留 Assignment 焦点：AIV Lane ${selection.lane}</p>`:''}</section><section><h3>Attention · stride ${model.blocks}</h3><p>${lane.tasks.length} Tasks · ${lane.totalStacks} Stacks</p><div class="viz2-pipeline-task-list">${lane.tasks.map(t=>`<button class="btn btn-ghost btn-sm" type="button" data-bem-select="${t.id}">Task ${t.id}<span>${t.stacks} Stacks</span></button>`).join('')}</div></section><section><h3>Output</h3><p>每个 Task 末尾独立 Normalize 并以 BF16 写回；图中的 N↓ 为等宽符号。</p></section>`;
     }
     function selectTask(id) {const task=model.tasks[id];if(task)onSelect({kind:'task',task:id,block:task.block,batch:task.batch,kvHead:task.kvHead});}
     function update(nextSelection,nextCamera,options={}) {

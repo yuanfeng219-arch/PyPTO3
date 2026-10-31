@@ -13,7 +13,7 @@
   function nodeSize(node, child, options) {
     const overview = options.overviewLayout && !child;
     const fallbackWidth = child ? 194 : overview ? (['data', 'state'].includes(node.type) ? 178 : 228) : ['data', 'state'].includes(node.type) ? 170 : 188;
-    return { w: node.w || fallbackWidth, h: node.h || (child ? 80 : overview ? 52 : 88) };
+    return { w: node.w || fallbackWidth, h: options.compactGlyphs ? (['data','state'].includes(node.type) ? 64 : 48) : node.h || (child ? 80 : overview ? 52 : 88) };
   }
 
   function rankNodes(nodes, edges, scope) {

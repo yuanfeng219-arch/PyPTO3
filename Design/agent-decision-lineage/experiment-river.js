@@ -1,0 +1,18 @@
+/* Geometry comes from layout anchors; widths encode hierarchy only. */
+window.ExperimentRiver={positions(view){return [view.river.finding,view.river.failed,...view.river.opportunities]},render({svg,view,selected,related,choose,layer='all'}){
+ const NS='http://www.w3.org/2000/svg',r=view.river,G=window.FlowGeometry;
+ const el=(tag,attrs={},text)=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text)n.textContent=text;return n};
+ const path=(d,kind,ids)=>{const p=el('path',{d,class:'experiment-river '+kind,'data-region':'optimize','data-related':ids.join(' ')});svg.append(p);return p};
+ const node=(p,kind)=>{const g=el('g',{class:'node river-node '+kind+(selected===p.id?' selected':''),'data-node-id':p.id,'data-region':'optimize',tabindex:0,role:'button','aria-label':p.label+' '+p.sub});g.append(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:9}));if(kind==='opportunity'){g.setAttribute('data-opportunity-category',p.categoryId);g.append(el('text',{x:p.x+8,y:p.y+16,class:'river-label'},'○ '+p.label+' · 未尝试'),el('text',{x:p.x+8,y:p.y+34,class:'river-sub'},p.sub));}else g.append(el('text',{x:p.x+9,y:p.y+21,class:'river-label'},p.label),el('text',{x:p.x+9,y:p.y+40,class:'river-sub'},p.sub));if(selected&&!related.has(p.id))g.style.opacity='.4';const activate=e=>{e.stopPropagation();choose(p.id)};g.onclick=activate;g.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();activate(e)}};svg.append(g);for(const t of g.querySelectorAll('text'))G.fitText(t,p.w-18)};
+ const base=view.groups.find(g=>g.id==='baseline'),final=view.groups.find(g=>g.id==='final'),f=r.finding,p=r.failed;
+ if(layer==='all'||layer==='connections'){
+ path(G.curve({x:base.x+base.w/2,y:f.y+f.h},{x:base.x+base.w/2,y:base.y}),'finding-stem',['f-mask','x-base']);
+ const branch=G.failedBranch(view);path(branch.d,'failed',['x-if','x-tail']);
+ const origin={x:final.x+final.w,y:view.river.flow.y},junction={x:origin.x+35,y:origin.y};
+ path(G.curve(origin,junction),'opportunity-stem',['d-stop']);
+ for(const category of r.postRunOpportunities.categories){const target={x:category.x,y:category.y+category.h/2},d=target.x-junction.x;const branch=path(`M${junction.x} ${junction.y} C${junction.x+d*.55} ${junction.y},${target.x-d*.55} ${target.y},${target.x} ${target.y}`,'opportunity-split',['d-stop',...category.candidateIds]);branch.setAttribute('data-opportunity-category',category.categoryId);}
+
+ }
+ if(layer==='all'||layer==='nodes'){node(f,'finding');node(p,'failed');for(const category of r.postRunOpportunities.categories){const group=el('g',{class:'opportunity-category','data-opportunity-category':category.categoryId,'data-region':'optimize',tabindex:0,'aria-label':category.categoryName});group.append(el('rect',{x:category.x,y:category.y,width:category.w,height:category.h,rx:9}),el('text',{x:category.x+18,y:category.y+25,class:'opportunity-category-title'},category.categoryName));svg.append(group)}for(const lane of r.opportunities)node(lane,'opportunity');
+ const highlights=[...svg.querySelectorAll('[data-opportunity-category]')];const focus=id=>{for(const item of highlights){item.classList.toggle('opportunity-dimmed',!!id&&item.dataset.opportunityCategory!==id);item.classList.toggle('opportunity-highlight',!!id&&item.dataset.opportunityCategory===id)}};for(const item of highlights){item.addEventListener('pointerenter',()=>focus(item.dataset.opportunityCategory));item.addEventListener('pointerleave',()=>focus(null));item.addEventListener('focus',()=>focus(item.dataset.opportunityCategory));item.addEventListener('blur',()=>focus(null))}/* The closed failed-node boundary and rejected-end label terminate this branch. */}
+}};
