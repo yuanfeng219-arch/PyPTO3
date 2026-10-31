@@ -1,0 +1,46 @@
+/* CSA 主线在 path.css 之上的补充：UP_DOWN 开关、真实分配表、空转与推算两种画法 */
+
+/* 208 行里的 UP_DOWN 开关 */
+.split-add { height: 18px; margin: 0 2px; padding: 0 6px; border: 1px dashed #5a5a5a; border-radius: 3px; background: transparent;
+  color: var(--dim); font: 10.5px var(--mono); vertical-align: 1px; cursor: pointer; }
+.split-add:hover, .split-add:focus-visible { border-color: var(--amber); color: var(--amber); outline: none; }
+.split-on { padding: 0 2px; border-radius: 3px; background: rgba(242, 196, 95, .14); }
+.split-del { width: 16px; height: 16px; margin-left: 2px; padding: 0; border: 0; border-radius: 3px; background: transparent;
+  color: var(--amber); font: 11px var(--mono); line-height: 16px; vertical-align: 1px; cursor: pointer; }
+.split-del:hover, .split-del:focus-visible { background: rgba(242, 196, 95, .2); outline: none; }
+
+/* 硅片画布：空转与推算 */
+.sv-buf.k-slot { fill: #3a4f63; }
+.sv-buf.k-bias { fill: #9fe3f7; }
+.sv-buf.k-tmp { fill: #2f5868; }
+.sv-buf.k-row { fill: #9fe3f7; }
+.sv-buf.k-work { fill: #3b6f80; }
+.sv-buf.is-idle { fill: url(#csIdle); stroke: #3d3d3d; }
+.sv-buf.is-proj { stroke: var(--amber); stroke-width: .8; stroke-dasharray: 2 2; }
+.sv-idle-mark { fill: var(--amber); }
+.sv-proj-frame { fill: none; stroke: var(--amber); stroke-dasharray: 3 3; }
+.sv-l1 { stroke: #131313; stroke-width: .8; }
+.sv-l1.k-slot { fill: #3a4f63; }
+.sv-l1.k-kv { fill: #6f5b9b; }
+.sv-l1.k-q { fill: #5d7d3a; }
+.sv-region.is-hot .sv-l1 { stroke: var(--text); stroke-width: 1.4; }
+.sv-slot { fill: #3a4f63; stroke: #555; }
+.sv-region.is-hot .sv-slot { stroke: var(--text); fill: #4c6880; }
+
+/* 主线表格：真实分配 */
+.alloc { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0 12px; }
+.alloc th { font: 10px var(--mono); letter-spacing: .1em; color: var(--dim); text-align: left; font-weight: 400; padding: 0 6px 6px 0; border-bottom: 1px solid var(--border); }
+.alloc td { padding: 5px 6px 5px 0; border-bottom: 1px solid #262626; color: var(--muted); vertical-align: top; }
+.alloc td.num { font-family: var(--mono); color: var(--text); text-align: right; white-space: nowrap; }
+.alloc td.sp { font-family: var(--mono); font-size: 11px; color: var(--dim); white-space: nowrap; }
+.alloc tr.grp td { color: var(--text); font: 600 10px var(--mono); letter-spacing: .12em; padding-top: 10px; border-bottom-color: var(--border); }
+.alloc tr[data-region], .alloc tr[data-buf] { cursor: pointer; }
+.alloc tr:hover td, .alloc tr.is-hot td { background: #1d1d1d; }
+.alloc code { color: var(--text); font-size: 11.5px; }
+
+.evidence { margin: 0 0 12px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 4px; background: var(--canvas);
+  font: 11px/1.7 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+.evidence b { color: var(--amber); font-weight: 500; }
+.evidence i { color: var(--dim); font-style: normal; }
+.tag-proj { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid #5a4a26; border-radius: 3px; color: var(--amber); font: 9.5px/1.6 var(--mono); vertical-align: 1px; }
+.tag-real { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid #3c5a2a; border-radius: 3px; color: var(--lime); font: 9.5px/1.6 var(--mono); vertical-align: 1px; }

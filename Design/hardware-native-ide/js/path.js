@@ -127,42 +127,49 @@
   function uniq(list) { return list.filter(function (v, i) { return list.indexOf(v) === i; }); }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 源码节选
+  // 源码中的有效代码行
   // ════════════════════════════════════════════════════════════════════════════
   const SOURCE = [
-    { no: 728, t: 'with pl.spmd(' },
-    { no: 729, t: '    NUM_CORES,' },
-    { no: 730, t: '    name_hint="fa_fused",' },
-    { no: 731, t: '    optimizations=[pl.split(pl.SplitMode.UP_DOWN)],' },
-    { no: 732, t: '    deps=[work_tid, rope_grp_tids[0]],' },
-    { no: 733, t: ') as fa_tid:' },
-    { no: 734, t: '    fa_core = pl.get_block_idx()' },
-    { fold: 9 },
-    { no: 744, t: '    for fa_w in pl.range(fa_core, fa_total_blocks, NUM_CORES):' },
-    { fold: 13 },
-    { no: 758, t: '        fa_pbid = pl.cast(pl.tensor.read(block_table, [fa_b * max_blocks_per_seq + sb]), pl.INDEX)' },
-    { fold: 5 },
-    { no: 764, t: '        for gp in pl.pipeline(GP_SIZE, stage=§):' },
-    { fold: 3 },
-    { no: 768, t: '            q_padded = all_q_padded[q_pad_row_g : q_pad_row_g + Q_HEAD_PAD, :]' },
-    { fold: 4 },
-    { no: 773, t: '            k_tile = k_cache[cache_row : cache_row + SEQ_TILE, :]' },
-    { no: 774, t: '            raw_scores = pl.matmul(q_padded, k_tile, b_trans=True, out_dtype=pl.FP32)' },
-    { no: 775, t: '            scores_scaled = pl.mul(raw_scores, ATTN_SCALE)' },
-    { fold: 5 },
-    { no: 781, t: '            scores_valid = pl.set_validshape(scores_scaled, Q_HEAD_BATCH, valid_len)' },
-    { no: 782, t: '            scores = pl.fillpad(scores_valid, pad_value=pl.PadValue.min)' },
-    { no: 783, t: '            cur_mi = pl.row_max(scores)' },
-    { no: 784, t: '            exp_scores = pl.exp(pl.row_expand_sub(scores, cur_mi))' },
-    { no: 785, t: '            cur_li = pl.row_sum(exp_scores)' },
-    { no: 786, t: '            exp_scores_bf16 = pl.cast(exp_scores, target_type=pl.BF16)' },
-    { fold: 2 },
-    { no: 789, t: '            v_tile = v_cache[cache_row : cache_row + SEQ_TILE, :]' },
-    { no: 790, t: '            oi_tmp = pl.matmul(exp_scores_bf16, v_tile, out_dtype=pl.FP32)' },
-    { fold: 5 },
-    { no: 796, t: '            all_oi_tmp = pl.assemble(all_oi_tmp, oi_tmp, [g_base + sb * Q_HEAD_PAD, 0])' },
-    { no: 797, t: '            all_cur_mi = pl.assemble(all_cur_mi, cur_mi, [g_base + sb * Q_HEAD_PAD, 0])' },
-    { no: 798, t: '            all_cur_li = pl.assemble(all_cur_li, cur_li, [g_base + sb * Q_HEAD_PAD, 0])' }
+    { no: 728, t: "with pl.spmd(" },
+    { no: 729, t: "    NUM_CORES," },
+    { no: 730, t: "    name_hint=\"fa_fused\"," },
+    { no: 731, t: "    optimizations=[pl.split(pl.SplitMode.UP_DOWN)]," },
+    { no: 732, t: "    deps=[work_tid, rope_grp_tids[0]]," },
+    { no: 733, t: ") as fa_tid:" },
+    { no: 734, t: "    fa_core = pl.get_block_idx()" },
+    { no: 741, t: "    fa_total_blocks = pl.cast(pl.read(fa_total, [0, 0]), target_type=pl.INDEX)" },
+    { no: 744, t: "    for fa_w in pl.range(fa_core, fa_total_blocks, NUM_CORES):" },
+    { no: 745, t: "        fa_enc = pl.cast(pl.read(fa_work_table, [fa_w, 0]), target_type=pl.INDEX)" },
+    { no: 746, t: "        fa_b = fa_enc // MAX_CTX_BLOCKS" },
+    { no: 747, t: "        fa_p = fa_enc % MAX_CTX_BLOCKS" },
+    { no: 748, t: "        fa_hg = 0" },
+    { no: 749, t: "        fa_ctx_len = pl.read(seq_lens, [fa_b])" },
+    { no: 751, t: "        sb = fa_p" },
+    { no: 752, t: "        s0 = sb * SEQ_TILE" },
+    { no: 753, t: "        valid_len = pl.min(SEQ_TILE, fa_ctx_len - s0)" },
+    { no: 758, t: "        fa_pbid = pl.cast(pl.tensor.read(block_table, [fa_b * max_blocks_per_seq + sb]), pl.INDEX)" },
+    { no: 764, t: "        for gp in pl.pipeline(GP_SIZE, stage=§):" },
+    { no: 765, t: "            gi = fa_hg * GP_SIZE + gp" },
+    { no: 766, t: "            kvh = gi" },
+    { no: 767, t: "            q_pad_row_g = fa_b * NUM_KV_HEADS * Q_HEAD_PAD + gi * Q_HEAD_PAD" },
+    { no: 768, t: "            q_padded = all_q_padded[q_pad_row_g : q_pad_row_g + Q_HEAD_PAD, :]" },
+    { no: 769, t: "            g_base = (fa_b * NUM_KV_HEADS + gi) * MAX_CTX_BLOCKS * Q_HEAD_PAD" },
+    { no: 770, t: "            cache_row = layer_cache_base + (fa_pbid * NUM_KV_HEADS + kvh) * BLOCK_SIZE" },
+    { no: 773, t: "            k_tile = k_cache[cache_row : cache_row + SEQ_TILE, :]" },
+    { no: 774, t: "            raw_scores = pl.matmul(q_padded, k_tile, b_trans=True, out_dtype=pl.FP32)" },
+    { no: 775, t: "            scores_scaled = pl.mul(raw_scores, ATTN_SCALE)" },
+    { no: 781, t: "            scores_valid = pl.set_validshape(scores_scaled, Q_HEAD_BATCH, valid_len)" },
+    { no: 782, t: "            scores = pl.fillpad(scores_valid, pad_value=pl.PadValue.min)" },
+    { no: 783, t: "            cur_mi = pl.row_max(scores)" },
+    { no: 784, t: "            exp_scores = pl.exp(pl.row_expand_sub(scores, cur_mi))" },
+    { no: 785, t: "            cur_li = pl.row_sum(exp_scores)" },
+    { no: 786, t: "            exp_scores_bf16 = pl.cast(exp_scores, target_type=pl.BF16)" },
+    { no: 789, t: "            v_tile = v_cache[cache_row : cache_row + SEQ_TILE, :]" },
+    { no: 790, t: "            oi_tmp = pl.matmul(exp_scores_bf16, v_tile, out_dtype=pl.FP32)" },
+    { no: 794, t: "            oi_tmp = pl.set_validshape(oi_tmp, Q_HEAD_BATCH, HEAD_DIM)" },
+    { no: 796, t: "            all_oi_tmp = pl.assemble(all_oi_tmp, oi_tmp, [g_base + sb * Q_HEAD_PAD, 0])" },
+    { no: 797, t: "            all_cur_mi = pl.assemble(all_cur_mi, cur_mi, [g_base + sb * Q_HEAD_PAD, 0])" },
+    { no: 798, t: "            all_cur_li = pl.assemble(all_cur_li, cur_li, [g_base + sb * Q_HEAD_PAD, 0])" }
   ];
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -170,26 +177,35 @@
   // 循环框也是节点；源码行和硅片区域上的联动都从这张表反查。
   // ════════════════════════════════════════════════════════════════════════════
   const NODES = [
-    { id: 'f-spmd', frame: true, lines: [728, 729, 730, 731, 732, 733, 734], regions: ['cores', 'aic', 'aiv'] },
-    { id: 'f-stride', frame: true, lines: [744], regions: ['cores', 'gm-table'] },
+    { id: 'f-spmd', frame: true, lines: [728, 729, 730, 731, 732, 733, 734], regions: ['cores'] },
+    // 731 行的 UP_DOWN 切分：逻辑图里不画，只负责把这一行连到 AIC / AIV 两侧和中间的交接通道
+    { id: 'split', hidden: true, lines: [731], regions: ['aic', 'aiv', 'ch-c2v', 'ch-v2c'] },
+    // 741–752：读块总数、解码 work table 项、算块起点，都属于“取块”这一层
+    { id: 'f-stride', frame: true, lines: [741, 744, 745, 746, 747, 748, 749, 751, 752], regions: ['cores', 'gm-table'] },
     { id: 'f-pipe', frame: true, lines: [764], regions: ['ub'], bufs: ALL_BUFS },
-    { id: 'tbl', unit: 'gm', lines: [758], regions: ['gm-table', 'gm-kcache', 'gm-vcache'],
-      name: 'block_table → 物理页', sub: function (c) { return 'fa_pbid · 一页 ' + c.page + ' 行'; } },
-    { id: 'q', unit: 'gm', lines: [768], regions: ['l0a'], name: 'q_padded', sub: function () { return '[16,128] BF16'; } },
-    { id: 'k', unit: 'gm', lines: [773], regions: ['gm-kcache', 'l0b'], name: 'k_tile', sub: function (c) { return '[' + c.seq + ',128] BF16'; } },
-    { id: 'qk', unit: 'aic', lines: [774], regions: ['cube', 'l0c', 'ch-c2v'], name: 'QK matmul', sub: function () { return 'Q·Kᵀ → FP32'; } },
-    { id: 'scale', unit: 'aiv', lines: [775], bufs: ['scores_scaled'], name: '× scale', sub: function () { return 'scores_scaled'; } },
-    { id: 'valid', unit: 'aiv', lines: [781], bufs: ['scores_valid'], name: 'set_validshape', sub: function () { return '只标 5 行有效'; } },
-    { id: 'fill', unit: 'aiv', lines: [782], bufs: ['scores'], name: 'fillpad −inf', sub: function () { return '填充行不进 max'; } },
-    { id: 'max', unit: 'aiv', lines: [783], bufs: ['cur_mi'], name: 'row_max', sub: function () { return 'cur_mi'; } },
-    { id: 'exp', unit: 'aiv', lines: [784], bufs: ['rexp', 'exp'], name: 'exp(x − max)', sub: function () { return 'exp_scores'; } },
-    { id: 'sum', unit: 'aiv', lines: [785], bufs: ['cur_li'], name: 'row_sum', sub: function () { return 'cur_li'; } },
-    { id: 'cast', unit: 'aiv', lines: [786], bufs: ['exp_bf16'], regions: ['ch-v2c'], name: 'cast BF16', sub: function () { return '→ V2C 送回 Cube'; } },
-    { id: 'v', unit: 'gm', lines: [789], regions: ['gm-vcache', 'l0b'], name: 'v_tile', sub: function (c) { return '[' + c.seq + ',128] BF16'; } },
-    { id: 'sv', unit: 'aic', lines: [790], regions: ['cube', 'l0c', 'ch-v2c'], name: 'SV matmul', sub: function () { return 'P·V → oi_tmp'; } },
-    { id: 'out', unit: 'gm', lines: [796, 797, 798], regions: ['gm-out'], name: '写回部分结果', sub: function () { return 'oi · mi · li → GM'; } }
+    // 765–766 只是算本次迭代的头号：点亮 pipeline 框，不连带整份 Vec 缓冲
+    { id: 'gp-idx', hidden: true, lines: [765, 766], show: ['f-pipe'] },
+    { id: 'p-score', frame: true, lines: [], group: ['q', 'k', 'qk', 'scale'] },
+    { id: 'p-softmax', frame: true, lines: [], group: ['valid', 'fill', 'max', 'exp', 'sum', 'cast'] },
+    { id: 'p-weight', frame: true, lines: [], group: ['v', 'sv', 'out'] },
+    { id: 'tbl', lines: [758], regions: ['gm-table', 'gm-kcache', 'gm-vcache'] },
+    { id: 'q', lines: [768, 767], regions: ['l0a'] },
+    { id: 'k', lines: [773, 770], regions: ['gm-kcache', 'l0b'] },
+    { id: 'qk', lines: [774], regions: ['cube', 'l0c', 'ch-c2v'] },
+    { id: 'scale', lines: [775], bufs: ['scores_scaled'] },
+    { id: 'valid', lines: [781, 753], bufs: ['scores_valid'] },
+    { id: 'fill', lines: [782], bufs: ['scores'] },
+    { id: 'max', lines: [783], bufs: ['cur_mi'] },
+    { id: 'exp', lines: [784], bufs: ['rexp', 'exp'] },
+    { id: 'sum', lines: [785], bufs: ['cur_li'] },
+    { id: 'cast', lines: [786], bufs: ['exp_bf16'], regions: ['ch-v2c'] },
+    { id: 'v', lines: [789, 770], regions: ['gm-vcache', 'l0b'] },
+    { id: 'sv', lines: [790, 794], regions: ['cube', 'l0c', 'ch-v2c'] },
+    { id: 'out', lines: [796, 797, 798, 769], regions: ['gm-out'] }
   ];
   const SOFTMAX_NODES = ['scale', 'valid', 'fill', 'max', 'exp', 'sum', 'cast'];
+  // 悬停 AIC / AIV 盒子时，指向在这一侧执行的运算，而不只是 spmd 声明
+  const REGION_NODES = { aic: ['split', 'qk', 'sv'], aiv: ['split'].concat(SOFTMAX_NODES) };
   function nodeById(id) { return NODES.filter(function (n) { return n.id === id; })[0]; }
   function nodesWhere(fn) { return NODES.filter(fn).map(function (n) { return n.id; }); }
   // 源码行上能否悬停：有逻辑节点覆盖的行
@@ -215,10 +231,23 @@
       732: '依赖 work table 构建与 RoPE 写 KV 完成之后再启动。',
       733: '返回任务句柄 <code>fa_tid</code>，供后面的 online_softmax 依赖。',
       734: '每个 block 取自己的编号，再从 work table 里按 grid-stride 取块。',
+      741: '在核内从 GM 读回真实块总数 <code>fa_total</code>，作为 grid-stride 的上界。',
       744: 'grid-stride 从 work table 取号：batch 16 的真实块 <b>' + k.blocks + '</b> 个，摊到 ' + NUM_CORES + ' 个 block，每个 block 约 ' + Math.ceil(k.blocks / NUM_CORES) + ' 块。',
+      745: '按编号从 work table 取一项编码。',
+      746: '解码出请求下标 <code>fa_b</code>。', 747: '解码出逻辑块号 <code>fa_p</code>。',
+      748: '本例只有一个头组，头组偏移恒为 0。',
+      749: '读这条请求的上下文长度。',
+      751: 'work table 每项正好是一个真实块：<code>sb = fa_p</code>。',
+      752: '这一块在序列里的起点：<code>s0 = sb × SEQ_TILE</code>（当前 SEQ_TILE = ' + c.seq + '）。',
+      753: '<code>valid_len</code>：最后一块可能不满，后面的 set_validshape 只把这么多列标为有效。',
       758: 'block_table 把逻辑块翻成物理页。前提：<code>SEQ_TILE == page_size</code>（当前 ' + c.seq + ' / ' + c.page + '）。',
       764: '<code>stage=' + c.stage + '</code>：同时有 <b>' + n + ' 个头</b>在飞，Vec 里驻留 ' + n + ' 份 softmax 链，每份 ' + kb(k.per) + '，合计 <b>' + kb(k.per * n) + '</b>。',
+      765: '本次迭代处理第 <code>gi</code> 个 KV 头（共 ' + GP_SIZE + ' 个）。', 766: 'KV 头号与 gi 相同。',
+      767: 'Q 填充后每个头占 16 行，算出这个头在 <code>all_q_padded</code> 里的起始行。',
       768: '<code>q_padded [16, 128] BF16</code> 4 KB → L0A(Left)。5 行真实 Q 填到 16 行，对齐 Cube M。',
+      769: '部分结果写回 GM 时的起始行。',
+      770: '<code>cache_row</code> = 物理页 × 头 × BLOCK_SIZE：K 与 V 都从这一行开始读。',
+      794: 'SV 输出 16 行里只有 5 行真实，标为有效后写回只写 5 行。',
       773: '<code>k_tile [' + c.seq + ', 128] BF16</code> ' + kb(k.kTile) + '：GM 物理页 → L0B(Right)；双缓冲估算 ' + kb(k.kDB) + ' / 64 KB。',
       774: 'QK matmul 在 Cube 上算，FP32 结果 <code>[16, ' + c.seq + ']</code> ' + kb(k.acc) + ' 进 L0C(Acc)，再经 C2V 交给 AIV。',
       789: '<code>v_tile</code> 与 k_tile 同一物理行范围 → L0B(Right)。',
@@ -230,7 +259,7 @@
   function regionCaption(id, k) {
     const c = k.cfg;
     const map = {
-      cores: '<b>pl.spmd × ' + NUM_CORES + '</b> · 每个 block 用同一份 Vec 分配，越界不是个别核的偶发问题。',
+      cores: '<b>pl.spmd × ' + NUM_CORES + '</b> · grid-stride 把 ' + k.blocks + ' 个真实块摊到 ' + NUM_CORES + ' 个 block。下方展开的是 block 0，其余 block 用同一份片上分配，所以越界不是个别核的偶发问题。',
       aic: '<b>AIC · Cube 侧</b>：QK 与 SV 两次 matmul，操作数在 L0A / L0B，结果在 L0C。',
       aiv: '<b>AIV · Vector 侧</b>：softmax 链全部落在 Vec(UB)，stage 决定同时驻留几份。',
       'gm-kcache': '<b>k_cache</b>：分页存放，一页 ' + c.page + ' 行；fa_fused 每次读一个逻辑块。',
@@ -253,6 +282,12 @@
     if (id === 'f-pipe') {
       return lineCaption(764, k) + '<br>逻辑上 8 个头依次处理；流水把相邻 ' + k.stage + ' 个头叠在一起，所以中间量要同时存 ' + k.stage + ' 份。';
     }
+    const phase = {
+      'p-score': '<b>① 打分</b>：Q 与 K 块在 Cube 上做 QK matmul，乘缩放系数后交给 Vector。操作数在 AIC 一侧，不随 stage 复制。',
+      'p-softmax': '<b>② 局部 softmax</b>：掩码、行最大、exp、行和、转 BF16，全部在 AIV 的 Vec 里完成。<b>stage=' + k.cfg.stage + ' 时这一段同时存在 ' + k.stage + ' 份</b>，共 ' + kb(k.per * k.stage) + '。',
+      'p-weight': '<b>③ 加权求和</b>：P 与 V 块在 Cube 上做 SV matmul，部分结果按块写回 GM，留给 online_softmax 合并。'
+    };
+    if (phase[id]) return phase[id];
     const n = nodeById(id);
     return n.lines.map(function (no) { return lineCaption(no, k); }).filter(Boolean).slice(0, 1).join('');
   }
@@ -329,7 +364,6 @@
   function renderCode() {
     const k = current(), c = state.cfg, alertLines = intruderLines(k);
     const html = SOURCE.map(function (row) {
-      if (row.fold) return '<div class="cl-fold"><span></span><span></span><span>… ' + row.fold + ' 行</span></div>';
       let text;
       if (row.no === 764) {
         const parts = row.t.split('§');
@@ -357,28 +391,37 @@
   // ════════════════════════════════════════════════════════════════════════════
   // 算子逻辑图：spmd × 24 ⊃ grid-stride 取块 ⊃ pipeline × 8 头 ⊃ 三段计算链
   // ════════════════════════════════════════════════════════════════════════════
+  // 逻辑图只讲“算什么、按什么顺序、循环几层”；形状、字节、落在哪块存储都交给硅片画布，悬停联动过去看。
+  // 虚线框 = 循环作用域，实框 = 计算段，节点 = 一步运算（只写名字）
   const LG = {
-    // 节点位置（viewBox 720 × 300）
-    tbl: [32, 58, 210], q: [44, 140, 96], k: [148, 140, 92], qk: [44, 186, 96], scale: [148, 186, 92],
-    valid: [258, 140, 88], fill: [354, 140, 88], max: [450, 140, 88],
-    exp: [258, 186, 88], sum: [354, 186, 88], cast: [450, 186, 88],
-    v: [566, 140, 112], sv: [566, 186, 112], out: [566, 232, 112]
+    // 节点位置 [x, y, w]（viewBox 720 × 284，节点高 26，行距 40）
+    q: [58, 132, 80], k: [148, 132, 80], qk: [58, 172, 80], scale: [148, 172, 80],
+    valid: [258, 132, 84], fill: [352, 132, 84], max: [446, 132, 84],
+    exp: [258, 172, 84], sum: [352, 172, 84], cast: [446, 172, 84],
+    v: [572, 132, 92], sv: [572, 172, 92], out: [572, 212, 92]
   };
-  const LG_H = 34;
+  const LG_H = 26;
   const LG_EDGES = [
-    'M92 174 V 186', 'M194 174 L 124 186', 'M140 203 H 148',
-    'M240 203 H 248 V 157 H 258', 'M346 157 H 354', 'M442 157 H 450',
-    'M494 174 V 180 H 302 V 186', 'M346 203 H 354', 'M302 220 V 226 H 494 V 220',
-    'M538 203 H 566', 'M622 174 V 186', 'M622 220 V 232'
+    ['q', 'qk', 'M98 158 V 172'], ['k', 'qk', 'M188 158 V 165 H 118 V 172'], ['qk', 'scale', 'M138 185 H 148'],
+    ['scale', 'valid', 'M228 185 H 243 V 145 H 258'], ['valid', 'fill', 'M342 145 H 352'], ['fill', 'max', 'M436 145 H 446'],
+    ['max', 'exp', 'M488 158 V 165 H 300 V 172'], ['exp', 'sum', 'M342 185 H 352'], ['exp', 'cast', 'M300 198 V 205 H 488 V 198'],
+    ['cast', 'sv', 'M530 185 H 572'], ['v', 'sv', 'M618 158 V 172'], ['sv', 'out', 'M618 198 V 212']
   ];
+  const LG_LABEL = {
+    q: 'Q', k: 'K 块', qk: 'Q · Kᵀ', scale: '× scale',
+    valid: '有效区掩码', fill: '填充 −inf', max: '行最大',
+    exp: 'exp(x − max)', sum: '行求和', cast: '转 BF16',
+    v: 'V 块', sv: 'P · V', out: '写回部分结果'
+  };
+  // 三段计算：[id, x, w, 标题]
+  const LG_PHASES = [['p-score', 48, 190, '① 打分'], ['p-softmax', 248, 296, '② 局部 SOFTMAX'], ['p-weight', 562, 112, '③ 加权求和']];
+  const LG_PHASE_Y = 106, LG_PHASE_H = 142;
 
-  function logicNode(id, k, badIds) {
-    const n = nodeById(id), p = LG[id];
-    const cls = 'lg-node u-' + n.unit + (badIds.indexOf(id) >= 0 ? ' is-bad' : '');
+  function logicNode(id, badIds) {
+    const p = LG[id], bad = badIds.indexOf(id) >= 0;
     return '<g class="lg-hit" data-node="' + id + '">'
-      + '<rect x="' + p[0] + '" y="' + p[1] + '" width="' + p[2] + '" height="' + LG_H + '" rx="3" class="' + cls + '"/>'
-      + '<rect x="' + p[0] + '" y="' + p[1] + '" width="3" height="' + LG_H + '" class="lg-stripe u-' + n.unit + '"/>'
-      + txt(p[0] + 9, p[1] + 14, n.name, 'sv-strong') + txt(p[0] + 9, p[1] + 27, n.sub(k.cfg), 'sv-text')
+      + '<rect x="' + p[0] + '" y="' + p[1] + '" width="' + p[2] + '" height="' + LG_H + '" class="lg-node' + (bad ? ' is-bad' : '') + '"/>'
+      + txt(p[0] + 8, p[1] + 17, LG_LABEL[id], bad ? 'sv-strong sv-bad' : 'sv-strong')
       + '</g>';
   }
 
@@ -387,39 +430,48 @@
     const badIds = k.bad ? uniq(k.intruders.map(function (r) {
       return nodesWhere(function (n) { return (n.bufs || []).indexOf(r.id) >= 0 && !n.frame; })[0];
     }).filter(Boolean)) : [];
-    let s = '<svg viewBox="0 0 720 304" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
+    // 页表一行放在取块之后、pipeline 之前，按代码顺序自上而下读；pipeline 整体下移 PIPE_DY
+    const PIPE_DY = 26;
+    let s = '<svg viewBox="0 0 720 ' + (284 + PIPE_DY) + '" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
       + '<defs>' + markers('lg') + '</defs>';
-    // 三层循环框
-    s += '<g class="lg-hit" data-node="f-spmd"><rect x="8" y="8" width="704" height="290" rx="4" class="lg-frame"/>'
-      + txt(20, 25, 'PL.SPMD × ' + NUM_CORES + '  ·  每个 block 跑一份 fa_fused', 'sv-title') + '</g>';
-    s += '<g class="lg-legend">'
-      + '<rect x="560" y="17" width="10" height="10" class="lg-stripe u-aic"/>' + txt(574, 26, 'AIC', 'sv-label')
-      + '<rect x="604" y="17" width="10" height="10" class="lg-stripe u-aiv"/>' + txt(618, 26, 'AIV', 'sv-label')
-      + '<rect x="648" y="17" width="10" height="10" class="lg-stripe u-gm"/>' + txt(662, 26, 'GM 读写', 'sv-label') + '</g>';
-    s += '<g class="lg-hit" data-node="f-stride"><rect x="20" y="34" width="680" height="258" rx="4" class="lg-frame"/>'
-      + txt(32, 50, 'FOR fa_w IN range(core, total, ' + NUM_CORES + ')  ·  每个 block 轮到约 ' + Math.ceil(k.blocks / NUM_CORES) + ' 个 KV 块（共 ' + k.blocks + '）', 'sv-title') + '</g>';
-    s += '<g class="lg-hit" data-node="f-pipe"><rect x="32" y="100" width="656" height="186" rx="4" class="lg-frame lg-frame-pipe' + (k.bad ? ' is-bad' : '') + '"/>'
-      + txt(44, 116, 'FOR gp IN pl.pipeline(' + GP_SIZE + ', stage=' + c.stage + ')  ·  ' + GP_SIZE + ' 个 KV 头，同时在飞 ' + k.stage + ' 个', 'sv-title') + '</g>';
-    s += logicNode('tbl', k, badIds);
-    s += txt(252, 79, '逻辑块 → 物理页；SEQ_TILE 必须等于 page_size', 'sv-label');
 
-    // 三段标题
-    s += txt(44, 133, '① 打分', 'sv-label') + txt(258, 133, '② 局部 softmax', 'sv-label') + txt(566, 133, '③ 加权求和', 'sv-label');
-
-    // softmax 段：在飞几个头，就叠几份
-    for (let i = k.stage - 1; i >= 1; i--) {
-      s += '<rect x="' + (250 + i * 4) + '" y="' + (124 + i * 4) + '" width="296" height="146" rx="4" class="lg-ghost' + (k.bad && i === k.stage - 1 ? ' is-bad' : '') + '"/>';
+    // 三层循环作用域（虚线框）
+    s += '<g class="lg-hit" data-node="f-spmd"><rect x="12" y="8" width="696" height="' + (270 + PIPE_DY) + '" class="lg-frame"/>'
+      + txt(24, 25, 'PL.SPMD × ' + NUM_CORES, 'sv-title') + txt(124, 25, '每个 block 跑一份', 'sv-label') + '</g>';
+    s += '<g class="lg-hit" data-node="f-stride"><rect x="24" y="36" width="672" height="' + (234 + PIPE_DY) + '" class="lg-frame"/>'
+      + txt(36, 53, 'FOR fa_w · GRID-STRIDE', 'sv-title') + txt(210, 53, '逐个处理轮到的 KV 块', 'sv-label') + '</g>';
+    s += '<g class="lg-hit" data-node="tbl"><rect x="36" y="62" width="168" height="26" class="lg-node"/>'
+      + txt(44, 79, 'block_table → 物理页', 'sv-strong') + '</g>';
+    s += txt(214, 79, '逻辑块 → 物理页；SEQ_TILE 必须等于 page_size', k.pageOk ? 'sv-label' : 'sv-label sv-bad');
+    s += '<g transform="translate(0,' + PIPE_DY + ')">';
+    s += '<g class="lg-hit" data-node="f-pipe"><rect x="36" y="78" width="648" height="184" class="lg-frame' + (k.bad ? ' is-bad' : '') + '"/>'
+      + txt(48, 95, 'PL.PIPELINE × ' + GP_SIZE + ' · STAGE=' + c.stage, 'sv-title')
+      + txt(250, 95, '相邻 ' + k.stage + ' 个头同时在飞', k.bad ? 'sv-label sv-bad' : 'sv-label') + '</g>';
+    // 8 个头，亮起的是同时在飞的
+    s += '<g class="lg-hit" data-node="f-pipe">';
+    for (let i = 0; i < GP_SIZE; i++) {
+      const on = i < k.stage;
+      s += '<rect x="' + (568 + i * 14) + '" y="86" width="10" height="10" class="lg-flight' + (on ? (k.bad && i === k.stage - 1 ? ' is-bad' : ' is-on') : '') + '"/>';
     }
-    s += '<rect x="250" y="124" width="296" height="146" rx="4" class="lg-group' + (k.bad ? ' is-bad' : '') + '"/>';
-    s += txt(258, 248, '× ' + k.stage + ' 份同时驻留 Vec · 每份 ' + kb(k.per), k.bad ? 'sv-text sv-bad' : 'sv-text');
-    s += txt(258, 262, k.bad ? '第 ' + k.stage + ' 份的尾部落进 UB 保留区' : '份数 = 在飞的头数 = stage', k.bad ? 'sv-label sv-bad' : 'sv-label');
+    s += '</g>';
 
-    s += LG_EDGES.map(function (d) { return '<path d="' + d + '" class="lg-edge"/>'; }).join('');
-    ['q', 'k', 'qk', 'scale', 'valid', 'fill', 'max', 'exp', 'sum', 'cast', 'v', 'sv', 'out'].forEach(function (id) {
-      s += logicNode(id, k, badIds);
+    // 三段计算（实框）；softmax 段按在飞的头数叠虚线层
+    for (let i = k.stage - 1; i >= 1; i--) {
+      s += '<rect x="' + (248 + i * 3) + '" y="' + (LG_PHASE_Y + i * 3) + '" width="296" height="' + LG_PHASE_H + '" class="lg-ghost'
+        + (k.bad && i === k.stage - 1 ? ' is-bad' : '') + '"/>';
+    }
+    LG_PHASES.forEach(function (p) {
+      const bad = k.bad && p[0] === 'p-softmax';
+      const title = p[0] === 'p-softmax' ? p[3] + ' × ' + k.stage : p[3];
+      s += '<g class="lg-hit" data-node="' + p[0] + '"><rect x="' + p[1] + '" y="' + LG_PHASE_Y + '" width="' + p[2] + '" height="' + LG_PHASE_H
+        + '" class="lg-phase' + (bad ? ' is-bad' : '') + '"/>' + txt(p[1] + 10, LG_PHASE_Y + 16, title, bad ? 'sv-title sv-bad' : 'sv-title') + '</g>';
     });
-    s += txt(44, 262, 'Q 来自前序 RoPE，按头取 16 行', 'sv-label');
-    s += '</svg>';
+
+    s += LG_EDGES.map(function (e) {
+      return '<path d="' + e[2] + '" class="lg-edge" data-from="' + e[0] + '" data-to="' + e[1] + '"/>';
+    }).join('');
+    Object.keys(LG).forEach(function (id) { s += logicNode(id, badIds); });
+    s += '</g></svg>';
     document.getElementById('hpLogic').innerHTML = s;
     document.getElementById('hpLogicMeta').textContent = state.preview
       ? '预览 · 方案 ' + state.preview + ' · stage=' + c.stage + ' · SEQ_TILE=' + c.seq
@@ -428,9 +480,12 @@
 
   // ════════════════════════════════════════════════════════════════════════════
   // 硅片画布（viewBox 720 × 470）
+  // 自上而下：GM → pl.spmd 的 24 个 block（概览）→ 展开其中 block 0 的 AIC / AIV（细节）
   // ════════════════════════════════════════════════════════════════════════════
-  const BAR = { x: 418, w: 60, top: 160, bottom: 440 };
-  const INSET = { x: 498, w: 80, top: 240, bottom: 400, lo: 176 * 1024, hi: 192 * 1024 };
+  const BAR = { x: 418, w: 60, top: 186, bottom: 440 };
+  // 放大图压低一些，让引线从两条阈值标签下方穿过
+  const INSET = { x: 560, w: 116, top: 300, bottom: 412, lo: 176 * 1024, hi: 192 * 1024 };
+  const CORE = { x: 384, y: 93, pitch: 13, size: 10 };
   function ubY(addr) { return BAR.bottom - addr / UB_NOMINAL * (BAR.bottom - BAR.top); }
   function insetY(addr) { return INSET.bottom - (addr - INSET.lo) / (INSET.hi - INSET.lo) * (INSET.bottom - INSET.top); }
 
@@ -460,51 +515,47 @@
     s += region('gm-out', '<rect x="518" y="32" width="178" height="42" class="sv-mem"/>'
       + txt(524, 46, 'all_oi_tmp / mi / li', 'sv-strong') + txt(524, 64, '每块的部分结果', 'sv-text'));
 
-    // block 外框
-    s += '<rect x="12" y="92" width="584" height="370" class="sv-frame"/>'
-      + txt(588, 108, 'FA_FUSED · 1 个 BLOCK', 'sv-title', 'end');
+    // pl.spmd 的 24 个 block：概览条，block 0 向下展开
+    s += region('cores', '<rect x="' + (CORE.x - 100) + '" y="86" width="' + (NUM_CORES * CORE.pitch + 112) + '" height="24" class="sv-hit"/>'
+      + txt(CORE.x - 8, 102, 'PL.SPMD × ' + NUM_CORES, 'sv-title', 'end')
+      + '<g class="sv-cores' + (bad ? ' is-bad' : '') + '">' + cores() + '</g>');
+    s += '<line x1="' + (CORE.x + CORE.size / 2) + '" y1="' + (CORE.y + CORE.size) + '" x2="' + (CORE.x + CORE.size / 2) + '" y2="122" class="sv-zoom"/>';
+
+    // block 0 外框
+    s += '<rect x="12" y="122" width="696" height="340" class="sv-frame"/>'
+      + txt(CORE.x + 13, 137, bad ? '展开 BLOCK 0 · ' + NUM_CORES + ' 个 block 用同一份越界分配' : '展开 BLOCK 0 · ' + NUM_CORES + ' 个 block 用同一份片上分配',
+        bad ? 'sv-title sv-bad' : 'sv-title');
 
     // AIC
-    s += region('aic', '<rect x="24" y="116" width="262" height="336" class="sv-box"/>' + txt(36, 134, 'AIC · CUBE', 'sv-title'));
-    s += '<rect x="36" y="142" width="238" height="28" class="sv-dimmem"/>' + txt(44, 160, 'L1 · Mat', 'sv-label') + txt(266, 160, '本例未建模', 'sv-label', 'end');
-    s += region('l0a', '<rect x="36" y="180" width="112" height="62" class="sv-mem"/>' + txt(44, 195, 'L0A · LEFT', 'sv-label')
-      + '<rect x="44" y="202" width="' + (96 * 4 / 64) + '" height="7" class="sv-fill-lime"/>'
-      + txt(44, 224, 'q_padded', 'sv-strong') + txt(44, 236, '[16,128] · 4 KB', 'sv-text'));
+    s += region('aic', '<rect x="24" y="144" width="262" height="308" class="sv-box"/>' + txt(36, 162, 'AIC · CUBE', 'sv-title'));
+    s += '<rect x="36" y="170" width="238" height="26" class="sv-dimmem"/>' + txt(44, 187, 'L1 · Mat', 'sv-label') + txt(266, 187, '本例未建模', 'sv-label', 'end');
+    s += region('l0a', '<rect x="36" y="204" width="112" height="58" class="sv-mem"/>' + txt(44, 219, 'L0A · LEFT', 'sv-label')
+      + '<rect x="44" y="226" width="' + (96 * 4 / 64) + '" height="7" class="sv-fill-lime"/>'
+      + txt(44, 246, 'q_padded', 'sv-strong') + txt(44, 257, '[16,128] · 4 KB', 'sv-text'));
     const l0bRatio = Math.min(1, k.kDB / L0B_CAP);
-    s += region('l0b', '<rect x="156" y="180" width="118" height="62" class="sv-mem"/>' + txt(164, 195, 'L0B · RIGHT', 'sv-label')
-      + '<rect x="164" y="202" width="102" height="7" fill="#262626"/>'
-      + '<rect x="164" y="202" width="' + (102 * l0bRatio) + '" height="7" class="' + (k.kDB > L0B_CAP * 0.75 ? 'sv-fill-warn' : 'sv-fill-lav') + '"/>'
-      + txt(164, 224, 'K / V 双缓冲', 'sv-strong') + txt(164, 236, kb(k.kDB) + ' / 64 KB 估算', 'sv-text'));
-    s += region('cube', '<rect x="36" y="252" width="238" height="62" class="sv-mem"/>' + txt(44, 267, 'CUBE', 'sv-label')
-      + txt(44, 286, 'QK  [16,128] × [128,' + c.seq + ']', 'sv-strong') + txt(44, 304, 'SV  [16,' + c.seq + '] × [' + c.seq + ',128]', 'sv-strong'));
-    s += region('l0c', '<rect x="36" y="324" width="238" height="56" class="sv-mem"/>' + txt(44, 339, 'L0C · ACC', 'sv-label')
-      + '<rect x="44" y="346" width="' + Math.max(6, k.acc / 1024 * 3) + '" height="7" class="sv-fill-amber"/>'
-      + txt(44, 370, 'raw_scores ' + kb(k.acc) + ' · oi_tmp 8 KB', 'sv-text'));
+    s += region('l0b', '<rect x="156" y="204" width="118" height="58" class="sv-mem"/>' + txt(164, 219, 'L0B · RIGHT', 'sv-label')
+      + '<rect x="164" y="226" width="102" height="7" fill="#262626"/>'
+      + '<rect x="164" y="226" width="' + (102 * l0bRatio) + '" height="7" class="' + (k.kDB > L0B_CAP * 0.75 ? 'sv-fill-warn' : 'sv-fill-lav') + '"/>'
+      + txt(164, 246, 'K / V 双缓冲', 'sv-strong') + txt(164, 257, kb(k.kDB) + ' / 64 KB 估算', 'sv-text'));
+    s += region('cube', '<rect x="36" y="270" width="238" height="56" class="sv-mem"/>' + txt(44, 285, 'CUBE', 'sv-label')
+      + txt(44, 302, 'QK  [16,128] × [128,' + c.seq + ']', 'sv-strong') + txt(44, 318, 'SV  [16,' + c.seq + '] × [' + c.seq + ',128]', 'sv-strong'));
+    s += region('l0c', '<rect x="36" y="334" width="238" height="52" class="sv-mem"/>' + txt(44, 349, 'L0C · ACC', 'sv-label')
+      + '<rect x="44" y="356" width="' + Math.max(6, k.acc / 1024 * 3) + '" height="7" class="sv-fill-amber"/>'
+      + txt(44, 378, 'raw_scores ' + kb(k.acc) + ' · oi_tmp 8 KB', 'sv-text'));
     s += txt(36, 440, 'Left / Acc 容量本页未建模', 'sv-label');
 
     // GM → L1 → L0B 搬运
-    s += region('gm-kcache', '<path d="M99 74 V 87 H 190 V 140" class="sv-arrow"/>');
-    s += region('gm-vcache', '<path d="M257 74 V 140" class="sv-arrow"/>');
-    s += region('l0b', '<path d="M215 170 V 178" class="sv-arrow"/>');
+    s += region('gm-kcache', '<path d="M150 74 V 168" class="sv-arrow"/>');
+    s += region('gm-vcache', '<path d="M240 74 V 168" class="sv-arrow"/>');
+    s += region('l0b', '<path d="M215 196 V 202" class="sv-arrow"/>');
 
     // C2V / V2C
-    s += region('ch-c2v', '<rect x="288" y="268" width="60" height="24" class="sv-hit"/><path d="M288 282 H 348" class="sv-arrow"/>' + txt(318, 276, 'C2V', 'sv-label', 'middle'));
-    s += region('ch-v2c', '<rect x="288" y="298" width="60" height="24" class="sv-hit"/><path d="M348 312 H 288" class="sv-arrow"/>' + txt(318, 326, 'V2C', 'sv-label', 'middle'));
+    s += region('ch-c2v', '<rect x="288" y="288" width="60" height="24" class="sv-hit"/><path d="M288 300 H 348" class="sv-arrow"/>' + txt(318, 294, 'C2V', 'sv-label', 'middle'));
+    s += region('ch-v2c', '<rect x="288" y="318" width="60" height="24" class="sv-hit"/><path d="M348 330 H 288" class="sv-arrow"/>' + txt(318, 344, 'V2C', 'sv-label', 'middle'));
 
     // AIV
-    s += region('aiv', '<rect x="350" y="116" width="236" height="336" class="sv-box"/>' + txt(362, 134, 'AIV · VECTOR', 'sv-title'));
+    s += region('aiv', '<rect x="350" y="144" width="346" height="308" class="sv-box"/>' + txt(362, 162, 'AIV · VECTOR', 'sv-title'));
     s += ubSvg(k, ref, bad);
-
-    // 核阵列
-    s += region('cores', '<rect x="604" y="92" width="104" height="370" class="sv-hitframe"/>'
-      + txt(612, 108, 'PL.SPMD × ' + NUM_CORES, 'sv-title')
-      + '<g class="sv-cores' + (bad ? ' is-bad' : '') + '">' + cores() + '</g>'
-      + txt(612, 286, bad ? '同一份越界' : '同一份 Vec', bad ? 'sv-text sv-bad' : 'sv-text')
-      + txt(612, 300, '分配 × ' + NUM_CORES, bad ? 'sv-text sv-bad' : 'sv-text')
-      + txt(612, 326, 'grid-stride', 'sv-label')
-      + txt(612, 340, k.blocks + ' 个真实块', 'sv-label')
-      + txt(612, 354, '→ ' + NUM_CORES + ' 个 block', 'sv-label')
-      + txt(612, 380, '每格一个 block', 'sv-label'));
     s += '</svg>';
     document.getElementById('hpSvg').innerHTML = s;
     document.getElementById('hpChipMeta').textContent = state.preview
@@ -523,7 +574,8 @@
   function cores() {
     let out = '';
     for (let i = 0; i < NUM_CORES; i++) {
-      out += '<rect x="' + (614 + (i % 4) * 22) + '" y="' + (120 + Math.floor(i / 4) * 24) + '" width="17" height="17" rx="2" class="sv-core"/>';
+      out += '<rect x="' + (CORE.x + i * CORE.pitch) + '" y="' + CORE.y + '" width="' + CORE.size + '" height="' + CORE.size
+        + '" rx="1.5" class="sv-core' + (i === 0 ? ' is-zoom' : '') + '"/>';
     }
     return out;
   }
@@ -604,9 +656,12 @@
   // 焦点：源码行 ⇄ 逻辑节点 ⇄ 硅片区域 ⇄ Vec 缓冲
   // ════════════════════════════════════════════════════════════════════════════
   function fromNodes(ids) {
+    // 计算段展开成它包含的节点
+    ids = ids.reduce(function (acc, id) { return acc.concat([id], nodeById(id).group || []); }, []);
     const f = { lines: [], regions: [], bufs: [], nodes: ids.slice() };
     ids.forEach(function (id) {
       const n = nodeById(id);
+      f.nodes = f.nodes.concat(n.show || []);
       f.lines = f.lines.concat(n.lines);
       f.regions = f.regions.concat(n.regions || []);
       f.bufs = f.bufs.concat(n.bufs || []);
@@ -646,9 +701,9 @@
       f.bufs = [h.id];
       f.regions = [];
     } else {
-      f = fromNodes(nodesWhere(function (n) { return (n.regions || []).indexOf(h.id) >= 0; }));
+      f = fromNodes(REGION_NODES[h.id] || nodesWhere(function (n) { return (n.regions || []).indexOf(h.id) >= 0; }));
       f.regions = [h.id];
-      if (h.id !== 'ub') f.bufs = [];
+      if (h.id !== 'ub' && h.id !== 'aiv') f.bufs = [];
     }
     // 复用方案下，被省掉的两块指向 scores_scaled
     if (state.cfg.reuse) f.bufs = f.bufs.map(function (b) { return bufById(b) && bufById(b).alias ? 'scores_scaled' : b; });
@@ -672,10 +727,41 @@
     document.querySelectorAll('.lg-hit').forEach(function (el) {
       el.classList.toggle('is-hot', f.nodes.indexOf(el.dataset.node) >= 0);
     });
+    document.querySelectorAll('.lg-edge').forEach(function (el) {
+      el.classList.toggle('is-hot', f.nodes.indexOf(el.dataset.from) >= 0 || f.nodes.indexOf(el.dataset.to) >= 0);
+    });
     document.querySelectorAll('.map-table tr[data-line]').forEach(function (el) {
       el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0);
     });
+    // 焦点从逻辑图、硅片或右栏表格发起时，把亮起的行滚进源码区；源码区内悬停或移开时不动，免得打断阅读
+    if (state.hover && (state.hover.type !== 'line' || state.hover.fromTable)) revealLines();
     renderCaption(k);
+  }
+
+  // [796, 797, 798, 769] → "769 / 796–798"：只把源码里相邻的行合成区间
+  function fmtLines(lines) {
+    const shown = SOURCE.map(function (r) { return r.no; });
+    const sorted = uniq(lines).sort(function (a, b) { return a - b; });
+    const parts = [];
+    sorted.forEach(function (no) {
+      const last = parts[parts.length - 1];
+      if (last && shown.indexOf(no) === shown.indexOf(last[1]) + 1) last[1] = no;
+      else parts.push([no, no]);
+    });
+    return parts.map(function (p) { return p[0] === p[1] ? p[0] : p[0] + '–' + p[1]; }).join(' / ') || '—';
+  }
+
+  function revealLines() {
+    const box = document.getElementById('hpCode');
+    const hot = box.querySelectorAll('.cl.is-hot');
+    if (!hot.length) return;
+    const first = hot[0], last = hot[hot.length - 1];
+    const top = first.offsetTop, bottom = last.offsetTop + last.offsetHeight;
+    const viewTop = box.scrollTop, viewBottom = viewTop + box.clientHeight;
+    if (top >= viewTop && bottom <= viewBottom) return;
+    // 整段放得下就居中整段，放不下就让第一行靠上
+    const target = bottom - top < box.clientHeight ? (top + bottom - box.clientHeight) / 2 : top - 24;
+    box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
   }
 
   function renderCaption(k) {
@@ -683,14 +769,16 @@
     let key = '', body = '';
     if (h && h.type === 'line') { key = 'line ' + h.no + ' → 逻辑 · 硅片'; body = lineCaption(h.no, k); }
     else if (h && h.type === 'node') {
-      const n = nodeById(h.id);
-      key = '逻辑 → line ' + n.lines[0] + (n.lines.length > 1 ? '–' + n.lines[n.lines.length - 1] : '') + ' · 硅片';
+      key = '逻辑 → line ' + fmtLines(fromNodes([h.id]).lines) + ' · 硅片';
       body = nodeCaption(h.id, k);
     } else if (h && h.type === 'buf') {
       const b = bufById(h.id);
       if (b) { key = 'Vec 缓冲 → 逻辑 · line ' + b.line; body = lineCaption(b.line, k); }
       else { key = 'Vec 常驻区'; body = '常驻区 ' + kb(k.carry) + '：沿用 Lens 的估算口径（o_i / m_i / l_i），不随 stage 复制。'; }
-    } else if (h && h.type === 'region') { key = '硅片 → 逻辑 · line ' + (nodesWhere(function (n) { return (n.regions || []).indexOf(h.id) >= 0; }).map(function (id) { return nodeById(id).lines[0]; }).join(' / ') || '—'); body = regionCaption(h.id, k); }
+    } else if (h && h.type === 'region') {
+      key = '硅片 → 逻辑 · line ' + fmtLines(focusFor(h).lines);
+      body = regionCaption(h.id, k);
+    }
     if (!body) {
       key = '悬停源码行、逻辑节点或硅片区域，三处会一起亮起';
       if (k.verdict === 'silent') {
@@ -888,6 +976,7 @@
   function openSection(n, scroll) {
     state.step = n; state.preview = null; state.hover = null;
     render();
+    revealLines();
     if (scroll && n) {
       const el = document.querySelector('.sec[data-sec="' + n + '"]');
       if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -913,6 +1002,59 @@
   });
   document.getElementById('hpReset').addEventListener('click', function () { state.step = 1; state.hover = null; setCfg(BASE); });
 
+  // 拖动源码区边界；同时支持键盘微调。
+  const codePane = document.getElementById('hpCodePane');
+  const resizeHandle = document.getElementById('hpCodeResize');
+  const mainPane = document.querySelector('.hp-main');
+  function resizeBounds() {
+    const width = mainPane.getBoundingClientRect().width;
+    return window.innerWidth > 1280
+      ? { min: 340, max: Math.max(340, width - 920) }
+      : { min: 280, max: Math.max(280, width - 360) };
+  }
+  function setCodeWidth(width) {
+    const bounds = resizeBounds();
+    const value = Math.round(Math.max(bounds.min, Math.min(bounds.max, width)));
+    mainPane.style.setProperty('--code-width', value + 'px');
+    resizeHandle.setAttribute('aria-valuemin', bounds.min);
+    resizeHandle.setAttribute('aria-valuemax', Math.round(bounds.max));
+    resizeHandle.setAttribute('aria-valuenow', value);
+  }
+  resizeHandle.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX, startWidth = codePane.getBoundingClientRect().width;
+    resizeHandle.setPointerCapture(e.pointerId);
+    resizeHandle.classList.add('is-dragging');
+    document.body.classList.add('is-resizing');
+    function move(event) { setCodeWidth(startWidth + event.clientX - startX); }
+    function end() {
+      resizeHandle.classList.remove('is-dragging');
+      document.body.classList.remove('is-resizing');
+      resizeHandle.removeEventListener('pointermove', move);
+      resizeHandle.removeEventListener('pointerup', end);
+      resizeHandle.removeEventListener('pointercancel', end);
+      resizeHandle.removeEventListener('lostpointercapture', end);
+    }
+    resizeHandle.addEventListener('pointermove', move);
+    resizeHandle.addEventListener('pointerup', end);
+    resizeHandle.addEventListener('pointercancel', end);
+    resizeHandle.addEventListener('lostpointercapture', end);
+  });
+  resizeHandle.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    setCodeWidth(codePane.getBoundingClientRect().width + (e.key === 'ArrowLeft' ? -20 : 20));
+  });
+  function syncResizeHandle() {
+    const bounds = resizeBounds();
+    resizeHandle.setAttribute('aria-valuemin', bounds.min);
+    resizeHandle.setAttribute('aria-valuemax', Math.round(bounds.max));
+    resizeHandle.setAttribute('aria-valuenow', Math.round(codePane.getBoundingClientRect().width));
+  }
+  window.addEventListener('resize', syncResizeHandle);
+  syncResizeHandle();
+
   // 悬停：代码行、表格行、逻辑节点、硅片区域、Vec 缓冲
   function hoverFrom(target) {
     const buf = target.closest('.sv-buf');
@@ -921,8 +1063,10 @@
     if (reg) return { type: 'region', id: reg.dataset.region };
     const node = target.closest('.lg-hit');
     if (node) return { type: 'node', id: node.dataset.node };
-    const line = target.closest('.cl.is-mapped, .map-table tr[data-line]');
+    const line = target.closest('.cl.is-mapped');
     if (line) return { type: 'line', no: Number(line.dataset.line) };
+    const row = target.closest('.map-table tr[data-line]');
+    if (row) return { type: 'line', no: Number(row.dataset.line), fromTable: true };
     return null;
   }
   document.addEventListener('mouseover', function (e) {

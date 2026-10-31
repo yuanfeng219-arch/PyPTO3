@@ -47,7 +47,7 @@ code, .mono { font-family: var(--mono); }
 .hp-topbtn:hover, .hp-topbtn:focus-visible { color: var(--text); border-color: var(--border-strong); background: var(--raised); outline: none; }
 
 /* ── 三栏：源码 | 算子逻辑 + 硅片落点 | 主线 ── */
-.hp-main { display: grid; grid-template-columns: minmax(340px, 34fr) minmax(560px, 56fr) minmax(320px, 360px); min-height: 0; }
+.hp-main { display: grid; grid-template-columns: clamp(340px, var(--code-width, 36.5%), max(340px, calc(100% - 920px))) minmax(560px, 1fr) minmax(320px, 360px); min-height: 0; }
 .hp-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--border); background: var(--surface); }
 .hp-pane:last-child { border-right: 0; }
 .hp-pane-head { display: flex; align-items: baseline; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--border); min-width: 0; }
@@ -55,7 +55,11 @@ code, .mono { font-family: var(--mono); }
 .hp-pane-meta { font: 11px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── 源码 ── */
-.hp-code-body { flex: 1; overflow: auto; background: var(--canvas); padding: 8px 0 24px; font: 12px/1.75 var(--mono); }
+.hp-code { position: relative; }
+.hp-resize { position: absolute; z-index: 5; top: 0; right: -5px; bottom: 0; width: 10px; cursor: col-resize; touch-action: none; }
+.hp-resize:hover, .hp-resize:focus-visible, .hp-resize.is-dragging { background: rgba(118, 158, 255, .3); outline: none; }
+body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-select: none !important; }
+.hp-code-body { position: relative; flex: 1; overflow: auto; background: var(--canvas); padding: 8px 0 24px; font: 12px/1.75 var(--mono); }
 .cl { display: grid; grid-template-columns: 14px 44px 1fr; align-items: center; min-width: max-content; padding-right: 18px; cursor: default; }
 .cl-mark { align-self: stretch; }
 .cl-no { color: #555; text-align: right; padding-right: 14px; user-select: none; }
@@ -126,25 +130,28 @@ svg text { font-family: var(--mono); pointer-events: none; }
 .sv-region.is-hot .sv-hitframe { stroke: var(--text); stroke-dasharray: none; }
 
 /* ── 算子逻辑图 ── */
-.lg-frame { fill: transparent; stroke: #2f2f2f; cursor: pointer; }
-.lg-frame-pipe { stroke: #3d3d3d; }
-.lg-frame.is-bad { stroke: rgba(255, 107, 91, .5); }
+/* 与硅片画布同一套：虚线框 = 作用域（sv-frame），实框 = 计算段（sv-box），节点 = 存储块（sv-mem） */
+.lg-hit { cursor: pointer; }
+.lg-frame { fill: transparent; stroke: var(--border); stroke-dasharray: 3 3; transition: stroke .15s; }
+.lg-frame.is-bad { stroke: rgba(255, 107, 91, .55); }
 .lg-hit:hover > .lg-frame { stroke: #555; }
-.lg-hit.is-hot > .lg-frame { stroke: var(--text); }
-.lg-group { fill: #151a1c; stroke: #2c4a54; pointer-events: none; }
-.lg-ghost { fill: #141718; stroke: #2a3c42; pointer-events: none; }
-.lg-group.is-bad, .lg-ghost.is-bad { stroke: var(--red); }
-.lg-node { fill: #1b1b1b; stroke: #3a3a3a; cursor: pointer; transition: stroke .15s; }
-.lg-hit:hover .lg-node { stroke: #777; }
-.lg-hit.is-hot .lg-node { stroke: var(--text); stroke-width: 1.5; fill: #232323; }
-.lg-node.is-bad { stroke: var(--red); fill: #241615; }
-.lg-hit.is-hot .lg-node.is-bad { stroke: var(--red); stroke-width: 2; }
-.lg-stripe { pointer-events: none; }
-.lg-stripe.u-aic { fill: var(--lav); }
-.lg-stripe.u-aiv { fill: var(--sky); }
-.lg-stripe.u-gm { fill: var(--lime); }
-.lg-edge { stroke: #555; stroke-width: 1.1; fill: none; marker-end: url(#lgArrow); pointer-events: none; }
-.lg-legend { pointer-events: none; }
+.lg-hit.is-hot > .lg-frame { stroke: var(--text); stroke-dasharray: none; }
+.lg-phase { fill: #161616; stroke: var(--border); transition: stroke .15s; }
+.lg-hit:hover > .lg-phase { stroke: #555; }
+.lg-hit.is-hot > .lg-phase { stroke: var(--text); }
+.lg-phase.is-bad, .lg-hit.is-hot > .lg-phase.is-bad { stroke: var(--red); }
+.lg-ghost { fill: #141414; stroke: #2c4a54; stroke-dasharray: 3 3; pointer-events: none; }
+.lg-ghost.is-bad { stroke: var(--red); }
+.lg-node { fill: #1c1c1c; stroke: #3d3d3d; transition: stroke .15s, fill .15s; }
+.lg-hit:hover > .lg-node { stroke: #777; }
+.lg-hit.is-hot > .lg-node { stroke: var(--text); stroke-width: 1.5; fill: #222; }
+.lg-node.is-bad { stroke: var(--red); fill: #2a1716; }
+.lg-hit.is-hot > .lg-node.is-bad { stroke: var(--red); stroke-width: 2; }
+.lg-edge { stroke: #555; stroke-width: 1.2; fill: none; marker-end: url(#lgArrow); pointer-events: none; transition: stroke .15s; }
+.lg-edge.is-hot { stroke: var(--text); marker-end: url(#lgArrowHot); }
+.lg-flight { fill: #1c1c1c; stroke: #3d3d3d; }
+.lg-flight.is-on { fill: var(--sky); stroke: var(--sky); }
+.lg-flight.is-bad { fill: var(--red); stroke: var(--red); }
 .sv-arrow { stroke: #555; stroke-width: 1.2; fill: none; marker-end: url(#hpArrow); }
 .sv-region.is-hot .sv-arrow { stroke: var(--text); marker-end: url(#hpArrowHot); }
 .sv-buf { stroke: #131313; stroke-width: .6; cursor: pointer; transition: opacity .15s; }
@@ -165,7 +172,10 @@ svg text { font-family: var(--mono); pointer-events: none; }
 .sv-fill-warn { fill: #a7883a; }
 .sv-core { fill: #1c1c1c; stroke: #3d3d3d; }
 .sv-cores.is-bad .sv-core { stroke: var(--red); fill: #2a1716; }
-.sv-cores.is-hot .sv-core { stroke: var(--text); }
+.sv-core.is-zoom { stroke: var(--text); fill: #2c2c2c; }
+.sv-cores.is-bad .sv-core.is-zoom { stroke: var(--red); fill: #5a2420; }
+.sv-region.is-hot .sv-core { stroke: var(--text); }
+.sv-zoom { stroke: #777; stroke-dasharray: 2 2; pointer-events: none; }
 .sv-bad { fill: var(--red); }
 .sv-good { fill: var(--ok); }
 
@@ -282,7 +292,7 @@ svg text { font-family: var(--mono); pointer-events: none; }
 /* ── 窄屏 ── */
 @media (max-width: 1280px) {
   .hp-app { height: auto; min-height: 100vh; grid-template-rows: 44px auto 28px; }
-  .hp-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); grid-template-rows: auto auto; }
+  .hp-main { grid-template-columns: clamp(280px, var(--code-width, 43.48%), calc(100% - 360px)) minmax(360px, 1fr); grid-template-rows: auto auto; }
   .hp-code { max-height: 900px; }
   .hp-svg { height: 480px; flex: none; }
   .hp-logic-svg svg { max-height: none; }
@@ -294,6 +304,7 @@ svg text { font-family: var(--mono); pointer-events: none; }
   .hp-top { flex-wrap: wrap; padding: 8px 16px; height: auto; }
   .hp-crumb, .hp-target { display: none; }
   .hp-main { display: flex; flex-direction: column; }
+  .hp-resize { display: none; }
   .hp-pane { border-right: 0; border-bottom: 1px solid var(--border); }
   .hp-code-body { max-height: 420px; }
   .hp-svg { height: 340px; padding: 8px 4px; }
