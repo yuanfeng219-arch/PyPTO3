@@ -192,3 +192,9 @@ Stage 1–5 状态从 `LINEAGE_DATA` Workflow 读取；Correctness 从 `AUDIT_EV
 - [850×900 收起](previews/ide-chat/narrow-collapsed.png) / [Chat 展开](previews/ide-chat/ide-850.png)
 
 精简 Chrome 回归共 22 项通过：默认文件树隐藏、历史 Completed 状态、五阶段、Composer 只读、SPEC Analysis、Design 五项 Picker、Chat 滚动保持、Single Tile、Dock 标题避让、向上返回、Split 拖动、文件树反复开关、真实性能、三个未尝试候选、机会分类、1600/850 无整体横向溢出、窄屏收起 / 展开和 Console 无错误。完整记录见 [regression.json](previews/ide-chat/regression.json)。未运行 NPU 或全面重跑各专业 Analysis 业务测试，未连接 Agent backend。未 commit、push、合并或部署。
+
+## IDE Frame 正式结构对齐（2026-11-02）
+
+本节覆盖前述 Shell 滚动容器说明：当前使用单层 Split，Decision Pane 采用固定的 32px 标准 Header + `#decision-pane-body` 主阅读滚动区；main 本身不滚动。移除了外层 16px Padding、私有 Topbar / Run Header / Status Strip 样式与重复 Split。Chat 历史上下文已归入 Chat Body。共享组件与 Token 未改动。
+
+详见工作区根目录 [IDE Frame 结构与布局对齐](../../../PyPTO%20IDE%20Frame%20结构与布局对齐.md)，本轮截图和几何记录位于 [frame-alignment](previews/frame-alignment/comparison.html)。
