@@ -216,16 +216,16 @@
       return [...found];
     }
     function paintFocus(focus){
-      const related=adapter?focus.related:hoverNodeId?relatedPath(hoverNodeId,true):focus.nodeId?relatedPath(focus.nodeId):focus.related;
-      scene.dataset.focused=String(!adapter&&!!(hoverNodeId||focus.nodeId));
+      const related=hoverNodeId?relatedPath(hoverNodeId,true):adapter?focus.related:focus.nodeId?relatedPath(focus.nodeId):focus.related;
+      scene.dataset.focused=String(!!(hoverNodeId||focus.nodeId));
       scene.querySelectorAll('[data-pypa-node]').forEach(el=>{
         const selected=el.dataset.pypaNode===focus.nodeId,isRelated=related.includes(el.dataset.pypaNode);
-        el.classList.toggle('is-selected',selected);el.classList.toggle('is-viz2-related',isRelated&&!selected);el.setAttribute('aria-pressed',String(selected));
+        const semanticColor=window.PtoAIInfraPresentation?.semanticRole(nodeMap.get(el.dataset.pypaNode)||{id:el.dataset.pypaNode})?.color; if(semanticColor)el.style.setProperty('--graph-semantic-color',semanticColor);el.classList.toggle('is-hovered',el.dataset.pypaNode===hoverNodeId);el.classList.toggle('is-selected',selected);el.classList.toggle('is-viz2-related',isRelated&&!selected);el.setAttribute('aria-pressed',String(selected));
         if(adapter){const role=focus.nodeRoles?.[el.dataset.pypaNode];if(role)el.dataset.stateRole=role;else delete el.dataset.stateRole;}
       });
       nodeLabels.forEach(({node,label})=>label.classList.toggle('is-viz2-related',related.includes(node.id)));
       scene.querySelectorAll('[data-pypa-edge]').forEach(el=>{
-        const edge=graph.edges.find(edge=>edge.id===el.dataset.pypaEdge);
+        const edge=graph.edges.find(edge=>edge.id===el.dataset.pypaEdge);const edgeNode=edge&&(nodeMap.get(edge.s)?.type==='data'?nodeMap.get(edge.s):nodeMap.get(edge.t));const edgeColor=edgeNode&&window.PtoAIInfraPresentation?.semanticRole(edgeNode)?.color;if(edgeColor)el.style.setProperty('--graph-semantic-color',edgeColor);
         el.classList.toggle('is-viz2-related',!!edge&&(view.edgeId===edge.id||focus.edgeId===edge.id||related.includes(edge.s)&&related.includes(edge.t)));
         if(!adapter&&['state','feedback'].includes(edge?.type))el.style.pointerEvents='stroke';
         if(adapter)el.style.pointerEvents='stroke';
@@ -291,6 +291,7 @@
       if(select)skipFocusOnce=true;
       onView({expanded:[...next],...(select?{nodeId:id,syncId:null,inspectorOpen:true}:{})});
       const node=nodeMap.get(id);
+      if(adapter?.autoFitExpanded){onView({camera:fitted()});return;}
       if(node&&next.has(id)&&node.expandedGroup){
         const fitScale=Math.min((viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-72)/node.groupHeight);
         const floor=typeof adapter?.expandedScaleFloor==='function'?adapter.expandedScaleFloor(node):adapter?.expandedScaleFloor;
@@ -338,7 +339,7 @@
     viewport.addEventListener('pointermove',event=>{
       if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);tooltip.hidden=true;const c=camera||fitted();onView({camera:{...c,x:c.x+event.clientX-drag.x,y:c.y+event.clientY-drag.y}});drag.x=event.clientX;drag.y=event.clientY;return;}
       const target=event.target.closest('[data-pypa-node], [data-viz2-graph-label]'),node=target?nodeMap.get(target.dataset.pypaNode||target.dataset.viz2GraphLabel):null;tooltip.hidden=!node;
-      if(!adapter&&hoverNodeId!==node?.id){hoverNodeId=node?.id||null;paintFocus(resolveFocus({...model,nodes},selection,view.nodeId));}
+      if(hoverNodeId!==(node?.id||null)){hoverNodeId=node?.id||null;paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));}
       if(adapter){const el=event.target.closest('[data-pypa-edge],[data-pypa-edge-label],[data-pypa-sync]');adapter.onHover?.(node?.id,el?.dataset.pypaEdge||el?.dataset.pypaEdgeLabel,el?.dataset.pypaSync,graph);paintFocus(adapter.resolveFocus(graph,selection,view));if(!node&&el){tooltip.hidden=false;tooltip.textContent=adapter.tooltip?.(null,el.dataset.pypaEdge||el.dataset.pypaEdgeLabel,el.dataset.pypaSync,graph)||'';const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}}
       if(!node&&layers.execution&&event.target.closest('[data-pypa-edge],[data-pypa-edge-label]')){
         tooltip.hidden=false;

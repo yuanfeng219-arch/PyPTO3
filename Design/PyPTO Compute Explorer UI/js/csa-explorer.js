@@ -156,7 +156,7 @@
   function mount(){
     root=document.createElement('section');root.id='csaExplorer';root.className='pto-ide-frame__pane viz2 csa-explorer';root.hidden=true;
     root.setAttribute('aria-label','DeepSeek V4 CSA Compute Explorer');
-    root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
+    root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">PyPTO Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
     '<div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="CSA 可视化视图">'+tabs.map(id=>'<button class="tab-control-item" role="tab" id="csa-tab-'+id+'" data-csa-tab="'+id+'" aria-controls="csa-panel"><span class="viz2-tab-icon viz2-tab-icon--'+id+'"></span>'+id[0].toUpperCase()+id.slice(1)+'</button>').join('')+'</div></div>'+
     '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button></div>'+
     '<div class="csa-stagebar" hidden>'+stageBarHtml()+'</div>'+
@@ -273,6 +273,7 @@
   }
   function saveCamera(){if(controller&&state.tab!=='graph')state.views[state.tab].camera=controller.getTransform();}
   function chrome(){
+    if(document.body.classList.contains('csa-visual'))document.dispatchEvent(new CustomEvent('csa-view-change',{detail:structuredClone(state)}));
     root.querySelectorAll('[data-csa-tab]').forEach(b=>{const active=b.dataset.csaTab===state.tab;b.classList.toggle('is-selected',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     root.querySelector('#csa-panel').setAttribute('aria-labelledby','csa-tab-'+state.tab);
     const stagebar=root.querySelector('.csa-stagebar');
@@ -351,7 +352,7 @@
         if(patch.expanded)state.views.graph.scope=patch.expanded.length?'local':'overall';
         semanticController.update(null,state.views.graph,{active:true});chrome();
       },adapter:{
-        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,layoutOptions:{rootLayerGap:44},labelMinWidth:96,expandedScaleFloor:node=>node.parentId?.62:0,expandedXOffset:node=>node.id==='cache'?140:0,focusExpandedTop:true,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
+        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,layoutOptions:{rootLayerGap:64,childLayerGap:56},labelMinWidth:96,autoFitExpanded:document.body.classList.contains('csa-visual'),focusExpandedTop:false,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
         context:()=> '源码静态数据、状态和 Task ID 依赖；Stage 不表示严格串行。',
         resolveFocus:(g,selection,v)=>{const path=graphIdForFocus()?.split('/')||[];let nodeId=null;while(path.length&&!nodeId){const candidate=path.join('/');if(g.nodes.some(n=>n.id===candidate))nodeId=candidate;else path.pop();}return {nodeId,edgeId:v.edgeId,related:nodeId?[nodeId]:[],kind:'node'};},
         hasInspector:()=>!!(state.views.graph.nodeId||state.views.graph.edgeId),
@@ -380,17 +381,19 @@
           const shape=shapeView?.text&&(shapeView.symbol!==shapeView.text?shapeView.symbol+' = '+shapeView.text:shapeView.text);
           const facts=(item?.provenance||[]).filter(entry=>entry.kind==='fact');
           const resolved=(item?.provenance||[]).filter(entry=>entry.kind==='resolved');
-          const rows=[['What',item?.description||node?.detail||'源码静态关系'],['Kind',item?.type||node?.type]];
-          const io=section('Inputs / Outputs',[
-            ['Inputs',incoming.length?incoming.map(connection).join('；'):'外部输入或当前展开层级未显示'],
-            ['Outputs',outgoing.length?outgoing.map(connection).join('；'):'当前展开层级未显示下游'],
-            ...(payload.producer?[['Producer',semanticLabel(payload.producer)]]:[]),...(payload.consumers?.length?[['Consumers',payload.consumers.map(semanticLabel).join('、')]]:[])
+          const descriptions={sparse:'qk_plan 生成候选与 qk_order；qk_pv 按 Work Item 执行 QK、Softmax 和 PV，写出 Partial m/l/o。跨 Sparse Block 的合并与归一化由下游 csa_merge_pack_publish 完成。'};
+          const overview='<section class="graph-detail-overview"><p>'+esc(descriptions[item?.id]||node?.detail||item?.description||'源码静态关系')+'</p></section>';
+          const grouped=(edges,direction)=>{const groups=new Map();edges.filter(edge=>edge.type==='data').forEach(edge=>{const peer=label(direction==='in'?edge.s:edge.t);if(!groups.has(peer))groups.set(peer,[]);if(edge.label)groups.get(peer).push(edge.label.replace(/ read$/,''));});return [...groups].map(([peer,labels])=>peer+(labels.length?'：'+[...new Set(labels)].join('、'):'' )).join('；');};
+          const inputText=grouped(incoming,'in'),outputText=grouped(outgoing,'out');
+          const io=section('数据关系',[
+            ...(inputText?[['输入',inputText]]:[]),...(outputText?[['输出',outputText]]:[]),
+            ...(payload.producer?[['生产者',semanticLabel(payload.producer)]]:[]),...(payload.consumers?.length?[['消费者',payload.consumers.map(semanticLabel).join('、')]]:[])
           ]);
-          const metrics=section('Shape / Dtype / Storage',[
+          const metrics=section('张量属性',[
             ...(shape?[['Shape',shape]]:[]),...(payload.dtype?[['Dtype',payload.dtype]]:[]),
             ...(payload.storage?.space?[['Storage',payload.storage.space]]:[]),...(payload.symbol?[['Symbol',payload.symbol]]:[])
           ]);
-          const dependencies=section('Dependencies',[...incoming,...outgoing].filter(edge=>['state','feedback','control'].includes(edge.type)||edge.communication).map(edge=>[kind(edge),connection(edge)]));
+          const dependencies=section('控制与状态',[...incoming,...outgoing].filter(edge=>['state','feedback','control'].includes(edge.type)||edge.communication).map(edge=>[kind(edge),edge.label||label(edge.s)+' → '+label(edge.t)]));
           const lifecycle=item?.type==='state'?section('State lifecycle',[
             ...(payload.initial?[['跨 Step / 调用前',payload.initial]]:[]),
             ...(payload.update?[['当前调用更新',payload.update]]:[]),
@@ -398,13 +401,13 @@
           ]):'';
           const sourceText=file==='decode_csa.py'?global.PTO_CSA_SOURCE.text:(global.PTO_CSA_SOURCE.dependencies[file]||global.PtoProjectFiles?.get?.(file)?.content);
           const excerpt=loc&&sourceText?sourceText.split('\n').slice(loc.start-1,loc.end).map((line,index)=>`${loc.start+index}  ${line}`).join('\n'):'';
-          const sourceHtml=loc?'<section><h3>Source</h3><button class="btn btn-ghost btn-sm" data-viz2-graph-source="'+esc(file)+':'+loc.start+':'+loc.end+'">'+esc(file)+' : '+loc.start+'–'+loc.end+' ↗</button>'+
+          const sourceHtml=loc?'<section><h3>源码依据</h3><button class="btn btn-ghost btn-sm" data-viz2-graph-source="'+esc(file)+':'+loc.start+':'+loc.end+'">'+esc(file)+' : '+loc.start+'–'+loc.end+' ↗</button>'+
             (excerpt?'<details><summary>查看本地源码行段</summary><pre>'+esc(excerpt)+'</pre></details>':'')+'</section>':'';
-          const provenance=section('Evidence',[
-            ...facts.map(entry=>['源码事实',entry.origin+(entry.fields.length?' · '+entry.fields.join('、'): '')]),
+          const provenance=section('依据',[
+            ...facts.filter(entry=>entry.origin&&entry.origin!=='source').map(entry=>['源码事实',entry.origin+(entry.fields.length?' · '+entry.fields.join('、'): '')]),
             ...resolved.map(entry=>['静态推导',entry.origin+(entry.note?' · '+entry.note:'')])
           ]);
-          return {title:node?.title||item?.name||'CSA',html:section('What',rows)+io+metrics+lifecycle+dependencies+sourceHtml+provenance};
+          return {title:node?.title||item?.name||'CSA',html:overview+metrics+io+lifecycle+dependencies+sourceHtml+(provenance?'<details class="graph-evidence-details"><summary>更多依据</summary>'+provenance+'</details>':'')};
         },tooltip:(id,edgeId,syncId,g)=>id?(g.nodes.find(n=>n.id===id)?.detail||id):(g.edges.find(e=>e.id===edgeId)?.label||'依赖')
       }});
       semanticController.update(null,view,{active:true});

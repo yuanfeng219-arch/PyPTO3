@@ -23,7 +23,9 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
   if(data){
    const role=root.PtoAIInfraPresentation.semanticRole(node);
    el.dataset.semanticRole=role.key;el.style.setProperty('--data-role',role.color);
-   const caption=[layers.shape?node.overlay?.shape:null,layers.precision?node.overlay?.precision:null].filter(Boolean).join(' · ');
+   const fullCaption=[layers.shape?node.overlay?.shape:null,layers.precision?node.overlay?.precision:null].filter(Boolean).join(' · ');
+   const caption=root.document?.body.classList.contains('csa-visual')&&fullCaption.length>40?fullCaption.slice(0,28)+'…'+(layers.precision&&node.overlay?.precision?' · '+node.overlay.precision:''):fullCaption;
+   if(caption!==fullCaption)el.setAttribute('aria-description',fullCaption);
    el.style.height=`${caption?64:35}px`;el.style.minHeight=el.style.height;el.style.top=`${node.y+(node.h-(caption?64:35))/2}px`;
    el.innerHTML=root.PtoTensorRoleGlyph.render({id:node.id,label:node.title,metadata:caption,color:role.color,width:node.w});
 
