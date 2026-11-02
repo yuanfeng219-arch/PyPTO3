@@ -5,8 +5,8 @@
  const action=(text,fn)=>{const b=el('button','btn btn-ghost chat-link',text);b.type='button';b.onclick=fn;return b};
  const source=id=>window.LINEAGE_DATA.sources.find(s=>s.id===id);
  const fileLink=id=>{const a=el('a','chat-file');a.href=source(id).path;a.target='_blank';a.rel='noopener';a.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6v20h12V6z M14 2v5h5 M9 12h6 M9 16h6"/></svg>';a.append(el('span','',id),el('small','',id.endsWith('.py')?'Python · 查看 ↗':'Markdown · 查看 ↗'));return a};
- const header=el('header','pto-ide-frame__pane-header chat-header');header.append(el('strong','pto-ide-frame__pane-title','PyPTO Agent'),el('span','chat-completed',story.workflows.every(n=>n.status==='completed')?'Completed':'历史运行'),action('收起',()=>setChatVisible(false)));chat.append(header);
- const subhead=el('div','chat-subhead');subhead.append(el('span','','Softmax · 历史 Run'),el('span','chat-related',''));chat.append(subhead);
+ const header=el('header','pto-ide-frame__pane-header chat-header');header.append(el('strong','pto-ide-frame__pane-title','PyPTO Agent'),el('span','pto-ide-frame__pane-meta chat-completed',story.workflows.every(n=>n.status==='completed')?'Completed':'历史运行'),action('收起',()=>setChatVisible(false)));chat.append(header);
+ const subhead=el('div','chat-subhead');subhead.append(el('span','pto-ide-frame__pane-meta','Softmax · 历史 Run'),el('span','pto-ide-frame__pane-meta chat-related',''));chat.append(subhead);
  const messages=el('div','pto-ide-frame__pane-body chat-messages');messages.setAttribute('aria-label','Softmax 历史对话故事线');chat.append(messages);
  messages.append(el('p','chat-provenance',story.provenance));
  const user=el('article','chat-user');user.append(el('small','','示例需求 · 根据历史 SPEC 还原'),el('p','',story.userMessage));messages.append(user);
