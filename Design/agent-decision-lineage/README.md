@@ -149,3 +149,46 @@ Overview / Optimize 使用 `experiment-river.js` 与 `lineage-layout.js` 的展�
 按用户要求只做快速 Chrome 回归：默认全图、选中、标题位于 Dock 下、详情切换、中段上滚、到顶不立即返回、小幅上滚不返回、继续上滚恢复、失败身份和选中共存、Picker Escape、页面 Escape、1600/800 无整体横向溢出、Reduced Motion、键盘上滚、Console 无异常均通过。机器记录见 [regression.json](previews/dock-refinement/regression.json)。另有 1440×900 截图检查。
 
 限制：没有真实 Mac 触控板惯性或触屏设备实测；未全面重跑各 Analysis 业务回归。Single Tile、UB Buffer、Scheduling 等业务模块源码未修改；Shared Tile State 沿用现有模块。未 commit、push、合并或部署。
+
+## IDE 工作区与 Agent 对话故事线（2026-11-02）
+
+### 结构与复用
+
+本轮只改 Shell、历史对话与定位入口，未改 Tile / UB / Scheduling / Optimize 专业可视化。现有 main DOM 整体保留，迁入 `ide-frame` 的 direct embedding 工作区；主 Pane 的选择器同步放宽祖先层级。原单 Pane shell 升级为 Activity Rail + 可隐藏 Files + Decision Explorer / Agent Chat 水平分割。未创建 iframe、代码编辑器、Terminal、额外面板或私有 shell。
+
+复用 `ide-frame` 的 Activity Rail SVG、Pane Header / Body、Explorer Toggle、Status Strip 和 `workbench-shell` 的鼠标 / 键盘分割线。使用原 PTO 深色 surface、foreground、primary、success、spacing、radius tokens，没有另建视觉 tokens 或替换 pane 皮肤。双 Pane 和深色主题由本轮需求指定。无缺失系统部件或额外视觉审批项，未创建 preview page；外围容器没有新增渐变、装饰侧线或嵌套卡片。
+
+Files 默认隐藏，Explorer 图标可反复开关；其他宿主命令保持禁用，不伪造源控、搜索或终端行为。桌面初始 Chat 占剩余空间约 33%（1440px 时约 442px），共享分割线最小尺寸为 Explorer 600px / Chat 360px。空间不足时 Chat 默认收为右侧标签，显式展开使用右侧浮层。左右独立滚动，Chat composer 固定在 Chat 内底部。
+
+### 故事与证据
+
+`agent-run-story.js` 分离故事内容与渲染：用户措辞是 SPEC 重构示例，明确标注“非原始逐条对话”。SPEC 机器合同快照来自 `Data/softmax 新研pto pro agent产物数据/SPEC.md`，与现有 `evidence/SPEC.md` 对应；容差引用该文件 §7 官方样例来源，A5 / 950 保持默认假设，Performance Target 为 null。未把设备、容差、速度目标写入用户消息。
+
+Stage 1–5 状态从 `LINEAGE_DATA` Workflow 读取；Correctness 从 `AUDIT_EVIDENCE.correctness` 读取，性能从 `EXPERIMENT_DATA.cases` 读取，未探索候选从 `LINEAGE_VIEW.river.postRunOpportunities` 读取。Stage 06 没有混入执行活动。Improvement 与 Speedup 分别由同 Shape 的 Kernel Duration 计算，保留小 Shape 回退说明，不使用 Golden E2E Ratio 作为优化倍数。
+
+故事顺序：示例用户需求 → 默认展开 SPEC Summary（Contract / Acceptance / Assumptions 与来源）→ 五条紧凑、可展开执行记录 → 完成响应（实现、8/8 PASS、性能）→ 四份真实文件链接 → 两类原因下三个未尝试方向。Composer 只读，附件和发送按钮禁用。
+
+### 导航与状态
+
+单节点 SPEC 使用现有 `selectLineageNode('e1')`；SPEC Summary 在原有 Analysis 容器内呈现。多节点阶段复用 `LineageDock.navigateStage(stageId)` 和原 Node Picker；Overview 定位章节后打开 Picker，Inspect 直接打开对应 Dock Picker，不随意选择某个 Design 决策。外部 Picker 的 Escape、点击外部及选中关闭复用同一逻辑。
+
+`lineage-selection-change` 仅更新 Chat Header 的关联章节，不调整 Chat scrollTop 或插入消息。选择身份仍由 app.js 唯一 selected 管理。Dock 的四态、向上返回、Shared Tile State 和 Analysis 业务渲染保持原有实现。
+
+### 修改文件
+
+新增 `agent-run-story.js`（故事与事实引用）、`agent-chat.js`（对话、文件与 shell 命令）、`agent-chat.css`（Chat 内容布局）、`checks/ide-chat.cjs`（精简浏览器回归）。调整 HTML shell 与脚本入口、app.js 的选择通知和 SPEC 接入、lineage-dock.js 的共享阶段 Picker 入口、page.css 的主 Pane 祖先选择器。README 与 `previews/ide-chat/` 为交付说明和截图。
+
+### 截图与快速检查
+
+- [完整 IDE 1440×900](previews/ide-chat/ide-1440.png)
+- [SPEC Summary](previews/ide-chat/spec-summary.png)
+- [五阶段执行故事线](previews/ide-chat/execution-story.png)
+- [Chat → Design Picker](previews/ide-chat/chat-to-design.png)
+- [Analysis 展开且 Chat 保持原位](previews/ide-chat/analysis-chat-stable.png)
+- [最终响应](previews/ide-chat/final-response.png)
+- [文件产物与未探索方向](previews/ide-chat/artifacts-opportunities.png)
+- [拖动分割线后](previews/ide-chat/resized-split.png)
+- [1600×900](previews/ide-chat/ide-1600.png)
+- [850×900 收起](previews/ide-chat/narrow-collapsed.png) / [Chat 展开](previews/ide-chat/ide-850.png)
+
+精简 Chrome 回归共 22 项通过：默认文件树隐藏、历史 Completed 状态、五阶段、Composer 只读、SPEC Analysis、Design 五项 Picker、Chat 滚动保持、Single Tile、Dock 标题避让、向上返回、Split 拖动、文件树反复开关、真实性能、三个未尝试候选、机会分类、1600/850 无整体横向溢出、窄屏收起 / 展开和 Console 无错误。完整记录见 [regression.json](previews/ide-chat/regression.json)。未运行 NPU 或全面重跑各专业 Analysis 业务测试，未连接 Agent backend。未 commit、push、合并或部署。
