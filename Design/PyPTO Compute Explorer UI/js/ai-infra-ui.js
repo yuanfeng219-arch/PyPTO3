@@ -22,6 +22,12 @@
   const objectTerms = new Set(['Batch','Batches','Block','Blocks','Task','Tasks','Stack','Stacks','Page','Pages','Slot','Slots','Q Heads','KV Head','Q Head','Q Tile','Head','BATCH','BLOCK']);
   function localizeText(value) {
     let result=value;
+    if(document.body.classList.contains('csa-visual')) {
+      const chrome = {'Assignment':'任务分配','Pipeline':'流水线','Graph':'计算图','Fit to View':'适应视图'};
+      if(value.includes('查看各 Block 内任务的流水与依赖')) return '追踪 Work Item 的 Lane 迭代与计算依赖';
+      if(value.includes('查看 Task 生成及其到执行 Block 的映射')) return '查看 Work Item 生成、队列编排与 Lane 分配';
+      return chrome[value.trim()] || value;
+    }
     for(const [english,chinese] of uiTerms.filter(([term])=>!objectTerms.has(term))) result=result.replace(new RegExp('\\b'+english.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','g'),chinese);
     return result;
   }
@@ -80,15 +86,15 @@
     return `<svg class="ai-task-identity" pointer-events="none" x="4" y="${(h-side)/2}" width="${side}" height="${side}" viewBox="10 12 36 36" preserveAspectRatio="xMidYMid meet" overflow="hidden">${source}</svg>`;
   }
 
-  function operationGlyph(id,label,x,y,w,h,slot) {
+  function operationGlyph(id,label,x,y,w,h,slot,options={}) {
     const shortLabel=label.replace('Context Accumulate','Accumulate');
-    const key=/QK|PV/.test(label)?'matmul':/Softmax/.test(label)?'softmax':'reduce';
+    const key=options.iconKey||(/QK|PV/.test(label)?'matmul':/Softmax/.test(label)?'softmax':'reduce');
     const icon=window.PtoOpIcons.find(entry=>entry.id===key);
     const node=window.VisualSystem.node('op',id,shortLabel,0,0)
       .replace('width="260"','width="'+w+'"').replace('height="48"','height="34"')
       .replace('rx="24"','rx="17"').replace('x="130"','x="'+(w/2+8)+'"').replace('y="24"','y="17"').replace('font-size="18"','style="font-size:12px"');
-    const badge=icon?`<g class="ai-operation-category" transform="translate(6 7) scale(.8)"><circle cx="12" cy="12" r="12" fill="#222"/><path d="${icon.path}" fill="none" stroke="#eee" stroke-width="1.5"/></g>`:'';
-    return `<g class="ai-operation-glyph" pointer-events="none" transform="translate(${x} ${y})">${node}${badge}<circle cx="8" cy="48" r="3" fill="var(--slot-color)"/><text class="ai-operation-slot" x="${w/2}" y="48" text-anchor="middle">Slot ${slot}</text></g>`;
+    const badge=icon?`<g class="ai-operation-category" ><circle cx="16" cy="17" r="9" fill="#222"/><path transform="translate(10 11) scale(.5)" d="${icon.path}" fill="none" stroke="#eee" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></g>`:'';
+    return `<g class="ai-operation-glyph" pointer-events="none" transform="translate(${x} ${y})">${node}${badge}<circle cx="8" cy="48" r="3" fill="var(--slot-color)"/><text class="ai-operation-slot" x="${w/2}" y="48" text-anchor="middle">${options.metadata||`Slot ${slot}`}</text></g>`;
   }
 
   window.PtoAIInfraPresentation = Object.freeze({ apply, iconFor, semanticRole, taskGlyph, operationGlyph, localizeText });
@@ -208,6 +214,9 @@
     <div class="ai-prompt"><button type="button" data-ai-copy aria-label="复制继续调查 prompt"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg></button><pre>使用 ai-infra-investigation，核查 PyPTO Compute Explorer 中的 [文件 / 视图 / 对象]。结合页面中的源码行段与参数验证其映射关系，保留现有交互，不修改算子。</pre></div><p data-ai-copy-status role="status"></p>
     <h3>扩展</h3><p>新增场景需接入源码快照、独立领域模型与对象映射；不能仅替换图上的名称。当前页面呈现源码与静态逻辑关系，运行耗时需要额外的设备数据。</p>
     <h3>实现分工</h3><p>既有模型与控制器负责对象、选择、布局、动画与视角；AI Infra Paged Attention Pattern 提供图元皮肤，Spatial Systems UI 提供设计变量和 Liquid Glass 控件，ai-infra-investigation 组织复用与验收。</p>`;
+  if(document.body.classList.contains('csa-visual')) {
+  dialog.innerHTML = `<header><h2 id="ai-usage-title">Decode CSA · 使用说明</h2><button type="button" data-ai-close aria-label="关闭使用说明">×</button></header><h3>Work Item 与队列</h3><p>每个 Work Item 对应一个 Query × Sparse Block。默认每 Rank 256 Queries、每 Query 5 Sparse Blocks，共 1280 项。每个正方形是一项工作，蓝色 valid，灰色 invalid。</p><h3>SPMD 分配</h3><p>qk_order 保留全部 Work Items，valid 在前、invalid 在后。Lane = queuePosition % 24；iteration = floor(queuePosition / 24)。排序位置与 Work Item ID 不同。</p><h3>分支与数据来源</h3><p>valid 路径执行 Gather、QK、Softmax、PV；invalid 路径写入中性 m/l/o。场景使用确定性的 synthetic idx_topk，并非设备采集。</p><h3>使用与源码</h3><p>点击 Work Item、Query 或 Lane 追踪身份；在详情查看队列映射及源码行段。三视图保留当前 Rank 与选择。Graph 可展开模块并切换图层；适应按钮回到全览。</p><h3>证据</h3><p>decode_sparse_attn_csa.py：L134–196 有效性与排序；L208–224 派发；L224–314 分支。Pipeline 表示逻辑依赖，不表示实测耗时。</p><div hidden><button data-ai-copy></button><span data-ai-copy-status></span></div>`;
+  }
   document.body.append(dialog);
   const setHelpOpen = open => { dialog.hidden=!open; help.setAttribute('aria-expanded',String(open)); if (!open) help.focus(); };
   help.addEventListener('click', () => setHelpOpen(dialog.hidden));
@@ -241,12 +250,12 @@
     const selector = 'button,summary,select,input,[role="button"],[role="checkbox"]';
     const target = event.target.closest(event.type === 'focusin' ? selector + ',[tabindex][aria-label]' : selector);
     if (!target || target === described) return;
-    if(target.matches('.viz2-graph-layer-menu[open] > summary')){hide();return;}
+    if(target.matches('.viz2-graph-layer-menu[open] > summary,.operator-switcher[open] > summary')){hide();return;}
     if (!target.closest('.viz2,.csa-explorer,.ai-usage')) return;
     hide();
-    const domainObject = target.closest('.kf-pa-map__viewport,.viz2-graph-viewport,.viz2-anatomy-svg,.viz2-intra-svg,.viz2-pipeline-viewport,.csa-qk-canvas-viewport');
+    const domainObject = target.closest('.kf-pa-map__viewport,.viz2-graph-viewport,.viz2-anatomy-svg,.viz2-intra-svg,.viz2-pipeline-viewport,.csa-qk-canvas-viewport,.csa-qp-stage,.csa-qp-map-viewport');
     if (domainObject) return;
-    const label = target.textContent.trim() || target.getAttribute('aria-label') || ''; 
+    const label = target.textContent.trim() || target.getAttribute('aria-label') || '';
     const layerHelp = {
       data:'显示或隐藏算子之间的张量节点，例如 Q/K/V、得分和概率；隐藏后保留算子及其依赖关系',
       shape:'在张量节点上显示源码声明的维度与有效范围',

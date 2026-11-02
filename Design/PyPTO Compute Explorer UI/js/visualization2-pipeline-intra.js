@@ -37,7 +37,7 @@
         <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><div><b data-intra-title></b><small data-intra-context></small></div><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
-    const scrollStates=new Map(),scales=new Map();
+    const scrollStates=new Map(),scales=new Map();let pan={x:0,y:0};
     const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
     const paging=global.PtoVisualization2Anatomy.createPagingInput({isAnimating:()=>!!frame,onPage:direction=>{
       const next=clamp(target+direction);if(next!==target){pendingFocus=null;tooltip.hidden=true;snap(next,true);}
@@ -57,7 +57,7 @@
     function dependencyGeometry(t,link){
       const a=stagePosition(t,t.stacks[link.stack],link.producer),b=stagePosition(t,t.stacks[link.stack],link.consumer);
       const x=a.x+W/2,y=a.y+H,tx=b.x+W/2,ty=b.y,mid=(y+ty)/2;
-      return {d:`M ${x} ${y} C ${x} ${mid}, ${tx} ${mid}, ${tx} ${ty}`,event:{x:(x+tx)/2,y:mid}};
+      return {d:`M ${x} ${y} V ${mid} H ${tx} V ${ty}`,event:{x:(x+tx)/2,y:mid}};
     }
     function reuseGeometry(t,link){
       const a=stagePosition(t,t.stacks[link.from],link.consumer),b=stagePosition(t,t.stacks[link.to],link.producer);
@@ -68,7 +68,7 @@
       const {width,height}=diagramSize(t),outputX=LEFT+t.ticks.length*STEP+10,outputY=TOP+stageRows.accumulate*ROW;
       const arrow=`intra-dependency-arrow-${host.id||'pipeline'}-${t.id}`;
       const last=t.stacks.at(-1),lastPosition=last?stagePosition(t,last,'accumulate'):null;
-      const diagram=`<defs><marker id="${arrow}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>`+
+      const diagram=`<defs><marker id="${arrow}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>`+
         rect(0,0,width,height,'viz2-intra-frame','data-intra-frame')+
         text(LEFT,24,'Logical Tick →','viz2-intra-axis')+
         Object.entries(stageRows).map(([stage,index])=>text(10,TOP+index*ROW+H/2+5,stage==='accumulate'?'Accumulate':stages[stage],'viz2-intra-row-title')).join('')+
@@ -110,7 +110,7 @@
         const localScale=current?scale:scales.get(tasks[index].id)||1,svg=element.querySelector('svg[data-intra-height]');
         const scroller=element.querySelector('.viz2-intra-tick-scroll');
         const diagramWidth=Number(svg.dataset.intraWidth)*localScale;
-        svg.style.width=`${diagramWidth}px`;svg.style.height=`${Number(svg.dataset.intraHeight)*localScale}px`;
+        const vw=scroller.clientWidth,vh=scroller.clientHeight,dw=Number(svg.dataset.intraWidth),dh=Number(svg.dataset.intraHeight);svg.style.width='100%';svg.style.height='100%';const cp=current?pan:{x:0,y:0};svg.setAttribute('viewBox',[(dw-vw/localScale)/2+cp.x,(dh-vh/localScale)/2+cp.y,vw/localScale,vh/localScale].join(' '));
       });
       if(navTask!==task.id){navTask=task.id;navButtons.forEach(button=>{const selected=Number(button.dataset.intraTaskGo)===task.id;button.classList.toggle('is-selected',selected);button.setAttribute('aria-current',String(selected));});navButtons.find(button=>Number(button.dataset.intraTaskGo)===task.id)?.scrollIntoView({block:'nearest',inline:'nearest'});}
       host.querySelector('[data-intra-position]').textContent=`${tasks.findIndex(t=>t.id===task.id)+1} / ${tasks.length}`;
@@ -158,7 +158,7 @@
       });
       const summary=host.querySelector('[data-intra-dependency-summary]');if(summary){const link=transfers.filter(t=>f?.kind==='stage'&&(t.producer===f.stage||t.consumer===f.stage));summary.textContent=f?.kind==='stage'?`S${f.index} · ${stages[f.stage]} | ↑ ${link.filter(t=>t.consumer===f.stage).map(t=>stages[t.producer]).join(', ')||'输入'} | ↓ ${link.filter(t=>t.producer===f.stage).map(t=>stages[t.consumer]).join(', ')||'输出'}`:f?.kind==='event'?`S${f.index} · ${f.event} | ${events[f.event]?.map(stage=>stages[stage]).join(' → ')}`:f?.kind==='slot'?`Slot ${f.index} · ${f.buffer||'Transfer buffers'} | S${f.from??task.stacks.find(s=>s.slot===f.index)?.index} → S${f.to??task.stacks.filter(s=>s.slot===f.index).at(-1)?.index}`:f?.kind==='stack'?`Stack ${f.index} · Slot ${task.stacks[f.index].slot}`:'';}
     }
-    function revealFocus(){
+    function revealFocus(){if(global.PtoAIInfraPresentation)return;
       if(!validFocus(focus))return;
       const scene=currentScene(),f=effective(focus);if(!scene)return;
       const el=[...scene.querySelectorAll('[data-intra-kind]')].find(el=>{const item=objectFocus(el);return item.kind===f.kind&&item.index===f.index&&(!f.stage||item.stage===f.stage)&&(!f.event||item.event===f.event)&&(!f.buffer||item.buffer===f.buffer)&&(f.from==null||item.from===f.from);});
@@ -229,16 +229,16 @@
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen;
       const needsInitialFit=!nextCamera&&!scales.has(id);
-      scale=Math.max(.05,Math.min(3,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
+      pan={x:nextCamera?.x||0,y:nextCamera?.y||0};scale=Math.max(.05,Math.min(3,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
       if(block!==task.block){saveScroll();stop();buildBlock();}
       else if(entering){stop();position=target=tasks.findIndex(t=>t.id===id);velocity=0;}
       else if(changed){const index=tasks.findIndex(t=>t.id===id);if(Math.abs(position-index)>.001)snap(index);else target=index;}
       inspect();paint();paintFocus();if(entering||changed||focusChanged)revealFocus();
-      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=Math.max(.05,Math.min(1,(scroller.clientWidth-24)/size.width,(scroller.clientHeight-24)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});}}
+      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=Math.max(.05,Math.min(1,(scroller.clientWidth-64)/size.width,(scroller.clientHeight-260)/size.height));onCamera(task.id,{scale:fit,x:0,y:-40/fit});}}
     }
-    function zoom(factor){
-      paging.reset();const next=Math.max(.05,Math.min(3,scale*factor));
-      onCamera(task.id,{scale:next,x:0,y:0});
+    function zoom(factor,point){
+      paging.reset();const next=Math.max(.05,Math.min(3,scale*factor)),r=currentCard()?.querySelector('.viz2-intra-tick-scroll')?.getBoundingClientRect();const dx=point&&r?point.x-r.left-r.width/2:0,dy=point&&r?point.y-r.top-r.height/2:0;
+      onCamera(task.id,{scale:next,x:pan.x+dx*(1/scale-1/next),y:pan.y+dy*(1/scale-1/next)});
     }
     function manualPage(index,nextFocus=null){pendingFocus=nextFocus;snap(index);}
     listen(host,'click',event=>{
@@ -251,7 +251,7 @@
       const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
       if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
       if(event.target.closest('[data-intra-close]')){paging.reset();onFocus(null);onInspector(false);return;}
-      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-12||size.width)/size.width,(scroller?.clientHeight-12||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
+      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-64||size.width)/size.width,(scroller?.clientHeight-260||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:-40/fit});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
       const z=event.target.closest('[data-intra-zoom]');if(z){zoom(Number(z.dataset.intraZoom));return;}
       if(event.target.closest('[data-intra-prev]')){manualPage(target-1);return;}
       if(event.target.closest('[data-intra-next]')){manualPage(target+1);return;}
@@ -261,32 +261,23 @@
       else if(card&&Number(card.dataset.intraTask)===task.id&&focus){onFocus(null);onInspector(false);}
     });
     listen(viewport,'wheel',event=>{
-      const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientWidth:1;
-      if(event.ctrlKey||event.metaKey){event.preventDefault();zoom(Math.exp(-event.deltaY*unit*.002));return;}
-      if(event.target.closest('.viz2-intra-tick-scroll'))return;
-      const horizontal=event.shiftKey&&event.deltaX===0?event.deltaY:event.deltaX;
-      if(!horizontal||(!event.shiftKey&&Math.abs(horizontal)<=Math.abs(event.deltaY)))return;
-      event.preventDefault();if(drag){if(event.buttons&1)return;endDrag(true);}
-      paging.input({delta:horizontal*unit,time:performance.now(),discrete:event.deltaMode===1||event.deltaMode===2||(event.shiftKey&&event.deltaX===0&&Number.isInteger(event.deltaY)&&Math.abs(event.deltaY)>=40)});
+      if(event.target.closest('button,input,select,.explorer-dropdown-trigger'))return;
+      event.preventDefault();tooltip.hidden=true;const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientHeight:1;
+      zoom(Math.exp(Math.max(-.25,Math.min(.25,-event.deltaY*unit*.002))),{x:event.clientX,y:event.clientY});
     },{passive:false});
     listen(viewport,'pointerdown',event=>{
-      if(event.button!==0||event.target.closest('button'))return;
-      const scroller=event.target.closest('.viz2-intra-card.is-current .viz2-intra-tick-scroll');
-      if(!scroller)return;
-      stop();suppress=false;velocity=0;drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),index:clamp(Math.round(position)),moved:false,scroller,left:scroller.scrollLeft,top:scroller.scrollTop};
+      if(event.button!==0||event.target.closest('button,input,select'))return;
+      stop();suppress=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,moved:false,canvas:true,pan:{...pan}};viewport.setPointerCapture(event.pointerId);
     });
     listen(viewport,'pointermove',event=>{
       if(!drag)return;if(!(event.buttons&1)){endDrag(true);return;}
-      const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
-      if(drag.scroller){if(Math.abs(dx)+Math.abs(dy)>5){if(!drag.moved){drag.moved=true;viewport.setPointerCapture(drag.id);}event.preventDefault();drag.scroller.scrollLeft=drag.left-dx;drag.scroller.scrollTop=drag.top-dy;}return;}
-      if(!drag.moved){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>6){drag=null;return;}if(Math.abs(dx)<5)return;drag.moved=true;viewport.setPointerCapture(drag.id);}
-      event.preventDefault();tooltip.hidden=true;const now=performance.now(),dt=Math.max(8,now-drag.lastTime);velocity=.65*velocity+.35*(drag.lastX-event.clientX)/pitch/dt*1000;
-      const offset=-dx/pitch;position=resistance(drag.index+Math.sign(offset)*Math.min(.92,Math.abs(offset)));drag.lastX=event.clientX;drag.lastTime=now;paint();
+      const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;
+      if(drag.moved){event.preventDefault();tooltip.hidden=true;onCamera(task.id,{scale,x:drag.pan.x-dx/scale,y:drag.pan.y-dy/scale});}
     });
     function endDrag(cancelled=false){
       if(!drag)return;const current=drag;drag=null;suppress=current.moved;
       if(viewport.hasPointerCapture(current.id))viewport.releasePointerCapture(current.id);
-      if(current.scroller)return;
+      if(current.scroller||current.canvas)return;
       if(current.moved){if(performance.now()-current.lastTime>100)velocity=0;const offset=position-current.index,direction=Math.abs(offset)>.18?Math.sign(offset):Math.abs(velocity)>.55?Math.sign(velocity):0;snap(current.index+(cancelled?0:direction));}
       else if(Math.abs(position-current.index)>.001)snap(current.index);
     }
