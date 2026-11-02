@@ -117,7 +117,7 @@
       const inner = { x: 24, y: 2, width: r.w - 30, height: Math.max(1, r.h - 4) };
       const qLayer = svg('g', { class: 'viz2-am-q-encoding', 'data-am-q-encoding': '', 'aria-hidden': 'true' }, group);
       const qDetails = svg('g', { class: 'ai-q-detail' }, qLayer);
-      for (let q = 0; q < qPerKv; q++) svg('circle', {class:'kf-pa-map__q ai-q-dot',cx:25+q*3,cy:2,r:.75},qDetails);
+      for (let q = 0; q < qPerKv; q++) svg('circle', {class:'kf-pa-map__q ai-q-dot',cx:27+q*4.5,cy:r.h/2,r:1.3},qDetails);
       svg('text',{x:r.w-12,y:r.h/2,'text-anchor':'middle','dominant-baseline':'central',class:'kf-pa-map__task-id'},group).textContent=id;
       const len = seqLens[Math.floor(id / kvHeads)] || 0;
       const seqLayer = svg('g', { class: 'viz2-am-seq-encoding', 'data-am-task-sequence': '', 'data-am-seq-len': len, 'aria-hidden': 'true' }, group);
