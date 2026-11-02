@@ -127,6 +127,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       if (routed) {
         const line = document.createElementNS(svgNS, 'path');
         line.setAttribute('d', routed.path);
+        line.setAttribute('fill','none');
         line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
         line.dataset.edgeSource = edge.s; line.dataset.edgeTarget = edge.t;
         line.setAttribute('class', `kf-pypa-graph__edge is-${edge.type}`);
@@ -204,6 +205,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       }
       const line = document.createElementNS(svgNS, 'path');
       line.setAttribute('d', path);
+      line.setAttribute('fill','none');
       line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
       line.dataset.edgeSource = edge.s; line.dataset.edgeTarget = edge.t;
       line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type || 'dep'}`);
@@ -240,6 +242,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
     syncBridges.forEach((bridge) => {
       const line = document.createElementNS(svgNS, 'path');
       line.setAttribute('d', bridge.path);
+      line.setAttribute('fill','none');
       line.setAttribute('class', 'kf-pypa-graph__sync-path');
       line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-sync)`);
       line.dataset.pypaSyncPath = bridge.event.id;
