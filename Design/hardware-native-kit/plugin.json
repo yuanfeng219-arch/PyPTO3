@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "hardware-native-kit",
+  "version": "1.0.0",
+  "description": "本地展示算子源码、计算逻辑与硅片落点。",
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "interface": {
+        "displayName": "Hardware-Native Kit",
+        "shortDescription": "算子源码与硬件落点工作台",
+        "longDescription": "查看源码、算子逻辑和硅片落点，并调整已建模参数。",
+        "developerName": "PyPTO",
+        "category": "Developer Tools",
+        "capabilities": ["Read"],
+        "defaultPrompt": ["使用 Hardware-Native Kit 展示 fa_fused 的硬件落点。"]
+      }
+    }
+  }
+}

@@ -681,6 +681,42 @@
         tags: ["PyPTO", "昇腾", "Hardware-Native", "Vec UB", "静默 NaN", "pto-isa#170", "decode_layer"]
       },
       {
+        title: "Hardware-Native 主线 · CSA",
+        subtitle: "DeepSeek-V4 qk_pv · 真实编译产物 · 第二个 AIV 在做什么",
+        category: "开发工具",
+        status: "新增",
+        version: "01c / HN Path CSA",
+        updatedAt: "2026-10-31",
+        description: "主线页的 DeepSeek-V4 版本，换成 decode_sparse_attn_csa.py 里与 fa_fused 同构的 qk_pv。硅片落点不再是估算，而是取自仓库中的真实编译产物 passes_dump/36_after_AllocateMemoryAddr：AIC 侧 L1 用了 192 KB（v2c 管道槽 32 + KV 128 + Q 32），L0B 两块 32 KB 用满，L0C 64 KB 由 qk_raw 与 qk_oi 同址复用；AIV 侧 Vec 高水位 80.75 KB，5 个 softmax 中间量原地写在同一块地址，AIC / AIV 之间靠 2 × 16 KB 的 C2V / V2C 管道槽交接。主线指向一处只在编译产物里可见的现象：qk_pv 没写 UP_DOWN 切分，双 AIV 派发下 subblock 1 的 tile 全部是 valid_shape=[0, 0]，只做管道握手。源码 208 行可以一键加上切分查看推算结果，改法与复查区分真实、推算与需 profiling 的结论。",
+        href: "Design/hardware-native-ide/path-csa.html",
+        preview: "Design/assets/launch-previews/decode-layer-graph.png",
+        tags: ["PyPTO", "昇腾", "Hardware-Native", "DeepSeek-V4", "CSA", "qk_pv", "编译产物", "AIV"]
+      },
+      {
+        title: "Hardware-Native Kit",
+        subtitle: "三区联动工程化 · 换一个 kernel 只写一份 manifest",
+        category: "开发工具",
+        status: "新增",
+        version: "01d / HN Kit",
+        updatedAt: "2026-11-01",
+        description: "把前三页「源码 ⇄ 算子逻辑 ⇄ 硅片落点」的三区联动，从一个算子的手写页面抽成可复用套件：原来写死的三样东西分别换成名字锚点（assigns / call / scope，不写行号，对不上会进 diagnostics 并在状态栏报出来）、依赖与阶段驱动的逻辑图自动布局（manifest 不含任何坐标）、形状 × dtype × frame 驻留份数的通用容量模型（四档判定 ok / tight / silent / over，silent 是分配器按名义容量放行但越过可用上限那一档）。platform 描述芯片，manifest 描述 kernel，core 算，view 画；加 kernel 只动 kernels/，加芯片只动 platform.js。自带两个对照：decode_layer.py 的 fa_fused（三层嵌套，默认 Vec 96.4 KB、L0B 刚好占满 64 KB；调到 SEQ_TILE=256 / stage=2 同时命中两种失败——L0B 的 K 双缓冲 128 KB 是分配器会报错的 over，Vec 184.4 KB 是编译干净但越过可用上限 384 B 的 silent，越界的是 exp_scores_bf16）与 03_matmul.py 的 matmul_64（10 行源码、6 个节点，证明换 kernel 无需改一行渲染代码）。容量为编码期估算，未经编译、未上板。",
+        href: "Design/hardware-native-kit/index.html",
+        preview: "Design/assets/launch-previews/decode-layer-graph.png",
+        tags: ["PyPTO", "昇腾", "Hardware-Native", "多 kernel", "manifest", "容量模型", "锚点", "pto-isa#170"]
+      },
+      {
+        title: "Hardware-Native 对象图谱",
+        subtitle: "13 个典型对象 · 一个对象一张卡片 · 可视化表达方案",
+        category: "开发工具",
+        status: "新增",
+        version: "01e / HN Object Cards",
+        updatedAt: "2026-11-01",
+        description: "不是产品界面，是表达方案：把两份 Hardware-Native 研究报告里的事实域与对象表，落成 13 张卡片，每张卡片回答三个问题——这个对象支撑哪个开发决定、该用什么图形表达、图形里哪两样东西必须被区分开。覆盖片上空间预算与高水位（占用条按用户代码 / 编译器自动 / 系统固定三段堆叠，画出可用上限与名义容量两条阈值，让 192,768 这个越过可用上限 4,352 B 却编译干净的 silent 档有自己的视觉位置）、搬运路径与自动插入的 tile.move（两跳约束与被禁止的直达边都画出来）、Tile 形态与有效区（shape 与 valid_shape 的面积比，字段翻译成陈述句而不是直接渲染 valid_shape=[0, 0]）、访存粒度（事务刻度尺，同一份 128 B 最内维在 910B 浪费 384 B、在 950 刚好填满）、AIC／AIV 分工（派发带与有效 Tile 带上下对齐，表达「派发了但 valid 0 行」）、跨核管道 slot 预算（dir_mask / slot_num × slot_size 的 32,768 B 从 Vec 扣，标明谁生成、谁能调）、hard/soft 同步契约（48 格核栅格的缺口即故障现场）、流水 stage 与驻留份数（收益的重叠区间与代价的高水位同屏）、AutoTileMatmulL0 的候选格点与被拒原因、数值精度与不可原地复用、Finding 的责任层 × 六级证据阶梯（#626 与 #630 同一条报错分叉到两个责任层）、Experiment 的对照双轨与状态章（状态未走完不出现收益百分比）、多卡 rank 的重复 bind/H2D。四条编码总则贯穿全页：推算与事实不同视觉权重、每项标明谁决定、翻译事实不暴露字段、一个红色只给阻断。按 O1–O4 四个领域机会筛选，每张卡片带证据等级与来源，并给出「不要这么画」的反例。",
+        href: "Design/hardware-native-object-cards/index.html",
+        preview: "Design/assets/launch-previews/decode-layer-graph.png",
+        tags: ["PyPTO", "昇腾", "Hardware-Native", "对象卡片", "可视化编码", "证据等级", "责任层", "pto-isa#2287"]
+      },
+      {
         title: "PyPTO Agent Decision Explorer",
         subtitle: "Softmax · Agent Decision Lineage",
         category: "开发工具",

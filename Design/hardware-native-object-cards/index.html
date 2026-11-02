@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>昇腾 Hardware-Native 对象 · 可视化表达方案</title>
+<style>
+/* 与 Device Perf Lane 聚焦版保持一致的中性色阶。 */
+:root{
+  color-scheme:dark;
+  --radius:7px; --radius-sm:6px;
+  --mono:"SFMono-Regular",Consolas,"Cascadia Code","Liberation Mono",monospace;
+  --sans:Inter,"Noto Sans SC","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+  --bg:#111111; --surface:#181818; --surface-2:#202020; --inset:#111111;
+  --line:#383838; --line-soft:#303030;
+  --text:#e8e8e8; --text-2:#b0b0b0; --muted:#8a8a8a; --faint:#777777;
+  --brand:#e8e8e8; --brand-ink:#111111; --brand-dim:#303030;
+  --ok:#b0b0b0; --ok-bg:#292929; --warn:#fd5644; --warn-bg:#321e1c;
+  --err:#fd5644; --err-bg:#321e1c; --info:#b0b0b0; --info-bg:#292929;
+  --idle:#777777; --idle-bg:#242424;
+  --track:#303030; --fill:#8e8e8e; --fill-2:#606060; --auto:#aaaaaa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+h1,h2,h3,h4{margin:0;letter-spacing:-.01em}
+code,.mono{font-family:var(--mono)}
+
+main{max-width:1400px;margin:0 auto;padding:clamp(16px,3vw,32px) clamp(16px,3vw,40px) 64px}
+
+/* ── 工具条 ───────────────────────────────────────── */
+.controls{margin:0 0 20px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  min-height:32px;padding:0 12px;border-radius:999px;font:12px/1.15 var(--mono);transition:color .16s,border-color .16s,background .16s}
+.tabs button:hover{color:var(--text);border-color:#858585}
+.tabs button:focus-visible,details.more summary:focus-visible{outline:1px solid #e8e8e8;outline-offset:3px}
+.tabs button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
+  color:var(--brand-ink);font-weight:650}
+
+/* ── 卡片外壳 ─────────────────────────────────────── */
+.deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(392px,100%),1fr));gap:16px}
+.card{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden}
+.card:hover{border-color:#606060}
+.card[hidden]{display:none}
+
+.c-head{display:flex;gap:11px;align-items:flex-start;padding:15px 16px 11px}
+.c-no{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;
+  background:var(--surface-2);color:var(--text-2);font:500 12px/1 var(--mono)}
+.c-id{flex:1;min-width:0}
+.c-id h3{font-size:14px;font-weight:500}
+.c-id small{display:block;margin-top:2px;font:11px/1.35 var(--mono);color:var(--faint);overflow-wrap:anywhere}
+.pill{flex:none;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+  font-size:11px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--ok);background:var(--ok-bg)}
+.pill.warn{color:var(--text-2);background:var(--surface-2)}
+.pill.err{color:var(--err);background:var(--err-bg)}
+.pill.info{color:var(--info);background:var(--info-bg)}
+.pill.brand{color:var(--brand);background:var(--brand-dim)}
+
+.c-body{flex:1;padding:0 16px 14px;display:flex;flex-direction:column;gap:12px}
+.c-lead{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-2)}
+.c-lead b{color:var(--text);font-weight:600}
+
+/* 正面只留一行决定 */
+.c-decide{margin:0;display:flex;gap:7px;align-items:baseline;font-size:12px;line-height:1.5;color:var(--text)}
+.c-decide i{flex:none;font:600 9.5px/1.6 var(--mono);letter-spacing:.1em;color:var(--brand);font-style:normal}
+
+/* 关键区分：短标，不写成句子 */
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips b{font:500 10.5px/1.4 var(--mono);padding:4px 8px;border-radius:5px;background:var(--inset);
+  border:1px solid var(--line-soft);color:var(--text-2);white-space:nowrap}
+.chips b.no{color:var(--err);background:var(--err-bg);border-color:color-mix(in srgb,var(--err) 32%,var(--line-soft))}
+
+/* 说明文字折叠，默认不展开 */
+details.more{border-top:1px dashed var(--line-soft);padding-top:9px}
+details.more summary{list-style:none;cursor:pointer;font:11px/1 var(--mono);color:var(--faint)}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"＋ ";color:var(--brand)}
+details.more[open] summary::before{content:"－ "}
+details.more summary:hover{color:var(--text-2)}
+.more-body{display:grid;gap:10px;margin-top:10px}
+
+/* 可视化区 */
+.viz{padding:12px 13px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);background:var(--inset)}
+.viz-cap{display:flex;justify-content:flex-end;gap:10px;margin-bottom:7px;
+  font:11px/1.3 var(--mono);letter-spacing:.05em;color:var(--faint)}
+.viz-cap b{color:var(--text-2);font-weight:500}
+.viz svg{display:block;width:100%;height:auto;overflow:visible}
+.viz svg text{font-family:var(--mono)}
+.viz svg text:not([fill]){fill:var(--muted)}
+
+/* 视觉编码表 */
+.enc{display:grid;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);
+  border-radius:var(--radius-sm);overflow:hidden}
+.enc div{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:7px 10px;background:var(--surface-2)}
+.enc dt{font:11px/1.45 var(--mono);color:var(--brand)}
+.enc dd{margin:0;font-size:11.5px;line-height:1.5;color:var(--text-2)}
+.enc dd code{font-size:10.5px;padding:0 3px;border-radius:3px;background:var(--inset);color:var(--text)}
+
+/* 必须区分 */
+.must{margin:0;display:grid;gap:6px;padding:0;list-style:none}
+.must li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)}
+.must li::before{content:"≠";font:600 11px/1.5 var(--mono);color:var(--muted)}
+.must li code{font-size:10.5px;padding:0 3px;border-radius:3px;background:var(--inset);color:var(--text)}
+
+.anti{margin:0;padding:9px 11px;border-radius:var(--radius-sm);font-size:11.5px;line-height:1.6;
+  background:var(--err-bg);border-left:2px solid var(--err);color:var(--text-2)}
+.anti b{color:var(--err);font-weight:600}
+.anti code{font-size:10.5px;padding:0 3px;border-radius:3px;background:var(--surface);color:var(--text)}
+
+.c-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;
+  padding:10px 16px;border-top:1px solid var(--line-soft);background:var(--surface-2)}
+.ev{display:inline-flex;align-items:center;gap:6px;font:11px/1 var(--mono);color:var(--muted)}
+.ev s{text-decoration:none;display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--fill)}
+.ev s.est{background:var(--auto)}
+.ev s.spec{background:var(--brand)}
+.ev s.hyp{background:var(--warn)}
+.src{display:flex;flex-wrap:wrap;gap:5px}
+.src b{font:500 10.5px/1 var(--mono);padding:4px 7px;border-radius:5px;
+  background:var(--inset);border:1px solid var(--line-soft);color:var(--faint)}
+
+/* 复用零件 */
+.lines{display:grid;gap:6px}
+.line{display:flex;justify-content:space-between;gap:12px;font-size:11.5px}
+.line span{color:var(--muted)}
+.line b{font:500 11.5px/1.4 var(--mono);color:var(--text)}
+.line b.bad{color:var(--err)}
+.line b.auto{color:var(--auto)}
+.legend{display:flex;flex-wrap:wrap;gap:11px;margin-top:9px;font:10.5px/1.4 var(--mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend s{text-decoration:none;width:9px;height:9px;border-radius:2px;background:var(--fill)}
+.legend s.a{background:var(--auto)}
+.legend s.r{background:var(--idle)}
+.legend s.w{background:var(--warn)}
+.legend s.e{background:var(--err)}
+.legend s.o{background:var(--ok)}
+.legend s.b{background:var(--brand)}
+.ladder{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}
+.ladder i{display:grid;place-items:center;height:30px;border-radius:4px;background:var(--track);
+  color:var(--faint);font:600 9.5px/1.25 var(--mono);font-style:normal;text-align:center;padding:2px}
+.ladder i.on{background:var(--fill);color:var(--brand-ink)}
+.ladder i.now{background:var(--brand);color:var(--brand-ink);box-shadow:0 0 0 1px var(--brand)}
+
+
+</style>
+<link rel="stylesheet" href="memory-detail.css">
+</head>
+<body>
+
+<!-- SVG 共享图案：斜纹用于「非真实数据 / 推算」，点阵用于「系统固定」 -->
+<svg aria-hidden="true" style="position:absolute;width:0;height:0" focusable="false">
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="var(--faint)" stroke-width="1.6"/>
+    </pattern>
+    <pattern id="hatchWarn" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="var(--warn)" stroke-width="1.8"/>
+    </pattern>
+    <pattern id="hatchAuto" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="var(--auto)" stroke-width="2"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#aaa" stroke-width="1.3"/></marker>
+    <marker id="bind" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7"><circle cx="5" cy="5" r="3" fill="#202020" stroke="#aaa"/></marker>
+    <marker id="ar" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="arErr" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--err)"/>
+    </marker>
+    <marker id="arAuto" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--auto)"/>
+    </marker>
+  </defs>
+</svg>
+
+<main>
+  <div class="controls">
+    <div class="tabs" id="tabs" role="group" aria-label="按领域机会筛选"></div>
+  </div>
+
+  <div class="deck" id="deck"></div>
+
+</main>
+
+<dialog id="memory-dialog" aria-labelledby="memory-title">
+  <div class="memory-shell">
+    <header class="memory-header"><div><p class="memory-kicker">MEMORY SPACE / ASCEND 910B</p><h2 id="memory-title">片上空间预算与高水位</h2></div><button type="button" class="memory-close" id="memory-close" aria-label="关闭详情">×</button></header>
+    <div class="memory-content">
+      <section class="memory-overview" aria-labelledby="memory-spaces-title"><div class="memory-section-head"><div><h3 id="memory-spaces-title">片上空间</h3><p>Ascend 910B · 专用空间分别计量，选择查看</p></div></div><div class="memory-space-grid" id="memory-spaces"></div></section>
+      <section class="memory-main" aria-label="预算与分配过程">
+        <div id="memory-ub-detail">
+        <div class="memory-section-head"><div><h3>Vec / UB · 预算构成</h3><p>按来源逐项累加 · 非实际分配顺序</p></div><span class="memory-badge">静态示例</span></div>
+        <div class="memory-stats"><div><span>当前累计</span><strong id="memory-current">0 B</strong></div><div><span>可用上限</span><strong>188,416 B</strong></div><div><span>名义容量 · 推断</span><strong>196,608 B</strong></div><div><span>超出可用</span><strong id="memory-over">—</strong></div></div>
+        <div class="memory-chart"><div class="memory-axis"><span>0</span><span>210,000 B</span></div><div class="memory-track" aria-label="按来源累加的空间预算"><div class="memory-segment user" id="memory-user"></div><div class="memory-segment automatic" id="memory-auto"></div><div class="memory-segment system" id="memory-system"></div><div class="memory-threshold available"><span>可用</span></div><div class="memory-threshold nominal"><span>名义</span></div></div><div class="memory-legend"><span><i class="user"></i>用户 147,456 B</span><span><i class="automatic"></i>自动 12,544 B</span><span><i class="system"></i>系统 32,768 B</span></div></div>
+        <div class="memory-playback"><button type="button" id="memory-play">播放</button><button type="button" id="memory-prev" aria-label="上一步">←</button><button type="button" id="memory-next" aria-label="下一步">→</button><input id="memory-range" type="range" min="0" max="3" step="1" value="0" aria-label="选择预算累加步骤"><span id="memory-step-count">0 / 3</span></div>
+        <div class="memory-steps" id="memory-steps"></div><p class="memory-status" id="memory-status" aria-live="polite"></p>
+        <div class="memory-boundary">可用上限取自编译器报告；名义容量为推断。占用构成和展示顺序用于说明预算，并非地址分配或生命周期的实测记录。</div>
+        </div>
+        <div id="memory-other-detail" hidden><div class="memory-section-head"><div><h3 id="memory-other-title"></h3><p id="memory-other-purpose"></p></div><span class="memory-badge">目标规格示例</span></div><div class="memory-other-capacity"><span>参考容量</span><strong id="memory-other-capacity"></strong></div><p class="memory-boundary">该空间暂无对应的分配轨迹与高水位数据；容量需按目标型号和工具链核对。</p></div>
+      </section>
+      <aside class="memory-code"><div class="memory-section-head"><div><h3>代码 / API 案例</h3><p>Tile 加载与计算</p></div><span class="memory-badge">示例片段</span></div><pre><code><span class="code-muted"># TR = TC = 128</span>
+ta = pl.load(a, [o, 0], [TR, TC])
+tb = pl.load(b, [o, 0], [TR, TC])
+result = pl.add(ta, tb)
+out = pl.store(result, [o, 0], out)</code></pre><p class="memory-code-note">这段示例展示 Tile 的加载、计算和写回；具体分配与高水位需结合编译产物核对，与左侧示意数值不构成对应关系。</p><a href="../../Product_Planning/Hardware-Native_昇腾硬件事实与开发决策_研究报告_20261031.md">查看案例来源 ↗</a></aside>
+    </div>
+  </div>
+</dialog>
+<script src="visual-system.js"></script>
+<script>
+/* ============================================================================
+ * 数据：一个典型对象一张卡片
+ * group 取 O1–O4 四个领域机会 + X（跨切面），对齐研究报告 7.7 节
+ * ========================================================================== */
+const CARDS = [
+{
+  no:'01', group:'O2', name:'片上空间预算与高水位',
+  field:'MemorySpace(Vec/UB) · high-water · Target.available',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'能不能放下；超了该改哪一项',
+  diff:['名义 ≠ 可用','估计 ≠ 实测','over ≠ silent'],
+  antiShort:'单色进度条 + 百分比',
+  lead:'支撑的决定：<b>当前配置能不能放下，超了该改哪一项。</b>名义容量以内的占用完全可能已经越过实际可用预算——这是 #2287 的现场。',
+  cap:['占用条 · 来源拆分 + 双阈值','Vec · UB'],
+  viz:`<svg viewBox="0 0 520 208" role="img" aria-label="片上空间预算对照图：用户、自动和系统占用叠加为 192768 字节，超过可用上限 188416 字节，低于推断的名义容量 196608 字节">
+    <text x="10" y="17" font-size="10" fill="var(--muted)">占用来源 · B</text>
+    <text x="510" y="17" text-anchor="end" font-size="10" fill="var(--faint)">静态示意</text>
+    <rect x="10" y="30" width="500" height="38" rx="3" fill="var(--track)"/>
+    <rect x="10" y="30" width="351" height="38" fill="var(--fill)"/>
+    <rect x="361" y="30" width="30" height="38" fill="url(#hatchAuto)" stroke="var(--auto)"/>
+    <rect x="391" y="30" width="78" height="38" fill="var(--idle)" opacity=".6"/>
+    <text x="185" y="53" text-anchor="middle" font-size="10" fill="var(--brand-ink)">用户 147,456</text>
+    <text x="430" y="53" text-anchor="middle" font-size="9" fill="var(--text)">系统 32,768</text>
+    <path d="M376 29 V21 H304" fill="none" stroke="var(--auto)"/><text x="302" y="24" text-anchor="end" font-size="9" fill="var(--auto)">自动 12,544</text>
+    <line x1="458.6" y1="26" x2="458.6" y2="78" stroke="var(--err)" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <line x1="478.1" y1="26" x2="478.1" y2="78" stroke="var(--text-2)" stroke-width="1.2"/>
+    <rect x="458.6" y="30" width="10.4" height="38" fill="url(#hatchWarn)"/>
+    <text x="10" y="95" font-size="10" fill="var(--text-2)">高水位 192,768</text><text x="510" y="95" text-anchor="end" font-size="10" fill="var(--err)">超可用 +4,352</text>
+    <line x1="10" y1="119" x2="510" y2="119" stroke="var(--line)"/>
+    <text x="10" y="139" font-size="9.5" fill="var(--muted)">可用上限</text><text x="510" y="139" text-anchor="end" font-size="10" fill="var(--text)">188,416 B</text>
+    <text x="10" y="162" font-size="9.5" fill="var(--muted)">名义容量 · 推断</text><text x="510" y="162" text-anchor="end" font-size="10" fill="var(--text-2)">196,608 B</text>
+    <rect x="10" y="179" width="500" height="20" rx="3" fill="var(--err-bg)"/><text x="20" y="193" font-size="9.5" fill="var(--err)">可用上限之外 / 名义容量之内 · silent 区间</text>
+  </svg>`,
+  enc:[
+    ['长度','字节数，按同一刻度；三段<b>堆叠</b>而非并列，总长即高水位'],
+    ['纹理','斜纹=编译器自动生成的量；实色=用户声明；半透明=系统预留'],
+    ['两条线','虚线=可用上限（编译器报告）、实线=名义容量（分配器放行线）']
+  ],
+  must:[
+    '<code>名义容量</code> 不等于 <code>可用预算</code>：差额是软件预留，越过它编译 <code>rc=0</code>，运行读写垃圾',
+    '<code>高水位估计</code> 不等于 <code>实际同时占用</code>：前者来自估计模型，后者来自 <code>AllocateMemoryAddr</code>',
+    '<code>over</code>（分配器自己会报错）不等于 <code>silent</code>（分配器放行、失败在运行时）'
+  ],
+  anti:'<b>不要</b>画成一根单色进度条加一个百分比。单色条既藏掉了「这 32 KB 不是你写的」，也藏掉了 ok／tight／silent／over 的分档——用户看到 98% 会去缩 Tile，而该改的是管道槽数。',
+  ev:{k:'spec', t:'目标规格 + 静态推算（混合，须逐项标注）'},
+  src:['pto-isa#2287','AllocateMemoryAddr','pto-isa#170']
+},
+{
+  no:'02', group:'O3', name:'搬运路径与自动插入的 tile.move',
+  field:'DDR → Vec/Mat → Left/Right/Acc · InferTileMemorySpace',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'中间结果走哪几跳；哪一跳是编译器加的',
+  diff:['视图 ≠ 零搬运','写的 load ≠ 实际跳数'],
+  antiShort:'存储金字塔',
+  lead:'支撑的决定：<b>中间结果经过哪些空间，哪一跳是编译器替我加的。</b><code>tile.load</code> 不能直接落到 Left／Right／Acc，一次 matmul 操作数至少两跳。',
+  cap:['路径图 · 禁止边显形','两跳约束'],
+  viz:`<svg viewBox="0 0 520 210" role="img" aria-label="显式搬运路径与自动插入路径：DDR 经 Vec 和自动 tile.move 到 Right，或经 Mat 到 Left 和 Acc；DDR 到 Right 的直接 tile.load 被禁止">
+    <text x="10" y="16" font-size="9.5" fill="var(--faint)">片外</text><text x="166" y="16" font-size="9.5" fill="var(--faint)">片上中转</text><text x="416" y="16" font-size="9.5" fill="var(--faint)">专用空间</text>
+    <line x1="130" y1="24" x2="130" y2="189" stroke="var(--line-soft)"/><line x1="395" y1="24" x2="395" y2="189" stroke="var(--line-soft)"/>
+    <rect x="10" y="81" width="98" height="48" rx="4" fill="var(--surface-2)" stroke="var(--line)"/><text x="59" y="101" text-anchor="middle" font-size="11" fill="var(--text)">DDR</text><text x="59" y="117" text-anchor="middle" font-size="9">GM</text>
+    <rect x="156" y="38" width="105" height="44" rx="4" fill="var(--surface-2)" stroke="var(--text-2)"/><text x="208" y="56" text-anchor="middle" font-size="10" fill="var(--text)">Vec · UB</text><text x="208" y="71" text-anchor="middle" font-size="9">188,416 B</text>
+    <rect x="156" y="129" width="105" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line)"/><text x="208" y="147" text-anchor="middle" font-size="10" fill="var(--text)">Mat · L1</text><text x="208" y="162" text-anchor="middle" font-size="9">512 KiB</text>
+    <rect x="412" y="27" width="98" height="35" rx="4" fill="var(--surface-2)" stroke="var(--line)"/><text x="461" y="49" text-anchor="middle" font-size="10" fill="var(--text)">Left · 64 KiB</text>
+    <rect x="412" y="81" width="98" height="35" rx="4" fill="var(--surface-2)" stroke="var(--text-2)"/><text x="461" y="103" text-anchor="middle" font-size="10" fill="var(--text)">Right · 64 KiB</text>
+    <rect x="412" y="138" width="98" height="35" rx="4" fill="var(--surface-2)" stroke="var(--line)"/><text x="461" y="160" text-anchor="middle" font-size="10" fill="var(--text)">Acc · 128 KiB</text>
+    <path d="M108 92 L151 64 M108 118 L151 147" fill="none" stroke="var(--muted)" marker-end="url(#ar)"/>
+    <path d="M261 60 H287 M366 60 L407 95" fill="none" stroke="var(--auto)" stroke-dasharray="4 3" marker-end="url(#arAuto)"/>
+    <rect x="288" y="47" width="77" height="26" rx="3" fill="var(--inset)" stroke="var(--auto)" stroke-dasharray="4 3"/><text x="326" y="63" text-anchor="middle" font-size="9" fill="var(--text-2)">tile.move</text><text x="326" y="86" text-anchor="middle" font-size="8.5" fill="var(--faint)">自动插入</text>
+    <path d="M261 144 L407 46 M261 154 H407" fill="none" stroke="var(--muted)" marker-end="url(#ar)"/>
+    <path d="M60 80 C100 0 352 0 408 86" fill="none" stroke="var(--err)" stroke-dasharray="5 4"/><circle cx="325" cy="22" r="8" fill="var(--err-bg)" stroke="var(--err)"/><path d="M322 19 L328 25 M328 19 L322 25" stroke="var(--err)"/>
+    <text x="10" y="204" font-size="9" fill="var(--muted)">实线：显式路径</text><text x="174" y="204" font-size="9" fill="var(--muted)">虚线：自动插入</text><text x="351" y="204" font-size="9" fill="var(--err)">× 不可直达</text>
+  </svg>`,
+  enc:[
+    ['节点','固定用途的专用空间，不是层级缓存：盒子<b>并列</b>不嵌套，容量写在盒内'],
+    ['实线箭头','用户代码里写得出的搬运；<b>虚线框+虚线箭头</b>=编译器自动插入的一跳'],
+    ['红色叉线','硬件／注册表约束禁止的边。禁止关系要画出来，而不是等报错']
+  ],
+  must:[
+    '<code>看起来免费的视图操作</code> 不等于 <code>不搬数据</code>：指令消费不了视图时 <code>CanonicalizeTileSlice</code> 会转成 <code>tile.extract</code>',
+    '<code>用户写的 load</code> 不等于 <code>实际发生的跳数</code>：自动插入的一跳也占空间、也占时间'
+  ],
+  anti:'<b>不要</b>画成 GPU 式的存储金字塔。昇腾这八个空间是用途固定的专用空间，画成层级会让人以为「数据会自动往上流」，而真实约束是「必须经 Vec/Mat 中转」。',
+  ev:{k:'spec', t:'目标规格（源码注册表约束）'},
+  src:['MemorySpace','InferTileMemorySpace','TileType.memory_space']
+},
+{
+  no:'03', group:'O2', name:'Tile 形态与有效区',
+  field:'shape · valid_shape · pad · blayout/slayout/fractal · start_offset',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'尾块怎么处理；哪部分是真数据',
+  diff:['shape ≠ valid_shape','占用 ≠ 有效'],
+  antiShort:'照字段直译 valid_shape',
+  lead:'支撑的决定：<b>尾块怎么处理，这块 buffer 里哪部分是真数据。</b>这是正确性问题，不只是性能问题——物理按 shape 规划，真数据只有 valid_shape 那一块。',
+  cap:['形态图 · 有效区 vs 填充区','tile.load 视图'],
+  viz:`<svg viewBox="0 0 520 186" role="img" aria-label="Tile 形态图：128×128 的物理区域中只有 100×128 是有效数据，余下 28 行按 pad 填充，下方对比两种字节数">
+    <rect x="34" y="16" width="186" height="118" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>
+    <rect x="34" y="16" width="186" height="92.2" fill="var(--fill)" opacity=".5"/>
+    <rect x="34" y="16" width="186" height="92.2" fill="none" stroke="var(--brand)"/>
+    <rect x="34" y="108.2" width="186" height="25.8" fill="url(#hatch)" opacity=".8"/>
+    <rect x="34" y="108.2" width="186" height="25.8" fill="none" stroke="var(--faint)" stroke-dasharray="3 2"/>
+    <text x="127" y="66" font-size="11" fill="var(--text)" text-anchor="middle">valid [100, 128]</text>
+    <rect x="94" y="114" width="66" height="14" rx="2" fill="var(--inset)" opacity=".9"/>
+    <text x="127" y="124" font-size="9.5" fill="var(--text-2)" text-anchor="middle">pad 填充</text>
+    <line x1="26" y1="16" x2="26" y2="134" stroke="var(--muted)" stroke-width="1"/>
+    <text x="20" y="78" font-size="9" text-anchor="middle" transform="rotate(-90 20 78)">shape 128</text>
+    <text x="127" y="10" font-size="9" fill="var(--muted)" text-anchor="middle">128</text>
+
+    <rect x="248" y="16" width="262" height="118" rx="4" fill="var(--surface-2)" stroke="var(--line-soft)"/>
+    <text x="260" y="33" font-size="9" fill="var(--faint)">界面写法</text>
+    <line x1="248" y1="42" x2="510" y2="42" stroke="var(--line-soft)"/>
+    <text x="260" y="60" font-size="9.5" fill="var(--muted)">有效范围</text>
+    <text x="498" y="60" font-size="9.5" fill="var(--text)" text-anchor="end">前 100 行 / 共 128</text>
+    <text x="260" y="81" font-size="9.5" fill="var(--muted)">越界填充</text>
+    <text x="498" y="81" font-size="9.5" fill="var(--text)" text-anchor="end">pad = zero</text>
+    <text x="260" y="102" font-size="9.5" fill="var(--muted)">块布局</text>
+    <text x="498" y="102" font-size="9.5" fill="var(--text)" text-anchor="end">row_major · none_box</text>
+    <text x="260" y="123" font-size="9.5" fill="var(--muted)">容量</text>
+    <text x="498" y="123" font-size="9.5" fill="var(--warn)" text-anchor="end">按 shape</text>
+
+    <text x="30" y="158" font-size="9" fill="var(--muted)">容量</text>
+    <rect x="80" y="148" width="186" height="13" rx="2" fill="var(--fill)"/>
+    <text x="274" y="158" font-size="9" fill="var(--text)">32,768 B</text>
+    <text x="30" y="178" font-size="9" fill="var(--muted)">有效</text>
+    <rect x="80" y="168" width="145" height="13" rx="2" fill="var(--ok)" opacity=".75"/>
+    <rect x="225" y="168" width="41" height="13" rx="2" fill="url(#hatch)"/>
+    <text x="274" y="178" font-size="9" fill="var(--text)">25,600 B</text>
+    <text x="350" y="178" font-size="8.5" fill="var(--faint)">bf16</text>
+  </svg>`,
+  enc:[
+    ['外框虚线','物理 shape 规划出的区域；<b>内框实色</b>=有效区，面积比即真数据占比'],
+    ['斜纹','非真实数据。斜纹的含义在全页统一：这里是 pad，卡片 01 里是估算'],
+    ['右栏','把字段翻译成陈述句。原始 <code>valid_shape</code> 作为证据保留一跳可达']
+  ],
+  must:[
+    '<code>shape</code> 不等于 <code>valid_shape</code>：读编译产物时分不清这两个会得出完全相反的结论',
+    '<code>占用的字节</code> 不等于 <code>有效的字节</code>：容量按 shape 算，收益按 valid_shape 算',
+    '<code>视图操作</code> 不等于 <code>零成本</code>：<code>transpose_view</code>／<code>set_validshape</code> 可能被降成真实搬运'
+  ],
+  anti:'<b>不要</b>把 <code>valid_shape=[0, 0]</code> 原样渲染。它常常表示「未约束，继承 shape」，照字段直译成「有效区为空」会把人引向不存在的 bug——研究报告 3.5 节记录了一次我们自己读错的实例。',
+  ev:{k:'spec', t:'目标规格（TileType 字段语义）'},
+  src:['TileType','CanonicalizeTileSlice','报告 3.5 节']
+},
+{
+  no:'04', group:'O3', name:'访存粒度与最内维',
+  field:'innermost_dim_bytes · GM 访问粒度 · PH001',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'要不要为这次搬运预排布数据',
+  diff:['提示 ≠ 错误','数据量 ≠ 带宽'],
+  antiShort:'写死一个阈值建议',
+  lead:'支撑的决定：<b>要不要为这次搬运预排布数据。</b>最内维低于访问粒度时，每个事务都在浪费带宽；诊断 Pass 只给提示，不阻断编译，所以很容易被忽略。',
+  cap:['事务刻度尺 · 同一数据两种目标','innermost_dim = 128 B'],
+  viz:`<svg viewBox="0 0 520 188" role="img" aria-label="访存粒度刻度尺：同一个 128 字节最内维在 910B 上浪费四分之三事务，在 950 上刚好填满，预排布后在 910B 上也能搬满">
+    <text x="10" y="18" font-size="9.5" fill="var(--text-2)">910B · 512 B</text>
+    <g>
+      <rect x="10" y="24" width="100" height="32" fill="var(--track)" stroke="var(--line-soft)"/>
+      <rect x="110" y="24" width="100" height="32" fill="var(--track)" stroke="var(--line-soft)"/>
+      <rect x="210" y="24" width="100" height="32" fill="var(--track)" stroke="var(--line-soft)"/>
+      <rect x="310" y="24" width="100" height="32" fill="var(--track)" stroke="var(--line-soft)"/>
+      <rect x="10" y="24" width="25" height="32" fill="var(--fill)"/>
+      <rect x="110" y="24" width="25" height="32" fill="var(--fill)"/>
+      <rect x="210" y="24" width="25" height="32" fill="var(--fill)"/>
+      <rect x="310" y="24" width="25" height="32" fill="var(--fill)"/>
+      <rect x="35" y="24" width="75" height="32" fill="url(#hatchWarn)" opacity=".5"/>
+      <rect x="135" y="24" width="75" height="32" fill="url(#hatchWarn)" opacity=".5"/>
+      <rect x="235" y="24" width="75" height="32" fill="url(#hatchWarn)" opacity=".5"/>
+      <rect x="335" y="24" width="75" height="32" fill="url(#hatchWarn)" opacity=".5"/>
+      <text x="420" y="44" font-size="9.5" fill="var(--warn)">浪费 384 B ×4</text>
+    </g>
+    <text x="10" y="80" font-size="9.5" fill="var(--text-2)">950 · 128 B</text>
+    <g>
+      <rect x="10" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="35" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="60" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="85" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="110" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="135" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="160" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <rect x="185" y="86" width="25" height="32" fill="var(--ok)" opacity=".75" stroke="var(--line-soft)"/>
+      <text x="220" y="106" font-size="9.5" fill="var(--ok)">填满</text>
+    </g>
+    <text x="10" y="142" font-size="9.5" fill="var(--text-2)">910B + 预排布</text>
+    <g>
+      <rect x="10" y="148" width="100" height="32" fill="var(--ok)" opacity=".7" stroke="var(--line-soft)"/>
+      <rect x="110" y="148" width="100" height="32" fill="var(--ok)" opacity=".7" stroke="var(--line-soft)"/>
+      <rect x="210" y="148" width="100" height="32" fill="var(--ok)" opacity=".7" stroke="var(--line-soft)"/>
+      <text x="320" y="168" font-size="9.5" fill="var(--ok)">填满 · 代价在预排布</text>
+    </g>
+  </svg>`,
+  enc:[
+    ['刻度宽','一次事务的粒度。粒度随目标变化，所以刻度本身必须来自 Target'],
+    ['填充比','<code>shape[-1] × sizeof(dtype)</code> 占一格的比例，浪费量直接可量'],
+    ['成对出现','同一份数据放在两个目标上对照，表达「这是目标契约差异，不是代码缺陷」']
+  ],
+  must:[
+    '<code>性能提示 PH001</code> 不等于 <code>编译错误</code>：它不阻断编译，默认会被忽略',
+    '<code>数据量</code> 不等于 <code>带宽占用</code>：窄最内维下两者差 4 倍'
+  ],
+  anti:'<b>不要</b>只给一行「建议最内维 ≥ 512 B」的文字提示。阈值是目标相关的事实，换到 950 上这条建议就是错的；用刻度尺表达能让阈值跟着 Target 走。',
+  ev:{k:'spec', t:'目标规格（随目标型号变化）'},
+  src:['PH001','GM 访问粒度 512/128 B']
+},
+{
+  no:'05', group:'O1', name:'AIC／AIV 分工与各分支有效 Tile',
+  field:'core_type · block/subblock · ExpandMixedKernel · 有效 Tile',
+  layer:{t:'L3 必须可控', k:'brand'},
+  decide:'这段计算交给谁；切分后语义还在不在',
+  diff:['派发 ≠ 在算','利用率 ≠ 收益'],
+  antiShort:'利用率饼图',
+  lead:'支撑的决定：<b>这段计算交给哪种核，切分后语义还在不在。</b>双 AIV 派发不等于有效计算已经分摊——CSA 页面目前只有编译现象，没有切分收益证据。',
+  cap:['核分工带 · 派发 vs 有效','24 AIV 分支示意'],
+  viz:`<svg viewBox="0 0 520 126" role="img" aria-label="核分工带：AIV 两个分支都被派发，但一个分支的有效 Tile 为零">
+    <text x="10" y="16" font-size="9.5" fill="var(--text-2)">派发</text>
+    <rect x="10" y="22" width="245" height="34" rx="3" fill="var(--fill)" opacity=".85"/>
+    <rect x="265" y="22" width="245" height="34" rx="3" fill="var(--fill)" opacity=".85"/>
+    <text x="132" y="43" font-size="10.5" fill="var(--brand-ink)" text-anchor="middle">subblock_idx == 0</text>
+    <text x="387" y="43" font-size="10.5" fill="var(--brand-ink)" text-anchor="middle">else</text>
+
+    <text x="10" y="80" font-size="9.5" fill="var(--text-2)">有效 Tile</text>
+    <rect x="10" y="86" width="245" height="34" rx="3" fill="var(--ok)" opacity=".7"/>
+    <text x="132" y="107" font-size="10.5" fill="var(--brand-ink)" text-anchor="middle">valid 128</text>
+    <rect x="265" y="86" width="245" height="34" rx="3" fill="url(#hatchWarn)" opacity=".55"/>
+    <rect x="265" y="86" width="245" height="34" rx="3" fill="none" stroke="var(--warn)" stroke-dasharray="4 3"/>
+    <text x="387" y="107" font-size="10.5" fill="var(--warn)" text-anchor="middle">valid 0</text>
+  </svg>`,
+  enc:[
+    ['上下两带','上=派发范围（编译产物给得出），下=有效数据范围（要另行核对）。<b>错位就是问题</b>'],
+    ['横向位置','同一个核在两条带上必须对齐，才能看出「派发了但没算」'],
+    ['斜纹+虚框','有效 Tile 为零的分支。实色只留给真正参与计算的部分']
+  ],
+  must:[
+    '<code>核被派发</code> 不等于 <code>核在算</code>：分支的有效 Tile 可能是 0',
+    '<code>核利用率</code> 不等于 <code>切分收益</code>：资源用满不能代替重新编译与上板的对照'
+  ],
+  anti:'<b>不要</b>用一个「AIC : AIV = 1:2」的配比条或利用率饼图作为结论。它回答不了「谁处理哪些数据、切分是否保持语义」，而这正是用户要决定的事。',
+  ev:{k:'hyp', t:'假设（昇腾侧案例证据不足，须补真实任务）'},
+  src:['ExpandMixedKernel','CSA 编译产物','报告 3.5 节']
+},
+{
+  no:'06', group:'O3', name:'跨核管道与 slot 预算',
+  field:'tpush/tpop · InjectGMPipeBuffer · slot_size × slot_num · dir_mask',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'该调槽数，还是缩 Tile',
+  diff:['我的 Tile ≠ 我的占用','占用大 ≠ Tile 大'],
+  antiShort:'并入「其他」',
+  lead:'支撑的决定：<b>这块占用是谁的，该调槽数还是缩 Tile。</b>910B 上 AIC↔AIV 要经 GM 中转，这块 workspace 不写在用户代码里，却从 UB 预算里扣。',
+  cap:['管道图 · 方向 × 槽位','dir_mask=3 · slot_num=2'],
+  viz:`<svg viewBox="0 0 520 182" role="img" aria-label="跨核管道图：AIC 与 AIV 之间经 GM 中转，双向两个槽位共预留 32768 字节，下方显示它从 Vec 预算里扣掉的比例">
+    <rect x="10" y="10" width="110" height="114" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+    <text x="65" y="32" font-size="10.5" fill="var(--text-2)" text-anchor="middle">AIC · Cube</text>
+    <rect x="400" y="10" width="110" height="114" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+    <text x="455" y="32" font-size="10.5" fill="var(--text-2)" text-anchor="middle">AIV · Vector</text>
+
+    <rect x="152" y="18" width="216" height="98" rx="4" fill="var(--idle-bg)" stroke="var(--idle)" stroke-dasharray="4 3"/>
+    <text x="260" y="34" font-size="9.5" fill="var(--idle)" text-anchor="middle">__gm_pipe_buffer</text>
+    <rect x="168" y="44" width="184" height="26" rx="3" fill="var(--idle)" opacity=".5"/>
+    <text x="260" y="61" font-size="9.5" fill="var(--text)" text-anchor="middle">slot 0 · 16,384 B</text>
+    <rect x="168" y="78" width="184" height="26" rx="3" fill="var(--idle)" opacity=".5"/>
+    <text x="260" y="95" font-size="9.5" fill="var(--text)" text-anchor="middle">slot 1 · 16,384 B</text>
+
+    <line x1="122" y1="57" x2="164" y2="57" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+    <line x1="356" y1="91" x2="398" y2="91" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+    <line x1="398" y1="57" x2="356" y2="57" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+    <line x1="164" y1="91" x2="122" y2="91" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+    <text x="260" y="130" font-size="9.5" fill="var(--warn)" text-anchor="middle">2 × 16,384 = 32,768 B</text>
+    <text x="10" y="154" font-size="9" fill="var(--muted)">Vec 188,416 B</text>
+    <rect x="10" y="160" width="500" height="16" rx="2" fill="var(--track)"/>
+    <rect x="10" y="160" width="413" height="16" rx="2" fill="var(--fill)" opacity=".55"/>
+    <rect x="423" y="160" width="87" height="16" rx="2" fill="var(--idle)"/>
+    <text x="466" y="172" font-size="8.5" fill="var(--text)" text-anchor="middle">管道</text>
+  </svg>`,
+  enc:[
+    ['中间盒','不属于任何一侧核的第三方占用，画在两核之间而不是算进任一侧'],
+    ['槽位方块','<code>slot_num</code> 个等宽方块，宽度=<code>slot_size</code>。槽数是可调量，要可数'],
+    ['双向箭头','<code>dir_mask</code> 的语义。方向数影响预留总量，必须看得见']
+  ],
+  must:[
+    '<code>我的 Tile 占用</code> 不等于 <code>我的空间占用</code>：管道预留也在同一个 UB 里',
+    '<code>占用偏大</code> 不等于 <code>Tile 偏大</code>：自动生成的预算本身可能不合理（案例 D）'
+  ],
+  anti:'<b>不要</b>把这块预留并入「其他」或静默加进总量。#2287 的建议方向是错的，正因为界面没有表达「这 32 KB 由谁生成、谁能调」——可操作性很高的错误归因比没有建议更糟。',
+  ev:{k:'est', t:'编译确认（来自 CSA 编译产物的真实初始化）'},
+  src:['pto-isa#2287','InjectGMPipeBuffer','aiv_initialize_pipe']
+},
+{
+  no:'07', group:'O4', name:'同步契约与参与者范围',
+  field:'pl.system.syncall(mode=hard|soft) · used_cores · gm_workspace',
+  layer:{t:'L1 系统保证 ＋ 契约可见', k:'info'},
+  decide:'当前同步适不适合实际参与的核',
+  diff:['能调用 ≠ 契约满足','编译通过 ≠ 能跑'],
+  antiShort:'只写进文档和 docstring',
+  lead:'支撑的决定：<b>当前同步适不适合实际参与的核。</b>hard 要求该 core_type 的全部物理核都到达——这条契约不在接口签名里，违反的代价是设备 reset。',
+  cap:['核栅格 · 参与者 vs 要求','48 AIV · 实际启动 20'],
+  viz:`<svg viewBox="0 0 520 176" role="img" aria-label="核栅格：48 个 AIV 中只有 20 个参与，hard 模式因此永远等不齐">
+    <text x="10" y="14" font-size="9.5" fill="var(--text-2)">hard · FFTS</text>
+    <g id="g-hard"></g>
+    <text x="10" y="106" font-size="9.5" fill="var(--text-2)">soft · GM 轮询</text>
+    <g id="g-soft"></g>
+  </svg>
+  <div class="lines" style="margin-top:9px">
+    <div class="line"><span>hard 要求</span><b class="bad">48 / 48 到达</b></div>
+    <div class="line"><span>soft 开销</span><b>used_cores × 8 × INT32 = 640 B</b></div>
+    <div class="line"><span>Mat scratch</span><b>flat_layout=True</b></div>
+  </div>`,
+  enc:[
+    ['栅格','一格=一个物理核，总格数=该 core_type 的物理核数（来自 Target，不写死）'],
+    ['实／空','实=本次启动参与；空=未参与。<b>缺口本身就是故障现场</b>，不必再配一段文字'],
+    ['两行对照','同一组核在两种 mode 下的后果。契约差异在写下 <code>mode=</code> 的位置出现']
+  ],
+  must:[
+    '<code>接口能调用</code> 不等于 <code>契约被满足</code>：hard 的满占用要求没写在签名里',
+    '<code>部分核参与</code> 不等于 <code>部分同步</code>：只有 soft 支持部分占用',
+    '<code>编译通过</code> 不等于 <code>能跑</code>：这类条件编译期可判定，应当编译期拒绝'
+  ],
+  anti:'<b>不要</b>把这条只写进文档、测试 docstring 或运行日志。它是编辑器集成问题：用户写下 <code>mode=hard</code> 的那一刻就该看到参与者要求，而不是在设备 reset 之后去翻测试文件。',
+  ev:{k:'est', t:'编译确认（#1935 已关闭，不证明当前仍有缺陷）'},
+  src:['pto-isa#1935','syncall','报告 3.3 节']
+},
+{
+  no:'08', group:'O4', name:'流水 stage 与驻留份数',
+  field:'pl.pipeline(stage=…) · slot · LowerPipelineLoops · residency',
+  layer:{t:'L3 必须可控', k:'brand'},
+  decide:'加一级流水值不值',
+  diff:['开流水 ≠ 并行成立','stage ≠ 物理槽数','重叠 ≠ 整图收益'],
+  antiShort:'只给一个 stage 输入框',
+  lead:'支撑的决定：<b>加一级流水值不值。</b>stage 不机械等于物理槽数；加深流水同时放大片上高水位，收益与代价要在同一屏上。',
+  cap:['时间轴 + 份数乘子','stage 1 → 2'],
+  viz:`<svg viewBox="0 0 520 208" role="img" aria-label="流水配置对照：stage 1 的 load 和 compute 顺序执行；stage 2 示例中两者重叠，同时示例驻留份数从一份增加到两份，高水位接近目标上限">
+    <text x="10" y="15" font-size="9.5" fill="var(--muted)">时间 →</text><text x="510" y="15" text-anchor="end" font-size="9" fill="var(--faint)">示意 · 非实测</text>
+    <text x="10" y="40" font-size="10" fill="var(--text-2)">stage 1</text>
+    <line x1="100" y1="24" x2="100" y2="130" stroke="var(--line-soft)"/><line x1="490" y1="24" x2="490" y2="130" stroke="var(--line-soft)"/>
+    <rect x="102" y="26" width="72" height="22" rx="2" fill="var(--fill-2)"/><text x="138" y="41" text-anchor="middle" font-size="9" fill="var(--text)">load A</text>
+    <rect x="176" y="26" width="92" height="22" rx="2" fill="var(--fill)"/><text x="222" y="41" text-anchor="middle" font-size="9" fill="var(--brand-ink)">compute A</text>
+    <rect x="270" y="26" width="72" height="22" rx="2" fill="var(--fill-2)"/><text x="306" y="41" text-anchor="middle" font-size="9" fill="var(--text)">load B</text>
+    <rect x="344" y="26" width="92" height="22" rx="2" fill="var(--fill)"/><text x="390" y="41" text-anchor="middle" font-size="9" fill="var(--brand-ink)">compute B</text>
+    <text x="10" y="86" font-size="10" fill="var(--text-2)">stage 2</text>
+    <rect x="102" y="68" width="72" height="22" rx="2" fill="var(--fill-2)"/><text x="138" y="83" text-anchor="middle" font-size="9" fill="var(--text)">load A</text>
+    <rect x="176" y="68" width="72" height="22" rx="2" fill="var(--fill-2)"/><text x="212" y="83" text-anchor="middle" font-size="9" fill="var(--text)">load B</text>
+    <rect x="176" y="96" width="92" height="22" rx="2" fill="var(--fill)"/><text x="222" y="111" text-anchor="middle" font-size="9" fill="var(--brand-ink)">compute A</text>
+    <rect x="270" y="96" width="92" height="22" rx="2" fill="var(--fill)"/><text x="316" y="111" text-anchor="middle" font-size="9" fill="var(--brand-ink)">compute B</text>
+    <rect x="174" y="64" width="76" height="58" rx="3" fill="none" stroke="var(--text-2)" stroke-dasharray="3 3"/><text x="258" y="79" font-size="9" fill="var(--muted)">重叠</text>
+    <line x1="10" y1="140" x2="510" y2="140" stroke="var(--line)"/>
+    <text x="10" y="158" font-size="9.5" fill="var(--muted)">片上驻留</text><text x="510" y="158" text-anchor="end" font-size="9" fill="var(--faint)">份数示例 · 不等于 stage</text>
+    <text x="10" y="181" font-size="9" fill="var(--text-2)">1 份</text><rect x="100" y="168" width="154" height="16" rx="2" fill="var(--fill-2)"/><text x="262" y="180" font-size="9" fill="var(--text-2)">96.4 KB</text>
+    <text x="10" y="203" font-size="9" fill="var(--text-2)">2 份</text><rect x="100" y="190" width="154" height="16" rx="2" fill="var(--fill-2)"/><rect x="254" y="190" width="154" height="16" fill="url(#hatchWarn)" stroke="var(--err)"/><text x="416" y="202" font-size="9" fill="var(--err)">超上限</text>
+  </svg>`,
+  enc:[
+    ['横轴','时间；<b>纵向错位</b>表达重叠。重叠区间是收益的唯一来源，必须可指'],
+    ['份数标注','每条泳道右侧写驻留份数。<code>字节 = Π shape × dtype.bytes × 份数</code>'],
+    ['底部条','同一次改动的代价。收益图与代价图共用一个改动，不分两页']
+  ],
+  must:[
+    '<code>开了流水</code> 不等于 <code>并行成立</code>：还要满足就绪、消费与复用条件',
+    '<code>stage 数</code> 不等于 <code>物理槽数</code>：增加缓冲不自动保证加速',
+    '<code>重叠</code> 不等于 <code>整图收益</code>：局部变快可能被整图复测撤回（案例 E）'
+  ],
+  anti:'<b>不要</b>只给一个 stage 数字输入框。调 stage 会同时改变时间与空间，只显示其中一面就会让用户在「看起来更快」的方案上撞到 silent 越界。',
+  ev:{k:'est', t:'静态推算（份数来自声明，实际复用须按编译产物核对）'},
+  src:['LowerPipelineLoops','MemoryReuse','报告 3.1／案例 E']
+},
+{
+  no:'09', group:'O2', name:'编译决策：自动分块与未采用的候选',
+  field:'AutoTileMatmulL0 · m/n/k · 未采用策略及原因',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'保留模型要求的前提下，改哪一维',
+  diff:['没写 ≠ 没决策','报错位置 ≠ 修改位置'],
+  antiShort:'只说「减小 Tile」',
+  lead:'支撑的决定：<b>保留模型要求的前提下，改哪一维。</b>编译器已经替你选了 m/n/k；用户要知道它为什么这么选，以及自己想要的那个为什么不行。',
+  cap:['候选格点 · 选中 + 被拒原因','bytes_b = 2 · L0B 64 KiB'],
+  viz:`<svg viewBox="0 0 520 150" role="img" aria-label="候选分块格点图：选中 128×256，两个更大的候选分别被 L0B 与 L0C 拒绝">
+    <line x1="52" y1="16" x2="52" y2="118" stroke="var(--line)"/>
+    <line x1="52" y1="118" x2="470" y2="118" stroke="var(--line)"/>
+    <text x="44" y="24" font-size="9" text-anchor="end">m</text>
+    <text x="470" y="134" font-size="9" text-anchor="end">n →</text>
+    <text x="44" y="110" font-size="9" text-anchor="end">64</text>
+    <text x="44" y="74" font-size="9" text-anchor="end">128</text>
+    <text x="44" y="38" font-size="9" text-anchor="end">256</text>
+    <text x="120" y="134" font-size="9" text-anchor="middle">128</text>
+    <text x="240" y="134" font-size="9" text-anchor="middle">256</text>
+    <text x="380" y="134" font-size="9" text-anchor="middle">512</text>
+
+    <circle cx="120" cy="106" r="5" fill="var(--fill-2)"/>
+    <circle cx="240" cy="106" r="5" fill="var(--fill-2)"/>
+    <circle cx="120" cy="70" r="5" fill="var(--fill-2)"/>
+    <circle cx="240" cy="70" r="7.5" fill="var(--brand)"/>
+    <circle cx="240" cy="70" r="12" fill="none" stroke="var(--brand)" stroke-dasharray="3 2"/>
+    <text x="258" y="73" font-size="9.5" fill="var(--brand)">选中</text>
+
+    <path d="M374,64 L386,76 M386,64 L374,76" stroke="var(--err)" stroke-width="1.6"/>
+    <path d="M234,28 L246,40 M246,28 L234,40" stroke="var(--err)" stroke-width="1.6"/>
+    <line x1="310" y1="16" x2="310" y2="118" stroke="var(--err)" stroke-width="1.1" stroke-dasharray="4 3" opacity=".7"/>
+    <text x="316" y="30" font-size="8.5" fill="var(--err)">k × n × bytes_b ≤ L0B</text>
+  </svg>
+  <div class="lines" style="margin-top:9px">
+    <div class="line"><span>m128 × n256</span><b>Right 65,536 B · 占满</b></div>
+    <div class="line"><span>m128 × n512</span><b class="bad">Right 131,072 B</b></div>
+    <div class="line"><span>m256 × n256</span><b class="bad">Acc &gt; 128 KiB</b></div>
+  </div>`,
+  enc:[
+    ['格点','真实可选的候选，不是连续空间。<b>被拒的点要留在图上</b>并带原因'],
+    ['边界虚线','三条 L0 约束之一。约束是边界而非建议，用线而非颜色渐变'],
+    ['选中环','编译器实际选中的点；环而非实心，表示「系统决定」而非「用户选择」']
+  ],
+  must:[
+    '<code>我没写分块</code> 不等于 <code>没有分块决策</code>：<code>AutoTileMatmulL0</code> 已经替你选了',
+    '<code>报错在 Right</code> 不等于 <code>该改 n</code>：同一条报错可能是你的分块，也可能是编译器算错（#626 vs #630）'
+  ],
+  anti:'<b>不要</b>只报「容量超限，建议减小 Tile」。候选与被拒原因缺席时，用户只能试参数；而正确动作可能是改另一维、换布局，或者提 Issue。',
+  ev:{k:'est', t:'编译确认（本卡数值为构造示例，用于说明编码）'},
+  src:['AutoTileMatmulL0','pto-isa#630','pto-isa#626']
+},
+{
+  no:'10', group:'O2', name:'数值精度与不可原地复用',
+  field:'dtype · 累加类型 · tile.cast · MemoryReuse 禁用清单',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'哪些转换可接受；能不能就地复用',
+  diff:['元素数不变 ≠ 占用不变','等价 ≠ 可原地'],
+  antiShort:'当成优化提示',
+  lead:'支撑的决定：<b>哪些类型转换可接受，这块 buffer 能不能就地复用。</b>升精度的 cast 会用更宽的写入覆盖未读输入，所以它不能原地做——这是正确性约束，不是优化选项。',
+  cap:['类型链 · 复用判定','bf16 → fp32 → bf16'],
+  viz:`<svg viewBox="0 0 520 138" role="img" aria-label="类型链图：bf16 输入经 fp32 累加再转回 bf16，升精度 cast 标记为不可原地复用，下方对比两种 dtype 的字节数">
+    <rect x="10" y="26" width="104" height="34" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+    <text x="62" y="42" font-size="10" fill="var(--text-2)" text-anchor="middle">输入 bf16</text>
+    <text x="62" y="54" font-size="8.5" text-anchor="middle">2 B / 元素</text>
+
+    <rect x="162" y="26" width="118" height="34" rx="4" fill="var(--brand-dim)" stroke="var(--brand)"/>
+    <text x="221" y="42" font-size="10" fill="var(--brand)" text-anchor="middle">累加 fp32</text>
+    <text x="221" y="54" font-size="8.5" text-anchor="middle">4 B / 元素</text>
+
+    <rect x="328" y="26" width="104" height="34" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+    <text x="380" y="42" font-size="10" fill="var(--text-2)" text-anchor="middle">输出 bf16</text>
+    <text x="380" y="54" font-size="8.5" text-anchor="middle">2 B / 元素</text>
+
+    <line x1="116" y1="43" x2="158" y2="43" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+    <line x1="282" y1="43" x2="324" y2="43" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+    <text x="137" y="20" font-size="8.5" fill="var(--err)" text-anchor="middle">升精度</text>
+    <text x="303" y="20" font-size="8.5" fill="var(--muted)" text-anchor="middle">降精度</text>
+    <circle cx="137" cy="76" r="7.5" fill="var(--err-bg)" stroke="var(--err)"/>
+    <text x="137" y="80" font-size="9" fill="var(--err)" text-anchor="middle">!</text>
+    <text x="152" y="80" font-size="9" fill="var(--err)">不可原地</text>
+
+    <text x="10" y="104" font-size="9" fill="var(--muted)">同一块 Tile</text>
+    <rect x="86" y="95" width="76" height="10" rx="2" fill="var(--fill-2)"/>
+    <text x="168" y="104" font-size="8.5" fill="var(--text)">bf16 32,768 B</text>
+    <rect x="266" y="95" width="152" height="10" rx="2" fill="var(--brand)" opacity=".75"/>
+    <text x="424" y="104" font-size="8.5" fill="var(--warn)">fp32 65,536 B</text>
+    <text x="10" y="130" font-size="9" fill="var(--muted)">同类不可原地：row_sum · transpose</text>
+  </svg>`,
+  enc:[
+    ['盒宽','每元素字节数，不是元素个数。容量公式里 dtype 是一个乘数因子'],
+    ['边上的标记','精度方向。升／降不是对称的两件事，复用判定只卡升精度那一侧'],
+    ['禁用清单','与具体算子绑定并给出原因，不写成「某些算子不支持原地」']
+  ],
+  must:[
+    '<code>元素个数不变</code> 不等于 <code>占用不变</code>：累加类型变宽，字节数翻倍',
+    '<code>语义等价</code> 不等于 <code>可以原地</code>：复用还要满足生命周期、别名与 stage 并发条件'
+  ],
+  anti:'<b>不要</b>把「不可原地复用」表达成一条优化提示。它是正确性边界：按提示理解会让人以为「忽略也只是慢一点」。',
+  ev:{k:'spec', t:'目标规格（MemoryReuse 判定规则与禁用清单）'},
+  src:['MemoryReuse','tile.cast','tile.row_sum']
+},
+{
+  no:'11', group:'X', name:'Finding：责任层 × 证据等级',
+  field:'Finding{对象, 触发条件, 证据等级, 责任层, 候选动作}',
+  layer:{t:'跨切面 · 决定其余卡片的措辞', k:'info'},
+  decide:'我该改代码，还是去提 Issue',
+  diff:['文本相同 ≠ 责任层相同','具体 ≠ 正确'],
+  antiShort:'不确定时更具体',
+  lead:'支撑的决定：<b>我该改代码，还是该去提 Issue。</b>#626 与 #630 的报错文本相同、责任层不同：一条导向「改你的分块」，一条导向「这可能是编译器缺陷，这是复现材料」。',
+  cap:['证据阶梯 + 责任层分叉','同一条报错文本'],
+  viz:`<div class="ladder" style="margin-bottom:10px">
+      <i class="on">目标规格</i>
+      <i class="on">静态推算</i>
+      <i class="now">编译确认</i>
+      <i>设备观测</i>
+      <i>对照验证</i>
+      <i>假设</i>
+    </div>
+    <svg viewBox="0 0 520 112" role="img" aria-label="同一条报错文本分叉到两个责任层，给出不同的候选动作">
+      <rect x="140" y="4" width="240" height="24" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+      <text x="260" y="20" font-size="9.5" fill="var(--text-2)" text-anchor="middle">同一条报错 · Right 超限 65,536</text>
+      <line x1="200" y1="30" x2="130" y2="52" stroke="var(--muted)" stroke-width="1.1" marker-end="url(#ar)"/>
+      <line x1="320" y1="30" x2="390" y2="52" stroke="var(--muted)" stroke-width="1.1" marker-end="url(#ar)"/>
+      <rect x="10" y="56" width="230" height="48" rx="4" fill="var(--brand-dim)" stroke="var(--brand)"/>
+      <text x="22" y="73" font-size="9.5" fill="var(--brand)">L3 · 配置问题</text>
+      <text x="22" y="89" font-size="9" fill="var(--text-2)">改分块 / 换布局</text>
+      <rect x="280" y="56" width="230" height="48" rx="4" fill="var(--info-bg)" stroke="var(--info)"/>
+      <text x="292" y="73" font-size="9.5" fill="var(--info)">L1 · 系统缺陷</text>
+      <text x="292" y="89" font-size="9" fill="var(--text-2)">提 Issue + 复现材料</text>
+    </svg>
+    <div class="legend"><span><s></s>已具备的证据</span><span><s class="b"></s>当前位置</span><span><s class="r"></s>尚未取得</span></div>`,
+  enc:[
+    ['阶梯','六级证据逐项绑定。<b>不能继承</b>：基线来自真实产物，不让候选方案也标「已确认」'],
+    ['分叉','责任层是 Finding 的一等字段。文本相同不等于结论相同'],
+    ['第三种状态','「尚不能区分」要能表达。它是诚实的，也有用：告诉用户别再试参数']
+  ],
+  must:[
+    '<code>报错文本相同</code> 不等于 <code>责任层相同</code>',
+    '<code>归因具体</code> 不等于 <code>归因正确</code>：价值是归因正确率 × 可操作性，不是两者之和',
+    '<code>通过静态检查</code> 不等于 <code>性能已确认</code>：C 与 O 要相互验证'
+  ],
+  anti:'<b>不要</b>在归因不确定时提高建议的具体性。#2287 的建议可操作性接近满分、归因错误，于是把开发者主动引向了错误的修复——此时降低确定性比加强具体性更重要。',
+  ev:{k:'spec', t:'设计要求（报告 5.2 要求二、5.3 证据等级）'},
+  src:['pto-isa#626','pto-isa#630','pto-isa#2287']
+},
+{
+  no:'12', group:'X', name:'Experiment：对照与状态',
+  field:'Experiment{基线, 单一改动, 编译结果, 运行结果, 比较条件}',
+  layer:{t:'L4 必须可验证', k:'warn'},
+  decide:'这个改动能不能采纳',
+  diff:['局部 ≠ 整图','预览 ≠ 采纳'],
+  antiShort:'提前显示收益百分比',
+  lead:'支撑的决定：<b>这个改动能不能采纳。</b>目的是防止「预览了一个方案」变成「已完成优化」：案例 E 里 softmax 明显变快，整图收益主张被复测撤回。',
+  cap:['对照双轨 + 状态章','单一改动'],
+  viz:`<svg viewBox="0 0 520 114" role="img" aria-label="对照双轨：局部变快但整图未复测，状态停在已编译">
+    <text x="10" y="18" font-size="9.5" fill="var(--text-2)">基线</text>
+    <rect x="76" y="8" width="150" height="16" rx="2" fill="var(--idle)" opacity=".6"/>
+    <rect x="226" y="8" width="214" height="16" rx="2" fill="var(--idle)" opacity=".3"/>
+    <text x="446" y="21" font-size="9" fill="var(--muted)">整图</text>
+    <text x="10" y="48" font-size="9.5" fill="var(--text-2)">改动后</text>
+    <rect x="76" y="38" width="88" height="16" rx="2" fill="var(--ok)" opacity=".75"/>
+    <rect x="164" y="38" width="276" height="16" fill="url(#hatch)" opacity=".7"/>
+    <rect x="164" y="38" width="276" height="16" fill="none" stroke="var(--faint)" stroke-dasharray="3 2"/>
+    <text x="100" y="51" font-size="9" fill="var(--text)">局部 −41%</text>
+    <text x="302" y="51" font-size="9" fill="var(--faint)" text-anchor="middle">整图未复测</text>
+
+    <text x="10" y="80" font-size="9.5" fill="var(--text-2)">状态</text>
+    <rect x="76" y="68" width="100" height="18" rx="9" fill="var(--fill)"/><text x="126" y="81" font-size="9" fill="var(--brand-ink)" text-anchor="middle">已编译</text>
+    <rect x="182" y="68" width="100" height="18" rx="9" fill="var(--track)"/><text x="232" y="81" font-size="9" fill="var(--faint)" text-anchor="middle">已上板</text>
+    <rect x="288" y="68" width="100" height="18" rx="9" fill="var(--track)"/><text x="338" y="81" font-size="9" fill="var(--faint)" text-anchor="middle">已对照</text>
+    <rect x="394" y="68" width="100" height="18" rx="9" fill="var(--track)"/><text x="444" y="81" font-size="9" fill="var(--faint)" text-anchor="middle">可采纳</text>
+
+    <text x="10" y="106" font-size="9.5" fill="var(--text-2)">比较条件</text>
+    <text x="76" y="106" font-size="9" fill="var(--muted)">同 shape · 同并行 · 同版本 · 单一改动</text>
+  </svg>`,
+  enc:[
+    ['双轨对齐','基线与改动共用一条时间刻度，局部与整图共用一条轴，防止用局部条代表整体'],
+    ['斜纹段','尚未复测的部分。斜纹在全页同义：非真实数据'],
+    ['状态章','线性推进、不可跳跃。未点亮的状态同时锁住收益数字的呈现']
+  ],
+  must:[
+    '<code>局部变快</code> 不等于 <code>整图收益</code>',
+    '<code>资源用满</code> 不等于 <code>收益成立</code>：候选预期必须重新编译与运行',
+    '<code>预览了方案</code> 不等于 <code>采纳了优化</code>'
+  ],
+  anti:'<b>不要</b>在「已编译」阶段就显示收益百分比，哪怕灰着显示。数字一旦出现就会被引用；该呈现的是「待验证条件」，不是制造出来的精确数值。',
+  ev:{k:'hyp', t:'对照验证（本卡数字为构造示例）'},
+  src:['报告 案例 E','Experiment 对象','报告 5.3']
+},
+{
+  no:'13', group:'O3', name:'多卡：rank 生命周期与重复传输',
+  field:'rank · TP/EP/DP · bind / H2D · 权重与 KV Cache 驻留',
+  layer:{t:'L2 必须可见', k:'ok'},
+  decide:'该改 kernel，还是改运行时生命周期',
+  diff:['kernel 耗时 ≠ 请求耗时','平均 ≠ 任一 rank'],
+  antiShort:'聚合成一条平均轨',
+  lead:'支撑的决定：<b>该改 kernel，还是改运行时生命周期。</b>案例 F 里 8 卡 serving 的首要成本来自重复 bind／H2D——这类成本不在算子里，优化算子解决不了。',
+  cap:['rank 轨 · 按成本来源着色','8 rank · 每请求'],
+  viz:`<svg viewBox="0 0 520 162" role="img" aria-label="八个 rank 的时间轨，重复 bind 与 H2D 占据主要时间，计算只占一小段">
+    <g id="g-rank"></g>
+  </svg>
+  <div class="legend"><span><s class="r"></s>bind（每请求重复）</span><span><s class="w"></s>H2D 传输</span><span><s></s>计算</span><span><s class="e"></s>慢 rank 导致的等待</span></div>`,
+  enc:[
+    ['一行一 rank','不平均成一条。慢 rank 只有在逐 rank 展开时才看得见'],
+    ['按来源着色','颜色编码成本来源而非阶段名，使「重复」这件事在图上直接成立'],
+    ['对齐右端','等待量=到最晚 rank 的距离，用留白表达，不另加一条「等待」指标']
+  ],
+  must:[
+    '<code>kernel 耗时</code> 不等于 <code>请求耗时</code>：首要成本可能在 bind／H2D',
+    '<code>平均 rank</code> 不等于 <code>任一 rank</code>：慢 rank 决定整体',
+    '<code>跨卡交接</code> 不等于 <code>Cube／Vector 交接</code>：两者不是同一个对象'
+  ],
+  anti:'<b>不要</b>把八卡聚合成一条平均轨。聚合视图会把「某个 rank 慢」和「所有 rank 都慢」画成同一张图，而这两种情况的修复动作完全不同。',
+  ev:{k:'hyp', t:'设备观测（模型层补充场景，不等同于算子侧交接）'},
+  src:['报告 案例 F','rank / TP / EP','研究 6.6']
+}
+];
+
+/* 图元复用自 AI Infra visual-system.js；示例保留独立数据与存储身份。 */
+const V = window.VisualSystem;
+function primitiveBody(svg){
+  return svg.replace(/<text\b[^>]*>[\s\S]*?<\/text>/g,'').replace(/<(rect|path|circle)\b/g,'<$1 vector-effect="non-scaling-stroke"');
+}
+function glyph(kind,id,label,x,y,w,h){
+  const sourceWidth=kind==='op'?260:180, sourceHeight=kind==='op'?48:64;
+  const shape=primitiveBody(V.node(kind,id,label,0,0));
+  return `<g transform="translate(${x} ${y})"><g transform="scale(${w/sourceWidth} ${h/sourceHeight})">${shape}</g><text x="${kind==='op'?w/2:8}" y="${kind==='op'?h/2+4:h*.7}" text-anchor="${kind==='op'?'middle':'start'}" font-size="11" fill="var(--text)">${label}</text></g>`;
+}
+function tileNode(id,x,y){
+  const tile=primitiveBody(V.data({id,kind:'value',label:'Tile',shape:[128,128],dtype:'bf16',role:'activation'},0,0));
+  return `<g transform="translate(${x} ${y})"><g transform="scale(.525 .625)">${tile}</g><text x="15" y="17" font-size="11" fill="var(--text)">Tile</text><text x="15" y="32" font-size="9" fill="var(--muted)">[128,128]</text></g>`;
+}
+function straightEdge(x1,y1,x2,y2,kind){
+  const marker=kind==='binding'?'bind':'arrow';
+  return `<path data-relation="${kind}" d="M${x1} ${y1} L${x2} ${y2}" fill="none" stroke="#aaa" stroke-width="1.3" marker-end="url(#${marker})"/>`;
+}
+const memoryCard = CARDS.find(c=>c.no==='01');
+memoryCard.viz = `<svg viewBox="0 0 520 220" role="img" aria-label="Vec 片上存储中用户、自动和系统占用的堆叠高水位超过可用上限，低于推断的名义容量">
+  <g transform="translate(10 4) scale(2.7778 2.25)">${primitiveBody(V.node('storage','ub','Vec · UB',0,0))}</g>
+  <text x="24" y="32" font-size="12" fill="var(--text)">Vec · UB</text>
+  <text x="496" y="32" text-anchor="end" font-size="10" fill="var(--faint)">静态示意</text>
+  <rect x="24" y="86" width="474" height="38" rx="3" fill="var(--track)"/>
+  <rect x="24" y="86" width="332.83" height="38" fill="var(--fill)"/>
+  <rect x="356.83" y="86" width="28.31" height="38" fill="url(#hatchAuto)" stroke="var(--auto)"/>
+  <rect x="385.14" y="86" width="73.96" height="38" fill="var(--idle)" opacity=".65"/>
+  <rect x="449.29" y="86" width="9.81" height="38" fill="url(#hatchWarn)"/>
+  <line x1="449.29" y1="72" x2="449.29" y2="133" stroke="var(--err)" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <line x1="467.77" y1="72" x2="467.77" y2="133" stroke="var(--text-2)" stroke-width="1.5"/>
+  <text x="40" y="109" font-size="10" fill="var(--brand-ink)">用户 147,456</text>
+  <text x="422" y="109" text-anchor="middle" font-size="9" fill="var(--text)">系统 32,768</text>
+  <path d="M371 84 V70 H294" fill="none" stroke="var(--auto)"/><text x="288" y="73" text-anchor="end" font-size="10" fill="var(--auto)">自动 12,544</text>
+  <text x="24" y="174" font-size="10" fill="var(--text-2)">高水位 192,768</text><text x="496" y="174" text-anchor="end" font-size="10" fill="var(--err)">+4,352</text>
+  <text x="24" y="199" font-size="10" fill="var(--muted)">可用 188,416</text><text x="496" y="199" text-anchor="end" font-size="10" fill="var(--muted)">名义 196,608 · 推断</text>
+</svg>`;
+const transferCard = CARDS.find(c=>c.no==='02');
+transferCard.cap[1]='DDR → Vec → Right';
+transferCard.viz = `<svg viewBox="0 0 520 210" role="img" aria-label="搬运示例：GM、Vec 与 Right 中的 Tile 分别绑定对应存储；数据经 load 和编译器插入的 tile.move 依次传递">
+  ${glyph('storage','gm','DDR · GM',6,8,94,42)}
+  ${glyph('storage','vec','Vec · UB',213,8,94,42)}
+  ${glyph('storage','right','Right',420,8,94,42)}
+  ${straightEdge(53,105,53,50,'binding')}${straightEdge(260,105,260,50,'binding')}${straightEdge(467,105,467,50,'binding')}
+  ${tileNode('gm-tile',11,105)}${tileNode('vec-tile',218,105)}${tileNode('right-tile',425,105)}
+  ${glyph('op','load','tile.load',121,112,72,26)}${glyph('op','move','tile.move',328,112,72,26)}
+  ${straightEdge(95,125,117,125,'data')}${straightEdge(193,125,214,125,'data')}
+  ${straightEdge(302,125,324,125,'data')}${straightEdge(400,125,421,125,'data')}
+  <text x="364" y="159" text-anchor="middle" font-size="10" fill="var(--muted)">自动插入</text>
+  <path d="M53 153 C105 187 415 187 467 153" fill="none" stroke="var(--err)" stroke-width="1.2"/>
+  <circle cx="260" cy="179" r="8" fill="var(--err-bg)" stroke="var(--err)"/><path d="M257 176 L263 182 M263 176 L257 182" stroke="var(--err)"/>
+  <text x="10" y="205" font-size="9" fill="var(--muted)">tile.load 不可直达 Right</text>
+</svg>`;
+transferCard.enc[0]=['对象','存储容器与 Tile 分别表示；示例沿 DDR → Vec → Right 展示'];
+transferCard.enc[1]=['空心箭头','表示数据依赖；<code>tile.move</code> 的标注表示该操作由编译器插入'];
+transferCard.enc[2]=['圆端点与叉线','圆端点表示数据与存储的绑定；叉线表示示例中不允许直接 load'];
+const pipelineCard = CARDS.find(c=>c.no==='08');
+function timeOp(id,label,x,y,width){return glyph('op',id,label,x,y,width,26)}
+pipelineCard.viz = `<svg viewBox="0 0 520 280" role="img" aria-label="stage 1 和 stage 2 在相同时间尺度上的 load 与 compute 对照；stage 2 存在重叠，示例驻留由一份增加到两份">
+  <text x="10" y="16" font-size="10" fill="var(--muted)">时间 →</text><text x="510" y="16" text-anchor="end" font-size="9" fill="var(--faint)">示意 · 非实测</text>
+  <path d="M110 25 V201 M180 25 V201 M270 25 V201 M340 25 V201 M430 25 V201" stroke="var(--line-soft)" stroke-width="1"/>
+  <text x="10" y="53" font-size="11" fill="var(--text-2)">stage 1</text>
+  ${timeOp('s1-load-a','load A',110,30,70)}${timeOp('s1-load-b','load B',270,30,70)}
+  ${timeOp('s1-compute-a','compute A',180,68,90)}${timeOp('s1-compute-b','compute B',340,68,90)}
+  <path data-relation="data" d="M178 56 V62 H188 V68" fill="none" stroke="#aaa" stroke-width="1.3" marker-end="url(#arrow)"/><path data-relation="data" d="M338 56 V62 H348 V68" fill="none" stroke="#aaa" stroke-width="1.3" marker-end="url(#arrow)"/>
+  <line x1="10" y1="105" x2="510" y2="105" stroke="var(--line)"/>
+  <text x="10" y="138" font-size="11" fill="var(--text-2)">stage 2</text>
+  <rect x="180" y="112" width="70" height="66" rx="4" fill="#ffffff" opacity=".06"/>
+  ${timeOp('s2-load-a','load A',110,114,70)}${timeOp('s2-load-b','load B',180,114,70)}
+  ${timeOp('s2-compute-a','compute A',180,150,90)}${timeOp('s2-compute-b','compute B',270,150,90)}
+  <path data-relation="data" d="M178 140 V145 H188 V150" fill="none" stroke="#aaa" stroke-width="1.3" marker-end="url(#arrow)"/><path data-relation="data" d="M248 140 V145 H278 V150" fill="none" stroke="#aaa" stroke-width="1.3" marker-end="url(#arrow)"/>
+  <line x1="10" y1="201" x2="510" y2="201" stroke="var(--line)"/>
+  <text x="10" y="222" font-size="10" fill="var(--muted)">片上驻留</text>
+  <text x="10" y="244" font-size="10" fill="var(--text-2)">1 份</text><rect x="110" y="232" width="154" height="16" rx="2" fill="var(--fill-2)"/><text x="272" y="244" font-size="10" fill="var(--text-2)">96.4 KB</text>
+  <text x="10" y="267" font-size="10" fill="var(--text-2)">2 份</text><rect x="110" y="255" width="154" height="16" rx="2" fill="var(--fill-2)"/><rect x="264" y="255" width="154" height="16" fill="url(#hatchWarn)" stroke="var(--err)"/><text x="426" y="267" font-size="10" fill="var(--err)">超上限</text>
+</svg>`;
+
+const GROUPS = [
+  {k:'all', t:'全部'},
+  {k:'O1', t:'O1 计算分工'},
+  {k:'O2', t:'O2 形态与容量'},
+  {k:'O3', t:'O3 数据交接'},
+  {k:'O4', t:'并行与同步 O4'},
+  {k:'X',  t:'跨切面'}
+];
+
+/* ── 渲染 ─────────────────────────────────────────── */
+function cardHTML(c){
+  return `<article class="card" data-group="${c.group}">
+    <div class="c-head">
+      <span class="c-no">${c.no}</span>
+      <div class="c-id">
+        <h3>${c.name}</h3>
+        <small>${c.decide}</small>
+      </div>
+      <span class="pill ${c.layer.k}">${c.layer.t.split(/[·＋]/)[0].trim()}</span>
+    </div>
+    <div class="c-body">
+      <div class="viz${c.no==='01' ? ' viz-open' : ''}" ${c.no==='01' ? 'role="button" tabindex="0" aria-haspopup="dialog" aria-label="打开片上空间预算与高水位详情"' : ''}>
+        <div class="viz-cap"><span>${c.cap[1]}</span>${c.no==='01' ? '<span>查看详情 ↗</span>' : ''}</div>
+        ${c.viz}
+      </div>
+      <div class="chips">
+        ${c.diff.map(d=>`<b>${d}</b>`).join('')}
+        <b class="no">✕ ${c.antiShort}</b>
+      </div>
+      <details class="more">
+        <summary>编码说明 · 必须区分 · 反例</summary>
+        <div class="more-body">
+          <p class="c-lead"><b>${c.layer.t}</b>　${c.field}</p>
+          <p class="c-lead">${c.cap[0]}</p>
+          <p class="c-lead">${c.lead}</p>
+          <dl class="enc">${c.enc.map(e=>`<div><dt>${e[0]}</dt><dd>${e[1]}</dd></div>`).join('')}</dl>
+          <ul class="must">${c.must.map(m=>`<li><span>${m}</span></li>`).join('')}</ul>
+          <p class="anti">${c.anti}</p>
+        </div>
+      </details>
+    </div>
+    <div class="c-foot">
+      <span class="ev"><s class="${c.ev.k}"></s>${c.ev.t.split('（')[0]}</span>
+      <span class="src">${c.src.map(s=>`<b>${s}</b>`).join('')}</span>
+    </div>
+  </article>`;
+}
+
+const deck = document.getElementById('deck');
+deck.innerHTML = CARDS.map(cardHTML).join('');
+
+/* 卡片 07 的核栅格：48 格，前 20 格参与 */
+function coreGrid(gid, mode){
+  const g = document.getElementById(gid);
+  if(!g) return;
+  const cols = 24, cell = 19, gap = 2, x0 = 10, y0 = mode === 'hard' ? 22 : 114;
+  let out = '';
+  for(let i = 0; i < 48; i++){
+    const cx = x0 + (i % cols) * (cell + gap);
+    const cy = y0 + Math.floor(i / cols) * (cell + gap);
+    const on = i < 20;
+    const fill = on ? (mode === 'hard' ? 'var(--fill)' : 'var(--ok)') : 'var(--track)';
+    const stroke = on ? 'none' : (mode === 'hard' ? 'var(--err)' : 'var(--line-soft)');
+    out += `<rect x="${cx}" y="${cy}" width="${cell}" height="${cell}" rx="2" fill="${fill}"
+      ${on ? '' : `stroke="${stroke}" stroke-dasharray="2 2"`} ${on ? 'opacity=".85"' : 'opacity=".9"'}/>`;
+  }
+  const label = mode === 'hard'
+    ? '<text x="10" y="78" font-size="9" fill="var(--err)">28 核不会到达 → 屏障永不满足</text>'
+    : '<text x="10" y="170" font-size="9" fill="var(--ok)">used_cores = 20</text>';
+  g.innerHTML = out + label;
+}
+coreGrid('g-hard', 'hard');
+coreGrid('g-soft', 'soft');
+
+/* 卡片 13 的 rank 轨 */
+function rankLanes(){
+  const g = document.getElementById('g-rank');
+  if(!g) return;
+  // [bind, h2d, compute] 宽度，单位 px；慢 rank 的 compute 更长
+  const rows = [
+    [96, 150, 60], [96, 150, 60], [96, 150, 60], [96, 150, 60],
+    [96, 150, 60], [96, 150, 60], [96, 150, 60], [96, 150, 132]
+  ];
+  const x0 = 54, y0 = 6, h = 16, gap = 3;
+  const maxEnd = Math.max(...rows.map(r => r[0] + r[1] + r[2]));
+  let out = '';
+  rows.forEach((r, i) => {
+    const y = y0 + i * (h + gap);
+    let x = x0;
+    out += `<text x="46" y="${y + 11}" font-size="8.5" text-anchor="end">rank ${i}</text>`;
+    out += `<rect x="${x}" y="${y}" width="${r[0]}" height="${h}" rx="2" fill="var(--idle)" opacity=".65"/>`; x += r[0];
+    out += `<rect x="${x}" y="${y}" width="${r[1]}" height="${h}" rx="2" fill="var(--warn)" opacity=".7"/>`; x += r[1];
+    out += `<rect x="${x}" y="${y}" width="${r[2]}" height="${h}" rx="2" fill="var(--fill)"/>`; x += r[2];
+    if(x < x0 + maxEnd){
+      out += `<rect x="${x}" y="${y}" width="${x0 + maxEnd - x}" height="${h}" rx="2"
+        fill="var(--err)" opacity=".16"/>`;
+    }
+  });
+  out += `<text x="${x0 + maxEnd + 6}" y="${y0 + 7 * (h + gap) + 11}" font-size="8.5" fill="var(--err)">慢 rank</text>`;
+  g.innerHTML = out;
+}
+rankLanes();
+
+/* 筛选 */
+const tabs = document.getElementById('tabs');
+tabs.innerHTML = GROUPS.map((g, i) =>
+  `<button data-k="${g.k}" aria-pressed="${i === 0}">${g.t}</button>`).join('');
+
+function apply(k){
+  deck.querySelectorAll('.card').forEach(el => {
+    const hit = k === 'all' || el.dataset.group === k;
+    el.hidden = !hit;
+  });
+}
+tabs.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(!b) return;
+  tabs.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  apply(b.dataset.k);
+});
+apply('all');
+
+</script>
+<script src="memory-detail.js"></script>
+</body>
+</html>

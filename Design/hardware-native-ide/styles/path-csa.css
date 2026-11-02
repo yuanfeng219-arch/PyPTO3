@@ -9,6 +9,17 @@
   color: var(--amber); font: 11px var(--mono); line-height: 16px; vertical-align: 1px; cursor: pointer; }
 .split-del:hover, .split-del:focus-visible { background: rgba(242, 196, 95, .2); outline: none; }
 
+/* 281 行的 stage：超过头块数时用琥珀色提示“按 2 处理” */
+.stage-ctl button.is-on.is-over { background: var(--amber); color: #111; }
+
+/* 逻辑图：stage 位与时间线 */
+.lg-flight.is-ghost { fill: none; stroke: #5a5a5a; stroke-dasharray: 2 2; }
+.lg-tl-track { fill: #181818; stroke: #2a2a2a; pointer-events: none; }
+.lg-tl { stroke: #131313; transition: stroke .15s; }
+.lg-tl.u-aic { fill: #6f5b9b; }
+.lg-tl.u-aiv { fill: #3b6f80; }
+.lg-hit.is-hot > .lg-tl { stroke: var(--text); stroke-width: 1.4; }
+
 /* 硅片画布：空转与推算 */
 .sv-buf.k-slot { fill: #3a4f63; }
 .sv-buf.k-bias { fill: #9fe3f7; }
@@ -17,7 +28,7 @@
 .sv-buf.k-work { fill: #3b6f80; }
 .sv-buf.is-idle { fill: url(#csIdle); stroke: #3d3d3d; }
 .sv-buf.is-proj { stroke: var(--amber); stroke-width: .8; stroke-dasharray: 2 2; }
-.sv-idle-mark { fill: var(--amber); }
+.sv-warn { fill: var(--amber); }
 .sv-proj-frame { fill: none; stroke: var(--amber); stroke-dasharray: 3 3; }
 .sv-l1 { stroke: #131313; stroke-width: .8; }
 .sv-l1.k-slot { fill: #3a4f63; }

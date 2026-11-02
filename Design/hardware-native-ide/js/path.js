@@ -713,6 +713,8 @@
   function applyFocus() {
     const k = shown();
     const f = focusFor(state.hover) || sectionFocus(k);
+    // 只有真正悬停时才把无关部分压暗；章节默认焦点不压暗，避免页面长期发灰
+    document.body.classList.toggle('is-focusing', !!state.hover);
     document.querySelectorAll('.cl').forEach(function (el) {
       el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0);
     });
@@ -780,14 +782,13 @@
       body = regionCaption(h.id, k);
     }
     if (!body) {
-      key = '悬停源码行、逻辑节点或硅片区域，三处会一起亮起';
       if (k.verdict === 'silent') {
         body = '落进保留区的是 <b>stage ' + (k.stage - 1) + '</b> 的 ' + k.intruders.map(function (r) {
           return '<code>' + (bufById(r.id) || {}).name + '</code>';
         }).join('、') + '：都在最高地址，正好对上“只有最高地址的 tile 出 NaN”。';
       } else body = regionCaption('ub', k);
     }
-    document.getElementById('hpCaption').innerHTML = '<span class="cap-k">' + key + '</span>' + body;
+    document.getElementById('hpCaption').innerHTML = (key ? '<span class="cap-k">' + key + '</span>' : '') + body;
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -808,7 +809,7 @@
     return '<h2 class="st-h">你只改了一个调度参数：<code>stage</code> 2 → 4</h2>'
       + '<p class="st-p">目的是让第 i+1 个头的 QK（AIC）与第 i 个头的 softmax（AIV）多重叠几轮。'
       + '在源码层面，这个改动<b>不改语义、不改数值</b>，读代码看不出任何风险。</p>'
-      + '<p class="st-p">在源码 <code>764</code> 行直接点 stage 的值，或用下面的按钮。逻辑图里 softmax 段会多叠几层，Vec 地址条会跟着长高。</p>'
+      + '<p class="st-p">stage 增加后，逻辑图里 softmax 段会多叠几层，Vec 地址条会跟着长高。</p>'
       + meter(current())
       + '<div class="st-actions">'
       + (isChanged ? '' : '<button class="btn btn-primary" type="button" data-act="apply-changed">把 stage 改成 4</button>')
@@ -882,7 +883,7 @@
         + (chosen === key ? '已采用' : '采用并复查') + '</button></div></div>';
     }).join('');
     return '<h2 class="st-h">三种改法都能回到 184 KB 以内，但压力会被推到不同地方</h2>'
-      + '<p class="st-p">悬停卡片，逻辑图和地址条会切到这个方案的样子；地址条上的虚线是当前配置的高水位。</p>'
+      + '<p class="st-p">地址条上的虚线是当前配置的高水位。</p>'
       + cards
       + '<p class="note">本页不推荐唯一答案：A 的代价要 profiling 才知道，B 要动运行时，C 要编译产物证明。</p>';
   }
@@ -1000,7 +1001,15 @@
     else if (a === 'choose') { state.step = 5; setCfg(OPTIONS[act.dataset.opt].cfg); }
     else if (a === 'reset') { state.step = 1; state.hover = null; setCfg(BASE); }
   });
-  document.getElementById('hpReset').addEventListener('click', function () { state.step = 1; state.hover = null; setCfg(BASE); });
+
+  const storyPane = document.getElementById('hpStoryPane');
+  const storyToggle = document.getElementById('hpStoryToggle');
+  storyToggle.addEventListener('click', function () {
+    storyPane.hidden = !storyPane.hidden;
+    storyToggle.setAttribute('aria-expanded', String(!storyPane.hidden));
+    storyToggle.textContent = storyPane.hidden ? '显示主线' : '隐藏主线';
+    syncResizeHandle();
+  });
 
   // 拖动源码区边界；同时支持键盘微调。
   const codePane = document.getElementById('hpCodePane');
@@ -1009,7 +1018,7 @@
   function resizeBounds() {
     const width = mainPane.getBoundingClientRect().width;
     return window.innerWidth > 1280
-      ? { min: 340, max: Math.max(340, width - 920) }
+      ? { min: 340, max: Math.max(340, width - (storyPane.hidden ? 560 : 920)) }
       : { min: 280, max: Math.max(280, width - 360) };
   }
   function setCodeWidth(width) {
@@ -1055,6 +1064,55 @@
   window.addEventListener('resize', syncResizeHandle);
   syncResizeHandle();
 
+  // 拖动中栏的横向边界，在两个画布间分配高度。
+  const midPane = document.querySelector('.hp-mid');
+  const logicPane = document.getElementById('hpLogicPane');
+  const verticalHandle = document.getElementById('hpVerticalResize');
+  function verticalBounds() {
+    return { min: 140, max: Math.max(140, midPane.clientHeight - 240) };
+  }
+  function setLogicHeight(height) {
+    const bounds = verticalBounds();
+    const value = Math.round(Math.max(bounds.min, Math.min(bounds.max, height)));
+    midPane.style.setProperty('--logic-height', value + 'px');
+    verticalHandle.setAttribute('aria-valuemin', bounds.min);
+    verticalHandle.setAttribute('aria-valuemax', bounds.max);
+    verticalHandle.setAttribute('aria-valuenow', value);
+  }
+  verticalHandle.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startY = e.clientY, startHeight = logicPane.getBoundingClientRect().height;
+    verticalHandle.setPointerCapture(e.pointerId);
+    verticalHandle.classList.add('is-dragging');
+    document.body.classList.add('is-resizing-vertical');
+    function move(event) { setLogicHeight(startHeight + event.clientY - startY); }
+    function end() {
+      verticalHandle.classList.remove('is-dragging');
+      document.body.classList.remove('is-resizing-vertical');
+      verticalHandle.removeEventListener('pointermove', move);
+      verticalHandle.removeEventListener('pointerup', end);
+      verticalHandle.removeEventListener('pointercancel', end);
+      verticalHandle.removeEventListener('lostpointercapture', end);
+    }
+    verticalHandle.addEventListener('pointermove', move);
+    verticalHandle.addEventListener('pointerup', end);
+    verticalHandle.addEventListener('pointercancel', end);
+    verticalHandle.addEventListener('lostpointercapture', end);
+  });
+  verticalHandle.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    setLogicHeight(logicPane.getBoundingClientRect().height + (e.key === 'ArrowUp' ? -20 : 20));
+  });
+  function syncVerticalHandle() {
+    const bounds = verticalBounds();
+    verticalHandle.setAttribute('aria-valuemin', bounds.min);
+    verticalHandle.setAttribute('aria-valuemax', bounds.max);
+    verticalHandle.setAttribute('aria-valuenow', Math.round(logicPane.getBoundingClientRect().height));
+  }
+  window.addEventListener('resize', syncVerticalHandle);
+  syncVerticalHandle();
   // 悬停：代码行、表格行、逻辑节点、硅片区域、Vec 缓冲
   function hoverFrom(target) {
     const buf = target.closest('.sv-buf');

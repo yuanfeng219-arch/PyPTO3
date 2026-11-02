@@ -1,0 +1,532 @@
+/* ============================================================================
+ * Hardware-Native Kit · 样式
+ * ----------------------------------------------------------------------------
+ * 视觉语言沿用 AI_Infra：近黑灰阶、1px 细线、等宽大字距标签、四个点缀色，
+ * 报警只用一个红色。选中态是「浅底深字」，不靠色彩堆叠。
+ *
+ * 所有类名都以 kb- 开头，和既有 demo 的 .insp-/.ub- 不冲突，可以同页共存。
+ * ========================================================================== */
+
+.kb-app {
+  --kb-bg: #111;
+  --kb-panel: #131313;
+  --kb-raise: #171717;
+  --kb-high: #202020;
+  --kb-line: #353535;
+  --kb-line-soft: #282828;
+  --kb-fg: #e8e8e8;
+  --kb-fg-mid: #9a9a9a;
+  --kb-fg-dim: #6a6a6a;
+  --kb-lime: #b1ef6b;
+  --kb-lav: #bca0f3;
+  --kb-amber: #f2c45f;
+  --kb-sky: #79d4f2;
+  --kb-red: #fd5644;
+  --kb-red-soft: #fd8179;
+  --kb-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100%;
+  padding: 14px;
+  background: var(--kb-bg);
+  color: var(--kb-fg);
+  font: 13px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+  box-sizing: border-box;
+}
+.kb-app *, .kb-app *::before, .kb-app *::after { box-sizing: border-box; }
+
+/* ── 顶栏 ─────────────────────────────────────────────────────────────────── */
+.kb-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--kb-line);
+}
+.kb-brand {
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  color: var(--kb-fg-mid);
+}
+.kb-crumb { font-family: var(--kb-mono); font-size: 11px; color: var(--kb-fg-dim); }
+.kb-crumb i { margin: 0 6px; font-style: normal; color: var(--kb-line); }
+.kb-crumb b { color: var(--kb-fg); font-weight: 500; }
+.kb-spacer { flex: 1; }
+.kb-target {
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--kb-fg-mid);
+  padding: 3px 8px;
+  border: 1px solid var(--kb-line);
+  border-radius: 2px;
+  cursor: help;
+}
+.kb-switch { display: flex; gap: 6px; }
+.kb-switch button {
+  font-family: var(--kb-mono);
+  font-size: 11px;
+  padding: 4px 11px;
+  color: var(--kb-fg-mid);
+  background: var(--kb-raise);
+  border: 1px solid var(--kb-line);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.kb-switch button:hover { color: var(--kb-fg); border-color: #4a4a4a; }
+/* 选中态：浅底深字 */
+.kb-switch button[aria-pressed="true"] {
+  background: var(--kb-fg);
+  border-color: var(--kb-fg);
+  color: #111;
+}
+
+/* ── 三区 ─────────────────────────────────────────────────────────────────── */
+.kb-main {
+  display: grid;
+  grid-template-columns: minmax(330px, 1fr) minmax(380px, 1.35fr) minmax(300px, .95fr);
+  gap: 10px;
+  align-items: stretch;
+  min-height: 0;
+}
+.kb-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--kb-panel);
+  border: 1px solid var(--kb-line);
+  border-radius: 3px;
+}
+.kb-pane-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--kb-line-soft);
+}
+.kb-pane-head span {
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--kb-fg-mid);
+  text-transform: uppercase;
+}
+.kb-pane-head small {
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  color: var(--kb-fg-dim);
+  text-align: right;
+}
+.kb-pane-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 0; }
+.kb-svg { display: flex; padding: 10px; }
+.kb-svg svg { width: 100%; height: auto; max-height: 560px; }
+
+/* ── 一区 · 源码 ───────────────────────────────────────────────────────────── */
+.kb-line {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px;
+  font-family: var(--kb-mono);
+  font-size: 11.5px;
+  line-height: 1.75;
+  white-space: pre;
+  border-left: 2px solid transparent;
+  cursor: default;
+}
+.kb-line .kb-no {
+  flex: 0 0 34px;
+  text-align: right;
+  font-style: normal;
+  color: #4f4f4f;
+  user-select: none;
+}
+.kb-line code { font: inherit; }
+/* 挂到了某个逻辑节点的行：行号提亮，表示「这行可以点」 */
+.kb-line.is-live { cursor: pointer; }
+.kb-line.is-live .kb-no { color: var(--kb-fg-dim); }
+.kb-line:hover { background: var(--kb-raise); }
+.kb-line.is-hot {
+  background: var(--kb-high);
+  border-left-color: var(--kb-lime);
+}
+.kb-line.is-hot .kb-no { color: var(--kb-lime); }
+.kb-gap {
+  padding: 3px 12px 3px 56px;
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  color: #4a4a4a;
+  user-select: none;
+}
+
+/* 语法着色 */
+.kb-src .t-com { color: #5d6b55; font-style: italic; }
+.kb-src .t-str { color: var(--kb-amber); }
+.kb-src .t-num { color: var(--kb-sky); }
+.kb-src .t-kw { color: var(--kb-lav); }
+.kb-src .t-fn { color: var(--kb-lime); }
+.kb-src .t-attr { color: #cfd8c4; }
+.kb-src .t-kwarg { color: #8f9a85; }
+.kb-src .t-const { color: var(--kb-sky); }
+.kb-src .t-type { color: #d6c8f0; }
+.kb-src .t-id { color: var(--kb-fg); }
+
+/* ── 二区 · 算子逻辑 ───────────────────────────────────────────────────────── */
+.kb-frame {
+  fill: none;
+  stroke: var(--kb-line);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  rx: 3;
+}
+.kb-phase { fill: #161616; stroke: var(--kb-line-soft); stroke-width: 1; rx: 2; }
+.kb-node { fill: var(--kb-raise); stroke: var(--kb-line); stroke-width: 1; rx: 2; }
+.kb-node.is-bad { stroke: var(--kb-red); fill: #1f1413; }
+.kb-edge {
+  fill: none;
+  stroke: #3d3d3d;
+  stroke-width: 1;
+}
+.kb-arrow { fill: #3d3d3d; }
+.kb-t-frame {
+  font-family: var(--kb-mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  fill: var(--kb-fg-dim);
+}
+.kb-t-phase {
+  font-family: var(--kb-mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  fill: #6f7d66;
+}
+.kb-t-node { font-size: 11px; fill: var(--kb-fg); }
+.kb-t-node.is-bad { fill: var(--kb-red-soft); }
+
+.kb-hit { cursor: pointer; }
+.kb-hit:hover .kb-node { stroke: #5a5a5a; }
+.kb-hit.is-hot .kb-node { fill: var(--kb-lime); stroke: var(--kb-lime); }
+.kb-hit.is-hot .kb-t-node { fill: #111; font-weight: 600; }
+.kb-hit.is-hot .kb-node.is-bad { fill: var(--kb-red); stroke: var(--kb-red); }
+.kb-hit.is-hot .kb-t-node.is-bad { fill: #130d0c; }
+.kb-hit.is-hot .kb-frame { stroke: var(--kb-lav); stroke-dasharray: none; }
+.kb-hit.is-hot .kb-t-frame { fill: var(--kb-lav); }
+.kb-edge.is-hot { stroke: var(--kb-lime); stroke-width: 1.6; }
+
+/* ── 三区 · 硅片落点 ───────────────────────────────────────────────────────── */
+.kb-chip-frame {
+  fill: none;
+  stroke: var(--kb-line);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  rx: 3;
+}
+.kb-chip-mem { fill: var(--kb-raise); stroke: var(--kb-line); stroke-width: 1; rx: 2; }
+.kb-chip-unit { fill: #1a1a17; stroke: #46503c; stroke-width: 1; rx: 2; }
+.kb-chip-chan { fill: #15181a; stroke: #3a4750; stroke-width: 1; rx: 2; }
+.kb-chip-mem.is-dim, .kb-chip-unit.is-dim { opacity: .55; }
+.kb-core { fill: #2e2e2e; rx: 1; }
+.kb-core.is-bad { fill: #53251f; }
+.kb-t-mem {
+  font-family: var(--kb-mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  fill: var(--kb-fg-mid);
+}
+.kb-t-note { font-family: var(--kb-mono); font-size: 9px; fill: var(--kb-fg-dim); }
+
+.kb-region { cursor: pointer; }
+.kb-region:hover .kb-chip-mem { stroke: #4e4e4e; }
+.kb-region.is-hot .kb-chip-mem,
+.kb-region.is-hot .kb-chip-unit,
+.kb-region.is-hot .kb-chip-chan { stroke: var(--kb-lime); fill: #1d2318; }
+.kb-region.is-hot .kb-t-mem { fill: var(--kb-lime); }
+.kb-region.is-hot .kb-core { fill: var(--kb-lime); }
+.kb-region.is-hot .kb-core.is-bad { fill: var(--kb-red); }
+
+/* 容量占用条（L0A / L0B / L0C / L1） */
+.kb-track { fill: #2a2a2a; rx: 1; }
+.kb-fill { fill: #5f7a4a; rx: 1; }
+.kb-fill.is-tight { fill: var(--kb-amber); }
+.kb-fill.is-silent, .kb-fill.is-over { fill: var(--kb-red); }
+
+/* Vec(UB) 地址条：0 在下，顶部是保留区 */
+.kb-ub-track { fill: #1b1b1b; stroke: var(--kb-line-soft); stroke-width: 1; }
+.kb-ub-reserved { fill: url(#kbHatch); stroke: none; }
+.kb-hatch { stroke: #4a3b38; stroke-width: 2; }
+.kb-ub-seg { stroke: #111; stroke-width: .4; }
+.kb-ub-seg.is-resident { fill: var(--kb-lav); }
+.kb-ub-seg.is-copy { fill: #4e6440; }
+.kb-ub-seg.is-crosses { fill: var(--kb-red); }
+.kb-ub-seg.is-reserved { fill: var(--kb-red-soft); }
+.kb-buf { cursor: pointer; }
+.kb-buf:hover .kb-ub-seg { stroke: var(--kb-fg); stroke-width: 1; }
+.kb-buf.is-hot .kb-ub-seg { fill: var(--kb-lime); stroke: var(--kb-fg); stroke-width: 1; }
+.kb-buf.is-hot .kb-ub-seg.is-crosses,
+.kb-buf.is-hot .kb-ub-seg.is-reserved { fill: var(--kb-red); }
+.kb-ub-limit { stroke-width: 1; stroke-dasharray: 4 3; }
+.kb-ub-limit.is-nominal { stroke: var(--kb-fg-dim); }
+.kb-ub-limit.is-usable { stroke: var(--kb-red); }
+.kb-t-tick { font-family: var(--kb-mono); font-size: 8.5px; fill: var(--kb-fg-dim); }
+.kb-t-tick.is-usable { fill: var(--kb-red-soft); }
+.kb-t-hw { font-family: var(--kb-mono); font-size: 9.5px; fill: var(--kb-fg); }
+.kb-t-hw.is-bad { fill: var(--kb-red-soft); }
+
+/* 聚焦时把没点亮的压暗，让三区的对应关系自己浮出来 */
+.kb-app.is-focusing .kb-region:not(.is-hot) .kb-t-mem,
+.kb-app.is-focusing .kb-hit:not(.is-hot) .kb-t-node { opacity: .45; }
+.kb-app.is-focusing .kb-edge:not(.is-hot) { opacity: .4; }
+
+/* ── 说明条 ───────────────────────────────────────────────────────────────── */
+.kb-caption {
+  min-height: 30px;
+  padding: 7px 12px;
+  background: var(--kb-raise);
+  border: 1px solid var(--kb-line-soft);
+  border-radius: 3px;
+  font-family: var(--kb-mono);
+  font-size: 11px;
+  color: var(--kb-fg-mid);
+}
+.kb-caption b { color: var(--kb-lime); font-weight: 500; }
+.kb-caption i { margin: 0 8px; font-style: normal; color: var(--kb-line); }
+
+/* ── 参数 + 判定 ──────────────────────────────────────────────────────────── */
+.kb-dock {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.kb-dock-col {
+  padding: 10px 12px 12px;
+  background: var(--kb-panel);
+  border: 1px solid var(--kb-line);
+  border-radius: 3px;
+}
+.kb-dock-label {
+  display: block;
+  margin-bottom: 9px;
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--kb-fg-mid);
+  text-transform: uppercase;
+}
+.kb-dock-label small {
+  margin-left: 8px;
+  letter-spacing: .06em;
+  text-transform: none;
+  color: var(--kb-fg-dim);
+}
+
+.kb-knobs { display: flex; flex-direction: column; gap: 7px; }
+.kb-knob { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kb-knob span { font-family: var(--kb-mono); font-size: 10.5px; color: var(--kb-fg-mid); }
+.kb-knob select {
+  width: 86px;
+  padding: 3px 6px;
+  font-family: var(--kb-mono);
+  font-size: 11px;
+  color: var(--kb-fg);
+  background: var(--kb-high);
+  border: 1px solid var(--kb-line);
+  border-radius: 2px;
+}
+.kb-knob select:focus-visible { outline: 1px solid var(--kb-lime); outline-offset: 1px; }
+
+.kb-verdicts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+}
+.kb-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  text-align: left;
+  background: var(--kb-raise);
+  border: 1px solid var(--kb-line);
+  border-left: 2px solid #4e6440;
+  border-radius: 2px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.kb-verdict:hover { background: var(--kb-high); }
+.kb-verdict.is-tight { border-left-color: var(--kb-amber); }
+.kb-verdict.is-silent, .kb-verdict.is-over { border-left-color: var(--kb-red); }
+.kb-v-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.kb-v-head b {
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  font-weight: 500;
+  color: var(--kb-fg);
+}
+.kb-v-head em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--kb-fg-dim);
+}
+.kb-verdict.is-tight .kb-v-head em { color: var(--kb-amber); }
+.kb-verdict.is-silent .kb-v-head em,
+.kb-verdict.is-over .kb-v-head em { color: var(--kb-red-soft); }
+.kb-v-num { font-family: var(--kb-mono); font-size: 12px; color: var(--kb-fg); }
+.kb-v-detail { font-size: 11px; line-height: 1.55; color: var(--kb-fg-mid); }
+.kb-empty { margin: 0; font-size: 11px; color: var(--kb-fg-dim); }
+
+/* ── 状态栏 ───────────────────────────────────────────────────────────────── */
+.kb-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 9px;
+  border-top: 1px solid var(--kb-line);
+  font-family: var(--kb-mono);
+  font-size: 10px;
+  color: var(--kb-fg-dim);
+}
+.kb-st {
+  padding: 2px 8px;
+  border: 1px solid var(--kb-line);
+  border-radius: 2px;
+  letter-spacing: .08em;
+  color: var(--kb-fg-mid);
+}
+.kb-st.is-ok { border-color: #3f4f33; color: #8fae72; }
+.kb-st.is-tight { border-color: #5a4a26; color: var(--kb-amber); }
+.kb-st.is-silent, .kb-st.is-over { border-color: #5e2a24; color: var(--kb-red-soft); }
+.kb-st.is-diag { border-color: #5a4a26; color: var(--kb-amber); }
+.kb-st-dim, .kb-diag { color: var(--kb-fg-dim); }
+
+@media (max-width: 1180px) {
+  .kb-main { grid-template-columns: 1fr; }
+  .kb-dock { grid-template-columns: 1fr; }
+}
+/* 与 Hardware-Native 主线共享工作台的尺寸、层级和交互语言。 */
+.kb-app {
+  --kb-fg-mid: #ababab; --kb-fg-dim: #707070; --kb-red: #ff6b5b;
+  --kb-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, "PingFang SC", "Microsoft YaHei", monospace;
+  display: grid; grid-template-rows: 44px 1fr 28px; gap: 0;
+  height: 100vh; min-height: 680px; padding: 0;
+  font: 13px/1.55 "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color-scheme: dark;
+}
+.kb-app * { scrollbar-width: thin; scrollbar-color: #454545 transparent; }
+.kb-top { min-width: 0; gap: 12px; padding: 0 14px; background: #171717; border-bottom: 1px solid #252525; }
+.kb-brand { font: 600 11px/1 var(--kb-mono); letter-spacing: .14em; color: #e8e8e8; white-space: nowrap; }
+.kb-mode { font: 600 11px/1 var(--kb-mono); letter-spacing: .12em; padding: 4px 7px; background: #e0e0e0; color: #111; border-radius: 3px; }
+.kb-crumb { font: 12px var(--kb-mono); color: #ababab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kb-target { padding: 0; border: 0; font: 11px var(--kb-mono); letter-spacing: 0; white-space: nowrap; }
+.kb-target::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #b1ef6b; }
+.kb-switch { gap: 4px; }
+.kb-switch button, .kb-toggle { height: 26px; padding: 0 10px; border: 1px solid #353535; border-radius: 4px; background: transparent; color: #ababab; font: 11px var(--kb-mono); cursor: pointer; white-space: nowrap; }
+.kb-switch button:hover, .kb-toggle:hover, .kb-toggle:focus-visible { background: #202020; color: #e8e8e8; border-color: #494949; }
+.kb-main { grid-template-columns: clamp(340px, 36.5%, max(340px, calc(100% - 560px))) minmax(560px, 1fr); gap: 0; }
+.kb-main:has(.kb-dock:not([hidden])) { grid-template-columns: clamp(340px, 36.5%, max(340px, calc(100% - 920px))) minmax(560px, 1fr) minmax(320px, 360px); }
+.kb-pane { border: 0; border-radius: 0; background: #171717; }
+.kb-src { border-right: 1px solid #252525; }
+.kb-pane-head { flex: none; justify-content: flex-start; align-items: baseline; gap: 10px; padding: 9px 14px; border-bottom: 1px solid #252525; min-width: 0; }
+.kb-pane-head span { color: #e8e8e8; font: 600 11px/1.4 var(--kb-mono); letter-spacing: .14em; }
+.kb-pane-head small { color: #707070; font: 11px var(--kb-mono); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kb-src .kb-pane-body { background: #131313; padding: 8px 0 24px; }
+.kb-line { min-width: max-content; gap: 0; padding: 0 18px 0 0; font: 12px/1.75 var(--kb-mono); border-left: 2px solid transparent; }
+.kb-line .kb-no { flex-basis: 56px; padding-right: 14px; color: #555; }
+.kb-line.is-live .kb-no { color: #555; }
+.kb-line:hover, .kb-line.is-hot { background: #1d1d1d; }
+.kb-line.is-hot { border-left-color: #e8e8e8; }
+.kb-line.is-hot .kb-no { color: #e8e8e8; }
+.kb-src .t-com { color: #5f5f5f; } .kb-src .t-str { color: #b1ef6b; }
+.kb-src .t-num { color: #f78c6c; } .kb-src .t-kw { color: #c792ea; }
+.kb-src .t-fn { color: #82aaff; } .kb-src .t-attr { color: #b8b8b8; }
+.kb-src .t-kwarg { color: #89ddff; } .kb-src .t-const { color: #f2c45f; }
+.kb-src .t-id, .kb-src .t-type { color: #cfcfcf; }
+.kb-mid { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #131313; }
+.kb-logic { flex: 0 0 40%; min-height: 140px; }
+.kb-chip { flex: 1; min-height: 0; }
+.kb-chip .kb-pane-head { background: #151515; border-bottom-color: #1d1d1d; }
+.kb-svg { flex: 1; min-height: 0; align-items: center; justify-content: center; padding: 8px 12px 6px; overflow: hidden; background: #131313 radial-gradient(#1e1e1e 1px, transparent 1.2px) 8px 8px / 16px 16px; }
+.kb-svg svg { display: block; width: 100%; height: 100%; max-height: none; }
+.kb-splitter { position: relative; flex: 0 0 8px; background: #171717; }
+.kb-splitter::before { content: ''; position: absolute; left: 0; right: 0; top: 3px; border-top: 1px solid #353535; }
+.kb-splitter::after { content: ''; position: absolute; width: 36px; height: 3px; top: 2px; left: calc(50% - 18px); border-radius: 2px; background: #666; }
+.kb-node { fill: #1f1f1f; stroke: #3d3d3d; rx: 3; }
+.kb-phase { fill: #171717; stroke: #2e2e2e; rx: 4; }
+.kb-edge { stroke: #5a5a5a; stroke-width: 1.2; } .kb-arrow { fill: #5a5a5a; }
+.kb-t-phase { fill: #858585; } .kb-t-node { fill: #e8e8e8; }
+.kb-hit.is-hot .kb-node { fill: #262626; stroke: #e8e8e8; stroke-width: 1.5; }
+.kb-hit.is-hot .kb-t-node { fill: #e8e8e8; font-weight: normal; }
+.kb-hit.is-hot .kb-frame { stroke: #e8e8e8; } .kb-hit.is-hot .kb-t-frame { fill: #e8e8e8; }
+.kb-edge.is-hot { stroke: #e8e8e8; }
+.kb-chip-mem { fill: #1d1d1d; stroke: #424242; rx: 3; }
+.kb-chip-unit, .kb-chip-chan { fill: #151515; stroke: #333; rx: 4; }
+.kb-region.is-hot .kb-chip-mem, .kb-region.is-hot .kb-chip-unit, .kb-region.is-hot .kb-chip-chan { stroke: #e8e8e8; fill: #262626; }
+.kb-region.is-hot .kb-t-mem { fill: #e8e8e8; }
+.kb-caption { flex: 0 0 44px; height: 44px; min-height: 0; overflow-y: auto; padding: 3px 14px; border: 0; border-top: 1px solid #252525; border-radius: 0; background: #171717; font: 12px/1.55 "Inter", "Microsoft YaHei", sans-serif; }
+.kb-caption b { color: #e8e8e8; }
+.kb-dock[hidden] { display: none; }
+.kb-dock { display: block; overflow: auto; border-left: 1px solid #252525; background: #171717; }
+.kb-dock-col { padding: 14px 18px; border: 0; border-bottom: 1px solid #252525; border-radius: 0; background: transparent; }
+.kb-verdicts { grid-template-columns: 1fr; }
+.kb-status { justify-content: space-between; min-width: 0; padding: 0 14px; border-top: 1px solid #252525; font: 11px var(--kb-mono); }
+.kb-status > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb-status > span:last-child { white-space: nowrap; }
+.kb-st { padding: 0; border: 0; margin-right: 12px; }
+@media (max-width: 1280px) {
+  .kb-app { height: auto; min-height: 100vh; grid-template-rows: 44px auto 28px; }
+  .kb-main, .kb-main:has(.kb-dock:not([hidden])) { grid-template-columns: clamp(280px, 43.48%, calc(100% - 360px)) minmax(360px, 1fr); }
+  .kb-src { max-height: 900px; } .kb-mid { height: 800px; }
+  .kb-dock { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #252525; }
+}
+@media (max-width: 860px) {
+  .kb-app { grid-template-rows: auto auto auto; }
+  .kb-top { flex-wrap: wrap; padding: 8px 16px; }
+  .kb-crumb, .kb-target { display: none; }
+  .kb-main, .kb-main:has(.kb-dock:not([hidden])) { display: flex; flex-direction: column; }
+  .kb-src { border-right: 0; border-bottom: 1px solid #252525; }
+  .kb-src .kb-pane-body { max-height: 420px; } .kb-mid { height: 720px; }
+  .kb-svg { padding: 8px 4px; } .kb-status { padding: 6px 16px; flex-wrap: wrap; }
+}
+.kb-splitter { cursor: row-resize; touch-action: none; }
+.kb-splitter:hover, .kb-splitter:focus-visible { background: #252525; outline: none; }
+.kb-splitter:hover::after, .kb-splitter:focus-visible::after { background: #aaa; }
+.kb-main { grid-template-columns: clamp(340px, var(--kb-code-width, 36.5%), max(340px, calc(100% - 560px))) minmax(560px, 1fr); }
+.kb-main:has(.kb-dock:not([hidden])) { grid-template-columns: clamp(340px, var(--kb-code-width, 36.5%), max(340px, calc(100% - 920px))) minmax(560px, 1fr) minmax(320px, 360px); }
+.kb-src { position: relative; }
+.kb-code-resize { position: absolute; z-index: 5; top: 0; right: -5px; bottom: 0; width: 10px; cursor: col-resize; touch-action: none; }
+.kb-code-resize:hover, .kb-code-resize:focus-visible { background: rgba(118, 158, 255, .3); outline: none; }
+@media (max-width: 1280px) {
+  .kb-main, .kb-main:has(.kb-dock:not([hidden])) { grid-template-columns: clamp(280px, var(--kb-code-width, 43.48%), calc(100% - 360px)) minmax(360px, 1fr); }
+}
+@media (max-width: 860px) { .kb-code-resize { display: none; } }
+.kb-svg svg text { font-family: var(--kb-mono); pointer-events: none; text-rendering: geometricPrecision; }
+.kb-chip-title { fill: #ababab; font-size: 10px; letter-spacing: .12em; font-weight: 600; }
+.kb-chip-strong { fill: #e8e8e8; font-size: 10px; }
+.kb-chip-good { fill: #b1ef6b; font-size: 9.5px; }
+.kb-chip-hit { fill: transparent; stroke: transparent; }
+.kb-chip-zoom { stroke: #555; stroke-width: 1; fill: none; pointer-events: none; }
+.kb-chip-arrow { stroke: #555; stroke-width: 1.2; fill: none; marker-end: url(#kbChipArrow); pointer-events: none; }
+.kb-region.is-hot .kb-chip-arrow { stroke: #e8e8e8; }
+.kb-core { fill: #1d1d1d; stroke: #4a4a4a; rx: 2px; }
+.kb-core.is-zoom { stroke: #e8e8e8; fill: #2c2c2c; }
+.kb-core.is-bad { stroke: #ff6b5b; fill: #2a1716; }
+.kb-core.is-bad.is-zoom { fill: #5a2420; }
+.kb-chip-mem.is-dim { fill: #171717; stroke: #2c2c2c; stroke-dasharray: 2 2; opacity: 1; }
+.kb-ub-seg.is-resident { fill: #4a4a4a; }
+.kb-ub-seg.is-copy { fill: #3b6f80; }
+.kb-buf.is-hot .kb-ub-seg { fill: #79d4f2; }
+.kb-ub-reserved, .kb-ub-over, .kb-ub-limit { pointer-events: none; }
+.kb-ub-over { fill: #ff6b5b; opacity: .85; }
+.kb-ub-limit.is-nominal { stroke: #8a8a8a; stroke-dasharray: none; }
+.kb-chip-water { stroke: #e8e8e8; stroke-width: 1.5; pointer-events: none; }
+.kb-chip-water.is-bad { stroke: #ff6b5b; }
+.kb-app.is-focusing .kb-region:not(.is-hot) { opacity: .55; }
+.kb-app.is-focusing .kb-line:not(.is-hot) code { opacity: .5; }
+.kb-region, .kb-hit, .kb-line code { transition: opacity .15s; }
+.kb-hit:focus-visible, .kb-region:focus-visible, .kb-buf:focus-visible, .kb-line:focus-visible { outline: none; }
+.kb-hit:focus-visible .kb-node, .kb-region:focus-visible .kb-chip-mem, .kb-buf:focus-visible .kb-ub-seg { stroke: #e8e8e8; stroke-width: 1.5; }

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware-Native Kit · 三区联动工作台</title>
+<link rel="stylesheet" href="styles/kit.css?v=20261101-3">
+<style>
+  html, body { margin: 0; background: #111; }
+  body { min-height: 100vh; }
+  #kit { min-height: 100vh; }
+</style>
+</head>
+<body>
+
+<div id="kit"></div>
+
+<script src="kit/platform.js?v=20261101-3"></script>
+<script src="kit/core.js?v=20261101-3"></script>
+<script src="kit/view.js?v=20261101-3"></script>
+<script src="kit/kit.js?v=20261101-3"></script>
+<script src="kernels/fa_fused.js?v=20261101-3"></script>
+<script src="kernels/matmul_64.js?v=20261101-3"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.HNKitKernels;
+  var list = [K.fa_fused, K.matmul_64];
+
+  // manifest 体检：锚点对不上源码、形状引用了未定义常量，都在这里先暴露。
+  // 这是 kit 的「源码变了会被发现」那条保证，页面上也会在状态栏显示。
+  list.forEach(function (k) {
+    var r = window.HNKit.check(k);
+    if (!r.ok) console.warn('[HNKit] ' + r.kernel + ' manifest 校验:', r.diagnostics);
+  });
+
+  window.HNKit.mount(document.getElementById('kit'), { kernels: list });
+})();
+</script>
+
+</body>
+</html>
