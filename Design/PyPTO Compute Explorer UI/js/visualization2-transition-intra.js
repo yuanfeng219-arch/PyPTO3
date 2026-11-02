@@ -55,7 +55,7 @@
       if(!host||!viewport)return null;
       const objects=new Map(),add=(id,element,paint=element)=>{
         if(!element)return;
-        const box=rect(precise?paint:element),style=getComputedStyle(paint),vector=paint instanceof SVGElement,item={id,element,box,
+        const box=rect(precise||tab==='pipeline'?paint:element),style=getComputedStyle(paint),vector=paint instanceof SVGElement,item={id,element,box,
           fill:vector?(style.fill&&style.fill!=='none'?style.fill:'transparent'):style.backgroundColor,
           stroke:vector?(style.stroke&&style.stroke!=='none'?style.stroke:'transparent'):style.borderColor,
           radius:(parseFloat(style.rx)||parseFloat(style.borderRadius)||5)*(vector?(paint.getScreenCTM()?.a||1):(element.offsetWidth?box.width/element.offsetWidth:1))};
@@ -65,6 +65,7 @@
         // CSS borders paint inside the box; SVG strokes are centered.
         if(!vector){const inset=item.strokeWidth/2;item.box={x:box.x+inset,y:box.y+inset,width:box.width-2*inset,height:box.height-2*inset};item.radius=Math.max(0,item.radius-inset);}
         }
+        if(element instanceof SVGElement){item.contentBounds=element.getBBox();item.content=element.cloneNode(true);}
         objects.set(id,item);
       };
       if(tab==='assignment'){
@@ -76,7 +77,7 @@
       }else if(tab==='pipeline'){
         const current=host.querySelector(`[data-intra-task="${task}"]`);
         if(!current)return null;
-        for(const element of current.querySelectorAll('[data-intra-kind="stage"]'))add(`stage:${element.dataset.intraIndex}:${element.dataset.intraStage}`,element,element.querySelector('rect')||element);
+        for(const element of current.querySelectorAll('[data-intra-kind="stage"]'))add(`stage:${element.dataset.intraIndex}:${element.dataset.intraStage}`,element,element.querySelector('.ai-operation-glyph [data-kind="op"]>rect')||element.querySelector('rect')||element);
         const output=current.querySelector('[data-intra-kind="output"]'),cards=output?.querySelectorAll('.viz2-intra-output');
         if(cards?.[0])add('normalize',cards[0]);if(cards?.[1])add('output',cards[1]);
       }else{
@@ -101,7 +102,8 @@
       };
       const direction=`${source.tab}>${target.tab}`,s=stackOf(focus,task),selected=Number.isInteger(s)?s:0;
       if(direction==='assignment>pipeline'||direction==='pipeline>assignment'){
-        task.stacks.forEach(stack=>Object.keys(stageNode).forEach((stage,index)=>{
+        // One Stack has one continuous proxy; downstream operations reveal in place.
+        task.stacks.forEach(stack=>['qk'].forEach((stage,index)=>{
           const a=`stack:${stack.index}`,b=`stage:${stack.index}:${stage}`;
           if(source.tab==='assignment')add(a,b,'stack-stage',`S${stack.index} · ${stage}`,index*38+stack.index*8);
           else add(b,a,'stage-stack',`S${stack.index}`,index*38+stack.index*8);
@@ -261,10 +263,15 @@
       const items=mapping.map(pair=>{
         const group=svg('g',{'data-intra-morph':`${pair.source.id}>${pair.target.id}`},overlay);
         const box=svg('rect',{rx:pair.source.radius,fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none','stroke-width':1.5},group);
+        let sourceContent=null;
+        if(pair.source.content){
+          const bounds=pair.source.contentBounds;
+          if(bounds.width&&bounds.height){sourceContent=svg('svg',{viewBox:`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,preserveAspectRatio:'none','pointer-events':'none'},group);const clone=pair.source.content.cloneNode(true);clone.removeAttribute('transform');clone.removeAttribute('tabindex');sourceContent.append(clone);}
+        }
         const label=svg('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':11,'font-family':'var(--font-mono)','fill':'var(--foreground)'},group);
         label.textContent=pair.label;
         current.animations.push(box.animate([{fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none'},{fill:pair.target.fill||'transparent',stroke:pair.target.stroke||'none'}],{duration:650,fill:'both',easing:'ease-in-out'}));
-        return {...pair,box,label};
+        return {...pair,box,label,sourceContent};
       });
       current.phase='animating';const started=performance.now(),duration=900;
       function frame(now){
@@ -276,11 +283,12 @@
 
           const {width,height}=geometry,x=geometry.x-o.x,y=geometry.y-o.y;
           for(const [key,value] of Object.entries({x,y,width,height,rx:mix(item.source.radius,item.target.radius,p)}))item.box.setAttribute(key,String((key==='width'||key==='height'?Math.max(.1,value):value)));
+          if(item.sourceContent){for(const [key,value] of Object.entries({x,y,width,height}))item.sourceContent.setAttribute(key,String(value));item.sourceContent.style.opacity=String(1-p);}
           item.label.setAttribute('x',String(x+width/2));item.label.setAttribute('y',String(y+height/2));
           item.label.style.opacity=String(Math.min(1,p*4)*(1-Math.max(0,(p-.78)/.22)));
-          item.box.style.opacity=String(1-Math.max(0,(p-.88)/.12));
+          item.box.style.opacity='1';
         }
-        if(elapsed<duration)current.frame=requestAnimationFrame(frame);else cancel();
+        if(elapsed<duration)current.frame=requestAnimationFrame(frame);else finish(current);
       }
       frame(started);
     }
