@@ -6,8 +6,8 @@
  const source=id=>window.LINEAGE_DATA.sources.find(s=>s.id===id);
  const fileLink=id=>{const a=el('a','chat-file');a.href=source(id).path;a.target='_blank';a.rel='noopener';a.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6v20h12V6z M14 2v5h5 M9 12h6 M9 16h6"/></svg>';a.append(el('span','',id),el('small','',id.endsWith('.py')?'Python · 查看 ↗':'Markdown · 查看 ↗'));return a};
  const header=el('header','pto-ide-frame__pane-header chat-header');header.append(el('strong','pto-ide-frame__pane-title','PyPTO Agent'),el('span','pto-ide-frame__pane-meta chat-completed',story.workflows.every(n=>n.status==='completed')?'Completed':'历史运行'),action('收起',()=>setChatVisible(false)));chat.append(header);
- const subhead=el('div','chat-subhead');subhead.append(el('span','pto-ide-frame__pane-meta','Softmax · 历史 Run'),el('span','pto-ide-frame__pane-meta chat-related',''));chat.append(subhead);
- const messages=el('div','pto-ide-frame__pane-body chat-messages');messages.setAttribute('aria-label','Softmax 历史对话故事线');chat.append(messages);
+ const subhead=el('div','chat-subhead');subhead.append(el('span','pto-ide-frame__pane-meta','Softmax · 历史 Run'),el('span','pto-ide-frame__pane-meta chat-related',''));
+ const messages=el('div','pto-ide-frame__pane-body chat-messages');messages.setAttribute('aria-label','Softmax 历史对话故事线');chat.append(messages);messages.append(subhead);
  messages.append(el('p','chat-provenance',story.provenance));
  const user=el('article','chat-user');user.append(el('small','','示例需求 · 根据历史 SPEC 还原'),el('p','',story.userMessage));messages.append(user);
  const spec=el('article','chat-agent chat-spec');spec.append(el('div','chat-speaker','PyPTO Agent'),el('h2','','已生成 Softmax 需求规范'),el('p','','已根据需求建立算子规格，明确输入输出、动态 Shape、计算语义和验收范围。部分未指定条件采用可追溯默认值。'));
@@ -30,10 +30,11 @@
  window.addEventListener('lineage-selection-change',e=>{const projection=window.LineageDock.projection.find(s=>s.nodes.some(n=>n.nodeId===e.detail.nodeId));subhead.querySelector('.chat-related').textContent=projection?`关联 0${projection.stageId} ${projection.label}`:''});
  // Resize is owned by the shared IDE/workbench pattern. Collapse only controls visibility.
  const split=document.getElementById('decision-chat-split'),main=document.querySelector('main.pto-ide-frame__pane'),reopen=document.getElementById('chat-reopen');
- const gutter=chat.previousElementSibling,instance=window.lineageIdeFrames[0].resizeInstances[1];let savedSizes=null,visible=true;
- function setChatVisible(show){visible=show;const narrow=split.clientWidth<1000;frame.dataset.chatCollapsed=String(!show);frame.dataset.chatOverlay=String(show&&narrow);reopen.hidden=show;chat.hidden=!show;gutter.hidden=!show||narrow;
-  if(!show||narrow){if(!savedSizes)savedSizes=instance.getSizes();main.style.flex='1 1 0%';main.style.width='auto'}else{instance.setSizes(savedSizes||[67,33]);instance.refresh();savedSizes=null}
+ const gutter=chat.previousElementSibling,instance=window.lineageIdeFrames[0].resizeInstances[0];let savedSizes=null,visible=true;
+ const availableWidth=()=>split.clientWidth-(document.getElementById('run-files').hidden?0:document.getElementById('run-files').getBoundingClientRect().width);
+ function setChatVisible(show){visible=show;const narrow=availableWidth()<1000;frame.dataset.chatCollapsed=String(!show);frame.dataset.chatOverlay=String(show&&narrow);reopen.hidden=show;chat.hidden=!show;gutter.hidden=!show||narrow;
+  if(!show||narrow){if(!savedSizes)savedSizes=instance.getSizes().map((size,i)=>Math.max(size,i===0?18:1));main.style.flex='1 1 0%';main.style.width='auto'}else{instance.setSizes(savedSizes||[18,55,27]);instance.refresh();savedSizes=null}
  }
  reopen.onclick=()=>setChatVisible(true);
- let narrow=split.clientWidth<1000;setChatVisible(!narrow);new ResizeObserver(()=>{const next=split.clientWidth<1000;if(next!==narrow){narrow=next;setChatVisible(!narrow)}}).observe(split);
+ let narrow=availableWidth()<1000;setChatVisible(!narrow);new ResizeObserver(()=>{const next=availableWidth()<1000;if(next!==narrow){narrow=next;setChatVisible(!narrow)}}).observe(split);
 })();

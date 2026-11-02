@@ -1,17 +1,13 @@
 /* IDE frame owns chrome, surfaces and resizing. Product-local density uses PTO roles. */
-body > .pto-ide-frame[data-ide-frame] .pto-ide-frame__body { position: relative; flex: 1 1 0; min-height: 0; }
-#decision-chat-split { height: 100%; }
-#decision-chat-split > main.pto-ide-frame__pane { display: block; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; flex: 1 1 0%; }
-[data-ide-pane=main-row], .agent-chat { min-width: 0; }
+body > .pto-ide-frame[data-ide-frame] .pto-ide-frame__body { position: relative; }
 #run-file-list { padding: var(--space-3); }
 .chat-reopen { writing-mode: vertical-rl; flex: 0 0 32px; padding: var(--space-3) var(--space-2); height: auto; align-self: stretch; }
 
 /* Pane title/meta typography comes from the shared header classes. */
-.chat-header { flex: 0 0 auto; }
 .chat-header button { margin-left: auto; font: var(--type-label); }
 .chat-completed { font: var(--type-micro); color: var(--success); }
 .chat-header .chat-completed { font: var(--ide-frame-meta-font); }
-.chat-subhead { display: flex; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-4); color: var(--foreground-secondary); flex: 0 0 auto; }
+.chat-subhead { display: flex; justify-content: space-between; gap: var(--space-2); color: var(--foreground-secondary); }
 .chat-related { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
 .chat-messages { display: flex; flex-direction: column; gap: var(--space-4); overscroll-behavior: contain; overflow-x: hidden; padding: var(--space-3) var(--space-4); scrollbar-gutter: stable; font: var(--type-body-sm); }
 .chat-messages > * { flex: 0 0 auto; margin: 0; }
@@ -51,4 +47,4 @@ body > .pto-ide-frame[data-ide-frame] .pto-ide-frame__body { position: relative;
 .pto-ide-frame[data-chat-collapsed=true] #decision-chat-split > main { flex: 1 1 0%!important; width: auto!important; }
 /* Shared picker is also used for stage-level navigation from the historical conversation. */
 body > .dock-picker { z-index: 40; }
-@media(max-width: 700px) { .chat-messages { padding: var(--space-3); } .run-timing { margin-left: 0; } }
+@media(max-width: 700px) { .chat-messages { padding: var(--space-3); } }

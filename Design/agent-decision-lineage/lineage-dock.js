@@ -1,7 +1,7 @@
 /* Semantic compression, not a time scale. The app owns selectedNodeId. */
 (()=>{
  const view=window.LINEAGE_VIEW,data=window.LINEAGE_DATA,NS='http://www.w3.org/2000/svg';
- const pane=document.querySelector('main.pto-ide-frame__pane'),full=document.querySelector('.workspace'),scroller=document.querySelector('.graph-host'),analysis=document.getElementById('analysis');
+ const pane=document.getElementById('decision-pane-body'),full=document.querySelector('.workspace'),scroller=document.querySelector('.graph-host'),analysis=document.getElementById('analysis');
  const dock=document.createElement('nav');dock.className='lineage-dock';dock.hidden=true;dock.setAttribute('aria-label','Decision Lineage 导航');full.before(dock);
  const labels=['SPEC','EXPLORE','DESIGN','DEVELOP','OPTIMIZE','OPEN OPPORTUNITIES'];
  const stages=labels.map((label,i)=>({stageId:i+1,label,nodes:[]}));
