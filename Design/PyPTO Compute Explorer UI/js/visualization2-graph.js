@@ -38,7 +38,7 @@
     const inspector = host.querySelector('aside'), tooltip = host.querySelector('[role="tooltip"]');
     function staticExecutionData(g){
       if(adapter?.executionData)return adapter.executionData(g);
-      const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario;
+      const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario||{task:0,seqLen:execution?.seqLens?.[0]};
       return global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario);
     }
     function rebuild(){
@@ -270,7 +270,10 @@
       const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:JSON.stringify([node.id,view.instancesNode,view.instancePage])):'';
       if(ikey!==inspectorKey){const detailBody=host.querySelector('[data-viz2-graph-detail]'),previousTitle=host.querySelector('[data-viz2-graph-title]').textContent,openDetails=[...detailBody.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;detailBody.innerHTML=detail.html;if(previousTitle===detail.title)detailBody.querySelectorAll('details').forEach(el=>{if(openDetails.includes(el.querySelector('summary')?.textContent))el.open=true;});}else if(edge&&show){host.querySelector('[data-viz2-graph-title]').textContent=edge.type==='feedback'?'跨 Stack 反馈':'状态依赖';detailBody.innerHTML=global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join('');}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;detailBody.innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;detailBody.innerHTML=inspectorHtml(node);}}
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
-      host.querySelector('[data-viz2-graph-context]').hidden=true;
+      const executionContext=host.querySelector('[data-viz2-graph-context]');
+      const countScope=!adapter&&layers.execution?staticExecutionData(graph):null;
+      executionContext.hidden=!countScope;
+      if(countScope)executionContext.textContent=`Execution Weight · Task ${countScope.task} · ${countScope.seqLen} tokens · ${countScope.pages} Pages / ${countScope.stacks} Stacks`;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
       if(dataVisibilityChanged){pendingFocus=false;onView({camera:fitted()});return;}
       if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;if(!adapter||!camera){onView({camera:initialCamera()});return;}}
