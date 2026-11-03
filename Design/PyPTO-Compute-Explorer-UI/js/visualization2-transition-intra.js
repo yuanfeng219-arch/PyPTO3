@@ -49,6 +49,9 @@
     let job=null,serial=0;
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     const pane=tab=>root.querySelector(panes[tab]);
+    // Assignment's workspace includes both the scrolling KV region and fixed Q Tile.
+    const canvasSelector=tab=>tab==='assignment'?'.viz2-anatomy-workspace':tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport';
+    const canvas=host=>host.querySelector(canvasSelector(host.id==='viz2-anatomy'?'assignment':host.id==='viz2-graph-intra'?'graph':'pipeline'));
     const origin=()=>{const r=root.getBoundingClientRect();return {x:r.left+root.clientLeft,y:r.top+root.clientTop,width:root.clientWidth,height:root.clientHeight};};
     function snapshot(tab,task,precise=false){
       const host=pane(tab),viewport=host?.querySelector(tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport');
@@ -142,8 +145,6 @@
       cancelAnimationFrame(job.frame);
       job.animations?.forEach(animation=>animation.cancel());
       job.masked?.forEach(({element,previous})=>{if(previous)element.style.visibility=previous;else element.style.removeProperty('visibility');});
-      job.destination?.style.removeProperty('opacity');
-      if(job.pendingDestination)job.pendingDestination.style.opacity=job.pendingOpacity;
       job.restores?.forEach(restore=>restore());
       job.hold?.remove();job.overlay?.remove();job.pendingStyle?.remove();
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
@@ -155,14 +156,13 @@
       current.animations.forEach(animation=>animation.finish());
       current.masked.forEach(({element,previous})=>{element.style.visibility=previous;});
       current.masked=[];
-      if(current.pendingDestination)current.pendingDestination.style.opacity=current.pendingOpacity;
       // Keep the exact final outlines over a painted destination for one full frame.
       current.frame=requestAnimationFrame(()=>{if(job===current)current.frame=requestAnimationFrame(()=>{if(job===current)cancel();});});
     }
     function startGather(current,target,mapping){
       const o=origin(),overlay=svg('svg',{class:'viz2-transition-overlay',width:o.width,height:o.height,viewBox:`0 0 ${o.width} ${o.height}`,'aria-hidden':'true','data-direction':`${current.from}-${current.to}`},root);
       Object.assign(overlay.style,{overflow:'visible',visibility:'visible',opacity:'1'});
-      current.overlay=overlay;current.destination=target.host;current.restores=[];
+      current.overlay=overlay;current.destination=canvas(target.host);current.restores=[];
       const mask=element=>{
         if(current.masked.some(entry=>entry.element===element))return;
         current.masked.push({element,previous:element.style.visibility});element.style.visibility='hidden';
@@ -190,15 +190,16 @@
       // Draw at source coordinates BEFORE hiding either real or cloned outlines.
       draw(0);
       for(const item of items){
-        const clone=current.cloneMap.get(item.source.element);if(clone)clone.style.visibility='hidden';
+        const clone=current.cloneMap.get(item.source.element);if(clone)clone.style.opacity='0';
         mask(item.target.element);
         if(item.target.id==='qk-layer:0'){const label=target.host.querySelector('[data-viz2-graph-label="qk"]');if(label)mask(label);}
-        if(item.source.id==='qk-layer:0'){const label=current.source.host.querySelector('[data-viz2-graph-label="qk"]');const clone=label&&current.cloneMap.get(label);if(clone)clone.style.visibility='hidden';}
+        if(item.source.id==='qk-layer:0'){const label=current.source.host.querySelector('[data-viz2-graph-label="qk"]');const clone=label&&current.cloneMap.get(label);if(clone)clone.style.opacity='0';}
       }
       // Only non-proxy content can fade. The SVG is a sibling of both hosts.
-      current.animations=[current.hold.animate([{opacity:1},{opacity:0}],{duration:400,fill:'both'}),target.host.animate([{opacity:0},{opacity:0,offset:.55},{opacity:1,offset:.85},{opacity:1}],{duration:1100,fill:'both'})];
+      current.animations=[current.hold.animate([{opacity:1},{opacity:0}],{duration:400,fill:'both'}),current.destination.animate([{opacity:0},{opacity:0,offset:.55},{opacity:1,offset:.85},{opacity:1}],{duration:1100,fill:'both'})];
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
-      const wasInert=target.host.inert;target.host.inert=true;current.restores.push(()=>{target.host.inert=wasInert;});
+      const wasInert=current.destination.inert;current.destination.inert=true;current.restores.push(()=>{current.destination.inert=wasInert;});
+      current.pendingStyle?.remove();current.pendingStyle=null;
       current.phase='animating';const started=performance.now();
       function frame(now){
         if(job!==current)return;
@@ -207,10 +208,10 @@
       }
       current.frame=requestAnimationFrame(frame);
     }
-    // A viewport-only paint snapshot: computed values preserve ID-scoped styles
+    // A computation-only paint snapshot: computed values preserve ID-scoped styles
     // without cloning the Detail shell, controls, fixed UI, or live interactions.
     function canvasHold(source,id){
-      const viewport=source.host.querySelector(source.tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport');
+      const viewport=source.host.querySelector(canvasSelector(source.tab));
       const cloneMap=new WeakMap(),ids=new Map();
       function copy(element){
         const clone=element.cloneNode(false),style=getComputedStyle(element);
@@ -247,40 +248,25 @@
       const gathered=[from,to].includes('assignment')&&[from,to].includes('graph');
       const source=snapshot(from,task,gathered);
       if(!source)return null;
-      const canvasOnly=(from==='pipeline'&&to==='graph')||(from==='graph'&&to==='pipeline');
-      let hold,cloneMap;
-      if(canvasOnly){({hold,cloneMap}=canvasHold(source,serial+1));}
-      else {
-      const bounds=rect(source.host),o=origin();hold=source.host.cloneNode(true);
-      hold.removeAttribute('id');hold.setAttribute('aria-hidden','true');hold.inert=true;
-      Object.assign(hold.style,{position:'absolute',left:`${bounds.x-o.x}px`,top:`${bounds.y-o.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`,zIndex:11,pointerEvents:'none',margin:0});
-      const originals=source.host.querySelectorAll('canvas');hold.querySelectorAll('canvas').forEach((canvas,index)=>canvas.getContext('2d').drawImage(originals[index],0,0));
-      root.append(hold);
-      const descendants=hold.querySelectorAll('*');source.host.querySelectorAll('*').forEach((element,index)=>{if(element.scrollTop||element.scrollLeft){descendants[index].scrollTop=element.scrollTop;descendants[index].scrollLeft=element.scrollLeft;}});
-      cloneMap=new WeakMap();const bind=(a,b)=>{cloneMap.set(a,b);for(let i=0;i<a.children.length;i++)bind(a.children[i],b.children[i]);};bind(source.host,hold);
-      }
-      const current={id:++serial,from,to,task,source,gathered,canvasOnly,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
-      if(canvasOnly){
-        const pendingStyle=document.createElement('style');
-        pendingStyle.textContent=`#visualization2 ${panes[to]} ${to==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport'}{visibility:hidden}`;
-        root.append(pendingStyle);current.pendingStyle=pendingStyle;
-      }
-      if(gathered){current.pendingDestination=pane(to);current.pendingOpacity=current.pendingDestination.style.opacity;current.pendingDestination.style.opacity='0';}
-      job=current;if(!canvasOnly){root.classList.add('viz2-morph-preparing');root.dataset.morphDestination=to;}
+      const {hold,cloneMap}=canvasHold(source,serial+1);
+      const current={id:++serial,from,to,task,source,gathered,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
+      const pendingStyle=document.createElement('style');
+      pendingStyle.textContent=`#visualization2 ${panes[to]} ${canvasSelector(to)}{visibility:hidden}`;
+      root.append(pendingStyle);current.pendingStyle=pendingStyle;
+      job=current;
       return current;
     }
     function play(current){
       if(!current||current!==job)return;
       // Finish the existing chrome setup synchronously, before the first paint.
-      if(current.canvasOnly){global.PtoExplorerDropdowns?.flush();global.PtoAIInfraWorkspace?.flush();}
-      const gatherPair=[current.from,current.to].includes('assignment')&&[current.from,current.to].includes('graph');
+      global.PtoExplorerDropdowns?.flush();global.PtoAIInfraWorkspace?.flush();
       let last='',stable=0,attempts=0;
       function ready(){
         if(job!==current)return;
         const target=snapshot(current.to,current.task,current.gathered);
         const signature=target?JSON.stringify([...target.objects].map(([id,item])=>[id,item.box])):'';
         stable=signature&&signature===last?stable+1:0;last=signature;
-        if((!gatherPair&&!current.canvasOnly)||stable>=2){start(current);return;}
+        if(stable>=2){start(current);return;}
         if(++attempts>=30){cancel();return;}
         current.frame=requestAnimationFrame(ready);
       }
@@ -298,9 +284,12 @@
       if(mapping[0]?.kind==='gather'){startGather(current,target,mapping);return;}
       const o=origin(),overlay=svg('svg',{class:'viz2-transition-overlay',width:o.width,height:o.height,'aria-hidden':'true','data-direction':`${current.from}-${current.to}`},root);
       overlay.style.overflow='visible';
-      current.overlay=overlay;current.destination=current.canvasOnly?target.host.querySelector(current.to==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport'):target.host;
+      current.overlay=overlay;current.destination=canvas(target.host);
+      // Preserve the measured SVG paint before hiding its frozen snapshot copy.
+      for(const pair of mapping)if(pair.source.content)pair.paintContent=current.cloneMap.get(pair.source.element)?.cloneNode(true);
+      // Opacity hides the whole frozen subtree, including descendants with explicit visibility.
       // A cloned source holds unmatched content; matched elements are owned by the overlay.
-      for(const pair of mapping)for(const element of pair.source.elements||[pair.source.element])current.cloneMap.get(element)?.style.setProperty('visibility','hidden');
+      for(const pair of mapping)for(const element of pair.source.elements||[pair.source.element])current.cloneMap.get(element)?.style.setProperty('opacity','0');
       for(const pair of mapping)for(const element of pair.target.elements||[pair.target.element]){if(current.masked.some(item=>item.element===element))continue;current.masked.push({element,previous:element.style.visibility});element.style.setProperty('visibility','hidden');}
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
       const destination=current.destination;
@@ -311,7 +300,7 @@
         let sourceContent=null;
         if(pair.source.content){
           const bounds=pair.source.contentBounds;
-          if(bounds.width&&bounds.height){sourceContent=svg('svg',{viewBox:`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,preserveAspectRatio:'none','pointer-events':'none'},group);const clone=pair.source.content.cloneNode(true);clone.removeAttribute('transform');clone.removeAttribute('tabindex');sourceContent.append(clone);}
+          if(bounds.width&&bounds.height){sourceContent=svg('svg',{viewBox:`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,preserveAspectRatio:'none','pointer-events':'none'},group);const clone=(pair.paintContent||pair.source.content).cloneNode(true);clone.removeAttribute('transform');clone.style.removeProperty('transform');clone.removeAttribute('tabindex');sourceContent.append(clone);}
         }
         const label=svg('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':11,'font-family':'var(--font-mono)','fill':'var(--foreground)'},group);
         label.textContent=pair.label;
