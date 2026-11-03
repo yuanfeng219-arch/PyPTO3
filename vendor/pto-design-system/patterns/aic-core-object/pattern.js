@@ -3,6 +3,7 @@
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const ROUTE_COLORS = {
+    neutral: '#666666',
     memory: '#4d97ff',
     compute: '#29c7a6',
     cache: '#a4b0bd',
@@ -218,6 +219,14 @@
   }
 
   function buildBuffer(bufferConfig) {
+    if (typeof bufferConfig.surfaceRenderer === 'function') {
+      const surface = node('section', 'pto-aic-core__buffer-surface');
+      surface.dataset.bufferKey = bufferConfig.key || bufferConfig.label || '';
+      surface.dataset.aicNode = `buffer:${bufferConfig.key || bufferConfig.label || ''}`;
+      surface.innerHTML = bufferConfig.surfaceRenderer(bufferConfig);
+      applyFrameStyle(surface, bufferConfig.frame);
+      return surface;
+    }
     const card = node('section', 'pto-aic-core__buffer');
     card.dataset.bufferKey = bufferConfig.key || bufferConfig.label || '';
     card.dataset.aicNode = `buffer:${bufferConfig.key || bufferConfig.label || ''}`;
@@ -264,6 +273,13 @@
   }
 
   function buildCube(cubeConfig) {
+    if (typeof cubeConfig.surfaceRenderer === 'function') {
+      const el = node('section', 'pto-aic-core__op-surface');
+      el.dataset.aicNode = `cube:${cubeConfig.label || 'CUBE'}`;
+      applyFrameStyle(el, cubeConfig.frame);
+      el.innerHTML = cubeConfig.surfaceRenderer(cubeConfig);
+      return el;
+    }
     const cube = node('section', 'pto-aic-core__cube');
     cube.dataset.aicNode = `cube:${cubeConfig.label || 'CUBE'}`;
     applyFrameStyle(cube, cubeConfig.frame);
@@ -521,6 +537,7 @@
     container.innerHTML = '';
     const stage = node('section', `pto-aic-core ${preset.stageClassName || ''}`.trim());
     stage.dataset.ptoAicCore = preset.id;
+    applyFrameStyle(stage, preset.frame);
 
     stage.appendChild(node('h2', 'pto-aic-core__title', preset.title || 'AIC'));
     stage.appendChild(buildColumn(preset.layout));
