@@ -4,10 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hardware-Native 主线</title>
-  <link rel="stylesheet" href="./styles/path.css?v=20261103-compact28" />
-  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/aic-core-object/pattern.css" />
-  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.css" />
-  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/memory-architecture/pattern.css" />
+  <link rel="stylesheet" href="./styles/path.css?v=20261101-7" />
 </head>
 <body>
   <div class="hp-app">
@@ -29,35 +26,35 @@
       <section class="hp-pane hp-code" id="hpCodePane" aria-label="算子代码">
         <header class="hp-pane-head">
           <span class="hp-pane-title">源码</span>
-          <details class="pane-info"><summary aria-label="源码说明">ⓘ</summary><div class="pane-info-body">decode_layer.py · 728–798 · 40 行代码</div></details>
+          <span class="hp-pane-meta">decode_layer.py · 728–798 · 40 行代码</span>
         </header>
         <div class="hp-code-body" id="hpCode"></div>
         <div class="hp-resize" id="hpCodeResize" role="separator" tabindex="0" aria-label="调整源码区宽度" aria-orientation="vertical" aria-controls="hpCodePane" title="拖动或使用左右方向键调整源码区宽度"></div>
       </section>
 
-      <section class="hp-pane hp-mid" aria-label="算子逻辑与硬件映射">
+      <section class="hp-pane hp-mid" aria-label="算子逻辑与硅片落点">
         <div class="hp-logic" id="hpLogicPane">
           <header class="hp-pane-head">
             <span class="hp-pane-title">算子逻辑</span>
-            <details class="pane-info"><summary aria-label="算子逻辑说明">ⓘ</summary><div class="pane-info-body" id="hpLogicMeta">fa_fused · 循环嵌套与计算链</div></details>
+            <span class="hp-pane-meta" id="hpLogicMeta">fa_fused · 循环嵌套与计算链</span>
           </header>
           <div class="hp-logic-svg" id="hpLogic"></div>
         </div>
-        <div class="hp-splitter" id="hpVerticalResize" role="separator" tabindex="0" aria-label="调整算子逻辑与硬件映射高度" aria-orientation="horizontal" aria-controls="hpLogicPane" title="拖动或使用上下方向键调整高度"></div>
+        <div class="hp-splitter" id="hpVerticalResize" role="separator" tabindex="0" aria-label="调整算子逻辑与硅片落点高度" aria-orientation="horizontal" aria-controls="hpLogicPane" title="拖动或使用上下方向键调整高度"></div>
         <div class="hp-chip">
           <header class="hp-pane-head">
-            <span class="hp-pane-title">硬件映射</span>
-            <details class="pane-info"><summary aria-label="硬件映射说明">ⓘ</summary><div class="pane-info-body"><p id="hpChipMeta">示意 · 不按比例 · Vec 地址条按比例</p><div id="hpCaption" aria-live="polite"></div></div></details>
+            <span class="hp-pane-title">硅片落点</span>
+            <span class="hp-pane-meta" id="hpChipMeta">示意 · 不按比例 · Vec 地址条按比例</span>
           </header>
-          <div class="hp-diagnostic" id="hpDiagnostic" aria-live="polite"></div>
           <div class="hp-svg" id="hpSvg"></div>
         </div>
+        <div class="hp-caption" id="hpCaption" aria-live="polite"></div>
       </section>
 
       <aside class="hp-pane hp-story" id="hpStoryPane" aria-label="主线" hidden>
         <header class="hp-pane-head">
-          <span class="hp-pane-title">诊断主线</span>
-          <span class="hp-pane-meta">Pipeline · stage 2 → 4</span>
+          <span class="hp-pane-title">主线</span>
+          <span class="hp-pane-meta">stage 2 → 4 会发生什么</span>
         </header>
         <div class="hp-story-body" id="hpStory"></div>
       </aside>
@@ -69,13 +66,6 @@
     </footer>
   </div>
 
-  <script src="../../vendor/pto-design-system/patterns/aic-core-object/pattern.js?v=20261103-compact28"></script>
-  <script src="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.js?v=20261103-compact28"></script>
-  <script src="../../vendor/pto-design-system/patterns/memory-architecture/pattern.js?v=20261103-compact28"></script>
-  <script src="./js/path-visual-system.js?v=20261103-compact28"></script>
-  <script src="./js/path-op-icons.js?v=20261103-fix29"></script>
-  <script src="./js/path-grid-glyphs.js?v=20261103-compact28"></script>
-  <script src="./js/path-memory-pattern.js?v=20261103-compact28"></script>
-  <script src="./js/path.js?v=20261103-compact28"></script>
+  <script src="./js/path.js?v=20261101-4"></script>
 </body>
 </html>
