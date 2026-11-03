@@ -186,7 +186,6 @@
     play.addEventListener('click', player.toggle);
     host.querySelector('[data-am-replay]').addEventListener('click', player.replay);
     host.querySelectorAll('[data-am-state]').forEach(button => button.addEventListener('click', () => manual(button.dataset.amState === 'assignment' ? 1 : 0)));
-    viewport.addEventListener('pointerover', event => { if (event.target.closest('[data-pa-task],[data-pa-block],[data-am-block-hit]')) pause(); });
     let zoom = 1, panX = 0, panY = 0, drag = null, suppressClick = false;
     const camera = () => { host.dataset.aiDetail=String(zoom>=2.25); scene.setAttribute('transform', `translate(${panX} ${panY}) translate(625 300) scale(${zoom}) translate(-625 -300)`); host.querySelector('[data-am-scale]').textContent = `${Math.round(zoom * 100)}%`; };
     function fit() { zoom = 1; panX = panY = 0; camera(); }
