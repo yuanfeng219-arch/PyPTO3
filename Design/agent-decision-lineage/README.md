@@ -236,3 +236,61 @@ Hover / Focus 共用唯一的顶层 Tooltip（完整领域名称 + 简短状态�
 快速检查：1280×900，UB 详情打开后图谱自然高度 530px、主文档 scrollHeight 1501px；折叠、中途、回到顶部均保持这两个高度。折叠滚动位置 422px，Analysis 顶部与 Mini 底部一致；main.scrollTop=0，只有 Pane Body 滚动。向下阅读、手动上滚、无点击情况下由滚动恢复 / 折叠、Mini 直接切换、返回保留详情、显式关闭、Reduced Motion 均通过，未发现 pageerror。未全面重跑其他业务测试。
 
 截图：[初始](previews/scroll-lineage/overview.png)、[吸顶详情](previews/scroll-lineage/inspect.png)、[滚动中途](previews/scroll-lineage/mid-scroll.png)、[回到完整图谱且保留详情](previews/scroll-lineage/restored-with-detail.png)。记录：[checks.json](previews/scroll-lineage/checks.json)。修改仅涉及 lineage-dock.js / lineage-dock.css / app.js 与说明，原图数据、节点关系、Inspector 内容和 IDE Shell 未变。未 commit、push 或部署。
+
+## UB Memory Planning Explorer（2026-11-03）
+
+Memory · 192 KB 已从独立的 Map / Selected Slot / Rotation / Pipeline 模块合并为同一个规划探索区：静态容量 Summary → Shape / Tile / Iteration 控件 → 等比例 UB Map → 槽上下文与相关数据流 → 默认折叠 Evidence。
+
+容量比例为 48:48:48:48:56（248 KiB 单 Vector Core 地址空间）；77.4% 明确标记为静态分配率。蓝色输入、绿色输出，Active 为较强填充 + PING/PONG 状态文字，Inactive 保留低权重，Selected 单独用白色轮廓。Iteration 只更新节点 class、文字和数据流，不重建 Map，过渡不改变槽位位置 / 宽度。Hover 用轻量原生 Tooltip 显示槽名、半开地址范围和大小；单击选择槽位，Free 可查看未分配属性，不伪造 Mutex。
+
+复用 SoftmaxTileModel 的 Shape / Tile 状态。切换 Shape / Tile 更新 Input、行范围、Valid 与 Allocated；不改变 Iteration 或 Selected Slot。独立的逻辑 Iteration 不代表所选 Tile 实际使用该 Buffer Pair。数据流 GM → Active Input → VF → Active Output → GM 支持 Hover / Focus / 点击关联强调，但不隐式更改槽选择，也不表达 Timeline。
+
+移除了重复的 Buffer Group 按钮、地址轴中间标签、大型 Selected Slot、独立 Rotation / Pipeline 说明和默认 Core Mapping。Evidence 保留全部槽地址、Group / depth、Mutex、字节计算、32B 对齐、set_validshape、.next / auto_mutex 源码入口、DESIGN 和设计绑定。条件化 Core 映射说明仅作为 Illustrative Mapping 的证据边界保留；未展示未经验证的实际映射或硬件重叠时长。
+
+快速 Chrome 检查：1280×900 和 600×900；Iteration 1 高亮 in1 / out1，Selected 不变，各段实测宽度切换前后一致；out1 对应 Mutex 3 与 VA_OUT1 源码；Tile 2 的行范围 6–6、Valid [1,200]、Allocated [3,8192] 正确；Shape / Tile 不重置 Iteration / Selected；数据流关联高亮、Evidence 展开和源码查看可用；窄屏无组件横向溢出，Console 无 pageerror。没有全面重跑其他业务测试。
+
+截图：[Iteration 0](previews/memory-planning/iteration-0.png)、[Iteration 1 / in0 仍选中](previews/memory-planning/iteration-1.png)、[Evidence](previews/memory-planning/evidence.png)、[窄屏](previews/memory-planning/narrow.png)。检查记录：[checks.json](previews/memory-planning/checks.json)。只改 ub-buffer-analysis.js / ub-buffer-analysis.css；主图、Mini、节点导航、连续滚动与真实证据文件未修改。未 commit、push 或部署。
+
+## Single Tile 统一数据组织矩阵（2026-11-03）
+
+Single Tile 详情仅保留输入 Shape、每 Tile 最多 3 行 / N 轴整行归约规则和一个可展开矩阵。每条 Tile 自身展示 Rows、有效行结构、Valid / Allocated；选中条目在原地展开三行结构，不再另画一张右侧 Tile 面板。尾 Tile 2 明确展示 Valid [1,200]、Allocated [3,8192] / 48 KiB，一行蓝色有效数据和两行灰色无效行。示意列宽不是实际列数比例，展开属性旁保留短标识。
+
+删除独立 Register / N Tail 主视图、128-lane 图、128 / 72 / 56 拆分、右侧 anatomy 面板以及 Hover 重渲染临时容器。Hover 只有 CSS 反馈；点击条目切换 shared selectedTileId、更新矩阵并保留键盘焦点。证据保留分配尺寸、set_validshape、尾 Tile 行数源码及 DESIGN / 设计绑定，不再提供寄存器入口。主标题为 Single Tile · 数据组织，末尾仅保留一行跨 Tile Max / Sum 状态结论。
+
+复用 SoftmaxTileModel.presets / tiles / setState；与 Memory Explorer 共享 Shape / Tile 身份。主图、Mini Lineage、滚动折叠及其他专业节点源码未改。已有 Memory Planning Explorer 改动保留。
+
+快速 Chrome 检查：1280×900 / 600×900；Hover 后展开 DOM 身份不变；Tile 2 为 1 有效 + 2 无效行；Memory 往返保留 Tile 2；P0 [32,4096] 有 11 个 Tile、尾 Tile 10 有 2 行有效；键盘 Enter、窄屏无组件横向溢出、Console 无 pageerror。现有 IDE 回归脚本的标题期望同步为新标题，未全面重跑其他业务测试。
+
+截图：[Tile 0](previews/tile-matrix/tile-0.png)、[Tile 2](previews/tile-matrix/tile-2.png)、[窄屏](previews/tile-matrix/narrow.png)。检查记录：[checks.json](previews/tile-matrix/checks.json)。未 commit、push 或部署。
+
+## Single Tile · [1,128] unit 矩阵（2026-11-03）
+
+本节替代上一版“可展开行块示意”表达。每个 Tile 始终显示三行真实矩阵组织；点击仅更新 Selected 和共享 Tile 状态，不再展开第二套条形结构。Hover 仅 CSS 反馈，矩阵 DOM 不重建。
+
+最小格子为 [1,128]。Input [7,200] 的每个有效行显示 U0 的 128 列完整有效、U1 的 72 有效 / 56 无效（格内分割比例 72:56），以及未用但已分配的 U2、U63；U3–62 以一个明确标注“×60 已分配 · 未用”的省略格表示。单格与省略格不能被当作相同的数量宽度。纵向仍保留三行；尾 Tile 的两个无效行使用独立的无效行状态与 × 标记，不把它们称为未使用列。
+
+上下文直接列出 Input、Allocated [3,8192]、Unit [1,128] 和 200 = 1×128 + 72 / 8192 = 64×128。每个 Tile 自带 Rows、Valid、Allocated 和 48 KiB；无需左右查看另一张 Tile。默认没有独立的 Register / N Tail 模块。
+
+所有实际使用的 unit 都是独立单元格，不把已用区混入省略。Input [32,4096] 显示每行 32 个已用格，只折叠未用的 U33–62；U32、U63 保留。密集矩阵自身可横向滚动，整页不缩放。采用原 PTO 暗色、primary / foreground / surface 与排版 Token，没有引用参考图片的视觉样式；本轮消息未附图，按文字语义实施。
+
+快速 Chrome 核对：Tile 0 / 1 / 2 的有效 / 无效行分别为 3/0、3/0、1/2；有效行完整格、部分格、未用区省略格数量正确；P0 11 个 Tile，每个满行 32 已使用 unit；Hover 不重绘或改变选中；1280 / 600 下无组件外横向溢出，Console 无 pageerror。原数据模型、Memory 状态、Lineage / Mini 与连续滚动代码未改。
+
+截图：[Input [7,200]](previews/unit-matrix/input-7-200.png)、[选中尾 Tile](previews/unit-matrix/selected-tail.png)、[Input [32,4096]](previews/unit-matrix/input-32-4096.png)、[窄屏](previews/unit-matrix/narrow.png)。记录：[checks.json](previews/unit-matrix/checks.json)。未 commit、push 或部署。
+
+## Single Tile · 连续二维矩阵（2026-11-03）
+
+本节替代此前每 Tile 独立条目 / 卡片表达。主图现为一个 CSS Grid：X 轴为 Unit Index，Y 轴为物理行位置；Tile 标识纵向跨 3 行，不再有卡片 Header、额外展开区或 Cell 内重复文字。Tile 分组只通过矩阵连续边界、固定行列和左侧分组标识表达。
+
+`SingleTileAnalysis.projection(index)` 与 DOM 分离：从 SoftmaxTileModel.tiles() 生成所有物理行，再按 full=floor(N/128)、tail=N%128、used=ceil(N/128)、allocated=8192/128 生成统一列布局及 Cell 状态。所有 Tile 共用列模型，所有普通格 24×24px，Partial 外部尺寸不变，内部宽度按 tail/128 精确分割。无效行也保留 24px 行高。
+
+四种语义：Full 为完整填充；Partial 的 Masked 子区使用纹理；Allocated Unused 为空心中性格；Padding 整行采用弱填充与中线。状态不只依赖颜色。Unit 是 VF 逻辑数据组织单位，不表示永久独占的硬件寄存器。横向省略为固定 72px 的窄网格断裂区，包含压缩网格 / 断裂符号，范围和数量只在 X 轴标注，不在各行放长文字条。未用区末端 U63 保留，普通 Unit 尺寸跨 Shape 固定。
+
+[7,200]：U0 Full；U1 内部 72/128 valid、56/128 masked；U2–U62 共 61 个 allocated-unused unit 压缩；U63 未用。共 9 物理行，7 有效 + 2 Padding。
+
+[32,4096]：每行完整保留 U0–U31 共 32 Full Unit，无 Partial；U32–U62 共 31 个未用 Unit 压缩，U63 未用。共 33 物理行，32 有效 + 1 Padding。
+
+Hover Cell 使用顶层、不可交互 Tooltip 显示 Unit、列范围、有效数与状态；Hover Row / Tile 仅更新样式。点击 Cell 或左侧 Tile 按钮更新 Selected 和共享 Tile 身份，不增删矩阵、不改变 Tile 高度、不重置滚动位置。选中边界独立于 Hover。矩阵不设独立纵向高度限制，大 Shape 随 Pane Body 自然滚动；仅矩阵横向滚动，Tile / Row 标识横向 Sticky 保持可见。
+
+快速 Chrome 检查覆盖两个 Shape：行数 / 状态、压缩区间、全部普通格 24px 宽 / 高、Partial 填充比例 72/128、点击 Cell、Hover 不重绘、Memory 保持 Tile 2、P0 无 Partial、600px 窄屏横向滚动后行标识保持在矩阵左边界。Console 无 pageerror。检查记录：[checks.json](previews/continuous-matrix/checks.json)。未全面重跑其他业务测试。
+
+截图：[Input [7,200]](previews/continuous-matrix/input-7-200.png)、[选中尾 Tile / Hover](previews/continuous-matrix/tail-hover.png)、[Input [32,4096]](previews/continuous-matrix/input-32-4096.png)、[窄屏横向滚动](previews/continuous-matrix/narrow-scrolled.png)。本轮只调整 Single Tile 两个组件文件和说明；保留已有 Memory 等本地改动，未改共享数据模型、Lineage / Mini、详情滚动及其他 Inspector。未 commit、push 或部署。

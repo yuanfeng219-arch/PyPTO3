@@ -117,14 +117,15 @@
       dock.dataset.liquidGlass='control';
       const computeToolbar=[...panel.querySelectorAll('[data-compute-toolbar]')].find(n=>n.getClientRects().length);
       if (computeToolbar && !computeToolbar.closest('.viz2-compute') && computeToolbar.parentElement!==dock) dock.prepend(computeToolbar);
-      const back=[...panel.querySelectorAll('[data-intra-back],[data-anatomy-back]')].find(n=>n.getClientRects().length);
+      const detail=panel.querySelector('.viz2-compute:not([hidden])');
+      const back=[...panel.querySelectorAll('[data-intra-back],[data-anatomy-back],[data-graph-back]')].find(n=>!n.hidden&&(detail||n.getClientRects().length));
       if (back) { back.classList.add('ai-detail-back'); back.dataset.liquidGlass='control'; if (back.parentElement!==panel) panel.prepend(back); }
       const tasknav=[...panel.querySelectorAll('.viz2-anatomy-task-nav')].find(n=>n.getClientRects().length);
       if (tasknav && tasknav.parentElement!==dock) dock.prepend(tasknav);
       const phase=panel.querySelector('.viz2-phase-toolbar');
       if (phase && phase.parentElement!==dock) dock.prepend(phase);
       footer.querySelectorAll('.kf-pa-map__tools').forEach(tools=>{if(tools.parentElement!==footer)footer.append(tools);tools.dataset.liquidGlass='control';tools.setAttribute('role','group');tools.setAttribute('aria-label','缩放组件');});
-      footer.querySelectorAll('.viz2-am-controls,.viz2-graph-footer__controls').forEach(group=>{if(group.parentElement!==dock)dock.append(group);});
+      footer.querySelectorAll('.viz2-am-controls,.viz2-graph-footer__controls').forEach(group=>{const mount=detail&&group.matches('.viz2-graph-footer__controls')?footer:dock;if(group.parentElement!==mount)mount.append(group);});
       dock.querySelectorAll('[data-liquid-glass]').forEach(child=>child.removeAttribute('data-liquid-glass'));
       const hideDock=!dock.querySelector('button,select,summary'); if(dock.hidden!==hideDock) dock.hidden=hideDock;
       footer.querySelectorAll('.segmented-control').forEach(group=>{ if (!group.getAttribute('aria-label')) group.setAttribute('aria-label','分配状态'); });
