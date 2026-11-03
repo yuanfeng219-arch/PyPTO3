@@ -439,7 +439,7 @@
     }).filter(Boolean)) : [];
     // 页表一行放在取块之后、pipeline 之前，按代码顺序自上而下读；pipeline 整体下移 PIPE_DY
     const PIPE_DY = 26;
-    let s = '<svg viewBox="36 100 660 240" preserveAspectRatio="xMidYMin" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
+    let s = '<svg viewBox="0 0 720 346" preserveAspectRatio="xMidYMin" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
       + '<defs>' + markers('lg') + '</defs>';
 
     // 三层循环作用域（虚线框）
@@ -453,7 +453,8 @@
     s += '<g transform="translate(0,' + PIPE_DY + ')">';
     s += '<g class="lg-hit" data-node="f-pipe"><rect x="36" y="78" width="648" height="226" class="lg-frame' + (k.bad ? ' is-bad' : '') + '"/>'
       + txt(48, 95, 'PL.PIPELINE × ' + GP_SIZE + ' · STAGE=' + c.stage, 'sv-title')
-      + txt(250, 95, 'In-flight heads · ' + k.stage, k.bad ? 'sv-label sv-bad' : 'sv-label') + '</g>';
+      + txt(250, 95, 'In-flight heads · ' + k.stage, 'sv-label')
+      + (k.bad ? '<g class="lg-error-badge"><rect x="390" y="83" width="150" height="18" rx="9"/>' + txt(465,95,'UB 容量超限 · '+bytes(k.hw-UB_USABLE),'lg-error-badge-text') + '</g>' : '') + '</g>';
     // 三段计算（实框）；softmax 段按在飞的头数叠虚线层
     for (let i = k.stage - 1; i >= 1; i--) {
       s += '<rect x="' + (248 + i * 5) + '" y="' + (LG_PHASE_Y + i * 5) + '" width="296" height="' + LG_PHASE_H + '" class="lg-ghost'
@@ -463,7 +464,7 @@
       const bad = k.bad && p[0] === 'p-softmax';
       const title = p[3];
       s += '<g class="lg-hit" data-node="' + p[0] + '"><rect x="' + p[1] + '" y="' + LG_PHASE_Y + '" width="' + p[2] + '" height="' + LG_PHASE_H
-        + '" class="lg-phase' + (bad ? ' is-bad' : '') + '"/>' + txt(p[1] + 10, LG_PHASE_Y + 16, title, bad ? 'sv-title sv-bad' : 'sv-title') + '</g>';
+        + '" class="lg-phase' + (bad ? ' is-bad' : '') + '"/>' + txt(p[1] + 10, LG_PHASE_Y + 16, title, 'sv-title') + '</g>';
     });
 
     s += LG_EDGES.map(function (e) {
@@ -483,7 +484,7 @@
   // ════════════════════════════════════════════════════════════════════════════
   const BAR = { x: 418, w: 56, top: 206, bottom: 426 };
   // 放大图压低一些，让引线从两条阈值标签下方穿过
-  const INSET = { x: 588, w: 88, top: 206, bottom: 334, lo: 176 * 1024, hi: 192 * 1024 };
+  const INSET = { x: 560, w: 136, top: 206, bottom: 334, lo: 176 * 1024, hi: 192 * 1024 };
   const CORE = { x: 384, y: 96, pitch: 26, size: 18 };
   function ubY(addr) { return BAR.bottom - addr / UB_NOMINAL * (BAR.bottom - BAR.top); }
   function insetY(addr) { return INSET.bottom - (addr - INSET.lo) / (INSET.hi - INSET.lo) * (INSET.bottom - INSET.top); }
@@ -580,7 +581,7 @@
     s+=txt(BAR.x-10,BAR.bottom-2,'常驻','sv-label','end');
     // Orthogonal detail correspondence, not a second dataflow or perspective projection.
     const bracket=BAR.x+BAR.w+4,rangeBottom=ubY(INSET.lo);
-    s+='<path d="M'+bracket+' '+BAR.top+'h4V'+rangeBottom+'h-4 M'+(bracket+4)+' '+((BAR.top+rangeBottom)/2)+'H574V'+INSET.top+'H'+INSET.x+'" class="ub-detail-link"/>';
+    s+='<path d="M'+bracket+' '+BAR.top+'h4V'+rangeBottom+'h-4 M'+(bracket+4)+' '+((BAR.top+rangeBottom)/2)+'H546V'+INSET.top+'H'+INSET.x+'" class="ub-detail-link"/>';
     s+=txt(INSET.x,170,'局部地址','sv-label')+txt(INSET.x,190,'176–192 KB','sv-strong');
     s+='<rect x="'+INSET.x+'" y="'+INSET.top+'" width="'+INSET.w+'" height="'+(INSET.bottom-INSET.top)+'" rx="2" fill="#202020"/>';
     s+='<g clip-path="url(#hpInsetClip)">';
@@ -590,6 +591,10 @@
     });
     s+='<rect x="'+INSET.x+'" y="'+INSET.top+'" width="'+INSET.w+'" height="'+(insetY(UB_USABLE)-INSET.top)+'" class="ub-reserve"/>';
     if(bad)s+='<rect x="'+INSET.x+'" y="'+insetY(Math.min(k.hw,INSET.hi))+'" width="'+INSET.w+'" height="'+(insetY(UB_USABLE)-insetY(Math.min(k.hw,INSET.hi)))+'" class="sv-over"/>';
+    k.layout.filter(r=>r.hi>INSET.lo).forEach(r=>{
+      const y1=insetY(Math.min(r.hi,INSET.hi)),y2=insetY(Math.max(r.lo,INSET.lo));
+      if(y2-y1>9)s+=txt(INSET.x+5,(y1+y2)/2+2.5,shortName(r),'ub-buffer-name');
+    });
     s+='</g>';
     s+=txt(INSET.x+INSET.w/2,INSET.top+24,'保留 8 KB','sv-text','middle');
     s+='<path d="M'+INSET.x+' '+insetY(UB_USABLE)+'H'+(INSET.x+INSET.w)+'" class="'+(bad?'sv-line-usable':'ub-axis')+'"/>';
@@ -930,7 +935,7 @@
   function setCfg(cfg) { state.cfg = Object.assign({}, cfg); state.preview = null; render(); }
 
   document.addEventListener('click', function (e) {
-    const stageBtn = e.target.closest('[data-stage]');
+    const stageBtn = e.target.closest('.stage-ctl button[data-stage]');
     if (stageBtn) { setCfg(Object.assign({}, state.cfg, { stage: Number(stageBtn.dataset.stage) })); return; }
     const act = e.target.closest('[data-act]');
     if (!act) return;
@@ -1073,6 +1078,7 @@
     return null;
   }
   document.addEventListener('mouseover', function (e) {
+    if (e.target.closest('#hpCaption, .pane-info')) return;
     const h = hoverFrom(e.target);
     const opt = e.target.closest('.opt[data-opt]');
     const preview = opt ? opt.dataset.opt : null;

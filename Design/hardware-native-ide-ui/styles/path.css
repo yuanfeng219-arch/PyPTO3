@@ -156,13 +156,13 @@ svg text { font-family: var(--mono); pointer-events: none; text-rendering: geome
 /* 循环越往里越亮一点，嵌套层次不用读标题也能看出来 */
 .lg-hit[data-node="f-stride"] > .lg-frame, .lg-hit[data-node="f-iter"] > .lg-frame { fill: rgba(255, 255, 255, .012); }
 .lg-hit[data-node="f-pipe"] > .lg-frame { fill: rgba(255, 255, 255, .022); stroke: none; }
-.lg-frame.is-bad { stroke: rgba(255, 107, 91, .55); }
+.lg-frame.is-bad { stroke:none; }
 .lg-hit:hover > .lg-frame { fill: #ffffff05; }
 .lg-hit.is-hot > .lg-frame { fill: #ffffff08; stroke: none; }
 .lg-phase { fill: #1b1b1b; stroke: none; rx: 7px; transition: stroke .15s; }
 .lg-hit:hover > .lg-phase { stroke: #555; }
 .lg-hit.is-hot > .lg-phase { fill: #292929; }
-.lg-phase.is-bad, .lg-hit.is-hot > .lg-phase.is-bad { stroke: var(--red); }
+.lg-phase.is-bad, .lg-hit:hover > .lg-phase.is-bad, .lg-hit.is-hot > .lg-phase.is-bad { fill:rgba(255,107,91,.25); stroke:none; }
 .lg-ghost { fill: #141414; stroke: #2c4a54; stroke-dasharray: 3 3; rx: 4px; pointer-events: none; }
 .lg-ghost.is-bad { stroke: var(--red); }
 .lg-node { fill: #303030; stroke: transparent; rx: 6px; transition: stroke .15s, fill .15s; }
@@ -190,14 +190,14 @@ svg text { font-family: var(--mono); pointer-events: none; text-rendering: geome
 .sv-arrow { stroke: #555; stroke-width: 1.2; fill: none; marker-end: url(#hpArrow); }
 .sv-region.is-hot .sv-arrow { stroke: var(--text); marker-end: url(#hpArrowHot); }
 .sv-buf { stroke: #131313; stroke-width: .6; cursor: pointer; transition: opacity .15s; }
-.sv-buf.k-fp32 { fill:#72bdd3; }
-.sv-buf.k-bf16 { fill:#4496b1; }
-.sv-buf.k-row { fill: #9fe3f7; }
+.sv-buf.k-fp32 { fill:#087cfa; }
+.sv-buf.k-bf16 { fill:#0062d6; }
+.sv-buf.k-row { fill: #59b0ff; }
 .sv-buf.k-carry { fill: #4a4a4a; }
-body.is-focusing .sv-buf.is-hot { fill: var(--sky); }
+body.is-focusing .sv-buf.is-hot { fill:#66c7ff; }
 .sv-ub.has-hot .sv-buf:not(.is-hot):not(.k-carry) { opacity:1; }
 .sv-reserved { fill: url(#hpHatch); stroke: var(--red); stroke-width: .8; }
-.sv-over { fill: var(--red); opacity: .85; }
+.sv-over { fill: var(--red); opacity:1; }
 .sv-line-usable { stroke: var(--red); stroke-dasharray: 4 3; stroke-width: 1.2; }
 .sv-line-nominal { stroke: #8a8a8a; stroke-width: 1; }
 .sv-line-ghost { stroke: var(--text); stroke-dasharray: 2 2; stroke-width: 1; opacity: .7; }
@@ -394,7 +394,7 @@ body.is-focusing .sv-region.is-hot .path-data-link { stroke:#f2c45f; marker-end:
 .sv-region.is-hot [data-kind="op"] > g text { fill:#111; }
 .ub-axis { stroke:#737373; stroke-width:.8; fill:none; }
 .ub-detail-link { stroke:#777; stroke-width:.8; stroke-dasharray:2 3; fill:none; }
-.ub-stage-rail { stroke:#82a6b0; stroke-width:2; }
+.ub-stage-rail { stroke:#3894ed; stroke-width:2; }
 .ub-reserve { fill:#494949; stroke:none; }
 .ub-value { fill:#e3e3e3; font-size:12px; font-weight:600; }
 
@@ -415,8 +415,8 @@ body.is-focusing .sv-region.is-hot .path-data-link { stroke:#f2c45f; marker-end:
 /* Size the diagrams from readable content bounds, not the shortest pane dimension. */
 .hp-logic-svg,.hp-svg { display:block; overflow:auto; overscroll-behavior:contain; padding:12px 18px 18px; }
 .hp-logic-svg > svg,.hp-svg > svg { width:100%; height:auto; min-width:800px; max-width:1280px; margin:0 auto; display:block; }
-.hp-main:has(.hp-story[hidden]) { grid-template-columns:clamp(300px,var(--code-width,30%),560px) minmax(0,1fr); }
-.hp-main { grid-template-columns:clamp(300px,var(--code-width,27%),480px) minmax(0,1fr) minmax(300px,340px); }
+.hp-main:has(.hp-story[hidden]) { grid-template-columns:minmax(300px,var(--code-width,30%)) minmax(0,1fr); }
+.hp-main { grid-template-columns:minmax(300px,var(--code-width,27%)) minmax(0,1fr) minmax(300px,340px); }
 .hp-pane-title { font-size:12px; }
 @media(min-width:1900px) { .hp-logic-svg > svg,.hp-svg > svg { max-width:1440px; } }
 @media(max-width:1100px) {
@@ -539,3 +539,16 @@ body.is-focusing .sv-region.is-hot .path-data-link { stroke:#f2c45f; marker-end:
   padding-left: 10px;
 }
 .hp-story .cmp .ev { font-size: 11px; padding: 3px 7px; }
+
+/* Current-object evidence stays outside static help disclosure. */
+.hp-object-detail { flex:none; padding:8px 18px 12px; min-height:36px; color:#ddd; font:12px/1.6 var(--sans); }
+.hp-object-detail .cap-k { display:block; color:#aaa; font-size:11px; }
+.hp-object-detail code { color:#eee; }
+.ub-buffer-name { fill:#fff; font-size:7.5px; }
+.path-model-scope { color:#bcbcbc; font:14px/1.5 var(--font-sans); margin:8px 0 0; }
+
+/* Hardware execution units retain the shared architecture square variant. */
+#hpMemoryPattern .pto-aic-core__cube { margin-left:45px; }
+
+.lg-error-badge > rect { fill:var(--red); }
+.lg-error-badge-text { fill:#111; font-size:9px; font-weight:600; text-anchor:middle; }
