@@ -198,3 +198,15 @@ Stage 1–5 状态从 `LINEAGE_DATA` Workflow 读取；Correctness 从 `AUDIT_EV
 本节覆盖前述 Shell 滚动容器说明：当前使用单层 Split，Decision Pane 采用固定的 32px 标准 Header + `#decision-pane-body` 主阅读滚动区；main 本身不滚动。移除了外层 16px Padding、私有 Topbar / Run Header / Status Strip 样式与重复 Split。Chat 历史上下文已归入 Chat Body。共享组件与 Token 未改动。
 
 详见工作区根目录 [IDE Frame 结构与布局对齐](../../../PyPTO%20IDE%20Frame%20结构与布局对齐.md)，本轮截图和几何记录位于 [frame-alignment](previews/frame-alignment/comparison.html)。
+
+## 详情分析 UX 精简（2026-11-03）
+
+Baseline / Final 始终同时显示三个 Shape，删除 Shape 单选状态、Tabs、可点击图表行、Dumbbell SVG 和对应旧 CSS。新对比采用两条水平条形：Baseline 中性灰 / Final 蓝色，两者统一零起点、共用同一最大值尺度；数值直接标注，Δ 耗时回退红色 / 改善绿色，保留正负号。图表实测高 202px，1280×900 首屏完整显示三组数据；600px 无图表横向溢出。
+
+层级：对象标题 → 三组直接比较 / 决策状态 / 结构变化 → 折叠技术证据。移除重复 ANALYSIS 小标题、实验上下文段落、图例段落和单个 Shape 的重复摘要。Mask Lifting 的 Before / After 结构与代码 Diff 相邻；Runtime if 明示失败类型和替代方案，不把最终代码称为失败源码。Stop 使用紧凑验收表；Open Opportunities 先呈现未尝试原因。Design Decision 主区保留 Decision / Why，Constraints / Alternatives 按需展开，知识绑定与源码映射保持可访问。
+
+保留的二级证据：三 Shape 全部 Samples、round_001 / round_002 collection ID、trimmed mean / Δ / speedup 公式、小 Shape 报告百分比与统一分母差异、统计显著性限制、Quick A/B 与 Golden E2E 口径区别、[32,4096] Profiler 完整表及单次 / max-core 口径、PMU 不等于逐指令因果、Runtime if 无成功性能测量与失败源码、未尝试方向无收益结论、停止目标 / DAG / Roofline 推导与缺失 Timeline。
+
+真实数据文件未改；主图、Dock 几何、进入详情 / 返回导航和 Chat 联动未改。用户既有的其他项目删除 / 重命名改动未触碰。
+
+截图： [1280 性能比较](previews/compact-details/comparison-1280.png)、[Measurement details](previews/compact-details/measurement.png)、[600 窄屏](previews/compact-details/comparison-600.png)、[Runtime if](previews/compact-details/x-if.png)、[Stop](previews/compact-details/d-stop.png)、[未尝试方向](previews/compact-details/x-reuse.png)、[Design Decision](previews/compact-details/d-precision.png)。快速浏览器检查未发现 pageerror，结果位于 `previews/compact-details/checks.json`；未全面运行其他业务回归。未 commit、push 或部署。
