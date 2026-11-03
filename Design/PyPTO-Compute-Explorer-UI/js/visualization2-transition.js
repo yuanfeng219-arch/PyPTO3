@@ -80,15 +80,21 @@
       const from=state.activeTab;
       const assignmentPipeline=(from==='assignment'&&to==='pipeline')||(from==='pipeline'&&to==='assignment');
       const pipelineGraph=from==='pipeline'&&to==='graph';
-      if(!assignmentPipeline&&!pipelineGraph)return null;
+      const assignmentGraph=(from==='assignment'&&to==='graph')||(from==='graph'&&to==='assignment');
+      if(!assignmentPipeline&&!pipelineGraph&&!assignmentGraph)return null;
+      if(assignmentGraph&&state.views.assignment.phase!=='attention')return null;
       if(assignmentPipeline&&state.views.assignment.phase!=='attention')return null;
       const focus=assignmentPipeline&&from==='pipeline'?(state.selection?.block??lastFocus??0):null;
       if(focus!==null)getPipeline()?.ensureTransitionBlockVisible(focus);
-      const source=from==='assignment'?assignmentSnapshot():getPipeline()?.getTransitionSnapshot();
+      const source=from==='assignment'?assignmentSnapshot():from==='graph'?getGraph()?.getBlockTransitionSnapshot():getPipeline()?.getTransitionSnapshot();
       if(!source)return null;
       job={id:++serial,from,to,source,selection:state.selection,focus,frame:0,phase:'preparing'};
       // Keep a frozen source visible while the destination measures itself. Canvas
       // pixels must be copied explicitly: cloneNode alone leaves them empty.
+      if(assignmentGraph){
+        root.classList.add('viz2-morph-preparing');root.dataset.morphDestination=to;
+        return job;
+      }
       const pane=root.querySelector(`#viz2-${from}`), bounds=pane.getBoundingClientRect(), origin=originRect();
       const hold=pane.cloneNode(true);hold.removeAttribute('id');hold.setAttribute('aria-hidden','true');hold.inert=true;
       Object.assign(hold.style,{position:'absolute',left:`${bounds.left-origin.left}px`,top:`${bounds.top-origin.top}px`,width:`${bounds.width}px`,height:`${bounds.height}px`,zIndex:11,pointerEvents:'none',margin:0});
@@ -106,6 +112,52 @@
       if(!current||job!==current)return;
       // Two frames settle first-entry camera and Inspector-dependent width, including ResizeObserver.
       current.frame=requestAnimationFrame(()=>{current.frame=requestAnimationFrame(()=>start(current));});
+    }
+    // Paged Attention owns the same execution Block IDs as Assignment.
+    // Never fall back to Preparation: its lane set can be a strict subset.
+    function startAssignmentGraph(current){
+      const forward=current.to==='graph';
+      const target=forward?getGraph()?.getBlockTransitionSnapshot():assignmentSnapshot();
+      if(!target){cancel();return;}
+      const graph=forward?target:current.source, assignment=forward?current.source:target;
+      const normalize=r=>({x:r.x??r.left,y:r.y??r.top,width:r.width,height:r.height});
+      const visible=(block,clip)=>{
+        const r=normalize(block.rect),c=normalize(clip);
+        return r.width>0&&r.height>0&&r.x<c.x+c.width&&r.x+r.width>c.x&&r.y<c.y+c.height&&r.y+r.height>c.y;
+      };
+      const anchors=new Map(graph.blocks.filter(b=>b.stage==='paged-attention').map(b=>[b.id,b]));
+      const origin=originRect(),style=getComputedStyle(root),color=n=>style.getPropertyValue(n).trim();
+      const overlay=el('svg',{class:'viz2-transition-overlay',width:origin.width,height:origin.height,
+        'aria-hidden':'true','data-direction':forward?'assignment-graph':'graph-assignment'},root);
+      current.overlay=overlay;
+      const items=assignment.blocks.filter(b=>anchors.has(b.id)&&visible(b,assignment.clip)&&visible(anchors.get(b.id),graph.clip)).map(b=>{
+        const anchor=anchors.get(b.id),selected=b.id===current.selection?.block;
+        const group=el('g',{'data-morph-block':b.id},overlay);
+        const box=el('rect',{fill:color(selected?'--state-selected':'--surface-3'),stroke:color(selected?'--primary':'--border-subtle'),'stroke-width':selected?2:1},group);
+        const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono'),'font-size':12},group);
+        label.textContent=String(b.id).padStart(2,'0');
+        return {a:normalize(forward?b.rect:anchor.rect),b:normalize(forward?anchor.rect:b.rect),box,label};
+      });
+      const destination=root.querySelector('#viz2-'+current.to);
+      mask(current.to,true);
+      root.classList.remove('viz2-morph-preparing');
+      current.phase='animating';
+      const started=performance.now(),duration=760;
+      function frame(now){
+        if(job!==current)return;
+        const t=Math.min(1,(now-started)/duration),p=ease(t);
+        destination.style.opacity=String(Math.max(0,(t-.35)/.65));
+        items.forEach(item=>{
+          const r=lerp(item.a,item.b,p);
+          for(const k of ['x','y','width','height'])item.box.setAttribute(k,k==='x'?r.x-origin.left:k==='y'?r.y-origin.top:r[k]);
+          item.box.setAttribute('rx',mix(forward?4:3,forward?3:4,p));
+          item.label.setAttribute('x',r.x-origin.left+r.width/2);
+          item.label.setAttribute('y',r.y-origin.top+r.height/2);
+          item.box.style.opacity=item.label.style.opacity=String(1-Math.max(0,(t-.85)/.15));
+        });
+        if(t<1)current.frame=requestAnimationFrame(frame);else cancel();
+      }
+      frame(started);
     }
     function startPipelineGraph(current){
       const target=getGraph()?.getBlockTransitionSnapshot();
@@ -144,6 +196,7 @@
     }
     function start(current){
       if(job!==current)return;
+      if((current.from==='assignment'&&current.to==='graph')||(current.from==='graph'&&current.to==='assignment')){startAssignmentGraph(current);return;}
       if(current.from==='pipeline'&&current.to==='graph'){startPipelineGraph(current);return;}
       const forward=current.to==='pipeline';
       let focus=forward?focusBlock(current.source,current.selection?.block):current.focus;
