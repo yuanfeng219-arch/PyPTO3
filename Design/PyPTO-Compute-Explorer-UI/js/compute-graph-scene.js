@@ -23,20 +23,21 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       stack.dataset.pypaExecutionStack = node.id;
       stack.setAttribute('role','button');stack.setAttribute('tabindex','0');
       stack.setAttribute('aria-label',`${node.title}，${entry.count} 个静态逻辑实例`);
-      stack.style.cssText = `left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px`;
+      stack.style.cssText = `left:${element.offsetLeft}px;top:${element.offsetTop}px;width:${element.offsetWidth}px;height:${element.offsetHeight}px`;
       // Read the rendered node so composite and primitive silhouettes stay identical.
       const nodeShape = getComputedStyle(element);
       for (let instance = entry.count; instance >= 2; instance--) {
         const layer = document.createElement('span');
         layer.className = 'kf-pypa-graph__execution-layer';
+        layer.style.setProperty('--execution-layer-fill',`rgb(${Math.max(38,82-instance*4)} ${Math.max(38,82-instance*4)} ${Math.max(38,82-instance*4)})`);
         for (const corner of ['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius']) {
           layer.style[corner] = nodeShape[corner];
         }
         layer.style.clipPath = nodeShape.clipPath;
         layer.dataset.pypaExecutionInstance = String(instance);
         const offset=window.PtoPagedAttentionExecution.deckOffset(instance);
-        layer.style.setProperty('--execution-offset', `${offset.right*.4}px`);
-        layer.style.setProperty('--execution-offset-y', `${offset.bottom*.4}px`);
+        layer.style.setProperty('--execution-offset', `${offset.right}px`);
+        layer.style.setProperty('--execution-offset-y', `${offset.bottom}px`);
         stack.appendChild(layer);
       }
       stack.classList.toggle('is-journey-path', element.classList.contains('is-journey-path'));
@@ -127,6 +128,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       if (routed) {
         const line = document.createElementNS(svgNS, 'path');
         line.setAttribute('d', routed.path);
+        line.setAttribute('fill','none');
         line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
         line.dataset.edgeSource = edge.s; line.dataset.edgeTarget = edge.t;
         line.setAttribute('class', `kf-pypa-graph__edge is-${edge.type}`);
@@ -204,6 +206,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       }
       const line = document.createElementNS(svgNS, 'path');
       line.setAttribute('d', path);
+      line.setAttribute('fill','none');
       line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
       line.dataset.edgeSource = edge.s; line.dataset.edgeTarget = edge.t;
       line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type || 'dep'}`);
@@ -240,6 +243,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
     syncBridges.forEach((bridge) => {
       const line = document.createElementNS(svgNS, 'path');
       line.setAttribute('d', bridge.path);
+      line.setAttribute('fill','none');
       line.setAttribute('class', 'kf-pypa-graph__sync-path');
       line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-sync)`);
       line.dataset.pypaSyncPath = bridge.event.id;

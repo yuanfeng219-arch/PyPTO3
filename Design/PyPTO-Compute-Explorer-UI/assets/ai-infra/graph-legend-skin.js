@@ -5,6 +5,7 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
  scene.classList.add('legend-skin');
  for(const node of graph.nodes){
   const el=[...scene.querySelectorAll('[data-pypa-node]')].find(e=>e.dataset.pypaNode===node.id);if(!el)continue;
+  const executionDecorations=[...el.querySelectorAll('[data-pypa-execution-count]')];
   el.removeAttribute('title');el.style.height=`${node.h}px`;
   el.dataset.aiExpandedChild=String(node.id.includes('/'));
   if(node.expandedGroup){el.innerHTML=`<b>${esc(node.title)}</b><span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">−</span>`;continue;}
@@ -30,6 +31,7 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
    el.innerHTML=root.PtoTensorRoleGlyph.render({id:node.id,label:node.title,metadata:caption,color:role.color,width:node.w});
 
   }
+  executionDecorations.forEach(badge=>el.appendChild(badge));
  }
 }
 root.PtoStudioGraphLegendSkin=Object.freeze({apply});

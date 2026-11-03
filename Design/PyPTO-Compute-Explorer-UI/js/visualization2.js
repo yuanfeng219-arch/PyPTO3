@@ -143,9 +143,9 @@
       if (tab) { store.dispatch({type:'tab', id:tab.dataset.viz2Tab}); return; }
       const gs=event.target.closest('[data-graph-scope]');if(gs){gs.dataset.graphScope==='intra'?enterGraphIntra():exitGraphIntra();return;}
       if(event.target.closest('[data-graph-back]')){exitGraphIntra();return;}
-      if(event.target.closest('[data-pipeline-back]')){exitPipelineIntra();return;}
+      if(event.target.closest('[data-pipeline-back],[data-intra-back]')){exitPipelineIntra();return;}
       const pipelineScope=event.target.closest('[data-pipeline-scope]');if(pipelineScope){if(pipelineScope.dataset.pipelineScope==='inter')exitPipelineIntra();else enterPipelineIntra(store.getState().selection?.task);return;}
-      if(event.target.closest('[data-viz2-matrix-back]')){exitAnatomy();return;}
+      if(event.target.closest('[data-viz2-matrix-back],[data-anatomy-back]')){exitAnatomy();return;}
       const scope=event.target.closest('[data-viz2-scope]');if(scope){if(scope.dataset.viz2Scope==='inter')exitAnatomy();else enterAnatomy(store.getState().selection?.task);return;}
       const phase = event.target.closest('[data-viz2-phase]');
       if (phase) { store.dispatch({type:'phase',id:phase.dataset.viz2Phase}); return; }
@@ -314,7 +314,7 @@
       if(state.selection.task!==assignment.anatomyTask||JSON.stringify(state.selection.subobject??null)!==JSON.stringify(assignment.anatomyFocus?.[assignment.anatomyTask]??null)){store.dispatch({type:'anatomy-task',id:state.selection.task});return;}
     }
     root.querySelector('#viz2-anatomy').hidden=!inner;
-    root.querySelector('[data-viz2-phases]').hidden=inner;
+    root.querySelector('[data-viz2-phases]').hidden=inner||state.activeTab!=='assignment';
     root.querySelector('[data-viz2-matrix-back]').hidden=!inner;
     root.querySelectorAll('[data-viz2-scope]').forEach(button=>{const selected=(button.dataset.viz2Scope==='intra')===inner;button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));if(button.dataset.viz2Scope==='intra')button.disabled=!inner&&(assignment.phase!=='attention'||state.selection?.kind!=='task');});
     const detailFocus=inner?assignment.anatomyFocus?.[assignment.anatomyTask]:null;

@@ -173,7 +173,7 @@
     }
     const regionTop = options.overviewLayout && !childScope ? 68 : BASE.regionTop;
     const regionBottom = BASE.regionBottom;
-    if (options.overviewLayout && !childScope) {
+    if (!childScope) {
       // Region frames are layout objects: reserve their header and a gap before
       // the next region instead of drawing overlapping boxes after placement.
       let previousBottom = -Infinity;
@@ -323,6 +323,12 @@
       const source = byId.get(edge.s), target = byId.get(edge.t);
       const sx = source.x + source.w / 2, sy = source.y + source.h;
       const tx = target.x + target.w / 2, ty = target.y;
+      // Same-row state edges use a distinct upper channel, never pass through peers.
+      if (Math.abs(source.y-target.y)<1 && source.id!==target.id) {
+        const band=Math.min(source.y,target.y)-28-returnLane++*12;
+        const points=[{x:sx,y:source.y},{x:sx,y:band},{x:tx,y:band},{x:tx,y:target.y}];
+        if(clear(points,source,target))return {points,path:roundedPath(points,EDGE_CORNER_RADIUS),labelX:(sx+tx)/2,labelY:band-8,labelAnchor:'middle',maxX:Math.max(sx,tx)};
+      }
       if (edge.type === 'feedback' || ty <= sy + (options.overviewLayout ? 4 : 22)) {
         if(source.y > target.y + target.h + 20){
           const laneY=(target.y + target.h + source.y)/2;

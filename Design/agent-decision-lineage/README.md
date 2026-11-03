@@ -210,3 +210,13 @@ Baseline / Final 始终同时显示三个 Shape，删除 Shape 单选状态、Ta
 真实数据文件未改；主图、Dock 几何、进入详情 / 返回导航和 Chat 联动未改。用户既有的其他项目删除 / 重命名改动未触碰。
 
 截图： [1280 性能比较](previews/compact-details/comparison-1280.png)、[Measurement details](previews/compact-details/measurement.png)、[600 窄屏](previews/compact-details/comparison-600.png)、[Runtime if](previews/compact-details/x-if.png)、[Stop](previews/compact-details/d-stop.png)、[未尝试方向](previews/compact-details/x-reuse.png)、[Design Decision](previews/compact-details/d-precision.png)。快速浏览器检查未发现 pageerror，结果位于 `previews/compact-details/checks.json`；未全面运行其他业务回归。未 commit、push 或部署。
+
+## Compact 节点直接导航（2026-11-03）
+
+缩略图的阶段容器不再是按钮，也不再绑定 Node Picker。22 个现有节点以原 ID、坐标和 shared selected 状态直接调用 `selectLineageNode`；点击当前节点不重渲染详情。展开模式的阶段选择保留原有用途，Chat 在 Inspect 下定位阶段则滚动到该阶段并聚焦节点，不弹菜单。
+
+每个节点使用透明 SVG Hit Path：按实际 SVG screen CTM 将 24×24 CSS px 投回原坐标，再用与其他节点的距离平分线裁分；密集处命中区适当收窄，互不重叠。连线、文字和视觉图元不截获事件。ResizeObserver 在尺寸或可见性变化后重算命中区，不修改节点几何。
+
+Hover / Focus 共用唯一的顶层 Tooltip（完整领域名称 + 简短状态，无按钮，pointer-events:none），按节点实时屏幕矩形定位并限制在窗口内；滚动时重新定位，节点离开可见区域则关闭。移开鼠标清除 Hover，Selected 保留。Hover 外圈、Pressed 明暗和 Focus 虚线圈分别反馈，失败节点保留红色身份。节点支持 Tab、Enter 和 Space；不可用身份使用 aria-disabled、移出 Tab 顺序并停用 Hit Path。选中节点的 aria-pressed 与原 app 状态同步。
+
+快速 Chrome 检查：1440 / 850 下 Tooltip、一次点击、当前节点不刷新、Enter / Space、移开清理、横向滚动后的定位、快速跨节点切换及不生成 Compact 菜单均通过，未发现 pageerror。窄屏鼠标焦点不自动移动阶段，避免按下到抬起间目标位移；键盘聚焦仍能显示节点名称。截图：[Runtime if Hover](previews/direct-dock/runtime-hover.png)。本轮只修改 lineage-dock.js / lineage-dock.css，原始关系、数据、详情和主图未改；未 commit、push 或部署。

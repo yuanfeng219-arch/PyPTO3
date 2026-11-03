@@ -1,36 +1,12 @@
 /* UI-only adapter: no dispatch, camera writes, model edits or gesture handlers. */
 (function () {
   'use strict';
-  // Presentation-only Chinese vocabulary. Source code and semantic IDs stay intact.
-  const uiTerms = [
-    ['QKV Preparation','QKV 准备'],['Aux Inputs','辅助输入'],['scaled / masked','缩放／掩码后的'],['PV partial','PV 部分结果'],['Key Cache','键缓存'],['Value Cache','值缓存'],['Cache Append','缓存追加'],['Mask','掩码'],['Projection','投影'],['Scaling','缩放'],['Preparation','准备'],['Inputs','输入'],['Outputs','输出'],['Static','静态'],['Producer','生产者'],['Consumer','消费者'],['Buffer','缓冲区'],['Feedback','反馈'],['rescale','重缩放'],
-    ['Attention+Output','注意力与输出'],['Attention Tasks + Output','注意力任务与输出'],
-    ['Work Generation','工作项生成'],['Task Generation','任务生成'],['Block Assignment','执行块分配'],['Active Blocks','活跃执行块'],
-    ['Static Execution Weight','静态执行次数'],['Execution Weight','执行次数'],['Fit to View','适应视图'],
-    ['Logical Tick','逻辑步'],['Task Inputs','任务输入'],['Task Output','任务输出'],['Tile Shape','分配形状'],['Valid Shape','有效形状'],
-    ['Q Heads','Q 头'],['KV Head','KV 头'],['Q Head','Q 头'],['Q Tile','Q 数据块'],['K Cache','K 缓存'],['V Cache','V 缓存'],['KV Cache','KV 缓存'],
-    ['Context Accumulate','上下文累加'],['Online Softmax','在线归一化'],['Output Normalize','输出归一化'],['Attention Output','注意力输出'],
-    ['Scaling + Mask','缩放与掩码'],['QK Matmul','QK 矩阵乘'],['PV Matmul','PV 矩阵乘'],['Partial Context','部分上下文'],
-    ['Update Maximum','更新最大值'],['Rescale FIFO','重缩放队列'],['Probability','概率'],['Scores','得分'],
-    ['Assignment','任务分配'],['Pipeline','流水线'],['Graph','计算图'],['Structure','结构'],['Phase0','准备阶段'],
-    ['Normalize','归一化'],['Accumulate','累加'],['Store','写回'],['Append','追加'],['Feedback','反馈'],['State','状态'],['Data','数据'],
-    ['Batches','批次'],['Batch','批次'],['Blocks','执行块'],['Block','执行块'],['Tasks','任务'],['Task','任务'],
-    ['Stacks','分块'],['Stack','分块'],['Pages','页'],['Page','页'],['Slots','槽位'],['Slot','槽位'],
-    ['BATCH','批次'],['BLOCK','执行块'],['token','词元'],['Head','头'],['Norm','归一化'],['MatMul','矩阵乘'],['Matmul','矩阵乘'],['Reduce','归约'],['Maximum','最大值'],['Update','更新'],['Context','上下文'],['Output','输出'],['Input','输入'],['Cache','缓存'],['Shape','形状'],['Precision','精度'],['Memory','存储'],['Valid','有效'],['Allocated','分配'],['Cast','类型转换'],
-    ['tokens','词元'],['Items','工作项'],['Per','每'],['Lane','通道'],['Tick','逻辑步']
-  ];
-  const objectTerms = new Set(['Batch','Batches','Block','Blocks','Task','Tasks','Stack','Stacks','Page','Pages','Slot','Slots','Q Heads','KV Head','Q Head','Q Tile','Head','BATCH','BLOCK']);
+  // Original demo vocabulary is authoritative.
   function localizeText(value) {
-    let result=value;
-    if(document.body.classList.contains('csa-visual')) {
-      const chrome = {'Assignment':'任务分配','Pipeline':'流水线','Graph':'计算图','Fit to View':'适应视图'};
-      if(value.includes('查看各 Block 内任务的流水与依赖')) return '追踪 Work Item 的 Lane 迭代与计算依赖';
-      if(value.includes('查看 Task 生成及其到执行 Block 的映射')) return '查看 Work Item 生成、队列编排与 Lane 分配';
-      return chrome[value.trim()] || value;
-    }
-    for(const [english,chinese] of uiTerms.filter(([term])=>!objectTerms.has(term))) result=result.replace(new RegExp('\\b'+english.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','g'),chinese);
-    return result;
+    // Preserve the original demo vocabulary; presentation never renames domain UI.
+    return value;
   }
+
   function localizeUI(scope) {
     if(!(scope instanceof Element)) return;
     const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);
@@ -94,7 +70,7 @@
       .replace('width="260"','width="'+w+'"').replace('height="48"','height="34"')
       .replace('rx="24"','rx="17"').replace('x="130"','x="'+(w/2+8)+'"').replace('y="24"','y="17"').replace('font-size="18"','style="font-size:12px"');
     const badge=icon?`<g class="ai-operation-category" ><circle cx="16" cy="17" r="9" fill="#222"/><path transform="translate(10 11) scale(.5)" d="${icon.path}" fill="none" stroke="#eee" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></g>`:'';
-    return `<g class="ai-operation-glyph" pointer-events="none" transform="translate(${x} ${y})">${node}${badge}<circle cx="8" cy="48" r="3" fill="var(--slot-color)"/><text class="ai-operation-slot" x="${w/2}" y="48" text-anchor="middle">${options.metadata||`Slot ${slot}`}</text></g>`;
+    return `<g class="ai-operation-glyph" data-op-category="${key}" pointer-events="none" transform="translate(${x} ${y})">${node}${badge}<circle cx="8" cy="48" r="3" fill="var(--slot-color)"/><text class="ai-operation-slot" x="${w/2}" y="48" text-anchor="middle">${options.metadata||`Slot ${slot}`}</text></g>`;
   }
 
   window.PtoAIInfraPresentation = Object.freeze({ apply, iconFor, semanticRole, taskGlyph, operationGlyph, localizeText });

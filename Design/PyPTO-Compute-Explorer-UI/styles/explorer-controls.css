@@ -153,3 +153,72 @@ body.ai-extracted svg :is([tabindex],[role="button"],[role="checkbox"]):focus{ou
 :is(.viz2,.csa-explorer) .viz2-graph-inspector dt{color:#888}
 :is(.viz2,.csa-explorer) .viz2-graph-inspector dd{color:#ccc}
 .graph-evidence-details{font-size:12px;color:#aaa}
+
+/* Upstream 116fa06b / Issue #160: paths must not form black filled faces. */
+.viz2 .kf-pypa-graph__edge,.viz2 .kf-pypa-graph__edge-hit{fill:none!important}
+.viz2 :is(.kf-pypa-graph__sync-path,.kf-pypa-graph__edge-hit){fill:none!important}
+
+/* Upstream visual encoding; local spatial layout remains authoritative. */
+/* Reference contrast pass: neutral idle, solid semantic ink on interaction. */
+:is(.viz2,.csa-explorer) .legend-data .ai-role-tensor text{stroke:none!important;paint-order:normal!important;font-weight:600}
+:is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .ai-role-outline{fill:var(--data-role)!important;fill-opacity:.65!important}
+:is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .data-tile{opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .ai-role-tensor text{fill:#080b0b!important}
+.viz2 [data-intra-kind="stage"] .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .ai-operation-glyph [data-kind="op"]>rect{fill:#454545!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text{fill:#101010!important;font-weight:600}
+:is(.viz2,.csa-explorer) .ai-operation-category circle{fill:#202020!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover) .ai-operation-category circle,
+.csa-visual .csa-qp-node:is(.is-selected,.is-related,:hover) .ai-operation-category circle{fill:color-mix(in srgb,var(--slot-color,#80b7f7) 40%,#07121f)!important}
+:is(.viz2,.csa-explorer) .ai-operation-category path{stroke:#fff!important;stroke-width:1.8}
+
+
+/* Semantic OP categories reuse reference hues; slot colors remain on dependencies. */
+.ai-operation-glyph{--op-fill:#ef8844;--op-badge:#ba2c0b}
+.ai-operation-glyph[data-op-category="softmax"]{--op-fill:#7970eb;--op-badge:#3023bb}
+.ai-operation-glyph[data-op-category="reduce"]{--op-fill:#a267de;--op-badge:#5722a0}
+.ai-operation-glyph[data-op-category="cache"]{--op-fill:#32bdd4;--op-badge:#087e9e}
+.ai-operation-glyph[data-op-category="exchange"]{--op-fill:#52b99b;--op-badge:#176c56}
+.viz2 .viz2-intra-svg [data-intra-scene].has-selection [data-intra-kind="stage"]:is(.is-upstream,.is-related,.is-selected,:hover){opacity:1!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--op-fill)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text{fill:#fff!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover) .ai-operation-category circle,
+.csa-visual .csa-qp-node:is(.is-selected,.is-related,:hover) .ai-operation-category circle{fill:var(--op-badge)!important}
+/* A continuous label field keeps tensor texture away from glyph strokes. */
+:is(.viz2,.csa-explorer) .legend-data .ai-role-outline{fill:var(--data-role)!important;fill-opacity:.8!important}
+:is(.viz2,.csa-explorer) .legend-data .data-tile{opacity:.6!important}
+:is(.viz2,.csa-explorer) .legend-data .ai-role-label-band{fill:var(--data-role)!important;opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data .ai-role-tensor text{fill:#080b0b!important;stroke:none!important}
+
+/* Pipeline color identifies the carried slot, shared by edges and consumers. */
+.viz2 .viz2-intra{--intra-slot-0:#ef8844;--intra-slot-1:#32bdd4;--intra-slot-2:#a267de}
+.csa-visual .csa-qp-svg .csa-qp-node{--slot-color:#ef8844}
+.csa-visual .csa-qp-svg .csa-qp-node[data-qp-batch="1"],
+.csa-visual .csa-qp-svg [data-qp-link-batch="1"]{--slot-color:#32bdd4}
+.csa-visual .csa-qp-svg [data-qp-link-batch="0"]{--slot-color:#ef8844}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover) .ai-operation-category circle,
+.csa-visual .csa-qp-node:is(.is-selected,.is-related,:hover) .ai-operation-category circle{fill:color-mix(in srgb,var(--slot-color) 45%,#111)!important}
+
+/* Fine, continuous tensor grid: narrow gutters, saturated tiles, no label plate. */
+:is(.viz2,.csa-explorer) .legend-data .ai-role-outline{fill:color-mix(in srgb,var(--data-role) 78%,#242424)!important;fill-opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data .data-tile{fill:var(--data-role)!important;opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data[data-semantic-role="aggregate"]{--data-role:#ffbc20!important}
+
+
+.viz2 .kf-pa-map__task-id{display:block!important;fill:#ddd;font:6px var(--font-mono);pointer-events:none}
+.viz2 .viz2-am-task .ai-q-dot{fill:#aaa!important}
+.viz2 .viz2-am-task:is(:hover,.is-selected) .ai-q-dot{fill:var(--ai-data-fill)!important}
+.viz2 .viz2-graph-scene:not([data-overlay-sync="false"]) .kf-pypa-graph__sync-marker{display:flex!important}
+.viz2 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker{display:none!important}
+.viz2 .viz2-graph-scene:not([data-overlay-execution="false"]) [data-pypa-execution-count]{visibility:visible!important;pointer-events:auto!important;z-index:5}
+.viz2 .kf-pypa-graph__execution-layer{border:1.5px solid #888!important;background:#333!important}
+.viz2 .kf-pypa-graph__execution-layer{border:0!important;box-shadow:none!important;background:var(--execution-layer-fill,#383838)!important}
+.viz2 .viz2-am-task .ai-q-dot{fill:#ccc!important;fill-opacity:1!important}
+.viz2 .viz2-graph-scene .kf-pypa-graph__edge-label:is([data-edge-type="state"],[data-edge-type="feedback"]){opacity:.8}

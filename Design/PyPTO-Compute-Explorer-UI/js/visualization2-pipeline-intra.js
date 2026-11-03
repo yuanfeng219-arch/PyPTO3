@@ -56,7 +56,7 @@
     const eventEdge=f=>global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations).edges.find(item=>item.id===`sync:s${f.index}:${syncFor(f)?.id}`);
     function dependencyGeometry(t,link){
       const a=stagePosition(t,t.stacks[link.stack],link.producer),b=stagePosition(t,t.stacks[link.stack],link.consumer);
-      const x=a.x+W/2,y=a.y+H,tx=b.x+W/2,ty=b.y,mid=(y+ty)/2;
+      const x=a.x+W/2,y=a.y+H,tx=b.x+W/2,ty=b.y,mid=(y+ty)/2+(link.producer==='softmax'?(link.stack%model.transferSlots)*7:0);
       return {d:`M ${x} ${y} V ${mid} H ${tx} V ${ty}`,event:{x:(x+tx)/2,y:mid}};
     }
     function reuseGeometry(t,link){
