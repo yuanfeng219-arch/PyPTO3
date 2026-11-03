@@ -294,3 +294,9 @@ Hover Cell 使用顶层、不可交互 Tooltip 显示 Unit、列范围、有效�
 快速 Chrome 检查覆盖两个 Shape：行数 / 状态、压缩区间、全部普通格 24px 宽 / 高、Partial 填充比例 72/128、点击 Cell、Hover 不重绘、Memory 保持 Tile 2、P0 无 Partial、600px 窄屏横向滚动后行标识保持在矩阵左边界。Console 无 pageerror。检查记录：[checks.json](previews/continuous-matrix/checks.json)。未全面重跑其他业务测试。
 
 截图：[Input [7,200]](previews/continuous-matrix/input-7-200.png)、[选中尾 Tile / Hover](previews/continuous-matrix/tail-hover.png)、[Input [32,4096]](previews/continuous-matrix/input-32-4096.png)、[窄屏横向滚动](previews/continuous-matrix/narrow-scrolled.png)。本轮只调整 Single Tile 两个组件文件和说明；保留已有 Memory 等本地改动，未改共享数据模型、Lineage / Mini、详情滚动及其他 Inspector。未 commit、push 或部署。
+
+### 矩阵布局留白调整（2026-11-03）
+
+根据实际 1280×900 工作区调整：旧矩阵仅 301×267px，普通格 24×24px、格间距 1px，坐标和 Tile 标签过密。现为 436×376px，普通格 40×32px、格间距 4px，Tile / Row 列宽 104 / 80px，轴区高 52px。压缩区固定 112px，仍显著短于所代表的 61 / 31 个普通格；不铺满剩余宽度。内容组间距改为 16px，去掉 Selected 摘要中重复的 Allocated 字段，恢复辅助坐标的 Token 字号。
+
+1280 / 600px 实际浏览器检查：无组件外横向溢出；Partial 填充比仍为 0.5625；两个 Shape 的 unit 计算、共享状态及矩阵交互逻辑未改。大 Shape 继续使用矩阵横向滚动。截图：[调整前](previews/matrix-spacing/before-1280.png)、[调整后](previews/matrix-spacing/after-1280.png)、[窄屏](previews/matrix-spacing/after-600.png)。实测记录：`previews/matrix-spacing/after.json`。未 commit、push 或部署。
