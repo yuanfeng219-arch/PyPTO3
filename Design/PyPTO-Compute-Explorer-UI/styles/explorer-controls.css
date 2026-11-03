@@ -11,7 +11,7 @@
 body.ai-extracted :is(button,summary,select,a):focus{outline:none!important;box-shadow:none!important}
 body.ai-extracted :is(button,summary,a):focus-visible{background-color:color-mix(in srgb,#242424,white 10%)}
 body.ai-extracted :is(.is-selected,[aria-selected="true"],[aria-pressed="true"]):not(svg *){border-color:transparent!important;box-shadow:none!important}
-.csa-visual .csa-stage-picker{display:inline-flex!important;align-items:center;gap:12px;background:#242424;color:#ddd;border:0;border-radius:18px;padding:7px 12px;font-size:12px;pointer-events:auto}
+.csa-visual .csa-stage-picker{display:none!important}
 .csa-visual .csa-qk-canvas-controls>.segmented-control{border:0!important;border-radius:0!important;box-shadow:none!important;filter:none!important;padding:0!important}
 .csa-visual .csa-qk-canvas-controls .btn.is-selected{background:#3a3a3a!important;color:#eee!important}
 .csa-visual .csa-qk-scenario{gap:10px;font-size:11px}
@@ -154,36 +154,11 @@ body.ai-extracted svg :is([tabindex],[role="button"],[role="checkbox"]):focus{ou
 :is(.viz2,.csa-explorer) .viz2-graph-inspector dd{color:#ccc}
 .graph-evidence-details{font-size:12px;color:#aaa}
 
-/* Issue review: shared header lanes, independent module and view controls. */
-.viz2 .ai-module-picker{position:fixed!important;top:64px!important;left:24px!important;transform:none!important;z-index:20;display:flex;gap:4px;border-radius:24px;padding:4px!important}
-.viz2 .ai-module-picker[hidden]{display:none!important}
-.viz2 .kf-pa-map__task-id{display:block!important;fill:#ddd;font:6px var(--font-mono);pointer-events:none}
-.viz2 .viz2-am-task .ai-q-dot{fill:#aaa!important}
-.viz2 .viz2-am-task:is(:hover,.is-selected) .ai-q-dot{fill:var(--ai-data-fill)!important}
+/* Upstream 116fa06b / Issue #160: paths must not form black filled faces. */
 .viz2 .kf-pypa-graph__edge,.viz2 .kf-pypa-graph__edge-hit{fill:none!important}
-.csa-visual .csa-toolbar{display:flex;align-items:center;gap:12px;padding:0 24px;min-height:32px}
-.csa-visual .csa-stagebar.is-open{position:fixed!important;top:100px!important;left:24px!important;right:auto!important;z-index:60!important;background:#242424!important;border-radius:14px;padding:6px!important;max-width:min(380px,calc(100vw - 48px))}
-.csa-visual .csa-stagebar.is-open .segmented-control{display:flex;flex-direction:column;align-items:stretch;border:0;background:transparent}
-.csa-visual .csa-stagebar.is-open button{text-align:left;justify-content:space-between;border:0!important;box-shadow:none!important}
-.csa-visual .csa-stage-picker[hidden]{display:none!important}
-.viz2 .viz2-anatomy-taskbar:empty{display:none}
-
 .viz2 :is(.kf-pypa-graph__sync-path,.kf-pypa-graph__edge-hit){fill:none!important}
 
-.viz2 .viz2-phase-toolbar>nav:empty{display:none}
-.viz2 .viz2-phase-toolbar{gap:8px}
-.viz2 .viz2-graph-scene .kf-pypa-graph__edge-label[data-edge-type="state"],
-.viz2 .viz2-graph-scene .kf-pypa-graph__edge-label[data-edge-type="feedback"]{opacity:.8}
-.csa-visual .csa-toolbar .csa-stage-picker{order:-1}
-.csa-visual .csa-qp-item-picker{max-width:270px}
-@media(max-width:800px){.viz2 .ai-module-picker{top:106px;left:16px}.csa-visual .csa-stagebar.is-open{top:146px!important}}
-
-.csa-visual .csa-stagebar.is-open button:is(.is-selected,[aria-pressed="true"],:hover,:focus-visible){background:color-mix(in srgb,#242424,white 10%)!important;color:#eee!important}
-
-/* Global header anchors are identical across operators and do not depend on flex leftovers. */
-body.ai-extracted .viz2>.viz2-header .ai-settings{position:fixed!important;top:12px!important;right:64px!important;left:auto!important;margin:0!important}
-body.ai-extracted .viz2>.viz2-header .ai-help:not(.ai-settings){position:fixed!important;top:12px!important;right:16px!important;left:auto!important;margin:0!important}
-
+/* Upstream visual encoding; local spatial layout remains authoritative. */
 /* Reference contrast pass: neutral idle, solid semantic ink on interaction. */
 :is(.viz2,.csa-explorer) .legend-data .ai-role-tensor text{stroke:none!important;paint-order:normal!important;font-weight:600}
 :is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .ai-role-outline{fill:var(--data-role)!important;fill-opacity:.65!important}
@@ -236,20 +211,14 @@ body.ai-extracted .viz2>.viz2-header .ai-help:not(.ai-settings){position:fixed!i
 :is(.viz2,.csa-explorer) .legend-data .data-tile{fill:var(--data-role)!important;opacity:1!important}
 :is(.viz2,.csa-explorer) .legend-data[data-semantic-role="aggregate"]{--data-role:#ffbc20!important}
 
-/* Scope controls are circles independent of inherited button padding. */
-:is(.viz2,.csa-explorer) :is([data-graph-scope],[data-pipeline-scope],[data-viz2-scope]){box-sizing:border-box!important;width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;max-width:36px!important;padding:0!important;flex:0 0 36px!important;border-radius:50%!important;display:inline-flex;align-items:center;justify-content:center}
 
-/* Layer toggles retain the original demo's evidence at every zoom. */
+.viz2 .kf-pa-map__task-id{display:block!important;fill:#ddd;font:6px var(--font-mono);pointer-events:none}
+.viz2 .viz2-am-task .ai-q-dot{fill:#aaa!important}
+.viz2 .viz2-am-task:is(:hover,.is-selected) .ai-q-dot{fill:var(--ai-data-fill)!important}
 .viz2 .viz2-graph-scene:not([data-overlay-sync="false"]) .kf-pypa-graph__sync-marker{display:flex!important}
 .viz2 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker{display:none!important}
 .viz2 .viz2-graph-scene:not([data-overlay-execution="false"]) [data-pypa-execution-count]{visibility:visible!important;pointer-events:auto!important;z-index:5}
-:is(.viz2,.csa-explorer) :is([data-graph-scope],[data-pipeline-scope],[data-viz2-scope]){display:grid!important;place-items:center!important;line-height:1!important;gap:0!important}
-:is(.viz2,.csa-explorer) .viz2-block-scope-icon{margin:0!important;flex:none;align-self:center;justify-self:center}
-
-/* Restore original repetition depth behind the actual rendered silhouette. */
 .viz2 .kf-pypa-graph__execution-layer{border:1.5px solid #888!important;background:#333!important}
-
-.viz2 [data-viz2-graph-context]:not([hidden]){display:block!important;position:fixed;left:24px;bottom:76px;font-size:12px;color:#bbb;pointer-events:none}
-
 .viz2 .kf-pypa-graph__execution-layer{border:0!important;box-shadow:none!important;background:var(--execution-layer-fill,#383838)!important}
 .viz2 .viz2-am-task .ai-q-dot{fill:#ccc!important;fill-opacity:1!important}
+.viz2 .viz2-graph-scene .kf-pypa-graph__edge-label:is([data-edge-type="state"],[data-edge-type="feedback"]){opacity:.8}

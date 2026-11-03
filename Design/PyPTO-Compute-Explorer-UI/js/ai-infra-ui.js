@@ -87,7 +87,7 @@
   function organizeWorkspace() {
     const root=document.querySelector('.viz2:not([hidden])'); if (!root) return;
     const tabs=root.querySelector('.viz2-tabs .tab-control'); if(tabs) tabs.dataset.liquidGlass='control';
-    // Scope switching is an original capability, separate from module selection.
+    root.querySelectorAll('[data-viz2-scope],[data-pipeline-scope],[data-graph-scope]').forEach(button=>button.parentElement.remove());
     root.querySelectorAll('.viz2-anatomy-card > header h3').forEach(title=>{
       if (title.dataset.aiTaskGlyph) return;
       const label=localizeText(title.textContent.trim());
@@ -116,15 +116,13 @@
       if(!dock){dock=document.createElement('div');dock.className='ai-operation-dock';dock.setAttribute('role','group');dock.setAttribute('aria-label','操作组件');footer.prepend(dock);}
       dock.dataset.liquidGlass='control';
       const computeToolbar=[...panel.querySelectorAll('[data-compute-toolbar]')].find(n=>n.getClientRects().length);
-      if (computeToolbar && computeToolbar.parentElement!==dock) dock.prepend(computeToolbar);
+      if (computeToolbar && !computeToolbar.closest('.viz2-compute') && computeToolbar.parentElement!==dock) dock.prepend(computeToolbar);
       const back=[...panel.querySelectorAll('[data-intra-back],[data-anatomy-back]')].find(n=>n.getClientRects().length);
       if (back) { back.classList.add('ai-detail-back'); back.dataset.liquidGlass='control'; if (back.parentElement!==panel) panel.prepend(back); }
       const tasknav=[...panel.querySelectorAll('.viz2-anatomy-task-nav')].find(n=>n.getClientRects().length);
       if (tasknav && tasknav.parentElement!==dock) dock.prepend(tasknav);
       const phase=panel.querySelector('.viz2-phase-toolbar');
       if (phase && phase.parentElement!==dock) dock.prepend(phase);
-      const modules=phase?.querySelector('[data-viz2-phases]');
-      if(modules){modules.dataset.liquidGlass='control';modules.classList.add('ai-module-picker');if(modules.parentElement!==panel)panel.prepend(modules);}
       footer.querySelectorAll('.kf-pa-map__tools').forEach(tools=>{if(tools.parentElement!==footer)footer.append(tools);tools.dataset.liquidGlass='control';tools.setAttribute('role','group');tools.setAttribute('aria-label','缩放组件');});
       footer.querySelectorAll('.viz2-am-controls,.viz2-graph-footer__controls').forEach(group=>{if(group.parentElement!==dock)dock.append(group);});
       dock.querySelectorAll('[data-liquid-glass]').forEach(child=>child.removeAttribute('data-liquid-glass'));

@@ -28,7 +28,7 @@
     host.classList.add('viz2-graph');
     host.innerHTML = `<div class="viz2-graph-body"><div class="viz2-graph-stage">
       <div class="kf-pypa-graph__viewport viz2-graph-viewport" role="group" tabindex="0" aria-label="${adapter?'Block 内计算图':'Block 间完整计算图'}，滚轮缩放，拖拽平移"><div class="kf-pypa-graph__scene viz2-graph-scene" data-viz2-graph-scene></div><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
-      <footer class="viz2-graph-footer"><span data-viz2-graph-context>完整计算图</span><div class="viz2-graph-footer__controls"><details class="viz2-graph-layer-menu"><summary><svg class="ai-layer-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg><span>图层</span></summary><div class="viz2-graph-layer-menu__content" role="group" aria-label="信息叠加">${Object.entries(layerNames).map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-viz2-graph-layer="${key}" aria-pressed="${layers[key]}">${label}</button>`).join('')}</div></details><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="0.8" aria-label="缩小 Graph">−</button><output data-viz2-graph-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="1.25" aria-label="放大 Graph">＋</button><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-fit>Fit</button></div></div></footer>
+      <footer class="viz2-graph-footer"><span data-viz2-graph-context>完整计算图</span><div class="viz2-graph-footer__controls"><details class="viz2-graph-layer-menu"><summary><svg class="ai-layer-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg><span>图层</span></summary><div class="viz2-graph-layer-menu__content" role="group" aria-label="信息叠加">${Object.entries(layerNames).map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-viz2-graph-layer="${key}" aria-pressed="${layers[key]}">${label}</button>`).join('')}</div></details><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="0.8" aria-label="缩小 Graph">−</button><output data-viz2-graph-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="1.25" aria-label="放大 Graph">＋</button><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-fit>Fit to View</button></div></div></footer>
       </div><aside class="pto-ide-frame__pane viz2-graph-inspector" aria-label="Graph 节点详情" hidden><header class="pto-ide-frame__pane-header"><b data-viz2-graph-title></b><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-close aria-label="关闭 Graph 详情">×</button></header><div class="pto-ide-frame__pane-body" data-viz2-graph-detail></div></aside></div>`;
     const viewport = host.querySelector('.viz2-graph-viewport'), scene = host.querySelector('[data-viz2-graph-scene]');
     const events=new AbortController();
@@ -38,7 +38,7 @@
     const inspector = host.querySelector('aside'), tooltip = host.querySelector('[role="tooltip"]');
     function staticExecutionData(g){
       if(adapter?.executionData)return adapter.executionData(g);
-      const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario||{task:0,seqLen:execution?.seqLens?.[0]};
+      const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario;
       return global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario);
     }
     function rebuild(){
@@ -160,8 +160,8 @@
     const initialCamera = () => {
       if(!adapter||adapter.fitOnEnter)return fitted();
       const rail=!adapter?184:0,available=Math.max(120,viewport.clientWidth-rail);
-      const scale=Math.max(.35,Math.min(.82,(available-48)/rendered.sceneWidth));
-      return {scale,x:rail+(available-rendered.sceneWidth*scale)/2,y:16};
+      const scale=Math.max(adapter?.initialMinScale ?? .35,Math.min(.82,(available-48)/rendered.sceneWidth));
+      return {scale,x:adapter?.initialAlignStart?24:rail+(available-rendered.sceneWidth*scale)/2,y:16};
     };
     function fit() {if(viewport.clientWidth&&viewport.clientHeight)onView({camera:fitted()});}
     function paintCamera() {
@@ -270,10 +270,7 @@
       const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:JSON.stringify([node.id,view.instancesNode,view.instancePage])):'';
       if(ikey!==inspectorKey){const detailBody=host.querySelector('[data-viz2-graph-detail]'),previousTitle=host.querySelector('[data-viz2-graph-title]').textContent,openDetails=[...detailBody.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;detailBody.innerHTML=detail.html;if(previousTitle===detail.title)detailBody.querySelectorAll('details').forEach(el=>{if(openDetails.includes(el.querySelector('summary')?.textContent))el.open=true;});}else if(edge&&show){host.querySelector('[data-viz2-graph-title]').textContent=edge.type==='feedback'?'跨 Stack 反馈':'状态依赖';detailBody.innerHTML=global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join('');}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;detailBody.innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;detailBody.innerHTML=inspectorHtml(node);}}
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
-      const executionContext=host.querySelector('[data-viz2-graph-context]');
-      const countScope=!adapter&&layers.execution?staticExecutionData(graph):null;
-      executionContext.hidden=!countScope;
-      if(countScope)executionContext.textContent=`Execution Weight · Task ${countScope.task} · ${countScope.seqLen} tokens · ${countScope.pages} Pages / ${countScope.stacks} Stacks`;
+      host.querySelector('[data-viz2-graph-context]').hidden=true;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
       if(dataVisibilityChanged){pendingFocus=false;onView({camera:fitted()});return;}
       if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;if(!adapter||!camera){onView({camera:initialCamera()});return;}}
@@ -296,11 +293,11 @@
       const node=nodeMap.get(id);
       if(adapter?.autoFitExpanded){onView({camera:fitted()});return;}
       if(node&&next.has(id)&&node.expandedGroup){
-        const fitScale=Math.min((viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-176)/node.groupHeight);
+        const fitScale=Math.min((viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-72)/node.groupHeight);
         const floor=typeof adapter?.expandedScaleFloor==='function'?adapter.expandedScaleFloor(node):adapter?.expandedScaleFloor;
         const scale=floor?Math.max(floor,Math.min(fitScale,.9)):Math.min(before?.scale||1,fitScale*(adapter?.expandedFitInset?.(node)||1));
         onView({camera:{scale,x:(adapter?.focusExpandedTop&&node.groupWidth*scale>viewport.clientWidth-48?24-node.x*scale:viewport.clientWidth/2-(node.x+node.groupWidth/2)*scale)+(adapter?.expandedXOffset?.(node)||0),
-          y:adapter?.focusExpandedTop?96-node.y*scale:96+(viewport.clientHeight-176)/2-(node.y+node.groupHeight/2)*scale}});
+          y:adapter?.focusExpandedTop?24-node.y*scale:viewport.clientHeight/2-(node.y+node.groupHeight/2)*scale}});
       }else if(point&&node)onView({camera:{...before,x:point.x-(node.x+node.w/2)*before.scale,y:point.y-(node.y+node.h/2)*before.scale}});
     }
     host.addEventListener('click',event=>{

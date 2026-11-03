@@ -1,7 +1,7 @@
 # Compute Explorer 视觉优化总结与 CSA 迁移 Spec
 
-版本：v1.0 · 2026-10-31  
-状态：迁移实施规格，尚未实施 CSA 专项改造。  
+版本：v1.0 · 2026-10-31
+状态：迁移实施规格，尚未实施 CSA 专项改造。
 适用目录：`Design/PyPTO Compute Explorer UI/`。原版 `Design/PyPTO Compute Explorer/` 为对照，不修改。
 
 ## 1. 目标与边界
