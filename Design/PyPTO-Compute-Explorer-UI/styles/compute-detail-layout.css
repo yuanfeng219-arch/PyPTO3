@@ -1,0 +1,30 @@
+/* Spatial organization only. The graph renderer owns all object encodings. */
+.viz2 #viz2-graph-intra.viz2-compute { position:absolute; inset:0; display:block; }
+.viz2 #viz2-graph-intra[hidden] { display:none; }
+.viz2-compute .compute-identity { position:absolute; top:120px; left:var(--ss-page-inset); width:240px; z-index:5; pointer-events:none; color:var(--ss-text); }
+.compute-identity h1 { font:500 var(--ss-type-focus)/1 var(--font-mono); letter-spacing:-.05em; margin:0 0 var(--ss-space-4); }
+.compute-identity h2 { font:400 var(--ss-type-body)/1.5 var(--font-sans); margin:0 0 var(--ss-space-5); }
+.compute-identity p { font:var(--ss-type-label)/1.9 var(--font-mono); color:var(--ss-text-secondary); white-space:pre-line; margin:0 0 var(--ss-space-4); }
+.viz2 #viz2-graph-intra > .viz2-compute-canvas { position:absolute; inset:110px var(--ss-space-5) 140px 300px; }
+.viz2 #viz2-graph-intra .viz2-graph-body,.viz2 #viz2-graph-intra .viz2-graph-stage { height:100%; }
+.viz2 #viz2-graph-intra > [data-compute-toolbar] { position:absolute; top:72px; left:300px; right:var(--ss-space-5); gap:var(--ss-space-3); min-height:36px; max-height:40px; padding:0; z-index:6; background:transparent; }
+.viz2 #viz2-graph-intra [data-compute-context] { display:none; }
+.viz2 #viz2-graph-intra .compute-task-navigation { position:fixed; bottom:var(--ss-space-4); left:50%; transform:translateX(-50%); display:flex; gap:var(--ss-space-3); max-width:60vw; overflow:auto; z-index:12; padding-bottom:var(--ss-space-2); border-bottom:var(--ss-line) solid var(--ss-divider); }
+.compute-task-navigation button { flex:none; }
+.compute-task-navigation [aria-current="true"] { color:var(--ss-selection); border-bottom:var(--ss-line-focus) solid var(--ss-selection); }
+.viz2:has(#viz2-graph-intra:not([hidden])) .ai-control-bar { position:fixed; bottom:80px; left:var(--ss-page-inset); right:var(--ss-page-inset); }
+.viz2 #viz2-graph-intra .viz2-graph-inspector { position:fixed; right:var(--ss-space-5); top:120px; width:min(350px,35vw); z-index:15; }
+@media(max-width:1000px) {
+ .viz2-compute .compute-identity { width:190px; top:120px; }
+ .compute-identity h1 { font-size:var(--ss-type-title); }
+ .viz2 #viz2-graph-intra > .viz2-compute-canvas { left:220px; }
+ .viz2 #viz2-graph-intra > [data-compute-toolbar] { left:220px; }
+}
+@media(max-width:650px) {
+ .viz2-compute .compute-identity { top:110px; width:160px; }
+ .compute-identity h2 { margin-bottom:var(--ss-space-2); }
+ .compute-identity p { font-size:var(--font-size-label-xs); }
+ .viz2 #viz2-graph-intra > .viz2-compute-canvas { inset:300px var(--ss-space-2) 140px; }
+ .viz2 #viz2-graph-intra > [data-compute-toolbar] { left:180px; max-height:160px; flex-wrap:wrap; }
+ .viz2 #viz2-graph-intra .compute-task-navigation { max-width:90vw; }
+}

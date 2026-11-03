@@ -140,7 +140,7 @@
       if(!dock){dock=document.createElement('div');dock.className='ai-operation-dock';dock.setAttribute('role','group');dock.setAttribute('aria-label','操作组件');footer.prepend(dock);}
       dock.dataset.liquidGlass='control';
       const computeToolbar=[...panel.querySelectorAll('[data-compute-toolbar]')].find(n=>n.getClientRects().length);
-      if (computeToolbar && computeToolbar.parentElement!==dock) dock.prepend(computeToolbar);
+      if (computeToolbar && !computeToolbar.closest('.viz2-compute') && computeToolbar.parentElement!==dock) dock.prepend(computeToolbar);
       const back=[...panel.querySelectorAll('[data-intra-back],[data-anatomy-back]')].find(n=>n.getClientRects().length);
       if (back) { back.classList.add('ai-detail-back'); back.dataset.liquidGlass='control'; if (back.parentElement!==panel) panel.prepend(back); }
       const tasknav=[...panel.querySelectorAll('.viz2-anatomy-task-nav')].find(n=>n.getClientRects().length);

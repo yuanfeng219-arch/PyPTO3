@@ -160,8 +160,8 @@
     const initialCamera = () => {
       if(!adapter||adapter.fitOnEnter)return fitted();
       const rail=!adapter?184:0,available=Math.max(120,viewport.clientWidth-rail);
-      const scale=Math.max(.35,Math.min(.82,(available-48)/rendered.sceneWidth));
-      return {scale,x:rail+(available-rendered.sceneWidth*scale)/2,y:16};
+      const scale=Math.max(adapter?.initialMinScale ?? .35,Math.min(.82,(available-48)/rendered.sceneWidth));
+      return {scale,x:adapter?.initialAlignStart?24:rail+(available-rendered.sceneWidth*scale)/2,y:16};
     };
     function fit() {if(viewport.clientWidth&&viewport.clientHeight)onView({camera:fitted()});}
     function paintCamera() {
