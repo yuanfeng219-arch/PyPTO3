@@ -24,7 +24,7 @@
         operations:stacks.flatMap(s=>Object.keys(stages).map(stage=>{const tick=['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick,operationId=`paged/task/${task.id}/stack/${s.index}/${stage}`,bufferObject=name=>({name,kind:'buffer'});return {stack:s.index,stage,tick,slot:s.slot,...buffers[stage],computeUnitId:`paged/task/${task.id}`,iterationId:`paged/task/${task.id}/stack/${s.index}`,operationId,operationType:stage,logicalPosition:{kind:'tick',index:tick},inputs:buffers[stage].read?[bufferObject(buffers[stage].read)]:[],outputs:buffers[stage].write?[bufferObject(buffers[stage].write)]:[],dependencies:transfers.filter(t=>t.consumer===stage).flatMap(t=>[{kind:'data',from:`paged/task/${task.id}/stack/${s.index}/${t.producer}`,to:operationId,buffer:t.buffer},{kind:'synchronization',from:`paged/task/${task.id}/stack/${s.index}/${t.producer}`,to:operationId,event:t.event}]),resourceRefs:[`paged/task/${task.id}/slot/${s.slot}`],evidence:{operation:{level:'source-confirmed',source:sourceRef(sourceRanges[stage])},logicalPosition:{level:'model-derived',rule:['qk','softmax'].includes(stage)?'stack.index':'stack.index + PRE_LAUNCH',inputs:{stackIndex:s.index,preLaunch},source:sourceRef([758,833])},visualSpacing:{level:'presentation-only'},runtimeDuration:{level:'unverified'}}};}))};
     })};
   }
-  function mount(host,{model,onTask,onFocus,onCamera,onInspector,onNavigate,onExit}){
+  function mount(host,{model,scenario,onTask,onFocus,onCamera,onInspector,onNavigate,onExit}){
     const media=global.matchMedia('(prefers-reduced-motion: reduce)'),listeners=new AbortController();
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const listen=(element,type,fn,options={})=>element.addEventListener(type,fn,{...options,signal:listeners.signal});
@@ -37,43 +37,31 @@
         <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><div><b data-intra-title></b><small data-intra-context></small></div><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('.viz2-anatomy-inspector'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
-    let sourceTask=null,customTask=null,configurationChanged=false;
+    let sourceTask=null,isCustom=false;
     const controls=global.PtoComputeDetailControls,toolbar=host.querySelector('[data-compute-toolbar]');
     toolbar.innerHTML=controls.parameter('Stacks','Pages');
+    const syncScenario=controls.connect(host,scenario);
     host.querySelector('[data-compute-identity]').innerHTML=controls.picker(model,'Pipeline Task');
     const stackInput=toolbar.querySelector('[data-compute-pages]'),stackRange=toolbar.querySelector('[data-page-range]');
-    // Exploration bound mirrors Graph: largest source Stack count × model capacity.
-    const maxStacks=Math.max(...model.tasks.map(t=>t.stacks.length))*model.pagesPerStack;
-    stackInput.max=stackRange.max=maxStacks;
+    let maxStacks=1;
     function configureStacks(value){
-      const count=Number(value),error=toolbar.querySelector('[data-page-error]');
-      if(!/^\d+$/.test(String(value))||!Number.isSafeInteger(count)||count<1||count>maxStacks){error.textContent=`Stacks 必须为 1–${maxStacks} 的整数`;stackInput.setAttribute('aria-invalid','true');return;}
-      error.textContent='';stackInput.removeAttribute('aria-invalid');
-      if(count===task.stacks.length)return;
-      customTask=null;
-      if(count!==sourceTask.stacks.length){
-        // Preserve the source tail Stack's Pages and the source tail Page's valid tokens.
-        const pages=(count-1)*model.pagesPerStack+sourceTask.stacks.at(-1).pages.length;
-        const seqLen=(pages-1)*model.pageTokens+sourceTask.pages.at(-1).tokens;
-        const anatomy=global.PtoVisualization2Anatomy.createModel({...model,seqLens:Array.from({length:sourceTask.batch+1},()=>seqLen),blockTable:null});
-        anatomy.tasks=[anatomy.tasks.find(t=>t.id===sourceTask.id)];
-        customTask=createModel({anatomy,preLaunch:model.preLaunch}).tasks[0];
-      }
-      configurationChanged=true;onTask(sourceTask.id);
+      const result=scenario.edit('stacks',value),error=toolbar.querySelector('[data-page-error]');
+      error.textContent=result.error||'';if(result.error)stackInput.setAttribute('aria-invalid','true');else stackInput.removeAttribute('aria-invalid');
     }
     listen(stackInput,'input',()=>configureStacks(stackInput.value));
     listen(stackRange,'input',()=>configureStacks(stackRange.value));
     listen(toolbar,'click',event=>{const button=event.target.closest('[data-page-step]');if(button)configureStacks(task.stacks.length+Number(button.dataset.pageStep));});
     listen(host.querySelector('[data-compute-task]'),'change',event=>onTask(Number(event.target.value)));
     function identity(){
-      const picker=host.querySelector('[data-compute-task]');picker.value=sourceTask.id;picker.dataset.displayLabel=customTask?'Task N':`Task ${task.id}`;
-      host.querySelector('[data-compute-owner]').textContent=customTask?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
-      host.querySelector('[data-compute-facts]').textContent=customTask?'Batch N\nCustom Stack Configuration':`Batch ${task.batch}\n${task.seqLen} tokens`;
+      syncScenario();
+      const picker=host.querySelector('[data-compute-task]');picker.value=sourceTask.id;picker.dataset.displayLabel=isCustom?'Task N':`Task ${task.id}`;
+      host.querySelector('[data-compute-owner]').textContent=isCustom?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
+      host.querySelector('[data-compute-facts]').textContent=isCustom?`Batch N\n${task.seqLen} tokens`:`Batch ${task.batch}\n${task.seqLen} tokens`;
       stackInput.value=stackRange.value=task.stacks.length;
       toolbar.querySelector('[data-stack-count]').textContent=task.pages.length;
       toolbar.querySelector('[data-page-step="-1"]').disabled=task.stacks.length<=1;
       toolbar.querySelector('[data-page-step="1"]').disabled=task.stacks.length>=maxStacks;
-      toolbar.querySelector('[data-page-summary]').textContent=customTask?'Custom · 模型推导调度':'';
+      toolbar.querySelector('[data-page-summary]').textContent=isCustom?'Custom · 模型推导调度':'';
     }
     const scrollStates=new Map(),scales=new Map();let pan={x:0,y:0};
     const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
@@ -122,7 +110,7 @@
         t.stacks.map(stack=>{const n=stagePosition(t,stack,'qk');return object('stack',stack.index,rect(n.x,TOP+4*ROW+10,W,24,'viz2-intra-stack-hit')+text(n.x+8,TOP+4*ROW+27,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`);}).join('')+
         (lastPosition?`<path class="viz2-intra-output-link" d="M ${lastPosition.x+W} ${lastPosition.y+H/2} H ${outputX}" marker-end="url(#${arrow})"/>`:'')+
         object('output',0,rect(outputX,outputY,142,H,'viz2-intra-output-hit','data-intra-output')+rect(outputX,outputY,142,H,'viz2-intra-output')+text(outputX+10,outputY+19,'Normalize / Store','viz2-intra-small')+text(outputX+10,outputY+38,'BF16 · 全部 Stack','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
-      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="${customTask?`Custom · 来源 Task ${t.id} · 模型推导调度`:`Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens`}"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens · ${t.stacks.length} Stacks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的横向 Logical Tick"><svg class="viz2-intra-svg" viewBox="0 0 ${width} ${height}" data-intra-width="${width}" data-intra-height="${height}" aria-label="横向 Logical Tick × 纵向计算阶段"><g data-intra-scene>${diagram}</g></svg></div></article>`;
+      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="${isCustom?`Custom · 模型推导调度`:`Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens`}"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens · ${t.stacks.length} Stacks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的横向 Logical Tick"><svg class="viz2-intra-svg" viewBox="0 0 ${width} ${height}" data-intra-width="${width}" data-intra-height="${height}" aria-label="横向 Logical Tick × 纵向计算阶段"><g data-intra-scene>${diagram}</g></svg></div></article>`;
     }
     function saveScroll(){cards.forEach(card=>{const scroller=card.querySelector('.viz2-intra-tick-scroll');scrollStates.set(Number(card.dataset.intraTask),{top:scroller.scrollTop,left:scroller.scrollLeft});});}
     function buildBlock(){
@@ -256,10 +244,11 @@
       const entering=!!options.active&&!active;active=!!options.active;
       if(!active){saveScroll();stop();host.classList.remove('viz2-intra-masked');return;}
       const source=model.tasks[id];if(!source)return;
-      if(sourceTask?.id!==id){sourceTask=source;customTask=null;configurationChanged=true;toolbar.querySelector('[data-page-error]').textContent='';stackInput.removeAttribute('aria-invalid');}
-      const next=customTask||source;const rebuild=configurationChanged||task!==next;
-      if(configurationChanged){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;}
-      configurationChanged=false;
+      sourceTask=source;
+      const next=scenario.task('pipeline',id)||source,rebuild=task!==next;
+      isCustom=!!scenario.get()?.isCustom;
+      maxStacks=scenario.limits().stacks;stackInput.max=stackRange.max=maxStacks;
+      if(rebuild){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;toolbar.querySelector('[data-page-error]').textContent='';stackInput.removeAttribute('aria-invalid');}
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen&&!!focus;identity();
       const needsInitialFit=!nextCamera&&!scales.has(id);

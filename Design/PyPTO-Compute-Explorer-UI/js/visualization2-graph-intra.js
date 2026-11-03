@@ -102,38 +102,22 @@ function evolutionMarkup(e){
  const s=e.states,v=e.fifo.versions;
  return `<section class="viz2-stack-evolution" aria-label="S${e.index} 状态演化"><div class="viz2-stack-evolution__lane"><b>Previous · ${esc(e.previous)}</b><span>${esc(s.m.previous)} · ${esc(s.l.previous)} · ${esc(s.o.previous)}</span></div><div class="viz2-stack-evolution__lane"><b>Current · S${e.index}</b><span>Tick ${e.produceTick}: Scores → Online Softmax → ${esc(s.m.updated)}, ${esc(s.l.updated)}</span><small>m_new = max(m_old, row_max(Scores)); l_new = rescale × l_old + sum(exp)</small><span>Tick ${e.consumeTick}: PV Partial + delayed Rescale + ${esc(s.o.previous)} → ${esc(s.o.updated)}</span><small>o_new = delayed_rescale × o_old + PV Partial</small></div><div class="viz2-stack-evolution__lane"><b>Updated / Next</b><span>${esc(s.m.updated)} · ${esc(s.l.updated)} · ${esc(s.o.updated)}${e.next?` → ${esc(e.next)} Previous`:' → Output Normalize'}</span></div><div class="viz2-stack-evolution__fifo"><b>Rescale FIFO · 静态逻辑 Tick</b><span>produce → ${esc(v[0])} → ${esc(v[1])} → ${esc(v[2])}</span><small>Softmax 先生产；Context 在 ${e.consumeTick-e.produceTick} Tick 后读取 pending0，补偿此前 m 更新造成的缩放。</small></div></section>`;
 }
-function mount(host,{model,onTask,onFocus,onView,onNavigate}){
+function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
  host.classList.add('viz2-compute');
  host.innerHTML=global.PtoComputeDetailControls.identity()+'<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>';
  const toolbar=host.querySelector('[data-compute-toolbar]');
  toolbar.innerHTML=global.PtoComputeDetailControls.parameter();
+ const syncScenario=global.PtoComputeDetailControls.connect(host,scenario);
  host.querySelector('[data-compute-identity]').innerHTML=global.PtoComputeDetailControls.picker(model);
  let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null;
  const canvas=host.querySelector('.viz2-compute-canvas');
- let sourceTask=task,customTask=null,pagesChanged=false;
- // Bound parameter exploration to four times the largest source Page count.
- const maxPages=Math.max(...model.tasks.map(t=>t.pageCount))*model.anatomy.pagesPerStack;
- const pageInput=toolbar.querySelector('[data-compute-pages]');pageInput.max=maxPages;
- const pageRange=toolbar.querySelector('[data-page-range]');pageRange.max=maxPages;pageRange.addEventListener('input',()=>configurePages(pageRange.value));
+ let sourceTask=task,isCustom=false;
+ let maxPages=1;
+ const pageInput=toolbar.querySelector('[data-compute-pages]');
+ const pageRange=toolbar.querySelector('[data-page-range]');pageRange.addEventListener('input',()=>configurePages(pageRange.value));
  function configurePages(value){
-  const count=Number(value),error=toolbar.querySelector('[data-page-error]');
-  if(!/^\d+$/.test(String(value))||!Number.isSafeInteger(count)||count<1||count>maxPages){error.textContent=`Pages 必须为 1–${maxPages} 的整数`;pageInput.setAttribute('aria-invalid','true');return;}
-  error.textContent='';pageInput.removeAttribute('aria-invalid');
-  if(count===task.pageCount)return;
-  customTask=null;
-  if(count!==sourceTask.pageCount){
-   const a=model.anatomy,tail=sourceTask.pages.at(-1).tokens;
-   const seqLen=(count-1)*a.pageTokens+tail;
-   const seqLens=Array.from({length:sourceTask.batch+1},()=>seqLen);
-   const anatomy=global.PtoVisualization2Anatomy.createModel({...a,seqLens,blockTable:null});
-   anatomy.tasks=[anatomy.tasks.find(t=>t.id===sourceTask.id)];
-   customTask=createModel({anatomy,source:model.source,preLaunch:sourceTask.preLaunch}).tasks[0];
-   customTask.graph.id+=`-custom-${count}`;
-   customTask.graph.constants={...customTask.graph.constants,SEQ_LEN:{...customTask.graph.constants.SEQ_LEN,value:Math.max(seqLen,customTask.graph.constants.SEQ_LEN.value)}};
-  }
-  task=customTask||sourceTask;pagesChanged=true;
-  // Reset stale Stack/Page selections through the existing Task controller.
-  onTask(sourceTask.id);
+  const result=scenario.edit('pages',value),error=toolbar.querySelector('[data-page-error]');
+  error.textContent=result.error||'';if(result.error)pageInput.setAttribute('aria-invalid','true');else pageInput.removeAttribute('aria-invalid');
  }
  pageInput.addEventListener('input',()=>configurePages(pageInput.value));
  toolbar.addEventListener('click',e=>{const b=e.target.closest('[data-page-step]');if(b)configurePages(task.pageCount+Number(b.dataset.pageStep));});
@@ -152,7 +136,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
  function executionData(graph){
   const data=global.PtoPagedAttentionExecution.derive(task.graph,global.PtoPagedAttentionIntro.model,{task:task.id,seqLen:task.seqLen});
   if(!data)return null;
-  const entry=(count,unit,formula,source)=>({count,unit,label:`${customTask?'模拟 · ':''}×${count} · ${unit}`,formula,source});
+  const entry=(count,unit,formula,source)=>({count,unit,label:`${isCustom?'模拟 · ':''}×${count} · ${unit}`,formula,source});
   task.nodes.forEach(n=>{data.nodes[semanticId(n.id)]=entry(n.count,n.unit,n.formula,{file:'paged_attention_pypto.py',ranges:[[n.line,n.line]]});});
   data.nodes['qk/q-tile']=entry(1,'AIC load / Task','once before tick loop');
   data.nodes['qk/matmul']=entry(task.pageCount,'AIC / Task','page_count');
@@ -257,16 +241,20 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
  // are handled in capture so their Inspector remains local to this Task.
  canvas.addEventListener('click',e=>{const ready=e.target.closest('[data-compute-ready]');if(ready){e.stopPropagation();const sync=syncFor(ready.dataset.computeReady),index=stackIndex()??0;onFocus({kind:'event',syncId:sync.id,event:sync.name+'_EVENT',index,stackIndex:index});return;}if(e.target.closest('[data-compute-pipeline-ready]')){e.stopPropagation();onNavigate?.();return;}const b=e.target.closest('[data-compute-source],[data-compute-sync-source]');if(!b)return;e.stopPropagation();let line=Number(b.dataset.computeSource);if(b.dataset.computeSyncSource){const sync=syncFor(b.dataset.computeSyncSource),end=b.dataset.computeSyncEnd;const edge=global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),task.graph.synchronizations).edges.find(item=>item.id===`sync:s${stackIndex()??0}:${sync.id}`);const ranges=end==='consumer'?(edge?.consumerSource?.ranges||sync.consumer.source.ranges):sync.producer.source.ranges;line=ranges[Number(b.dataset.computeSyncRange)]?.start;}const code=b.closest('section')?.querySelector('[data-compute-code]')||canvas.querySelector('[data-compute-code]');if(!code||!line)return;code.hidden=false;code.textContent=model.source.split('\n').slice(Math.max(0,line-3),line+12).map((v,i)=>`${Math.max(1,line-2)+i}  ${v}`).join('\n');},true);
  return {update(id,f,v,{active:next}={}){
-  if(model.tasks[id]&&sourceTask.id!==id){sourceTask=model.tasks[id];customTask=null;}
-  task=customTask||sourceTask;focus=f;view=v;active=!!next;hover=null;
-  if(pagesChanged){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};pagesChanged=false;}
+  if(model.tasks[id])sourceTask=model.tasks[id];
+  const effective=scenario.task('graph',id)||sourceTask;
+  const changed=task!==effective;task=effective;isCustom=!!scenario.get()?.isCustom;
+  focus=f;view=v;active=!!next;hover=null;
+  if(changed){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};toolbar.querySelector('[data-page-error]').textContent='';pageInput.removeAttribute('aria-invalid');}
+  maxPages=scenario.limits().pages;pageInput.max=pageRange.max=maxPages;
   if((Number.isInteger(f?.stackIndex)&&f.stackIndex>=task.stackCount)||(f?.kind==='stack'&&f.index>=task.stackCount)||(f?.kind==='page'&&f.index>=task.pageCount)){focus=null;f=null;v={...v,intraInspectorOpen:false};}
   if(active){
-   host.querySelector('[data-compute-task]').dataset.displayLabel=customTask?'Task N':`Task ${task.id}`;
-   host.querySelector('[data-compute-owner]').textContent=customTask?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
-   host.querySelector('[data-compute-facts]').textContent=customTask?`Batch N\nCustom Page Configuration`:`Batch ${task.batch}\n${task.seqLen} tokens`;
+   syncScenario();
+   host.querySelector('[data-compute-task]').dataset.displayLabel=isCustom?'Task N':`Task ${task.id}`;
+   host.querySelector('[data-compute-owner]').textContent=isCustom?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
+   host.querySelector('[data-compute-facts]').textContent=isCustom?`Batch N\n${task.seqLen} tokens`:`Batch ${task.batch}\n${task.seqLen} tokens`;
    pageInput.value=task.pageCount;pageRange.value=task.pageCount;toolbar.querySelector('[data-stack-count]').textContent=task.stackCount;toolbar.querySelector('[data-page-step="-1"]').disabled=task.pageCount<=1;toolbar.querySelector('[data-page-step="1"]').disabled=task.pageCount>=maxPages;
-   toolbar.querySelector('[data-page-summary]').textContent=customTask?'Custom · 模拟执行次数':'';
+   toolbar.querySelector('[data-page-summary]').textContent=isCustom?'Custom · 模拟执行次数':'';
    host.querySelector('[data-compute-task]').value=task.id;toolbar.querySelector('[data-compute-context]').textContent=`Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.pageCount} Pages / ${task.stackCount} Stacks / ${task.tickCount} logical ticks`;
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));

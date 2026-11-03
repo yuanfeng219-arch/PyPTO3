@@ -130,6 +130,7 @@
       footer.querySelectorAll('.segmented-control').forEach(group=>{ if (!group.getAttribute('aria-label')) group.setAttribute('aria-label','分配状态'); });
     }
   }
+  window.PtoAIInfraWorkspace=Object.freeze({flush:organizeWorkspace});
   let organizing=false;
   function scheduleWorkspace() { if (organizing) return; organizing=true; requestAnimationFrame(()=>{ organizeWorkspace(); organizing=false; }); }
   new MutationObserver(scheduleWorkspace).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});

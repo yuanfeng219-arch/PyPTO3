@@ -2,8 +2,22 @@
 (function(global){
 'use strict';
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function parameter(primary='Pages',derived='Stacks') { return `<span data-compute-context></span><div class="compute-page-readouts"><label>${esc(primary)}<input class="input" type="number" min="1" step="1" data-compute-pages aria-label="${primary==='Pages'?'Page':esc(primary)} Count"></label><div class="compute-stack-readout"><span>${esc(derived)}</span><output data-page-stacks><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-label="由 ${primary==='Pages'?'Page':esc(primary)} 数量计算"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span data-stack-count></span></output></div></div><div class="compute-page-stepper"><button class="btn btn-ghost btn-sm" data-page-step="-1" aria-label="减少 ${esc(primary)}">−</button><input type="range" min="1" step="1" data-page-range aria-label="调整 ${primary==='Pages'?'Page':esc(primary)} 数量"><button class="btn btn-ghost btn-sm" data-page-step="1" aria-label="增加 ${esc(primary)}">+</button></div><span data-page-summary></span><span data-page-error role="status"></span>`; }
+const lock='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-label="由参数计算"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+function sequence(){
+ const element=document.createElement('div');element.innerHTML=parameter('KV Sequence Length','Pages');
+ element.querySelector('.compute-stack-readout').remove();
+ element.querySelector('[data-compute-pages]').setAttribute('aria-label','KV Sequence Length');
+ const derived=document.createElement('div');derived.className='compute-page-readouts compute-derived-readouts';
+ derived.innerHTML=`<div class="compute-stack-readout"><span>Pages</span><output>${lock}<span data-sequence-pages></span></output></div><div class="compute-stack-readout"><span>Stacks</span><output>${lock}<span data-sequence-stacks></span></output></div>`;
+ element.querySelector('.compute-page-stepper').after(derived);
+ return element.innerHTML;
+}
+function parameter(primary='Pages',derived='Stacks') { return `<span data-compute-context></span><div class="compute-page-readouts"><label>${esc(primary)}<input class="input" type="number" min="1" step="1" data-compute-pages aria-label="${primary==='Pages'?'Page':esc(primary)} Count"></label><div class="compute-stack-readout"><span>${esc(derived)}</span><output data-page-stacks><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-label="由 ${primary==='Pages'?'Page':esc(primary)} 数量计算"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span data-stack-count></span></output></div></div><div class="compute-page-stepper"><button class="btn btn-ghost btn-sm" data-page-step="-1" aria-label="减少 ${esc(primary)}">−</button><input type="range" min="1" step="1" data-page-range aria-label="调整 ${primary==='Pages'?'Page':esc(primary)} 数量"><button class="btn btn-ghost btn-sm" data-page-step="1" aria-label="增加 ${esc(primary)}">+</button></div><div class="compute-parameter-status"><span data-page-summary></span><span data-page-error role="status"></span><button class="btn btn-ghost btn-sm" data-scenario-reset hidden>Reset</button></div>`; }
 function picker(model,label='Graph Task') { return `<select data-compute-task aria-label="${esc(label)}">${[...new Set(model.tasks.map(t=>t.block))].sort((a,b)=>a-b).map(block=>`<optgroup label="Block ${String(block).padStart(2,'0')}">${model.tasks.filter(t=>t.block===block).sort((a,b)=>a.id-b.id).map(t=>`<option value="${t.id}">Task ${t.id}</option>`).join('')}</optgroup>`).join('')}</select>`; }
 function identity() { return '<aside class="compute-identity" aria-label="当前 Task"><h1 data-compute-identity></h1><h2 data-compute-owner></h2><p data-compute-facts></p></aside>'; }
-global.PtoComputeDetailControls=Object.freeze({identity,parameter,picker});
+function connect(host,scenario){
+ host.addEventListener('click',event=>{if(event.target.closest('[data-scenario-reset]'))scenario.reset();});
+ return ()=>{host.querySelector('[data-scenario-reset]').hidden=!scenario.get()?.isCustom;};
+}
+global.PtoComputeDetailControls=Object.freeze({identity,parameter,sequence,picker,connect});
 })(window);
