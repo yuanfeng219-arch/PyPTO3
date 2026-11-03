@@ -3,6 +3,7 @@
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const ROUTE_COLORS = {
+    neutral: '#666666',
     memory: '#4d97ff',
     compute: '#29c7a6',
     cache: '#a4b0bd',
@@ -249,6 +250,14 @@
   }
 
   function buildBuffer(bufferConfig) {
+    if (typeof bufferConfig.surfaceRenderer === 'function') {
+      const surface = node('section', 'pto-aiv-core__buffer-surface');
+      surface.dataset.bufferKey = bufferConfig.key || bufferConfig.label || '';
+      surface.dataset.aivNode = `buffer:${bufferConfig.key || bufferConfig.label || ''}`;
+      surface.innerHTML = bufferConfig.surfaceRenderer(bufferConfig);
+      applyFrameStyle(surface, bufferConfig.frame);
+      return surface;
+    }
     const card = node('section', 'pto-aiv-core__buffer');
     card.dataset.bufferKey = bufferConfig.key || bufferConfig.label || '';
     card.dataset.aivNode = `buffer:${bufferConfig.key || bufferConfig.label || ''}`;
@@ -293,6 +302,13 @@
   }
 
   function buildVector(vectorConfig) {
+    if (typeof vectorConfig.surfaceRenderer === 'function') {
+      const el = node('section', 'pto-aiv-core__op-surface');
+      el.dataset.aivNode = `vector:${vectorConfig.label || 'VECTOR'}`;
+      applyFrameStyle(el, vectorConfig.frame);
+      el.innerHTML = vectorConfig.surfaceRenderer(vectorConfig);
+      return el;
+    }
     const card = node('section', 'pto-aiv-core__vector');
     card.dataset.aivNode = `vector:${vectorConfig.key || vectorConfig.label || 'Vector'}`;
     applyFrameStyle(card, vectorConfig.frame);

@@ -5,7 +5,7 @@
  * 越过实际可用的 184 KB、但没越过分配器按名义容量发的 192 KB → 编译、运行都不报错，
  * 输出静默 NaN（抽象自 pto-isa#170）→ 三种改法各把压力推到不同地方 → 复查。
  *
- * 三个视图共用一个焦点：源码行 ⇄ 算子逻辑图（循环与计算链）⇄ 硅片落点（区域与 Vec 缓冲）。
+ * 三个视图共用一个焦点：源码行 ⇄ 算子逻辑图（循环与计算链）⇄ 硬件映射（区域与 Vec 缓冲）。
  *
  * 源码取自 Design/Toolkit Studio/decode_layer.py 728–798 行（缩进去掉 8 格）。
  * Vec 高水位口径与 js/model.js 的 derive() 一致：每级 5 个 [Q_HEAD_PAD, SEQ_TILE] FP32
@@ -37,17 +37,17 @@
   const OPTIONS = {
     A: {
       cfg: { stage: 3, seq: 128, page: 128, reuse: false },
-      title: '降一级流水', sub: 'stage = 3', scope: '改动 · 算子 1 行',
+      title: '降低 pipeline stage', sub: 'stage = 3', scope: '改动 · 算子 1 行',
       to: '时间', cost: function () {
         return 'AIC / AIV 少一级重叠。<em>能少多少收益，只能靠 profiling 回答</em>，本页不给数字。';
       }
     },
     B: {
       cfg: { stage: 4, seq: 64, page: 64, reuse: false },
-      title: '缩小 KV 块', sub: 'SEQ_TILE = 64', scope: '改动 · 算子 + 运行时 KV 分页',
+      title: '缩小 KV tile', sub: 'SEQ_TILE = 64', scope: '改动 · 算子 + 运行时 KV 分页',
       to: '运行时与 GM', cost: function (c) {
         return '<em>runtime.page_size 必须同步改为 64</em>（逻辑块 = 物理页），这是整个 KV cache 的分页参数；'
-          + 'fa_fused 真实块 ' + calc(CHANGED).blocks + ' → ' + c.blocks + '，work table 容量 ×2。';
+          + 'fa_fused 工作块数 ' + calc(CHANGED).blocks + ' → ' + c.blocks + '，work table 容量 ×2。';
       }
     },
     C: {
@@ -241,7 +241,7 @@
       752: '这一块在序列里的起点：<code>s0 = sb × SEQ_TILE</code>（当前 SEQ_TILE = ' + c.seq + '）。',
       753: '<code>valid_len</code>：最后一块可能不满，后面的 set_validshape 只把这么多列标为有效。',
       758: 'block_table 把逻辑块翻成物理页。前提：<code>SEQ_TILE == page_size</code>（当前 ' + c.seq + ' / ' + c.page + '）。',
-      764: '<code>stage=' + c.stage + '</code>：同时有 <b>' + n + ' 个头</b>在飞，Vec 里驻留 ' + n + ' 份 softmax 链，每份 ' + kb(k.per) + '，合计 <b>' + kb(k.per * n) + '</b>。',
+      764: '<code>stage=' + c.stage + '</code>：In-flight heads · <b>' + n + '</b>；UB residency · ' + n + ' 份 softmax 链，每份 ' + kb(k.per) + '，合计 <b>' + kb(k.per * n) + '</b>。',
       765: '本次迭代处理第 <code>gi</code> 个 KV 头（共 ' + GP_SIZE + ' 个）。', 766: 'KV 头号与 gi 相同。',
       767: 'Q 填充后每个头占 16 行，算出这个头在 <code>all_q_padded</code> 里的起始行。',
       768: '<code>q_padded [16, 128] BF16</code> 4 KB → L0A(Left)。5 行真实 Q 填到 16 行，对齐 Cube M。',
@@ -259,7 +259,7 @@
   function regionCaption(id, k) {
     const c = k.cfg;
     const map = {
-      cores: '<b>pl.spmd × ' + NUM_CORES + '</b> · grid-stride 把 ' + k.blocks + ' 个真实块摊到 ' + NUM_CORES + ' 个 block。下方展开的是 block 0，其余 block 用同一份片上分配，所以越界不是个别核的偶发问题。',
+      cores: '<b>pl.spmd × ' + NUM_CORES + '</b> · grid-stride 把 ' + k.blocks + ' 个真实块摊到 ' + NUM_CORES + ' 个 block。下方展开的是 block 0，其余 block 按相同布局独立分配片上存储，所以越界不是个别核的偶发问题。',
       aic: '<b>AIC · Cube 侧</b>：QK 与 SV 两次 matmul，操作数在 L0A / L0B，结果在 L0C。',
       aiv: '<b>AIV · Vector 侧</b>：softmax 链全部落在 Vec(UB)，stage 决定同时驻留几份。',
       'gm-kcache': '<b>k_cache</b>：分页存放，一页 ' + c.page + ' 行；fa_fused 每次读一个逻辑块。',
@@ -296,14 +296,14 @@
   // 状态
   // ════════════════════════════════════════════════════════════════════════════
   const SECTIONS = [
-    { name: '改动', q: '只改了一个调度参数' },
-    { name: '落点', q: '它在硅片上复制了什么' },
-    { name: '裁决', q: '硬件说了不，编译器没说' },
-    { name: '改法', q: '压力推到哪里去' },
-    { name: '复查', q: '本页能证明到哪一步' }
+    { name: '配置变更', q: 'Pipeline stage' },
+    { name: '内存占用', q: 'UB residency' },
+    { name: '诊断', q: 'Capacity constraint' },
+    { name: '调整方案', q: '配置变更 alternatives' },
+    { name: '验证', q: 'Evidence requirements' }
   ];
   // step = 当前展开的章节（0 = 全部收起）
-  const state = { step: 1, cfg: Object.assign({}, BASE), preview: null, hover: null };
+  const state = { step: 3, cfg: Object.assign({}, CHANGED), preview: null, hover: null };
 
   function current() { return calc(state.cfg); }
   function shown() { return calc(state.preview ? OPTIONS[state.preview].cfg : state.cfg); }
@@ -368,7 +368,8 @@
       if (row.no === 764) {
         const parts = row.t.split('§');
         text = hl(parts[0], c) + stageControl(k) + hl(parts[1], c)
-          + (c.stage !== BASE.stage ? '<span class="stage-was">原 stage=' + BASE.stage + '</span>' : '');
+          + (c.stage !== BASE.stage ? '<span class="stage-was">原 stage=' + BASE.stage + '</span>' : '')
+          + (k.bad ? '<button class="source-diagnostic" data-act="diagnose" type="button">⚠ UB 容量风险 · 查看诊断</button>' : '');
       } else text = hl(row.t, c);
       const modified = (row.no === 764 && c.stage !== BASE.stage) || ((row.no === 773 || row.no === 789) && c.seq !== BASE.seq)
         || ((row.no === 781 || row.no === 782) && c.reuse);
@@ -384,8 +385,8 @@
     return '<text x="' + x + '" y="' + y + '" class="' + (cls || 'sv-text') + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + s + '</text>';
   }
   function markers(prefix) {
-    return '<marker id="' + prefix + 'Arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#555"/></marker>'
-      + '<marker id="' + prefix + 'ArrowHot" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#e8e8e8"/></marker>';
+    const marker=(suffix,color)=>'<marker id="'+prefix+suffix+'" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" markerUnits="userSpaceOnUse" orient="auto"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+color+'" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></marker>';
+    return marker('Arrow','#777')+marker('ArrowHot',prefix==='lg'?'#e6e6e6':'#f2c45f');
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -397,15 +398,15 @@
     // 节点位置 [x, y, w]（viewBox 720 × 284，节点高 26，行距 40）
     q: [58, 132, 80], k: [148, 132, 80], qk: [58, 172, 80], scale: [148, 172, 80],
     valid: [258, 132, 84], fill: [352, 132, 84], max: [446, 132, 84],
-    exp: [258, 172, 84], sum: [352, 172, 84], cast: [446, 172, 84],
-    v: [572, 132, 92], sv: [572, 172, 92], out: [572, 212, 92]
+    exp: [446, 172, 84], sum: [352, 172, 84], cast: [446, 212, 84],
+    v: [572, 172, 92], sv: [572, 212, 92], out: [572, 252, 92]
   };
   const LG_H = 26;
   const LG_EDGES = [
     ['q', 'qk', 'M98 158 V 172'], ['k', 'qk', 'M188 158 V 165 H 118 V 172'], ['qk', 'scale', 'M138 185 H 148'],
     ['scale', 'valid', 'M228 185 H 243 V 145 H 258'], ['valid', 'fill', 'M342 145 H 352'], ['fill', 'max', 'M436 145 H 446'],
-    ['max', 'exp', 'M488 158 V 165 H 300 V 172'], ['exp', 'sum', 'M342 185 H 352'], ['exp', 'cast', 'M300 198 V 205 H 488 V 198'],
-    ['cast', 'sv', 'M530 185 H 572'], ['v', 'sv', 'M618 158 V 172'], ['sv', 'out', 'M618 198 V 212']
+    ['max', 'exp', 'M488 158 V172'], ['exp', 'sum', 'M446 185 H436'], ['exp', 'cast', 'M488 198 V212'],
+    ['cast', 'sv', 'M530 225 H572'], ['v', 'sv', 'M618 198 V212'], ['sv', 'out', 'M618 238 V252']
   ];
   const LG_LABEL = {
     q: 'Q', k: 'K 块', qk: 'Q · Kᵀ', scale: '× scale',
@@ -415,14 +416,20 @@
   };
   // 三段计算：[id, x, w, 标题]
   const LG_PHASES = [['p-score', 48, 190, '① 打分'], ['p-softmax', 248, 296, '② 局部 SOFTMAX'], ['p-weight', 562, 112, '③ 加权求和']];
-  const LG_PHASE_Y = 106, LG_PHASE_H = 142;
+  const LG_PHASE_Y = 106, LG_PHASE_H = 184;
 
   function logicNode(id, badIds) {
     const p = LG[id], bad = badIds.indexOf(id) >= 0;
-    return '<g class="lg-hit" data-node="' + id + '">'
-      + '<rect x="' + p[0] + '" y="' + p[1] + '" width="' + p[2] + '" height="' + LG_H + '" class="lg-node' + (bad ? ' is-bad' : '') + '"/>'
-      + txt(p[0] + 8, p[1] + 17, LG_LABEL[id], bad ? 'sv-strong sv-bad' : 'sv-strong')
-      + '</g>';
+    if (['q','k','v','out'].includes(id)) {
+      const shapes={q:'[16, 128]',k:'['+shown().cfg.seq+', 128]',v:'['+shown().cfg.seq+', 128]',out:'[16, 128]'};
+      const color=id==='out'?'#ffbd1a':(id==='q'?'#72d7af':'#bca0f3');
+      return '<g class="lg-hit" data-node="'+id+'">'+PathGridGlyphs.tensor(id,LG_LABEL[id],shapes[id],p[0],p[1],p[2],LG_H,color)+'</g>';
+    }
+    const categories = {qk:'matmul',sv:'matmul',scale:'gate',valid:'cache',fill:'reshape',max:'reduce',exp:'activation',sum:'reduce',cast:'reshape',out:'cache'};
+    const icon = window.PtoOpIcons.find(i => i.id === categories[id]);
+    return '<g class="lg-hit' + (bad ? ' is-bad' : '') + '" data-node="' + id + '">'
+      + VisualSystem.node('op',id,LG_LABEL[id],p[0],p[1],{width:p[2],height:LG_H,icon:icon?.path,fontSize:10})+'</g>';
+
   }
 
   function renderLogic() {
@@ -432,37 +439,29 @@
     }).filter(Boolean)) : [];
     // 页表一行放在取块之后、pipeline 之前，按代码顺序自上而下读；pipeline 整体下移 PIPE_DY
     const PIPE_DY = 26;
-    let s = '<svg viewBox="0 0 720 ' + (284 + PIPE_DY) + '" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
+    let s = '<svg viewBox="36 100 660 240" preserveAspectRatio="xMidYMin" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
       + '<defs>' + markers('lg') + '</defs>';
 
     // 三层循环作用域（虚线框）
-    s += '<g class="lg-hit" data-node="f-spmd"><rect x="12" y="8" width="696" height="' + (270 + PIPE_DY) + '" class="lg-frame"/>'
+    s += '<g class="lg-hit" data-node="f-spmd"><rect x="12" y="8" width="696" height="' + (312 + PIPE_DY) + '" class="lg-frame"/>'
       + txt(24, 25, 'PL.SPMD × ' + NUM_CORES, 'sv-title') + txt(124, 25, '每个 block 跑一份', 'sv-label') + '</g>';
-    s += '<g class="lg-hit" data-node="f-stride"><rect x="24" y="36" width="672" height="' + (234 + PIPE_DY) + '" class="lg-frame"/>'
+    s += '<g class="lg-hit" data-node="f-stride"><rect x="24" y="36" width="672" height="' + (276 + PIPE_DY) + '" class="lg-frame"/>'
       + txt(36, 53, 'FOR fa_w · GRID-STRIDE', 'sv-title') + txt(210, 53, '逐个处理轮到的 KV 块', 'sv-label') + '</g>';
     s += '<g class="lg-hit" data-node="tbl"><rect x="36" y="62" width="168" height="26" class="lg-node"/>'
       + txt(44, 79, 'block_table → 物理页', 'sv-strong') + '</g>';
     s += txt(214, 79, '逻辑块 → 物理页；SEQ_TILE 必须等于 page_size', k.pageOk ? 'sv-label' : 'sv-label sv-bad');
     s += '<g transform="translate(0,' + PIPE_DY + ')">';
-    s += '<g class="lg-hit" data-node="f-pipe"><rect x="36" y="78" width="648" height="184" class="lg-frame' + (k.bad ? ' is-bad' : '') + '"/>'
+    s += '<g class="lg-hit" data-node="f-pipe"><rect x="36" y="78" width="648" height="226" class="lg-frame' + (k.bad ? ' is-bad' : '') + '"/>'
       + txt(48, 95, 'PL.PIPELINE × ' + GP_SIZE + ' · STAGE=' + c.stage, 'sv-title')
-      + txt(250, 95, '相邻 ' + k.stage + ' 个头同时在飞', k.bad ? 'sv-label sv-bad' : 'sv-label') + '</g>';
-    // 8 个头，亮起的是同时在飞的
-    s += '<g class="lg-hit" data-node="f-pipe">';
-    for (let i = 0; i < GP_SIZE; i++) {
-      const on = i < k.stage;
-      s += '<rect x="' + (568 + i * 14) + '" y="86" width="10" height="10" class="lg-flight' + (on ? (k.bad && i === k.stage - 1 ? ' is-bad' : ' is-on') : '') + '"/>';
-    }
-    s += '</g>';
-
+      + txt(250, 95, 'In-flight heads · ' + k.stage, k.bad ? 'sv-label sv-bad' : 'sv-label') + '</g>';
     // 三段计算（实框）；softmax 段按在飞的头数叠虚线层
     for (let i = k.stage - 1; i >= 1; i--) {
-      s += '<rect x="' + (248 + i * 3) + '" y="' + (LG_PHASE_Y + i * 3) + '" width="296" height="' + LG_PHASE_H + '" class="lg-ghost'
+      s += '<rect x="' + (248 + i * 5) + '" y="' + (LG_PHASE_Y + i * 5) + '" width="296" height="' + LG_PHASE_H + '" class="lg-ghost'
         + (k.bad && i === k.stage - 1 ? ' is-bad' : '') + '"/>';
     }
     LG_PHASES.forEach(function (p) {
       const bad = k.bad && p[0] === 'p-softmax';
-      const title = p[0] === 'p-softmax' ? p[3] + ' × ' + k.stage : p[3];
+      const title = p[3];
       s += '<g class="lg-hit" data-node="' + p[0] + '"><rect x="' + p[1] + '" y="' + LG_PHASE_Y + '" width="' + p[2] + '" height="' + LG_PHASE_H
         + '" class="lg-phase' + (bad ? ' is-bad' : '') + '"/>' + txt(p[1] + 10, LG_PHASE_Y + 16, title, bad ? 'sv-title sv-bad' : 'sv-title') + '</g>';
     });
@@ -475,17 +474,17 @@
     document.getElementById('hpLogic').innerHTML = s;
     document.getElementById('hpLogicMeta').textContent = state.preview
       ? '预览 · 方案 ' + state.preview + ' · stage=' + c.stage + ' · SEQ_TILE=' + c.seq
-      : 'fa_fused · 循环嵌套与计算链';
+      : 'fa_fused · SPMD × 24 → grid-stride → pipeline × 8；源码 stage 控制并发驻留级数。';
   }
 
   // ════════════════════════════════════════════════════════════════════════════
   // 硅片画布（viewBox 720 × 470）
   // 自上而下：GM → pl.spmd 的 24 个 block（概览）→ 展开其中 block 0 的 AIC / AIV（细节）
   // ════════════════════════════════════════════════════════════════════════════
-  const BAR = { x: 418, w: 60, top: 186, bottom: 440 };
+  const BAR = { x: 418, w: 56, top: 206, bottom: 426 };
   // 放大图压低一些，让引线从两条阈值标签下方穿过
-  const INSET = { x: 560, w: 116, top: 300, bottom: 412, lo: 176 * 1024, hi: 192 * 1024 };
-  const CORE = { x: 384, y: 93, pitch: 13, size: 10 };
+  const INSET = { x: 588, w: 88, top: 206, bottom: 334, lo: 176 * 1024, hi: 192 * 1024 };
+  const CORE = { x: 384, y: 96, pitch: 26, size: 18 };
   function ubY(addr) { return BAR.bottom - addr / UB_NOMINAL * (BAR.bottom - BAR.top); }
   function insetY(addr) { return INSET.bottom - (addr - INSET.lo) / (INSET.hi - INSET.lo) * (INSET.bottom - INSET.top); }
 
@@ -498,69 +497,44 @@
 
   function renderSvg() {
     const k = shown(), c = k.cfg, ref = state.preview ? current() : null, bad = k.bad;
-    let s = '<svg viewBox="0 0 720 470" role="img" aria-label="fa_fused 在一个 AI Core block 上的落点">'
+    let s = '<svg viewBox="0 0 720 510" preserveAspectRatio="xMidYMin" role="img" aria-label="fa_fused 在一个 AI Core block 上的落点">'
       + '<defs>' + markers('hp')
       + '<pattern id="hpHatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#2a1716"/><line x1="0" y1="0" x2="0" y2="5" stroke="#ff6b5b" stroke-width="1.4" opacity=".55"/></pattern>'
       + '<clipPath id="hpInsetClip"><rect x="' + INSET.x + '" y="' + INSET.top + '" width="' + INSET.w + '" height="' + (INSET.bottom - INSET.top) + '"/></clipPath>'
       + '</defs>';
 
-    // GM
+    // GM shares the hardware module container and alignment edges.
+    s += '<rect x="12" y="4" width="696" height="78" rx="12" fill="#282828"/>';
     s += '<rect x="12" y="8" width="696" height="74" class="sv-frame"/>' + txt(24, 25, 'GM · HBM', 'sv-title');
-    s += region('gm-kcache', '<rect x="24" y="32" width="150" height="42" class="sv-mem"/>' + pages(30, 52, c.page)
-      + txt(30, 46, 'k_cache · paged', 'sv-strong') + txt(30, 70, '页 = ' + c.page + ' 行', 'sv-label'));
-    s += region('gm-vcache', '<rect x="182" y="32" width="150" height="42" class="sv-mem"/>' + pages(188, 52, c.page)
-      + txt(188, 46, 'v_cache · paged', 'sv-strong') + txt(188, 70, '页 = ' + c.page + ' 行', 'sv-label'));
-    s += region('gm-table', '<rect x="340" y="32" width="170" height="42" class="sv-mem"/>'
-      + txt(346, 46, 'block / work table', 'sv-strong') + txt(346, 64, k.blocks + ' 个真实块', 'sv-text'));
-    s += region('gm-out', '<rect x="518" y="32" width="178" height="42" class="sv-mem"/>'
-      + txt(524, 46, 'all_oi_tmp / mi / li', 'sv-strong') + txt(524, 64, '每块的部分结果', 'sv-text'));
+    s += region('gm-kcache', '<g transform="translate(24 32) scale(.7)">'+PathGridGlyphs.memory('k_cache · paged','页 = '+c.page+' 行',214,60)+'</g>');
+    s += region('gm-vcache', '<g transform="translate(182 32) scale(.7)">'+PathGridGlyphs.memory('v_cache · paged','页 = '+c.page+' 行',214,60)+'</g>');
+    s += region('gm-table', '<g transform="translate(340 32) scale(.7)">'+PathGridGlyphs.memory('block / work table',k.blocks+' 个真实块',243,60)+'</g>');
+    s += region('gm-out', '<g transform="translate(518 32) scale(.7)">'+PathGridGlyphs.memory('all_oi_tmp / mi / li','每块的部分结果',254,60)+'</g>');
 
     // pl.spmd 的 24 个 block：概览条，block 0 向下展开
-    s += region('cores', '<rect x="' + (CORE.x - 100) + '" y="86" width="' + (NUM_CORES * CORE.pitch + 112) + '" height="24" class="sv-hit"/>'
-      + txt(CORE.x - 8, 102, 'PL.SPMD × ' + NUM_CORES, 'sv-title', 'end')
+    s += region('cores', '<rect x="' + (CORE.x - 100) + '" y="94" width="' + (12 * CORE.pitch + 100) + '" height="40" class="sv-hit"/>'
+      + txt(CORE.x - 8, 120, 'PL.SPMD × ' + NUM_CORES, 'sv-title', 'end')
       + '<g class="sv-cores' + (bad ? ' is-bad' : '') + '">' + cores() + '</g>');
-    s += '<line x1="' + (CORE.x + CORE.size / 2) + '" y1="' + (CORE.y + CORE.size) + '" x2="' + (CORE.x + CORE.size / 2) + '" y2="122" class="sv-zoom"/>';
+    s += '<path d="M384 103 H374 V155 H172 V158 M374 155 H523 V158" class="sv-zoom"/>';
 
+
+    s += '<g transform="translate(0 36)">';
     // block 0 外框
     s += '<rect x="12" y="122" width="696" height="340" class="sv-frame"/>'
-      + txt(CORE.x + 13, 137, bad ? '展开 BLOCK 0 · ' + NUM_CORES + ' 个 block 用同一份越界分配' : '展开 BLOCK 0 · ' + NUM_CORES + ' 个 block 用同一份片上分配',
-        bad ? 'sv-title sv-bad' : 'sv-title');
+      ;
 
-    // AIC
-    s += region('aic', '<rect x="24" y="144" width="262" height="308" class="sv-box"/>' + txt(36, 162, 'AIC · CUBE', 'sv-title'));
-    s += '<rect x="36" y="170" width="238" height="26" class="sv-dimmem"/>' + txt(44, 187, 'L1 · Mat', 'sv-label') + txt(266, 187, '本例未建模', 'sv-label', 'end');
-    s += region('l0a', '<rect x="36" y="204" width="112" height="58" class="sv-mem"/>' + txt(44, 219, 'L0A · LEFT', 'sv-label')
-      + '<rect x="44" y="226" width="' + (96 * 4 / 64) + '" height="7" class="sv-fill-lime"/>'
-      + txt(44, 246, 'q_padded', 'sv-strong') + txt(44, 257, '[16,128] · 4 KB', 'sv-text'));
-    const l0bRatio = Math.min(1, k.kDB / L0B_CAP);
-    s += region('l0b', '<rect x="156" y="204" width="118" height="58" class="sv-mem"/>' + txt(164, 219, 'L0B · RIGHT', 'sv-label')
-      + '<rect x="164" y="226" width="102" height="7" fill="#262626"/>'
-      + '<rect x="164" y="226" width="' + (102 * l0bRatio) + '" height="7" class="' + (k.kDB > L0B_CAP * 0.75 ? 'sv-fill-warn' : 'sv-fill-lav') + '"/>'
-      + txt(164, 246, 'K / V 双缓冲', 'sv-strong') + txt(164, 257, kb(k.kDB) + ' / 64 KB 估算', 'sv-text'));
-    s += region('cube', '<rect x="36" y="270" width="238" height="56" class="sv-mem"/>' + txt(44, 285, 'CUBE', 'sv-label')
-      + txt(44, 302, 'QK  [16,128] × [128,' + c.seq + ']', 'sv-strong') + txt(44, 318, 'SV  [16,' + c.seq + '] × [' + c.seq + ',128]', 'sv-strong'));
-    s += region('l0c', '<rect x="36" y="334" width="238" height="52" class="sv-mem"/>' + txt(44, 349, 'L0C · ACC', 'sv-label')
-      + '<rect x="44" y="356" width="' + Math.max(6, k.acc / 1024 * 3) + '" height="7" class="sv-fill-amber"/>'
-      + txt(44, 378, 'raw_scores ' + kb(k.acc) + ' · oi_tmp 8 KB', 'sv-text'));
-    s += txt(36, 440, 'Left / Acc 容量本页未建模', 'sv-label');
+    // Two aligned surfaces: compute/storage architecture and the same UB's address expansion.
+    s += '<rect x="350" y="122" width="346" height="340" rx="16" fill="#282828"/>' + txt(370,144,'BLOCK 0 · UB','sv-title');
+    s += '<foreignObject x="24" y="122" width="308" height="340"><div xmlns="http://www.w3.org/1999/xhtml" id="hpMemoryPattern" style="width:308px;height:340px;overflow:hidden"></div></foreignObject>';
 
-    // GM → L1 → L0B 搬运
-    s += region('gm-kcache', '<path d="M150 74 V 168" class="sv-arrow"/>');
-    s += region('gm-vcache', '<path d="M240 74 V 168" class="sv-arrow"/>');
-    s += region('l0b', '<path d="M215 196 V 202" class="sv-arrow"/>');
-
-    // C2V / V2C
-    s += region('ch-c2v', '<rect x="288" y="288" width="60" height="24" class="sv-hit"/><path d="M288 300 H 348" class="sv-arrow"/>' + txt(318, 294, 'C2V', 'sv-label', 'middle'));
-    s += region('ch-v2c', '<rect x="288" y="318" width="60" height="24" class="sv-hit"/><path d="M348 330 H 288" class="sv-arrow"/>' + txt(318, 344, 'V2C', 'sv-label', 'middle'));
-
-    // AIV
-    s += region('aiv', '<rect x="350" y="144" width="346" height="308" class="sv-box"/>' + txt(362, 162, 'AIV · VECTOR', 'sv-title'));
     s += ubSvg(k, ref, bad);
+    s += '</g>';
     s += '</svg>';
     document.getElementById('hpSvg').innerHTML = s;
+    PathMemoryPattern.render(document.getElementById('hpMemoryPattern'), k);
     document.getElementById('hpChipMeta').textContent = state.preview
       ? '预览 · 方案 ' + state.preview + ' · ' + OPTIONS[state.preview].title + '（虚线 = 当前配置的高水位）'
-      : '示意 · 不按比例 · Vec 地址条按比例';
+      : '计算数据流与存储映射 · 搬运路径示意 · UB 地址按比例';
   }
 
   function pages(x, y, page) {
@@ -574,77 +548,55 @@
   function cores() {
     let out = '';
     for (let i = 0; i < NUM_CORES; i++) {
-      out += '<rect x="' + (CORE.x + i * CORE.pitch) + '" y="' + CORE.y + '" width="' + CORE.size + '" height="' + CORE.size
-        + '" rx="1.5" class="sv-core' + (i === 0 ? ' is-zoom' : '') + '"/>';
+      const x=CORE.x+(i%12)*CORE.pitch,y=CORE.y+Math.floor(i/12)*20;
+      out += '<g class="sv-core-unit' + (i===0?' is-expanded':'') + '">'
+        + '<rect x="'+x+'" y="'+y+'" width="18" height="14" rx="3" class="sv-core'+(i===0?' is-zoom':'')+'"/>'
+        + '<path d="M'+(x+4)+' '+(y-2)+'v2 M'+(x+9)+' '+(y-2)+'v2 M'+(x+14)+' '+(y-2)+'v2 M'+(x+4)+' '+(y+14)+'v2 M'+(x+9)+' '+(y+14)+'v2 M'+(x+14)+' '+(y+14)+'v2" class="sv-core-pins"/>'
+        + '</g>';
     }
     return out;
   }
 
   function ubSvg(k, ref, bad) {
-    let s = '<g class="sv-ub" id="hpUb">';
-    // 地址条与缓冲
-    s += region('ub', '<rect x="' + BAR.x + '" y="' + BAR.top + '" width="' + BAR.w + '" height="' + (BAR.bottom - BAR.top) + '" class="sv-mem"/>'
-      + txt(BAR.x, BAR.top - 8, 'VEC · UB', 'sv-label'));
-    k.layout.forEach(function (r) {
-      const y1 = ubY(r.hi), h = Math.max(0.9, ubY(r.lo) - y1);
-      s += '<rect x="' + (BAR.x + 1) + '" y="' + y1 + '" width="' + (BAR.w - 2) + '" height="' + h + '" class="sv-buf ' + bufClass(r)
-        + '" data-buf="' + r.id + '" data-stage="' + r.stage + '"/>';
+    const top=ubY(UB_USABLE), water=ubY(Math.min(k.hw,UB_NOMINAL));
+    let s='<g class="sv-ub" id="hpUb">';
+    s+=txt(376,170,'高水位','sv-label')+txt(376,190,kb(k.hw),'ub-value'+(bad?' sv-bad':''));
+    s+=region('ub','<rect x="'+BAR.x+'" y="'+BAR.top+'" width="'+BAR.w+'" height="'+(BAR.bottom-BAR.top)+'" rx="2" fill="#202020"/>');
+    k.layout.forEach(r=>{
+      const y1=ubY(Math.min(r.hi,UB_NOMINAL)),y2=ubY(r.lo);
+      s+='<rect x="'+BAR.x+'" y="'+y1+'" width="'+BAR.w+'" height="'+Math.max(.5,y2-y1)+'" class="sv-buf '+bufClass(r)+'" data-buf="'+r.id+'" data-stage="'+r.stage+'"/>';
     });
-    // 级标签
-    for (let st = 0; st < k.stage; st++) {
-      const lo = k.carry + st * k.per, hi = lo + k.per;
-      const y = (ubY(lo) + ubY(hi)) / 2 + 3;
-      s += txt(BAR.x + BAR.w / 2, y, 'stage ' + st, 'sv-strong', 'middle');
+    for(let st=0;st<k.stage;st++){
+      const lo=k.carry+st*k.per,hi=lo+k.per,yt=ubY(hi),yb=ubY(lo);
+      s+='<line x1="'+(BAR.x-5)+'" y1="'+(yt+1)+'" x2="'+(BAR.x-5)+'" y2="'+(yb-1)+'" class="ub-stage-rail"/>';
+      s+=txt(BAR.x-10,(yt+yb)/2+3,'stage '+st,'sv-label','end');
     }
-    s += txt(BAR.x - 6, ubY(k.carry / 2) + 3, '常驻', 'sv-label', 'end');
-    // 保留区与两条线
-    s += '<rect x="' + BAR.x + '" y="' + BAR.top + '" width="' + BAR.w + '" height="' + (ubY(UB_USABLE) - BAR.top) + '" class="sv-reserved" opacity=".9"/>';
-    if (k.hw > UB_USABLE) {
-      s += '<rect x="' + (BAR.x + 1) + '" y="' + ubY(Math.min(k.hw, UB_NOMINAL)) + '" width="' + (BAR.w - 2) + '" height="'
-        + Math.max(1.5, ubY(UB_USABLE) - ubY(Math.min(k.hw, UB_NOMINAL))) + '" class="sv-over"/>';
-    }
-    s += '<line x1="' + (BAR.x - 4) + '" y1="' + BAR.top + '" x2="' + (BAR.x + BAR.w + 14) + '" y2="' + BAR.top + '" class="sv-line-nominal"/>';
-    s += '<line x1="' + (BAR.x - 4) + '" y1="' + ubY(UB_USABLE) + '" x2="' + (BAR.x + BAR.w + 14) + '" y2="' + ubY(UB_USABLE) + '" class="sv-line-usable"/>';
-    s += txt(BAR.x + BAR.w + 18, BAR.top + 3, '192 · 分配器预算', 'sv-label');
-    s += txt(BAR.x + BAR.w + 18, ubY(UB_USABLE) + 9, '184 · 实际可用', 'sv-text sv-bad');
-    // 高水位
-    const hwY = ubY(Math.min(k.hw, UB_NOMINAL));
-    s += '<line x1="' + (BAR.x - 10) + '" y1="' + hwY + '" x2="' + BAR.x + '" y2="' + hwY + '" stroke="' + (bad ? '#ff6b5b' : '#e8e8e8') + '" stroke-width="1.5"/>';
-    s += txt(BAR.x - 12, hwY - 2, '高水位', 'sv-label', 'end') + txt(BAR.x - 12, hwY + 10, kb(k.hw), bad ? 'sv-text sv-bad' : 'sv-strong', 'end');
-    if (ref && ref.hw !== k.hw) {
-      const ry = ubY(Math.min(ref.hw, UB_NOMINAL));
-      s += '<line x1="' + (BAR.x - 2) + '" y1="' + ry + '" x2="' + (BAR.x + BAR.w + 2) + '" y2="' + ry + '" class="sv-line-ghost"/>';
-    }
-    // 顶部放大
-    s += '<line x1="' + (BAR.x + BAR.w) + '" y1="' + ubY(INSET.hi) + '" x2="' + INSET.x + '" y2="' + INSET.top + '" stroke="#3a3a3a"/>'
-      + '<line x1="' + (BAR.x + BAR.w) + '" y1="' + ubY(INSET.lo) + '" x2="' + INSET.x + '" y2="' + INSET.bottom + '" stroke="#3a3a3a"/>'
-      + '<line x1="' + (BAR.x + BAR.w) + '" y1="' + ubY(INSET.lo) + '" x2="' + (BAR.x + BAR.w + 4) + '" y2="' + ubY(INSET.lo) + '" stroke="#555"/>';
-    s += txt(INSET.x, INSET.top - 18, '顶部 16 KB', 'sv-label') + txt(INSET.x, INSET.top - 7, '放大 ×' + Math.round(((INSET.bottom - INSET.top) / (INSET.hi - INSET.lo)) / ((BAR.bottom - BAR.top) / UB_NOMINAL)), 'sv-label');
-    s += '<rect x="' + INSET.x + '" y="' + INSET.top + '" width="' + INSET.w + '" height="' + (INSET.bottom - INSET.top) + '" class="sv-mem"/>';
-    s += '<g clip-path="url(#hpInsetClip)">';
-    k.layout.forEach(function (r) {
-      if (r.hi <= INSET.lo) return;
-      const y1 = insetY(Math.min(r.hi, INSET.hi)), y2 = insetY(Math.max(r.lo, INSET.lo));
-      s += '<rect x="' + (INSET.x + 1) + '" y="' + y1 + '" width="' + (INSET.w - 2) + '" height="' + Math.max(1.5, y2 - y1) + '" class="sv-buf ' + bufClass(r)
-        + '" data-buf="' + r.id + '" data-stage="' + r.stage + '"/>';
-      if (y2 - y1 > 11) s += txt(INSET.x + 5, (y1 + y2) / 2 + 3, shortName(r), 'sv-text');
+    s+='<rect x="'+BAR.x+'" y="'+BAR.top+'" width="'+BAR.w+'" height="'+(top-BAR.top)+'" class="ub-reserve"/>';
+    [0,64,128,192].forEach(n=>{const y=ubY(n*1024);s+='<path d="M'+(BAR.x+BAR.w)+' '+y+'h5" class="ub-axis"/>'+txt(BAR.x+BAR.w+10,y+3,n+' KB','sv-label');});
+    s+='<path d="M'+BAR.x+' '+top+'H'+(BAR.x+BAR.w+5)+'" class="'+(bad?'sv-line-usable':'ub-axis')+'"/>';
+    s+=txt(BAR.x+BAR.w+10,top+12,'184 可用','sv-text'+(bad?' sv-bad':''));
+    s+='<path d="M'+BAR.x+' '+water+'H'+(BAR.x+BAR.w)+'" stroke="'+(bad?'#ff6b5b':'#dedede')+'" stroke-width="1.5"/>';
+    if(ref&&ref.hw!==k.hw)s+='<path d="M'+BAR.x+' '+ubY(Math.min(ref.hw,UB_NOMINAL))+'H'+(BAR.x+BAR.w)+'" class="sv-line-ghost"/>';
+    s+=txt(BAR.x-10,BAR.bottom-2,'常驻','sv-label','end');
+    // Orthogonal detail correspondence, not a second dataflow or perspective projection.
+    const bracket=BAR.x+BAR.w+4,rangeBottom=ubY(INSET.lo);
+    s+='<path d="M'+bracket+' '+BAR.top+'h4V'+rangeBottom+'h-4 M'+(bracket+4)+' '+((BAR.top+rangeBottom)/2)+'H574V'+INSET.top+'H'+INSET.x+'" class="ub-detail-link"/>';
+    s+=txt(INSET.x,170,'局部地址','sv-label')+txt(INSET.x,190,'176–192 KB','sv-strong');
+    s+='<rect x="'+INSET.x+'" y="'+INSET.top+'" width="'+INSET.w+'" height="'+(INSET.bottom-INSET.top)+'" rx="2" fill="#202020"/>';
+    s+='<g clip-path="url(#hpInsetClip)">';
+    k.layout.filter(r=>r.hi>INSET.lo).forEach(r=>{
+      const y1=insetY(Math.min(r.hi,INSET.hi)),y2=insetY(Math.max(r.lo,INSET.lo));
+      s+='<rect x="'+INSET.x+'" y="'+y1+'" width="'+INSET.w+'" height="'+Math.max(.5,y2-y1)+'" class="sv-buf '+bufClass(r)+'" data-buf="'+r.id+'" data-stage="'+r.stage+'"/>';
     });
-    s += '<rect x="' + INSET.x + '" y="' + INSET.top + '" width="' + INSET.w + '" height="' + (insetY(UB_USABLE) - INSET.top) + '" class="sv-reserved" opacity=".75"/>';
-    if (k.hw > UB_USABLE) {
-      s += '<rect x="' + (INSET.x + 1) + '" y="' + insetY(Math.min(k.hw, UB_NOMINAL)) + '" width="' + (INSET.w - 2) + '" height="'
-        + (insetY(UB_USABLE) - insetY(Math.min(k.hw, UB_NOMINAL))) + '" class="sv-over"/>';
-    }
-    s += '</g>';
-    s += '<line x1="' + INSET.x + '" y1="' + insetY(UB_USABLE) + '" x2="' + (INSET.x + INSET.w) + '" y2="' + insetY(UB_USABLE) + '" class="sv-line-usable"/>';
-    s += txt(INSET.x + INSET.w / 2, insetY(UB_USABLE) - 18, '保留 8 KB', 'sv-text sv-bad', 'middle');
-    if (k.hw > INSET.lo) {
-      const y = insetY(Math.min(k.hw, UB_NOMINAL));
-      s += '<line x1="' + (INSET.x - 4) + '" y1="' + y + '" x2="' + INSET.x + '" y2="' + y + '" stroke="' + (bad ? '#ff6b5b' : '#e8e8e8') + '" stroke-width="1.5"/>';
-    }
-    s += txt(INSET.x, INSET.bottom + 13, '176 KB', 'sv-label');
-    if (bad) s += txt(INSET.x, INSET.bottom + 28, '越界 ' + bytes(k.hw - UB_USABLE), 'sv-text sv-bad');
-    else s += txt(INSET.x, INSET.bottom + 28, '余量 ' + bytes(UB_USABLE - k.hw), 'sv-text sv-good');
-    return s + '</g>';
+    s+='<rect x="'+INSET.x+'" y="'+INSET.top+'" width="'+INSET.w+'" height="'+(insetY(UB_USABLE)-INSET.top)+'" class="ub-reserve"/>';
+    if(bad)s+='<rect x="'+INSET.x+'" y="'+insetY(Math.min(k.hw,INSET.hi))+'" width="'+INSET.w+'" height="'+(insetY(UB_USABLE)-insetY(Math.min(k.hw,INSET.hi)))+'" class="sv-over"/>';
+    s+='</g>';
+    s+=txt(INSET.x+INSET.w/2,INSET.top+24,'保留 8 KB','sv-text','middle');
+    s+='<path d="M'+INSET.x+' '+insetY(UB_USABLE)+'H'+(INSET.x+INSET.w)+'" class="'+(bad?'sv-line-usable':'ub-axis')+'"/>';
+    s+=txt(INSET.x,INSET.bottom+15,'176 KB','sv-label');
+    s+=txt(INSET.x,389,bad?'越界':'可用余量','sv-label');
+    s+=txt(INSET.x,407,bad?bytes(k.hw-UB_USABLE):bytes(UB_USABLE-k.hw),'ub-value'+(bad?' sv-bad':''));
+    return s+'</g>';
   }
 
   function shortName(r) {
@@ -713,6 +665,7 @@
   function applyFocus() {
     const k = shown();
     const f = focusFor(state.hover) || sectionFocus(k);
+    if (state.hover && f.bufs.length && !f.regions.includes('aiv')) f.regions.push('aiv');
     // 只有真正悬停时才把无关部分压暗；章节默认焦点不压暗，避免页面长期发灰
     document.body.classList.toggle('is-focusing', !!state.hover);
     document.querySelectorAll('.cl').forEach(function (el) {
@@ -806,14 +759,14 @@
 
   function body1() {
     const base = calc(BASE), changed = calc(CHANGED), isChanged = same(state.cfg, CHANGED);
-    return '<h2 class="st-h">你只改了一个调度参数：<code>stage</code> 2 → 4</h2>'
-      + '<p class="st-p">目的是让第 i+1 个头的 QK（AIC）与第 i 个头的 softmax（AIV）多重叠几轮。'
-      + '在源码层面，这个改动<b>不改语义、不改数值</b>，读代码看不出任何风险。</p>'
-      + '<p class="st-p">stage 增加后，逻辑图里 softmax 段会多叠几层，Vec 地址条会跟着长高。</p>'
+    return '<h2 class="st-h">Pipeline 配置 · <code>stage</code> 2 → 4</h2>'
+      + '<p class="st-p">增加 pipeline stage，以提高不同 head 的 QK（AIC）与 softmax（AIV）计算重叠度。'
+      + '该参数不改变算法语义，但可能增加中间量的并发驻留与 UB 占用。</p>'
+      + '<p class="st-p">逻辑图展示并发驻留的 softmax 实例；硬件映射展示对应的 UB 占用。</p>'
       + meter(current())
       + '<div class="st-actions">'
-      + (isChanged ? '' : '<button class="btn btn-primary" type="button" data-act="apply-changed">把 stage 改成 4</button>')
-      + (isChanged ? next(2, '展开：它落在哪里') : '<button class="btn" type="button" data-act="open" data-step="2">展开：它落在哪里</button>')
+      + (isChanged ? '' : '<button class="btn btn-primary" type="button" data-act="apply-changed">应用 stage = 4</button>')
+      + (isChanged ? next(2, '查看内存占用') : '<button class="btn" type="button" data-act="open" data-step="2">查看内存占用</button>')
       + '</div>'
       + '<p class="note">stage 2：' + kb(base.hw) + ' · stage 4：' + kb(changed.hw) + '。数值按每个中间量各占一块估算，与 Lens 工作台口径一致。</p>';
   }
@@ -825,47 +778,30 @@
       return '<tr data-line="' + b.line + '"><td>' + b.line + '</td><td><code>' + b.name + '</code></td><td class="num">'
         + (size ? bytes(size) : '复用') + '</td><td class="num">' + (size ? bytes(size * k.stage) : '—') + '</td></tr>';
     }).join('');
-    return '<h2 class="st-h">stage 不是循环参数。它在 Vec 里把整条 softmax 链复制了 ' + k.stage + ' 份。</h2>'
-      + '<p class="st-p">逻辑图里：pipeline 让相邻 ' + k.stage + ' 个头同时在飞，② 段因此叠成 ' + k.stage + ' 层。'
-      + '硅片上：这 7 行源码的中间量全部落在 AIV 的 Vec(UB)，每多一级就多一份 <b>' + kb(k.per) + '</b>。</p>'
-      + '<table class="map-table"><thead><tr><th>行</th><th>中间量</th><th>每级</th><th>× ' + k.stage + ' 级</th></tr></thead><tbody>' + rows
+    return '<h2 class="st-h">UB 驻留 · pipeline stage = ' + k.stage + '</h2>'
+      + '<p class="st-p">Pipeline 中同时驻留 ' + k.stage + ' 个 head，softmax 对应 ' + k.stage + ' 层。'
+      + '这些中间量分配于 AIV 的 Vec(UB)，每增加一级 stage，估算占用增加 <b>' + kb(k.per) + '</b>。</p>'
+      + '<details class="story-detail"><summary>缓冲明细</summary><table class="map-table"><thead><tr><th>行</th><th>中间量</th><th>每级</th><th>× ' + k.stage + ' 级</th></tr></thead><tbody>' + rows
       + '</tbody><tfoot><tr><td></td><td>+ 常驻区</td><td class="num"></td><td class="num">' + kb(k.carry) + '</td></tr>'
-      + '<tr><td></td><td>高水位</td><td class="num"></td><td class="num">' + kb(k.hw) + '</td></tr></tfoot></table>'
-      + '<p class="note">① 打分和 ③ 加权求和的操作数在 AIC 一侧（L0A / L0B / L0C），不随 stage 复制；这条路的压力只在 Vec。</p>'
-      + '<div class="st-actions">' + next(3, '展开：硬件怎么判') + '</div>';
+      + '<tr><td></td><td>高水位</td><td class="num"></td><td class="num">' + kb(k.hw) + '</td></tr></tfoot></table></details>'
+      + '<p class="note">① 打分和 ③ 加权求和的操作数在 AIC 一侧（L0A / L0B / L0C），不随 stage 复制；此处仅评估 Vec(UB) 的容量约束。</p>'
+      + '<div class="st-actions">' + next(3, '查看诊断') + '</div>';
   }
 
   function body3() {
-    const k = current();
-    const thresholds = '<div class="thresholds">'
-      + '<div class="th-row is-hw"><span>本配置高水位</span><b class="' + (k.hw > UB_USABLE ? 'is-bad' : 'is-good') + '">' + kb(k.hw) + '</b></div>'
-      + '<div class="th-row"><span>实际可用</span><b class="is-bad">184 KB</b><small>顶部约 8 KB 被运行时保留（ReserveBufferOp / pipe init）· pto-isa#170 · a2a3；随平台与 CANN 版本变化</small></div>'
-      + '<div class="th-row"><span>分配器预算</span><b>192 KB</b><small>上游分配器按名义容量放行</small></div>'
-      + '</div>';
-    if (k.verdict !== 'silent') {
-      return '<h2 class="st-h">' + (k.verdict === 'compile' ? '超过名义容量，分配器会直接报错' : '当前配置没有越过保留区') + '</h2>'
-        + thresholds
-        + '<div class="callout ' + (k.verdict === 'compile' ? '' : 'is-ok') + '">'
-        + (k.verdict === 'compile' ? '这是能看见的失败：编译期就报出来。' : '距 184 KB 边界还有 ' + bytes(UB_USABLE - k.hw) + '。')
-        + '</div>'
-        + '<div class="st-actions">'
-        + (same(state.cfg, BASE) ? '<button class="btn btn-primary" type="button" data-act="apply-changed">套用改动：stage = 4</button>' : '')
-        + '<button class="btn" type="button" data-act="open" data-step="5">展开复查</button></div>';
-    }
-    const names = k.intruders.map(function (r) { return (bufById(r.id) || {}).name; });
-    return '<h2 class="st-h">越过实际可用线 ' + bytes(k.hw - UB_USABLE) + '，但离分配器预算还有 ' + bytes(UB_NOMINAL - k.hw) + '：<span class="is-bad">没有任何一环会报错</span></h2>'
-      + thresholds
-      + '<p class="st-sec">如果没有在编码期拦下</p>'
-      + '<ol class="timeline">'
-      + '<li class="t-stop"><span class="t-k">编码期 · 本页</span><span class="t-v"><b>在这里拦下</b>：高水位对的是 184，不是 192</span></li>'
-      + '<li class="t-pass"><span class="t-k">编译 · AllocateMemoryAddr</span><span class="t-v"><b>通过</b>：按 192 KB 预算，' + kb(k.hw) + ' 合法</span></li>'
-      + '<li class="t-pass"><span class="t-k">上板运行</span><span class="t-v"><b>无报错</b>：没有越界异常，也不 hang</span></li>'
-      + '<li class="t-fail"><span class="t-k">精度对比</span><span class="t-v"><b>输出出现 NaN</b>：stage ' + (k.stage - 1) + ' 的 ' + names.join('、') + ' 读写到保留区</span></li>'
-      + '<li class="t-fail"><span class="t-k">定位</span><span class="t-v"><b>很容易误判</b>：改小 tile 或 stage=1 现象就消失，看起来像数值问题或偶发故障</span></li>'
-      + '</ol>'
-      + '<div class="callout">' + NUM_CORES + ' 个 block 共用同一份地址分配，所以这不是个别核偶发的问题。</div>'
-      + '<p class="note">依据：<a href="' + ISSUE_URL + '" target="_blank" rel="noopener noreferrer">pto-isa#170</a>。时间线描述的是该 Issue 的失效方式，本页没有对这份源码做编译或上板。</p>'
-      + '<div class="st-actions">' + next(4, '展开：怎么改') + '</div>';
+    const k=current(),excess=k.hw-UB_USABLE;
+    const headline=k.bad?'UB 容量超限':'UB 容量满足约束';
+    const explanation=k.verdict==='silent'
+      ? '估算 footprint 超出 usable capacity，但仍低于 nominal capacity。需要通过 compiler memory map 核对 reserved region。'
+      : k.verdict==='compile'?'估算 footprint 同时超出 nominal capacity。':'当前估算 footprint 低于 usable capacity；仍需 compiler artifact 与 device validation。';
+    return '<h2 class="st-h">'+headline+'</h2>'
+      +'<div class="diagnosis-primary"><span>'+(excess>0?'超出':'可用余量')+'</span><strong class="'+(k.bad?'is-bad':'')+'">'+bytes(Math.abs(excess))+'</strong></div>'
+      +'<p class="st-p">'+explanation+'</p>'
+      +'<dl class="diagnosis-metrics"><div><dt>估算占用</dt><dd>'+kb(k.hw)+'</dd></div><div><dt>可用容量</dt><dd>184 KB</dd></div></dl>'
+      +'<details class="story-detail"><summary>容量依据</summary><p>Nominal capacity：192 KB；runtime reserved region：8 KB；usable capacity：184 KB。Reserved region 依据 pto-isa#170 的 a2a3 场景，可能随平台与 CANN 版本变化。</p></details>'
+      +'<details class="story-detail"><summary>失效机制与 Issue 证据</summary><p>pto-isa#170 描述：按 nominal capacity 分配时，buffer 可能与 runtime reserved region 重叠，运行未触发异常但输出出现 NaN。</p><p>此处地址布局为估算，当前源码尚未编译或运行于设备，不能据此断言会出现同一失效。</p><a href="'+ISSUE_URL+'" target="_blank" rel="noopener noreferrer">Source · pto-isa#170 ↗</a></details>'
+      +'<details class="story-detail"><summary>验证要求</summary><p>检查 compiler memory map 中的 allocation offset、buffer lifetime 和 reserved region；随后执行 Golden comparison 与 device profiling。</p></details>'
+      +'<div class="st-actions">'+next(4,'比较调整方案')+'</div>';
   }
 
   function body4() {
@@ -876,24 +812,24 @@
       return '<div class="' + cls + '" data-opt="' + key + '" tabindex="0">'
         + '<div class="opt-head"><span class="opt-id">' + key + '</span><span class="opt-title">' + o.title + '</span><span class="opt-sub">' + o.sub + '</span></div>'
         + '<div class="opt-res"><span>Vec <b class="' + (k.hw > UB_USABLE ? 'is-bad' : 'is-good') + '">' + kb(k.hw) + '</b></span>'
-        + '<span>Right <b>' + pct(k.kDB / L0B_CAP) + '</b></span><span>压力转到 <b>' + o.to + '</b></span></div>'
-        + '<p class="opt-cost">' + o.cost(k) + '</p>'
+        + '<span>L0B 利用率 <b>' + pct(k.kDB / L0B_CAP) + '</b></span><span>主要代价 <b>' + o.to + '</b></span></div>'
+        + '<details class="story-detail"><summary>代价与前提</summary><p class="opt-cost">' + o.cost(k) + '</p></details>'
         + '<div class="opt-foot"><span class="opt-scope">' + o.scope + '</span>'
         + '<button class="btn' + (chosen === key ? '' : ' btn-primary') + '" type="button" data-act="choose" data-opt="' + key + '">'
         + (chosen === key ? '已采用' : '采用并复查') + '</button></div></div>';
     }).join('');
-    return '<h2 class="st-h">三种改法都能回到 184 KB 以内，但压力会被推到不同地方</h2>'
+    return '<h2 class="st-h">调整方案比较</h2>'
       + '<p class="st-p">地址条上的虚线是当前配置的高水位。</p>'
       + cards
-      + '<p class="note">本页不推荐唯一答案：A 的代价要 profiling 才知道，B 要动运行时，C 要编译产物证明。</p>';
+      + '<p class="note">方案 A 需通过 profiling 评估性能影响；方案 B 需同步运行时分页配置；方案 C 需通过编译产物确认内存复用。</p>';
   }
 
   function body5() {
     const k = current(), before = calc(CHANGED), key = chosenKey(state.cfg);
     if (k.bad) {
-      return '<h2 class="st-h">当前配置仍然越界</h2>'
-        + '<div class="callout">高水位 ' + kb(k.hw) + '，超过 184 KB。先选一种改法。</div>'
-        + '<div class="st-actions">' + next(4, '展开改法') + '</div>';
+      return '<h2 class="st-h">当前配置仍超出 UB 可用容量</h2>'
+        + '<div class="callout">高水位 ' + kb(k.hw) + '，超过 184 KB。请选择调整方案。</div>'
+        + '<div class="st-actions">' + next(4, '查看调整方案') + '</div>';
     }
     function row(name, a, b, cls, ev, evText) {
       return '<tr><td>' + name + '</td><td class="v">' + a + '</td><td class="v ' + (cls || '') + '">' + b + '</td><td><span class="ev ' + ev + '">' + evText + '</span></td></tr>';
@@ -902,35 +838,35 @@
       + row('Vec(UB) 高水位', '<span class="is-bad">' + kb(before.hw) + '</span>', kb(k.hw), 'is-good', 'e-est', '估算 → 编译产物')
       + row('Right(L0B) 双缓冲', kb(before.kDB), kb(k.kDB), k.kDB !== before.kDB ? 'is-good' : '', 'e-est', '估算')
       + row('SEQ_TILE / page_size', before.cfg.seq + ' / ' + before.cfg.page, state.cfg.seq + ' / ' + state.cfg.page, k.pageOk ? (state.cfg.page !== before.cfg.page ? 'is-warn' : '') : 'is-bad', 'e-build', '运行时契约')
-      + row('fa_fused 真实块', String(before.blocks), String(k.blocks), k.blocks !== before.blocks ? 'is-warn' : '', 'e-est', '估算')
+      + row('fa_fused 工作块数', String(before.blocks), String(k.blocks), k.blocks !== before.blocks ? 'is-warn' : '', 'e-est', '估算')
       + row('流水驻留级数', String(before.stage), String(k.stage), k.stage !== before.stage ? 'is-warn' : '', 'e-board', '需 profiling')
       + row('中间量复用', '否', state.cfg.reuse ? '假设是' : '否', state.cfg.reuse ? 'is-warn' : '', 'e-build', '需编译产物')
       + '</tbody></table>';
     const checks = ['编译产物的内存映射里，Vec 高水位低于 <b>184 KB</b>，而不是只低于 192 KB',
       '上板结果与 torch 参考逐元素对比，没有 NaN / Inf',
-      'Profiling 对比 stage 2 / 3 / 4 的 fa_fused 耗时，确认改法没把收益吃掉'];
+      'Profiling 对比 stage 2 / 3 / 4 的 fa_fused 耗时，量化 throughput 与 latency 的变化'];
     if (state.cfg.page !== BASE.page) checks.push('运行时 KV 分页同步改为 ' + state.cfg.page + '，并核对其它层与 block_table 生成');
     if (state.cfg.reuse) checks.push('编译产物中 scores_valid / scores 确实复用 scores_scaled 的地址');
-    return '<h2 class="st-h">回到了 184 KB 以内。再看压力被推到了哪里</h2>'
+    return '<h2 class="st-h">验证要求</h2>'
       + meter(k) + table
-      + '<p class="st-sec">本页能证明的到此为止，接下来要看</p>'
+      + '<p class="st-sec">后续验证项</p>'
       + '<ul class="checklist">' + checks.map(function (t) { return '<li><span>' + t + '</span></li>'; }).join('') + '</ul>'
-      + '<div class="st-actions"><button class="btn" type="button" data-act="open" data-step="4">换个方案</button>'
-      + '<button class="btn" type="button" data-act="reset">从头再走一遍</button></div>';
+      + '<div class="st-actions"><button class="btn" type="button" data-act="open" data-step="4">重新选择方案</button>'
+      + '<button class="btn" type="button" data-act="reset">重置配置</button></div>';
   }
 
   // 每章标题行上的实时结论：收起时也能看到这条路走到了哪里
   function sectionSummary(n, k) {
     const c = state.cfg, key = chosenKey(c);
     if (n === 1) return c.stage === BASE.stage ? { t: '未改动 · stage=' + c.stage } : { t: 'stage ' + BASE.stage + ' → ' + c.stage, cls: 'is-warn' };
-    if (n === 2) return { t: 'softmax 链 × ' + k.stage + ' · ' + kb(k.per * k.stage) };
+    if (n === 2) return { t: kb(k.per * k.stage) };
     if (n === 3) {
-      if (k.verdict === 'silent') return { t: '越界 ' + bytes(k.hw - UB_USABLE) + ' · 无报错', cls: 'is-bad' };
+      if (k.verdict === 'silent') return { t: '超出 · ' + bytes(k.hw - UB_USABLE), cls: 'is-bad' };
       if (k.verdict === 'compile') return { t: '超过 192 KB · 编译报错', cls: 'is-bad' };
       return { t: '余量 ' + bytes(UB_USABLE - k.hw), cls: 'is-good' };
     }
-    if (n === 4) return key ? { t: '已采用 ' + key + ' · ' + OPTIONS[key].title, cls: 'is-good' } : { t: '3 个方案' };
-    if (k.bad) return { t: '仍越界' , cls: 'is-bad' };
+    if (n === 4) return key ? { t: '已采用方案 ' + key, cls: 'is-good' } : { t: '3 个方案' };
+    if (k.bad) return { t: '容量超限' , cls: 'is-bad' };
     return same(c, BASE) ? { t: '—' } : { t: '待编译产物 / 上板确认', cls: 'is-warn' };
   }
 
@@ -957,7 +893,7 @@
     const k = current(), el = document.getElementById('hpStatus');
     let text, cls;
     if (k.verdict === 'silent') {
-      text = '✕ Vec 高水位 ' + kb(k.hw) + ' > 实际可用 184 KB · 分配器按 192 KB 放行 → 编译、运行都不报错，输出静默 NaN';
+      text = '✕ Vec 高水位 ' + kb(k.hw) + ' > usable capacity 184 KB · reserved-region overlap risk · 待 compiler artifact 验证';
       cls = 'is-bad';
     } else if (k.verdict === 'compile') {
       text = '✕ Vec 高水位 ' + kb(k.hw) + ' > 名义 192 KB · 编译期分配失败'; cls = 'is-bad';
@@ -972,6 +908,10 @@
 
   function render() {
     renderCode(); renderLogic(); renderSvg(); renderStory(); renderStatus(); applyFocus();
+    const diagnostic=document.getElementById('hpDiagnostic'),k=current();
+    diagnostic.hidden=!k.bad;
+    diagnostic.innerHTML=k.bad ? '<button type="button" data-act="diagnose"><strong>⚠ UB 容量风险</strong><span>高水位 '+kb(k.hw)+' / 可用 184 KB · 超出 '+bytes(k.hw-UB_USABLE)+'</span><b>查看诊断 →</b></button>' : '';
+
   }
 
   function openSection(n, scroll) {
@@ -995,7 +935,12 @@
     const act = e.target.closest('[data-act]');
     if (!act) return;
     const a = act.dataset.act;
-    if (a === 'toggle') { const n = Number(act.dataset.step); openSection(state.step === n ? 0 : n, false); }
+    if (a === 'diagnose') {
+      document.getElementById('hpStoryPane').hidden=false;
+      const toggle=document.getElementById('hpStoryToggle');toggle.setAttribute('aria-expanded','true');toggle.textContent='隐藏主线';
+      openSection(3,true);syncResizeHandle();
+    }
+    else if (a === 'toggle') { const n = Number(act.dataset.step); openSection(state.step === n ? 0 : n, false); }
     else if (a === 'open') { openSection(Number(act.dataset.step), true); }
     else if (a === 'apply-changed') { setCfg(CHANGED); }
     else if (a === 'choose') { state.step = 5; setCfg(OPTIONS[act.dataset.opt].cfg); }
@@ -1149,4 +1094,10 @@
   });
 
   render();
+  document.addEventListener('keydown', function(e) {
+    if(e.key==='Escape') document.querySelectorAll('.pane-info[open]').forEach(el=>el.removeAttribute('open'));
+  });
+  document.addEventListener('click', function(e) {
+    document.querySelectorAll('.pane-info[open]').forEach(el=>{if(!el.contains(e.target))el.removeAttribute('open');});
+  });
 })();
