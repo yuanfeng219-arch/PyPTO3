@@ -104,10 +104,10 @@ function evolutionMarkup(e){
 }
 function mount(host,{model,onTask,onFocus,onView,onNavigate}){
  host.classList.add('viz2-compute');
- host.innerHTML='<aside class="compute-identity" aria-label="当前 Task"><h1 data-compute-identity></h1><h2 data-compute-owner></h2><p data-compute-facts></p></aside><div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>';
+ host.innerHTML=global.PtoComputeDetailControls.identity()+'<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>';
  const toolbar=host.querySelector('[data-compute-toolbar]');
- toolbar.innerHTML=`<span data-compute-context></span><div class="compute-page-readouts"><label>Pages<input class="input" type="number" min="1" step="1" data-compute-pages aria-label="Page Count"></label><div class="compute-stack-readout"><span>Stacks</span><output data-page-stacks><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-label="由 Page 数量计算"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span data-stack-count></span></output></div></div><div class="compute-page-stepper"><button class="btn btn-ghost btn-sm" data-page-step="-1" aria-label="减少 Pages">−</button><input type="range" min="1" step="1" data-page-range aria-label="调整 Page 数量"><button class="btn btn-ghost btn-sm" data-page-step="1" aria-label="增加 Pages">+</button></div><span data-page-summary></span><span data-page-error role="status"></span>`;
- host.querySelector('[data-compute-identity]').innerHTML=`<select data-compute-task aria-label="Graph Task">${[...new Set(model.tasks.map(t=>t.block))].sort((a,b)=>a-b).map(block=>`<optgroup label="Block ${String(block).padStart(2,'0')}">${model.tasks.filter(t=>t.block===block).sort((a,b)=>a.id-b.id).map(t=>`<option value="${t.id}">Task ${t.id}</option>`).join('')}</optgroup>`).join('')}</select>`;
+ toolbar.innerHTML=global.PtoComputeDetailControls.parameter();
+ host.querySelector('[data-compute-identity]').innerHTML=global.PtoComputeDetailControls.picker(model);
  let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null;
  const canvas=host.querySelector('.viz2-compute-canvas');
  let sourceTask=task,customTask=null,pagesChanged=false;

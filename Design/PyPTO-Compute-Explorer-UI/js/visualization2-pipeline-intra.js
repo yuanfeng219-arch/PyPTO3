@@ -28,15 +28,53 @@
     const media=global.matchMedia('(prefers-reduced-motion: reduce)'),listeners=new AbortController();
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const listen=(element,type,fn,options={})=>element.addEventListener(type,fn,{...options,signal:listeners.signal});
-    host.classList.add('viz2-anatomy','viz2-intra');
-    host.innerHTML=`<div class="viz2-anatomy-taskbar"><h2 data-intra-block></h2><span data-intra-kv></span><nav class="viz2-anatomy-task-nav" aria-label="Block 内流水线 Task 快捷导航" data-intra-tasks></nav><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button></div>
+    host.classList.add('viz2-anatomy','viz2-intra','viz2-compute','viz2-pipeline-detail');
+    host.innerHTML=`${global.PtoComputeDetailControls.identity()}<div class="compute-parameter-control" data-compute-toolbar></div><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
-        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" tabindex="0" aria-label="当前 Task 逻辑流水线，方向键切换 Task，画布内可平移浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
+        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" tabindex="0" aria-label="当前 Task 逻辑流水线，画布内可平移浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
-        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small><small data-intra-dependency-summary aria-live="polite"></small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
+        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small><small data-intra-dependency-summary aria-live="polite"></small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
         <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><div><b data-intra-title></b><small data-intra-context></small></div><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
-    const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
+    const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('.viz2-anatomy-inspector'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
+    let sourceTask=null,customTask=null,configurationChanged=false;
+    const controls=global.PtoComputeDetailControls,toolbar=host.querySelector('[data-compute-toolbar]');
+    toolbar.innerHTML=controls.parameter('Stacks','Pages');
+    host.querySelector('[data-compute-identity]').innerHTML=controls.picker(model,'Pipeline Task');
+    const stackInput=toolbar.querySelector('[data-compute-pages]'),stackRange=toolbar.querySelector('[data-page-range]');
+    // Exploration bound mirrors Graph: largest source Stack count × model capacity.
+    const maxStacks=Math.max(...model.tasks.map(t=>t.stacks.length))*model.pagesPerStack;
+    stackInput.max=stackRange.max=maxStacks;
+    function configureStacks(value){
+      const count=Number(value),error=toolbar.querySelector('[data-page-error]');
+      if(!/^\d+$/.test(String(value))||!Number.isSafeInteger(count)||count<1||count>maxStacks){error.textContent=`Stacks 必须为 1–${maxStacks} 的整数`;stackInput.setAttribute('aria-invalid','true');return;}
+      error.textContent='';stackInput.removeAttribute('aria-invalid');
+      if(count===task.stacks.length)return;
+      customTask=null;
+      if(count!==sourceTask.stacks.length){
+        // Preserve the source tail Stack's Pages and the source tail Page's valid tokens.
+        const pages=(count-1)*model.pagesPerStack+sourceTask.stacks.at(-1).pages.length;
+        const seqLen=(pages-1)*model.pageTokens+sourceTask.pages.at(-1).tokens;
+        const anatomy=global.PtoVisualization2Anatomy.createModel({...model,seqLens:Array.from({length:sourceTask.batch+1},()=>seqLen),blockTable:null});
+        anatomy.tasks=[anatomy.tasks.find(t=>t.id===sourceTask.id)];
+        customTask=createModel({anatomy,preLaunch:model.preLaunch}).tasks[0];
+      }
+      configurationChanged=true;onTask(sourceTask.id);
+    }
+    listen(stackInput,'input',()=>configureStacks(stackInput.value));
+    listen(stackRange,'input',()=>configureStacks(stackRange.value));
+    listen(toolbar,'click',event=>{const button=event.target.closest('[data-page-step]');if(button)configureStacks(task.stacks.length+Number(button.dataset.pageStep));});
+    listen(host.querySelector('[data-compute-task]'),'change',event=>onTask(Number(event.target.value)));
+    function identity(){
+      const picker=host.querySelector('[data-compute-task]');picker.value=sourceTask.id;picker.dataset.displayLabel=customTask?'Task N':`Task ${task.id}`;
+      host.querySelector('[data-compute-owner]').textContent=customTask?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
+      host.querySelector('[data-compute-facts]').textContent=customTask?'Batch N\nCustom Stack Configuration':`Batch ${task.batch}\n${task.seqLen} tokens`;
+      stackInput.value=stackRange.value=task.stacks.length;
+      toolbar.querySelector('[data-stack-count]').textContent=task.pages.length;
+      toolbar.querySelector('[data-page-step="-1"]').disabled=task.stacks.length<=1;
+      toolbar.querySelector('[data-page-step="1"]').disabled=task.stacks.length>=maxStacks;
+      toolbar.querySelector('[data-page-summary]').textContent=customTask?'Custom · 模型推导调度':'';
+    }
     const scrollStates=new Map(),scales=new Map();let pan={x:0,y:0};
     const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
     const paging=global.PtoVisualization2Anatomy.createPagingInput({isAnimating:()=>!!frame,onPage:direction=>{
@@ -84,16 +122,11 @@
         t.stacks.map(stack=>{const n=stagePosition(t,stack,'qk');return object('stack',stack.index,rect(n.x,TOP+4*ROW+10,W,24,'viz2-intra-stack-hit')+text(n.x+8,TOP+4*ROW+27,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`);}).join('')+
         (lastPosition?`<path class="viz2-intra-output-link" d="M ${lastPosition.x+W} ${lastPosition.y+H/2} H ${outputX}" marker-end="url(#${arrow})"/>`:'')+
         object('output',0,rect(outputX,outputY,142,H,'viz2-intra-output-hit','data-intra-output')+rect(outputX,outputY,142,H,'viz2-intra-output')+text(outputX+10,outputY+19,'Normalize / Store','viz2-intra-small')+text(outputX+10,outputY+38,'BF16 · 全部 Stack','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
-      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens · ${t.stacks.length} Stacks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的横向 Logical Tick"><svg class="viz2-intra-svg" viewBox="0 0 ${width} ${height}" data-intra-width="${width}" data-intra-height="${height}" aria-label="横向 Logical Tick × 纵向计算阶段"><g data-intra-scene>${diagram}</g></svg></div></article>`;
+      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="${customTask?`Custom · 来源 Task ${t.id} · 模型推导调度`:`Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens`}"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens · ${t.stacks.length} Stacks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的横向 Logical Tick"><svg class="viz2-intra-svg" viewBox="0 0 ${width} ${height}" data-intra-width="${width}" data-intra-height="${height}" aria-label="横向 Logical Tick × 纵向计算阶段"><g data-intra-scene>${diagram}</g></svg></div></article>`;
     }
     function saveScroll(){cards.forEach(card=>{const scroller=card.querySelector('.viz2-intra-tick-scroll');scrollStates.set(Number(card.dataset.intraTask),{top:scroller.scrollTop,left:scroller.scrollLeft});});}
     function buildBlock(){
-      block=task.block;tasks=model.tasks.filter(t=>t.block===block).sort((a,b)=>a.id-b.id);
-      host.querySelector('[data-intra-block]').textContent=`Block ${String(block).padStart(2,'0')}`;
-      host.querySelector('[data-intra-kv]').textContent=`KV Head ${[...new Set(tasks.map(t=>t.kvHead))].join(', ')}`;
-      const navigation=host.querySelector('[data-intra-tasks]');
-      navigation.innerHTML=tasks.map(t=>`<button type="button" class="btn btn-ghost btn-sm" data-intra-task-go="${t.id}" aria-current="false" aria-controls="viz2-intra-carousel">Task ${t.id}</button>`).join('');
-      navButtons=[...navigation.children];navTask=null;
+      block=task.block;tasks=[task];
       track.innerHTML=tasks.map(card).join('');cards=[...track.children];
       cards.forEach(card=>{const saved=scrollStates.get(Number(card.dataset.intraTask));if(saved){const s=card.querySelector('.viz2-intra-tick-scroll');s.scrollTop=saved.top;s.scrollLeft=saved.left;}});
       position=target=tasks.findIndex(t=>t.id===task.id);velocity=0;
@@ -112,9 +145,6 @@
         const diagramWidth=Number(svg.dataset.intraWidth)*localScale;
         const vw=scroller.clientWidth,vh=scroller.clientHeight,dw=Number(svg.dataset.intraWidth),dh=Number(svg.dataset.intraHeight);svg.style.width='100%';svg.style.height='100%';const cp=current?pan:{x:0,y:0};svg.setAttribute('viewBox',[(dw-vw/localScale)/2+cp.x,(dh-vh/localScale)/2+cp.y,vw/localScale,vh/localScale].join(' '));
       });
-      if(navTask!==task.id){navTask=task.id;navButtons.forEach(button=>{const selected=Number(button.dataset.intraTaskGo)===task.id;button.classList.toggle('is-selected',selected);button.setAttribute('aria-current',String(selected));});navButtons.find(button=>Number(button.dataset.intraTaskGo)===task.id)?.scrollIntoView({block:'nearest',inline:'nearest'});}
-      host.querySelector('[data-intra-position]').textContent=`${tasks.findIndex(t=>t.id===task.id)+1} / ${tasks.length}`;
-      host.querySelector('[data-intra-prev]').disabled=target<=0;host.querySelector('[data-intra-next]').disabled=target>=tasks.length-1;
       host.querySelector('[data-intra-scale]').textContent=`${Math.round(scale*100)}%`;
     }
     function stop(){cancelAnimationFrame(frame);frame=0;paging.reset();if(drag&&viewport.hasPointerCapture(drag.id))viewport.releasePointerCapture(drag.id);drag=null;pendingFocus=null;tooltip.hidden=true;}
@@ -225,16 +255,20 @@
     function update(id,nextFocus,nextCamera,options={}){
       const entering=!!options.active&&!active;active=!!options.active;
       if(!active){saveScroll();stop();host.classList.remove('viz2-intra-masked');return;}
-      const next=model.tasks[id];if(!next)return;
+      const source=model.tasks[id];if(!source)return;
+      if(sourceTask?.id!==id){sourceTask=source;customTask=null;configurationChanged=true;toolbar.querySelector('[data-page-error]').textContent='';stackInput.removeAttribute('aria-invalid');}
+      const next=customTask||source;const rebuild=configurationChanged||task!==next;
+      if(configurationChanged){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;}
+      configurationChanged=false;
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
-      focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen;
+      focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen&&!!focus;identity();
       const needsInitialFit=!nextCamera&&!scales.has(id);
       pan={x:nextCamera?.x||0,y:nextCamera?.y||0};scale=Math.max(.05,Math.min(3,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
-      if(block!==task.block){saveScroll();stop();buildBlock();}
+      if(rebuild||block!==task.block){saveScroll();stop();buildBlock();}
       else if(entering){stop();position=target=tasks.findIndex(t=>t.id===id);velocity=0;}
       else if(changed){const index=tasks.findIndex(t=>t.id===id);if(Math.abs(position-index)>.001)snap(index);else target=index;}
       inspect();paint();paintFocus();if(entering||changed||focusChanged)revealFocus();
-      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=Math.max(.05,Math.min(1,(scroller.clientWidth-64)/size.width,(scroller.clientHeight-260)/size.height));onCamera(task.id,{scale:fit,x:0,y:-40/fit});}}
+      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=Math.max(.05,Math.min(1,(scroller.clientWidth-64)/size.width,(scroller.clientHeight-48)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});}}
     }
     function zoom(factor,point){
       paging.reset();const next=Math.max(.05,Math.min(3,scale*factor)),r=currentCard()?.querySelector('.viz2-intra-tick-scroll')?.getBoundingClientRect();const dx=point&&r?point.x-r.left-r.width/2:0,dy=point&&r?point.y-r.top-r.height/2:0;
@@ -251,7 +285,7 @@
       const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
       if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
       if(event.target.closest('[data-intra-close]')){paging.reset();onFocus(null);onInspector(false);return;}
-      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-64||size.width)/size.width,(scroller?.clientHeight-260||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:-40/fit});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
+      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-64||size.width)/size.width,(scroller?.clientHeight-48||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
       const z=event.target.closest('[data-intra-zoom]');if(z){zoom(Number(z.dataset.intraZoom));return;}
       if(event.target.closest('[data-intra-prev]')){manualPage(target-1);return;}
       if(event.target.closest('[data-intra-next]')){manualPage(target+1);return;}
@@ -293,7 +327,7 @@
     listen(host,'pointerleave',()=>{tooltip.hidden=true;paintFocus();});
     listen(viewport,'focusin',event=>{const card=event.target.closest('[data-intra-task]');if(card&&Number(card.dataset.intraTask)!==task.id)manualPage(tasks.findIndex(t=>t.id===Number(card.dataset.intraTask)));});
     listen(host,'keydown',event=>{
-      if(!active)return;const button=event.target.closest('[data-intra-task-go]');
+      if(!active||event.target.closest('input,select,button,.explorer-dropdown'))return;const button=event.target.closest('[data-intra-task-go]');
       if(button&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const index=navButtons.indexOf(button),next=event.key==='Home'?0:event.key==='End'?tasks.length-1:clamp(index+(event.key==='ArrowLeft'?-1:1));navButtons[next].focus();manualPage(next);return;}
       if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();manualPage(target+(event.key==='ArrowLeft'?-1:1));}
       else if(event.key==='Escape'){tooltip.hidden=true;paging.reset();onInspector(false);}
@@ -309,9 +343,9 @@
       const scroller=card.querySelector('.viz2-intra-tick-scroll'),clip=screenRect(scroller);
       // Offscreen rows collapse onto the nearest visible edge during outer morph.
       const visibleRect=element=>{const r=screenRect(element),x=Math.max(clip.x,Math.min(r.x,clip.x+clip.width-1)),y=Math.max(clip.y,Math.min(r.y,clip.y+clip.height-1));return {x,y,width:Math.max(1,Math.min(r.width,clip.x+clip.width-x)),height:Math.max(1,Math.min(r.height,clip.y+clip.height-y))};};
-      return {task:task.id,model:task,clip,frame:screenRect(card),title:screenRect(card.querySelector('h3')),output:visibleRect(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:visibleRect(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};
+      return {task:task.id,model:task,clip,frame:screenRect(card),title:screenRect(host.querySelector('[data-compute-identity]')),output:visibleRect(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:visibleRect(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};
     }
-    return {update,model,getOperationDescriptor(taskId,stack,stage){return model.tasks[taskId]?.operations.find(op=>op.stack===stack&&op.stage===stage)||null;},getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
+    return {update,model,getOperationDescriptor(taskId,stack,stage){return (task?.id===taskId?task:model.tasks[taskId])?.operations.find(op=>op.stack===stack&&op.stage===stage)||null;},getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
       destroy(){active=false;saveScroll();stop();resizeObserver.disconnect();listeners.abort();host.classList.remove('viz2-intra-masked');host.replaceChildren();}};
   }
   global.PtoVisualization2PipelineIntra=Object.freeze({createModel,mount});
