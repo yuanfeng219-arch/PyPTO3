@@ -5,7 +5,7 @@
   let graphIntraController, graphIntraModel, graphZoomJob, graphOuterSnapshot;
   let tabTransition, semanticZoom, anatomyController, anatomyModel, pipelineIntraController, pipelineIntraModel, pipelineZoom;
   function createStore() {
-    let state = { open: false, activeTab: 'assignment', selection: null,
+    let state = { open: false, activeTab: 'assignment', selection: null, scenario:null,
       views: Object.fromEntries(tabs.map(id => [id, { subview: null, camera: null, ...(id === 'assignment' ? { phase: 'attention', phase0Camera: null } : {}) }])) };
     const listeners = new Set();
     const snapshot = () => structuredClone(state);
@@ -18,8 +18,13 @@
         if(['tab','close','select','pipeline-intra-task','pipeline-intra-focus'].includes(action.type)||(action.type==='view'&&pipelineZoom?.animating))pipelineZoom?.cancel();
         if(['tab','close','select','graph-intra-focus','graph-intra-task'].includes(action.type)||(action.type==='view'&&graphZoomJob?.running))cancelGraphZoom();
         if(action.type==='tab')semanticZoom?.cancel();
+        if(['scenario-edit','scenario-reset'].includes(action.type)){semanticZoom?.cancel();pipelineZoom?.cancel();cancelGraphZoom();tabTransition?.cancel();}
         if(action.type==='tab' && state.activeTab==='assignment' && state.views.assignment.phase==='attention') assignmentMorph?.settle(action.id==='pipeline'?1:undefined);
         if(action.type==='tab' && state.activeTab==='pipeline' && action.id==='assignment') assignmentMorph?.settle(1);
+        const selectedId=action.type==='select'&&action.selection?.kind==='task'?action.selection.task:
+          ['anatomy-enter','anatomy-task','pipeline-intra-enter','pipeline-intra-task','graph-intra-enter','graph-intra-task'].includes(action.type)?action.id:null;
+        if(Number.isInteger(selectedId)&&anatomyModel?.tasks[selectedId]&&state.scenario?.taskId!==selectedId)
+          state={...state,scenario:window.PtoComputeScenario.create(anatomyModel.tasks[selectedId])};
         const transition = action.type === 'tab' ? tabTransition?.prepare(state,action.id) : null;
         if (['tab','close','phase','select','anatomy-focus','anatomy-task'].includes(action.type)) semanticZoom?.cancel();
         if (['close','phase','select'].includes(action.type) || (action.type === 'view' && tabTransition?.animating)) tabTransition?.cancel();
@@ -31,7 +36,7 @@
           const target=state.views[action.id];
           const inner=state.views[state.activeTab].subview==='block'&&state.selection?.kind==='task';
           const task=state.selection?.task;
-          const focus=inner?window.PtoVisualization2IntraMorph.mapFocus(state.activeTab,action.id,state.selection.subobject,anatomyModel.tasks[task]):state.selection?.subobject;
+          const focus=inner?window.PtoVisualization2IntraMorph.mapFocus(state.activeTab,action.id,state.selection.subobject,scenarioModels(state.scenario)?.assignment||anatomyModel.tasks[task]):state.selection?.subobject;
           if(action.id==='graph'&&inner&&target.subview!=='block')
             graphOuterSnapshot={camera:target.camera,nodeId:target.nodeId,inspectorOpen:target.inspectorOpen};
           const context=inner?(action.id==='assignment'?{phase:'attention',anatomyTask:task,
@@ -73,6 +78,17 @@
         }
         else if(action.type==='graph-intra-exit')state={...state,views:{...state.views,graph:{...state.views.graph,...graphOuterSnapshot,subview:null}}};
         else if(action.type==='graph-intra-focus')state={...state,selection:{...state.selection,subobject:action.focus},views:{...state.views,graph:{...state.views.graph,intraFocus:action.focus,intraInspectorOpen:true}}};
+        else if(action.type==='scenario-edit'||action.type==='scenario-reset'){
+          if(!state.scenario)return;
+          const result=action.type==='scenario-reset'?{scenario:window.PtoComputeScenario.create(anatomyModel.tasks[state.scenario.taskId])}:window.PtoComputeScenario.edit(state.scenario,action.kind,action.value);
+          if(result.error)return result;
+          if(result.scenario.effectiveSeqLen===state.scenario.effectiveSeqLen)return {};
+          const id=state.scenario.taskId;
+          state={...state,scenario:result.scenario,selection:{...state.selection,subobject:null},views:{...state.views,
+            assignment:{...state.views.assignment,anatomyFocus:{},anatomyInspectorOpen:false,anatomyCameras:{...state.views.assignment.anatomyCameras,[id]:null}},
+            pipeline:{...state.views.pipeline,intraFocus:{},intraInspectorOpen:false,intraCameras:{...state.views.pipeline.intraCameras,[id]:null}},
+            graph:{...state.views.graph,intraFocus:null,intraInspectorOpen:false,intraCamera:null}}};
+        }
         else if (action.type === 'select') state = { ...state, selection: action.selection };
         else if (action.type === 'view' && tabs.includes(action.id)) state = { ...state,
           views: { ...state.views, [action.id]: { ...state.views[action.id], ...action.patch } } };
@@ -84,6 +100,21 @@
     };
   }
   const store = createStore();
+  let scenarioCache=null,scenarioKey='';
+  function scenarioModels(s){
+    if(!s||!anatomyModel)return null;
+    const key=`${s.taskId}:${s.effectiveSeqLen}`;
+    if(key!==scenarioKey){scenarioCache=window.PtoComputeScenario.project(s,anatomyModel,source,sourceNumber('PRE_LAUNCH'));scenarioKey=key;}
+    return scenarioCache;
+  }
+  const scenarioContext={
+    get:()=>store.getState().scenario,
+    limits:()=>window.PtoComputeScenario.limits(store.getState().scenario),
+    task:(kind,id)=>{const s=store.getState().scenario;return s?.taskId===id?scenarioModels(s)[kind]:null;},
+    edit:(kind,value)=>{const result=window.PtoComputeScenario.edit(store.getState().scenario,kind,value);if(!result.error)store.dispatch({type:'scenario-edit',kind,value});return result;},
+    reset:()=>store.dispatch({type:'scenario-reset'})
+  };
+
   // The same embedded Python source shown by the Studio editor owns this configuration.
   const source = globalThis.PTO_PAGED_ATTENTION_PYPTO_SOURCE;
   const sourceNumber = name => {
@@ -179,7 +210,7 @@
       else if (event.key === 'Escape') { store.dispatch({type:'select',selection:null}); viewport.focus(); }
     });
     viewport.addEventListener('dblclick', event => { const target=event.target.closest('[data-pa-task]');if(target)enterAnatomy(Number(target.dataset.paTask));else fit(); });
-    tabTransition = window.PtoVisualization2Transition.create({root,getPipeline:()=>pipelineController,getGraph:()=>graphController,getIntraTask:id=>anatomyModel?.tasks[id]});
+    tabTransition = window.PtoVisualization2Transition.create({root,getPipeline:()=>pipelineController,getGraph:()=>graphController,getIntraTask:id=>scenarioContext.task('assignment',id)||anatomyModel?.tasks[id]});
     store.subscribe(render);
   }
   function matrixSnapshot(id) {
@@ -288,7 +319,7 @@
     pipelineController?.update(state.selection,pipeline.camera,
       {active:state.activeTab==='pipeline'&&!pipelineInner,enter:action.type==='tab'&&state.activeTab==='pipeline'});
     if(state.activeTab==='pipeline'&&pipelineInner&&!pipelineIntraController){
-      pipelineIntraController=window.PtoVisualization2PipelineIntra.mount(root.querySelector('#viz2-pipeline-intra'),{model:pipelineIntraModel,
+      pipelineIntraController=window.PtoVisualization2PipelineIntra.mount(root.querySelector('#viz2-pipeline-intra'),{model:pipelineIntraModel,scenario:scenarioContext,
         onTask:id=>store.dispatch({type:'pipeline-intra-task',id}),onFocus:focus=>store.dispatch({type:'pipeline-intra-focus',focus}),
         onExit:exitPipelineIntra,
         onNavigate:()=>{store.dispatch({type:'tab',id:'graph'});store.dispatch({type:'view',id:'graph',patch:{intraInspectorOpen:true}});},
@@ -305,7 +336,7 @@
       execution:{blocks:constants.blocks,taskCount:seqLens.length*constants.kvHeads,phase0Model,seqLens},onSelect:selection=>store.dispatch({type:'select',selection}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onEnter:enterGraphIntra,
       onBlockEnter:block=>{const selected=store.getState().selection;const first=graphIntraModel.tasks.find(task=>task.block===block);if(first)enterGraphIntra(null,selected?.kind==='task'&&selected.block===block?selected.task:first.id);}});
     graphController?.update(state.selection,gv,{active:state.activeTab==='graph'&&!gi,enter:action.type==='tab'&&state.activeTab==='graph'&&!gi,restore:action.type==='graph-intra-exit'});
-    if(state.activeTab==='graph'&&gi&&!graphIntraController)graphIntraController=window.PtoVisualization2GraphIntra.mount(root.querySelector('#viz2-graph-intra'),{model:graphIntraModel,onTask:id=>store.dispatch({type:'graph-intra-task',id}),onFocus:focus=>store.dispatch({type:'graph-intra-focus',focus}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onNavigate:()=>{store.dispatch({type:'tab',id:'pipeline'});store.dispatch({type:'view',id:'pipeline',patch:{intraInspectorOpen:true}});}});
+    if(state.activeTab==='graph'&&gi&&!graphIntraController)graphIntraController=window.PtoVisualization2GraphIntra.mount(root.querySelector('#viz2-graph-intra'),{model:graphIntraModel,scenario:scenarioContext,onTask:id=>store.dispatch({type:'graph-intra-task',id}),onFocus:focus=>store.dispatch({type:'graph-intra-focus',focus}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onNavigate:()=>{store.dispatch({type:'tab',id:'pipeline'});store.dispatch({type:'view',id:'pipeline',patch:{intraInspectorOpen:true}});}});
     graphIntraController?.update(gv.intraTask,state.selection?.subobject,gv,{active:state.activeTab==='graph'&&gi});
     if (state.activeTab !== 'assignment') {assignmentMorph?.update(state.selection,false);anatomyController?.update(null,null,null,{active:false});return;}
     const assignment=state.views.assignment,inner=assignment.subview==='block';
@@ -329,7 +360,7 @@
     if(inner){
       assignmentMorph?.update(state.selection,false);
       root.querySelector('#viz2-phase0').hidden=true;root.querySelector('#viz2-attention').hidden=true;
-      if(!anatomyController)anatomyController=window.PtoVisualization2Anatomy.mount(root.querySelector('#viz2-anatomy'),{model:anatomyModel,
+      if(!anatomyController)anatomyController=window.PtoVisualization2Anatomy.mount(root.querySelector('#viz2-anatomy'),{model:anatomyModel,scenario:scenarioContext,
         onTask:id=>store.dispatch({type:'anatomy-task',id}),onFocus:focus=>store.dispatch({type:'anatomy-focus',focus}),
         onExit:exitAnatomy,
         onCamera:(id,camera)=>store.dispatch({type:'view',id:'assignment',patch:{anatomyCameras:{...store.getState().views.assignment.anatomyCameras,[id]:camera}}}),

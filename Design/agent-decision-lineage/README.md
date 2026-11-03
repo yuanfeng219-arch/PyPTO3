@@ -220,3 +220,19 @@ Baseline / Final 始终同时显示三个 Shape，删除 Shape 单选状态、Ta
 Hover / Focus 共用唯一的顶层 Tooltip（完整领域名称 + 简短状态，无按钮，pointer-events:none），按节点实时屏幕矩形定位并限制在窗口内；滚动时重新定位，节点离开可见区域则关闭。移开鼠标清除 Hover，Selected 保留。Hover 外圈、Pressed 明暗和 Focus 虚线圈分别反馈，失败节点保留红色身份。节点支持 Tab、Enter 和 Space；不可用身份使用 aria-disabled、移出 Tab 顺序并停用 Hit Path。选中节点的 aria-pressed 与原 app 状态同步。
 
 快速 Chrome 检查：1440 / 850 下 Tooltip、一次点击、当前节点不刷新、Enter / Space、移开清理、横向滚动后的定位、快速跨节点切换及不生成 Compact 菜单均通过，未发现 pageerror。窄屏鼠标焦点不自动移动阶段，避免按下到抬起间目标位移；键盘聚焦仍能显示节点名称。截图：[Runtime if Hover](previews/direct-dock/runtime-hover.png)。本轮只修改 lineage-dock.js / lineage-dock.css，原始关系、数据、详情和主图未改；未 commit、push 或部署。
+
+## Scroll-driven Collapsing Lineage（2026-11-03）
+
+本节取代之前点击驱动的 overview / entering-inspect / inspect / returning-overview 与顶部上滚意图阈值说明。
+
+当前 DOM：`decision-pane-body`（唯一主阅读滚动）→ `lineage-scroll-region`（自然高度的 Sticky 区域，包含 Full 图谱、阅读注释和 Compact Renderer）→ `analysis`（普通文档流详情）。Mini 是该 Sticky 区域底部的紧凑投影，不是另一个页面或页面级浮层。完整图谱始终留在 DOM 与文档流中，不再高度归零、互斥切换或隐藏阅读注释。
+
+折叠距离 = Full 区域实际自然高度 − Mini 实际高度。Sticky top 为折叠距离的负值：区域顶部随主 Pane 滚出，最后 108px 自然停靠在 Pane Body 顶部。Full / Mini 在最后一段滚动距离交接透明度；滚动位置决定 mode，仅切换命中与键盘可访问性，不改写 scrollTop。ResizeObserver 重算几何，scroll 监听通过 requestAnimationFrame 合并。无滚轮 / 触摸方向拦截、延时猜测、每次状态切换归零或新增空白占位元素。
+
+点击节点：原入口同步 Selected 与详情 → 下一布局帧计算 Analysis 文档位置减去 Mini 高度 → 原生 smooth scroll。连续点击由最新请求和浏览器原生滚动接管；手动滚动可直接中断。Reduced Motion 使用即时定位，不播放强制动画。短详情采用 Analysis 自身的最小可读视口高度，以便将标题完整定位到 Mini 下；这不是另加 Spacer，长详情继续按真实内容自然延伸。
+
+上滚重新进入图谱区域会自然恢复 Full，详情不收起、Selected 不丢失；“展开图谱”只平滑滚回顶部，同样保留详情。只有“收起详细分析”或 Escape 会在回到顶部后关闭详情，避免途中移除详情造成高度跳动。全图横向位置不再需要复制 / 恢复，原 scroller 一直存在。详情打开期间点击 Full 空白不清除 Selected，防止与下方详情失配。
+
+快速检查：1280×900，UB 详情打开后图谱自然高度 530px、主文档 scrollHeight 1501px；折叠、中途、回到顶部均保持这两个高度。折叠滚动位置 422px，Analysis 顶部与 Mini 底部一致；main.scrollTop=0，只有 Pane Body 滚动。向下阅读、手动上滚、无点击情况下由滚动恢复 / 折叠、Mini 直接切换、返回保留详情、显式关闭、Reduced Motion 均通过，未发现 pageerror。未全面重跑其他业务测试。
+
+截图：[初始](previews/scroll-lineage/overview.png)、[吸顶详情](previews/scroll-lineage/inspect.png)、[滚动中途](previews/scroll-lineage/mid-scroll.png)、[回到完整图谱且保留详情](previews/scroll-lineage/restored-with-detail.png)。记录：[checks.json](previews/scroll-lineage/checks.json)。修改仅涉及 lineage-dock.js / lineage-dock.css / app.js 与说明，原图数据、节点关系、Inspector 内容和 IDE Shell 未变。未 commit、push 或部署。
