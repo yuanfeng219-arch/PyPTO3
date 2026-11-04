@@ -1,0 +1,119 @@
+/* CSA entry-only chrome; domain state and object identities remain in the existing controllers. */
+body.csa-visual{--primary:#80b7f7;--surface-0:#111;--surface-1:#111;--surface-2:#262626;--foreground:#e5e5e5;--foreground-muted:#999}
+.csa-visual .csa-explorer{position:fixed!important;inset:0!important;background:#111;overflow:hidden;padding-top:64px}
+.csa-visual .csa-explorer>.viz2-header{position:absolute;inset:0 0 auto;height:60px;padding:12px 24px;border:0;background:transparent}
+.csa-visual .csa-explorer>.viz2-tabs{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:5}
+.csa-visual .csa-toolbar{padding:4px 24px;font-size:12px;min-height:24px}
+.csa-visual .csa-stagebar{padding:4px 24px 8px}
+.csa-visual .csa-stagebar>.segmented-control{background:transparent;border:0;padding:0;gap:4px}
+.csa-visual .csa-stagebar .btn{font-size:12px;height:30px;min-height:30px}
+.csa-visual .csa-stage-todo{font-size:9px;opacity:.65}
+.csa-visual .csa-qk-scenario{border:0;padding:4px 24px;gap:12px;font-size:12px}
+.csa-visual select{background:#242424;border:0;border-radius:6px;color:#ddd}
+.csa-visual .csa-qk-canvas-head{position:absolute;bottom:18px;left:24px;z-index:4;padding:0}
+.csa-visual .csa-qk-canvas-head>div:first-child{display:none}
+.csa-visual .csa-qk-canvas-controls{width:auto;gap:8px;padding:6px 10px;border-radius:32px;background:#242424}
+.csa-visual .csa-qk-canvas-controls .segmented-control{border:0;background:transparent;padding:0}
+.csa-visual .csa-qk-canvas-controls button{border-radius:24px;font-size:12px;min-height:32px}
+.csa-visual .csa-qk-canvas-controls .is-selected{background:#383838;color:#eee}
+.csa-visual .csa-qk-canvas-viewport{margin:0 24px 76px;min-height:0;background:transparent}
+.csa-visual .csa-qk-canvas-footer{position:absolute;bottom:18px;right:24px;padding:0;gap:12px}
+.csa-visual .csa-qk-canvas-footer>span{display:none}
+.csa-visual .csa-qk-zoom{padding:6px 12px;background:#242424;border-radius:32px}
+.csa-visual .csa-qk-canvas-lane>rect{fill:#000;stroke:none}
+.csa-visual .csa-qk-canvas-lane:is(.is-selected,:hover)>rect{fill:#252525;stroke:none}
+.csa-visual .csa-qk-canvas-item rect{stroke:none;rx:0;filter:none}
+.csa-visual .csa-qk-canvas-item.is-valid rect{fill:#80b7f7;fill-opacity:1}
+.csa-visual .csa-qk-canvas-item.is-invalid rect{fill:#444;fill-opacity:1}
+.csa-visual .csa-qk-canvas-item.is-selected rect{fill:#e8c85c;stroke:none;filter:none}
+.csa-visual .csa-qk-canvas-item.is-related rect{fill:#a3cbfa;stroke:none}
+.csa-visual .csa-qk-drawer,.csa-visual .csa-qp-inspector{position:fixed;top:72px;right:24px;bottom:auto;max-height:calc(100vh - 150px);width:340px;max-width:calc(100vw - 48px);border:0;border-radius:16px;background:#242424;box-shadow:none;z-index:15;overflow:auto}
+.csa-visual .csa-caption{display:none}
+.csa-visual .csa-qp-context{min-height:32px;padding:4px 24px;border:0;font-size:12px}
+.csa-visual .csa-qp-context-tools{font-size:12px}
+.csa-visual .csa-qp-map-footer,.csa-visual .csa-qp-bottom{border:0;background:transparent;padding:10px 24px}
+.csa-visual .csa-qp-node rect{fill:#505050;stroke:none;rx:24}
+.csa-visual .csa-qp-node.is-selected rect{fill:#80b7f7;stroke:none}
+.csa-visual .csa-qp-map-cell:hover{stroke:none;fill:#a3cbfa}
+.csa-visual .csa-semantic-stage .viz2-graph-node-title{white-space:nowrap}
+.csa-visual .csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head{flex-wrap:nowrap}
+.csa-visual .csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head b{flex-basis:auto;white-space:nowrap;overflow-wrap:normal}
+@media(max-width:800px){.csa-visual .csa-explorer>.viz2-tabs{top:60px}.csa-visual .csa-explorer{padding-top:110px}.csa-visual .csa-qk-canvas-controls{gap:2px}.csa-visual .csa-qk-canvas-controls button{padding:4px 7px}.csa-visual .csa-qk-canvas-head{bottom:64px;left:16px}.csa-visual .csa-qk-canvas-viewport{margin-bottom:116px}.csa-visual .csa-qk-scenario-count{display:none}}
+
+.csa-visual .viz2-graph-footer{position:relative;background:transparent;border:0;min-height:64px}
+.csa-visual .viz2-graph-footer__controls{margin-left:auto}
+.csa-visual .viz2-graph-layer-menu{position:absolute;left:24px;bottom:14px}
+.csa-visual .viz2-graph-layer-menu__content{left:0;right:auto;max-height:calc(100vh - 140px);overflow:auto}
+.csa-visual .viz2-graph-layer-menu__content [aria-pressed="true"]{background:#383838;color:#eee}
+.csa-visual .ai-presentation-overlay{position:absolute;top:182px;left:24px;width:min(340px,calc(100% - 48px));padding:10px;background:#111e;border-radius:6px;pointer-events:none;z-index:8}
+.csa-visual .ai-presentation-overlay h2{font-size:20px;line-height:1.2;margin:0 0 6px}
+.csa-visual .ai-presentation-overlay p{font-size:13px;line-height:1.45;margin:4px 0;color:#aaa}
+.csa-visual .ai-presentation-overlay[hidden]{display:none}
+
+/* Final CSA layout contract: compact chrome and independent control docks. */
+.csa-visual [data-csa-back]{position:absolute;right:255px;top:17px;width:24px;min-width:24px;padding:0;font-size:0}
+.csa-visual [data-csa-back]::after{content:'↗';font-size:16px}
+.csa-visual .csa-toolbar{min-height:24px;padding:0 24px;font-size:11px}
+.csa-visual .csa-stagebar{position:absolute;top:92px;right:24px;z-index:14;padding:8px;background:#242424;border-radius:12px;max-width:calc(100vw - 48px)}
+.csa-visual .csa-stagebar>.segmented-control{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr))}
+.csa-visual .csa-stagebar:not(.is-open){display:none}
+.csa-visual .csa-stage-picker{margin-left:auto;border:0;border-radius:20px;background:#242424;color:#ddd;padding:5px 12px;font-size:11px;cursor:pointer}
+.csa-visual .csa-qk-scenario{padding:5px 24px}
+.csa-visual .csa-qk-canvas-viewport{margin:0 24px 68px}
+.csa-visual .csa-qk-canvas-group>rect{fill:#000;stroke:none}
+.csa-visual .csa-qk-canvas-group.is-focused>rect{fill:#252525;stroke:none}
+.csa-visual .csa-qk-canvas-footer>.csa-qk-legend{display:flex;position:fixed;top:68px;right:155px;font-size:10px;gap:5px}
+.csa-visual .csa-qk-canvas-controls{background:transparent}
+.csa-visual .csa-qk-canvas-controls>.segmented-control{background:transparent}
+.csa-visual .csa-qk-canvas-controls [data-qk-play],.csa-visual .csa-qk-canvas-controls [data-qk-replay]{width:30px;min-width:30px;padding:0}
+.csa-visual .csa-qk-canvas-item{transition:transform 640ms cubic-bezier(.2,.7,.2,1)}
+.csa-visual .viz2-graph-layer-menu{position:fixed!important;left:24px!important;right:auto!important;bottom:20px!important;z-index:20;pointer-events:auto}
+.csa-visual .viz2-graph-footer .kf-pa-map__tools{position:fixed;right:24px;bottom:20px;pointer-events:auto}
+.csa-visual .viz2-graph-layer-menu__content{width:216px}
+.csa-visual .viz2-graph-scene{transition:transform 480ms cubic-bezier(.2,.7,.2,1)}
+.csa-visual .viz2-graph-viewport:active .viz2-graph-scene{transition:none}
+.csa-visual .csa-qp-map-footer>span:first-child,.csa-visual .csa-qp-bottom>span{display:none}
+.csa-visual .csa-qp-map-footer{justify-content:space-between;min-height:56px}
+.csa-visual .csa-qp-map-footer>div:last-child{padding:5px 10px;border-radius:28px;background:#242424}
+.csa-visual .csa-qp-inspector{flex:none;max-width:calc(100vw - 48px)}
+.csa-visual .ai-presentation-overlay{top:124px}
+.csa-visual .csa-qk-canvas-item:focus-visible rect{stroke:#ddd;stroke-width:1;stroke-dasharray:2 2}
+@media(max-width:800px){.csa-visual .csa-toolbar{margin-top:0}.csa-visual .csa-stagebar{top:140px}.csa-visual [data-csa-back]{display:none}.csa-visual .csa-qk-canvas-footer>.csa-qk-legend{top:113px;right:155px}}
+@media(prefers-reduced-motion:reduce){.csa-visual .csa-qk-canvas-item,.csa-visual .viz2-graph-scene{transition:none!important}}
+
+.csa-visual .viz2-graph-footer .viz2-graph-layer-menu{position:absolute!important;left:24px!important;bottom:12px!important}
+.csa-visual .viz2-graph-footer>.kf-pa-map__tools{position:absolute;right:24px;bottom:12px}
+.csa-visual .viz2-graph-footer>.viz2-graph-footer__controls{display:none}
+.csa-visual .viz2-graph-inspector{position:fixed;top:72px;right:24px;bottom:80px;max-height:calc(100vh - 152px)}
+
+.csa-visual .viz2-graph-footer>.viz2-graph-layer-menu{border-radius:28px;padding:4px 10px}
+.csa-visual .viz2-graph-layer-menu>summary{display:flex;align-items:center;gap:8px;min-height:32px}
+.csa-visual .csa-qp-item-details-body{z-index:18}
+
+.csa-visual .csa-qp-svg .csa-qp-title{font-size:13px;font-weight:500}
+.csa-visual .csa-qp-svg .csa-qp-sub{font-size:11px;fill:#aaa}
+.csa-visual .csa-qp-bottom{justify-content:flex-end}
+.csa-visual .csa-qp-footer-tools{border-radius:28px;padding:5px 10px;background:#242424}
+
+.csa-visual .csa-qp-svg .csa-qp-node:is(:hover,:focus-visible,.is-selected,.is-related) rect{stroke:none!important}
+.csa-visual .csa-qp-svg .csa-qp-node.is-selected rect{fill:#80b7f7!important}
+.csa-visual .csa-qp-svg .csa-qp-node.is-selected .csa-qp-title{fill:#111}
+.csa-visual .csa-qp-node:focus{outline:none}
+.csa-visual .csa-qp-node:focus-visible:not(.is-selected) rect{stroke:#aaa!important;stroke-dasharray:3 3}
+
+.csa-visual .viz2-header .ai-settings{position:absolute;top:12px;right:68px;left:auto}
+.csa-visual .viz2-header .ai-help:not(.ai-settings){position:absolute;top:12px;right:24px;left:auto}
+.csa-visual .csa-toolbar{flex-wrap:nowrap}
+.csa-visual .csa-toolbar nav{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:800px){.csa-visual .csa-qk-canvas-footer>.csa-qk-legend{top:auto;bottom:168px;right:24px}.csa-visual .csa-toolbar nav{max-width:calc(100vw - 150px)}.csa-visual .csa-qk-drawer,.csa-visual .csa-qp-inspector{top:112px;max-height:calc(100vh - 200px)}}
+
+body.csa-visual .viz2-header .pto-ide-frame__pane-meta{position:absolute!important;right:132px!important;top:22px!important;margin:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.csa-visual .viz2-header .ai-help{position:fixed!important;top:12px!important;margin:0!important;transform:none!important}
+body.csa-visual .viz2-header .ai-settings{right:68px!important}
+body.csa-visual .viz2-header .ai-help:not(.ai-settings){right:24px!important}
+.csa-visual .csa-qk-legend i.is-valid{background:#80b7f7}
+.csa-visual .csa-qk-legend i.is-invalid{background:#555}
+@media(max-width:900px){body.csa-visual .viz2-header .pto-ide-frame__pane-meta{display:none}}
+
+body.csa-visual .viz2-header .pto-ide-frame__pane-meta{position:fixed!important;top:22px!important}
+body.csa-visual [data-csa-back]{position:fixed;right:280px;top:12px;height:36px}

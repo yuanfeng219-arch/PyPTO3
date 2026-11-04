@@ -1,0 +1,50 @@
+/* IDE frame owns chrome, surfaces and resizing. Product-local density uses PTO roles. */
+body > .pto-ide-frame[data-ide-frame] .pto-ide-frame__body { position: relative; }
+#run-file-list { padding: var(--space-3); }
+.chat-reopen { writing-mode: vertical-rl; flex: 0 0 32px; padding: var(--space-3) var(--space-2); height: auto; align-self: stretch; }
+
+/* Pane title/meta typography comes from the shared header classes. */
+.chat-header button { margin-left: auto; font: var(--type-label); }
+.chat-completed { font: var(--type-micro); color: var(--success); }
+.chat-header .chat-completed { font: var(--ide-frame-meta-font); }
+.chat-subhead { display: flex; justify-content: space-between; gap: var(--space-2); color: var(--foreground-secondary); }
+.chat-related { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+.chat-messages { display: flex; flex-direction: column; gap: var(--space-4); overscroll-behavior: contain; overflow-x: hidden; padding: var(--space-3) var(--space-4); scrollbar-gutter: stable; font: var(--type-body-sm); }
+.chat-messages > * { flex: 0 0 auto; margin: 0; }
+.chat-messages p { font: var(--type-body-sm); margin: var(--space-2) 0; }
+.chat-messages > p { margin: 0; }
+.chat-messages .chat-provenance, .chat-messages .chat-footnote, .chat-user small, .chat-origin, .chat-file small, .chat-composer-controls small { font: var(--type-micro); line-height: var(--line-height-body); color: var(--foreground-secondary); }
+.chat-user { background: var(--surface-3); padding: var(--space-3); border-radius: var(--radius-lg); }
+.chat-user p { white-space: pre-line; margin-bottom: 0; }
+.chat-speaker { font: var(--type-micro); color: var(--foreground-muted); margin-bottom: var(--space-2); }
+.chat-agent h2 { font: var(--type-title-2); margin: 0 0 var(--space-2); }
+.chat-agent h3 { font: var(--type-label); margin: var(--space-3) 0 var(--space-2); color: var(--foreground-secondary); }
+.chat-contract { margin: var(--space-3) 0; }
+.chat-contract summary { font: var(--type-label); color: var(--foreground-secondary); cursor: pointer; padding: var(--space-1) 0; }
+.chat-contract-group h3 { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.chat-origin { font-weight: 400; color: var(--foreground-muted); }
+.chat-contract dl, .chat-performance { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); font: var(--type-mono); margin: var(--space-2) 0; }
+.chat-contract dt, .chat-performance dt { color: var(--foreground-secondary); }
+.chat-contract dd, .chat-performance dd { margin: 0; overflow-wrap: anywhere; }
+.chat-link { color: var(--primary-hover); font: var(--type-label); height: auto; min-height: 28px; padding: var(--space-1) 0; white-space: normal; text-align: left; }
+.chat-activity { padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
+.chat-activity summary { display: list-item; cursor: pointer; font: var(--type-label); }
+.chat-activity summary small { float: right; }
+.chat-activity .chat-activity-summary, .chat-messages .chat-regression, .chat-messages .chat-opportunity { color: var(--foreground-secondary); }
+.chat-pass { color: var(--success); }
+.chat-messages .chat-pass { font: var(--type-mono); }
+.chat-file { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; color: var(--foreground); text-decoration: none; font: var(--type-body-sm); border-bottom: 1px solid var(--border-subtle); }
+.chat-file > span { font: var(--type-mono); }
+.chat-file small { margin-left: auto; white-space: nowrap; }
+.chat-file svg, .chat-composer svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; flex-shrink: 0; }
+.chat-file:hover span { text-decoration: underline; }
+.chat-composer { margin: var(--space-3) var(--space-4); padding: var(--space-2) var(--space-3); background: var(--surface-3); border-radius: var(--radius-lg); flex: 0 0 auto; }
+.chat-composer textarea { width: 100%; resize: none; border: 0; background: transparent; color: var(--foreground-secondary); font: var(--type-body-sm); min-height: 36px; outline: none; }
+.chat-composer-controls { display: flex; align-items: center; gap: var(--space-2); }
+.chat-composer-controls small { color: var(--foreground-muted); flex: 1; }
+.chat-composer button:disabled { cursor: default; opacity: .4; }
+.pto-ide-frame[data-chat-overlay=true] .agent-chat { position: absolute; right: 0; top: 0; bottom: 0; z-index: 30; width: min(450px, calc(100% - 48px))!important; min-width: 0; flex: none!important; }
+.pto-ide-frame[data-chat-collapsed=true] #decision-chat-split > main { flex: 1 1 0%!important; width: auto!important; }
+/* Shared picker is also used for stage-level navigation from the historical conversation. */
+body > .dock-picker { z-index: 40; }
+@media(max-width: 700px) { .chat-messages { padding: var(--space-3); } }
