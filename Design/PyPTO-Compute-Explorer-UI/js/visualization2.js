@@ -1,7 +1,7 @@
 /* Independent visualization workspace. No legacy renderer or selection state is mounted here. */
 (function () {
   'use strict';
-  const tabs = ['assignment', 'pipeline', 'graph'];
+  const tabs = ['graph', 'assignment', 'pipeline'];
   let graphIntraController, graphIntraModel, graphZoomJob, graphOuterSnapshot;
   let tabTransition, semanticZoom, anatomyController, anatomyModel, pipelineIntraController, pipelineIntraModel, pipelineZoom;
   function createStore() {
