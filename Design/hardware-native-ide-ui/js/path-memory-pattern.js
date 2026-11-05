@@ -6,7 +6,7 @@
   const buffer = (key, capacity, label = key+' buffers') => ({kind:'buffer',key,label:key,capacity,frame:{width:200,height:72},surfaceRenderer:()=>PathGridGlyphs.memory(label,capacity,200,72,true),
     grid:{rows:2,cols:8,cellSize:10,gap:2}});
   let resizeObserver;
-  function drawRelations(mount,canvas) {
+  function drawRelations(mount,canvas,onLayout) {
     const svg=mount.closest('svg');if(!svg||!mount.isConnected)return;
     svg.querySelector('[data-path-relations]')?.remove();
     const ns='http://www.w3.org/2000/svg', layer=document.createElementNS(ns,'g');layer.dataset.pathRelations='true';
@@ -38,8 +38,9 @@
     const ubLeft=point('[data-aiv-node="buffer:UB"]','left');
     if(ubLeft)route(`M${ubLeft.x} ${ubLeft.y} H18 V80 H607 V74`, 'mi / li 写回',26,386,false,'gm-out',true);
     svg.appendChild(layer);
+    if (onLayout) onLayout();
   }
-  window.PathMemoryPattern = { render(mount, k) {
+  window.PathMemoryPattern = { render(mount, k, onLayout) {
     PtoAicCorePattern.presets.pathAic = {
       id:'pathAic',title:'AIC · CUBE',frame:{width:540},routes:[
       {from:'buffer:L0A',to:'cube:Cube',color:'neutral',style:'straight',fromSide:'top',toSide:'bottom',toBias:0.5},
@@ -65,12 +66,10 @@
     const aicStage=canvas.querySelector('.pto-aic-core');
     if(aicStage){
       aicStage.classList.add('sv-region');aicStage.dataset.region='aic';
-      const note=document.createElement('p');note.className='path-model-scope';
-      note.textContent='L1 · Mat / L0A / L0C capacity：未建模';aicStage.appendChild(note);
     }
-    const cube=canvas.querySelector('[data-aic-node="cube:Cube"]');
-    if(cube&&aicStage){const detail=document.createElement('p');detail.className='path-model-scope';detail.textContent='QK [16,128] × [128,'+k.cfg.seq+'] · PV [16,'+k.cfg.seq+'] × ['+k.cfg.seq+',128]';aicStage.appendChild(detail);}
-    const regions={'buffer:L0A':'l0a','buffer:L0B':'l0b','buffer:L0C':'l0c','cube:Cube':'cube','buffer:UB':'aiv','vector:Vector':'aiv'};
+    const aivStage=canvas.querySelector('.pto-aiv-core');
+    if(aivStage){aivStage.classList.add('sv-region');aivStage.dataset.region='aiv';}
+    const regions={'buffer:L0A':'l0a','buffer:L0B':'l0b','buffer:L0C':'l0c','cube:Cube':'cube','buffer:UB':'ub','vector:Vector':'aiv'};
     canvas.querySelectorAll('[data-aic-node],[data-aiv-node]').forEach(el=>{
       const id=regions[el.dataset.aicNode||el.dataset.aivNode];if(id){el.classList.add('sv-region');el.dataset.region=id;}
     });
@@ -81,12 +80,13 @@
       path.dataset.region=regions[from]||regions[to]||'aiv';
     });
     const fit=()=>{
+      if(!mount.isConnected)return;
       canvas.style.transform='none';
       const stack=canvas.querySelector('.pto-mem950__stack'), cr=canvas.getBoundingClientRect(),sr=stack.getBoundingClientRect();
       const scale=Math.min(mount.clientWidth/stack.offsetWidth,mount.clientHeight/stack.offsetHeight);
       const screenScale=mount.getBoundingClientRect().width/mount.clientWidth;
       canvas.style.transform='translate('+(-(sr.left-cr.left)/screenScale*scale)+'px,'+(-(sr.top-cr.top)/screenScale*scale)+'px) scale('+scale+')';
-      requestAnimationFrame(()=>drawRelations(mount,canvas));
+      requestAnimationFrame(()=>drawRelations(mount,canvas,onLayout));
     };
     requestAnimationFrame(fit);
     resizeObserver=new ResizeObserver(fit);resizeObserver.observe(mount);

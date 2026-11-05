@@ -428,7 +428,7 @@
     const categories = {qk:'matmul',sv:'matmul',scale:'gate',valid:'cache',fill:'reshape',max:'reduce',exp:'activation',sum:'reduce',cast:'reshape',out:'cache'};
     const icon = window.PtoOpIcons.find(i => i.id === categories[id]);
     return '<g class="lg-hit' + (bad ? ' is-bad' : '') + '" data-node="' + id + '">'
-      + VisualSystem.node('op',id,LG_LABEL[id],p[0],p[1],{width:p[2],height:LG_H,icon:icon?.path,fontSize:10})+'</g>';
+      + VisualSystem.node('op',id,LG_LABEL[id],p[0],p[1],{width:p[2],height:LG_H,icon:icon?.path,fontSize:id === 'exp' ? 8 : 10})+'</g>';
 
   }
 
@@ -439,7 +439,7 @@
     }).filter(Boolean)) : [];
     // 页表一行放在取块之后、pipeline 之前，按代码顺序自上而下读；pipeline 整体下移 PIPE_DY
     const PIPE_DY = 26;
-    let s = '<svg viewBox="0 0 720 346" preserveAspectRatio="xMidYMin" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
+    let s = '<svg viewBox="0 0 720 350" preserveAspectRatio="xMidYMin" role="img" aria-label="fa_fused 的循环嵌套与计算链">'
       + '<defs>' + markers('lg') + '</defs>';
 
     // 三层循环作用域（虚线框）
@@ -451,10 +451,9 @@
       + txt(44, 79, 'block_table → 物理页', 'sv-strong') + '</g>';
     s += txt(214, 79, '逻辑块 → 物理页；SEQ_TILE 必须等于 page_size', k.pageOk ? 'sv-label' : 'sv-label sv-bad');
     s += '<g transform="translate(0,' + PIPE_DY + ')">';
-    s += '<g class="lg-hit" data-node="f-pipe"><rect x="36" y="78" width="648" height="226" class="lg-frame' + (k.bad ? ' is-bad' : '') + '"/>'
+    s += '<g class="lg-hit" data-node="f-pipe"><rect x="36" y="78" width="648" height="230" class="lg-frame' + (k.bad ? ' is-bad' : '') + '"/>'
       + txt(48, 95, 'PL.PIPELINE × ' + GP_SIZE + ' · STAGE=' + c.stage, 'sv-title')
-      + txt(250, 95, 'In-flight heads · ' + k.stage, 'sv-label')
-      + (k.bad ? '<g class="lg-error-badge"><rect x="390" y="83" width="150" height="18" rx="9"/>' + txt(465,95,'UB 容量超限 · '+bytes(k.hw-UB_USABLE),'lg-error-badge-text') + '</g>' : '') + '</g>';
+      + txt(250, 95, 'In-flight heads · ' + k.stage, 'sv-label') + '</g>';
     // 三段计算（实框）；softmax 段按在飞的头数叠虚线层
     for (let i = k.stage - 1; i >= 1; i--) {
       s += '<rect x="' + (248 + i * 5) + '" y="' + (LG_PHASE_Y + i * 5) + '" width="296" height="' + LG_PHASE_H + '" class="lg-ghost'
@@ -532,7 +531,7 @@
     s += '</g>';
     s += '</svg>';
     document.getElementById('hpSvg').innerHTML = s;
-    PathMemoryPattern.render(document.getElementById('hpMemoryPattern'), k);
+    PathMemoryPattern.render(document.getElementById('hpMemoryPattern'), k, applyHardwareFocus);
     document.getElementById('hpChipMeta').textContent = state.preview
       ? '预览 · 方案 ' + state.preview + ' · ' + OPTIONS[state.preview].title + '（虚线 = 当前配置的高水位）'
       : '计算数据流与存储映射 · 搬运路径示意 · UB 地址按比例';
@@ -663,19 +662,20 @@
       if (h.id !== 'ub' && h.id !== 'aiv') f.bufs = [];
     }
     // 复用方案下，被省掉的两块指向 scores_scaled
-    if (state.cfg.reuse) f.bufs = f.bufs.map(function (b) { return bufById(b) && bufById(b).alias ? 'scores_scaled' : b; });
+    if (shown().cfg.reuse) f.bufs = f.bufs.map(function (b) { return bufById(b) && bufById(b).alias ? 'scores_scaled' : b; });
     return f;
   }
 
-  function applyFocus() {
-    const k = shown();
-    const f = focusFor(state.hover) || sectionFocus(k);
-    if (state.hover && f.bufs.length && !f.regions.includes('aiv')) f.regions.push('aiv');
-    // 只有真正悬停时才把无关部分压暗；章节默认焦点不压暗，避免页面长期发灰
-    document.body.classList.toggle('is-focusing', !!state.hover);
-    document.querySelectorAll('.cl').forEach(function (el) {
-      el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0);
-    });
+  function currentFocus() {
+    const f = focusFor(state.hover) || sectionFocus(shown());
+    if (state.hover && f.bufs.length) f.regions = uniq(f.regions.concat(['aiv', 'ub']));
+    return f;
+  }
+
+  // Shared patterns lay out their routes asynchronously. Reapply only hardware
+  // classes after layout, without scrolling source or changing caption geometry.
+  function applyHardwareFocus() {
+    const f = currentFocus();
     document.querySelectorAll('.sv-region').forEach(function (el) {
       el.classList.toggle('is-hot', f.regions.indexOf(el.dataset.region) >= 0);
     });
@@ -684,6 +684,16 @@
     document.querySelectorAll('.sv-buf').forEach(function (el) {
       el.classList.toggle('is-hot', f.bufs.indexOf(el.dataset.buf) >= 0);
     });
+  }
+
+  function applyFocus() {
+    const k = shown(), f = currentFocus();
+    // 只有真正悬停时才把无关部分压暗；章节默认焦点不压暗，避免页面长期发灰
+    document.body.classList.toggle('is-focusing', !!state.hover);
+    document.querySelectorAll('.cl').forEach(function (el) {
+      el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0);
+    });
+    applyHardwareFocus();
     document.querySelectorAll('.lg-hit').forEach(function (el) {
       el.classList.toggle('is-hot', f.nodes.indexOf(el.dataset.node) >= 0);
     });

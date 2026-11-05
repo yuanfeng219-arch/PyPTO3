@@ -21,6 +21,8 @@
   --ok: #b1ef6b;
   /* 中文跟在等宽字体后面，避免 Windows 上回落到宋体 */
   --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, "PingFang SC", "Microsoft YaHei", monospace;
+  /* Keep source typography aligned with hardware-native-ide/path.html. */
+  --code-font: "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, "PingFang SC", "Microsoft YaHei", monospace;
   --sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   color-scheme: dark;
 }
@@ -69,7 +71,7 @@ code, .mono { font-family: var(--mono); }
 .hp-resize { position: absolute; z-index: 5; top: 0; right: -5px; bottom: 0; width: 10px; cursor: col-resize; touch-action: none; }
 .hp-resize:hover, .hp-resize:focus-visible, .hp-resize.is-dragging { background: rgba(118, 158, 255, .3); outline: none; }
 body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-select: none !important; }
-.hp-code-body { position: relative; flex: 1; overflow: auto; background: var(--canvas); padding: 8px 0 24px; font: 12px/1.75 var(--mono); }
+.hp-code-body { position: relative; flex: 1; overflow: auto; background: var(--canvas); padding: 8px 0 24px; font: 12px/1.75 var(--code-font); }
 .cl { display: grid; grid-template-columns: 14px 44px 1fr; align-items: center; min-width: max-content; padding-right: 18px; cursor: default; }
 .cl-mark { align-self: stretch; }
 .cl-no { color: #555; text-align: right; padding-right: 14px; user-select: none; }
@@ -158,11 +160,14 @@ svg text { font-family: var(--mono); pointer-events: none; text-rendering: geome
 .lg-hit[data-node="f-pipe"] > .lg-frame { fill: rgba(255, 255, 255, .022); stroke: none; }
 .lg-frame.is-bad { stroke:none; }
 .lg-hit:hover > .lg-frame { fill: #ffffff05; }
-.lg-hit.is-hot > .lg-frame { fill: #ffffff08; stroke: none; }
+/* Scope lines must light the enclosing loop, as in the reference Demo. */
+.lg-hit.is-hot > .lg-frame { fill: #ffffff08; stroke: var(--text); stroke-width: 1.5; stroke-dasharray: none; vector-effect: non-scaling-stroke; }
 .lg-phase { fill: #1b1b1b; stroke: none; rx: 7px; transition: stroke .15s; }
 .lg-hit:hover > .lg-phase { stroke: #555; }
 .lg-hit.is-hot > .lg-phase { fill: #292929; }
 .lg-phase.is-bad, .lg-hit:hover > .lg-phase.is-bad, .lg-hit.is-hot > .lg-phase.is-bad { fill:rgba(255,107,91,.25); stroke:none; }
+.lg-hit.is-hot > .lg-phase, .lg-hit.is-hot > .lg-phase.is-bad { stroke: var(--text); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.lg-hit.is-hot > .sv-title { fill: var(--text); }
 .lg-ghost { fill: #141414; stroke: #2c4a54; stroke-dasharray: 3 3; rx: 4px; pointer-events: none; }
 .lg-ghost.is-bad { stroke: var(--red); }
 .lg-node { fill: #303030; stroke: transparent; rx: 6px; transition: stroke .15s, fill .15s; }
@@ -415,12 +420,12 @@ body.is-focusing .sv-region.is-hot .path-data-link { stroke:#f2c45f; marker-end:
 /* Size the diagrams from readable content bounds, not the shortest pane dimension. */
 .hp-logic-svg,.hp-svg { display:block; overflow:auto; overscroll-behavior:contain; padding:12px 18px 18px; }
 .hp-logic-svg > svg,.hp-svg > svg { width:100%; height:auto; min-width:800px; max-width:1280px; margin:0 auto; display:block; }
-.hp-main:has(.hp-story[hidden]) { grid-template-columns:minmax(300px,var(--code-width,30%)) minmax(0,1fr); }
+.hp-main:has(.hp-story[hidden]) { grid-template-columns:minmax(300px,var(--code-width,50%)) minmax(0,1fr); }
 .hp-main { grid-template-columns:minmax(300px,var(--code-width,27%)) minmax(0,1fr) minmax(300px,340px); }
 .hp-pane-title { font-size:12px; }
 @media(min-width:1900px) { .hp-logic-svg > svg,.hp-svg > svg { max-width:1440px; } }
 @media(max-width:1100px) {
- .hp-main,.hp-main:has(.hp-story[hidden]) { grid-template-columns:minmax(260px,32%) minmax(0,1fr); }
+ .hp-main,.hp-main:has(.hp-story[hidden]) { grid-template-columns:minmax(260px,var(--code-width,50%)) minmax(0,1fr); }
  .hp-story { grid-column:1 / -1; }
 }
 @media(max-width:860px) {
@@ -541,14 +546,28 @@ body.is-focusing .sv-region.is-hot .path-data-link { stroke:#f2c45f; marker-end:
 .hp-story .cmp .ev { font-size: 11px; padding: 3px 7px; }
 
 /* Current-object evidence stays outside static help disclosure. */
-.hp-object-detail { flex:none; padding:8px 18px 12px; min-height:36px; color:#ddd; font:12px/1.6 var(--sans); }
+.hp-object-detail { flex:0 0 78px; height:78px; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:8px 18px 12px; color:#ddd; font:12px/1.6 var(--sans); }
 .hp-object-detail .cap-k { display:block; color:#aaa; font-size:11px; }
 .hp-object-detail code { color:#eee; }
 .ub-buffer-name { fill:#fff; font-size:7.5px; }
-.path-model-scope { color:#bcbcbc; font:14px/1.5 var(--font-sans); margin:8px 0 0; }
 
 /* Hardware execution units retain the shared architecture square variant. */
 #hpMemoryPattern .pto-aic-core__cube { margin-left:45px; }
 
-.lg-error-badge > rect { fill:var(--red); }
-.lg-error-badge-text { fill:#111; font-size:9px; font-weight:600; text-anchor:middle; }
+
+/* Focus follows the current tensor / memory / execution-unit glyphs. */
+.lg-hit.is-hot > [data-tensor] > rect:first-child { stroke:var(--text); stroke-width:2; }
+.is-focusing .lg-hit:not(.is-hot) > [data-tensor],
+.is-focusing .lg-hit:not(.is-hot) [data-kind="op"] { opacity:.42; }
+.is-focusing .sv-region:not(.is-hot):not(:has(.sv-region.is-hot)) { opacity:.42; }
+.sv-region.is-hot > g > svg > rect:first-child,
+#hpMemoryPattern .sv-region.is-hot > svg > rect:first-child { stroke:var(--text); stroke-width:2; }
+#hpMemoryPattern .pto-aic-core.is-hot,
+#hpMemoryPattern .pto-aiv-core.is-hot { outline:2px solid var(--text); outline-offset:-2px; }
+#hpMemoryPattern .pto-aic-core__cube.is-hot,
+#hpMemoryPattern .pto-aiv-core__vector.is-hot { background:var(--text); box-shadow:0 0 0 2px var(--text); }
+#hpMemoryPattern .pto-aic-core__cube.is-hot > span,
+#hpMemoryPattern .pto-aiv-core__vector.is-hot > span { color:var(--page); }
+body.is-focusing .sv-ub.has-hot .sv-buf:not(.is-hot):not(.k-carry) { opacity:.35; }
+/* Annotation overlays must not steal the pointer from buffers underneath. */
+.ub-reserve, .ub-axis, .ub-detail-link, .ub-stage-rail, [data-path-relations] { pointer-events:none; }

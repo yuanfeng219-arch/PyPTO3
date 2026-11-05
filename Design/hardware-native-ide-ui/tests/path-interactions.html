@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Hardware-Native UI 联动回归检查</title>
+<style>
+  body { margin:16px; background:#111; color:#eee; font:14px/1.6 system-ui; }
+  iframe { width:1440px; height:1000px; border:1px solid #444; }
+  .pass { color:#96d6b2; } .fail { color:#ff7868; }
+</style>
+<h1>三视图联动回归检查</h1>
+<p>通过本地 HTTP 服务打开本文件运行；下方页面使用独立演示状态，不修改源码或浏览器设置。</p>
+<pre id="results" aria-live="polite">检查中…</pre>
+<iframe id="demo" title="被测 Demo" src="../path.html"></iframe>
+<script src="./path-interactions.js"></script>
+</html>
