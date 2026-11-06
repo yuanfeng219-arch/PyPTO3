@@ -582,6 +582,34 @@
       .card-meta-details { width: 100%; justify-content: space-between; }
     }
 
+    /* 紧凑的目录布局，保留预览与独立入口。 */
+    .layout { width: min(1920px, 100%); grid-template-columns: 210px minmax(0, 1fr); }
+    .main { padding: 42px clamp(24px, 3vw, 48px) 72px; }
+    .hero { margin-bottom: 28px; }
+    h1 { font-size: clamp(32px, 3.2vw, 46px); }
+    .demo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .demo-card { border-radius: 15px; }
+    .preview { margin: 8px 8px 0; border-radius: 9px; }
+    .card-body { gap: 10px; padding: 15px; }
+    .card-meta { align-items: flex-start; flex-wrap: wrap; gap: 5px; }
+    .card-meta-details { gap: 7px; flex-wrap: wrap; justify-content: flex-start; }
+    .card-title { font-size: 16px; line-height: 1.35; }
+    .card-subtitle { line-height: 1.5; }
+    .card-description { min-height: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+    .tags { gap: 5px; }
+    .tag { min-height: 22px; padding: 0 7px; }
+    .demo-variants { display: block; margin: 2px -15px -15px; border-top: 1px solid var(--launch-border); }
+    .demo-variants summary { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; color: var(--launch-accent); font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; }
+    .demo-variants summary::-webkit-details-marker { display: none; }
+    .demo-variants summary:hover, .demo-variants summary:focus-visible { background: var(--launch-accent-soft); outline: none; }
+    .demo-variants[open] summary span { transform: rotate(90deg); }
+    .variant-list { display: grid; gap: 3px; padding: 0 8px 8px; }
+    .demo-version-link { min-width: 0; min-height: 36px; justify-content: space-between; padding: 8px; border-color: transparent; border-radius: 7px; font-size: 12px; font-weight: 600; }
+    @media (max-width: 1100px) { .demo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .demo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 720px) { .main { padding: 34px 18px 54px; } .demo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 500px) { .demo-grid { grid-template-columns: 1fr; } }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
     }
@@ -655,7 +683,7 @@
 
   <script>
     // 新增或更新 Design Demo 时，在此数组维护其 updatedAt（YYYY-MM-DD）。
-    const demos = [
+    const sourceDemos = [
       {
         title: "Hardware-Native Lens",
         subtitle: "Tensor/Tile · Scope · 并行请求 · 内部布局",
@@ -679,6 +707,30 @@
         href: "Design/hardware-native-ide-ui/path.html",
         preview: "Design/assets/launch-previews/hardware-native-ui.png",
         tags: ["UI优化版", "Hardware-Native", "硬件映射", "Pipeline", "UB", "诊断"]
+      },
+      {
+        title: "Hardware-Native 主线 · 图元版",
+        subtitle: "用图元库重画算子逻辑 · 源码 ⇄ 算子逻辑 ⇄ 硬件映射",
+        category: "开发工具",
+        status: "新增",
+        version: "02c / Glyph Path",
+        updatedAt: "2026-11-06",
+        description: "把图元库里定下来的画法装回主线页：中栏的算子逻辑图整体改用 js/logic-glyphs.js 渲染，源码、逻辑、硬件三区联动和 pipeline stage 调整照旧。相对 02 / UI优化版有五处变化：一、SPMD 作用域与两层循环原本共用同一种虚线框，现在作用域画成四角实线角标、循环画成带左侧粗条的虚线框，对应 IR 里 ScopeStmt 与 ForStmt 两类节点；二、UP_DOWN 切分原本是逻辑图里的隐藏节点，现在是可见的 chip，源码 731 行因此能在逻辑图里亮起来；三、set_validshape 与 fillpad 这类只改元数据的操作改画成空心方括号节点，不再和计算节点同形；四、Q / K / V / 部分结果改画成带存储空间角色色的数据对象（Mat 紫、GM 绿），形状直接标在节点上；五、补上两种原本看不见的关系：Q·Kᵀ → ×scale 与 cast → P·V 两条跨 AIC / AIV 核边界的交接用蓝线标出，block_table 查出的 cache_row 到 K / V 两个切片用点线表达索引（走地址不走数据），两种线型在画布底部的图例里解释。算子胶囊按 DSL 的七个操作族取图标。容量与裁决结论与 02 版一致，仍为编码期估算；原 path.html 未改动，两个版本并存对照。",
+        href: "Design/hardware-native-ide-ui/path-glyphs.html",
+        preview: "Design/assets/launch-previews/hardware-native-ui.png",
+        tags: ["图元版", "Hardware-Native", "算子逻辑", "图元库", "跨核", "Pipeline"]
+      },
+      {
+        title: "算子逻辑图元库",
+        subtitle: "一个算子有哪些逻辑表达 · 27 个图元 · 8 类对象 + 存储 + 9 种关系",
+        category: "开发工具",
+        status: "新增",
+        version: "02b / Logic Glyphs",
+        updatedAt: "2026-11-06",
+        description: "按 PyPTO 的 DSL 与 IR 文档把「一个算子有多少种逻辑表达」拆成 8 类对象（函数边界、数据对象、计算、搬运/形状/视图、控制结构、执行作用域、任务依赖与同步、编译期辅助），外加一类完全由编译器决定的存储放置，以及对象之间的 9 种关系，每一类给出基础图元。27 张卡片，每张回答三件事：图元表达什么、必须被区分开的哪两样东西、相对主线页是复用／迭代／新增（复用 4 · 迭代 5 · 新增 18），可按来源筛选。复用主线页的 PathGridGlyphs 网格纹理（实心=数据、空心=存储面）与 PtoOpIcons 的 matmul / reduce / expand / activation 四个图标路径。迭代的部分针对主线页三处对不上的画法：SPMD 作用域与 grid-stride、pipeline 三种循环共用同一种虚线框（IR 里 ScopeStmt 与 ForStmt 是两类节点，这里拆成实线角标与虚线框两套，循环再按四种 ForKind 区分）；set_validshape 这类只改元数据的操作被画成了计算节点（改为空心方括号，并在数据对象上用亮/暗面积比表达 shape 与 valid_shape）；算子图标借用了模型层语义（改按 DSL 的七个操作族归类）。新增的部分补上主线页没有的表达：函数边界与参数方向、标量与片上定长数组、搬运链、循环携带回边、任务与 TaskId 端口、依赖汇合、跨核管道槽位、编译期辅助、MemRef 地址区间，以及视图/别名、索引、存储放置、调用、任务依赖、跨核通信六种关系。关系一律靠线型区分而非颜色，任务依赖画成双线以与单线的数据流分开，所以压暗与聚焦不会让语义丢失。渲染器 js/logic-glyphs.js 不依赖 DOM，可直接被 path.js 引入。示例尺寸取自 decode_layer 的 fa_fused，仅用于说明画法，网格格子不编码数量；「8 类 / 9 种」是按文档归纳的分法，文档本身没有给出这个计数。",
+        href: "Design/hardware-native-ide-ui/glyphs.html",
+        preview: "Design/assets/launch-previews/hardware-native-ui.png",
+        tags: ["PyPTO", "图元库", "算子逻辑", "DSL", "IR", "可视化编码", "设计系统"]
       },
       {
         title: "Hardware-Native 主线",
@@ -1214,6 +1266,18 @@
         tags: ["Flash Attention", "SyncPeriod", "Performance", "Evidence Replay"]
       },
       {
+        title: "PyPTO 概念地图",
+        subtitle: "Concept Map · Compile & Execute Flow",
+        category: "Insight",
+        status: "可阅读",
+        version: "01 / Concept Map",
+        updatedAt: "2026-11-06",
+        description: "用两张图讲清 PyPTO 是什么：一段 Python 程序经过 IR、Pass 流水线和 CodeGen，分成调度（Orchestration → AICPU）与计算（InCore → .pto → PTOAS → AICore）两条路径，在昇腾 NPU 上会合；再看一个 InCore 任务里 Tensor 怎样 load 成片上 Tile、计算后 store 回 GM。图中节点可点击查看定义与代码示例。",
+        href: "Design/pypto-concept-map/index.html",
+        preview: "Design/assets/launch-previews/pypto-concept-map.png",
+        tags: ["PyPTO", "概念地图", "Tensor/Tile", "Pass", "CodeGen", "入门讲解"]
+      },
+      {
         title: "PyPTO 基础知识白皮书",
         subtitle: "Interactive Whitepaper · 05 Guides",
         category: "Insight",
@@ -1346,6 +1410,28 @@
       }
     ];
 
+    // 原始条目保留为搜索与入口的数据来源。
+    const collections = [
+      { title: "Hardware-Native", subtitle: "源码、算子逻辑与硬件映射", description: "从源码透镜、硬件落点到可复用套件与图元，探索 Hardware-Native 的表达方式。", members: ["Hardware-Native Lens", "Hardware-Native 主线 · UI优化版", "算子逻辑图元库", "Hardware-Native 主线", "Hardware-Native 主线 · CSA", "Hardware-Native Kit", "Hardware-Native 对象图谱"], labels: ["源码透镜", "主线 · UI 优化", "算子逻辑图元库", "主线", "主线 · CSA", "开发套件", "对象图谱"] },
+      { title: "PyPTO Compute Explorer", subtitle: "任务分配 · 流水线 · 计算图", description: "查看 Paged Attention 与 CSA 的工作分配、流水线及计算图。", members: ["PyPTO Compute Explorer · 界面优化版", "PyPTO Compute Explorer", "Decode CSA · 界面优化版"], labels: ["Paged Attention · UI 优化", "原版", "CSA · UI 优化"] },
+      { title: "PyPTO 对象卡片", subtitle: "开发对象与内容区表达", description: "围绕算子开发流程，探索环境、规格、Tensor 和片上预算等对象的卡片表达。", members: ["昇腾内容区卡片库", "PyPTO 对象卡片图鉴"], labels: ["内容区卡片库", "对象卡片图鉴"] },
+      { title: "Device Perf Lane", subtitle: "设备性能泳道与编译联动", description: "结合设备 Trace、核级流水线和编译结构，探索性能分析的不同视图。", members: ["Device Perf Lane · 上板性能分析", "Device Perf Lane · 高保真", "Device Perf Lane · 编译联动实验"], labels: ["上板性能分析", "高保真", "编译联动实验"] },
+      { title: "Pass Lane", subtitle: "跨 Pass 的结构与数据形态", description: "从并行结构和数据形态两条线观察编译过程。", members: ["Pass Lane · 并行结构线", "Pass Lane · 数据形态线"], labels: ["并行结构线", "数据形态线"] },
+      { title: "Pass 内存诊断", subtitle: "内存绑定与函数内存图", description: "查看内存绑定告警、方案比较和函数内存分布。", members: ["Pass Error Cases · 内存绑定诊断", "Memory Inspector · 函数内存图"], labels: ["内存绑定诊断", "函数内存图"] },
+      { title: "PyPTO Pass 探索", subtitle: "流水线 · 变换 · 决策", description: "从 Pass 流水线、编译产物变化与自动化决策三个角度理解编译过程。", members: ["PyPTO Pass Atlas", "Pass Transform Explorer", "Pass Decision Studio"], labels: ["Pass Atlas", "Transform Explorer", "Decision Studio"] }
+    ];
+    const collectionByMember = new Map(collections.flatMap((collection) => collection.members.map((title) => [title, collection])));
+    const demos = sourceDemos.flatMap((demo) => {
+      const collection = collectionByMember.get(demo.title);
+      if (!collection) return [demo];
+      if (demo.title !== collection.members[0]) return [];
+      const members = collection.members.map((title) => sourceDemos.find((item) => item.title === title));
+      const variants = members.flatMap((item, index) => item.variants
+        ? item.variants.map((variant) => ({ ...variant, label: collection.labels[index] + " · " + variant.label }))
+        : [{ label: collection.labels[index], href: item.href }]);
+      return [{ ...demo, ...collection, status: variants.length + " 个入口", version: "主题合集", updatedAt: members.map((item) => item.updatedAt).filter(Boolean).sort().pop(), tags: [...new Set(members.flatMap((item) => item.tags))].slice(0, 4), variants, searchText: members.map((item) => [item.title, item.subtitle, item.description, ...item.tags].join(" ")).join(" ") }];
+    });
+
     const categoryIcons = {
       "全部 Demo": "icon-grid",
       "内存与性能": "icon-memory",
@@ -1386,7 +1472,7 @@
       const query = state.query.trim().toLocaleLowerCase("zh-CN");
       return demos.filter((demo) => {
         const inCategory = state.category === "全部 Demo" || demo.category === state.category;
-        const searchable = [demo.title, demo.subtitle, demo.category, demo.description, ...demo.tags, ...(demo.variants || []).map((variant) => variant.label)].join(" ").toLocaleLowerCase("zh-CN");
+        const searchable = [demo.title, demo.subtitle, demo.category, demo.description, demo.searchText || "", ...demo.tags, ...(demo.variants || []).map((variant) => variant.label)].join(" ").toLocaleLowerCase("zh-CN");
         return inCategory && (!query || searchable.includes(query));
       });
     }
@@ -1402,7 +1488,7 @@
         ? ""
         : '<span class="launch-arrow" aria-hidden="true"><svg class="icon"><use href="#icon-arrow"></use></svg></span>';
       const variants = hasVariants
-        ? `<div class="demo-variants" aria-label="版本入口"><span class="variant-label">版本入口</span>${demo.variants.map((variant) => `<a class="demo-version-link" href="${escapeHtml(variant.href)}">${escapeHtml(variant.label)}</a>`).join("")}</div>`
+        ? `<details class="demo-variants"><summary>查看 ${demo.variants.length} 个入口 <span aria-hidden="true">↗</span></summary><div class="variant-list">${demo.variants.map((variant) => `<a class="demo-version-link" href="${escapeHtml(variant.href)}">${escapeHtml(variant.label)} <span aria-hidden="true">↗</span></a>`).join("")}</div></details>`
         : "";
       return `
         <${cardTag} ${cardAttributes}>
@@ -1415,7 +1501,7 @@
               <span class="category-label">${escapeHtml(demo.category)}</span>
               <div class="card-meta-details">
                 <span class="version">${escapeHtml(demo.version)}</span>
-                <time class="updated-at" datetime="${escapeHtml(demo.updatedAt)}">更新于 ${escapeHtml(demo.updatedAt)}</time>
+                ${demo.updatedAt ? `<time class="updated-at" datetime="${escapeHtml(demo.updatedAt)}">${escapeHtml(demo.updatedAt)}</time>` : ""}
               </div>
             </div>
             <div class="card-title-row">

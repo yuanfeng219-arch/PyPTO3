@@ -49,6 +49,10 @@ node scripts/import-run.js "D:\project\PyPTO3\Data\DeepseekV4\_jit_l3_decode_csa
 
 ## Agent 直接启动
 
+聚焦版导出目录或 ZIP 可直接传入 `--run`，例如 `node server.js --run "D:\project\PyPTO3\Data\DeepseekV4\_jit_l3_decode_csa.zip"`。浏览器文件夹导入也接受完整的 `export-focus-data` 目录。Kit 读取主泳道快照、核内事件、流水模型、编译图、Pass 增量和 ISA 数据；点击支持核内事件的 QK Block 或在任务详情中选择“展开核内流水”，在物理核泳道内显示事件，并通过流水中的“Pass 分析”播放阶段动画。ZIP 解压到临时目录，原包不修改。
+
+核内和 Pass 流水复用聚焦版的渲染及动画组件；完整编译对象图、ISA 检视等功能尚未迁移到 Kit，不能将其当作全部功能的等价复刻。该导出快照含合成核内事件和经过模拟改动的主泳道，不能用于真实计时结论；其他数据须满足相同导出结构才可使用这些视图。
+
 Agent 可在本目录执行 `node server.js --run "<运行目录>"`，等待命令输出的本机 URL，并打开该 URL。进程保持运行期间页面可用；每次使用独立随机端口。脚本只读取输入目录并在内存中准备数据，不生成中间文件。无参数 `npm start` 加载内置示例，并同样输出随机端口。关闭进程后页面不可用。
 
 

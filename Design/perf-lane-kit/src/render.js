@@ -2,15 +2,17 @@ import {blockPhases} from './single-dependency.js';
 import {pathLaunches} from './view-mode.js';
 import {concurrency, concurrencyBuckets, concurrencyRegions, pack, feature, recommend, landmarks, featureGroups} from './analysis.js';
 import {drawRecommendationOverlay} from './recommendation-overlay.js';
+import {incoreKey} from './focus-export.js';
 const ns='http://www.w3.org/2000/svg';
 function node(tag,attrs={},text) { const e=document.createElementNS(ns,tag); for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); if(text!=null)e.textContent=text; return e; }
 function add(parent,tag,attrs,text) { const e=node(tag,attrs,text); parent.append(e); return e; }
 const fmt=n=>n>=1000 ? `${(n/1000).toFixed(2)} ms` : `${n.toFixed(1)} μs`;
 export function renderLane(svg, rank, state, onSelect, onFocus = () => {}) {
   if(state.pathFilter)rank={...rank,launches:pathLaunches(rank)};
-  svg.replaceChildren(); const width=Math.max(600,svg.parentElement.clientWidth), left=76, right=16, row=state.view==='core'?(state.expanded?28:Math.max(1,Math.min(18,(svg.parentElement.clientHeight+(svg.parentElement.clientWidth<600?80:0)-28-(state.ribbon?78:10)-(state.marks?26:0)-6-72)/Math.max(1,rank.cores.length)))):38;
+  svg.replaceChildren(); const width=Math.max(600,svg.parentElement.clientWidth), left=state.inline?188:76, right=16, row=state.view==='core'?(state.expanded?28:Math.max(1,Math.min(18,(svg.parentElement.clientHeight+(svg.parentElement.clientWidth<600?80:0)-28-(state.ribbon?78:10)-(state.marks?26:0)-6-72)/Math.max(1,rank.cores.length)))):38;
   const packed=pack(rank), cores=rank.cores.slice().sort((a,b)=>a.id-b.id), groups=state.view==='core' ? [...new Set(cores.map(c=>c.ct))].map(type=>({type,count:cores.filter(c=>c.ct===type).length})) : packed.groups;
-  const offsets=new Map(); let y=(state.ribbon?78:10)+(state.marks?26:0); for(const g of groups){offsets.set(g.type,y+36);y+=36+g.count*row;} const height=y+4;
+  const inlineCore=state.inline&&cores.find(c=>String(c.id)===String(state.inline.core)),inlineHeight=state.inline?(state.inline.evolution?416:state.inline.task.leaf==='qk_pv_aic'?380:250):0;
+  const offsets=new Map(); let y=(state.ribbon?78:10)+(state.marks?26:0); for(const g of groups){offsets.set(g.type,y+36);y+=36+g.count*row+(inlineCore?.ct===g.type?inlineHeight:0);} const height=y+4;
   svg.setAttribute('viewBox',`0 0 ${width} ${height}`); svg.setAttribute('width',width); svg.setAttribute('height',height);
   const [start,end]=state.range || [0,rank.windowUs], x=t=>left+(t-start)/(end-start)*(width-left-right), clip=(a,b)=>[Math.max(start,a),Math.min(end,b)];
   const segs=concurrency(rank), analyzed=state.feature==='none'?{hits:new Set(),gaps:[]}:state.feature==='recommended'?{hits:new Set(recommend(rank).flatMap(g=>g.tasks.map(t=>t.id))),gaps:[]}:feature(rank,state.feature);
@@ -30,7 +32,7 @@ export function renderLane(svg, rank, state, onSelect, onFocus = () => {}) {
   }
   for(const g of groups){const groupCores=cores.filter(c=>c.ct===g.type),compute=rank.kpi?.byType?.[g.type]?.computeShare,headerY=offsets.get(g.type)-36,cy=headerY+18;add(svg,'rect',{x:0,y:headerY,width,height:36,fill:'#191919'});add(svg,'circle',{cx:11,cy,r:11,fill:'#262626'});if(g.type==='AIC'){for(let r=0;r<2;r++)for(let c=0;c<2;c++)add(svg,'rect',{x:6+c*6,y:cy-5+r*6,width:4,height:4,fill:'none',stroke:'#aaa','stroke-width':1});}else for(let r=0;r<3;r++)add(svg,'line',{x1:6,x2:16,y1:cy-4+r*4,y2:cy-4+r*4,stroke:'#aaa','stroke-width':1});add(svg,'text',{x:29,y:cy+5,fill:'#e3e3e3','font-family':'var(--font)','font-size':14,'font-weight':500},`${g.type} · ${groupCores.length} 核${Number.isFinite(compute)?' · 计算 '+Math.round(compute*100)+'%':''}`);}
   const chainCores=new Set(state.chain?rank.launches.filter(t=>state.chain.includes(String(t.taskId))).flatMap(t=>t.blocks.items.map(b=>String(b.core))):[]);
-  const pos=new Map(); if(state.view==='core') for(const g of groups) cores.filter(c=>c.ct===g.type).forEach((c,i)=>{const yy=offsets.get(g.type)+i*row;pos.set(String(c.id),yy);if(state.expanded||chainCores.has(String(c.id))||i%4===0)add(svg,'text',{x:left-8,y:yy+row/2+4,'text-anchor':'end',fill:'#a7a7a7','font-family':'var(--mono)','font-size':10},String(c.id));});
+  const pos=new Map(); if(state.view==='core') for(const g of groups) cores.filter(c=>c.ct===g.type).forEach((c,i)=>{const yy=offsets.get(g.type)+i*row+(inlineCore?.ct===g.type&&c.id>inlineCore.id?inlineHeight:0);pos.set(String(c.id),yy);if(state.expanded||chainCores.has(String(c.id))||i%4===0)add(svg,'text',{x:left-8,y:yy+row/2+4,'text-anchor':'end',fill:'#a7a7a7','font-family':'var(--mono)','font-size':10},String(c.id));});
   let featureCohorts=state.feature==='recommended'?recommend(rank):state.feature==='none'?[]:featureGroups(rank,state.feature,analyzed);if(state.pathOnly)featureCohorts=featureCohorts.flatMap(group=>(rank.criticalPath||[]).flatMap((p,i)=>{const tasks=group.tasks.filter(t=>String(t.taskId)===String(p.taskId)||(p.ids||[]).includes(t.id));return tasks.length?[{...group,key:group.key+':path:'+p.taskId,kernel:p.name,rank:i+1,tasks}]:[];}));
   const overlay=state.view==='core'&&state.feature!=='none'?drawRecommendationOverlay(svg,featureCohorts,{x,clip,pos,row,width,left,right,height,cores,windowUs:rank.windowUs,gaps:state.feature==='recommended'?feature(rank,'bubble').gaps:analyzed.gaps,focus:state.focusKey,showNames:state.analysisOpen&&state.feature==='recommended',interactive:state.feature==='recommended',onFocus}):null;
   const select=(g,t,core)=>{g.setAttribute('tabindex','0');g.setAttribute('role','button');g.setAttribute('aria-label',`${t.leaf}, ${fmt(t.spanUs)}`);g.addEventListener('click',()=>onSelect(t,core));g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect(t,core);}});};
@@ -38,16 +40,25 @@ export function renderLane(svg, rank, state, onSelect, onFocus = () => {}) {
     const records=state.view==='core'?t.blocks.items:[{startUs:t.startUs,endUs:t.endUs}];
     for(const b of records){const [a,z]=clip(b.startUs,b.endUs);if(z<=a)continue; const yy=state.view==='core'?pos.get(String(b.core)):offsets.get(t.ct)+packed.lanes.get(t.id)*row; if(!Number.isFinite(yy))continue;
       const chain=state.view==='core' ? state.chain : null, chainHit=chain?.includes(String(t.taskId));
-      const selected=state.selected===t.id, hit=analyzed.hits.has(t.id), color=chainHit?'#63e6b3':selected?'#f0f0f0':'#a0a0a0', opacity=chain?(chainHit?1:.15):selected?1:.9;
-      const g=add(svg,'g',{class:chainHit?'event single-hit':'event',opacity}); select(g,t,b.core); const h=state.view==='core'?(chainHit?Math.max(3,Math.min(8,row-2)):state.expanded?Math.min(16,row-2):Math.min(2.6,row-1)):Math.max(3,(row-4)*Math.min(1,t.coresUsed/(cores.filter(c=>c.ct===t.ct).length||1))); const top=yy+row-h-1;
-      add(g,'rect',{x:x(a),y:top,width:Math.max(1,x(z)-x(a)),height:h,fill:color,rx:1});
+      const selected=state.selected===t.id&&(!state.inline||String(b.core)===String(state.inline.core)), hit=analyzed.hits.has(t.id), color=chainHit?'#63e6b3':selected?'#f0f0f0':state.inline?'#565656':'#a0a0a0', opacity=chain?(chainHit?1:.15):selected?1:.9;
+      const hasIncore=state.view==='core'&&state.incoreIndex?.has(incoreKey(rank.rank,t.taskId,t.leaf,b.core));
+      const g=add(svg,'g',{class:chainHit?'event single-hit':'event',opacity}); select(g,t,b.core); if(hasIncore){g.setAttribute('data-incore','true');g.setAttribute('aria-expanded',String(state.inline?.task.id===t.id&&String(state.inline.core)===String(b.core)));g.setAttribute('aria-label',`${t.leaf}，Core ${b.core}，${state.inline?.task.id===t.id&&String(state.inline.core)===String(b.core)?'收起':'展开'}核内流水`);} const h=state.view==='core'?(chainHit?Math.max(3,Math.min(8,row-2)):state.expanded?Math.min(16,row-2):Math.min(2.6,row-1)):Math.max(3,(row-4)*Math.min(1,t.coresUsed/(cores.filter(c=>c.ct===t.ct).length||1))); const top=yy+row-h-1;
+      add(g,'rect',{class:'block-body',x:x(a),y:top,width:Math.max(1,x(z)-x(a)),height:h,fill:color,rx:1});
       if(chainHit){for(const phase of blockPhases(b,start,end))add(g,'rect',{x:x(phase.start),y:top,width:Math.max(0,x(phase.end)-x(phase.start)),height:h,fill:{setup:'#d6a75a',compute:'#63e6b3',other:'#777'}[phase.kind],'pointer-events':'none'});}
       if(!chainHit && state.composition && state.view==='core' && Number.isFinite(b.slotUs) && b.slotUs>0 && !selected) {const w=x(z)-x(a), setup=Math.max(0,Math.min(1,b.setupUs/b.slotUs));add(g,'rect',{x:x(a),y:top,width:Math.max(0,w*setup),height:h,fill:'#b48b49'});}
       if((state.view==='task'||state.expanded) && x(z)-x(a)>65 && h>=15) add(g,'text',{x:x(a)+4,y:top+h/2+4,fill:'#141414','font-size':11,'font-weight':500,'pointer-events':'none'},t.leaf.length>(x(z)-x(a)-8)/7?t.leaf.slice(0,Math.max(1,Math.floor((x(z)-x(a)-15)/7)))+'…':t.leaf);
-      add(g,'title',{},`${t.leaf}\n${fmt(b.startUs)} → ${fmt(b.endUs)}${b.core==null?'':` · Core ${b.core}`}`);
+      if(hasIncore)add(g,'rect',{class:'block-hit',x:x(a),y:yy,width:Math.max(1,x(z)-x(a)),height:row,fill:'transparent','pointer-events':'all'});
+      add(g,'title',{},`${t.leaf}\n${fmt(b.startUs)} → ${fmt(b.endUs)}${b.core==null?'':` · Core ${b.core}`}${hasIncore?'\n点击展开或收起核内流水':''}`);
     }
   }
   overlay?.drawLabels();
+  if(state.inline&&state.view==='core'&&inlineCore){
+    const info=state.inline,top=pos.get(String(info.core))+row, block=info.entry.block;
+    const group=window.QK_FOCUS_RESIDENCY.renderInline(svg,{y:top,height:inlineHeight,W:width,LEFT:left,xOf:x,viewStart:start,viewEnd:end,original:block,leaf:info.task.leaf});
+    const act=e=>{const target=e.target.closest?.('[data-qk-inline-pass],[data-qk-collapse],[data-qk-inline-iter]');if(!target)return;e.stopPropagation();if(target.hasAttribute('data-qk-inline-pass'))info.onPass();else if(target.hasAttribute('data-qk-collapse'))info.onClose();else window.QK_FOCUS_RESIDENCY.chooseInline(target.dataset.qkInlineEvent,target.dataset.qkInlineIter);};
+    group.addEventListener('click',act);group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act(e);}});
+    if(info.evolution)queueMicrotask(()=>{if(group.isConnected)window.INLINE_PASS_TRANSFORM.mount(group,{y:top,W:width,LEFT:left,first:Math.floor(window.QK_FOCUS_RESIDENCY.selection().iter/2)*2,onBack:info.onBack});});
+  }
   return {hits:analyzed.hits.size, groups:overlay?overlay.groups:kernels.map(key=>({key,color:colors.get(key),count:rank.launches.filter(t=>analyzed.hits.has(t.id)&&t.ct+' · '+t.leaf.replace(/_\d+$/, '')===key).length}))};
 }
 export function renderCritical(svg, rank, selected, onSelect) {

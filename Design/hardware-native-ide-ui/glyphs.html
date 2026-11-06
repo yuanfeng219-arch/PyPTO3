@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>算子逻辑图元库 · PyPTO</title>
+  <link rel="stylesheet" href="./styles/path.css?v=20261105-focus38" />
+  <link rel="stylesheet" href="./styles/glyphs.css?v=20261106-glyphs1" />
+</head>
+<body>
+  <div class="gl-page">
+    <header class="gl-top">
+      <div class="gl-top-left">
+        <span class="gl-brand">算子逻辑图元库</span>
+        <span class="gl-count" id="glCount">—</span>
+      </div>
+      <div class="gl-top-right">
+        <a class="gl-back" href="./path.html">回主线页</a>
+      </div>
+    </header>
+
+    <div class="gl-intro">
+      <h1>一个算子有哪些逻辑表达，各自画成什么</h1>
+      <p>分类依据 PyPTO 的 DSL 与 IR 文档：一个算子的逻辑表达分成 <b>8 类对象</b>，外加一类完全由编译器决定的<b>存储放置</b>；对象之间有 <b>9 种关系</b>。每张卡片给出图元、它表达什么、以及必须被区分开的两样东西。</p>
+      <p>色板、字号层级与线宽沿用 <code>path.html</code>：数据用实心角色色（GM lime · Vec sky · Mat lavender · Acc amber），结构件用淡紫灰描边，单一告警红不在本库内使用。<b>关系靠线型区分，不靠颜色</b>，所以压暗、聚焦这些状态变化不会让语义丢失。</p>
+      <p class="gl-count">示例尺寸与数值取自 decode_layer 的 fa_fused，仅用于说明画法；网格格子不编码数量。</p>
+    </div>
+
+    <div class="gl-filters" role="group" aria-label="按来源筛选">
+      <button class="gl-filter" type="button" data-filter="all" aria-pressed="true">全部</button>
+      <button class="gl-filter" type="button" data-filter="reuse" aria-pressed="false">复用 path.html</button>
+      <button class="gl-filter" type="button" data-filter="iterate" aria-pressed="false">迭代</button>
+      <button class="gl-filter" type="button" data-filter="new" aria-pressed="false">新增</button>
+    </div>
+
+    <main id="glCatalog"></main>
+
+    <footer class="gl-foot">
+      <p>来源：<code>repo/pto/docs/en/user/01-language_guide.md</code>、<code>02-operation_reference.md</code>、<code>dev/language/00-python_syntax.md</code>、<code>dev/ir/01-hierarchy.md</code>、<code>dev/ir/02-types.md</code>。</p>
+      <p>渲染器 <code>js/logic-glyphs.js</code> 不依赖 DOM，可直接被 <code>path.js</code> 引入；<code>matmul / reduce / expand / activation</code> 四个图标路径复用 <code>js/path-op-icons.js</code>。</p>
+      <p>“8 类对象 / 9 种关系”是按文档归纳的分法，文档本身没有给出这个计数。<code>pl.pipeline</code> 与 <code>pl.unroll</code> 只出现在 IR 与 pass 文档，未写进用户语言指南；<code>pl.set_validshape</code> 在源码中标注为内部 API。</p>
+    </footer>
+  </div>
+
+  <script src="./js/path-op-icons.js?v=20261103-fix29"></script>
+  <script src="./js/logic-glyphs.js?v=20261106-glyphs1"></script>
+  <script src="./js/glyph-catalog.js?v=20261106-glyphs1"></script>
+</body>
+</html>

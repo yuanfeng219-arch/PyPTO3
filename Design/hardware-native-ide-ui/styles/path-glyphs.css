@@ -1,0 +1,65 @@
+/* Hardware-Native 主线 · 图元版
+ *
+ * 这一层只放两样东西，图元本身的填色与描边全部来自 glyphs.css 的 gl-*：
+ *   1. 新图元在工作台里的交互态（hover / 焦点 / 越界）
+ *   2. 原版没有的两种关系线（跨核、索引）和一个 chip 容器
+ *
+ * 加载顺序：path.css（令牌与三栏骨架）→ glyphs.css（图元）→ 本文件（交互态）。
+ * path.css 与 path.js 未改动，原版 path.html 不受影响。 */
+
+/* ── 逻辑图容器：图元版画布 760×412（原版 760×396），底部多一行图例 ── */
+.hp-mid { --logic-height: 360px; }
+/* 窄屏分支里画布按原尺寸竖排、容器定高 420px，装不下 412 的画布 + 头部 + 内边距，
+ * 底部图例会被裁掉。这里把高度放到画布真正需要的量。 */
+@media (max-width: 860px) {
+  .hp-mid { min-height: 1080px; }
+  .hp-logic { height: 500px; }
+}
+
+/* ── 作用域：四角角标。hover 与焦点加亮角标，不整片泛白 ── */
+.lg-hit:hover > .gl-scope-corner { opacity: .9; }
+.lg-hit.is-hot > .gl-scope-corner { opacity: 1; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.lg-hit:hover > .gl-scope-fill { fill: #ffffff05; }
+.lg-hit.is-hot > .gl-scope-fill { fill: #ffffff09; }
+
+/* ── 循环：虚线框 + 左侧粗条 ── */
+.lg-hit:hover > .gl-loop { fill: #ffffff05; }
+.lg-hit.is-hot > .gl-loop { fill: #ffffff09; stroke: var(--text); stroke-dasharray: none; vector-effect: non-scaling-stroke; }
+.lg-hit.is-hot > .gl-loop-bar { stroke: var(--text); }
+.gl-loop.is-bad { stroke: var(--red); }
+
+/* ── 计算胶囊 ── */
+.lg-hit:hover > .gl-op { stroke: #7a7a7a; }
+.lg-hit.is-hot > .gl-op { fill: #e6e6e6; stroke: #e6e6e6; }
+.lg-hit.is-hot > .gl-op > .gl-node-text { fill: #151515; }
+.lg-hit.is-hot > .gl-op > .gl-op-badge { fill: #e6e6e6; }
+.lg-hit.is-hot > .gl-op > .gl-icon { stroke: #151515; }
+.lg-hit.is-bad > .gl-op { fill: #2a1716; stroke: var(--red); }
+.lg-hit.is-bad.is-hot > .gl-op { stroke: var(--red); stroke-width: 2; }
+
+/* ── 视图节点：只改元数据。hover 时点亮方括号，不填色 —— 填色会读成"多了一块缓冲" ── */
+.lg-hit:hover > .gl-view > .gl-view-bracket,
+.lg-hit.is-hot > .gl-view > .gl-view-bracket { stroke: var(--text); stroke-width: 1.8; }
+.lg-hit.is-hot > .gl-view > rect:first-child { stroke: var(--text); }
+
+/* ── 数据对象：实心角色色，焦点时加一圈描边而不是改填色，角色色要保持可读 ── */
+.lg-hit:hover > .gl-data-obj { outline: none; }
+.lg-hit.is-hot [data-glyph="data"] > rect:first-child { stroke: var(--text); stroke-width: 2; }
+
+/* ── 跨核与索引两种关系线；必须保留 lg-edge 才能参与焦点联动 ──
+ * 两条跨核边都夹在相邻节点的 14px 间隙里，行内标签必然压到节点，
+ * 所以线型与颜色在画布底部的图例里解释，边上不写字。 */
+.lg-edge.lg-xcore { stroke: var(--sky); stroke-width: 1.4; }
+.lg-edge.lg-index { stroke: #777; stroke-width: 1; stroke-dasharray: 2 3; }
+
+/* ── 作用域上的 split chip ── */
+.lg-chip-box { fill: #202020; stroke: #3d3d3d; rx: 3px; }
+.lg-hit:hover > .lg-chip-box { stroke: #777; }
+.lg-hit.is-hot > .lg-chip-box { fill: #e6e6e6; stroke: #e6e6e6; }
+.lg-hit.is-hot > .lg-chip-box + .sv-title { fill: #151515; }
+
+/* ── 聚焦时压暗：把新图元也纳入，否则它们在压暗态里会显得过亮 ── */
+.is-focusing .lg-hit:not(.is-hot) [data-glyph],
+.is-focusing .lg-hit:not(.is-hot) > .gl-scope-corner,
+.is-focusing .lg-hit:not(.is-hot) > .gl-loop-bar { opacity: .42; }
+[data-glyph], .gl-scope-corner, .gl-loop-bar { transition: opacity .15s; }

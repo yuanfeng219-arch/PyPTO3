@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg">
+<title>PyPTO 概念地图</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: one wide pipeline figure (4 stages x 2 lanes), a clickable concept panel under it, then the Tensor/Tile data figure and two compact reference strips. */
+:root {
+  --bg: #F4F6F9;
+  --surface: #FFFFFF;
+  --surface-2: #ECF0F5;
+  --ink: #17202B;
+  --ink-2: #566172;
+  --line: #D3DAE3;
+  --accent: #3A4CD6;
+  --accent-soft: #E7EAFD;
+  --orch: #A8620C;
+  --orch-bg: #FCF2E4;
+  --orch-line: #E5C08A;
+  --orch-lane: #FDF8F0;
+  --core: #0B7A6F;
+  --core-bg: #E2F3F0;
+  --core-line: #97D2C8;
+  --core-lane: #EFF9F7;
+  --flow: #8792A2;
+  --code-bg: #EEF1F6;
+  --dot: #DDE2EA;
+  --on-accent: #FFFFFF;
+  --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1217; --surface: #161B23; --surface-2: #1B222C; --ink: #E5E9F0; --ink-2: #9AA5B5;
+    --line: #2C3644; --accent: #8E9CFF; --accent-soft: #232A52;
+    --orch: #E6A24E; --orch-bg: #2A2016; --orch-line: #6E5026; --orch-lane: #191510;
+    --core: #4FC8B7; --core-bg: #10282A; --core-line: #25615A; --core-lane: #101C1D;
+    --flow: #6C7788; --code-bg: #11161D; --dot: #222A35; --on-accent: #0E1217; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1217; --surface: #161B23; --surface-2: #1B222C; --ink: #E5E9F0; --ink-2: #9AA5B5;
+  --line: #2C3644; --accent: #8E9CFF; --accent-soft: #232A52;
+  --orch: #E6A24E; --orch-bg: #2A2016; --orch-line: #6E5026; --orch-lane: #191510;
+  --core: #4FC8B7; --core-bg: #10282A; --core-line: #25615A; --core-lane: #101C1D;
+  --flow: #6C7788; --code-bg: #11161D; --dot: #222A35; --on-accent: #0E1217; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light; }
+body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--sans);
+  font-size: 15px; line-height: 1.65;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 56px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2 { text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.2; font-weight: 700; }
+h2 { font-size: 21px; font-weight: 700; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
+
+header.hero { display: grid; gap: 14px; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 16px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid; display: inline-block; }
+.sw.o { background: var(--orch-bg); border-color: var(--orch); }
+.sw.c { background: var(--core-bg); border-color: var(--core); }
+.sw.n { background: var(--surface); border-color: var(--line); }
+.sw.fb { border: none; height: 0; width: 22px; border-top: 2px dashed var(--accent); border-radius: 0; }
+
+section { display: grid; gap: 16px; }
+.sec-head { display: grid; gap: 4px; }
+.sec-head p { color: var(--ink-2); font-size: 14px; max-width: 72ch; }
+
+.figure {
+  background-color: var(--surface);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.3px);
+  background-size: 20px 20px;
+  border: 1px solid var(--line); border-radius: 16px;
+  overflow-x: auto; padding: 16px 12px;
+}
+.figure svg { display: block; width: 100%; min-width: 900px; height: auto; }
+
+/* Hero key ideas */
+.keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
+.key { --k: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 4px; min-width: 0; }
+.key.c { --k: var(--core); }
+.key.o { --k: var(--orch); }
+.key b { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.key b::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--k); flex: none; }
+.key span { font-size: 13.5px; color: var(--ink-2); }
+@media (max-width: 720px) { .keys { grid-template-columns: minmax(0, 1fr); } }
+
+/* SVG styling */
+svg text { font-family: var(--sans); }
+.t { font-size: 14.5px; font-weight: 600; fill: var(--ink); }
+.t-lg { font-size: 16px; font-weight: 700; fill: var(--ink); }
+.s { font-size: 12.5px; fill: var(--ink-2); }
+.m { font-family: var(--mono); font-size: 11.5px; font-weight: 500; fill: var(--ink-2); }
+.m-sm { font-family: var(--mono); font-size: 10.5px; fill: var(--ink); }
+.htitle { font-size: 17px; font-weight: 700; fill: var(--ink); }
+.hsub { font-size: 13px; fill: var(--ink-2); }
+.rail { stroke: var(--line); stroke-width: 1.5; fill: none; }
+.badge circle { fill: var(--accent); }
+.badge text { font-family: var(--mono); font-size: 12.5px; font-weight: 600; fill: var(--on-accent); }
+.badge.c circle { fill: var(--core); }
+.lane-o { fill: var(--orch-lane); stroke: none; }
+.lane-c { fill: var(--core-lane); stroke: none; }
+.pill-o { fill: var(--orch-bg); stroke: var(--orch-line); }
+.pill-c { fill: var(--core-bg); stroke: var(--core-line); }
+.lane-label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
+.lane-label.o { fill: var(--orch); }
+.lane-label.c { fill: var(--core); }
+.card { fill: var(--surface-2); stroke: var(--line); }
+.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; transition: stroke 120ms; }
+.o .box { fill: var(--orch-bg); stroke: var(--orch-line); }
+.c .box { fill: var(--core-bg); stroke: var(--core-line); }
+.chip { fill: var(--surface-2); stroke: var(--line); }
+.gl { fill: var(--ink-2); font-size: 11.5px; }
+.ln { fill: none; stroke: var(--flow); stroke-width: 1.8; }
+.ln.o { stroke: var(--orch); }
+.ln.c { stroke: var(--core); }
+.ln.fb { stroke: var(--accent); stroke-dasharray: 6 5; }
+.ah { fill: var(--flow); } .ah-o { fill: var(--orch); } .ah-c { fill: var(--core); } .ah-a { fill: var(--accent); }
+.lbl-bg { fill: var(--surface); stroke: var(--accent); stroke-opacity: 0.45; }
+.fb-text { font-size: 12.5px; fill: var(--accent); font-weight: 500; }
+
+[data-k] { cursor: pointer; outline: none; }
+[data-k]:hover .box, [data-k]:focus-visible .box { stroke: var(--accent); stroke-width: 2; }
+[data-k].sel .box { stroke: var(--accent); stroke-width: 2.6; }
+[data-k]:focus-visible .card, [data-k].sel .card { stroke: var(--accent); stroke-width: 2; }
+[data-k].sel .lbl-bg, [data-k]:hover .lbl-bg { fill: var(--accent-soft); }
+
+/* Tensor / Tile figure */
+.grid-cell { fill: var(--surface); stroke: var(--line); }
+.blk { fill: var(--core-bg); stroke: var(--core); stroke-width: 1.6; }
+.blk-out { fill: var(--core); stroke: var(--core); stroke-width: 1.6; }
+.tile-big { fill: var(--core-bg); stroke: var(--core); stroke-width: 1.6; }
+.tile-grid { stroke: var(--core-line); stroke-width: 1; }
+.op { fill: var(--surface); stroke: var(--core); stroke-width: 1.6; }
+
+/* Concept panel */
+.panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0;
+  overflow: hidden;
+}
+.panel .info { padding: 22px 24px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel .code { background: var(--code-bg); padding: 22px 24px; border-left: 1px solid var(--line); min-width: 0; display: grid; gap: 10px; align-content: start; }
+.panel .hint { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+.panel .hint::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.p-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.p-title h3 { margin: 0; font-size: 22px; line-height: 1.3; }
+.p-title .alias { font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+.tag { font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: var(--surface-2); }
+.tag.o { color: var(--orch); border-color: var(--orch-line); background: var(--orch-bg); }
+.tag.c { color: var(--core); border-color: var(--core-line); background: var(--core-bg); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.p-def { font-size: 15.5px; max-width: 60ch; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13.5px; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; min-width: 0; }
+.code-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--ink-2); text-transform: uppercase; }
+pre { margin: 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; white-space: pre; overflow-x: auto; color: var(--ink); }
+
+.caption { font-size: 13.5px; color: var(--ink-2); max-width: 90ch; }
+.caption code { color: var(--ink); }
+
+/* Layers + contracts */
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+.layers { display: grid; gap: 10px; }
+.layer { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.layer .lv { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.layer .who { font-weight: 600; font-size: 14.5px; }
+.layer .what { font-size: 13.5px; color: var(--ink-2); }
+.layer:nth-child(1) .lv { color: var(--accent); }
+.layer:nth-child(2) .lv { color: var(--core); }
+.layer:nth-child(3) .lv { color: var(--orch); }
+.tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--ink-2); font-weight: 500; background: var(--surface-2); }
+tr:last-child td { border-bottom: none; }
+td.mono { white-space: nowrap; }
+
+footer { font-size: 12.5px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 16px; }
+footer code { font-size: 12px; }
+
+@media (max-width: 820px) {
+  .panel { grid-template-columns: minmax(0, 1fr); }
+  .panel .code { border-left: none; border-top: 1px solid var(--line); }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .layer { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">PTO 生态 · 概念地图</div>
+    <h1>PyPTO 是什么</h1>
+    <p class="lede">PyPTO 是面向昇腾 AI 加速器的 Python 编程框架，核心是 <b>Tile 编程模型</b>。你用 Python 写一个程序，<b>编译器</b>把它从 Tensor 级逐步下沉到 Tile 级，生成两类代码：<b>调度代码</b>跑在 AICPU 上，<b>计算内核</b>跑在 AICore 上。<b>运行时</b>再按任务依赖把它们调度起来。</p>
+    <div class="legend" aria-label="图例">
+      <span><i class="sw o"></i>调度路径 Orchestration</span>
+      <span><i class="sw c"></i>计算路径 InCore</span>
+      <span><i class="sw n"></i>共享环节</span>
+      <span><i class="sw fb"></i>性能反馈回路</span>
+    </div>
+    <div class="keys">
+      <div class="key c"><b>Tile 编程模型</b><span>所有计算以片上数据块为单位，贴合硬件的并行能力和内存层级。</span></div>
+      <div class="key"><b>多级 IR 与 Pass</b><span>同一份程序从 Tensor 级逐步下沉到 Tile 级，再生成代码。</span></div>
+      <div class="key o"><b>MPMD 任务调度</b><span>AICPU 按依赖把内核任务派发到各个 AICore 核组上执行。</span></div>
+    </div>
+  </header>
+
+  <section aria-labelledby="s1">
+    <div class="sec-head">
+      <h2 id="s1">从一段 Python 到 NPU 上的任务</h2>
+      <p>一个程序同时描述“怎么调度”和“怎么计算”。两部分在编译器里共用一套 IR 和 Pass，到 CodeGen 才分成两条路径，最后在设备上会合。点击任意节点查看说明。</p>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 1200 620" role="img" aria-labelledby="f1title" id="pipeline">
+        <title id="f1title">PyPTO 编译与执行流程：编写、编译、生成、执行</title>
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+          <marker id="ah-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-o"/></marker>
+          <marker id="ah-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-c"/></marker>
+          <marker id="ah-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-a"/></marker>
+        </defs>
+
+        <!-- Stage headers -->
+        <g class="badge"><circle cx="30" cy="32" r="14"/><text x="30" y="36.5" text-anchor="middle">1</text></g>
+        <text class="htitle" x="52" y="38">编写</text><text class="hsub" x="94" y="38">Python DSL</text>
+        <path class="rail" d="M182,32 H280" marker-end="url(#ah)"/>
+        <g class="badge"><circle cx="302" cy="32" r="14"/><text x="302" y="36.5" text-anchor="middle">2</text></g>
+        <text class="htitle" x="324" y="38">编译</text><text class="hsub" x="366" y="38">pypto 编译器</text>
+        <path class="rail" d="M460,32 H612" marker-end="url(#ah)"/>
+        <g class="badge"><circle cx="634" cy="32" r="14"/><text x="634" y="36.5" text-anchor="middle">3</text></g>
+        <text class="htitle" x="656" y="38">生成</text><text class="hsub" x="698" y="38">CodeGen 产物</text>
+        <path class="rail" d="M796,32 H904" marker-end="url(#ah)"/>
+        <g class="badge"><circle cx="926" cy="32" r="14"/><text x="926" y="36.5" text-anchor="middle">4</text></g>
+        <text class="htitle" x="948" y="38">执行</text><text class="hsub" x="990" y="38">昇腾 NPU · simpler</text>
+
+        <!-- Lanes -->
+        <rect class="lane-o" x="604" y="76" width="590" height="214" rx="14"/>
+        <rect class="pill-o" x="612" y="85" width="190" height="22" rx="11"/>
+        <text class="lane-label o" x="624" y="100">调度路径 · ORCHESTRATION</text>
+        <rect class="lane-c" x="604" y="306" width="590" height="256" rx="14"/>
+        <rect class="pill-c" x="612" y="315" width="140" height="22" rx="11"/>
+        <text class="lane-label c" x="624" y="330">计算路径 · INCORE</text>
+
+        <!-- Stage 1: program -->
+        <g data-k="program" tabindex="0" role="button" aria-label="PyPTO 程序">
+          <rect class="card" x="16" y="76" width="240" height="484" rx="14"/>
+          <text class="t-lg" x="32" y="104">PyPTO 程序</text>
+          <text class="m" x="32" y="124">@pl.jit · pypto.language</text>
+        </g>
+        <g class="o" data-k="orch" tabindex="0" role="button" aria-label="Orchestration 函数">
+          <rect class="box" x="32" y="140" width="208" height="94" rx="10"/>
+          <text class="t" x="46" y="165">Orchestration 函数</text>
+          <text class="s" x="46" y="187">编排循环与切块，</text>
+          <text class="s" x="46" y="205">按数据依赖派发计算任务</text>
+          <text class="m" x="46" y="224">for i in pl.range(n):</text>
+        </g>
+        <line class="ln" x1="136" y1="234" x2="136" y2="330" marker-end="url(#ah)"/>
+        <text class="s" x="146" y="286">调用 InCore</text>
+        <g class="c" data-k="incore" tabindex="0" role="button" aria-label="InCore 函数">
+          <rect class="box" x="32" y="334" width="208" height="112" rx="10"/>
+          <text class="t" x="46" y="359">InCore 函数</text>
+          <text class="m" x="46" y="381">with pl.at(CORE_GROUP):</text>
+          <text class="s" x="46" y="402">load → 片上计算 → store</text>
+          <text class="s" x="46" y="422">在一个 AICore 核组上执行</text>
+        </g>
+        <g data-k="tensor" tabindex="0" role="button" aria-label="Tensor">
+          <rect class="box" x="32" y="466" width="94" height="78" rx="10"/>
+          <text class="t" x="43" y="491">Tensor</text>
+          <text class="s" x="43" y="511">片外 GM</text>
+          <text class="m" x="43" y="531">pl.Tensor</text>
+        </g>
+        <line class="ln c" x1="126" y1="505" x2="144" y2="505" marker-end="url(#ah-c)"/>
+        <g class="c" data-k="tile" tabindex="0" role="button" aria-label="Tile">
+          <rect class="box" x="146" y="466" width="94" height="78" rx="10"/>
+          <text class="t" x="157" y="491">Tile</text>
+          <text class="s" x="157" y="511">片上数据块</text>
+          <text class="m" x="157" y="531">pl.Tile</text>
+        </g>
+
+        <!-- 1 -> 2 -->
+        <line class="ln" x1="256" y1="118" x2="286" y2="118" marker-end="url(#ah)"/>
+        <text class="s" x="271" y="110" text-anchor="middle">解析</text>
+
+        <!-- Stage 2: compiler -->
+        <g data-k="ir" tabindex="0" role="button" aria-label="IR 中间表示">
+          <rect class="box" x="288" y="76" width="280" height="84" rx="10"/>
+          <text class="t" x="304" y="102">IR 中间表示</text>
+          <text class="s" x="304" y="124">Tensor op、Tile op、系统 op</text>
+          <text class="s" x="304" y="143">共存于同一棵不可变的 IR 树</text>
+        </g>
+        <line class="ln" x1="428" y1="160" x2="428" y2="184" marker-end="url(#ah)"/>
+        <g data-k="passes" tabindex="0" role="button" aria-label="Pass 流水线">
+          <rect class="box" x="288" y="186" width="280" height="270" rx="10"/>
+          <text class="t" x="304" y="211">Pass 流水线</text>
+          <text class="s" x="304" y="230">40+ 个 Pass：Tensor 级 → Tile 级</text>
+          <rect class="chip" x="304" y="244" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="260">ConvertToSSA</text><text class="gl" x="542" y="260" text-anchor="end">SSA 化</text>
+          <rect class="chip" x="304" y="273" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="289">OutlineInCoreScopes</text><text class="gl" x="542" y="289" text-anchor="end">抽出内核</text>
+          <rect class="chip" x="304" y="302" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="318">ConvertTensorToTileOps</text><text class="gl" x="542" y="318" text-anchor="end">转 Tile 运算</text>
+          <rect class="chip" x="304" y="331" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="347">InferTileMemorySpace</text><text class="gl" x="542" y="347" text-anchor="end">推断片上内存</text>
+          <rect class="chip" x="304" y="360" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="376">ExpandMixedKernel</text><text class="gl" x="542" y="376" text-anchor="end">拆 AIC / AIV</text>
+          <rect class="chip" x="304" y="389" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="405">AllocateMemoryAddr</text><text class="gl" x="542" y="405" text-anchor="end">分配地址</text>
+          <rect class="chip" x="304" y="418" width="248" height="24" rx="6"/>
+          <text class="m-sm" x="314" y="434">AutoDeriveTaskDependencies</text><text class="gl" x="542" y="434" text-anchor="end">任务依赖</text>
+        </g>
+        <line class="ln" x1="428" y1="456" x2="428" y2="478" marker-end="url(#ah)"/>
+        <g data-k="codegen" tabindex="0" role="button" aria-label="CodeGen">
+          <rect class="box" x="288" y="480" width="280" height="80" rx="10"/>
+          <text class="t" x="304" y="505">CodeGen 代码生成</text>
+          <text class="s" x="304" y="526">Orchestration 后端 → C++</text>
+          <text class="s" x="304" y="546">PTO 后端 → .pto 文件</text>
+        </g>
+
+        <!-- 2 -> 3 split -->
+        <path class="ln o" d="M568,500 H580 Q586,500 586,494 V176 Q586,170 592,170 H618" marker-end="url(#ah-o)"/>
+        <path class="ln c" d="M568,540 H594 Q600,540 600,534 V378 Q600,372 606,372 H618" marker-end="url(#ah-c)"/>
+
+        <!-- Stage 3: artifacts -->
+        <g class="o" data-k="orchcpp" tabindex="0" role="button" aria-label="Orchestration C++">
+          <rect class="box" x="620" y="120" width="252" height="104" rx="10"/>
+          <text class="t" x="636" y="146">Orchestration C++</text>
+          <text class="s" x="636" y="168">调用 PTO2 runtime API 的调度代码</text>
+          <text class="m" x="636" y="189">rt_submit_task(...)</text>
+          <text class="s" x="636" y="210">pypto 与 simpler 的接口契约</text>
+        </g>
+        <g class="c" data-k="pto" tabindex="0" role="button" aria-label=".pto 文件">
+          <rect class="box" x="620" y="344" width="252" height="66" rx="10"/>
+          <text class="t" x="636" y="369">.pto 文件</text>
+          <text class="s" x="636" y="391">PTO-ISA MLIR 方言，每个内核一个</text>
+        </g>
+        <line class="ln c" x1="746" y1="410" x2="746" y2="428" marker-end="url(#ah-c)"/>
+        <g class="c" data-k="ptoas" tabindex="0" role="button" aria-label="PTOAS 汇编器">
+          <rect class="box" x="620" y="430" width="252" height="66" rx="10"/>
+          <text class="t" x="636" y="455">PTOAS 汇编器</text>
+          <text class="s" x="636" y="477">插同步、排内存，生成内核 C++</text>
+        </g>
+        <line class="ln" x1="746" y1="516" x2="746" y2="498" marker-end="url(#ah)"/>
+        <text class="m" x="756" y="511">#include</text>
+        <g data-k="ptoisa" tabindex="0" role="button" aria-label="pto-isa">
+          <rect class="box" x="620" y="516" width="252" height="40" rx="10"/>
+          <text class="t" x="636" y="541">pto-isa</text>
+          <text class="s" x="700" y="541">tile 指令集头文件</text>
+        </g>
+
+        <!-- 3 -> 4 -->
+        <line class="ln o" x1="872" y1="196" x2="910" y2="196" marker-end="url(#ah-o)"/>
+        <text class="s" x="891" y="188" text-anchor="middle">编译</text>
+        <line class="ln c" x1="872" y1="462" x2="910" y2="462" marker-end="url(#ah-c)"/>
+        <text class="s" x="891" y="454" text-anchor="middle">编译</text>
+
+        <!-- Stage 4: device -->
+        <g data-k="host" tabindex="0" role="button" aria-label="Host">
+          <rect class="box" x="912" y="90" width="268" height="44" rx="10"/>
+          <text class="t" x="928" y="117">Host</text>
+          <text class="s" x="972" y="117">加载产物、准备数据、启动执行</text>
+        </g>
+        <line class="ln" x1="1046" y1="134" x2="1046" y2="154" marker-end="url(#ah)"/>
+        <g class="o" data-k="aicpu" tabindex="0" role="button" aria-label="AICPU">
+          <rect class="box" x="912" y="156" width="268" height="100" rx="10"/>
+          <text class="t" x="928" y="181">AICPU</text>
+          <text class="s" x="928" y="203">运行调度代码，构建任务依赖图</text>
+          <text class="s" x="928" y="223">依赖就绪的任务派发到 AICore</text>
+          <text class="m" x="928" y="243">task graph</text>
+        </g>
+        <line class="ln" x1="1046" y1="256" x2="1046" y2="324" marker-end="url(#ah)"/>
+        <text class="s" x="1056" y="294">派发任务</text>
+        <g class="c" data-k="aicore" tabindex="0" role="button" aria-label="AICore 核组">
+          <rect class="box" x="912" y="326" width="268" height="144" rx="10"/>
+          <text class="t" x="928" y="351">AICore 核组</text>
+          <text class="m" x="928" y="371">Level.CORE_GROUP</text>
+          <rect class="chip" x="928" y="384" width="114" height="72" rx="8"/>
+          <text class="t" x="940" y="408">AIC</text>
+          <text class="s" x="940" y="428">Cube 核</text>
+          <text class="s" x="940" y="446">矩阵运算</text>
+          <rect class="chip" x="1052" y="384" width="112" height="72" rx="8"/>
+          <text class="t" x="1064" y="408">AIV × 2</text>
+          <text class="s" x="1064" y="428">Vector 核</text>
+          <text class="s" x="1064" y="446">向量运算</text>
+        </g>
+        <line class="ln c" x1="1046" y1="472" x2="1046" y2="492" marker-start="url(#ah-c)" marker-end="url(#ah-c)"/>
+        <text class="m" x="1058" y="487">load / store</text>
+        <g data-k="gm" tabindex="0" role="button" aria-label="GM 全局内存">
+          <rect class="box" x="912" y="494" width="268" height="54" rx="10"/>
+          <text class="t" x="928" y="518">GM 全局内存</text>
+          <text class="s" x="928" y="537">输入、输出 Tensor 存放于此</text>
+        </g>
+
+        <!-- Feedback loop -->
+        <g data-k="feedback" tabindex="0" role="button" aria-label="性能反馈回路">
+          <path class="ln fb" d="M1046,548 V592 Q1046,600 1038,600 H144 Q136,600 136,592 V564" marker-end="url(#ah-a)"/>
+          <rect class="lbl-bg" x="372" y="588" width="456" height="24" rx="12"/>
+          <text class="fb-text" x="600" y="605" text-anchor="middle">性能数据与泳道图回流给开发者，定位瓶颈后回到源码调优</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="panel" aria-live="polite">
+      <div class="info">
+        <div class="hint">点击图中节点切换说明</div>
+        <div class="p-title"><h3 id="p-name"></h3><span class="alias" id="p-alias"></span></div>
+        <div class="tags" id="p-tags"></div>
+        <p class="p-def" id="p-def"></p>
+        <dl class="kv" id="p-kv"></dl>
+      </div>
+      <div class="code">
+        <div class="code-label" id="p-code-label">示例</div>
+        <pre id="p-code"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s2">
+    <div class="sec-head">
+      <h2 id="s2">数据怎么流动：Tensor 与 Tile</h2>
+      <p>Tensor 在片外全局内存（GM）里，算不动；每个 InCore 任务先把其中一块 load 到片上成为 Tile，在 AIC / AIV 上计算，再 store 回 GM。这是 PTO（Parallel Tensor/Tile Operation）范式的核心。</p>
+    </div>
+    <div class="figure">
+      <svg viewBox="0 0 1200 300" role="img" aria-labelledby="f2title" id="dataflow">
+        <title id="f2title">一个 InCore 任务中 Tensor 与 Tile 的数据流</title>
+        <defs>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-c"/></marker>
+        </defs>
+
+        <g data-k="tensor" tabindex="0" role="button" aria-label="GM 输入 Tensor">
+          <rect class="box" x="16" y="20" width="320" height="262" rx="14"/>
+          <text class="t" x="32" y="48">GM · 输入 Tensor</text>
+          <text class="m" x="32" y="68">a: pl.Tensor[[M, N], pl.FP32]</text>
+          <g id="grid-in"></g>
+          <text class="s" x="32" y="266">高亮的一块就是本次要 load 的数据</text>
+        </g>
+
+        <g class="badge c"><circle cx="393" cy="114" r="12"/><text x="393" y="118.5" text-anchor="middle">1</text></g>
+        <g class="badge c"><circle cx="805" cy="114" r="12"/><text x="805" y="118.5" text-anchor="middle">3</text></g>
+        <line class="ln c" x1="336" y1="160" x2="450" y2="160" marker-end="url(#ah2)"/>
+        <text class="m" x="393" y="146" text-anchor="middle">pl.load</text>
+        <text class="s" x="393" y="182" text-anchor="middle">GM → 片上</text>
+
+        <g class="c" data-k="tile" tabindex="0" role="button" aria-label="片上 Tile">
+          <rect class="box" x="452" y="20" width="296" height="262" rx="14"/>
+          <text class="t" x="468" y="48">片上内存 · AICore 内部</text>
+          <text class="s" x="468" y="68">UB（Vector 侧）· L1 / L0（Cube 侧）</text>
+          <rect class="tile-big" x="480" y="94" width="58" height="58" rx="4"/>
+          <path class="tile-grid" d="M509,94 V152 M480,123 H538"/>
+          <text class="m" x="509" y="168" text-anchor="middle">tile_a</text>
+          <rect class="tile-big" x="480" y="184" width="58" height="58" rx="4"/>
+          <path class="tile-grid" d="M509,184 V242 M480,213 H538"/>
+          <text class="m" x="509" y="258" text-anchor="middle">tile_b</text>
+          <line class="ln c" x1="538" y1="123" x2="582" y2="160"/>
+          <line class="ln c" x1="538" y1="213" x2="582" y2="182"/>
+          <circle class="op" cx="614" cy="170" r="34"/>
+          <text class="t" x="614" y="167" text-anchor="middle">计算</text>
+          <text class="m" x="614" y="184" text-anchor="middle">pl.add</text>
+          <line class="ln c" x1="648" y1="170" x2="666" y2="170" marker-end="url(#ah2)"/>
+          <rect class="tile-big" x="668" y="141" width="58" height="58" rx="4"/>
+          <path class="tile-grid" d="M697,141 V199 M668,170 H726"/>
+          <text class="m" x="697" y="216" text-anchor="middle">tile_c</text>
+        </g>
+        <g class="badge c"><circle cx="614" cy="112" r="12"/><text x="614" y="116.5" text-anchor="middle">2</text></g>
+
+        <line class="ln c" x1="748" y1="160" x2="862" y2="160" marker-end="url(#ah2)"/>
+        <text class="m" x="805" y="146" text-anchor="middle">pl.store</text>
+        <text class="s" x="805" y="182" text-anchor="middle">片上 → GM</text>
+
+        <g data-k="gm" tabindex="0" role="button" aria-label="GM 输出 Tensor">
+          <rect class="box" x="864" y="20" width="320" height="262" rx="14"/>
+          <text class="t" x="880" y="48">GM · 输出 Tensor</text>
+          <text class="m" x="880" y="68">c: pl.Out[pl.Tensor[[M, N], pl.FP32]]</text>
+          <g id="grid-out"></g>
+          <text class="s" x="880" y="266">结果写回对应位置，其余块由其他任务处理</text>
+        </g>
+      </svg>
+    </div>
+    <p class="caption">Tile 的形状和切法由你决定；编译器负责推断每个 Tile 放在哪块片上内存（<code>InferTileMemorySpace</code>）、分配地址（<code>AllocateMemoryAddr</code>），并把同时用到 Cube 和 Vector 的内核拆成 AIC / AIV 两部分（<code>ExpandMixedKernel</code>）。</p>
+  </section>
+
+  <section aria-labelledby="s3">
+    <div class="two">
+      <div style="display:grid; gap:14px; align-content:start; min-width:0">
+        <div class="sec-head">
+          <h2 id="s3">分层抽象：谁在哪一层工作</h2>
+          <p>同一套框架向不同角色暴露不同层级。</p>
+        </div>
+        <div class="layers">
+          <div class="layer"><div class="lv">Tensor 级</div><div><div class="who">算法开发者</div><div class="what">用 Tensor 级 API 快速实现和验证算法，专注算法逻辑，支持动态形状。</div></div></div>
+          <div class="layer"><div class="lv">Tile 级</div><div><div class="who">性能优化专家</div><div class="what">手动决定 Tile 切分、片上内存使用和核间分工，做深度调优。</div></div></div>
+          <div class="layer"><div class="lv">Block / 指令级</div><div><div class="who">系统开发者</div><div class="what">在 Tensor / Tile / Block 与 PTO 虚拟指令集层面对接第三方框架或开发工具链。</div></div></div>
+        </div>
+      </div>
+      <div style="display:grid; gap:14px; align-content:start; min-width:0">
+        <div class="sec-head">
+          <h2>五个仓库之间的契约</h2>
+          <p>每条边界都有一份明确的接口格式。</p>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>提供方 → 使用方</th><th>接口格式</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">pypto-lib → pypto</td><td>Python API：<code>pypto.language</code></td></tr>
+              <tr><td class="mono">pypto → PTOAS</td><td><code>.pto</code> 文件（PTO-ISA MLIR 方言）</td></tr>
+              <tr><td class="mono">pto-isa → PTOAS</td><td>C++ 头文件：tile 指令</td></tr>
+              <tr><td class="mono">pto-isa → simpler</td><td>C++ 头文件：ISA 定义</td></tr>
+              <tr><td class="mono">pypto → simpler</td><td>Orchestration C++（PTO2 runtime API）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    依据 PyPTO 源码镜像整理（2026-11-06）：<code>repo/pto/README.zh-CN.md</code>、<code>docs/zh-cn/dev/00-ecosystem.md</code>、<code>docs/zh-cn/user/01-language_guide.md</code>、<code>examples/hello_world.py</code>、<code>examples/models/01_ffn.py</code>，Pass 顺序取自 Pass 文档编号表。
+  </footer>
+</div>
+
+<script>
+(function () {
+  // Draw the 8x6 tensor grids with one highlighted 2x2 block.
+  function grid(id, x0, y0, out) {
+    var g = document.getElementById(id);
+    var ns = "http://www.w3.org/2000/svg";
+    var cell = 24, cols = 8, rows = 6;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var hit = (r === 2 || r === 3) && (c === 3 || c === 4);
+        var rect = document.createElementNS(ns, "rect");
+        rect.setAttribute("x", x0 + c * cell);
+        rect.setAttribute("y", y0 + r * cell);
+        rect.setAttribute("width", cell);
+        rect.setAttribute("height", cell);
+        rect.setAttribute("class", hit ? (out ? "blk-out" : "blk") : "grid-cell");
+        g.appendChild(rect);
+      }
+    }
+  }
+  grid("grid-in", 80, 92, false);
+  grid("grid-out", 928, 92, true);
+
+  var D = {
+    program: {
+      name: "PyPTO 程序", alias: "@pl.jit", tags: [["编写", ""], ["pypto.language", ""]],
+      def: "用 pypto.language（简称 pl）写的 Python 函数。@pl.jit 会按传入 torch 张量的 shape 和 dtype 特化、编译并缓存，直接像普通函数一样调用。",
+      kv: [["包含", "Orchestration 部分（调度）与 InCore 部分（计算）"], ["输入", "torch 张量"], ["下一步", "被解析成 IR"]],
+      code: "import pypto.language as pl\n\n@pl.jit\ndef tile_add(a: pl.Tensor, b: pl.Tensor,\n             c: pl.Out[pl.Tensor]):\n    with pl.at(level=pl.Level.CORE_GROUP):\n        ta = pl.load(a, [0, 0], [128, 128])\n        tb = pl.load(b, [0, 0], [128, 128])\n        pl.store(pl.add(ta, tb), [0, 0], c)\n    return c", label: "examples/hello_world.py"
+    },
+    orch: {
+      name: "Orchestration 函数", alias: "FunctionType.Orchestration", tags: [["调度路径", "o"], ["运行在 AICPU", "o"]],
+      def: "负责“怎么调度”：写循环、按块切分数据，把每一块的计算作为任务派发出去，任务之间的依赖由编译器推导。",
+      kv: [["编译成", "调用 PTO2 runtime API 的 C++"], ["运行在", "AICPU"], ["相关 Pass", "AutoDeriveTaskDependencies"]],
+      code: "@pl.jit\ndef ffn(x, w_gate, w_down, out: pl.Out[pl.Tensor]):\n    # 编排：先 matmul，再激活，再 matmul\n    matmul_kernel(x, w_gate, h)\n    gelu_kernel(h, act)\n    matmul_kernel(act, w_down, out)\n    return out", label: "示意，参考 examples/models/01_ffn.py"
+    },
+    incore: {
+      name: "InCore 函数", alias: "pl.at(CORE_GROUP) / @pl.jit.incore", tags: [["计算路径", "c"], ["运行在 AICore", "c"]],
+      def: "负责“怎么计算”：在一个 AICore 核组上执行的内核。把 GM 里的 Tensor 块 load 成片上 Tile，计算后 store 回 GM。",
+      kv: [["写法", "pl.at 作用域，或模块级 @pl.jit.incore"], ["编译成", ".pto 文件 → PTOAS → 内核 C++"], ["相关 Pass", "OutlineInCoreScopes、ExpandMixedKernel"]],
+      code: "@pl.jit.incore\ndef matmul_kernel(a: pl.Tensor, b: pl.Tensor,\n                  output: pl.Out[pl.Tensor]):\n    ta = pl.load(a, [0, 0], [64, 64],\n                 target_memory=pl.MemorySpace.Mat)\n    tb = pl.load(b, [0, 0], [64, 64],\n                 target_memory=pl.MemorySpace.Mat)\n    ...", label: "examples/models/01_ffn.py"
+    },
+    tensor: {
+      name: "Tensor", alias: "pl.Tensor[[shape], dtype]", tags: [["数据类型", ""], ["片外 GM", ""]],
+      def: "存放在片外全局内存（GM / DDR）中的数组，是程序的输入输出。算法开发者主要在 Tensor 级思考，支持 pl.dynamic 声明的动态维度。",
+      kv: [["位置", "GM 全局内存"], ["参数方向", "默认输入；pl.Out 输出；pl.InOut 读写"], ["变成 Tile", "通过 pl.load"]],
+      code: "M = pl.dynamic(\"M\")\n\nx: pl.Tensor[[64, 128], pl.FP32]\ny: pl.Tensor[[M, 128], pl.BF16]\nout: pl.Out[pl.Tensor[[64, 128], pl.FP32]]", label: "docs/zh-cn/user/01-language_guide.md"
+    },
+    tile: {
+      name: "Tile", alias: "pl.Tile[[shape], dtype]", tags: [["数据类型", ""], ["片上内存", "c"], ["PTO 核心", "c"]],
+      def: "放在片上内存中的硬件感知数据块，是所有计算的基本单位。Tile 切得合适，才能吃满 AICore 的并行算力并用好内存层级。",
+      kv: [["位置", "UB（Vector 侧）、L1 / L0（Cube 侧）"], ["产生", "pl.load 或 pl.tile.* 运算"], ["相关 Pass", "ConvertTensorToTileOps、InferTileMemorySpace"]],
+      code: "t: pl.Tile[[64, 64], pl.FP32]\n\ntile = pl.tile.load(tensor, [0, 0], [64, 64])\ntile = pl.tile.adds(tile, 1.0)\n\n# 统一接口按类型自动分发到 tensor.* / tile.*\nc = pl.add(a, b)", label: "docs/zh-cn/user/01-language_guide.md"
+    },
+    ir: {
+      name: "IR 中间表示", alias: "pypto.ir", tags: [["编译", ""], ["C++ 实现", ""]],
+      def: "Python DSL 被解析成一棵不可变的 IR 树。Tensor op、Tile op 和系统 op 共存其中，所有 Pass 都在它上面做变换。IR 定义是各层共同遵守的契约。",
+      kv: [["定义位置", "include/pypto/ir/"], ["编译入口", "pypto.ir.compile"], ["下一步", "进入 Pass 流水线"]],
+      code: "Python DSL\n  → IR（不可变树）\n  → Pass Pipeline（40+ passes）\n  → CodeGen", label: "docs/zh-cn/dev/00-ecosystem.md"
+    },
+    passes: {
+      name: "Pass 流水线", alias: "pass_manager.py", tags: [["编译", ""], ["40+ 个 Pass", ""]],
+      def: "一组按固定顺序执行的变换，把 Tensor 级 IR 逐步降低为 Tile 级 IR：SSA 化、抽出内核、Tensor 转 Tile、推断内存空间、拆分 AIC / AIV、分配内存、推导任务依赖等。",
+      kv: [["图中 7 个", "执行顺序第 4、8、10、16、19、31、35 个"], ["实现位置", "src/ir/transforms/"], ["配置", "PassContext"]],
+      code: "04 ConvertToSSA\n08 OutlineInCoreScopes\n10 ConvertTensorToTileOps\n16 InferTileMemorySpace\n19 ExpandMixedKernel\n31 AllocateMemoryAddr\n35 AutoDeriveTaskDependencies", label: "执行顺序（节选）"
+    },
+    codegen: {
+      name: "CodeGen 代码生成", alias: "src/codegen/", tags: [["编译", ""], ["两个后端", ""]],
+      def: "编译的最后一步，程序在这里分成两条路径：PTO 后端把每个 InCore 函数写成一个 .pto 文件；Orchestration 后端生成调度用的 C++。",
+      kv: [["InCore →", ".pto（运行在 AICore）"], ["Orchestration →", "C++（运行在 AICPU）"]],
+      code: "InCore 函数       → .pto → PTOAS → pto-isa → AICore 二进制\nOrchestration 函数 → C++ (PTO2 runtime API) → AICPU 二进制", label: "两条生成路径"
+    },
+    orchcpp: {
+      name: "Orchestration C++", alias: "PTO2 runtime API", tags: [["调度路径", "o"], ["产物", ""]],
+      def: "调度部分生成的 C++，调用 PTO2 runtime API 提交任务、登记外部张量。它是 pypto 与运行时 simpler 之间的接口契约。",
+      kv: [["生成方", "pypto Orchestration codegen"], ["使用方", "simpler 运行时"], ["运行在", "AICPU"]],
+      code: "// 生成代码中调用的运行时 API（示意）\nrt_submit_task(...);\nmake_tensor_external(...);", label: "PTO2 runtime API"
+    },
+    pto: {
+      name: ".pto 文件", alias: "PTO-ISA MLIR 方言", tags: [["计算路径", "c"], ["产物", ""]],
+      def: "每个 InCore 内核对应一个 .pto 文件，用 PTO 方言的 MLIR 描述 tile 级操作。它是 pypto 与 PTOAS 之间的契约，两边必须对方言定义保持一致。",
+      kv: [["生成方", "pypto PTO codegen"], ["使用方", "PTOAS"], ["典型 op", "pto.tload、pto.tmul、pto.alloc_tile"]],
+      code: "%t0 = pto.alloc_tile ...\npto.tload ...\npto.tmul ...\n// 示意：PTO 方言中的 tile 级操作", label: "PTO MLIR（示意）"
+    },
+    ptoas: {
+      name: "PTOAS 汇编器", alias: "hw-native-sys/PTOAS", tags: [["计算路径", "c"], ["独立仓库", ""]],
+      def: "基于 MLIR 的汇编器与优化器：解析 .pto，做 PTO 级优化（插入同步、内存规划），最后降成调用 pto-isa 指令的内核 C++。",
+      kv: [["输入", ".pto 文件"], ["输出", "#include pto-isa 的 C++"], ["之后", "设备编译器编出 AICore 二进制"]],
+      code: ".pto (PTO-ISA MLIR)\n  → 同步插入、内存规划\n  → kernel C++  (#include <pto-isa>)\n  → AICore 二进制", label: "PTOAS 流程"
+    },
+    ptoisa: {
+      name: "pto-isa", alias: "hw-native-sys/pto-isa", tags: [["指令集", ""], ["独立仓库", ""]],
+      def: "目标硬件的 tile 级指令集定义，以 C++ 头文件形式声明 load、store、compute、sync 等指令。新增一条 tile 指令需要 pto-isa、PTOAS、pypto 三方一起改。",
+      kv: [["使用方", "PTOAS 生成的 C++、simpler 运行时构建"], ["形式", "C++ 头文件库"]],
+      code: "// 指令类别\nload   store\ncompute\nsync", label: "tile 指令"
+    },
+    host: {
+      name: "Host", alias: "simpler · Host 程序", tags: [["执行", ""]],
+      def: "主机侧程序：加载编译好的 AICPU 与 AICore 二进制，准备设备内存和数据，启动执行。simpler 负责协调 Host、AICPU、AICore 三方。",
+      kv: [["运行时", "simpler"], ["协调", "Host ↔ AICPU ↔ AICore"]],
+      code: "from pypto.runtime import RunConfig\n\ntile_add(a, b, c, config=RunConfig())", label: "从 Python 触发执行"
+    },
+    aicpu: {
+      name: "AICPU", alias: "调度处理器", tags: [["调度路径", "o"], ["设备侧", ""]],
+      def: "运行 Orchestration 二进制：构建任务依赖图，任务的输入一旦就绪就派发给 AICore 执行。这就是 MPMD（多程序多数据）调度。",
+      kv: [["执行", "Orchestration C++ 编出的二进制"], ["调度方式", "MPMD，按依赖派发"]],
+      code: "task graph:\n  matmul(x, w_gate) ─► gelu ─► matmul(·, w_down)\n  依赖就绪 → 派发到空闲核组", label: "任务依赖图（示意）"
+    },
+    aicore: {
+      name: "AICore 核组", alias: "Level.CORE_GROUP", tags: [["计算路径", "c"], ["设备侧", ""]],
+      def: "执行 InCore 内核的计算单元。一个核组例如 1 个 AIC（Cube 核，做矩阵运算）加 2 个 AIV（Vector 核，做向量运算）；混合内核由 ExpandMixedKernel 拆成两部分分别运行。",
+      kv: [["AIC", "Cube 核：matmul 等矩阵运算"], ["AIV", "Vector 核：逐元素、归约等"], ["层级", "AIV / AIC / CORE_GROUP …"]],
+      code: "with pl.at(level=pl.Level.CORE_GROUP):\n    ...  # 在一个核组上执行", label: "指定执行层级"
+    },
+    gm: {
+      name: "GM 全局内存", alias: "Global Memory / DDR", tags: [["内存", ""]],
+      def: "设备上的片外全局内存，Tensor 存放在这里。InCore 任务通过 load / store 在 GM 和片上内存之间搬运数据。",
+      kv: [["存放", "输入、输出、中间 Tensor"], ["搬运", "pl.load / pl.store"]],
+      code: "tile = pl.load(a, [r, c], [h, w])   # GM → 片上\npl.store(tile, [r, c], out)          # 片上 → GM", label: "数据搬运"
+    },
+    feedback: {
+      name: "性能反馈回路", alias: "toolchain · profiling", tags: [["调优", ""]],
+      def: "完整的编译产物和运行时性能数据可以通过 IDE 集成工具链可视化（例如泳道图），用来识别瓶颈；开发者也可以通过工具链控制编译和调度行为，再回到源码调整切分与调度。",
+      kv: [["看什么", "编译产物、各 Pass 结果、运行时泳道图"], ["改什么", "Tile 切分、调度方式、编译选项"]],
+      code: "运行 → 采集性能数据 → 泳道图定位瓶颈\n    ↑                          │\n    └──── 调整 Tile / 调度 ◄────┘", label: "调优循环"
+    }
+  };
+
+  var nodes = document.querySelectorAll("[data-k]");
+  var el = function (id) { return document.getElementById(id); };
+
+  function select(k) {
+    var d = D[k];
+    if (!d) return;
+    nodes.forEach(function (n) { n.classList.toggle("sel", n.getAttribute("data-k") === k); });
+    el("p-name").textContent = d.name;
+    el("p-alias").textContent = d.alias;
+    el("p-def").textContent = d.def;
+    var tags = el("p-tags"); tags.textContent = "";
+    d.tags.forEach(function (t) {
+      var s = document.createElement("span"); s.className = "tag" + (t[1] ? " " + t[1] : ""); s.textContent = t[0]; tags.appendChild(s);
+    });
+    var kv = el("p-kv"); kv.textContent = "";
+    d.kv.forEach(function (p) {
+      var dt = document.createElement("dt"); dt.textContent = p[0];
+      var dd = document.createElement("dd"); dd.textContent = p[1];
+      kv.appendChild(dt); kv.appendChild(dd);
+    });
+    el("p-code-label").textContent = d.label;
+    el("p-code").textContent = d.code;
+  }
+
+  nodes.forEach(function (n) {
+    var k = n.getAttribute("data-k");
+    n.addEventListener("click", function () { select(k); });
+    n.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(k); }
+    });
+  });
+
+  select("incore");
+})();
+</script>
+</body>
+</html>

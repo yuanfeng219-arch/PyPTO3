@@ -1,0 +1,25 @@
+.qk-inline-pipeline .qk-pipe-event,.qk-inline-pipeline .qk-inline-control{cursor:pointer}
+.event[data-incore="true"]:hover .block-body,.event[data-incore="true"]:focus-visible .block-body{fill:#63e6b3}
+.qk-inline-pipeline .qk-pipe-event,.qk-inline-pipeline .qk-inline-control,.qk-inline-pipeline .qk-round-label{user-select:none;-webkit-user-select:none}
+.qk-inline-pipeline .qk-pipe-event:hover>rect,.qk-inline-pipeline .qk-pipe-event:focus>rect{stroke:var(--selection);stroke-width:2}
+.qk-inline-pipeline .qk-inline-control:hover>rect,.qk-inline-pipeline .qk-inline-control:focus>rect{stroke:var(--boundary);fill:var(--raised)}
+.qk-inline-pipeline .qk-inline-control[aria-disabled="true"]{cursor:default}
+.qk-inline-pipeline .qk-inline-control[aria-disabled="true"]:hover>rect{fill:transparent;stroke:none}
+.qk-inline-pipeline.qk-enter{animation:qk-panel-enter 180ms ease-out both}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage]:not(.stage-related){opacity:.25}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage]:hover,.qk-inline-pipeline .qk-pipe-event[data-qk-stage]:focus-visible,.qk-inline-pipeline .qk-pipe-event.selected{opacity:1}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage].pair-related{opacity:.7}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage].dependency-related,.qk-inline-pipeline .qk-pipe-event[data-qk-stage].selected{opacity:1}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage].qk-skew-linked{opacity:1}
+.qk-inline-pipeline .qk-pipe-event.qk-skew-linked>rect:first-child{stroke:#ddd;stroke-width:1.5}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage].qk-skew-linked:not(.evo-primary-link):not(.selected){opacity:.65}
+#lane .qk-inline-control:hover>rect{stroke:none;fill:#454545}
+#lane .qk-inline-control[aria-pressed="true"]>rect{fill:#e0e0e0;stroke:none}
+#lane .qk-inline-control[aria-disabled="true"]:hover>rect{fill:transparent;stroke:none}
+#lane .qk-inline-control:focus-visible>rect{stroke:#aaa;stroke-width:1.5}
+
+#lane .qk-long-block:hover .qk-inline-entry,#lane .qk-long-block:focus-visible .qk-inline-entry{fill:#80edc2}
+#lane .qk-long-block[aria-expanded="true"]:hover .qk-inline-entry{fill:#a0f3d4}
+.qk-inline-pipeline .qk-inline-control:focus,.qk-inline-pipeline .qk-inline-control:focus-visible{outline:none!important}.inline-pass-controls [role=button]:focus{outline:none!important}
+.inline-pass-controls .inline-pass-button>rect,.inline-pass-controls .inline-pass-button:hover>rect,.inline-pass-controls .inline-pass-button:focus>rect{stroke:none!important;stroke-width:0!important}
+body.core-pipeline-active #lane .qk-inline-entry{fill:#63e6b3!important}body.core-pipeline-active #lane .qk-long-outline{stroke:#555!important;fill:none!important}body.core-pipeline-active #lane .task-analysis-area,body.core-pipeline-active #lane #compile-event-preview,body.core-pipeline-active #lane #compile-finding-tag{display:none}
