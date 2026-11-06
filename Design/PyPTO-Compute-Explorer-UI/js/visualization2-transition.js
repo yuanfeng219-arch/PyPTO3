@@ -79,7 +79,7 @@
       if(!state.open||state.activeTab===to||media.matches)return null;
       const from=state.activeTab;
       const assignmentPipeline=(from==='assignment'&&to==='pipeline')||(from==='pipeline'&&to==='assignment');
-      const pipelineGraph=from==='pipeline'&&to==='graph';
+      const pipelineGraph=(from==='pipeline'&&to==='graph')||(from==='graph'&&to==='pipeline');
       const assignmentGraph=(from==='assignment'&&to==='graph')||(from==='graph'&&to==='assignment');
       if(!assignmentPipeline&&!pipelineGraph&&!assignmentGraph)return null;
       if(assignmentGraph&&state.views.assignment.phase!=='attention')return null;
@@ -91,7 +91,7 @@
       job={id:++serial,from,to,source,selection:state.selection,focus,frame:0,phase:'preparing'};
       // Keep a frozen source visible while the destination measures itself. Canvas
       // pixels must be copied explicitly: cloneNode alone leaves them empty.
-      if(assignmentGraph){
+      if(assignmentGraph||(pipelineGraph&&from==='graph')){
         root.classList.add('viz2-morph-preparing');root.dataset.morphDestination=to;
         return job;
       }
@@ -160,25 +160,32 @@
       frame(started);
     }
     function startPipelineGraph(current){
-      const target=getGraph()?.getBlockTransitionSnapshot();
+      const forward=current.to==='graph';
+      const target=forward?getGraph()?.getBlockTransitionSnapshot():getPipeline()?.getTransitionSnapshot();
       if(!target?.blocks.length){cancel();return;}
       const origin=originRect(),style=getComputedStyle(root),color=name=>style.getPropertyValue(name).trim();
-      const sources=new Map(current.source.blocks.map(block=>[block.id,block]));
-      const visible=block=>block.rect.y+block.rect.height>current.source.clip.y&&block.rect.y<current.source.clip.y+current.source.clip.height;
-      const mapping=target.blocks.filter(block=>sources.has(block.id)&&visible(sources.get(block.id))).map(block=>({source:sources.get(block.id),target:block}));
-      const overlay=el('svg',{class:'viz2-transition-overlay',width:origin.width,height:origin.height,'aria-hidden':'true','data-direction':'pipeline-graph'},root);
+      const pipeline=forward?current.source:target,graph=forward?target:current.source;
+      const normalize=r=>({x:r.x??r.left,y:r.y??r.top,width:r.width,height:r.height});
+      const sources=new Map(pipeline.blocks.map(block=>[block.id,block]));
+      const visible=block=>block.rect.y+block.rect.height>pipeline.clip.y&&block.rect.y<pipeline.clip.y+pipeline.clip.height;
+      const mapping=graph.blocks.filter(block=>sources.has(block.id)&&visible(sources.get(block.id))).map(block=>{
+        const lane=sources.get(block.id);
+        return {source:{...(forward?lane:block),rect:normalize(forward?lane.rect:block.rect)},
+          target:{...(forward?block:lane),rect:normalize(forward?block.rect:lane.rect)},stage:block.stage};
+      });
+      const overlay=el('svg',{class:'viz2-transition-overlay',width:origin.width,height:origin.height,'aria-hidden':'true','data-direction':forward?'pipeline-graph':'graph-pipeline'},root);
       current.overlay=overlay;
       const items=mapping.map(pair=>{
         const selected=pair.source.id===current.selection?.block;
-        const group=el('g',{'data-morph-block':pair.source.id,'data-morph-stage':pair.target.stage||''},overlay);
+        const group=el('g',{'data-morph-block':pair.source.id,'data-morph-stage':pair.stage||''},overlay);
         const box=el('rect',{rx:4,fill:selected?color('--state-selected'):color('--surface-3'),stroke:selected?color('--primary'):color('--border-subtle')},group);
         const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:selected?color('--foreground'):color('--foreground-secondary'),'font-family':color('--font-mono'),'font-size':12},group);
         label.textContent=String(pair.source.id).padStart(2,'0');return {...pair,box,label};
       });
-      mask('graph',true);root.classList.remove('viz2-morph-preparing');
-      const destination=root.querySelector('#viz2-graph');
-      current.animations=[current.hold.animate([{opacity:1},{opacity:0}],{duration:420,fill:'both',easing:'ease-in-out'}),
-        destination.animate([{opacity:0},{opacity:1}],{duration:700,fill:'both',easing:'ease-in-out'})];
+      mask(current.to,true);root.classList.remove('viz2-morph-preparing');
+      const destination=root.querySelector('#viz2-'+current.to);
+      current.animations=[destination.animate([{opacity:0},{opacity:1}],{duration:700,fill:'both',easing:'ease-in-out'})];
+      if(current.hold)current.animations.push(current.hold.animate([{opacity:1},{opacity:0}],{duration:420,fill:'both',easing:'ease-in-out'}));
       current.phase='animating';const started=performance.now(),duration=760;
       function frame(now){
         if(job!==current)return;
@@ -197,7 +204,7 @@
     function start(current){
       if(job!==current)return;
       if((current.from==='assignment'&&current.to==='graph')||(current.from==='graph'&&current.to==='assignment')){startAssignmentGraph(current);return;}
-      if(current.from==='pipeline'&&current.to==='graph'){startPipelineGraph(current);return;}
+      if((current.from==='pipeline'&&current.to==='graph')||(current.from==='graph'&&current.to==='pipeline')){startPipelineGraph(current);return;}
       const forward=current.to==='pipeline';
       let focus=forward?focusBlock(current.source,current.selection?.block):current.focus;
       if(forward&&focus!==null)getPipeline()?.ensureTransitionBlockVisible(focus);
