@@ -104,11 +104,11 @@ function evolutionMarkup(e){
 }
 function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
  host.classList.add('viz2-compute');
- host.innerHTML=global.PtoComputeDetailControls.identity()+'<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>';
+ window.PtoPhotoNarrative.html(host,global.PtoComputeDetailControls.identity()+'<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>');
  const toolbar=host.querySelector('[data-compute-toolbar]');
- toolbar.innerHTML=global.PtoComputeDetailControls.parameter();
+ window.PtoPhotoNarrative.html(toolbar,global.PtoComputeDetailControls.parameter());
  const syncScenario=global.PtoComputeDetailControls.connect(host,scenario);
- host.querySelector('[data-compute-identity]').innerHTML=global.PtoComputeDetailControls.picker(model);
+ window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),global.PtoComputeDetailControls.picker(model));
  let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null;
  const canvas=host.querySelector('.viz2-compute-canvas');
  let sourceTask=task,isCustom=false;
@@ -117,7 +117,7 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
  const pageRange=toolbar.querySelector('[data-page-range]');pageRange.addEventListener('input',()=>configurePages(pageRange.value));
  function configurePages(value){
   const result=scenario.edit('pages',value),error=toolbar.querySelector('[data-page-error]');
-  error.textContent=result.error||'';if(result.error)pageInput.setAttribute('aria-invalid','true');else pageInput.removeAttribute('aria-invalid');
+  window.PtoPhotoNarrative.text(error,result.error||'');if(result.error)pageInput.setAttribute('aria-invalid','true');else pageInput.removeAttribute('aria-invalid');
  }
  pageInput.addEventListener('input',()=>configurePages(pageInput.value));
  toolbar.addEventListener('click',e=>{const b=e.target.closest('[data-page-step]');if(b)configurePages(task.pageCount+Number(b.dataset.pageStep));});
@@ -201,7 +201,7 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
   return `<section class="viz2-page-instances"><h3>Page Instances · ${task.pageCount}</h3><p>Per Task / AIC · 每 Page 一次逻辑贡献；源码静态推导，物理 Cache Page ID 未知。</p>${groups.map(group=>`<div class="viz2-page-instance-group"><b>S${group.index}</b><div>${group.pages.map(page=>`<button class="btn btn-ghost btn-sm ${selected?.index===page.index?'is-selected':''}" data-compute-instance-page="${page.index}" aria-pressed="${selected?.index===page.index}" title="${esc(page.api)}">P${page.index}${root==='pv'?` · ${page.api.replace('pl.','')}`:''}</button>`).join('')}</div></div>`).join('')}${selected?`<section><h3>P${selected.index} · S${selected.stack}</h3><dl>${[['Page Index',selected.index],['有效 Token',`${selected.tokens} / ${task.pageTokens}`],['输入',selected.input],['计算',selected.api],['输出',selected.output]].map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl><button class="btn btn-ghost btn-sm" data-compute-source="${line}">PyPTO 源码 :${line}</button><pre data-compute-code hidden></pre></section>`:''}</section>`;
  }
  const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
-  alwaysExecution:true,initialMinScale:.5,initialAlignStart:true,getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
+  narrativeTask:()=>task,alwaysExecution:true,initialMinScale:.5,initialAlignStart:true,getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
   stageLabel:g=>`<b>${esc(g.label)}</b>`,
   context:()=> 'Static Execution Weight · AIC / 每 AIV Lane 分别统计 · 非耗时',
   hasInspector:()=>!!focus,
@@ -245,17 +245,17 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
   const effective=scenario.task('graph',id)||sourceTask;
   const changed=task!==effective;task=effective;isCustom=!!scenario.get()?.isCustom;
   focus=f;view=v;active=!!next;hover=null;
-  if(changed){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};toolbar.querySelector('[data-page-error]').textContent='';pageInput.removeAttribute('aria-invalid');}
+  if(changed){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');pageInput.removeAttribute('aria-invalid');}
   maxPages=scenario.limits().pages;pageInput.max=pageRange.max=maxPages;
   if((Number.isInteger(f?.stackIndex)&&f.stackIndex>=task.stackCount)||(f?.kind==='stack'&&f.index>=task.stackCount)||(f?.kind==='page'&&f.index>=task.pageCount)){focus=null;f=null;v={...v,intraInspectorOpen:false};}
   if(active){
    syncScenario();
-   host.querySelector('[data-compute-task]').dataset.displayLabel=isCustom?'Task N':`Task ${task.id}`;
-   host.querySelector('[data-compute-owner]').textContent=isCustom?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
-   host.querySelector('[data-compute-facts]').textContent=isCustom?`Batch N\n${task.seqLen} tokens`:`Batch ${task.batch}\n${task.seqLen} tokens`;
-   pageInput.value=task.pageCount;pageRange.value=task.pageCount;toolbar.querySelector('[data-stack-count]').textContent=task.stackCount;toolbar.querySelector('[data-page-step="-1"]').disabled=task.pageCount<=1;toolbar.querySelector('[data-page-step="1"]').disabled=task.pageCount>=maxPages;
-   toolbar.querySelector('[data-page-summary]').textContent=isCustom?'Custom · 模拟执行次数':'';
-   host.querySelector('[data-compute-task]').value=task.id;toolbar.querySelector('[data-compute-context]').textContent=`Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.pageCount} Pages / ${task.stackCount} Stacks / ${task.tickCount} logical ticks`;
+   window.PtoPhotoNarrative.attr(host.querySelector('[data-compute-task]'),'data-display-label',`Task ${task.id}`);
+   window.PtoPhotoNarrative.text(host.querySelector('[data-compute-owner]'),`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`);
+   window.PtoPhotoNarrative.text(host.querySelector('[data-compute-facts]'),`Batch ${task.batch}\n${task.seqLen} tokens`);
+   pageInput.value=task.pageCount;pageRange.value=task.pageCount;window.PtoPhotoNarrative.text(toolbar.querySelector('[data-stack-count]'),task.stackCount);toolbar.querySelector('[data-page-step="-1"]').disabled=task.pageCount<=1;toolbar.querySelector('[data-page-step="1"]').disabled=task.pageCount>=maxPages;
+   window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-summary]'),isCustom?'Custom · 模拟执行次数':'');
+   host.querySelector('[data-compute-task]').value=task.id;window.PtoPhotoNarrative.text(toolbar.querySelector('[data-compute-context]'),`Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.pageCount} Pages / ${task.stackCount} Stacks / ${task.tickCount} logical ticks`);
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));
   shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||(v.intraOverlays?.sync??true),execution:true},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});

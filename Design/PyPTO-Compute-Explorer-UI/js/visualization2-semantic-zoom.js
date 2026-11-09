@@ -32,8 +32,8 @@
       const overlay=make('svg',{class:'viz2-semantic-overlay',width:o.width,height:o.height,'aria-hidden':'true','data-semantic-task':current.id,'data-direction':current.direction});
       current.overlay=overlay;root.append(overlay);
       const frame=make('rect',{rx:4,fill:color('--surface-3'),stroke:color('--foreground'),'stroke-width':1.5},overlay);
-      const prefix=make('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},overlay);prefix.textContent='Task ';
-      const number=make('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},overlay);number.textContent=current.id;
+      const prefix=make('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},overlay);window.PtoPhotoNarrative.text(prefix,'Task ');
+      const number=make('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},overlay);window.PtoPhotoNarrative.text(number,current.id);
       const qRows=matrix.qRows.map((source,index)=>({source,target:anatomy.qRows[index],node:make('rect',{fill:color('--ai-data-fill'),rx:1},overlay)}));
       const cells=new Map(anatomy.cells.map(cell=>[cell.key,cell.rect]));
       const parts=[];

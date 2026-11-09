@@ -66,16 +66,16 @@
     const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const listeners=new AbortController(),listen=(el,type,fn,options={})=>el.addEventListener(type,fn,{...options,signal:listeners.signal});
     host.classList.add('viz2-anatomy','viz2-compute','viz2-assignment-detail');
-    host.innerHTML=`${global.PtoComputeDetailControls.identity()}<div class="compute-parameter-control compute-sequence-control" data-compute-toolbar></div><button class="btn btn-ghost btn-sm" data-anatomy-back>← 返回 Block 间</button>
+    window.PtoPhotoNarrative.html(host,`${global.PtoComputeDetailControls.identity()}<div class="compute-parameter-control compute-sequence-control" data-compute-toolbar></div><button class="btn btn-ghost btn-sm" data-anatomy-back>← 返回 Block 间</button>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
         <div class="viz2-anatomy-viewport" role="region" tabindex="0" aria-label="当前 Task KV Cache，纵向浏览 Stacks"><div class="viz2-anatomy-track" data-anatomy-track></div></div>
         <section class="viz2-anatomy-query" aria-label="固定 Q Tile 结构模板"><div data-anatomy-query></div><p>结构模板 · 各 Batch 使用各自的 Q 数据</p></section>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
         <footer class="viz2-anatomy-footer"><span>有效数据 <i class="viz2-anatomy-key"></i>未用容量 <i class="viz2-anatomy-key is-capacity"></i><small>纵向浏览 Stacks</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-anatomy-zoom="0.8" aria-label="缩小 KV Cache">−</button><output data-anatomy-scale>100%</output><button class="btn btn-ghost btn-sm" data-anatomy-zoom="1.25" aria-label="放大 KV Cache">＋</button><button class="btn btn-ghost btn-sm" data-anatomy-fit>适应</button></div></footer></div>
-        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="Task 数据详情" hidden><header class="pto-ide-frame__pane-header"><b data-anatomy-title></b><button class="btn btn-ghost btn-sm" data-anatomy-close aria-label="关闭数据详情">×</button></header><div class="pto-ide-frame__pane-body" data-anatomy-detail></div></aside></div>`;
+        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="Task 数据详情" hidden><header class="pto-ide-frame__pane-header"><b data-anatomy-title></b><button class="btn btn-ghost btn-sm" data-anatomy-close aria-label="关闭数据详情">×</button></header><div class="pto-ide-frame__pane-body" data-anatomy-detail></div></aside></div>`);
     const controls=global.PtoComputeDetailControls,toolbar=host.querySelector('[data-compute-toolbar]');
-    toolbar.innerHTML=controls.sequence();
-    host.querySelector('[data-compute-identity]').innerHTML=controls.picker(model,'Assignment Task');
+    window.PtoPhotoNarrative.html(toolbar,controls.sequence());
+    window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),controls.picker(model,'Assignment Task'));
     const syncScenario=controls.connect(host,scenario);
     const input=toolbar.querySelector('[data-compute-pages]'),range=toolbar.querySelector('[data-page-range]');
     input.max=range.max=global.PtoPagedAttentionIntro.model.constants.maxSeq;
@@ -96,14 +96,14 @@
     }
     function build(){
       const height=task.q.shape[0]*9+20;
-      query.innerHTML=`<h3>Q Tile</h3><svg class="viz2-anatomy-svg" viewBox="0 0 190 ${height}" style="height:auto" aria-label="Q Tile 结构模板">${object('q',0,'Q Tile 结构模板',rect(0,0,190,height,'class="viz2-anatomy-q-boundary"')+Array.from({length:task.q.shape[0]},(_,row)=>rect(16,10+row*9,158,7,`class="${row<task.qHeads.length?'viz2-anatomy-valid':'viz2-anatomy-empty'}" ${row<task.qHeads.length?`data-anatomy-q-row="${row}"`:''}`)).join(''))}</svg><b>Q Heads ${task.qHeads[0]}–${task.qHeads.at(-1)}</b><p>Tile Shape · ${task.q.shape.join(' × ')}</p><p>Valid Shape · ${task.q.validShape.join(' × ')}</p>`;
-      track.innerHTML=card(task);cards=[...track.children];
+      window.PtoPhotoNarrative.html(query,`<h3>Q Tile</h3><svg class="viz2-anatomy-svg" viewBox="0 0 190 ${height}" style="height:auto" aria-label="Q Tile 结构模板">${object('q',0,'Q Tile 结构模板',rect(0,0,190,height,'class="viz2-anatomy-q-boundary"')+Array.from({length:task.q.shape[0]},(_,row)=>rect(16,10+row*9,158,7,`class="${row<task.qHeads.length?'viz2-anatomy-valid':'viz2-anatomy-empty'}" ${row<task.qHeads.length?`data-anatomy-q-row="${row}"`:''}`)).join(''))}</svg><b>Q Heads ${task.qHeads[0]}–${task.qHeads.at(-1)}</b><p>Tile Shape · ${task.q.shape.join(' × ')}</p><p>Valid Shape · ${task.q.validShape.join(' × ')}</p>`);
+      window.PtoPhotoNarrative.html(track,card(task));cards=[...track.children];
     }
     function paint(){
       if(!active||!task)return;
       const svg=track.querySelector('svg');
       svg.style.width=`${368*scale}px`;svg.style.height=`${Math.max(84,task.stacks.length*104)*scale}px`;
-      host.querySelector('[data-anatomy-scale]').textContent=`${Math.round(scale*100)}%`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-anatomy-scale]'),`${Math.round(scale*100)}%`);
     }
     function describe(t,kind,index){
       if(kind==='q')return `结构模板 · Q Heads ${t.qHeads[0]}–${t.qHeads.at(-1)} · 各 Batch 的 Q 数值独立`;
@@ -122,12 +122,17 @@
       const valid=focus?.kind==='q'||focus?.kind==='page'&&task.pages[focus.index]||focus?.kind==='stack'&&task.stacks[focus.index];
       inspector.hidden=!open||!valid;if(inspector.hidden)return;
       const {kind,index}=focus;
-      host.querySelector('[data-anatomy-title]').textContent=kind==='q'?'Q Tile 结构模板':`${kind==='page'?'逻辑 Page':'Stack'} ${index}`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-anatomy-title]'),kind==='q'?'Q Tile 结构模板':`${kind==='page'?'逻辑 Page':'Stack'} ${index}`);
       let rows;
       if(kind==='q')rows=[['Q Heads',task.qHeads.join(', ')],['Tile Shape',task.q.shape.join(' × ')],['Valid Shape',task.q.validShape.join(' × ')],['数据语义','共用结构示意；不同 Batch 的 Q Tensor 数值独立']];
       else if(kind==='page'){const p=task.pages[index];rows=[['逻辑 Page Index',index],['有效 Token',`${p.tokens} / ${task.pageTokens}`],['Stack',p.stack],['物理 Page ID',p.physicalId===null?'未知 · 未提供实际 block_table 数据':p.physicalId]];}
       else {const stack=task.stacks[index];rows=[['Stack ID',index],['有效 Token',`${stack.tokens} / ${task.stackTokens}`],['逻辑 Pages',stack.pages.join(', ')],['未用容量',`${task.stackTokens-stack.tokens} tokens`]];}
-      host.querySelector('[data-anatomy-detail]').innerHTML=`<p>${scenario.get().isCustom?'Task N · Batch N · KV Head N':`Task ${task.id} · Batch ${task.batch} · KV Head ${task.kvHead}`}</p><dl>${rows.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>`;
+      if(global.PtoPhotoNarrative.enabled){
+        if(kind==='q')rows=[['匹配子项',task.qHeads.map(id=>'子项 '+id).join('、')],['当前顾客',task.batch+1],['用途','每张工单使用这 5 个子项匹配同一主题的照片；各位顾客的匹配条件独立。']];
+        else if(kind==='page'){const p=task.pages[index];rows=[['标准照片包',p.index+1],['有效照片',`${p.tokens} / ${task.pageTokens} 张`],['所属处理批次',p.stack+1],['原始存放位置','未提供']];}
+        else {const batch=task.stacks[index];rows=[['处理批次',batch.index+1],['有效照片',`${batch.tokens} / ${task.stackTokens} 张`],['标准照片包',batch.pages.map(i=>i+1).join('、')],['周转台位',batch.slot],['未用容量',`${task.stackTokens-batch.tokens} 张`]];}
+      }
+      window.PtoPhotoNarrative.html(host.querySelector('[data-anatomy-detail]'),`<p>${`Task ${task.id} · Batch ${task.batch} · KV Head ${task.kvHead}`}</p><dl>${rows.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>`);
     }
     function update(id,nextFocus,nextCamera,{active:visible,inspectorOpen=false}={}){
       active=!!visible;if(!active){tooltip.hidden=true;return;}
@@ -136,19 +141,19 @@
       focus=nextFocus;
       if((focus?.kind==='page'&&!task.pages[focus.index])||(focus?.kind==='stack'&&!task.stacks[focus.index]))focus=null;
       scale=Math.max(.25,Math.min(2,nextCamera?.scale||1));
-      if(changed){build();toolbar.querySelector('[data-page-error]').textContent='';input.removeAttribute('aria-invalid');}
-      const s=scenario.get(),picker=host.querySelector('[data-compute-task]');picker.value=id;picker.dataset.displayLabel=s.isCustom?'Task N':`Task ${id}`;
-      host.querySelector('[data-compute-owner]').textContent=s.isCustom?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
-      host.querySelector('[data-compute-facts]').textContent=`Batch ${s.isCustom?'N':task.batch}\n${s.effectiveSeqLen} tokens`;
+      if(changed){build();window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');input.removeAttribute('aria-invalid');}
+      const s=scenario.get(),picker=host.querySelector('[data-compute-task]');picker.value=id;window.PtoPhotoNarrative.attr(picker,'data-display-label',`Task ${id}`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-compute-owner]'),`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-compute-facts]'),`Batch ${task.batch}\n${s.effectiveSeqLen} tokens`);
       input.value=range.value=s.effectiveSeqLen;
-      toolbar.querySelector('[data-sequence-pages]').textContent=s.pageCount;
-      toolbar.querySelector('[data-sequence-stacks]').textContent=s.stackCount;
+      window.PtoPhotoNarrative.text(toolbar.querySelector('[data-sequence-pages]'),s.pageCount);
+      window.PtoPhotoNarrative.text(toolbar.querySelector('[data-sequence-stacks]'),s.stackCount);
       toolbar.querySelector('[data-page-step="-1"]').disabled=s.effectiveSeqLen<=1;
       toolbar.querySelector('[data-page-step="1"]').disabled=s.effectiveSeqLen>=Number(input.max);
-      toolbar.querySelector('[data-page-summary]').textContent=s.isCustom?'Custom · 模型推导数据组织':'';
+      window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-summary]'),s.isCustom?'Custom · 模型推导数据组织':'');
       syncScenario();paint();paintFocus();paintInspector(inspectorOpen);
     }
-    function configure(value){const result=scenario.edit('sequence',value);toolbar.querySelector('[data-page-error]').textContent=result.error||'';if(result.error)input.setAttribute('aria-invalid','true');else input.removeAttribute('aria-invalid');}
+    function configure(value){const result=scenario.edit('sequence',value);window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),result.error||'');if(result.error)input.setAttribute('aria-invalid','true');else input.removeAttribute('aria-invalid');}
     listen(input,'input',()=>configure(input.value));listen(range,'input',()=>configure(range.value));
     listen(host.querySelector('[data-compute-task]'),'change',event=>onTask(Number(event.target.value)));
     function zoom(factor){onCamera(task.id,{scale:Math.max(.25,Math.min(2,scale*factor)),x:0,y:0});}
@@ -167,7 +172,7 @@
     listen(viewport,'wheel',event=>{if(event.ctrlKey||event.metaKey){event.preventDefault();zoom(Math.exp(-event.deltaY*.002));}},{passive:false});
     listen(host,'pointermove',event=>{
       if(!active)return;const object=event.target.closest('[data-anatomy-kind]');tooltip.hidden=!object;if(!object)return;
-      tooltip.textContent=describe(task,object.dataset.anatomyKind,Number(object.dataset.anatomyIndex));
+      window.PtoPhotoNarrative.text(tooltip,describe(task,object.dataset.anatomyKind,Number(object.dataset.anatomyIndex)));
       const r=host.querySelector('.viz2-anatomy-workspace').getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;
     });
     listen(host,'pointerleave',()=>{tooltip.hidden=true;});

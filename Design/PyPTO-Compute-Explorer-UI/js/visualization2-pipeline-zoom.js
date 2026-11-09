@@ -25,7 +25,7 @@
       const frame=make('rect',{fill:color('--surface-3'),rx:4,stroke:color('--foreground'),'stroke-width':1},overlay);
       const output=make('rect',{fill:color('--surface-3'),stroke:color('--accent'),'stroke-width':1.5,rx:3},overlay);
       const outputFill=make('rect',{fill:color('--accent'),rx:3},overlay);
-      const label=make('text',{fill:color('--foreground'),'font-family':color('--font-mono'),'text-anchor':'middle','dominant-baseline':'central'},overlay);label.textContent=`Task ${current.id}`;
+      const label=make('text',{fill:color('--foreground'),'font-family':color('--font-mono'),'text-anchor':'middle','dominant-baseline':'central'},overlay);window.PtoPhotoNarrative.text(label,`Task ${current.id}`);
       const segments=b.stacks.map(s=>({source:{...a.rect,x:a.rect.x+a.rect.width*s.index/b.stacks.length,width:a.rect.width/b.stacks.length},target:s.rect,fraction:b.model.stacks[s.index].tokens/b.model.stackTokens,
         track:make('rect',{fill:color('--surface-4'),rx:3},overlay),fill:make('rect',{fill:color('--primary'),rx:3},overlay)}));
       overlay.append(label);

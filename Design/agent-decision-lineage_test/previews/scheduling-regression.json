@@ -1,0 +1,46 @@
+{
+  "viewports": [
+    "1440x900",
+    "1600x900"
+  ],
+  "results": [
+    {
+      "boundary": "BLOCK ANATOMY\nBlock 0 · 2 个本地工作项\nIteration 0 · Tile 0 · rows 0–2 · 3 行 · in0 / out0\nIteration 1 · Tile 2 · rows 6–6 · 1 行 · in1 / out1\n\n当前 Tile 2 · valid [1,200] → Block 0 → Iteration 1 → in1 / out1\n\nLoad → Pass 1 · Max → Pass 2 · Exp + Sum → Pass 3 · Exp + Divide → Store\n\n查看 UB Buffer ↗\nUB 页面展示独立的首项示例，不继承此处的核数假设。"
+    },
+    {
+      "blocks": [
+        "Block 0Tile 0 → Tile 4 → Tile 8",
+        "Block 1Tile 1 → Tile 5 → Tile 9",
+        "Block 2Tile 2 → Tile 6 → Tile 10",
+        "Block 3Tile 3 → Tile 7"
+      ]
+    },
+    {
+      "tile6": "BLOCK ANATOMY\nBlock 2 · 3 个本地工作项\nIteration 0 · Tile 2 · rows 6–8 · 3 行 · in0 / out0\nIteration 1 · Tile 6 · rows 18–20 · 3 行 · in1 / out1\nIteration 2 · Tile 10 · rows 30–31 · 2 行 · in0 / out0\n\n当前 Tile 6 · valid [3,4096] → Block 2 → Iteration 1 → in1 / out1\n\nLoad → Pass 1 · Max → Pass 2 · Exp + Sum → Pass 3 · Exp + Divide → Store\n\n查看 UB Buffer ↗\nUB 页面展示独立的首项示例，不继承此处的核数假设。"
+    },
+    {
+      "singleTile6": "true"
+    },
+    {
+      "tile10": "BLOCK ANATOMY\nBlock 2 · 3 个本地工作项\nIteration 0 · Tile 2 · rows 6–8 · 3 行 · in0 / out0\nIteration 1 · Tile 6 · rows 18–20 · 3 行 · in1 / out1\nIteration 2 · Tile 10 · rows 30–31 · 2 行 · in0 / out0\n\n当前 Tile 10 · valid [2,4096] → Block 2 → Iteration 2 → in0 / out0\n\nLoad → Pass 1 · Max → Pass 2 · Exp + Sum → Pass 3 · Exp + Divide → Store\n\n查看 UB Buffer ↗\nUB 页面展示独立的首项示例，不继承此处的核数假设。"
+    },
+    {
+      "strideCode": "test_softmax.py · L208–214\n关闭\n208          num_tiles = (rows + TILE_ROWS - 1) // TILE_ROWS\n\n\n209  \n\n\n210          for tile_id in pl.range(core_id, num_tiles, num_cores):\n\n\n211              row_off = tile_id * TILE_ROWS\n\n\n212              valid_rows = pl.min(TILE_ROWS, rows - row_off)\n\n\n213  \n\n\n214              in_slot = in_group.next()"
+    },
+    {
+      "enoughP0": true,
+      "blocks": 11
+    },
+    {
+      "blockDimCode": "test_softmax.py · L238–244\n关闭\n238      y = torch.empty_like(x)\n\n\n239      num_tiles = (x.shape[0] + TILE_ROWS - 1) // TILE_ROWS\n\n\n240      block_dim = min(get_platform_info().vector_core_num, num_tiles)\n\n\n241      softmax_tile_group_kernel[None, block_dim](x, y)\n\n\n242      return y\n\n\n243  \n\n\n244  "
+    },
+    {
+      "ubRetained": true,
+      "ubTile": "输入 \n[7,200]\n[32,4096]\nTile \ntile-0\ntile-1\ntile-2\nTile 2 · Rows 6–6 · Valid [1,200] · Allocated [3,8192]"
+    },
+    {
+      "vfOld": true
+    }
+  ],
+  "consoleErrors": []
+}
