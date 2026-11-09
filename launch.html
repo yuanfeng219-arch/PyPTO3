@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -610,6 +610,74 @@
     @media (max-width: 720px) { .main { padding: 34px 18px 54px; } .demo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 500px) { .demo-grid { grid-template-columns: 1fr; } }
 
+    /* 轻量目录：用留白和细线建立层级，让预览成为视觉中心。 */
+    :root {
+      color-scheme: light;
+      --launch-bg: #f7f8fa;
+      --launch-panel: #fff;
+      --launch-panel-solid: #fff;
+      --launch-elevated: #f4f6f8;
+      --launch-border: #e7eaee;
+      --launch-border-strong: #d7dce3;
+      --launch-text: #1c2533;
+      --launch-muted: #687484;
+      --launch-dim: #8b96a4;
+      --launch-accent: #547d22;
+      --launch-accent-soft: #edf4e7;
+      --launch-blue: #65778e;
+      --launch-shadow: 0 12px 28px rgba(32, 47, 63, .08);
+    }
+    body { background: var(--launch-bg); }
+    .topbar { min-height: 62px; background: rgba(255, 255, 255, .88); border-color: #edf0f2; }
+    .brand-mark { width: 34px; height: 34px; color: #fff; border: 0; border-radius: 10px; background: #263a2a; box-shadow: none; }
+    .brand-title { font-weight: 700; }
+    .brand-subtitle { color: #9aa3ae; }
+    .repo-link { color: #687484; background: #fff; }
+    .repo-link:hover { color: #263a2a; background: #f7f9f7; }
+    .layout { min-height: calc(100vh - 62px); }
+    .sidebar { top: 62px; height: calc(100vh - 62px); border-color: #edf0f2; }
+    .category-button { font-weight: 600; }
+    .category-button:hover { background: #eef1f2; }
+    .category-button.is-active { border-color: transparent; color: #344b2c; background: #eaf1e6; }
+    .category-button.is-active .category-icon { color: #638b3d; }
+    .sidebar-note { border-color: #e7eaee; }
+    .main { padding-top: 38px; }
+    .hero { align-items: center; margin-bottom: 30px; }
+    .hero-kicker { color: #71905d; letter-spacing: .11em; }
+    .hero-gradient { color: #202c39; background: none; }
+    h1 { font-weight: 700; line-height: 1.14; letter-spacing: -.035em; }
+    .hero-description { margin-top: 12px; color: #7a8694; }
+    .hero-stat { min-width: 125px; padding: 10px 0 10px 22px; border: 0; border-left: 1px solid #dfe5e6; border-radius: 0; background: transparent; }
+    .stat-value { color: #344b2c; font-size: 28px; font-weight: 700; }
+    .toolbar { padding-top: 20px; border-top: 1px solid #e5e9ec; }
+    .search-input { border-color: #e3e8eb; background: #fff; }
+    .search-input:focus { border-color: #a8c396; background: #fff; box-shadow: 0 0 0 3px rgba(115, 157, 88, .10); }
+    .shortcut { border-color: #e8ecef; background: #f7f8f9; }
+    .demo-grid { gap: 18px; }
+    .demo-card { border-color: #e8ebee; background: #fff; box-shadow: 0 2px 8px rgba(34, 49, 65, .025); }
+    .demo-card:hover, .demo-card:focus-visible { border-color: #c7d8be; box-shadow: var(--launch-shadow); transform: translateY(-3px); }
+    .preview { border: 0; background: #edf0f2; }
+    .preview::after { background: linear-gradient(180deg, transparent 72%, rgba(18, 27, 35, .10)); }
+    .preview-badge { top: 10px; right: 10px; color: #52694b; border: 1px solid rgba(255,255,255,.8); background: rgba(255,255,255,.91); box-shadow: 0 2px 8px rgba(20,30,40,.08); }
+    .preview-badge::before { background: #83a96a; box-shadow: none; }
+    .card-body { gap: 9px; padding: 16px; }
+    .category-label { color: #78916e; letter-spacing: .04em; }
+    .category-label::before { width: 9px; }
+    .version, .updated-at { color: #9aa3ad; }
+    .card-title { color: #263442; font-weight: 700; }
+    .card-subtitle { color: #9aa4ae; }
+    .card-description { color: #778391; line-height: 1.7; }
+    .launch-arrow { width: 30px; height: 30px; color: #91a0a6; border-color: #edf0f2; background: #fafbfb; }
+    .demo-card:hover .launch-arrow { color: #436236; background: #edf4e7; }
+    .tag { color: #7b8791; border-color: transparent; background: #f3f5f6; font-weight: 500; }
+    .demo-variants { margin: 2px -16px -16px; border-color: #f0f2f3; }
+    .demo-variants summary { padding: 13px 16px; color: #648653; }
+    .demo-version-link { color: #53616d; background: transparent; }
+    .demo-version-link:hover, .demo-version-link:focus-visible { color: #405f35; border-color: transparent; background: #eef5ea; }
+    .empty-state { background: rgba(255,255,255,.55); }
+    @media (max-width: 980px) { .sidebar { height: auto; } }
+    @media (max-width: 720px) { .main { padding-top: 30px; } .hero { gap: 18px; } .hero-stat { padding: 0; border: 0; } }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
     }
@@ -685,6 +753,18 @@
     // 新增或更新 Design Demo 时，在此数组维护其 updatedAt（YYYY-MM-DD）。
     const sourceDemos = [
       {
+        title: "编码到上板 · 交互演示",
+        subtitle: "硬件映射 → 编译与上板 → 性能分析",
+        category: "开发工具",
+        status: "新增",
+        version: "Demo / 编译上板",
+        updatedAt: "2026-11-09",
+        description: "从 CSA 的 qk_pv 硬件映射出发，经过模拟编译和上板执行，进入同一运行的预置性能分析；前页交互不会改变结果数据。",
+        href: "Design/compile-board-demo/index.html",
+        preview: "Design/assets/launch-previews/hardware-native-ui.png",
+        tags: ["Hardware-Native", "编译", "上板", "性能分析"]
+      },
+      {
         title: "Hardware-Native Lens",
         subtitle: "Tensor/Tile · Scope · 并行请求 · 内部布局",
         category: "开发工具",
@@ -707,18 +787,6 @@
         href: "Design/hardware-native-ide-ui/path.html",
         preview: "Design/assets/launch-previews/hardware-native-ui.png",
         tags: ["UI优化版", "Hardware-Native", "硬件映射", "Pipeline", "UB", "诊断"]
-      },
-      {
-        title: "Hardware-Native 主线 · 图元版",
-        subtitle: "用图元库重画算子逻辑 · 源码 ⇄ 算子逻辑 ⇄ 硬件映射",
-        category: "开发工具",
-        status: "新增",
-        version: "02c / Glyph Path",
-        updatedAt: "2026-11-06",
-        description: "把图元库里定下来的画法装回主线页：中栏的算子逻辑图整体改用 js/logic-glyphs.js 渲染，源码、逻辑、硬件三区联动和 pipeline stage 调整照旧。相对 02 / UI优化版有五处变化：一、SPMD 作用域与两层循环原本共用同一种虚线框，现在作用域画成四角实线角标、循环画成带左侧粗条的虚线框，对应 IR 里 ScopeStmt 与 ForStmt 两类节点；二、UP_DOWN 切分原本是逻辑图里的隐藏节点，现在是可见的 chip，源码 731 行因此能在逻辑图里亮起来；三、set_validshape 与 fillpad 这类只改元数据的操作改画成空心方括号节点，不再和计算节点同形；四、Q / K / V / 部分结果改画成带存储空间角色色的数据对象（Mat 紫、GM 绿），形状直接标在节点上；五、补上两种原本看不见的关系：Q·Kᵀ → ×scale 与 cast → P·V 两条跨 AIC / AIV 核边界的交接用蓝线标出，block_table 查出的 cache_row 到 K / V 两个切片用点线表达索引（走地址不走数据），两种线型在画布底部的图例里解释。算子胶囊按 DSL 的七个操作族取图标。容量与裁决结论与 02 版一致，仍为编码期估算；原 path.html 未改动，两个版本并存对照。",
-        href: "Design/hardware-native-ide-ui/path-glyphs.html",
-        preview: "Design/assets/launch-previews/hardware-native-ui.png",
-        tags: ["图元版", "Hardware-Native", "算子逻辑", "图元库", "跨核", "Pipeline"]
       },
       {
         title: "算子逻辑图元库",
@@ -815,18 +883,6 @@
         href: "Design/object-card-gallery/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
         tags: ["PyPTO", "昇腾", "对象卡片", "开发流程"]
-      },
-      {
-        title: "decode_csa 反向推导",
-        subtitle: "决策点 · 拒绝原因 · TP 世界",
-        category: "开发工具",
-        status: "新增",
-        version: "02 / Reverse Trace",
-        updatedAt: "2026-10-29",
-        description: "拿 DeepSeek-V4 的 CSA decode 层（Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py），把它钉死的每个数字推回设计空间：当初还有什么选法，为什么没选。被拒绝的选项不用编——源码里 11 条整除契约、worker 数旁边的调优注释、两处「inline 句柄跨不过调用边界」的防回归注释、一条稀疏块误编译的规避说明，都写着理由。决策点矩阵按形状现算占用：PROJ_B 的 INT32 累加器 128×256×4B 正好打满 L0C，indexer bias 按整个 T 做需要 512KB、远超 Vec 的 184KB。三个候选就是源码真实支持的 TP = 1 / 2 / 4。",
-        href: "Design/pypto-operator-gen/index.html",
-        preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["PyPTO", "DeepSeek-V4", "CSA", "反向推导", "TP 2", "决策点"]
       },
       {
         title: "Decode CSA · 界面优化版",
@@ -938,36 +994,6 @@
         ]
       },
       {
-        title: "算子调优控制台",
-        subtitle: "Tuning Console · 多版本探索",
-        category: "内存与性能",
-        status: "4 个版本",
-        version: "V1 · V2 · V3 · V4",
-        updatedAt: "2026-09-24",
-        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，集中体验调优闭环的多个版本：端到端分 rank 对账、L2 泳道与关键路径、单核拆解、片上预算试算、编译提示与实验台账。",
-        href: "Design/operator-tuning-console/index.html",
-        preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"],
-        variants: [
-          { label: "V1", href: "Design/operator-tuning-console/index.html" },
-          { label: "V2", href: "Design/operator-tuning-console-v2/index.html" },
-          { label: "V3", href: "Design/operator-tuning-console-v3/index.html" },
-          { label: "V4 · 极简 L2", href: "Design/operator-tuning-console-v4/index.html" }
-        ]
-      },
-      {
-        title: "调优故事九幕",
-        subtitle: "Tuning Story · DeepSeek-V4 压缩链路",
-        category: "内存与性能",
-        status: "新增",
-        version: "Story / 9 Scenes",
-        updatedAt: "2026-09-24",
-        description: "把一次真实调优拆成九个场景：建基线、定位热点、诊断依赖、改源码、核对编译、资源预算、核内下钻、实验验证、交付沉淀。每个场景给出用户在做什么、卡在哪里、需要什么能力，数据取自本地上板产物与公开 Issue。",
-        href: "Design/tuning-story-demo/index.html",
-        preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["9 Scenes", "Playback", "Pain & Opportunity", "Evidence Provenance"]
-      },
-      {
         title: "Qwen3 × LingQu 性能观测",
         subtitle: "Model-to-Fabric Observability · TP2",
         category: "内存与性能",
@@ -977,17 +1003,6 @@
         href: "Design/qwen3-lingqu-observability/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
         tags: ["Qwen3-14B", "TP2", "40 Layers", "LingQu", "Profile Evidence"]
-      },
-      {
-        title: "长 Decode 因果诊断",
-        subtitle: "Long Decode Causal Workbench · Issue #951",
-        category: "开发工具",
-        status: "新增",
-        version: "01 / Causal Map",
-        description: "以 pypto-lib #951 的长 decode 尾部质量劣化为线索，把症状、两条根因假设、层级 profile 路由、重复运行矩阵与可控实验计划汇聚在同一份调查画布中。",
-        href: "Design/long-decode-causal-workbench/index.html",
-        preview: "Design/assets/launch-previews/long-decode-causal-workbench.png",
-        tags: ["Issue #951", "Causal Map", "RoPE", "Deterministic Reduction", "Experiment Plan"]
       },
       {
         title: "调试与调优工作台",
