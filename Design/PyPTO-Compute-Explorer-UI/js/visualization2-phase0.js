@@ -72,17 +72,17 @@
   }
   const make = (tag, attrs, parent, text) => {
     const el = document.createElementNS(NS, tag);
-    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
-    if (text != null) el.textContent = text;
+    for (const [key, value] of Object.entries(attrs)) window.PtoPhotoNarrative.attr(el,key,value);
+    if (text != null) window.PtoPhotoNarrative.text(el,text);
     parent.append(el); return el;
   };
   function mount(host, { model, seqLens = [], onSelect, onCamera }) {
     const layout = createLayout(model);
     host.classList.add('viz2-p0-morph');
-    host.innerHTML = `<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label></div></div>
+    window.PtoPhotoNarrative.html(host,`<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label></div></div>
       <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-columns></g><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
       <footer class="viz2-am-footer"><p data-p0-selection aria-live="polite">${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V</p><span>Q/K Norm → RoPE → KV Cache Append · 静态分配，不表示执行时序</span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-p0-zoom="0.8" aria-label="缩小 Assignment">−</button><output data-p0-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-p0-zoom="1.25" aria-label="放大 Assignment">＋</button><button class="btn btn-ghost btn-sm" type="button" data-p0-fit>适应</button></div></footer>
-      <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="关闭 Phase0 详情">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>`;
+      <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="关闭 Phase0 详情">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>`);
     const viewport = host.querySelector('.viz2-p0-viewport'), scene = host.querySelector('[data-p0-scene]'), tooltip = host.querySelector('[role="tooltip"]');
     const columns = host.querySelector('[data-p0-columns]'), generation = host.querySelector('[data-p0-generation]'), board = host.querySelector('[data-p0-board]'), itemLayer = host.querySelector('[data-p0-items]');
     const columnNodes = Array.from({ length: model.kvHeads }, (_, kv) => make('text', { x: layout.sources[model.itemFor(0, kv).gIndex].x + layout.sources[0].w / 2, y: 30, class: 'viz2-p0-axis', 'text-anchor': 'middle' }, columns, `KV${kv}`));
@@ -139,7 +139,7 @@
     };
     function paintCamera() {
       const c = camera || fitted();
-      host.querySelector('[data-p0-scale]').textContent = `${Math.round(c.scale / fitted().scale * 100)}%`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-p0-scale]'),`${Math.round(c.scale / fitted().scale * 100)}%`);
       scene.setAttribute('transform', `translate(${c.x} ${c.y}) scale(${c.scale})`);
       scene.style.setProperty('--p0-label-size', `${Math.max(12, 11 / c.scale)}px`);
     }
@@ -154,11 +154,11 @@
         const a = layout.sources[id], b = layout.targets[id];
         n.group.setAttribute('transform', `translate(${mix(a.x, b.x, p)} ${mix(a.y, b.y, p)})`);
       });
-      host.querySelector('[data-p0-title-state]').textContent = p < .5 ? `Work Generation · ${model.total} Items` : `Block Assignment · ${blockNodes.filter(Boolean).length} Active Blocks`;
-      host.querySelector('[data-p0-formula]').textContent = p < .5 ? `g_idx = KV Head × ${model.activeBatch} + Batch · 每项处理当前 token 的 ${model.qPerKv}Q + K + V` : `rope_core = g_idx % ${model.ropeCores} · Block = ⌊rope_core / ${model.lanesPerBlock}⌋ · 逻辑分组，非物理排列`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-p0-title-state]'),p < .5 ? `Work Generation · ${model.total} Items` : `Block Assignment · ${blockNodes.filter(Boolean).length} Active Blocks`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-p0-formula]'),p < .5 ? `g_idx = KV Head × ${model.activeBatch} + Batch · 每项处理当前 token 的 ${model.qPerKv}Q + K + V` : `rope_core = g_idx % ${model.ropeCores} · Block = ⌊rope_core / ${model.lanesPerBlock}⌋ · 逻辑分组，非物理排列`);
       host.querySelectorAll('[data-p0-state]').forEach(button => { const selected = button.dataset.p0State === (p < .5 ? 'generation' : 'assignment'); button.setAttribute('aria-pressed', String(selected)); button.classList.toggle('is-selected', selected); });
     }
-    const player = global.PtoVisualization2MorphPlayer.create({ draw, pauseOnReturn: true, onChange: s => { host.querySelector('[data-p0-play]').textContent = s.playing ? '暂停' : '播放'; } });
+    const player = global.PtoVisualization2MorphPlayer.create({ draw, pauseOnReturn: true, onChange: s => { window.PtoPhotoNarrative.text(host.querySelector('[data-p0-play]'),s.playing ? '暂停' : '播放'); } });
     const pause = () => player.pause();
     function itemDescription(item) {
       const len = seqLens[item.batch];
@@ -178,7 +178,7 @@
         group.classList.toggle('is-assigned', related); group.classList.toggle('is-selected', exact); group.classList.toggle('is-hovered', item.gIndex === hovered);
         group.setAttribute('aria-pressed', String(exact)); group.setAttribute('tabindex', id === (selected?.gIndex ?? 0) ? '0' : '-1');
       });
-      host.querySelector('[data-p0-selection]').textContent = selected?.gIndex != null ? itemDescription(model.items[selected.gIndex]) : selected ? `Block ${selected.block}${selected.lane == null ? '' : ` / AIV${selected.lane}`} · ${model.groupsForBlock(selected.block).filter(item => selected.lane == null || item.lane === selected.lane).map(item => `G${item.gIndex}`).join(', ') || '无预处理工作，仍参与 SYNCALL'}` : `${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-p0-selection]'),selected?.gIndex != null ? itemDescription(model.items[selected.gIndex]) : selected ? `Block ${selected.block}${selected.lane == null ? '' : ` / AIV${selected.lane}`} · ${model.groupsForBlock(selected.block).filter(item => selected.lane == null || item.lane === selected.lane).map(item => `G${item.gIndex}`).join(', ') || '无预处理工作，仍参与 SYNCALL'}` : `${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V`);
     }
     function detail() {
       const selection = mapSelection(current), aside = host.querySelector('aside');
@@ -186,11 +186,11 @@
       if (!selection) return;
       const item = selection.gIndex == null ? null : model.items[selection.gIndex];
       const lanes = model.lanes.filter(lane => lane.block === selection.block && (selection.lane == null || lane.lane === selection.lane));
-      host.querySelector('[data-p0-title]').textContent = item ? `G${item.gIndex} · B${item.batch} / KV${item.kvHead}` : `BLK ${String(selection.block).padStart(2, '0')}${selection.lane == null ? '' : ` / AIV${selection.lane}`}`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-p0-title]'),item ? `G${item.gIndex} · B${item.batch} / KV${item.kvHead}` : `BLK ${String(selection.block).padStart(2, '0')}${selection.lane == null ? '' : ` / AIV${selection.lane}`}`);
       const len = item ? seqLens[item.batch] : null;
-      host.querySelector('[data-p0-detail]').innerHTML = `${item ? `<section class="viz2-p0-detail-section"><h3>工作项映射</h3><p>Block ${item.block} / AIV${item.lane}<br>rope_core ${item.ropeCore} · iteration ${item.iteration}<br>Q${item.qStart}–Q${item.qEnd} + K + V${len == null ? '' : `<br>seq_lens ${len} · position ${len - 1}`}</p><p>对应 Attention Task ${item.attentionTaskId}<br>Attention Block ${item.attentionTaskId % model.blocks}</p></section>` : ''}
+      window.PtoPhotoNarrative.html(host.querySelector('[data-p0-detail]'),`${item ? `<section class="viz2-p0-detail-section"><h3>工作项映射</h3><p>Block ${item.block} / AIV${item.lane}<br>rope_core ${item.ropeCore} · iteration ${item.iteration}<br>Q${item.qStart}–Q${item.qEnd} + K + V${len == null ? '' : `<br>seq_lens ${len} · position ${len - 1}`}</p><p>对应 Attention Task ${item.attentionTaskId}<br>Attention Block ${item.attentionTaskId % model.blocks}</p></section>` : ''}
         ${lanes.map(lane => `<section class="viz2-p0-detail-section"><h3>AIV${lane.lane} <small>rope_core ${lane.ropeCore}</small></h3>${lane.groups.length ? `<table class="viz2-p0-table"><thead><tr><th>工作项</th><th>Batch</th><th>KV</th></tr></thead><tbody>${lane.groups.map(g => `<tr><td><button class="btn btn-ghost btn-sm" data-p0-pick-item="${g.gIndex}">G${g.gIndex}</button></td><td>${g.batch}</td><td>${g.kvHead}</td></tr>`).join('')}</tbody></table>` : `<p>无有效预处理工作。${lane.ropeCore >= model.ropeCores ? `rope_core ≥ ${model.ropeCores}，跳过工作循环。` : '该 Lane 没有有效工作项。'}</p>`}</section>`).join('')}
-        <section class="viz2-p0-detail-section"><h3>当前 token 的预处理</h3><p>Q/K Norm → RoPE → KV Cache Append。写回旋转后的 Q，并追加当前 token 的 K/V。</p><p>seq_lens 决定 RoPE position，不表示本阶段扫描历史序列。</p></section><section class="viz2-p0-detail-section"><h3>同步后进入 Attention</h3><p>全部 ${model.blocks} Blocks 参与 SYNCALL。</p><code>cacheinvalid → fence<br>→ SYNCALL(MIX)<br>→ cacheinvalid</code></section>`;
+        <section class="viz2-p0-detail-section"><h3>当前 token 的预处理</h3><p>Q/K Norm → RoPE → KV Cache Append。写回旋转后的 Q，并追加当前 token 的 K/V。</p><p>seq_lens 决定 RoPE position，不表示本阶段扫描历史序列。</p></section><section class="viz2-p0-detail-section"><h3>同步后进入 Attention</h3><p>全部 ${model.blocks} Blocks 参与 SYNCALL。</p><code>cacheinvalid → fence<br>→ SYNCALL(MIX)<br>→ cacheinvalid</code></section>`);
     }
     function update(selection, nextCamera, { selectionChanged = true, active: nextActive = true } = {}) {
       const changed = JSON.stringify(current) !== JSON.stringify(selection);
@@ -240,7 +240,7 @@
       const item = event.target.closest('[data-p0-item]'), lane = event.target.closest('[data-p0-lane]'), block = event.target.closest('[data-p0-pick-block]');
       hovered = item ? Number(item.dataset.p0Item) : null; paintSelection(); tooltip.hidden = !item && !lane && !block;
       if (!tooltip.hidden) {
-        tooltip.textContent = item ? itemDescription(model.items[hovered]) : lane ? `rope_core ${lane.dataset.p0Lane} · ${model.lanes[Number(lane.dataset.p0Lane)].groups.map(g => `G${g.gIndex}`).join(', ') || '无预处理工作 · 仍参与同步'}` : `Block ${block.dataset.p0PickBlock} · ${model.groupsForBlock(Number(block.dataset.p0PickBlock)).length} 项工作 · 参与 SYNCALL`;
+        window.PtoPhotoNarrative.text(tooltip,item ? itemDescription(model.items[hovered]) : lane ? `rope_core ${lane.dataset.p0Lane} · ${model.lanes[Number(lane.dataset.p0Lane)].groups.map(g => `G${g.gIndex}`).join(', ') || '无预处理工作 · 仍参与同步'}` : `Block ${block.dataset.p0PickBlock} · ${model.groupsForBlock(Number(block.dataset.p0PickBlock)).length} 项工作 · 参与 SYNCALL`);
         const r = viewport.getBoundingClientRect(); tooltip.style.left = `${Math.max(8, Math.min(event.clientX - r.left + 12, r.width - tooltip.offsetWidth - 8))}px`; tooltip.style.top = `${Math.max(8, Math.min(event.clientY - r.top + 18, r.height - tooltip.offsetHeight - 8))}px`;
       }
     });

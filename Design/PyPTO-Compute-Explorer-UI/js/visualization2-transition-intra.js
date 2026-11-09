@@ -251,7 +251,7 @@
       const {hold,cloneMap}=canvasHold(source,serial+1);
       const current={id:++serial,from,to,task,source,gathered,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
       const pendingStyle=document.createElement('style');
-      pendingStyle.textContent=`#visualization2 ${panes[to]} ${canvasSelector(to)}{visibility:hidden}`;
+      window.PtoPhotoNarrative.text(pendingStyle,`#visualization2 ${panes[to]} ${canvasSelector(to)}{visibility:hidden}`);
       root.append(pendingStyle);current.pendingStyle=pendingStyle;
       job=current;
       return current;
@@ -303,7 +303,7 @@
           if(bounds.width&&bounds.height){sourceContent=svg('svg',{viewBox:`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,preserveAspectRatio:'none','pointer-events':'none'},group);const clone=(pair.paintContent||pair.source.content).cloneNode(true);clone.removeAttribute('transform');clone.style.removeProperty('transform');clone.removeAttribute('tabindex');sourceContent.append(clone);}
         }
         const label=svg('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':11,'font-family':'var(--font-mono)','fill':'var(--foreground)'},group);
-        label.textContent=pair.label;
+        window.PtoPhotoNarrative.text(label,pair.label);
         current.animations.push(box.animate([{fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none'},{fill:pair.target.fill||'transparent',stroke:pair.target.stroke||'none'}],{duration:650,fill:'both',easing:'ease-in-out'}));
         return {...pair,box,label,sourceContent};
       });

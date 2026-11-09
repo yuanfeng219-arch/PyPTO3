@@ -105,3 +105,27 @@
 .viz2.viz2-morph-graph #viz2-graph-inter [data-viz2-graph-block] { visibility: hidden; }
 .viz2.viz2-morph-assignment #viz2-attention [data-pa-block],
 .viz2.viz2-morph-assignment #viz2-attention [data-pa-task] { visibility: hidden; }
+
+/* Global narrative perspective control; shares the existing toolbar skin. */
+.viz2-story-toggle{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+.viz2-story-indicator{width:26px;height:16px;border:1px solid currentColor;border-radius:9px;display:inline-flex;align-items:center;padding:2px;opacity:.7}
+.viz2-story-indicator::after{content:"";width:10px;height:10px;background:currentColor;border-radius:50%;transition:transform 180ms ease-out}
+.viz2-story-toggle[aria-checked="true"] .viz2-story-indicator::after{transform:translateX(10px)}
+.viz2-story-toggle:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.viz2-story-indicator::after{transition:none}}
+
+/* Narrative context shares the IDE frame; the graph remains the original canvas. */
+.viz2-photo-guide{padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary);background:var(--surface-secondary)}
+.viz2-photo-guide[hidden]{display:none}.viz2-photo-guide p{margin:2px 0;line-height:1.5}.viz2-photo-guide>p{color:var(--text-primary);font-weight:500}.viz2-photo-guide details{margin-top:3px}.viz2-photo-guide summary{cursor:pointer;width:fit-content}.viz2-photo-guide details[open]{max-height:110px;overflow:auto}
+body.ai-extracted .viz2>.viz2-photo-guide{position:absolute;top:56px;left:24px;right:24px;z-index:15;display:flex;align-items:center;gap:16px;padding:6px 10px;background:var(--card,#252525);border:1px solid var(--border,#444);border-radius:6px;font-size:11px;pointer-events:auto}
+body.ai-extracted .viz2-photo-guide>p{flex:1;min-width:0;white-space:normal;color:var(--foreground,#eee)}
+body.ai-extracted .viz2-photo-guide details{flex:none;margin:0;color:var(--foreground-secondary,#bbb)}
+body.ai-extracted .viz2-photo-guide details[open]{position:absolute;right:0;top:0;width:min(520px,90vw);max-height:180px;padding:10px;background:var(--card,#252525);border:1px solid var(--border,#444);border-radius:6px}
+@media(max-width:700px){body.ai-extracted .viz2>.viz2-photo-guide{top:98px;left:12px;right:12px}body.ai-extracted .viz2-photo-guide details:not([open]) summary{max-width:70px}}
+/* Keep the summary left of the centered view tabs in the extracted shell. */
+body.ai-extracted .viz2>.viz2-photo-guide{top:56px;right:auto;width:380px;max-width:calc(50vw - 220px);box-sizing:border-box;gap:8px;border:0;padding:4px 0;background:transparent;font-size:10px}
+body.ai-extracted .viz2-photo-guide>p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+body.ai-extracted .viz2-photo-guide details:not([open]) summary{font-size:0;width:16px}
+body.ai-extracted .viz2-photo-guide details:not([open]) summary::after{content:'ⓘ';font-size:13px}
+body.ai-extracted .viz2-photo-guide details[open]{left:0;right:auto;width:min(520px,90vw);font-size:12px}
+@media(max-width:700px){body.ai-extracted .viz2>.viz2-photo-guide{top:98px;max-width:calc(100vw - 24px);width:calc(100vw - 24px)}}

@@ -29,24 +29,24 @@
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const listen=(element,type,fn,options={})=>element.addEventListener(type,fn,{...options,signal:listeners.signal});
     host.classList.add('viz2-anatomy','viz2-intra','viz2-compute','viz2-pipeline-detail');
-    host.innerHTML=`${global.PtoComputeDetailControls.identity()}<div class="compute-parameter-control" data-compute-toolbar></div><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button>
+    window.PtoPhotoNarrative.html(host,`${global.PtoComputeDetailControls.identity()}<div class="compute-parameter-control" data-compute-toolbar></div><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
         <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" tabindex="0" aria-label="当前 Task 逻辑流水线，画布内可平移浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
         <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small><small data-intra-dependency-summary aria-live="polite"></small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
-        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><div><b data-intra-title></b><small data-intra-context></small></div><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
+        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><div><b data-intra-title></b><small data-intra-context></small></div><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`);
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('.viz2-anatomy-inspector'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
     let sourceTask=null,isCustom=false;
     const controls=global.PtoComputeDetailControls,toolbar=host.querySelector('[data-compute-toolbar]');
-    toolbar.innerHTML=controls.parameter('Stacks','Pages');
+    window.PtoPhotoNarrative.html(toolbar,controls.parameter('Stacks','Pages'));
     const syncScenario=controls.connect(host,scenario);
-    host.querySelector('[data-compute-identity]').innerHTML=controls.picker(model,'Pipeline Task');
+    window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),controls.picker(model,'Pipeline Task'));
     const stackInput=toolbar.querySelector('[data-compute-pages]'),stackRange=toolbar.querySelector('[data-page-range]');
     let maxStacks=1;
     function configureStacks(value){
       const result=scenario.edit('stacks',value),error=toolbar.querySelector('[data-page-error]');
-      error.textContent=result.error||'';if(result.error)stackInput.setAttribute('aria-invalid','true');else stackInput.removeAttribute('aria-invalid');
+      window.PtoPhotoNarrative.text(error,result.error||'');if(result.error)stackInput.setAttribute('aria-invalid','true');else stackInput.removeAttribute('aria-invalid');
     }
     listen(stackInput,'input',()=>configureStacks(stackInput.value));
     listen(stackRange,'input',()=>configureStacks(stackRange.value));
@@ -54,14 +54,14 @@
     listen(host.querySelector('[data-compute-task]'),'change',event=>onTask(Number(event.target.value)));
     function identity(){
       syncScenario();
-      const picker=host.querySelector('[data-compute-task]');picker.value=sourceTask.id;picker.dataset.displayLabel=isCustom?'Task N':`Task ${task.id}`;
-      host.querySelector('[data-compute-owner]').textContent=isCustom?'Block N / KV Head N':`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`;
-      host.querySelector('[data-compute-facts]').textContent=isCustom?`Batch N\n${task.seqLen} tokens`:`Batch ${task.batch}\n${task.seqLen} tokens`;
+      const picker=host.querySelector('[data-compute-task]');picker.value=sourceTask.id;window.PtoPhotoNarrative.attr(picker,'data-display-label',`Task ${task.id}`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-compute-owner]'),`Block ${String(task.block).padStart(2,'0')} / KV Head ${task.kvHead}`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-compute-facts]'),`Batch ${task.batch}\n${task.seqLen} tokens`);
       stackInput.value=stackRange.value=task.stacks.length;
-      toolbar.querySelector('[data-stack-count]').textContent=task.pages.length;
+      window.PtoPhotoNarrative.text(toolbar.querySelector('[data-stack-count]'),task.pages.length);
       toolbar.querySelector('[data-page-step="-1"]').disabled=task.stacks.length<=1;
       toolbar.querySelector('[data-page-step="1"]').disabled=task.stacks.length>=maxStacks;
-      toolbar.querySelector('[data-page-summary]').textContent=isCustom?'Custom · 模型推导调度':'';
+      window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-summary]'),isCustom?'Custom · 模型推导调度':'');
     }
     const scrollStates=new Map(),scales=new Map();let pan={x:0,y:0};
     const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
@@ -83,7 +83,7 @@
     function dependencyGeometry(t,link){
       const a=stagePosition(t,t.stacks[link.stack],link.producer),b=stagePosition(t,t.stacks[link.stack],link.consumer);
       const x=a.x+W/2,y=a.y+H,tx=b.x+W/2,ty=b.y,mid=(y+ty)/2+(link.producer==='softmax'?(link.stack%model.transferSlots)*7:0);
-      return {d:`M ${x} ${y} V ${mid} H ${tx} V ${ty}`,event:{x:(x+tx)/2,y:mid}};
+      return {d:link.producer==='softmax' ? `M ${x} ${y} C ${x} ${y+24}, ${tx} ${ty-24}, ${tx} ${ty}` : `M ${x} ${y} V ${ty}`,event:{x:(x+tx)/2,y:(y+ty)/2}};
     }
     function reuseGeometry(t,link){
       const a=stagePosition(t,t.stacks[link.from],link.consumer),b=stagePosition(t,t.stacks[link.to],link.producer);
@@ -115,7 +115,7 @@
     function saveScroll(){cards.forEach(card=>{const scroller=card.querySelector('.viz2-intra-tick-scroll');scrollStates.set(Number(card.dataset.intraTask),{top:scroller.scrollTop,left:scroller.scrollLeft});});}
     function buildBlock(){
       block=task.block;tasks=[task];
-      track.innerHTML=tasks.map(card).join('');cards=[...track.children];
+      window.PtoPhotoNarrative.html(track,tasks.map(card).join(''));cards=[...track.children];
       cards.forEach(card=>{const saved=scrollStates.get(Number(card.dataset.intraTask));if(saved){const s=card.querySelector('.viz2-intra-tick-scroll');s.scrollTop=saved.top;s.scrollLeft=saved.left;}});
       position=target=tasks.findIndex(t=>t.id===task.id);velocity=0;
     }
@@ -133,7 +133,7 @@
         const diagramWidth=Number(svg.dataset.intraWidth)*localScale;
         const vw=scroller.clientWidth,vh=scroller.clientHeight,dw=Number(svg.dataset.intraWidth),dh=Number(svg.dataset.intraHeight);svg.style.width='100%';svg.style.height='100%';const cp=current?pan:{x:0,y:0};svg.setAttribute('viewBox',[(dw-vw/localScale)/2+cp.x,(dh-vh/localScale)/2+cp.y,vw/localScale,vh/localScale].join(' '));
       });
-      host.querySelector('[data-intra-scale]').textContent=`${Math.round(scale*100)}%`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-intra-scale]'),`${Math.round(scale*100)}%`);
     }
     function stop(){cancelAnimationFrame(frame);frame=0;paging.reset();if(drag&&viewport.hasPointerCapture(drag.id))viewport.releasePointerCapture(drag.id);drag=null;pendingFocus=null;tooltip.hidden=true;}
     function commit(){
@@ -167,6 +167,7 @@
       scene.querySelectorAll('[data-intra-kind]').forEach(el=>{
         const item=objectFocus(el),s=task.stacks[item.index];let related=false;
         if(f?.kind==='tick')related=item.kind==='tick'?item.index===f.index:item.kind==='stage'&&(['qk','softmax'].includes(item.stage)?s.produceTick:s.consumeTick)===f.index;
+        if(f?.kind==='stack')related=['stage','stack','event'].includes(item.kind)&&item.index===f.index;
         if(f?.kind==='event')related=item.kind==='stage'&&item.index===f.index&&events[f.event]?.includes(item.stage);
         if(f?.kind==='stage')related=item.kind==='stage'&&item.index===f.index&&transfers.some(link=>(link.producer===f.stage&&link.consumer===item.stage)||(link.consumer===f.stage&&link.producer===item.stage))||item.kind==='event'&&item.index===f.index&&transfers.some(link=>link.event===item.event&&(link.producer===f.stage||link.consumer===f.stage));
         if(f?.kind==='slot')related=['stack','stage'].includes(item.kind)&&s?.slot===f.index;
@@ -174,7 +175,7 @@
         el.classList.toggle('is-selected',selected||fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index);el.classList.toggle('is-upstream',related&&item.kind==='stage'&&f?.kind==='stage'&&transfers.some(link=>link.consumer===f.stage&&link.producer===item.stage));el.classList.toggle('is-downstream',related&&item.kind==='stage'&&f?.kind==='stage'&&transfers.some(link=>link.producer===f.stage&&link.consumer===item.stage));el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
         if(item.kind==='slot')el.classList.toggle('is-related',item.index===slot&&relevantBuffers.includes(item.buffer));
       });
-      const summary=host.querySelector('[data-intra-dependency-summary]');if(summary){const link=transfers.filter(t=>f?.kind==='stage'&&(t.producer===f.stage||t.consumer===f.stage));summary.textContent=f?.kind==='stage'?`S${f.index} · ${stages[f.stage]} | ↑ ${link.filter(t=>t.consumer===f.stage).map(t=>stages[t.producer]).join(', ')||'输入'} | ↓ ${link.filter(t=>t.producer===f.stage).map(t=>stages[t.consumer]).join(', ')||'输出'}`:f?.kind==='event'?`S${f.index} · ${f.event} | ${events[f.event]?.map(stage=>stages[stage]).join(' → ')}`:f?.kind==='slot'?`Slot ${f.index} · ${f.buffer||'Transfer buffers'} | S${f.from??task.stacks.find(s=>s.slot===f.index)?.index} → S${f.to??task.stacks.filter(s=>s.slot===f.index).at(-1)?.index}`:f?.kind==='stack'?`Stack ${f.index} · Slot ${task.stacks[f.index].slot}`:'';}
+      const summary=host.querySelector('[data-intra-dependency-summary]');if(summary){const link=transfers.filter(t=>f?.kind==='stage'&&(t.producer===f.stage||t.consumer===f.stage));window.PtoPhotoNarrative.text(summary,f?.kind==='stage'?`S${f.index} · ${stages[f.stage]} | ↑ ${link.filter(t=>t.consumer===f.stage).map(t=>stages[t.producer]).join(', ')||'输入'} | ↓ ${link.filter(t=>t.producer===f.stage).map(t=>stages[t.consumer]).join(', ')||'输出'}`:f?.kind==='event'?`S${f.index} · ${f.event} | ${events[f.event]?.map(stage=>stages[stage]).join(' → ')}`:f?.kind==='slot'?`Slot ${f.index} · ${f.buffer||'Transfer buffers'} | S${f.from??task.stacks.find(s=>s.slot===f.index)?.index} → S${f.to??task.stacks.filter(s=>s.slot===f.index).at(-1)?.index}`:f?.kind==='stack'?`Stack ${f.index} · Slot ${task.stacks[f.index].slot}`:'');}
     }
     function revealFocus(){if(global.PtoAIInfraPresentation)return;
       if(!validFocus(focus))return;
@@ -209,8 +210,8 @@
       if(!inspector)return;
       inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;
       const f=effective(focus),d=describe(focus),sync=f.kind==='event'?syncFor(f):null,operation=f.kind==='stage'?task.operations.find(op=>op.stack===f.index&&op.stage===f.stage):null;
-      host.querySelector('[data-intra-title]').textContent=d.title;
-      host.querySelector('[data-intra-context]').textContent=`Task ${task.id}${f.index!=null?' · Stack '+f.index:''}${operation?' · Tick '+operation.tick:''}`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-intra-title]'),d.title);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-intra-context]'),`Task ${task.id}${f.index!=null?' · Stack '+f.index:''}${operation?' · Tick '+operation.tick:''}`);
       const section=(title,rows)=>rows.length?`<section><h3>${title}</h3><dl>${rows.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl></section>`:'';
       const jump=(kind,index,stage,label)=>`<button class="btn btn-ghost btn-sm viz2-intra-relation" data-intra-jump-task="${task.id}" data-intra-jump-kind="${kind}" data-intra-jump-index="${index}" ${stage?`data-intra-jump-stage="${stage}"`:''}>${esc(label)} ↗</button>`;
       let upstream=[],downstream=[],resource=[];
@@ -228,8 +229,16 @@
       const relation=(title,items)=>items.length?`<div class="viz2-intra-relation-group"><b>${title}</b>${items.join('')}</div>`:'';
       const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(f):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];
       const positionEvidence=f.kind==='tick'?task.ticks[f.index]?.evidence:operation?.evidence.logicalPosition;
-      host.querySelector('[data-intra-detail]').innerHTML=
-        section('Inputs',operation?.read?[['Buffer',operation.read]]:f.kind==='event'?[['Producer',stages[events[f.event][0]]]]:[])+
+      if(global.PtoPhotoNarrative.enabled){
+        const batch=f.kind==='slot'?null:task.stacks[f.index];
+        const stageNames={qk:'照片分析',softmax:'照片整理',pv:'后段加工',accumulate:'成品汇总'};
+        const actions={qk:'前段处理：分析这一批照片，形成整理所需的结果。',softmax:'前段处理：整理照片分析结果，形成后段加工的交接资料。',pv:'后段加工：读取整理结果，完成这一批照片的加工。',accumulate:'后段加工：汇总本批成品，等待全部批次完成后打印整理。'};
+        const description=f.kind==='stage'?actions[f.stage]:f.kind==='event'?'上道工序发出交接就绪，下道工序等待对应资料后继续。':f.kind==='slot'?`周转台位 ${f.index} 循环服务处理批次 ${task.slots[f.index].stacks.map(i=>i+1).join('、')}；复用表示共用位置，不表示传递同一批照片。`:f.kind==='output'?'全部处理批次完成后，打印整理并保存成品。':'沿本批次路径查看前段处理、后段加工与交接关系。';
+        window.PtoPhotoNarrative.text(host.querySelector('[data-intra-title]'),f.kind==='slot'?`周转台位 ${f.index}`:f.kind==='tick'?`流水轮次 ${f.index}`:f.kind==='output'?'打印整理':`第 ${f.index+1} 批${f.stage?' · '+stageNames[f.stage]:''}`);
+        window.PtoPhotoNarrative.html(host.querySelector('[data-intra-detail]'),`<section><h3>当前工单</h3><p>${global.PtoPhotoNarrative.taskSummary(task)}</p></section><section><h3>处理内容</h3><p>${description}</p>${batch?`<p>第 ${batch.index+1} 批 · ${batch.tokens} / ${task.stackTokens} 张照片 · ${batch.pages.length} 个标准照片包 · 周转台位 ${batch.slot}</p>`:''}</section><section><h3>工序交接</h3>${relation('上道工序',upstream)}${relation('下道工序',downstream)}</section><section><h3>逻辑编排</h3><p>前段先处理并交接资料，后段按逻辑轮次接续。轮次横向间距不表示实际时间；就绪等待不表示实际发生停顿；不据此推断提速或真实并发。</p></section>`);
+        return;
+      }
+      window.PtoPhotoNarrative.html(host.querySelector('[data-intra-detail]'),section('Inputs',operation?.read?[['Buffer',operation.read]]:f.kind==='event'?[['Producer',stages[events[f.event][0]]]]:[])+
         section('Computation',[['对象',f.kind==='stage'?stages[f.stage]:d.title]])+
         section('Outputs',operation?.write?[['Buffer',operation.write]]:f.kind==='event'?[['Consumer',stages[events[f.event][1]]]]:[])+
         `<section><h3>Dependencies</h3>${relation('Upstream',upstream)}${relation('Downstream',downstream)}${resource.length?`<p>Resource / Synchronization · ${esc(resource.join('；'))}</p>`:''}</section>`+
@@ -237,7 +246,7 @@
         (f.kind==='slot'?`<p>Slot · Model-derived：stack.index % TRANSFER_SLOTS；复用不表示同一数据值。</p>`:'')+
         (operation?`<section><h3>Source Evidence</h3>${operation.evidence.operation.source.ranges.map(range=>`<button class="btn btn-ghost btn-sm" data-intra-operation-source="${range[0]}" data-intra-operation-end="${range[1]}">paged_attention_pypto.py · L${range.join('–')} ↗</button>`).join('')}<p>计算关系：Source-confirmed（页面内源码快照）；操作位置：Model-derived。</p></section>`:'')+
         (detail?`<section><h3>Source Evidence</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:'')+
-        '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall。</p>';
+        '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall。</p>');
     }
 
     function update(id,nextFocus,nextCamera,options={}){
@@ -248,7 +257,7 @@
       const next=scenario.task('pipeline',id)||source,rebuild=task!==next;
       isCustom=!!scenario.get()?.isCustom;
       maxStacks=scenario.limits().stacks;stackInput.max=stackRange.max=maxStacks;
-      if(rebuild){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;toolbar.querySelector('[data-page-error]').textContent='';stackInput.removeAttribute('aria-invalid');}
+      if(rebuild){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');stackInput.removeAttribute('aria-invalid');}
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen&&!!focus;identity();
       const needsInitialFit=!nextCamera&&!scales.has(id);
@@ -270,7 +279,7 @@
       const operationSource=event.target.closest('[data-intra-operation-source]');if(operationSource){global.PtoComputeIDE.openSource({file:'paged_attention_pypto.py',start:Number(operationSource.dataset.intraOperationSource),end:Number(operationSource.dataset.intraOperationEnd)});return;}
       const jump=event.target.closest('[data-intra-jump-task]');if(jump){if(Number(jump.dataset.intraJumpTask)!==task.id)return;onFocus({kind:jump.dataset.intraJumpKind,index:Number(jump.dataset.intraJumpIndex),...(jump.dataset.intraJumpStage?{stage:jump.dataset.intraJumpStage}:{})});return;}
       const sourceButton=event.target.closest('[data-intra-sync-source]');
-      if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus);if(!sync)return;const ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;preview.textContent=global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n');}return;}
+      if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus);if(!sync)return;const ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;window.PtoPhotoNarrative.text(preview,global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n'));}return;}
       const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
       if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
       if(event.target.closest('[data-intra-close]')){paging.reset();onFocus(null);onInspector(false);return;}
@@ -309,9 +318,9 @@
       if(!active||drag||frame){tooltip.hidden=true;return;}
       const el=event.target.closest('[data-intra-kind]'),card=el?.closest('[data-intra-task]');
       if(!el||Number(card?.dataset.intraTask)!==task.id){tooltip.hidden=true;paintFocus();return;}
-      const f=objectFocus(el),d=describe(f);paintFocus(f);
-      tooltip.innerHTML=`<b>${esc(d.title)}</b><br>${d.facts.filter(([key])=>['Slot ID','阶段','Buffer','Producer / Consumer','READY Event','前后复用 Stack','前次 Stack / 后次 Stack','复用端点','活跃阶段','开始条件','Normalize','Store'].includes(key)).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>')}<br>静态逻辑映射 · Tick 无时间比例`;
-      tooltip.hidden=false;const r=workspace.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+16,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+18,r.height-tooltip.offsetHeight-8))}px`;
+      const f=objectFocus(el);
+      paintFocus(['stage','stack'].includes(f.kind)?{kind:'stack',index:f.index}:f);
+      tooltip.hidden=true;
     });
     listen(host,'pointerleave',()=>{tooltip.hidden=true;paintFocus();});
     listen(viewport,'focusin',event=>{const card=event.target.closest('[data-intra-task]');if(card&&Number(card.dataset.intraTask)!==task.id)manualPage(tasks.findIndex(t=>t.id===Number(card.dataset.intraTask)));});

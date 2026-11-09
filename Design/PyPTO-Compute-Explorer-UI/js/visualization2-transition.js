@@ -135,7 +135,7 @@
         const group=el('g',{'data-morph-block':b.id},overlay);
         const box=el('rect',{fill:color(selected?'--state-selected':'--surface-3'),stroke:color(selected?'--primary':'--border-subtle'),'stroke-width':selected?2:1},group);
         const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono'),'font-size':12},group);
-        label.textContent=String(b.id).padStart(2,'0');
+        window.PtoPhotoNarrative.text(label,String(b.id).padStart(2,'0'));
         return {a:normalize(forward?b.rect:anchor.rect),b:normalize(forward?anchor.rect:b.rect),box,label};
       });
       const destination=root.querySelector('#viz2-'+current.to);
@@ -180,7 +180,7 @@
         const group=el('g',{'data-morph-block':pair.source.id,'data-morph-stage':pair.stage||''},overlay);
         const box=el('rect',{rx:4,fill:selected?color('--state-selected'):color('--surface-3'),stroke:selected?color('--primary'):color('--border-subtle')},group);
         const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:selected?color('--foreground'):color('--foreground-secondary'),'font-family':color('--font-mono'),'font-size':12},group);
-        label.textContent=String(pair.source.id).padStart(2,'0');return {...pair,box,label};
+        window.PtoPhotoNarrative.text(label,String(pair.source.id).padStart(2,'0'));return {...pair,box,label};
       });
       mask(current.to,true);root.classList.remove('viz2-morph-preparing');
       const destination=root.querySelector('#viz2-'+current.to);
@@ -257,7 +257,7 @@
         const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:source.label.fill,
           stroke:source.label.stroke,'paint-order':'stroke fill','stroke-width':2,
           'stroke-linejoin':'round','font-family':target.label.fontFamily,'font-weight':600},group);
-        label.textContent=String(target.id);
+        window.PtoPhotoNarrative.text(label,String(target.id));
         return {source,target,group,base,segments,backing,outline,label};
       }):[];
       // The frozen source omits only the focus Tasks. The overlay owns those pixels

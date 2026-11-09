@@ -511,3 +511,23 @@ body.ai-extracted .viz2.has-presentation > .viz2-content { inset: 0; }
 }
 
 body.ai-extracted .viz2.has-presentation .viz2-tabs { position: fixed; top: 12px; }
+
+/* Title and perspective switch share the header's normal flex flow. */
+body.ai-extracted .viz2 > .viz2-header { display:flex;align-items:center;flex-wrap:nowrap;gap:12px; }
+body.ai-extracted .viz2 > .viz2-header > [data-viz2-world-title] { flex:0 1 auto;white-space:nowrap; }
+body.ai-extracted .viz2 > .viz2-header .viz2-title-group > .viz2-story-toggle {
+ position:static;margin:0;min-height:32px;height:32px;padding:0 10px;
+ flex:0 0 auto;z-index:22;color:#e8e8e8;background:#242424;
+ border:1px solid #555;border-radius:6px;font:12px system-ui,sans-serif;line-height:1;
+}
+body.ai-extracted .viz2 > .viz2-header .viz2-title-group > .viz2-story-toggle:hover {background:#333;color:#fff}
+body.ai-extracted .viz2 > .viz2-header .viz2-title-group > .viz2-story-toggle[aria-checked="true"] {background:#383838;color:#fff;border-color:#888}
+body.ai-extracted .viz2 > .viz2-header .viz2-title-group > .viz2-story-toggle [data-viz2-world]{display:none}
+/* A second row for tabs on smaller windows preserves the title/switch pairing. */
+@media(max-width:1400px){
+ body.ai-extracted .viz2 .viz2-tabs,
+ body.ai-extracted .viz2.has-presentation .viz2-tabs{top:60px}
+}
+
+body.ai-extracted .viz2 > .viz2-header > .viz2-title-group{display:inline-flex;align-items:center;justify-content:flex-start;gap:14px;flex:0 0 auto;width:max-content;max-width:100%;}
+body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 auto;width:auto;margin:0;white-space:nowrap;}
