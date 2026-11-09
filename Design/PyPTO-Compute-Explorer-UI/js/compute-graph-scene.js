@@ -6,23 +6,23 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       const entry = data?.nodes[element.dataset.pypaNode];
       const node = nodes.find((item) => item.id === element.dataset.pypaNode);
       element.classList.remove('has-execution-badge', 'has-execution-title');
-      if (node) element.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${entry ? `，整个 Task ${data.task}：${entry.label}` : ''}`);
+      if (node) window.PtoPhotoNarrative.attr(element,'aria-label',`${node.badge}，${node.title}，${node.sub}${entry ? `，整个 Task ${data.task}：${entry.label}` : ''}`);
       if (!entry || !node || !window.PtoPagedAttentionExecution.decoration(node,data)) return;
       element.classList.add('has-execution-badge');
       const badge = document.createElement('span');
       badge.dataset.pypaExecutionCount = node.id;
       badge.className = 'kf-pypa-graph__execution-count';
-      badge.textContent = `×${entry.count}`;
-      badge.title = `${entry.unit} · ${entry.formula || entry.label} · 查看逻辑实例`;
+      window.PtoPhotoNarrative.text(badge,`×${entry.count}`);
+      window.PtoPhotoNarrative.attr(badge,'title',`${entry.unit} · ${entry.formula || entry.label} · 查看逻辑实例`);
       badge.setAttribute('role','button'); badge.setAttribute('tabindex','0');
-      badge.setAttribute('aria-label',`${node.title} ×${entry.count}，查看逻辑实例`);
+      window.PtoPhotoNarrative.attr(badge,'aria-label',`${node.title} ×${entry.count}，查看逻辑实例`);
       element.appendChild(badge);
       if (entry.count <= 1) return;
       const stack = document.createElement('div');
       stack.className = 'kf-pypa-graph__execution-stack';
       stack.dataset.pypaExecutionStack = node.id;
       stack.setAttribute('role','button');stack.setAttribute('tabindex','0');
-      stack.setAttribute('aria-label',`${node.title}，${entry.count} 个静态逻辑实例`);
+      window.PtoPhotoNarrative.attr(stack,'aria-label',`${node.title}，${entry.count} 个静态逻辑实例`);
       stack.style.cssText = `left:${element.offsetLeft}px;top:${element.offsetTop}px;width:${element.offsetWidth}px;height:${element.offsetHeight}px`;
       // Read the rendered node so composite and primitive silhouettes stay identical.
       const nodeShape = getComputedStyle(element);
@@ -60,12 +60,12 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
     scene.querySelectorAll('[data-pypa-edge-label]').forEach((label) => {
       const edge = graph.edges.find((item) => item.id === label.dataset.pypaEdgeLabel);
       const entry = executionForEdge(edge);
-      label.textContent = edge.label;
+      window.PtoPhotoNarrative.text(label,edge.label);
       if (entry) {
         const count = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
         count.setAttribute('x', label.getAttribute('x'));
         count.setAttribute('dy', '1.3em');
-        count.textContent = entry.label;
+        window.PtoPhotoNarrative.text(count,entry.label);
         label.appendChild(count);
       }
     });
@@ -145,7 +145,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
           const label = document.createElementNS(svgNS, 'text');
           label.setAttribute('class', 'kf-pypa-graph__edge-label');
           label.dataset.pypaEdgeLabel = edge.id; label.dataset.edgeType = edge.type;
-          label.textContent = edge.label;
+          window.PtoPhotoNarrative.text(label,edge.label);
           if (modelGraphviz) {
             /* 标签按仓库 edge-tag 的规格落成「底板 + 文本」：不透明底板压在线段上，
                宽度由布局侧的 labelW 给出，文本 12px / 800，颜色取 foreground-secondary。 */
@@ -220,7 +220,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
         label.setAttribute('y', String(labelY));
         label.setAttribute('class', 'kf-pypa-graph__edge-label');
         label.dataset.pypaEdgeLabel = edge.id; label.dataset.edgeType = edge.type;
-        label.textContent = edge.label;
+        window.PtoPhotoNarrative.text(label,edge.label);
         svg.appendChild(label);
       }
     });
@@ -230,7 +230,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       box.className = 'kf-pypa-graph__group';
       box.dataset.pypaRegion = group.id;
       box.style.cssText = `left:${group.x}px;top:${group.y}px;width:${group.w}px;height:${group.h}px`;
-      box.innerHTML = `<span>${pypaEscape(group.label)}</span>`;
+      window.PtoPhotoNarrative.html(box,`<span>${pypaEscape(group.label)}</span>`);
       scene.appendChild(box);
     });
     placedNodes.filter((node) => node.expandedGroup).forEach((node) => {
@@ -257,8 +257,8 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       marker.className = 'btn btn-ghost kf-pypa-graph__sync-marker';
       marker.dataset.pypaSync = event.id;
       marker.style.cssText = `left:${bridge.x}px;top:${bridge.y}px;width:${bridge.w}px;height:${bridge.h}px`;
-      marker.innerHTML = `<b>${pypaEscape(event.name)} · #${event.eventId}</b><small>${event.producer.coreType} SET · ${event.producer.pipe} → ${event.consumer.coreType} WAIT · ${event.consumer.pipe}</small>`;
-      marker.title = `${event.buffer} · ${event.dtype} · 点击查看同步与源码依据`;
+      window.PtoPhotoNarrative.html(marker,`<b>${pypaEscape(event.name)} · #${event.eventId}</b><small>${event.producer.coreType} SET · ${event.producer.pipe} → ${event.consumer.coreType} WAIT · ${event.consumer.pipe}</small>`);
+      window.PtoPhotoNarrative.attr(marker,'title',`${event.buffer} · ${event.dtype} · 点击查看同步与源码依据`);
       scene.appendChild(marker);
     });
     placedNodes.forEach((node) => {
@@ -269,7 +269,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       if (node.sem) button.dataset.sem = node.sem;
       /* model-graphviz 按 kind 决定外形：tensor 圆角矩形、op 胶囊、折叠的 composite 走 module。 */
       button.dataset.nodeKind = node.type === 'composite' ? 'module' : node.kind === 'data' ? 'tensor' : 'op';
-      button.title = node.title;
+      window.PtoPhotoNarrative.attr(button,'title',node.title);
       if (node.expandable) {
         button.dataset.pypaExpand = node.id;
         button.setAttribute('aria-expanded', String(expandedStages.has(node.id)));
@@ -278,14 +278,14 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       button.style.top = `${node.y}px`;
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
-      button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
+      window.PtoPhotoNarrative.attr(button,'aria-label',`${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
       if (compactNodes) {
         // Native text shares the viewport labels' density switch; geometry
         // remains identical to the dimensions used by layout and routing.
         button.classList.add('is-compact-node');
         button.style.height = `${node.h}px`;
         button.style.padding = '0';
-        button.innerHTML = `<span class="kf-pypa-graph__node-head viz2-graph-compact-title"><b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>`;
+        window.PtoPhotoNarrative.html(button,`<span class="kf-pypa-graph__node-head viz2-graph-compact-title"><b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>`);
         scene.appendChild(button);
         return;
       }
@@ -297,9 +297,9 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
           ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : '';
         const kindLine = node.type === 'composite' && !node.expandedGroup
           ? '<span class="kf-pypa-graph__node-kind">Composite</span>' : '';
-        button.innerHTML = `<span class="kf-pypa-graph__node-label">${pypaEscape(node.title)}</span>${kindLine}${expandToggle}`;
+        window.PtoPhotoNarrative.html(button,`<span class="kf-pypa-graph__node-label">${pypaEscape(node.title)}</span>${kindLine}${expandToggle}`);
       } else {
-        button.innerHTML = `<span class="kf-pypa-graph__node-head">${view !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (view === 'compute' ? cardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+        window.PtoPhotoNarrative.html(button,`<span class="kf-pypa-graph__node-head">${view !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (view === 'compute' ? cardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">${window.PtoPhotoNarrative.enabled?'叙事步骤':'源码 '+pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`);
       }
       scene.appendChild(button);
     });

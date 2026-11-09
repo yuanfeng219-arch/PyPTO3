@@ -1,0 +1,40 @@
+/* Story rendering and host commands only. No agent backend or second Inspector. */
+(()=>{
+ const story=window.AGENT_RUN_STORY,chat=document.getElementById('agent-chat'),frame=document.querySelector('[data-ide-frame]');
+ const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n};
+ const action=(text,fn)=>{const b=el('button','btn btn-ghost chat-link',text);b.type='button';b.onclick=fn;return b};
+ const source=id=>window.LINEAGE_DATA.sources.find(s=>s.id===id);
+ const fileLink=id=>{const a=el('a','chat-file');a.href=source(id).path;a.target='_blank';a.rel='noopener';a.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6v20h12V6z M14 2v5h5 M9 12h6 M9 16h6"/></svg>';a.append(el('span','',id),el('small','',id.endsWith('.py')?'Python · 查看 ↗':'Markdown · 查看 ↗'));return a};
+ const header=el('header','pto-ide-frame__pane-header chat-header');header.append(el('strong','pto-ide-frame__pane-title','PyPTO Agent'),el('span','pto-ide-frame__pane-meta chat-completed',story.workflows.every(n=>n.status==='completed')?'Completed':'历史运行'),action('收起',()=>setChatVisible(false)));chat.append(header);
+ const subhead=el('div','chat-subhead');subhead.append(el('span','pto-ide-frame__pane-meta','Softmax · 历史 Run'),el('span','pto-ide-frame__pane-meta chat-related',''));
+ const messages=el('div','pto-ide-frame__pane-body chat-messages');messages.setAttribute('aria-label','Softmax 历史对话故事线');chat.append(messages);messages.append(subhead);
+ messages.append(el('p','chat-provenance',story.provenance));
+ const user=el('article','chat-user');user.append(el('small','','示例需求 · 根据历史 SPEC 还原'),el('p','',story.userMessage));messages.append(user);
+ const spec=el('article','chat-agent chat-spec');spec.append(el('div','chat-speaker','PyPTO Agent'),el('h2','','已生成 Softmax 需求规范'),el('p','','已根据需求建立算子规格，明确输入输出、动态 Shape、计算语义和验收范围。部分未指定条件采用可追溯默认值。'));
+ const summary=el('details','chat-contract');summary.open=true;summary.append(el('summary','','SPEC Summary'));
+ const c=story.contract;
+ const group=(heading,origin,rows)=>{const section=el('section','chat-contract-group');const h=el('h3','',heading);h.append(el('small','chat-origin',origin));section.append(h);const dl=el('dl');for(const[k,v]of rows){dl.append(el('dt','',k),el('dd','',v))}section.append(dl);summary.append(section)};
+ group('Operator Contract','用户要求（示例）',[['Operator',c.op_name],['Input / Output','FP16 [B,N] → FP16 [B,N]'],['Reduction Axis','-1'],['Dynamic B',c.dynamic_axes_ranges.B.join('–')],['Dynamic N',c.dynamic_axes_ranges.N.join('–')]]);
+ group('Acceptance','参考资料补充',[['atol / rtol',`${c.tolerance.atol} / ${c.tolerance.rtol}`],['P0 Cases',`${c.p0_cases.length} · 用户指定 Shape`]]);summary.append(el('p','chat-footnote','容差依据：SPEC §7 引用官方 VF Softmax 样例。'));
+ group('Assumptions','系统默认 / 未指定',[['Target','A5 / 950 · 系统默认假设'],['Performance Target',c.perf_target===null?'用户未指定具体数值目标':String(c.perf_target)]]);spec.append(summary,action('在 Explorer 中查看 SPEC',()=>window.selectLineageNode('e1')));messages.append(spec);
+ window.AgentRunSpec={open(id){if(id!=='e1')return false;const host=document.getElementById('detail');host.classList.add('design-detail');const body=summary.cloneNode(true);body.open=true;host.append(el('p','','需求合同来自历史 SPEC.md；容差为参考资料补充，设备为系统默认假设。'),body,fileLink('SPEC.md'));return true}};
+
+ const activities=el('article','chat-agent chat-activities');activities.append(el('h2','','执行记录'));
+ for(const s of story.stages){const workflow=story.workflows.find(n=>n.stage===s.stage),row=el('section','chat-activity'),d=el('details');const heading=el('summary');heading.append(el('span','',`0${s.stage} · ${s.name}`),el('small','chat-completed',workflow.status==='completed'?'Completed':workflow.status));d.append(heading,el('p','',s.detail));row.append(d,el('p','chat-activity-summary',s.summary),action('在 Explorer 中定位 ↗',()=>s.stage===1?window.selectLineageNode('e1'):window.LineageDock.navigateStage(s.stage)));activities.append(row)}messages.append(activities);
+ const result=el('article','chat-agent chat-result');result.append(el('div','chat-speaker','PyPTO Agent'),el('h2','','Softmax 算子已生成并验证'),el('h3','','Implementation'),el('p','','单 Vector / VF Kernel · 数值稳定 Softmax。采用 max、exp + sum、div 三趟计算结构。'));
+ result.append(el('h3','','Correctness'),el('p','chat-pass',`${story.correctness.filter(n=>n.status==='PASS').length}/${story.correctness.length} PASS`));
+ const perf=story.performance.find(n=>n.shape==='[32,4096]'),small=story.performance.find(n=>n.shape==='[1,128]');result.append(el('h3','','Performance'));const dl=el('dl','chat-performance');for(const[k,v]of [['Shape',perf.shape],['Baseline',perf.baseline.us.toFixed(3)+' μs'],['Final',perf.final.us.toFixed(3)+' μs'],['Improvement','−'+((1-perf.final.us/perf.baseline.us)*100).toFixed(2)+'%'],['Speedup',(perf.baseline.us/perf.final.us).toFixed(3)+'×']])dl.append(el('dt','',k),el('dd','',v));result.append(dl,el('p','chat-footnote','Kernel Duration · 同一 Shape 的 Baseline / Final 正式采集比较。'),el('p','chat-regression',`${small.shape} 的 Kernel Duration 从 ${small.baseline.us.toFixed(3)} μs 增加到 ${small.final.us.toFixed(3)} μs。`),el('p','chat-footnote','Golden E2E Ratio 不作为本次优化的直接加速比。'));result.append(el('h3','','生成的产物'));story.files.forEach(id=>result.append(fileLink(id)));
+ const count=story.opportunities.categories.reduce((n,c)=>n+c.candidateIds.length,0);result.append(el('h3','',`尚有 ${count} 个未尝试方向`));for(const category of story.opportunities.categories)for(const id of category.candidateIds){const n=window.LINEAGE_VIEW.river.opportunities.find(n=>n.id===id);result.append(el('p','chat-opportunity',`${n.label} · ${category.categoryName}`))}result.append(action('查看 Open Opportunities',()=>window.LineageDock.navigateStage(6)));messages.append(result);
+ const composer=el('div','chat-composer');const input=el('textarea');input.readOnly=true;input.setAttribute('aria-label','历史运行记录，输入只读');input.value='历史运行记录 · 当前演示不支持发送新任务';composer.append(input);const controls=el('div','chat-composer-controls');for(const [label,path]of [['添加附件','M12 5v14 M5 12h14'],['发送任务','M12 19V5 M5 12l7-7 7 7']]){const b=el('button','btn btn-icon btn-ghost');b.disabled=true;b.setAttribute('aria-label',label);b.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`;controls.append(b)}controls.insertBefore(el('small','','历史记录 · 只读'),controls.lastChild);composer.append(controls);chat.append(composer);
+ const fileList=document.getElementById('run-file-list');story.files.forEach(id=>fileList.append(fileLink(id)));
+ window.addEventListener('lineage-selection-change',e=>{const projection=window.LineageDock.projection.find(s=>s.nodes.some(n=>n.nodeId===e.detail.nodeId));subhead.querySelector('.chat-related').textContent=projection?`关联 0${projection.stageId} ${projection.label}`:''});
+ // Resize is owned by the shared IDE/workbench pattern. Collapse only controls visibility.
+ const split=document.getElementById('decision-chat-split'),main=document.querySelector('main.pto-ide-frame__pane'),reopen=document.getElementById('chat-reopen');
+ const gutter=chat.previousElementSibling,instance=window.lineageIdeFrames[0].resizeInstances[0];let savedSizes=null,visible=true;
+ const availableWidth=()=>split.clientWidth-(document.getElementById('run-files').hidden?0:document.getElementById('run-files').getBoundingClientRect().width);
+ function setChatVisible(show){visible=show;const narrow=availableWidth()<1000;frame.dataset.chatCollapsed=String(!show);frame.dataset.chatOverlay=String(show&&narrow);reopen.hidden=show;chat.hidden=!show;gutter.hidden=!show||narrow;
+  if(!show||narrow){if(!savedSizes)savedSizes=instance.getSizes().map((size,i)=>Math.max(size,i===0?18:1));main.style.flex='1 1 0%';main.style.width='auto'}else{instance.setSizes(savedSizes||[18,55,27]);instance.refresh();savedSizes=null}
+ }
+ reopen.onclick=()=>setChatVisible(true);
+ let narrow=availableWidth()<1000;setChatVisible(!narrow);new ResizeObserver(()=>{const next=availableWidth()<1000;if(next!==narrow){narrow=next;setChatVisible(!narrow)}}).observe(split);
+})();

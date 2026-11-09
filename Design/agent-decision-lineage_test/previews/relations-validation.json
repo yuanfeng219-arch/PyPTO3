@@ -1,0 +1,451 @@
+{
+  "checks": [
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-api",
+      "lines": 3,
+      "tip": "VF API 适配 → Vector / VF · Informs · 设计依据\nExplore 核实 VF API 覆盖 Softmax 运算链，官方三趟 VF 样例为实现路径提供依据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-api",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-precision",
+      "lines": 2,
+      "tip": "知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-precision",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-tiling",
+      "lines": 3,
+      "tip": "知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nA5 / 950 · UB 248KB → Single Tile 3×8192 · Constrains · 工程约束\n248KB UB 约束 MAX_N×TILE_ROWS×2 字节×4槽；3×8192×2×4=192KB，覆盖完整行。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-tiling",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-kb",
+      "lines": 4,
+      "tip": "知识选择 → Vector / VF · Informs · 设计依据\n逐行 reduce→broadcast 模式支持 Vector/VF；官方 Softmax VF 样例提供独立实现参考。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → UB 192KB / 248KB · Informs · 设计依据\nbuffer-reuse-lifetime 规定 Slot 轮转与生命周期；输入、输出各双槽，每行块各 advance 一次。双缓冲不证明实际重叠。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-kb",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "keyboard": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "escape": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-api",
+      "lines": 3,
+      "tip": "VF API 适配 → Vector / VF · Informs · 设计依据\nExplore 核实 VF API 覆盖 Softmax 运算链，官方三趟 VF 样例为实现路径提供依据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-api",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-precision",
+      "lines": 2,
+      "tip": "知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-precision",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-tiling",
+      "lines": 3,
+      "tip": "知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nA5 / 950 · UB 248KB → Single Tile 3×8192 · Constrains · 工程约束\n248KB UB 约束 MAX_N×TILE_ROWS×2 字节×4槽；3×8192×2×4=192KB，覆盖完整行。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-tiling",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-kb",
+      "lines": 4,
+      "tip": "知识选择 → Vector / VF · Informs · 设计依据\n逐行 reduce→broadcast 模式支持 Vector/VF；官方 Softmax VF 样例提供独立实现参考。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → UB 192KB / 248KB · Informs · 设计依据\nbuffer-reuse-lifetime 规定 Slot 轮转与生命周期；输入、输出各双槽，每行块各 advance 一次。双缓冲不证明实际重叠。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-kb",
+      "leave": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "keyboard": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "escape": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-api",
+      "lines": 3,
+      "tip": "VF API 适配 → Vector / VF · Informs · 设计依据\nExplore 核实 VF API 覆盖 Softmax 运算链，官方三趟 VF 样例为实现路径提供依据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-api",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-precision",
+      "lines": 2,
+      "tip": "知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-precision",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-tiling",
+      "lines": 3,
+      "tip": "知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nA5 / 950 · UB 248KB → Single Tile 3×8192 · Constrains · 工程约束\n248KB UB 约束 MAX_N×TILE_ROWS×2 字节×4槽；3×8192×2×4=192KB，覆盖完整行。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-tiling",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-kb",
+      "lines": 4,
+      "tip": "知识选择 → Vector / VF · Informs · 设计依据\n逐行 reduce→broadcast 模式支持 Vector/VF；官方 Softmax VF 样例提供独立实现参考。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → UB 192KB / 248KB · Informs · 设计依据\nbuffer-reuse-lifetime 规定 Slot 轮转与生命周期；输入、输出各双槽，每行块各 advance 一次。双缓冲不证明实际重叠。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-kb",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "keyboard": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "escape": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-api",
+      "lines": 3,
+      "tip": "VF API 适配 → Vector / VF · Informs · 设计依据\nExplore 核实 VF API 覆盖 Softmax 运算链，官方三趟 VF 样例为实现路径提供依据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-api",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-precision",
+      "lines": 2,
+      "tip": "知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Mixed Precision · Constrains · 工程约束\nFP16 reduce_sum 按 FP16 累加，长轴有精度风险；采用 FP32 sum，并按 exp_sub/astype 的 ZERO/ONE 半元素约束覆盖完整数据。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-precision",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-tiling",
+      "lines": 3,
+      "tip": "知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nVF API 适配 → Single Tile 3×8192 · Constrains · 工程约束\nMAX_N 需满足 fp16 寄存器 128 元素粒度与数据 Tile 对齐；尾寄存器用 Mask。它约束列维对齐，不单独推导 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\nA5 / 950 · UB 248KB → Single Tile 3×8192 · Constrains · 工程约束\n248KB UB 约束 MAX_N×TILE_ROWS×2 字节×4槽；3×8192×2×4=192KB，覆盖完整行。\nEXPLORE_REPORT.md DESIGN.md"
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-tiling",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-kb",
+      "lines": 4,
+      "tip": "知识选择 → Vector / VF · Informs · 设计依据\n逐行 reduce→broadcast 模式支持 Vector/VF；官方 Softmax VF 样例提供独立实现参考。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Informs · 设计依据\n行归约模式以完整行为单位；VF 不写 DN 归约 Tile，因此 tile-op 的 TR%8 规则不约束 TILE_ROWS=3。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Single Tile 3×8192 · Evaluated · 未触发\n跨 Tile streaming recurrence 已评估；四槽 192KB≤248KB，整行 N≤8192 可容纳，因此未触发。不是编译失败或性能淘汰。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → UB 192KB / 248KB · Informs · 设计依据\nbuffer-reuse-lifetime 规定 Slot 轮转与生命周期；输入、输出各双槽，每行块各 advance 一次。双缓冲不证明实际重叠。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json\n\n知识选择 → Mixed Precision · Informs · 设计依据\n已选知识要求高精度累加；本次 max 保持精确 fp16，exp/sum/div 用 fp32，输出再缩窄。\nEXPLORE_REPORT.md DESIGN.md KB_SELECTION.json DESIGN_BINDINGS.json KB_USAGE.json"
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-kb",
+      "leave": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "keyboard": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "escape": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-api",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-precision",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-tiling",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "overview",
+      "id": "d-kb",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-api",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-precision",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-tiling",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "mode": "design",
+      "id": "d-kb",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-api",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-precision",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-tiling",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "overview",
+      "id": "d-kb",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-api",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-precision",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-tiling",
+      "noScroll": true
+    },
+    {
+      "width": 1600,
+      "mode": "design",
+      "id": "d-kb",
+      "noScroll": true
+    },
+    {
+      "width": 1440,
+      "id": "d-precision",
+      "inspector": true,
+      "sourceLinks": 7
+    },
+    {
+      "width": 1440,
+      "id": "d-tiling",
+      "inspector": true,
+      "sourceLinks": 17
+    },
+    {
+      "width": 1440,
+      "id": "d-buffer",
+      "inspector": true,
+      "sourceLinks": 7
+    },
+    {
+      "width": 1440,
+      "id": "d-schedule",
+      "inspector": true,
+      "sourceLinks": 2
+    },
+    {
+      "width": 1440,
+      "selectionPreserved": true,
+      "inspectorRetained": true
+    },
+    {
+      "width": 1440,
+      "focusClears": true
+    },
+    {
+      "width": 1440,
+      "runtimeEvidence": true
+    },
+    {
+      "branch": "M1378 294 C1390.15 294,1390.15 150,1405 150",
+      "overlayCount": 0,
+      "pageWidth": 1440,
+      "width": 1440
+    },
+    {
+      "width": 1600,
+      "id": "d-precision",
+      "inspector": true,
+      "sourceLinks": 7
+    },
+    {
+      "width": 1600,
+      "id": "d-tiling",
+      "inspector": true,
+      "sourceLinks": 17
+    },
+    {
+      "width": 1600,
+      "id": "d-buffer",
+      "inspector": true,
+      "sourceLinks": 7
+    },
+    {
+      "width": 1600,
+      "id": "d-schedule",
+      "inspector": true,
+      "sourceLinks": 2
+    },
+    {
+      "width": 1600,
+      "selectionPreserved": true,
+      "inspectorRetained": true
+    },
+    {
+      "width": 1600,
+      "focusClears": true
+    },
+    {
+      "width": 1600,
+      "runtimeEvidence": true
+    },
+    {
+      "branch": "M1378 294 C1390.15 294,1390.15 150,1405 150",
+      "overlayCount": 0,
+      "pageWidth": 1600,
+      "width": 1600
+    },
+    {
+      "id": "d-constraint",
+      "lines": 3
+    },
+    {
+      "id": "d-vf",
+      "lines": 2
+    },
+    {
+      "id": "d-buffer",
+      "lines": 2
+    },
+    {
+      "id": "d-schedule",
+      "lines": 1
+    }
+  ],
+  "console": []
+}

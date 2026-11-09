@@ -1,0 +1,44 @@
+(function(){
+const D=window.EXPERIMENT_DATA;let context='x-base',operation='full';
+const ids=['f-mask','h-mask','x-base','x-mask','x-tail','x-if','x-final','x-rows','x-reuse','x-fusion','d-stop'];
+const candidates=[['x-mask','Mask Lifting','✓ Accepted','完整 mask 提升出循环，减少重复计算。'],['x-if','Runtime if · Tail Handling','× Rejected','报告记录 C++ 作用域/类型错误：__inline_0_tail_mreg_fp16_2；没有失败版本源码快照，不能提供伪造 diff。以 pl.range 空尾循环替代。'],['x-tail','Empty-tail-loop','✓ Accepted · 属于 Mask Lifting','n_tail_iters=0 时空循环，尾部存在时处理一个寄存器；没有独立性能归因。'],['x-rows','TILE_ROWS Adjustment','○ Not Attempted','当前性能达标，未继续调参。DESIGN §9 允许调整 TILE_ROWS；继续探索需在允许范围内另立实验，并重新采集正确性与性能，无其他 TILE_ROWS 实测对照。'],['x-reuse','Exp Result Reuse','○ Not Attempted','需要 fp32 UB staging，会改变冻结三趟结构；没有实测结果。'],['x-fusion','Pass Fusion','○ Not Attempted','改变算法模块语义与冻结设计；没有实测结果。']];
+
+function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
+function b(text,fn,on=false){const n=el('button','btn btn-ghost',text);n.type='button';n.setAttribute('aria-pressed',String(on));n.onclick=fn;return n}
+function link(file,loc){const a=el('a',null,file+' · '+loc);a.href='evidence/'+file;a.target='_blank';a.rel='noopener';return a}
+function disclosure(host,label){const d=el('details','experiment-evidence');d.append(el('summary',null,label));host.append(d);return d}
+function table(host,headers,rows){const t=el('table','profiling-table');const h=el('tr');headers.forEach(x=>h.append(el('th',null,x)));t.append(h);for(const values of rows){const r=el('tr');values.forEach(x=>r.append(el('td',null,x)));t.append(r)}host.append(t)}
+function pick(id){window.dispatchEvent(new CustomEvent('experiment-select',{detail:id}))}
+function snippet(file,start,end){const lines=(file.endsWith('bak_stage5')?D.codeBefore:D.codeAfter).split('\n');const a=lines.findIndex(l=>l.includes(start));let z=lines.findIndex((l,i)=>i>a&&l.includes(end));if(z<0)z=Math.min(lines.length,a+18);const wrap=el('section','experiment-code');wrap.append(link(file,'L'+(a+1)+'–'+z));const pre=el('pre','decision-code');pre.tabIndex=0;pre.setAttribute('aria-label','实验代码片段，可独立滚动');lines.slice(a,z).forEach((s,i)=>pre.append(el('span',s.includes('update_mask')||s.includes('n_tail_iters')?'code-highlight':'',String(a+i+1).padStart(3)+' '+s+'\n')));wrap.append(pre);return wrap}
+
+function profilerEvidence(host){ const profiler=disclosure(host,'Profiler · [32,4096]');table(profiler,['Metric','Baseline','Final'],D.profiling.map(r=>[r.metric,r.baseline,r.final]));profiler.append(el('p',null,'单次 / max-core 指标；Task Duration 5.834→4.946 μs，不与正式 Baseline 5.926 μs 混算。vec / scalar / mte 为采样信号，不是时间分解；vec_resc_cflt 121.50% 不是利用率。scalar 比率上升不能推出其绝对时间增加。'),link('PERFORMANCE_REPORT.md','§3 / §5'));
+}
+function comparison(host){
+ const chart=el('div','paired-comparison');chart.setAttribute('role','group');chart.setAttribute('aria-label','三个 Shape 的 Baseline 与 Final Kernel Duration，同一零起点尺度');
+ const head=el('div','paired-head');head.append(el('span',null,'Shape'),el('span',null,'Kernel Duration · μs ↓'),el('span',null,'Δ 耗时'));chart.append(head);
+ const max=Math.max(...D.cases.flatMap(c=>[c.baseline.us,c.final.us]));
+ for(const c of D.cases){const delta=(c.final.us/c.baseline.us-1)*100,row=el('div','paired-row');row.append(el('strong','paired-shape',c.shape));const bars=el('div','paired-bars');
+ for(const [key,label]of [['baseline','Baseline'],['final','Final']]){const line=el('div','paired-bar-line');line.append(el('span','paired-label',label));const track=el('span','paired-track'),bar=el('i',key);bar.style.width=(c[key].us/max*100)+'%';track.append(bar);line.append(track,el('span','paired-value',c[key].us.toFixed(3)));bars.append(line)}
+ row.append(bars,el('strong',delta>0?'performance-regression':'performance-gain',(delta>0?'+':'−')+Math.abs(delta).toFixed(2)+'%'));chart.append(row)}host.append(chart);
+ const details=disclosure(host,'Measurement details · Samples & Evidence');details.append(el('p',null,'正式采集 Task Duration；每组 3 次 repeats，去除最大 / 最小后保留中间值。双条形均从 0 开始，共用同一最大值尺度。Δ%=100×(Final−Baseline)/Baseline；speedup=Baseline/Final。'));
+ table(details,['Shape','Baseline samples · μs','Final samples · μs','Speedup'],D.cases.map(c=>[c.shape,c.baseline.samples.map(v=>v.toFixed(3)).join(' / '),c.final.samples.map(v=>v.toFixed(3)).join(' / '),(c.baseline.us/c.final.us).toFixed(3)+'×']));
+ details.append(el('p',null,'Baseline '+D.baselineCollection+'；Final '+D.finalCollection+'。Quick A/B 未混入，Golden E2E 比值不用于优化加速比。'),el('p',null,'[1,128]：报告称约 5.2% 回退；此处统一用 Baseline 作分母为 +5.48%。仅三个样本，不能断言统计显著性或将回退确定归因为噪声。'),el('p',null,'Runtime if 无成功运行结果；三个未尝试方向没有性能测量，不参与本图比较或归因。'),link('PERFORMANCE_REPORT.md','§3 / §5'),link('performance.json','per_case[].duration_samples_us'));profilerEvidence(host);
+}
+function journey(host){
+ const candidate=candidates.find(c=>c[0]===context);const failed=context==='x-if';
+ host.append(el('p',failed?'performance-regression':'experiment-result',failed?'× C++ 作用域 / 类型错误 → Empty-tail-loop 替代':context==='f-mask'?'循环内重复创建 mask':context==='h-mask'?'将 Full Mask 提升到循环外':'✓ Full Mask Reuse + Tail Handling'));
+ if(failed)host.append(el('p',null,'无失败源码 / 成功性能测量。下方对照为 Baseline 与最终替代实现。'));
+ const diagram=el('div','mask-structure');for(const [title,lines]of [['Before',['每行 × 三趟','update_mask → compute','每轮重复创建']],['After',['循环外：3 个 Full Mask','三趟循环复用','独立 tail range：0 / 1 次']]]){const col=el('div','mask-loop');col.append(el('strong',null,title));lines.forEach(t=>col.append(el('span',null,t)));diagram.append(col)}host.append(diagram);
+ const controls=el('div','topic-controls');for(const [id,label]of [['full','Full Mask'],['tail','Tail Handling'],['sum','Exp + Sum']])controls.append(b(label,()=>{operation=id;render()},operation===id));host.append(controls);
+ const diff=el('div','code-diff');diff.append(snippet('test_softmax.py.bak_stage5',operation==='sum'?'        # ---- pass2:':'        # ---- pass1:',operation==='sum'?'        row_sum_b =':'        row_max_b ='),snippet('test_softmax.py',operation==='full'?'    # Lifted full-register masks':operation==='tail'?'        for r in pl.range(n_full, n_full + n_tail_iters):':'        # ---- pass2:',operation==='full'?'    for m in':operation==='tail'?'        row_max_b =':'        row_sum_b ='));host.append(diff);
+ const details=disclosure(host,'Implementation details & Evidence');if(candidate)details.append(el('p',null,candidate[3]));details.append(el('p',null,'不变项：三趟、TILE_ROWS=3、MAX_N=8192、fp16→fp32→fp16、输入输出双缓冲、auto_mutex。静态结构不代表运行时间轴。'),el('p',null,'N=4096：32 个完整寄存器块；Baseline 三趟累计 96 次 update_mask(fp16)、192 次 update_mask(fp32)，为源码分析线索。PMU 比率不能独立证明因果。'),el('p',null,'N=200：首寄存器 128 有效元素，尾寄存器 72。N%128=0 时 n_tail_iters=0。Runtime if 报告为 C++ 作用域 / 类型错误，无失败源码快照或成功性能测量；Empty-tail-loop 无独立 speedup 归因。'),link('PERFORMANCE_REPORT.md','§3–4 / §7–8'));
+}
+function evidence(host){const opportunity=candidates.find(c=>c[0]===context&&c[2].startsWith('○'));
+ if(opportunity){host.append(el('p','experiment-result','○ 未尝试 · '+(context==='x-rows'?'目标已达成':'需要修改设计')));const reason=context==='x-rows'?'DESIGN §9 允许范围内调整 TILE_ROWS。':context==='x-reuse'?'FP32 UB staging 将改变冻结的三趟结构。':'融合会改变算法模块语义和冻结设计。';host.append(el('p',null,reason));const d=disclosure(host,'Decision evidence');d.append(el('p',null,opportunity[3]),el('p',null,'无性能测量；不属于已执行轨迹，也不代表失败或已证明的优化收益。'),link('PERFORMANCE_REPORT.md','§7 Candidate Coverage Ledger'),link('DESIGN.md',context==='x-rows'?'§9':'§0'));return}
+ host.append(el('p','experiment-result','✓ 满足默认目标 · 停止并交付'));table(host,['验收','结果'],[['Correctness','8/8 PASS'],['设计合同','三趟 · 精度链 · Tile / 双缓冲 · 单次 launch'],['正式采集','round_001 / round_002'],['后续方向','3 个未尝试 · 未证明全局最优']]);
+ const d=disclosure(host,'Stop decision · Measurement & Evidence');table(d,['Shape','Golden E2E / Final kernel'],D.cases.map((c,i)=>[c.shape,D.terminal[i].golden_reference_ratio.toFixed(3)+'×']));d.append(el('p',null,'三个 P0 默认目标比值均 ≥1。这是跨范围目标审查，不是本次优化 speedup。8 个正确性用例为历史记录，未在本机复测。'),el('p',null,'Roofline compute_bound 来自平台峰值与工作量模型；pipeline not_applicable_with_dag 来自每核一个 Tile 的依赖证明。小 Shape 实际耗时仍由启动 / setup 主导。'),el('p',null,'Timeline preflight 失败：ASCEND_RT_VISIBLE_DEVICES=1 引发逻辑设备重映射，与 TILE_FWK_DEVICE_ID=1 冲突（107001）。不是 Kernel 失败，无运行时间轴。'),el('p',null,'TILE_ROWS 可在允许范围内另立实验；Exp Reuse / Pass Fusion 需先修改冻结设计、评估 UB 与语义，并重新验证。'),link('PERFORMANCE_REPORT.md','§6–§11'),link('performance.json','terminal_evidence'));
+ profilerEvidence(host);
+}
+function render(){const host=document.getElementById('detail');host.classList.add('design-detail');host.replaceChildren();const body=el('section','experiment-workspace');(['x-base','x-final'].includes(context)?comparison:['d-stop','x-rows','x-reuse','x-fusion'].includes(context)?evidence:journey)(body);host.append(body)}
+window.ExperimentInspector={open(id){if(!ids.includes(id))return false;context=id;operation=['x-tail','x-if'].includes(id)?'tail':'full';render();return true}};
+})();

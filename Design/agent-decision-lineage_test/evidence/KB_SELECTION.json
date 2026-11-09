@@ -1,0 +1,88 @@
+{
+  "schema_version": 3,
+  "op": "softmax",
+  "class_id": ".",
+  "topologies": [
+    "row-reduction",
+    "multi-phase-fusion"
+  ],
+  "properties": {
+    "dtypes": [
+      "float16"
+    ],
+    "ranks": [
+      2
+    ],
+    "unaligned_shapes": true,
+    "tail_blocks": true,
+    "long_axis": true,
+    "mixed_precision": true,
+    "dynamic_dims": true,
+    "is_list": false
+  },
+  "optional_patterns": [
+    {
+      "path": "patterns/vec-row-reduce-broadcast.md",
+      "reason": "softmax 对每行沿末维归约（max、sum-of-exp）为标量并广播回该行：模式 'Softmax, row normalization, and row scaling have this topology'，直接命名 softmax 并含已验证骨架；提供寄存器级 reduce+broadcast、tile 对齐规则（W*itemsize%32=0、TR%8=0）与 fp16 widen-compute-narrow 的 3x 向量开销洞察（与 mixed_precision 关键设计点对应）。",
+      "sha256": "sha256:460d20405eea14917d7fd932d1cccf6258971e4744de9d7185bfd54a96c74c16"
+    },
+    {
+      "path": "patterns/online-softmax-tail.md",
+      "reason": "P0 最大 N=4096 在 UB 248KB 与 fp32 加宽约束下大概率超出单 tile，reduction 轴须分块流式更新 running max/sum。该模式给出与本算子直接相关的具体设计约束：列尾 mask 须在 max 之前、行尾 mask 在 sub 之后、用有限负哨兵 NEG_LARGE（-1e30）而非 inf（inf 在 PyPTO-Pro 不编译）、m/l/累加保持 FP32、全无效行需短路。与 vec-row-reduce-broadcast（单 tile 情形）形成互补，设计作用独立。",
+      "sha256": "sha256:42fbe0c95861f43e98531bae3760cf2d50fe13227a8f14a0a856b4ab5a7c44a8"
+    },
+    {
+      "path": "patterns/buffer-reuse-lifetime.md",
+      "reason": "softmax 3-pass（max/sum/div）需在同一 in_tile 上多趟读、in/out tile group 跨行轮转，模式直接以 softmax 实现为验证骨架（'rotating input, output, scratch, and reduction groups in the retained softmax implementation'）。给出 slot 计数律（B×K≤32 mutex 上限）、轮转组 advance 时机、partial tile 须 set_validshape、auto_mutex 不覆盖 V 管内 scratch 须 vf.mem_bar 等具体约束。",
+      "sha256": "sha256:2949a71b59094c06b54affb260a2d9c49e1163d7c3fa30bafa51ef8454b34a2f"
+    }
+  ],
+  "required_constraints": [
+    {
+      "path": "constraints/vec.md",
+      "reason": "row-reduction 拓扑路由：softmax 为逐行归约+广播，Vector 计算须遵守 vec 通用约束。",
+      "sha256": "sha256:d64d79b58ebb1f1c07ec686eb58de27671ee270d9d2359f262a8d0be07d247a4"
+    },
+    {
+      "path": "constraints/sync-stitch.md",
+      "reason": "multi-phase-fusion 拓扑路由：softmax 含 max/sum/div 多个依赖阶段且状态（m,s）跨阶段携带，须遵守阶段衔接同步约束。",
+      "sha256": "sha256:452e323dd6681dff349459a6b935cd9ce83beb1377badc02dfa36973fa32579b"
+    },
+    {
+      "path": "constraints/tiling.md",
+      "reason": "long_axis 属性路由：N 最大 8192（P0=4096）为长轴，超出单 tile 须多 tile 遍历，遵守 tiling 约束；亦为 buffer-reuse-lifetime slot 上限依据。",
+      "sha256": "sha256:085ae0a7f457e025ca35152acbad4e07a066fe64185e0f31191a532d93f78e93"
+    },
+    {
+      "path": "constraints/memory-layout.md",
+      "reason": "unaligned_shapes 属性路由：动态 N∈[1,8192] 含非对齐 shape，须遵守 UB 内存布局约束。",
+      "sha256": "sha256:cf1a519c74be29a10fd1207cd06e59cefebbcbfee3bdf52bfe1d43e6f05360e5"
+    },
+    {
+      "path": "constraints/tail-validshape.md",
+      "reason": "tail_blocks/unaligned_shapes/dynamic_dims 属性路由：B=1,4<TILE_ROWS 产生行尾块；动态 N 产生寄存器尾；须 set_validshape + 尾 mask 处理。",
+      "sha256": "sha256:089abbb29038670d8036520964964d09ba9cf0f66f0c74f9dfb5637488a07596"
+    },
+    {
+      "path": "constraints/precision.md",
+      "reason": "mixed_precision 属性路由：fp16 输入/输出但累加须升 fp32（reduce_sum fp16 源在 fp16 精度累加），须遵守精度链约束。",
+      "sha256": "sha256:481a8131af0670ae06059e114caf54eb0cd478099871a9fcecd96fb6db91dffd"
+    },
+    {
+      "path": "constraints/vec-mask-width.md",
+      "reason": "mixed_precision 属性路由：fp16 与 fp32 计算需各自 create_mask，mask 粒度随 dtype 变化（fp16=128 元素×2bit，fp32=64×4bit），须遵守 mask 宽度约束。",
+      "sha256": "sha256:b052132ce20843d8b14cad041d3f79f5eb64efc4cfbce84fe967163d120eb68f"
+    },
+    {
+      "path": "constraints/arch-a5.md",
+      "reason": "target_gated：运行时未指定 target，按工作流默认 A5（SoC 950）加载；可用设备 TILE_FWK_DEVICE_ID=1 为 A5 类，官方 softmax 样例 @pytest.mark.soc('950')。",
+      "sha256": "sha256:afb4f89419b3a29cdadd6375a403f3c13ced11787f7b2bfed3e8388250c7baa0"
+    },
+    {
+      "path": "constraints/wrapper-boundary.md",
+      "reason": "mandatory：公开可调用入口不得在单次 PyPTO-Pro kernel launch 周围分派 host 侧 tensor kernel；适用 architect/coder/verifier。",
+      "sha256": "sha256:81fbe46f90771b9aa6806a7ff8e98afb54add4c2284b4d1e55e11ad042f1c662"
+    }
+  ],
+  "no_matching_pattern": false
+}

@@ -98,7 +98,7 @@
     root.querySelectorAll('#viz2-graph-inter,#viz2-graph-intra').forEach(host=>{
       if(host.querySelector('.ai-semantic-legend')) return;
       const legend=document.createElement('div');legend.className='ai-semantic-legend';legend.setAttribute('aria-label','图元语义色');
-      legend.innerHTML='<span><i style="--role-color:#80B7F7"></i>Activation / KV Data</span><span><i style="--role-color:#F2C45F"></i>Intermediate / Reduction</span><span><i style="--role-color:#B0B0B0"></i>Metadata</span>';host.append(legend);
+      window.PtoPhotoNarrative.html(legend,'<span><i style="--role-color:#80B7F7"></i>Activation / KV Data</span><span><i style="--role-color:#F2C45F"></i>Intermediate / Reduction</span><span><i style="--role-color:#B0B0B0"></i>Metadata</span>');host.append(legend);
     });
     root.querySelectorAll('[data-am-play],[data-p0-play]').forEach(b=>transport(b));
     root.querySelectorAll('[data-am-replay],[data-p0-replay]').forEach(b=>transport(b,true));

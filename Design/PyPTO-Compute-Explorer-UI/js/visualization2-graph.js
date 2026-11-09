@@ -21,15 +21,16 @@
   // An optional semantic adapter supplies Task facts and selection/Inspector mapping.
   // Scene layout, cards, labels, expansion, camera and gestures have one owner.
   function mount(host, { onSelect, onView, execution, onEnter, onBlockEnter, adapter = null }) {
-    let model = adapter?.getModel() || global.PTO_PYPA_SEMANTIC_GRAPH;
-    let graph,rendered,nodes,nodeMap,nodeLabels,stageLabels,labels;
+    const technicalModel=global.PTO_PYPA_SEMANTIC_GRAPH;
+    let model = adapter?.getModel() || technicalModel;
+    let graph,rendered,nodes,nodeMap,nodeLabels,stageLabels,labels,renderedRevision=-1;
     let expanded=new Set(),layers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true},layoutKey='',executionKey='';
     const layerNames={data:'数据节点',shape:'Shape',precision:'精度',memory:'存储及执行',control:'状态 / 控制',execution:'执行次数',sync:'同步'};
     host.classList.add('viz2-graph');
-    host.innerHTML = `<div class="viz2-graph-body"><div class="viz2-graph-stage">
+    window.PtoPhotoNarrative.html(host,`<div class="viz2-graph-body"><div class="viz2-graph-stage">
       <div class="kf-pypa-graph__viewport viz2-graph-viewport" role="group" tabindex="0" aria-label="${adapter?'Block 内计算图':'Block 间完整计算图'}，滚轮缩放，拖拽平移"><div class="kf-pypa-graph__scene viz2-graph-scene" data-viz2-graph-scene></div><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
       <footer class="viz2-graph-footer"><span data-viz2-graph-context>完整计算图</span><div class="viz2-graph-footer__controls"><details class="viz2-graph-layer-menu"><summary><svg class="ai-layer-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg><span>图层</span></summary><div class="viz2-graph-layer-menu__content" role="group" aria-label="信息叠加">${Object.entries(layerNames).filter(([key])=>key!=='execution'||!adapter?.alwaysExecution).map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-viz2-graph-layer="${key}" aria-pressed="${layers[key]}">${label}</button>`).join('')}</div></details><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="0.8" aria-label="缩小 Graph">−</button><output data-viz2-graph-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="1.25" aria-label="放大 Graph">＋</button><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-fit>Fit to View</button></div></div></footer>
-      </div><aside class="pto-ide-frame__pane viz2-graph-inspector" aria-label="Graph 节点详情" hidden><header class="pto-ide-frame__pane-header"><b data-viz2-graph-title></b><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-close aria-label="关闭 Graph 详情">×</button></header><div class="pto-ide-frame__pane-body" data-viz2-graph-detail></div></aside></div>`;
+      </div><aside class="pto-ide-frame__pane viz2-graph-inspector" aria-label="Graph 节点详情" hidden><header class="pto-ide-frame__pane-header"><b data-viz2-graph-title></b><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-close aria-label="关闭 Graph 详情">×</button></header><div class="pto-ide-frame__pane-body" data-viz2-graph-detail></div></aside></div>`);
     const viewport = host.querySelector('.viz2-graph-viewport'), scene = host.querySelector('[data-viz2-graph-scene]');
     const events=new AbortController();
     // Reuse only the original node skin; no legacy pane chrome is mounted.
@@ -37,12 +38,13 @@
     scene.dataset.overlayControl='false';
     const inspector = host.querySelector('aside'), tooltip = host.querySelector('[role="tooltip"]');
     function staticExecutionData(g){
+      if(global.PtoPhotoNarrative.enabled)return null;
       if(adapter?.executionData)return adapter.executionData(g);
       const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario;
       return global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario);
     }
     function rebuild(){
-      scene.innerHTML='';labels?.remove();
+      window.PtoPhotoNarrative.html(scene,'');labels?.remove();
       const overview=!adapter && !layers.data;
       const visibleModel=model;
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,...adapter?.layoutOptions});
@@ -72,8 +74,8 @@
       const label=document.createElement('span');label.className='viz2-graph-node-title';
       label.dataset.viz2GraphLabel=node.id;
       label.dataset.aiNodeKind=node.kind;
-      const name=document.createElement('span');name.dataset.viz2GraphName=node.id;name.textContent=node.title;label.append(name);
-      if(node.expandable){const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn-ghost btn-sm';toggle.dataset.pypaExpandToggle=node.id;toggle.textContent=expanded.has(node.id)?'−':'+';toggle.setAttribute('aria-label',`${expanded.has(node.id)?'收起':'展开'} ${node.title}`);toggle.setAttribute('aria-expanded',String(expanded.has(node.id)));label.append(toggle);}
+      const name=document.createElement('span');name.dataset.viz2GraphName=node.id;window.PtoPhotoNarrative.text(name,node.title);label.append(name);
+      if(node.expandable){const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn-ghost btn-sm';toggle.dataset.pypaExpandToggle=node.id;window.PtoPhotoNarrative.text(toggle,expanded.has(node.id)?'−':'+');window.PtoPhotoNarrative.attr(toggle,'aria-label',`${expanded.has(node.id)?'收起':'展开'} ${node.title}`);toggle.setAttribute('aria-expanded',String(expanded.has(node.id)));label.append(toggle);}
       labels.append(label);
       return {node,label};
     });
@@ -85,14 +87,14 @@
       const blocks=preparation?prepBlocks:attentionBlocks;
       const label=document.createElement('div');label.className='viz2-graph-stage-title';
       label.dataset.viz2StageBlocks=blocks.join(',');label.dataset.viz2Stage=group.id;
-      label.innerHTML=adapter?.stageLabel?adapter.stageLabel(group):`<b>${escape(group.label)}</b>${preparation?'<small>Projection · External Inputs</small>':attention?'<small>Cache Append · Attention / Output</small>':''}`;
+      window.PtoPhotoNarrative.html(label,adapter?.stageLabel?adapter.stageLabel(group):`<b>${escape(group.label)}</b>${preparation?'<small>Projection · External Inputs</small>':attention?'<small>Cache Append · Attention / Output</small>':''}`);
       labels.append(label);
       let blockRail=null;
       if(!adapter&&(preparation||attention)){
         blockRail=document.createElement('div');blockRail.className='viz2-graph-block-rail';
         blockRail.dataset.viz2Stage=group.id;
-        blockRail.setAttribute('role','group');blockRail.setAttribute('aria-label',`${group.label} 的 Blocks`);
-        blockRail.innerHTML=`<span class="viz2-graph-block-rail__title">Blocks <small>${blocks.length}</small></span><div class="viz2-graph-block-rail__grid">${blocks.map(id=>`<button type="button" data-viz2-graph-block="${id}" aria-label="进入 Block ${String(id).padStart(2,'0')} 的 Task 视图" aria-pressed="false">${String(id).padStart(2,'0')}</button>`).join('')}</div>`;
+        blockRail.setAttribute('role','group');window.PtoPhotoNarrative.attr(blockRail,'aria-label',`${group.label} 的 Blocks`);
+        window.PtoPhotoNarrative.html(blockRail,`<span class="viz2-graph-block-rail__title">Blocks <small>${blocks.length}</small></span><div class="viz2-graph-block-rail__grid">${blocks.map(id=>`<button type="button" data-viz2-graph-block="${id}" aria-label="进入 Block ${String(id).padStart(2,'0')} 的 Task 视图" aria-pressed="false">${String(id).padStart(2,'0')}</button>`).join('')}</div>`);
         labels.append(blockRail);
       }
       return {group,label,blockRail};
@@ -101,8 +103,8 @@
     function paintExecution(){
       const data=layers.execution?staticExecutionData(graph):null;
       global.PtoStudioComputationGraph.applyExecution(scene,nodes,graph,data);
-      adapter?.decorate?.(scene,nodes,graph,data);
-      nodeLabels.forEach(({node,label})=>{const entry=global.PtoPagedAttentionExecution.decoration(node,data),name=label.querySelector('[data-viz2-graph-name]');name.dataset.fullName=node.title;name.textContent=node.title;label.querySelector('[data-viz2-execution-instances]')?.remove();if(entry){const badge=document.createElement('button');badge.type='button';badge.className='viz2-graph-floating-count';badge.dataset.viz2ExecutionInstances=node.id;badge.textContent=`×${entry.count}`;badge.title=`${entry.unit} · 查看逻辑实例`;label.append(badge);}});
+      if(!global.PtoPhotoNarrative.enabled)adapter?.decorate?.(scene,nodes,graph,data);
+      nodeLabels.forEach(({node,label})=>{const entry=global.PtoPagedAttentionExecution.decoration(node,data),name=label.querySelector('[data-viz2-graph-name]');name.dataset.fullName=node.title;window.PtoPhotoNarrative.text(name,node.title);label.querySelector('[data-viz2-execution-instances]')?.remove();if(entry){const badge=document.createElement('button');badge.type='button';badge.className='viz2-graph-floating-count';badge.dataset.viz2ExecutionInstances=node.id;window.PtoPhotoNarrative.text(badge,`×${entry.count}`);window.PtoPhotoNarrative.attr(badge,'title',`${entry.unit} · 查看逻辑实例`);label.append(badge);}});
     }
 
     function paintLabels(){
@@ -122,7 +124,7 @@
         label.style.visibility=visible?'visible':'hidden';
         if(!visible)return;
         const name=label.querySelector('[data-viz2-graph-name]');
-        name.textContent=name.dataset.fullName||node.title;
+        window.PtoPhotoNarrative.text(name,name.dataset.fullName||node.title);
         const labelWidth=Math.min(300,Math.max(adapter?.labelMinWidth ?? 196,box.w-8));
         label.style.setProperty('--ai-label-width', `${Math.min(240, Math.max(96, box.w - 48))}px`);
         label.style.maxWidth=`${labelWidth}px`;
@@ -171,7 +173,7 @@
       scene.dataset.density=camera.scale<.8?'compact':'comfortable';
       labels.dataset.density=scene.dataset.density;
       paintLabels();
-      host.querySelector('[data-viz2-graph-scale]').textContent=`${Math.round(camera.scale*100)}%`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-graph-scale]'),`${Math.round(camera.scale*100)}%`);
     }
     function focusRelated(focus) {
       const box=bounds(focus.related);if(!box||!camera)return;
@@ -239,8 +241,10 @@
     }
     function update(nextSelection,nextView,options={}) {
       const entering=!!options.active&&!active;
-      const nextModel=adapter?.getModel() || model;
-      if(nextModel!==model){model=nextModel;layoutKey='';executionKey='';first=true;}
+      const languageChanged=renderedRevision!==global.PtoPhotoNarrative.revision;renderedRevision=global.PtoPhotoNarrative.revision;
+      const baseModel=adapter?.getModel() || technicalModel;
+      const nextModel=global.PtoPhotoNarrative.enabled?global.PtoPhotoNarrativeGraph.project(baseModel):baseModel;
+      if(nextModel!==model){model=nextModel;layoutKey='';executionKey='';}
       selection=nextSelection;view=nextView;active=!!options.active;camera=view.camera;
       const nextLayers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true,...view.overlays};
       const nextExpanded=new Set(view.expanded||[]),nextKey=JSON.stringify([{...nextLayers,execution:undefined},[...nextExpanded],selection?.task,global.PtoPagedAttentionContext?.scenario?.seqLen]);
@@ -257,18 +261,18 @@
       const objectKey=JSON.stringify(selection ? [selection.kind,selection.block,selection.task,selection.lane] : null);
       const changed=lastObjectKey!==undefined&&objectKey!==lastObjectKey;lastObjectKey=objectKey;
       if(!adapter&&changed&&!selection?.graphNodeId&&view.nodeId){onView({nodeId:null,inspectorOpen:false});return;}
-      const focus=adapter?.resolveFocus?.(graph,selection,view) || resolveFocus({...model,nodes},selection,view.nodeId);focus.related=nodes.filter(n=>focus.related.includes(n.id)||focus.related.includes(n.id.split('/')[0])).map(n=>n.id);
+      const focus=global.PtoPhotoNarrative.enabled?global.PtoPhotoNarrativeGraph.focus(graph,selection,view,adapter):(adapter?.resolveFocus?.(graph,selection,view) || resolveFocus({...model,nodes},selection,view.nodeId));focus.related=nodes.filter(n=>focus.related.includes(n.id)||focus.related.includes(n.id.split('/')[0])).map(n=>n.id);
       const key=JSON.stringify([focus,objectKey]);
       if(options.restore){pendingFocus=false;lastFocusKey=key;}
       if(options.enter){tooltip.hidden=true;pendingFocus=true;}
-      if(key!==lastFocusKey){lastFocusKey=key;pendingFocus=!skipFocusOnce;}
+      if(key!==lastFocusKey){lastFocusKey=key;pendingFocus=!skipFocusOnce&&!languageChanged;}
       skipFocusOnce=false;
       paintFocus(focus);
       const node=nodeMap.get(focus.nodeId),edge=graph.edges.find(e=>e.id===view.edgeId&&['state','feedback'].includes(e.type));
       const sync=model.synchronizations?.find(s=>s.id===view.syncId),show=!!(node||edge||sync||adapter?.hasInspector?.())&&view.inspectorOpen===true,inspectorWasHidden=inspector.hidden;inspector.hidden=!show;
       if(options.restore)lastSize={width:viewport.clientWidth,height:viewport.clientHeight};
-      const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:JSON.stringify([node.id,view.instancesNode,view.instancePage])):'';
-      if(ikey!==inspectorKey){const detailBody=host.querySelector('[data-viz2-graph-detail]'),previousTitle=host.querySelector('[data-viz2-graph-title]').textContent,openDetails=[...detailBody.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;detailBody.innerHTML=detail.html;if(previousTitle===detail.title)detailBody.querySelectorAll('details').forEach(el=>{if(openDetails.includes(el.querySelector('summary')?.textContent))el.open=true;});}else if(edge&&show){host.querySelector('[data-viz2-graph-title]').textContent=edge.type==='feedback'?'跨 Stack 反馈':'状态依赖';detailBody.innerHTML=global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join('');}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;detailBody.innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;detailBody.innerHTML=inspectorHtml(node);}}
+      const ikey=show?global.PtoPhotoNarrative.revision+':' +(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:JSON.stringify([node.id,view.instancesNode,view.instancePage])):'';
+      if(ikey!==inspectorKey){const detailBody=host.querySelector('[data-viz2-graph-detail]'),previousTitle=host.querySelector('[data-viz2-graph-title]').textContent,openDetails=[...detailBody.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);inspectorKey=ikey;if(global.PtoPhotoNarrative.enabled&&show){const detail=global.PtoPhotoNarrativeGraph.inspector(node,selection,adapter?.narrativeTask?.());window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-graph-title]'),detail.title);window.PtoPhotoNarrative.html(detailBody,detail.html);}else if(adapter&&show){const detail=adapter.inspector(node,sync,graph);window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-graph-title]'),detail.title);window.PtoPhotoNarrative.html(detailBody,detail.html);if(previousTitle===detail.title)detailBody.querySelectorAll('details').forEach(el=>{if(openDetails.includes(el.querySelector('summary')?.textContent))el.open=true;});}else if(edge&&show){window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-graph-title]'),edge.type==='feedback'?'跨 Stack 反馈':'状态依赖');window.PtoPhotoNarrative.html(detailBody,global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join(''));}else if(sync&&show){window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-graph-title]'),sync.name);window.PtoPhotoNarrative.html(detailBody,`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`);}else if(node&&show){window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-graph-title]'),node.title);window.PtoPhotoNarrative.html(detailBody,inspectorHtml(node));}}
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
       host.querySelector('[data-viz2-graph-context]').hidden=true;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
@@ -340,16 +344,16 @@
       if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);tooltip.hidden=true;const c=camera||fitted();onView({camera:{...c,x:c.x+event.clientX-drag.x,y:c.y+event.clientY-drag.y}});drag.x=event.clientX;drag.y=event.clientY;return;}
       const target=event.target.closest('[data-pypa-node], [data-viz2-graph-label]'),node=target?nodeMap.get(target.dataset.pypaNode||target.dataset.viz2GraphLabel):null;tooltip.hidden=!node;
       if(hoverNodeId!==(node?.id||null)){hoverNodeId=node?.id||null;paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));}
-      if(adapter){const el=event.target.closest('[data-pypa-edge],[data-pypa-edge-label],[data-pypa-sync]');adapter.onHover?.(node?.id,el?.dataset.pypaEdge||el?.dataset.pypaEdgeLabel,el?.dataset.pypaSync,graph);paintFocus(adapter.resolveFocus(graph,selection,view));if(!node&&el){tooltip.hidden=false;tooltip.textContent=adapter.tooltip?.(null,el.dataset.pypaEdge||el.dataset.pypaEdgeLabel,el.dataset.pypaSync,graph)||'';const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}}
+      if(adapter&&!global.PtoPhotoNarrative.enabled){const el=event.target.closest('[data-pypa-edge],[data-pypa-edge-label],[data-pypa-sync]');adapter.onHover?.(node?.id,el?.dataset.pypaEdge||el?.dataset.pypaEdgeLabel,el?.dataset.pypaSync,graph);paintFocus(adapter.resolveFocus(graph,selection,view));if(!node&&el){tooltip.hidden=false;window.PtoPhotoNarrative.text(tooltip,adapter.tooltip?.(null,el.dataset.pypaEdge||el.dataset.pypaEdgeLabel,el.dataset.pypaSync,graph)||'');const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}}
       if(!node&&layers.execution&&event.target.closest('[data-pypa-edge],[data-pypa-edge-label]')){
         tooltip.hidden=false;
         const widthHelp='连线越粗，静态逻辑传输或贡献次数越多；不表示数据量、带宽或耗时';
-        tooltip.textContent=[adapter?tooltip.textContent:'',widthHelp].filter(Boolean).join('。');
+        window.PtoPhotoNarrative.text(tooltip,[adapter?tooltip.textContent:'',widthHelp].filter(Boolean).join('。'));
         const r=viewport.getBoundingClientRect();
         tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;
         tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;
       }
-      if(node){tooltip.textContent=adapter?.tooltip?.(node.id,null,null,graph)||`${node.title} · ${node.detail.length>100?node.detail.slice(0,100)+'…':node.detail}`;const rect=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-rect.left+14,rect.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-rect.top+16,rect.height-tooltip.offsetHeight-8))}px`;}
+      if(node){window.PtoPhotoNarrative.text(tooltip,(!global.PtoPhotoNarrative.enabled&&adapter?.tooltip?.(node.id,null,null,graph))||`${node.title} · ${node.detail.length>100?node.detail.slice(0,100)+'…':node.detail}`);const rect=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-rect.left+14,rect.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-rect.top+16,rect.height-tooltip.offsetHeight-8))}px`;}
     },{signal:events.signal});
     const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag,{signal:events.signal}));
     viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;hoverNodeId=null;adapter?.onHover?.(null,null,null,graph);paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));},{signal:events.signal});

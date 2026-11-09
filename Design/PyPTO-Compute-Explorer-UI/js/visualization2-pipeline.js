@@ -31,7 +31,7 @@
     const colors = { attention: getComputedStyle(host).getPropertyValue('--primary').trim(),
       output: colormap.colorForTask({ label: 'vec_reduce' }), phase0: colormap.colorForTask({ label: 'vec_layernorm' }) };
     host.classList.add('viz2-pipeline');
-    host.innerHTML = `<div class="viz2-pipeline-body">
+    window.PtoPhotoNarrative.html(host,`<div class="viz2-pipeline-body">
       <div class="viz2-pipeline-stage">
         <div class="viz2-pipeline-viewport" tabindex="0" role="group" aria-label="Block Execution Map，横向滚动缩放泳道，纵向滚动浏览 Block 行，拖拽横向平移">
           <div class="viz2-pipeline-surface"><canvas aria-hidden="true"></canvas><div class="viz2-pipeline-targets"></div></div>
@@ -42,13 +42,13 @@
         <header class="pto-ide-frame__pane-header"><b data-bem-title></b><button class="btn btn-ghost btn-sm" type="button" data-bem-clear aria-label="清除 Pipeline 选择">×</button></header>
         <div class="pto-ide-frame__pane-body" data-bem-detail></div>
       </aside>
-    </div>`;
+    </div>`);
     const viewport = host.querySelector('.viz2-pipeline-viewport'), surface = host.querySelector('.viz2-pipeline-surface');
     const canvas = host.querySelector('canvas'), ctx = canvas.getContext('2d'), targets = host.querySelector('.viz2-pipeline-targets');
     const inspector = host.querySelector('aside'), detail = host.querySelector('[data-bem-detail]');
     const taskDescription = task => `Task ${task.id} · Block ${String(task.block).padStart(2, '0')} · Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.stacks} Stacks`;
-    targets.innerHTML = model.lanes.map(lane => `<button class="viz2-pipeline-target" type="button" data-bem-block="${lane.block}" aria-label="Pipeline Block ${String(lane.block).padStart(2,'0')}，${lane.tasks.length} Tasks" aria-pressed="false"></button>
-      ${lane.tasks.map(task => `<button class="viz2-pipeline-target" type="button" data-bem-task="${task.id}" aria-label="${taskDescription(task)}，末尾 Output Normalize 和 BF16 Store" aria-pressed="false"></button>`).join('')}`).join('');
+    window.PtoPhotoNarrative.html(targets,model.lanes.map(lane => `<button class="viz2-pipeline-target" type="button" data-bem-block="${lane.block}" aria-label="Pipeline Block ${String(lane.block).padStart(2,'0')}，${lane.tasks.length} Tasks" aria-pressed="false"></button>
+      ${lane.tasks.map(task => `<button class="viz2-pipeline-target" type="button" data-bem-task="${task.id}" aria-label="${taskDescription(task)}，末尾 Output Normalize 和 BF16 Store" aria-pressed="false"></button>`).join('')}`).join(''));
     const blockTargets=new Map([...targets.querySelectorAll('[data-bem-block]')].map(n=>[Number(n.dataset.bemBlock),n]));
     const taskTargets=new Map([...targets.querySelectorAll('[data-bem-task]')].map(n=>[Number(n.dataset.bemTask),n]));
     let selection = null, camera = null, layout = null, drag = null, suppressClick = false, hover = null, active = false;
@@ -160,15 +160,15 @@
         button.dataset.batch=task.batch;button.dataset.seqLen=task.seqLen;button.dataset.pageCount=task.pages;button.dataset.stackCount=task.stacks;button.dataset.attentionWidth=String(rect.width);button.dataset.outputX=String(rect.outputX);button.dataset.attentionX=String(rect.x);
       });
       ctx.restore();
-      const output=host.querySelector('[data-bem-scale]'),value=`${Math.round(camera.scale*100)}%`;if(output.textContent!==value)output.textContent=value;
+      const output=host.querySelector('[data-bem-scale]'),value=`${Math.round(camera.scale*100)}%`;if(output.textContent!==value)window.PtoPhotoNarrative.text(output,value);
     }
     function updateInspector() {
       inspector.hidden=!selection||selection.kind==='task';
       if(inspector.hidden)return;
       const lane=model.lanes[selection.block];
       if(!lane){inspector.hidden=true;return;}
-      host.querySelector('[data-bem-title]').textContent=`Block ${String(lane.block).padStart(2,'0')}`;
-      detail.innerHTML=`<section><h3>Phase0</h3><p>${lane.phase0Groups?`${lane.phase0Lanes.length} 条 AIV Lane · ${lane.phase0Groups} 组预处理`:'无有效预处理工作'}<br>每排对应一条 AIV Lane，每个方格对应一个 Batch × KV Head 预处理工作项。<br>参与 SYNCALL 后进入 Attention。</p>${selection.kind==='lane'?`<p>保留 Assignment 焦点：AIV Lane ${selection.lane}</p>`:''}</section><section><h3>Attention · stride ${model.blocks}</h3><p>${lane.tasks.length} Tasks · ${lane.totalStacks} Stacks</p><div class="viz2-pipeline-task-list">${lane.tasks.map(t=>`<button class="btn btn-ghost btn-sm" type="button" data-bem-select="${t.id}">Task ${t.id}<span>${t.stacks} Stacks</span></button>`).join('')}</div></section><section><h3>Output</h3><p>每个 Task 末尾独立 Normalize 并以 BF16 写回；图中的 N↓ 为等宽符号。</p></section>`;
+      window.PtoPhotoNarrative.text(host.querySelector('[data-bem-title]'),`Block ${String(lane.block).padStart(2,'0')}`);
+      window.PtoPhotoNarrative.html(detail,`<section><h3>Phase0</h3><p>${lane.phase0Groups?`${lane.phase0Lanes.length} 条 AIV Lane · ${lane.phase0Groups} 组预处理`:'无有效预处理工作'}<br>每排对应一条 AIV Lane，每个方格对应一个 Batch × KV Head 预处理工作项。<br>参与 SYNCALL 后进入 Attention。</p>${selection.kind==='lane'?`<p>保留 Assignment 焦点：AIV Lane ${selection.lane}</p>`:''}</section><section><h3>Attention · stride ${model.blocks}</h3><p>${lane.tasks.length} Tasks · ${lane.totalStacks} Stacks</p><div class="viz2-pipeline-task-list">${lane.tasks.map(t=>`<button class="btn btn-ghost btn-sm" type="button" data-bem-select="${t.id}">Task ${t.id}<span>${t.stacks} Stacks</span></button>`).join('')}</div></section><section><h3>Output</h3><p>每个 Task 末尾独立 Normalize 并以 BF16 写回；图中的 N↓ 为等宽符号。</p></section>`);
     }
     function selectTask(id) {const task=model.tasks[id];if(task)onSelect({kind:'task',task:id,block:task.block,batch:task.batch,kvHead:task.kvHead});}
     function update(nextSelection,nextCamera,options={}) {

@@ -8,7 +8,7 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
   const executionDecorations=[...el.querySelectorAll('[data-pypa-execution-count]')];
   el.removeAttribute('title');el.style.height=`${node.h}px`;
   el.dataset.aiExpandedChild=String(node.id.includes('/'));
-  if(node.expandedGroup){el.innerHTML=`<b>${esc(node.title)}</b><span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">−</span>`;continue;}
+  if(node.expandedGroup){window.PtoPhotoNarrative.html(el,`<b>${esc(node.title)}</b><span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">−</span>`);continue;}
   const data=node.kind==='data';el.classList.toggle('legend-data',data);
   let icon='';
   if(!data){
@@ -20,7 +20,7 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
   const info=node.overlay||{};
   const fields=[layers.shape?info.shape:null,layers.shape&&info.valid?`Valid ${info.valid}`:null,layers.precision?info.precision:null,layers.memory?[info.memory,info.executionUnit].filter(Boolean).join(' · '):null].filter(Boolean);
   el.classList.toggle('is-control-object',!!layers.control&&!!info.control);
-  el.innerHTML=icon+`<span class="legend-text"><b>${esc(node.title)}</b>${fields.length?`<small>${esc(fields.join(' · ').replace(/输出/g,'Output').replace(/跨/g,'Across '))}</small>`:''}</span>`+(node.expandable?`<span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">+</span>`:'');
+  window.PtoPhotoNarrative.html(el,icon+`<span class="legend-text"><b>${esc(node.title)}</b>${fields.length?`<small>${esc(fields.join(' · ').replace(/输出/g,'Output').replace(/跨/g,'Across '))}</small>`:''}</span>`+(node.expandable?`<span class="legend-toggle" data-pypa-expand-toggle="${esc(node.id)}" aria-hidden="true">+</span>`:''));
   if(data){
    const role=root.PtoAIInfraPresentation.semanticRole(node);
    el.dataset.semanticRole=role.key;el.style.setProperty('--data-role',role.color);
@@ -28,7 +28,7 @@ function apply(scene,graph,{metadata=false,layers={}}={}){
    const caption=root.document?.body.classList.contains('csa-visual')&&fullCaption.length>40?fullCaption.slice(0,28)+'…'+(layers.precision&&node.overlay?.precision?' · '+node.overlay.precision:''):fullCaption;
    if(caption!==fullCaption)el.setAttribute('aria-description',fullCaption);
    el.style.height=`${caption?64:35}px`;el.style.minHeight=el.style.height;el.style.top=`${node.y+(node.h-(caption?64:35))/2}px`;
-   el.innerHTML=root.PtoTensorRoleGlyph.render({id:node.id,label:node.title,metadata:caption,color:role.color,width:node.w});
+   window.PtoPhotoNarrative.html(el,root.PtoTensorRoleGlyph.render({id:node.id,label:node.title,metadata:caption,color:role.color,width:node.w}));
 
   }
   executionDecorations.forEach(badge=>el.appendChild(badge));

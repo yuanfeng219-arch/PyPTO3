@@ -5,7 +5,7 @@
   let graphIntraController, graphIntraModel, graphZoomJob, graphOuterSnapshot;
   let tabTransition, semanticZoom, anatomyController, anatomyModel, pipelineIntraController, pipelineIntraModel, pipelineZoom;
   function createStore() {
-    let state = { open: false, activeTab: 'assignment', selection: null, scenario:null,
+    let state = { open: false, storyMode: false, activeTab: 'assignment', selection: null, scenario:null,
       views: Object.fromEntries(tabs.map(id => [id, { subview: null, camera: null, ...(id === 'assignment' ? { phase: 'attention', phase0Camera: null } : {}) }])) };
     const listeners = new Set();
     const snapshot = () => structuredClone(state);
@@ -89,6 +89,7 @@
             pipeline:{...state.views.pipeline,intraFocus:{},intraInspectorOpen:false,intraCameras:{...state.views.pipeline.intraCameras,[id]:null}},
             graph:{...state.views.graph,intraFocus:null,intraInspectorOpen:false,intraCamera:null}}};
         }
+        else if (action.type === 'story-mode') state = { ...state, storyMode: !state.storyMode };
         else if (action.type === 'select') state = { ...state, selection: action.selection };
         else if (action.type === 'view' && tabs.includes(action.id)) state = { ...state,
           views: { ...state.views, [action.id]: { ...state.views[action.id], ...action.patch } } };
@@ -137,22 +138,23 @@
   function mount() {
     root = document.createElement('section');
     root.id = 'visualization2'; root.className = 'pto-ide-frame__pane viz2'; root.hidden = true;
-    root.setAttribute('aria-label', 'Compute Explorer');
-    root.innerHTML = `<header class="pto-ide-frame__pane-header viz2-header">
+    window.PtoPhotoNarrative.attr(root,'aria-label','Compute Explorer');
+    window.PtoPhotoNarrative.html(root,`<header class="pto-ide-frame__pane-header viz2-header">
       <button type="button" class="btn btn-ghost btn-sm" data-viz2-back>← 返回代码</button>
-      <span class="pto-ide-frame__pane-title">PyPTO Compute Explorer</span>
+      <div class="viz2-title-group"><span class="pto-ide-frame__pane-title" data-viz2-world-title>PyPTO Compute Explorer</span>
+      <button type="button" class="btn btn-ghost btn-sm viz2-story-toggle" data-ai-tip="切换计算世界与冲印工作室的观察视角" data-viz2-story role="switch" aria-checked="false" aria-label="📸 冲印一下"><span>📸 冲印一下</span><span class="viz2-story-indicator" aria-hidden="true"></span><span data-viz2-world>计算世界</span></button></div>
       <span class="pto-ide-frame__pane-meta">paged_attention_pypto.py</span>
     </header>
-    <div class="viz2-content">
+    <aside class="viz2-photo-guide" data-photo-guide hidden><p data-photo-summary></p><details><summary>照片如何分组与交接</summary><p>每位顾客按主题生成工单；每张工单含 5 个匹配子项。标准照片包最多 128 张，处理批次最多 4 包、512 张；不足的尾包与尾批显示有效数量。3 个周转台位按 0 → 1 → 2 循环分配，仅表示逻辑归属与交接。</p><p>照片加工图是叙事投影，不代表源码实现这些照片算法。流水线为逻辑编排，非真实运行记录，也不推断提速或真实并发。</p></details></aside><div class="viz2-content">
       <div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="可视化视图">${tabs.map(id => `<button type="button" class="tab-control-item" role="tab" id="viz2-tab-${id}" aria-controls="viz2-${id}" data-viz2-tab="${id}"><span class="viz2-tab-icon viz2-tab-icon--${id}" aria-hidden="true"></span>${id[0].toUpperCase()+id.slice(1)}</button>`).join('')}</div></div>
       ${tabs.map(id => `<section class="viz2-canvas" id="viz2-${id}" role="tabpanel" aria-labelledby="viz2-tab-${id}" tabindex="0" hidden></section>`).join('')}
-    </div>`;
+    </div>`);
     document.querySelector('#ideWorkarea').append(root);
     const host = root.querySelector('#viz2-assignment');
-    host.innerHTML = `<div class="viz2-phase-toolbar viz2-assignment-hud"><div data-viz2-phases class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 阶段"><button class="btn btn-sm" type="button" data-viz2-phase="phase0" aria-pressed="false" aria-controls="viz2-phase0">Phase0</button><button class="btn btn-sm is-selected" type="button" data-viz2-phase="attention" aria-pressed="true" aria-controls="viz2-attention">Attention+Output</button></div><div class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 范围"><button class="btn btn-sm is-selected" data-viz2-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-viz2-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false" disabled><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav aria-label="当前对象" data-viz2-breadcrumb></nav><button class="btn btn-ghost btn-sm" data-viz2-matrix-back hidden>← 返回矩阵</button></div>
+    window.PtoPhotoNarrative.html(host,`<div class="viz2-phase-toolbar viz2-assignment-hud"><div data-viz2-phases class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 阶段"><button class="btn btn-sm" type="button" data-viz2-phase="phase0" aria-pressed="false" aria-controls="viz2-phase0">Phase0</button><button class="btn btn-sm is-selected" type="button" data-viz2-phase="attention" aria-pressed="true" aria-controls="viz2-attention">Attention+Output</button></div><div class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 范围"><button class="btn btn-sm is-selected" data-viz2-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-viz2-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false" disabled><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav aria-label="当前对象" data-viz2-breadcrumb></nav><button class="btn btn-ghost btn-sm" data-viz2-matrix-back hidden>← 返回矩阵</button></div>
       <div class="viz2-phase-surface" id="viz2-anatomy" aria-label="Block 内 Task 数据结构" hidden></div>
       <div class="viz2-phase-surface" id="viz2-phase0" aria-label="Phase0 工作分配" hidden></div>
-      <div class="viz2-phase-surface" id="viz2-attention" aria-label="Attention+Output 工作分配"></div>`;
+      <div class="viz2-phase-surface" id="viz2-attention" aria-label="Attention+Output 工作分配"></div>`);
     assignmentMorph = window.PtoVisualization2AssignmentMorph.mount(host.querySelector('#viz2-attention'), {config: constants, seqLens, onEnter: enterAnatomy});
     viewport = assignmentMorph.viewport; scene = assignmentMorph.scene; tooltip = assignmentMorph.tooltip;
     anatomyModel=window.PtoVisualization2Anatomy.createModel({seqLens,blocks:constants.blocks,numHeads:sourceNumber('NUM_HEADS'),kvHeads:constants.kvHeads,
@@ -166,9 +168,10 @@
       onSelect: selection => store.dispatch({type:'select',selection}),
       onCamera: camera => store.dispatch({type:'view',id:'assignment',patch:{phase0Camera:camera}}),
     });
-    root.querySelector('#viz2-pipeline').innerHTML=`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Pipeline 范围"><button class="btn btn-sm is-selected" data-pipeline-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-pipeline-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false" disabled><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav aria-label="Pipeline 当前对象" data-pipeline-breadcrumb>Pipeline</nav><button class="btn btn-ghost btn-sm" data-pipeline-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-pipeline-inter"></div><div class="viz2-phase-surface" id="viz2-pipeline-intra" hidden></div>`;
-    root.querySelector('#viz2-graph').innerHTML=`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 范围"><button class="btn btn-sm is-selected" data-graph-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-graph-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false"><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav data-graph-breadcrumb aria-label="Graph 当前对象">Graph</nav><button class="btn btn-ghost btn-sm" data-graph-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-graph-inter"></div><div class="viz2-phase-surface" id="viz2-graph-intra" hidden></div>`;
+    window.PtoPhotoNarrative.html(root.querySelector('#viz2-pipeline'),`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Pipeline 范围"><button class="btn btn-sm is-selected" data-pipeline-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-pipeline-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false" disabled><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav aria-label="Pipeline 当前对象" data-pipeline-breadcrumb>Pipeline</nav><button class="btn btn-ghost btn-sm" data-pipeline-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-pipeline-inter"></div><div class="viz2-phase-surface" id="viz2-pipeline-intra" hidden></div>`);
+    window.PtoPhotoNarrative.html(root.querySelector('#viz2-graph'),`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 范围"><button class="btn btn-sm is-selected" data-graph-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-graph-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false"><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav data-graph-breadcrumb aria-label="Graph 当前对象">Graph</nav><button class="btn btn-ghost btn-sm" data-graph-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-graph-inter"></div><div class="viz2-phase-surface" id="viz2-graph-intra" hidden></div>`);
     root.addEventListener('click', event => {
+      if(event.target.closest('[data-viz2-story]')) { store.dispatch({type:'story-mode'}); return; }
       if (event.target.closest('[data-viz2-back]')) { close(); return; }
       const tab = event.target.closest('[data-viz2-tab]');
       if (tab) { store.dispatch({type:'tab', id:tab.dataset.viz2Tab}); return; }
@@ -199,7 +202,7 @@
     viewport.addEventListener('pointermove', event => {
       const cell=event.target.closest('[data-pa-task]'); hoverTask=cell?Number(cell.dataset.paTask):null; paintSelection();
       tooltip.hidden=hoverTask===null;
-      if(hoverTask!==null){tooltip.textContent=taskDescription(hoverTask); const r=viewport.getBoundingClientRect(); tooltip.style.left=`${Math.min(r.width-240,event.clientX-r.left+12)}px`; tooltip.style.top=`${Math.min(r.height-40,event.clientY-r.top+12)}px`;}
+      if(hoverTask!==null){window.PtoPhotoNarrative.text(tooltip,taskDescription(hoverTask)); const r=viewport.getBoundingClientRect(); tooltip.style.left=`${Math.min(r.width-240,event.clientX-r.left+12)}px`; tooltip.style.top=`${Math.min(r.height-40,event.clientY-r.top+12)}px`;}
     });
     viewport.addEventListener('pointerleave',()=>{hoverTask=null;tooltip.hidden=true;paintSelection();});
     viewport.addEventListener('keydown', event => {
@@ -271,11 +274,27 @@
     root.querySelectorAll('[data-pa-block]').forEach(el => { const id=Number(el.dataset.paBlock); el.classList.toggle('is-selected',id===selection?.block); el.classList.toggle('is-hovered',hoverTask!==null && taskInfo(hoverTask).block===id); el.setAttribute('aria-pressed',String(id===selection?.block)); });
     root.querySelectorAll('[data-pa-task]').forEach(el => { const id=Number(el.dataset.paTask); el.classList.toggle('is-assigned',id%constants.blocks===selection?.block); el.classList.toggle('is-selected',id===selection?.task); el.classList.toggle('is-hovered',id===hoverTask); el.setAttribute('aria-pressed',String(id===selection?.task)); el.setAttribute('tabindex',id===(selection?.task ?? 0)?'0':'-1'); });
     assignmentMorph.update(selection, store.getState().open && store.getState().activeTab==='assignment' && store.getState().views.assignment.phase==='attention' && store.getState().views.assignment.subview!=='block');
-    root.querySelector('[data-viz2-selection]').textContent=selection?.task != null ? taskDescription(selection.task) : selection?.kind==='block' ? `Block ${selection.block} → ${tasksForBlock(selection.block).join(', ')} · Task ID % ${constants.blocks}` : `任务矩阵：一格 = Q Head（固定 5 个）· Block 分组：一格 = Stack（最多 512 tokens）`;
+    window.PtoPhotoNarrative.text(root.querySelector('[data-viz2-selection]'),selection?.task != null ? taskDescription(selection.task) : selection?.kind==='block' ? `Block ${selection.block} → ${tasksForBlock(selection.block).join(', ')} · Task ID % ${constants.blocks}` : `任务矩阵：一格 = Q Head（固定 5 个）· Block 分组：一格 = Stack（最多 512 tokens）`);
   }
   function render(state, action) {
     document.dispatchEvent(new CustomEvent('compute-view-change',{detail:state}));
     root.hidden=!state.open;
+    root.dataset.storyMode=String(state.storyMode);
+    window.PtoPhotoNarrative.setMode(state.storyMode);
+    const guide=root.querySelector('[data-photo-guide]');guide.hidden=!state.storyMode;
+    const storyTask=state.selection?.task!=null?(scenarioContext.task('assignment',state.selection.task)||anatomyModel?.tasks[state.selection.task]):null;
+    const summary=storyTask?window.PtoPhotoNarrative.taskSummary(storyTask):`${seqLens.length} 位顾客 · ${seqLens.length*constants.kvHeads} 张工单 · ${constants.blocks} 个工作小组 · 每位顾客 ${constants.kvHeads} 个主题`;
+    window.PtoPhotoNarrative.text(root.querySelector('[data-photo-summary]'),storyTask?`工单 ${storyTask.id} · 顾客 ${storyTask.batch+1} · ${storyTask.seqLen.toLocaleString('en-US')} 张 · ${storyTask.pages.length} 包 · ${storyTask.stacks.length} 批`:summary);
+    window.PtoPhotoNarrative.attr(root.querySelector('[data-photo-summary]'),'aria-label',summary);
+    window.PtoPhotoNarrative.attr(root.querySelector('[data-photo-summary]'),'title',summary);
+    const storyButton=root.querySelector('[data-viz2-story]');
+    storyButton.setAttribute('aria-checked',String(state.storyMode));
+    storyButton.classList.toggle('is-selected',state.storyMode);
+    window.PtoPhotoNarrative.text(root.querySelector('[data-viz2-world]'),state.storyMode?'冲印工作室':'计算世界');
+    window.PtoPhotoNarrative.text(root.querySelector('[data-viz2-world-title]'),state.storyMode?'照片冲印工作室':'PyPTO Compute Explorer');
+    const names=state.storyMode?{assignment:'今日订单分配',pipeline:'冲印流水线',graph:'照片加工流程图'}:{assignment:'Assignment',pipeline:'Pipeline',graph:'Graph'};
+    tabs.forEach(id=>{const button=root.querySelector(`[data-viz2-tab="${id}"]`);const label=button.lastChild;if(label?.nodeType===Node.TEXT_NODE)window.PtoPhotoNarrative.text(label,names[id]);});
+    // Language is a rendering concern; preserve the complete workspace state.
     phase0Controller?.update(state.selection, state.views.assignment.phase0Camera, {
       active:state.open && state.activeTab==='assignment' && state.views.assignment.phase==='phase0' && state.views.assignment.subview!=='block',
       selectionChanged:action.type!=='view',
@@ -315,7 +334,7 @@
     root.querySelector('[data-pipeline-back]').hidden=!pipelineInner;
     root.querySelectorAll('[data-pipeline-scope]').forEach(button=>{const selected=(button.dataset.pipelineScope==='intra')===pipelineInner;button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));if(button.dataset.pipelineScope==='intra')button.disabled=!pipelineInner&&state.selection?.kind!=='task';});
     const pf=state.selection?.subobject;
-    root.querySelector('[data-pipeline-breadcrumb]').textContent=state.selection?.task!=null?`Pipeline / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${pipelineInner&&pf?` / ${pf.event||pf.stage||({stack:'Stack',page:'Page',slot:'Slot',tick:'Tick',output:'Output'}[pf.kind]||pf.kind)} ${pf.index}`:''}`:'Pipeline';
+    window.PtoPhotoNarrative.text(root.querySelector('[data-pipeline-breadcrumb]'),state.selection?.task!=null?`Pipeline / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${pipelineInner&&pf?` / ${pf.event||pf.stage||({stack:'Stack',page:'Page',slot:'Slot',tick:'Tick',output:'Output'}[pf.kind]||pf.kind)} ${pf.index}`:''}`:'Pipeline');
     pipelineController?.update(state.selection,pipeline.camera,
       {active:state.activeTab==='pipeline'&&!pipelineInner,enter:action.type==='tab'&&state.activeTab==='pipeline'});
     if(state.activeTab==='pipeline'&&pipelineInner&&!pipelineIntraController){
@@ -331,7 +350,7 @@
     if(state.activeTab==='graph'&&gi&&action.type==='tab'&&state.selection?.kind==='task'&&(gv.intraTask!==state.selection.task||JSON.stringify(gv.intraFocus)!==JSON.stringify(state.selection.subobject))){store.dispatch({type:'graph-intra-task',id:state.selection.task});return;}
     root.querySelector('#viz2-graph-inter').hidden=gi;root.querySelector('#viz2-graph-intra').hidden=!gi;root.querySelector('[data-graph-back]').hidden=!gi;
     root.querySelectorAll('[data-graph-scope]').forEach(b=>{const yes=(b.dataset.graphScope==='intra')===gi;b.classList.toggle('is-selected',yes);b.setAttribute('aria-pressed',String(yes));});
-    root.querySelector('[data-graph-breadcrumb]').textContent=state.selection?.task!=null?`Graph / Block ${state.selection.block} / Task ${state.selection.task}${gi&&state.selection.subobject?` / ${state.selection.subobject.node||state.selection.subobject.stage||state.selection.subobject.kind} ${state.selection.subobject.index??''}`:''}`:'Graph';
+    window.PtoPhotoNarrative.text(root.querySelector('[data-graph-breadcrumb]'),state.selection?.task!=null?`Graph / Block ${state.selection.block} / Task ${state.selection.task}${gi&&state.selection.subobject?` / ${state.selection.subobject.node||state.selection.subobject.stage||state.selection.subobject.kind} ${state.selection.subobject.index??''}`:''}`:'Graph');
     if(state.activeTab==='graph'&&!graphController)graphController=window.PtoVisualization2Graph.mount(root.querySelector('#viz2-graph-inter'),{
       execution:{blocks:constants.blocks,taskCount:seqLens.length*constants.kvHeads,phase0Model,seqLens},onSelect:selection=>store.dispatch({type:'select',selection}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onEnter:enterGraphIntra,
       onBlockEnter:block=>{const selected=store.getState().selection;const first=graphIntraModel.tasks.find(task=>task.block===block);if(first)enterGraphIntra(null,selected?.kind==='task'&&selected.block===block?selected.task:first.id);}});
@@ -352,10 +371,10 @@
     const detailName=detailFocus?({q:'Q Tile',output:'Attention Output'}[detailFocus.kind]||`${{page:'Page',stack:'Stack',slot:'Slot'}[detailFocus.kind]} ${detailFocus.index}`):'';
     const breadcrumb=root.querySelector('[data-viz2-breadcrumb]');
     breadcrumb.hidden=!!state.selection;
-    breadcrumb.textContent=state.selection?.task!=null?`Assignment / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${detailName?` / ${detailName}`:''}`:'Assignment';
+    window.PtoPhotoNarrative.text(breadcrumb,state.selection?.task!=null?`Assignment / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${detailName?` / ${detailName}`:''}`:'Assignment');
     if(assignment.phase==='phase0'&&!inner){
       const s=state.selection,item=s?.kind==='task'?phase0Model.itemFor(s.batch,s.kvHead):null;
-      breadcrumb.textContent=item?`Assignment / Phase0 / Block ${String(item.block).padStart(2,'0')} / AIV${item.lane} / G${item.gIndex}`:s?`Assignment / Phase0 / Block ${String(s.block).padStart(2,'0')}${s.lane==null?'':` / AIV${s.lane}`}`:'Assignment / Phase0';
+      window.PtoPhotoNarrative.text(breadcrumb,item?`Assignment / Phase0 / Block ${String(item.block).padStart(2,'0')} / AIV${item.lane} / G${item.gIndex}`:s?`Assignment / Phase0 / Block ${String(s.block).padStart(2,'0')}${s.lane==null?'':` / AIV${s.lane}`}`:'Assignment / Phase0');
     }
     if(inner){
       assignmentMorph?.update(state.selection,false);

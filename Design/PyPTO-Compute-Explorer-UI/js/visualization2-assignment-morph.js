@@ -15,7 +15,7 @@
   }
   const svg = (tag, attrs, parent) => {
     const node = document.createElementNS(NS, tag);
-    for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, value);
+    for (const [key, value] of Object.entries(attrs || {})) window.PtoPhotoNarrative.attr(node,key,value);
     parent.append(node);
     return node;
   };
@@ -64,18 +64,18 @@
   function mount(host, { config, seqLens, onPause, onEnter }) {
     const { batch, kvHeads, blocks, qPerKv } = config;
     const count = batch * kvHeads, layout = createLayout(config);
-    host.innerHTML = `<div class="viz2-am-head"><div><h2 data-am-title>Task Generation · ${count} Tasks</h2><p data-am-explain>${batch} Batches × ${kvHeads} KV Heads → ${count} Tasks</p></div><div class="viz2-am-controls"><button type="button" class="btn btn-ghost btn-sm" data-am-play>暂停</button><button type="button" class="btn btn-ghost btn-sm" data-am-replay>重播</button><div class="segmented-control segmented-control-muted"><button type="button" class="btn btn-sm" data-am-state="generation" aria-pressed="true">Task Generation</button><button type="button" class="btn btn-sm" data-am-state="assignment" aria-pressed="false">Block Assignment</button></div></div></div><div class="kf-pa-map__viewport viz2-am-viewport" tabindex="0" role="group" aria-label="固定 KV 列的 Task 重排画布"><svg class="kf-pa-map__svg viz2-am-svg" viewBox="0 0 ${layout.width} ${layout.height}" preserveAspectRatio="xMidYMid meet" aria-label="Batch 行与 KV Head 列的任务关系"><g class="kf-pa-map__scene"><g data-am-columns></g><g data-am-generation></g><g data-am-blocks></g><g data-am-group-labels></g><g data-am-tasks></g><g data-am-block-hits></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div><footer class="viz2-am-footer"><p data-viz2-selection aria-live="polite">每个 Task 对应 ${qPerKv} 个 Q Head</p><span>双击 Task 查看内部 · 静态映射，不表示执行时序</span><button type="button" class="btn btn-ghost btn-sm" data-am-enter hidden>查看内部</button><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-am-zoom="0.8" aria-label="缩小 Assignment">−</button><output data-am-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-am-zoom="1.25" aria-label="放大 Assignment">＋</button><button class="btn btn-ghost btn-sm" type="button" data-am-fit>适应</button></div></footer>`;
+    window.PtoPhotoNarrative.html(host,`<div class="viz2-am-head"><div><h2 data-am-title>Task Generation · ${count} Tasks</h2><p data-am-explain>${batch} Batches × ${kvHeads} KV Heads → ${count} Tasks</p></div><div class="viz2-am-controls"><button type="button" class="btn btn-ghost btn-sm" data-am-play>暂停</button><button type="button" class="btn btn-ghost btn-sm" data-am-replay>重播</button><div class="segmented-control segmented-control-muted"><button type="button" class="btn btn-sm" data-am-state="generation" aria-pressed="true">Task Generation</button><button type="button" class="btn btn-sm" data-am-state="assignment" aria-pressed="false">Block Assignment</button></div></div></div><div class="kf-pa-map__viewport viz2-am-viewport" tabindex="0" role="group" aria-label="固定 KV 列的 Task 重排画布"><svg class="kf-pa-map__svg viz2-am-svg" viewBox="0 0 ${layout.width} ${layout.height}" preserveAspectRatio="xMidYMid meet" aria-label="Batch 行与 KV Head 列的任务关系"><g class="kf-pa-map__scene"><g data-am-columns></g><g data-am-generation></g><g data-am-blocks></g><g data-am-group-labels></g><g data-am-tasks></g><g data-am-block-hits></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div><footer class="viz2-am-footer"><p data-viz2-selection aria-live="polite">每个 Task 对应 ${qPerKv} 个 Q Head</p><span>双击 Task 查看内部 · 静态映射，不表示执行时序</span><button type="button" class="btn btn-ghost btn-sm" data-am-enter hidden>查看内部</button><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-am-zoom="0.8" aria-label="缩小 Assignment">−</button><output data-am-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-am-zoom="1.25" aria-label="放大 Assignment">＋</button><button class="btn btn-ghost btn-sm" type="button" data-am-fit>适应</button></div></footer>`);
     const viewport = host.querySelector('.viz2-am-viewport'), scene = host.querySelector('.kf-pa-map__scene');
     const generation = host.querySelector('[data-am-generation]'), blockLayer = host.querySelector('[data-am-blocks]');
     const groupLabels = host.querySelector('[data-am-group-labels]'), taskLayer = host.querySelector('[data-am-tasks]');
     const columnLayer = host.querySelector('[data-am-columns]'), hitLayer = host.querySelector('[data-am-block-hits]');
     layout.columns.forEach(({ kv, x, width }) => {
-      svg('text', { x: x + width / 2, y: 22, class: 'viz2-am-kv', 'data-am-kv': kv }, columnLayer).textContent = `KV${kv}`;
-      svg('text', { x: x + width / 2, y: 39, class: 'ai-q-axis', 'text-anchor': 'middle' }, columnLayer).textContent = `Q${kv*qPerKv}–${(kv+1)*qPerKv-1}`;
+      window.PtoPhotoNarrative.text(svg('text', { x: x + width / 2, y: 22, class: 'viz2-am-kv', 'data-am-kv': kv }, columnLayer),`KV${kv}`);
+      window.PtoPhotoNarrative.text(svg('text', { x: x + width / 2, y: 39, class: 'ai-q-axis', 'text-anchor': 'middle' }, columnLayer),`Q${kv*qPerKv}–${(kv+1)*qPerKv-1}`);
     });
     svg('line', { x1: layout.columns[0].x, x2: layout.columns.at(-1).x + layout.columns.at(-1).width, y1: 44, y2: 44, class: 'viz2-am-column-rule' }, columnLayer);
-    svg('text', { x: 8, y: 30, class: 'viz2-am-axis' }, generation).textContent = 'BATCH';
-    svg('text', { x: 80, y: 30, class: 'viz2-am-axis' }, generation).textContent = 'seq_lens';
+    window.PtoPhotoNarrative.text(svg('text', { x: 8, y: 30, class: 'viz2-am-axis' }, generation),'BATCH');
+    window.PtoPhotoNarrative.text(svg('text', { x: 80, y: 30, class: 'viz2-am-axis' }, generation),'seq_lens');
     const sourceConstants=global.PTO_PYPA_SEMANTIC_GRAPH.constants;
     const pageTokens=sourceConstants.BLOCK_SIZE.value,pagesPerStack=sourceConstants.STACK_PAGES.value;
     const stackTokens=pageTokens*pagesPerStack,glyphs=global.PtoTaskObjectGlyphs;
@@ -94,19 +94,19 @@
     const batchSequences = [];
     for (let b = 0; b < batch; b++) {
       const row = svg('g', { 'data-am-batch': b }, generation), y = layout.sources[b * kvHeads].y, len = seqLens[b] || 0;
-      svg('text', { x: 8, y: y + layout.sources[0].h / 2, class: 'viz2-am-batch' }, row).textContent = `B${b}`;
-      svg('text', { x: 75, y: y + layout.sources[0].h / 2, class: 'viz2-am-seq' }, row).textContent = len;
+      window.PtoPhotoNarrative.text(svg('text', { x: 8, y: y + layout.sources[0].h / 2, class: 'viz2-am-batch' }, row),`B${b}`);
+      window.PtoPhotoNarrative.text(svg('text', { x: 75, y: y + layout.sources[0].h / 2, class: 'viz2-am-seq' }, row),len);
       // Keep the sequence snapshot contract used by Anatomy; metadata now follows Batch rows.
       const seq = svg('g', { class: 'kf-pa-map__sequence', 'aria-label': `seq_lens ${len}` }, row);
       batchSequences.push({ node: seq, parts: drawSequence(seq, len, { x: 24, y: layout.sources[0].h - 8, width: layout.sources[0].w - 30, height: 7 }) });
     }
     layout.groups.forEach(group => {
-      svg('text', { x: layout.columns[0].x - 14, y: group.y + group.height / 2, 'text-anchor': 'end', class: 'viz2-am-group-label', 'data-am-group': group.index }, groupLabels).textContent = group.label;
+      window.PtoPhotoNarrative.text(svg('text', { x: layout.columns[0].x - 14, y: group.y + group.height / 2, 'text-anchor': 'end', class: 'viz2-am-group-label', 'data-am-group': group.index }, groupLabels),group.label);
     });
     const blockNodes = layout.blockRects.map((r, block) => {
       const group = svg('g', { 'data-pa-block': block, class: 'viz2-am-block', role: 'button', tabindex: '-1', 'aria-label': `SPMD Block ${block}: Tasks ${layout.assignments[block].join(', ')}` }, blockLayer);
       svg('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-am-block-frame' }, group);
-      svg('text', { x: r.x + 7, y: r.y + 15, class: 'viz2-am-block-label' }, group).textContent = `Block ${String(block).padStart(2, '0')} · ${layout.assignments[block].length} Task`;
+      window.PtoPhotoNarrative.text(svg('text', { x: r.x + 7, y: r.y + 15, class: 'viz2-am-block-label' }, group),`Block ${String(block).padStart(2, '0')} · ${layout.assignments[block].length} Task`);
       return group;
     });
     const qEncodings = [], seqEncodings = [];
@@ -118,7 +118,7 @@
       const qLayer = svg('g', { class: 'viz2-am-q-encoding', 'data-am-q-encoding': '', 'aria-hidden': 'true' }, group);
       const qDetails = svg('g', { class: 'ai-q-detail' }, qLayer);
       for (let q = 0; q < qPerKv; q++) svg('circle', {class:'kf-pa-map__q ai-q-dot',cx:27+q*4.5,cy:r.h/2,r:1.3},qDetails);
-      svg('text',{x:r.w-12,y:r.h/2,'text-anchor':'middle','dominant-baseline':'central',class:'kf-pa-map__task-id'},group).textContent=id;
+      window.PtoPhotoNarrative.text(svg('text',{x:r.w-12,y:r.h/2,'text-anchor':'middle','dominant-baseline':'central',class:'kf-pa-map__task-id'},group),id);
       const len = seqLens[Math.floor(id / kvHeads)] || 0;
       const seqLayer = svg('g', { class: 'viz2-am-seq-encoding', 'data-am-task-sequence': '', 'data-am-seq-len': len, 'aria-hidden': 'true' }, group);
       if (id % kvHeads === 0) {
@@ -135,11 +135,11 @@
     const play = host.querySelector('[data-am-play]');
     function describe(p) {
       const assignment = p >= .5;
-      if (!selection) host.querySelector('[data-viz2-selection]').textContent = assignment
+      if (!selection) window.PtoPhotoNarrative.text(host.querySelector('[data-viz2-selection]'),assignment
         ? '一个蓝色正方形 = 一个 Stack · 每个 Stack 最多 512 tokens'
-        : `一个蓝色正方形 = 一个 Q Head · 每 Task 固定 ${qPerKv} 个 · Batch 侧方格 = Stack`;
-      host.querySelector('[data-am-title]').textContent = assignment ? `执行归属 · ${blocks} SPMD Blocks` : `任务矩阵 · ${count} Tasks`;
-      host.querySelector('[data-am-explain]').textContent = assignment ? `同一批 Task 按 T % ${blocks} 分组 → 执行 Block；不是执行顺序` : `${batch} Batches × ${kvHeads} KV Heads → ${count} Tasks · 每 Task ${qPerKv} 个 Q Head`;
+        : `一个蓝色正方形 = 一个 Q Head · 每 Task 固定 ${qPerKv} 个 · Batch 侧方格 = Stack`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-am-title]'),assignment ? `执行归属 · ${blocks} SPMD Blocks` : `任务矩阵 · ${count} Tasks`);
+      window.PtoPhotoNarrative.text(host.querySelector('[data-am-explain]'),assignment ? `同一批 Task 按 T % ${blocks} 分组 → 执行 Block；不是执行顺序` : `${batch} Batches × ${kvHeads} KV Heads → ${count} Tasks · 每 Task ${qPerKv} 个 Q Head`);
       host.querySelectorAll('[data-am-state]').forEach(button => {
         const selected = button.dataset.amState === (assignment ? 'assignment' : 'generation');
         button.setAttribute('aria-pressed', String(selected)); button.classList.toggle('is-selected', selected);
@@ -180,14 +180,14 @@
       });
       describe(progress);
     }
-    const player = global.PtoVisualization2MorphPlayer.create({once: true, draw, onChange: state => { play.textContent = state.playing ? '暂停' : '播放'; play.setAttribute('aria-label', play.textContent); play.dataset.playing = String(state.playing); }});
+    const player = global.PtoVisualization2MorphPlayer.create({once: true, draw, onChange: state => { window.PtoPhotoNarrative.text(play,state.playing ? '暂停' : '播放'); window.PtoPhotoNarrative.attr(play,'aria-label',play.textContent); play.dataset.playing = String(state.playing); }});
     function pause() { player.pause(); onPause?.(); }
     const manual = next => player.goTo(next);
     play.addEventListener('click', player.toggle);
     host.querySelector('[data-am-replay]').addEventListener('click', player.replay);
     host.querySelectorAll('[data-am-state]').forEach(button => button.addEventListener('click', () => manual(button.dataset.amState === 'assignment' ? 1 : 0)));
     let zoom = 1, panX = 0, panY = 0, drag = null, suppressClick = false;
-    const camera = () => { host.dataset.aiDetail=String(zoom>=2.25); scene.setAttribute('transform', `translate(${panX} ${panY}) translate(625 300) scale(${zoom}) translate(-625 -300)`); host.querySelector('[data-am-scale]').textContent = `${Math.round(zoom * 100)}%`; };
+    const camera = () => { host.dataset.aiDetail=String(zoom>=2.25); scene.setAttribute('transform', `translate(${panX} ${panY}) translate(625 300) scale(${zoom}) translate(-625 -300)`); window.PtoPhotoNarrative.text(host.querySelector('[data-am-scale]'),`${Math.round(zoom * 100)}%`); };
     function fit() { zoom = 1; panX = panY = 0; camera(); }
     host.querySelector('[data-am-fit]').addEventListener('click', fit);
     host.querySelectorAll('[data-am-zoom]').forEach(button => button.addEventListener('click', () => { zoom = Math.max(.8, Math.min(3, zoom * Number(button.dataset.amZoom))); camera(); }));

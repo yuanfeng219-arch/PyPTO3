@@ -19,7 +19,7 @@ function picker(model,label='Graph Task') { return `<select data-compute-task ar
 function identity() { return '<aside class="compute-identity" aria-label="当前 Task"><h1 data-compute-identity></h1><h2 data-compute-owner></h2><p data-compute-facts></p></aside>'; }
 function connect(host,scenario){
  host.addEventListener('click',event=>{if(event.target.closest('[data-scenario-reset]'))scenario.reset();});
- return ()=>{const s=scenario.get();host.querySelector('[data-scenario-reset]').hidden=!s?.isCustom;if(s)host.querySelectorAll('[data-parameter-value]').forEach(e=>{e.textContent=({sequence:s.effectiveSeqLen,pages:s.pageCount,stacks:s.stackCount})[e.dataset.parameterValue];});};
+ return ()=>{const s=scenario.get();host.querySelector('[data-scenario-reset]').hidden=!s?.isCustom;if(s)host.querySelectorAll('[data-parameter-value]').forEach(e=>{window.PtoPhotoNarrative.text(e,({sequence:s.effectiveSeqLen,pages:s.pageCount,stacks:s.stackCount})[e.dataset.parameterValue]);});};
 }
 global.PtoComputeDetailControls=Object.freeze({identity,parameter,sequence,picker,connect});
 })(window);
