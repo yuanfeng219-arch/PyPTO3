@@ -380,8 +380,12 @@
   ];
   function logicNode(id) {
     const p = LG[id];
-    return '<g class="lg-hit" data-node="' + id + '"><rect x="' + p[0] + '" y="' + p[1] + '" width="' + p[2] + '" height="' + LG_H + '" class="lg-node"/>'
-      + txt(p[0] + 8, p[1] + 17, p[3], 'sv-strong') + '</g>';
+    if (id === 'q' || id === 'kvref') {
+      return '<g class="lg-hit" data-node="' + id + '">' + PathGridGlyphs.tensor(id, p[3], id === 'q' ? 'Q' : 'KV · L1', p[0], p[1], p[2], LG_H, id === 'q' ? '#72d7af' : '#bca0f3') + '</g>';
+    }
+    const kinds = { qk:'matmul', pv:'matmul', max:'reduce', sum:'reduce', exp:'activation', scale:'gate', cast:'reshape', out:'cache', kvl1:'cache', win:'cache', cmp:'cache', empty:'reshape' };
+    const icon = window.PtoOpIcons.find(function (item) { return item.id === kinds[id]; });
+    return '<g class="lg-hit" data-node="' + id + '">' + VisualSystem.node('op', id, p[3], p[0], p[1], {width:p[2], height:LG_H, icon:icon && icon.path, fontSize:9}) + '</g>';
   }
   // AIC / AIV 时间线（示意）：QK、softmax、PV 按等长画，只用来看 stage 和切分改变了什么重叠关系
   function schedule(split, stage) {
@@ -517,20 +521,26 @@
   function renderSvg() {
     const split = shownSplit();
     let s = '<svg viewBox="0 0 720 470" role="img" aria-label="qk_pv 在一个 block 上的真实落点"><defs>' + markers('hp')
+      + '<pattern id="csGrid" width="6" height="6" patternUnits="userSpaceOnUse"><rect x="1" y="1" width="4" height="4" rx=".5" fill="none" stroke="#555" stroke-width=".55"/></pattern>'
       + '<pattern id="csIdle" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#1a1a1a"/><line x1="0" y1="0" x2="0" y2="5" stroke="#5a5a5a" stroke-width="1.2"/></pattern>'
       + '</defs>';
-    // GM
-    s += '<rect x="12" y="8" width="696" height="74" class="sv-frame"/>' + txt(24, 25, 'GM · HBM', 'sv-title');
-    s += region('gm-q', '<rect x="24" y="32" width="124" height="42" class="sv-mem"/>' + txt(30, 46, 'q', 'sv-strong') + txt(30, 64, '[T, 64, 512] BF16', 'sv-text'));
-    s += region('gm-ori', '<rect x="156" y="32" width="136" height="42" class="sv-mem"/>' + txt(162, 46, 'ori_kv · 滑窗', 'sv-strong') + txt(162, 64, '分页 · 32 行/页', 'sv-text'));
-    s += region('gm-cmp', '<rect x="300" y="32" width="136" height="42" class="sv-mem"/>' + txt(306, 46, 'cmp_kv · 压缩', 'sv-strong') + txt(306, 64, 'top-k 散读', 'sv-text'));
-    s += region('gm-plan', '<rect x="444" y="32" width="128" height="42" class="sv-mem"/>' + txt(450, 46, 'qk_order / bias', 'sv-strong') + txt(450, 64, 'qk_plan 产出', 'sv-text'));
-    s += region('gm-out', '<rect x="580" y="32" width="116" height="42" class="sv-mem"/>' + txt(586, 46, 'mi / li / oi', 'sv-strong') + txt(586, 64, '部分结果', 'sv-text'));
+    // GM：与参考页面共享存储网格图元，保留 CSA 对象和焦点映射。
+    s += '<rect x="12" y="4" width="696" height="78" rx="12" fill="#282828"/>' + txt(24, 25, 'GM · HBM', 'sv-title');
+    [
+      ['gm-q', 24, 124, 'q', '[T, 64, 512] BF16'],
+      ['gm-ori', 156, 136, 'ori_kv · 滑窗', '分页 · 32 行/页'],
+      ['gm-cmp', 300, 136, 'cmp_kv · 压缩', 'top-k 散读'],
+      ['gm-plan', 444, 128, 'qk_order / bias', 'qk_plan 产出'],
+      ['gm-out', 580, 116, 'mi / li / oi', '部分结果']
+    ].forEach(function (item) {
+      s += region(item[0], '<g transform="translate(' + item[1] + ' 32)">' + PathGridGlyphs.memory(item[3], item[4], item[2], 42) + '</g>');
+    });
 
     // 24 个 block 概览
     let cores = '';
     for (let i = 0; i < NUM_QK_CORES; i++) {
-      cores += '<rect x="' + (CORE.x + i * CORE.pitch) + '" y="' + CORE.y + '" width="' + CORE.size + '" height="' + CORE.size + '" rx="1.5" class="sv-core' + (i === 0 ? ' is-zoom' : '') + '"/>';
+      const x = CORE.x + i * CORE.pitch;
+      cores += '<g class="sv-core-unit' + (i === 0 ? ' is-expanded' : '') + '"><path class="sv-core-pins" d="M' + (x + 2) + ' ' + (CORE.y - 1) + 'v12 M' + (x + 8) + ' ' + (CORE.y - 1) + 'v12"/><rect x="' + x + '" y="' + CORE.y + '" width="' + CORE.size + '" height="' + CORE.size + '" rx="2" class="sv-core' + (i === 0 ? ' is-zoom' : '') + '"/></g>'; 
     }
     s += region('cores', '<rect x="' + (CORE.x - 100) + '" y="86" width="' + (NUM_QK_CORES * CORE.pitch + 112) + '" height="24" class="sv-hit"/>'
       + txt(CORE.x - 8, 102, 'PL.SPMD × 24', 'sv-title', 'end') + '<g class="sv-cores">' + cores + '</g>');
@@ -549,16 +559,16 @@
         + (w > 16 ? txt(x + 5, 200, b.name, 'sv-strong') : ''));
     });
     s += l1s;
-    s += region('l0a', '<rect x="36" y="218" width="84" height="56" class="sv-mem"/>' + txt(44, 233, 'L0A · LEFT', 'sv-label')
+    s += region('l0a', '<rect x="36" y="218" width="84" height="56" class="sv-mem"/><rect x="36" y="218" width="84" height="56" rx="5" fill="url(#csGrid)" opacity=".45" pointer-events="none"/>' + txt(44, 233, 'L0A · LEFT', 'sv-label')
       + '<rect x="44" y="240" width="32" height="7" class="sv-fill-lime"/><rect x="80" y="240" width="32" height="7" class="sv-fill-lime"/>'
       + txt(44, 266, '2 × 8 KB', 'sv-text'));
-    s += region('l0b', '<rect x="128" y="218" width="154" height="56" class="sv-mem"/>' + txt(136, 233, 'L0B · RIGHT', 'sv-label')
+    s += region('l0b', '<rect x="128" y="218" width="154" height="56" class="sv-mem"/><rect x="128" y="218" width="154" height="56" rx="5" fill="url(#csGrid)" opacity=".45" pointer-events="none"/>' + txt(136, 233, 'L0B · RIGHT', 'sv-label')
       + '<rect x="136" y="240" width="68" height="7" class="sv-fill-lav"/><rect x="206" y="240" width="68" height="7" class="sv-fill-lav"/>'
       + txt(136, 266, '2 × 32 KB = 64 KB 用满', 'sv-text'));
     s += region('cube', '<rect x="36" y="284" width="246" height="62" class="sv-mem"/>' + txt(44, 299, 'CUBE', 'sv-label')
       + txt(44, 316, 'QK [32,512] × [512,128]', 'sv-strong') + txt(44, 331, 'PV [32,128] × [128,512]', 'sv-strong')
       + txt(274, 299, 'K=512 → 4 × 128', 'sv-label', 'end'));
-    s += region('l0c', '<rect x="36" y="356" width="246" height="56" class="sv-mem"/>' + txt(44, 371, 'L0C · ACC', 'sv-label')
+    s += region('l0c', '<rect x="36" y="356" width="246" height="56" class="sv-mem"/><rect x="36" y="356" width="246" height="56" rx="5" fill="url(#csGrid)" opacity=".45" pointer-events="none"/>' + txt(44, 371, 'L0C · ACC', 'sv-label')
       + '<rect x="44" y="378" width="230" height="7" class="sv-fill-amber"/><rect x="44" y="378" width="57" height="7" fill="#c9a24a"/>'
       + txt(44, 402, 'qk_raw 16 KB 与 qk_oi 64 KB 同址复用', 'sv-text'));
     s += txt(36, 440, '数据：pass 36 · AllocateMemoryAddr', 'sv-label');

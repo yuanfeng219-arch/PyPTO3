@@ -138,6 +138,10 @@ function sheet(scale) {
   for (const [u0, v0, u1, v1] of G.PADS) {
     s += rect(d.x + u0 * k, d.y + v0 * k, (u1 - u0) * k, (v1 - v0) * k, 'fea', '#ffffff');
   }
+  // 背面的加强筋，虚线
+  const rb = G.LID.rib;
+  for (const x of rb.xs) s += rect(d.x + x * k, d.y + w * k, rb.w * k, (G.TRAY.D - 2 * w) * k, 'hid');
+  for (const y of rb.ys) s += rect(d.x + w * k, d.y + y * k, (G.TRAY.W - 2 * w) * k, rb.w * k, 'hid');
   s += rect(d.x + 160 * k, d.y + 130 * k, 100 * k, 36 * k, 'hid');
   s += txt(d.x + 210 * k, d.y + 150 * k + 0.9, '标识位', 'ts', 'middle');
   s += dimH(d.x, d.x + G.TRAY.W * k, d.y - 6, L(G.TRAY.W), d.y);
@@ -205,6 +209,7 @@ function sheet(scale) {
     ['搬运槽', `宽 ${L(2.5)}`, `深 ${L(1.5)}`],
     ['PCB 色皮', '顶面', `${L(0.6)}`],
     ['盖子', `${L(420)} × ${L(300)}`, `高 ${L(G.LID.H)}，壁 ${L(G.LID.wall)}`],
+    ['盖子加强筋', `宽 ${L(G.LID.rib.w)}`, `深 ${L(G.LID.rib.depth)}`],
     ['盖子外观面分隔槽', `宽 ${L(G.LID.gw)} 起`, `深 0.6`],
   ];
   s += txt(tb.x, 200, '特征尺寸表', 'th');

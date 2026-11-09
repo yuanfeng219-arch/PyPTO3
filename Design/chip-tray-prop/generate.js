@@ -109,16 +109,21 @@ function main() {
   const scale = parseFloat(get('--scale', '1'));
   const outDir = path.resolve(get('--out', path.join(__dirname, 'stl')));
   const bed = parseFloat(get('--bed', '256'));
+  // 每边要留出的空地。brim 要 8，AMS 的擦料塔还要更多。
+  // 以前这里只留 4，结果 0.6 比例的 252 件在 256 的床上每边只剩 2 —— brim 和擦料塔都放不下。
+  const margin = parseFloat(get('--margin', '20'));
+  const faceUp = args.includes('--lid-up');   // 盖子外观面朝上导出，需要开支撑
   if (!(scale > 0.05 && scale <= 2)) { console.error('--scale 需在 0.05 与 2 之间'); process.exit(1); }
+  const fits = (w, d) => w * scale + 2 * margin <= bed && d * scale + 2 * margin <= bed;
   let split = get('--split', 'auto');
-  if (split === 'auto') split = (TRAY.W * scale <= bed - 4 && TRAY.D * scale <= bed - 4) ? '1' : '4';
-  if (split !== '1' && split !== '4') { console.error('--split 只接受 auto / 1 / 4'); process.exit(1); }
+  if (split === 'auto') split = fits(TRAY.W, TRAY.D) ? '1' : fits(TRAY.W / 2, TRAY.D) ? '2' : '4';
+  if (!['1', '2', '4'].includes(split)) { console.error('--split 只接受 auto / 1 / 2 / 4'); process.exit(1); }
   fs.mkdirSync(outDir, { recursive: true });
 
   const tray = field({ x0: 0, y0: 0, x1: TRAY.W, y1: TRAY.D }, 0, TRAY.H, trayOps());
-  const lid = lidBoxes(scale);
-  const quads = split === '1'
-    ? [['', 0, 0, TRAY.W, TRAY.D]]
+  const lid = lidBoxes(scale, faceUp);
+  const quads = split === '1' ? [['', 0, 0, TRAY.W, TRAY.D]]
+    : split === '2' ? [['-a', 0, 0, 210, 300], ['-b', 210, 0, 420, 300]]
     : [['-a', 0, 0, 210, 150], ['-b', 210, 0, 420, 150],
        ['-c', 0, 150, 210, 300], ['-d', 210, 150, 420, 300]];
 
@@ -182,10 +187,10 @@ function main() {
   for (const m of made) console.log(`  ${m.name.padEnd(18)}${m.parts}`);
   console.log('');
 
-  const lim = bed - 4;
-  const over = report.filter((r) => r.size.some((v) => v > lim));
-  if (over.length) console.log(`注意：${over.map((r) => r.name).join(', ')} 超出 ${bed} mm 幅面，请加 --split 4\n`);
-  else console.log(`所有零件均在 ${bed} x ${bed} x ${bed} 幅面内（已留 4 mm 余量）\n`);
+  const lim = bed - 2 * margin;
+  const over = report.filter((r) => r.size.slice(0, 2).some((v) => v > lim));
+  if (over.length) console.log(`注意：${over.map((r) => r.name).join(', ')} 在 ${bed} mm 幅面上每边留不出 ${margin} mm，请加 --split 2 或 4\n`);
+  else console.log(`所有零件在 ${bed} x ${bed} 床面上每边都留得出 ${margin} mm 空地（brim / 擦料塔用）\n`);
 }
 
 main();

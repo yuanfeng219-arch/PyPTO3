@@ -50,7 +50,15 @@ const GROOVE = 1.5;        // 搬运通道刻槽深度
 const GW = 2.5;            // 搬运通道宽度
 // gd / gw 是外观面分隔槽的深宽。槽深只决定「桥在多高处搭」，不影响首层覆盖，
 // 所以可以放心做深，让贴片真的读成一块一块，而不是一张平板上的发丝线。
-const LID = { H: 36, wall: 10, top: 5, skin: 0.6, gw: 3, gd: 2.5 };
+const LID = {
+  // top 薄到切片会整片打实心（0.6 比例 1.8 mm = 9 层，默认底 3 + 顶 4 已经盖满），
+  // 刚度全部交给加强筋。厚面板中间那几层稀疏填充就是内腔天花板塌陷的根源。
+  H: 36, wall: 10, top: 3, skin: 0.6, gw: 3, gd: 2,
+  // 面板内侧的加强筋。420 x 300 的薄板翻过来打，最怕的就是冷却收缩把边翘起来。
+  // 筋深 10，筋底落在托盘坐标 46（托盘顶 25 + 21）；托盘上最高的白色凸台是 53，
+  // 所以 xs / ys 都避开凸台所在的 x 169-189 / 261-281 和 y 203-249。
+  rib: { w: 3, depth: 10, xs: [50, 100, 150, 205, 250, 300, 350], ys: [60, 120, 180, 258] },
+};
 const LID_FIELD = { x0: 46, y0: 44, x1: 372, y1: 255 };   // 贴片区范围，与 PADS 对应
 const TILE = 15;
 const BIGN = 4;            // 大块由 4x4x2 个 Tile 拼成
@@ -134,7 +142,7 @@ function colorize(boxes) {
 // 贴片顶面与边框同高，只有缝是凹的，首层照样铺满 420 x 300。
 // 槽深 gd 只决定桥的高度，跨距仍是槽宽，所以做深不影响打印。
 // 最外 0.6 单独分一色，没有 AMS 时打到 0.6 mm 换料即可。
-function lidBoxes(scale) {
+function lidBoxes(scale, faceUp) {
   const { H, wall, top, gw, gd } = LID;
   const sk = LID.skin / scale;         // 不随比例缩放，打出来始终 0.6 mm
   const F = LID_FIELD;
@@ -160,7 +168,26 @@ function lidBoxes(scale) {
     [0, wall, 0, wall, TRAY.D - wall, H - top],
     [TRAY.W - wall, wall, 0, TRAY.W, TRAY.D - wall, H - top],
   );
-  return { body, pads };
+
+  // 加强筋。纵筋整条通到两侧墙，横筋在纵筋处断开，保证所有盒子互不重叠。
+  const { w: rw, depth: rd, xs, ys } = LID.rib;
+  const z0 = H - top - rd, z1 = H - top;
+  const x0 = wall, x1 = TRAY.W - wall, y0 = wall, y1 = TRAY.D - wall;
+  for (const x of xs) body.push([x, y0, z0, x + rw, y1, z1]);
+  const cut = [x0];
+  for (const x of xs) cut.push(x, x + rw);
+  cut.push(x1);
+  for (const y of ys) {
+    for (let i = 0; i < cut.length; i += 2) {
+      if (cut[i + 1] > cut[i]) body.push([cut[i], y, z0, cut[i + 1], y + rw, z1]);
+    }
+  }
+  // 默认导出成「外观面贴床」的姿态（外观面落在 z = 0），切片里不用再旋转。
+  // faceUp = true 时保持外观面朝上：外观面变成顶面，可以熨烫，但整片面板悬在
+  // 墙围成的空腔上方，必须开支撑，支撑疤痕留在盖子内侧（看不见）。
+  if (faceUp) return { body, pads };
+  const flip = (bs) => bs.map(([x0, y0, z0, x1, y1, z1]) => [x0, y0, H - z1, x1, y1, H - z0]);
+  return { body: flip(body), pads: flip(pads) };
 }
 
 function bigBlockBoxes() {
