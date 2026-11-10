@@ -267,14 +267,8 @@
   function lineMapped(no) { return NODES.some(function (n) { return n.lines.indexOf(no) >= 0; }); }
 
   // ── 状态 ──
-  const SECTIONS = [
-    { name: '写法', q: '和 fa_fused 差在哪三处' },
-    { name: '落点', q: '编译器真正给出的地址' },
-    { name: '裁决', q: '第二个 AIV 在做什么' },
-    { name: '改法', q: '加切分，还是保持' },
-    { name: '复查', q: '要拿什么证据' }
-  ];
-  const state = { step: 1, split: false, stage: 2, chosen: null, hover: null, preview: null };
+  // open：右栏当前展开的问题 id（见 problemList）
+  const state = { open: 'aiv1', split: false, stage: 2, chosen: null, hover: null, preview: null };
   function shownSplit() { return state.preview ? state.preview === 'A' : state.split; }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -287,7 +281,7 @@
         + '（c2v 槽在 AIV 的 Vec 0–32 KB，v2c 槽在 AIC 的 L1 0–32 KB）<span class="tag-real">真实</span>';
     }
     if (eff === 1) {
-      return '<code>stage=1</code>：同一时刻只有 1 个头块在飞。AIC 做完 QK 要等 AIV 把 softmax 送回来才能做 PV，下一块 QK 也要排在后面，时间线上 AIC 与 AIV 交替空等。'
+      return '<code>stage=1</code>：同一时刻只有 1 个头块在飞。AIC 做完 QK 要等 AIV 把 softmax 送回来才能做 PV，下一块 QK 也要排在后面，AIC 与 AIV 交替空等。'
         + '推算管道只需 1 槽，Vec 和 L1 各省 16 KB <span class="tag-proj">推算</span>';
     }
     return '<code>stage=' + st + '</code>：循环只有 ' + HEAD_BLOCKS + ' 个头块（64 / 32），同时在飞的最多 2 个，多出的 stage 没有块可填，效果与 stage=2 相同 <span class="tag-proj">推算</span>';
@@ -466,47 +460,30 @@
     const icon = window.PtoOpIcons.find(function (item) { return item.id === kinds[id]; });
     return '<g class="lg-hit" data-node="' + id + '">' + VisualSystem.node('op', id, p[3], p[0], p[1], {width:p[2], height:LG_H, icon:icon && icon.path, fontSize:9}) + '</g>';
   }
-  // AIC / AIV 时间线（示意）：QK、softmax、PV 按等长画，只用来看 stage 和切分改变了什么重叠关系
+  // AIC / AIV 排布（示意）：QK、softmax、PV 按等长画，只用来看 stage 和切分改变了什么重叠关系；问题分析里 stage 那一条用它画对比
   function schedule(split, stage) {
     const QK = 2, PV = 2, SM = split ? 1 : 2, eff = effStage(stage), out = [];
-    function add(lane, s, d, label, node) { out.push({ lane: lane, s: s, e: s + d, label: label, node: node }); return s + d; }
+    function add(lane, s, d, label) { out.push({ lane: lane, s: s, e: s + d, label: label }); return s + d; }
     if (eff === 1) {
       let t = 0;
       for (let hb = 0; hb < HEAD_BLOCKS; hb++) {
-        const qkE = add('aic', t, QK, 'QK' + hb, 'qk');
-        const smE = add('aiv', qkE, SM, 'SM' + hb, 'p-softmax');
-        t = add('aic', smE, PV, 'PV' + hb, 'pv');
+        const qkE = add('aic', t, QK, 'QK' + hb);
+        const smE = add('aiv', qkE, SM, 'SM' + hb);
+        t = add('aic', smE, PV, 'PV' + hb);
       }
     } else {
       // 两个头块都在飞：AIC 连着发两个 QK，再按 softmax 回来的顺序做 PV
-      const qk0 = add('aic', 0, QK, 'QK0', 'qk'), qk1 = add('aic', qk0, QK, 'QK1', 'qk');
-      const sm0 = add('aiv', qk0, SM, 'SM0', 'p-softmax');
-      const sm1 = add('aiv', Math.max(qk1, sm0), SM, 'SM1', 'p-softmax');
-      const pv0 = add('aic', Math.max(qk1, sm0), PV, 'PV0', 'pv');
-      add('aic', Math.max(pv0, sm1), PV, 'PV1', 'pv');
+      const qk0 = add('aic', 0, QK, 'QK0'), qk1 = add('aic', qk0, QK, 'QK1');
+      const sm0 = add('aiv', qk0, SM, 'SM0');
+      const sm1 = add('aiv', Math.max(qk1, sm0), SM, 'SM1');
+      const pv0 = add('aic', Math.max(qk1, sm0), PV, 'PV0');
+      add('aic', Math.max(pv0, sm1), PV, 'PV1');
     }
     return out;
   }
-  function timelineSvg(split, stage) {
-    const blocks = schedule(split, stage);
-    const total = Math.max.apply(null, blocks.map(function (b) { return b.e; }));
-    const x0 = 112, unit = 46, y = { aic: 356, aiv: 374 };
-    let s = txt(24, 347, 'AIC / AIV 时间线', 'sv-title') + txt(150, 347, '示意：每段按等长画，真实时长需 profiling', 'sv-label');
-    s += txt(24, y.aic + 10, 'AIC', 'sv-label') + txt(24, y.aiv + 10, split ? 'AIV0 + AIV1' : 'AIV0', 'sv-label');
-    s += '<rect x="' + x0 + '" y="' + y.aic + '" width="' + 12 * unit + '" height="13" class="lg-tl-track"/>'
-      + '<rect x="' + x0 + '" y="' + y.aiv + '" width="' + 12 * unit + '" height="13" class="lg-tl-track"/>';
-    blocks.forEach(function (b) {
-      s += '<g class="lg-hit" data-node="' + b.node + '"><rect x="' + (x0 + b.s * unit + 1) + '" y="' + y[b.lane] + '" width="' + ((b.e - b.s) * unit - 2)
-        + '" height="13" class="lg-tl u-' + b.lane + '"/>' + txt(x0 + b.s * unit + 5, y[b.lane] + 10, b.label, 'sv-strong') + '</g>';
-    });
-    s += '<line x1="' + (x0 + total * unit) + '" y1="' + (y.aic - 4) + '" x2="' + (x0 + total * unit) + '" y2="' + (y.aiv + 17) + '" class="sv-zoom"/>'
-      + txt(x0 + total * unit + 6, y.aiv + 10, '共 ' + total + ' 格', 'sv-strong');
-    return s;
-  }
-
   function renderLogic() {
     const split = shownSplit(), eff = effStage(state.stage);
-    let s = '<svg viewBox="0 0 720 396" role="img" aria-label="qk_pv 的循环嵌套与计算链"><defs>' + markers('lg') + '</defs>';
+    let s = '<svg viewBox="0 0 720 338" role="img" aria-label="qk_pv 的循环嵌套与计算链"><defs>' + markers('lg') + '</defs>';
     s += '<g class="lg-hit" data-node="f-spmd"><rect x="12" y="8" width="696" height="322" class="lg-frame"/>'
       + txt(24, 25, 'PL.SPMD × 24', 'sv-title') + txt(124, 25, '每条 lane 一个 block', 'sv-label') + '</g>';
     s += '<g class="lg-hit" data-node="f-iter"><rect x="24" y="36" width="672" height="286" class="lg-frame"/>'
@@ -533,7 +510,6 @@
       : txt(288, 278, '32 行全部在 AIV0', 'sv-text') + txt(288, 292, 'AIV1 只握手，不计算', 'sv-label sv-warn');
     s += LG_EDGES.map(function (e) { return '<path d="' + e[2] + '" class="lg-edge" data-from="' + e[0] + '" data-to="' + e[1] + '"/>'; }).join('');
     Object.keys(LG).forEach(function (id) { s += logicNode(id); });
-    s += timelineSvg(split, state.stage);
     s += '</svg>';
     document.getElementById('hpLogic').innerHTML = s;
     document.getElementById('hpLogicMeta').textContent = 'qk_pv · stage=' + state.stage + (split ? ' · 推算：加 UP_DOWN 切分' : ' · 循环嵌套与计算链');
@@ -693,10 +669,12 @@
     return f;
   }
   function sectionFocus() {
-    if (state.step === 1) return fromNodes(['split', 'kvl1', 'scale']);
-    if (state.step === 2) { const f = fromNodes(['p-softmax', 'f-pipe']); f.regions = ['aic', 'pipe']; return f; }
-    if (state.step === 3) return fromNodes(['split']);
-    if (state.step === 4) { const f = fromNodes(['out']); f.lines = f.lines.concat([208]); return f; }
+    // 展开哪个问题，三处就默认点亮它涉及的部分；问题分析栏收着时不点亮，免得高亮没有解释
+    const pane = document.getElementById('hpStoryPane');
+    if (pane && pane.hidden) return { lines: [], regions: [], bufs: [], nodes: [] };
+    if (state.open === 'aiv1') return fromNodes(['split']);
+    if (state.open === 'vec-est') { const f = fromNodes(['p-softmax']); f.regions = ['aiv0']; return f; }
+    if (state.open === 'slots' || state.open === 'stage') return fromNodes(['f-pipe']);
     return { lines: [], regions: [], bufs: [], nodes: [] };
   }
   function focusFor(h) {
@@ -782,27 +760,197 @@
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 右栏：五个可折叠章节
+  // 右栏：问题分析。每个问题按 问题描述 → 根因分析 → 修改建议 展开；真实 / 推算 / 待确认分开标
   // ════════════════════════════════════════════════════════════════════════════
-  function next(n, label) { return '<button class="btn btn-primary" type="button" data-act="open" data-step="' + n + '">' + label + '</button>'; }
-
-  function body1() {
-    return '<h2 class="st-h">qk_pv 和 fa_fused 几乎同构，差在三处写法</h2>'
-      + '<p class="st-p">都是 <code>pl.spmd(24)</code> 按 grid-stride 取块，块内 <code>pl.pipeline(stage=2)</code> 做 QK → softmax → PV，再交给后面的合并任务。不同在于：</p>'
-      + '<table class="map-table"><thead><tr><th>行</th><th>写法</th></tr></thead><tbody>'
-      + '<tr data-line="225"><td>225</td><td><code>pl.create_l1</code> 显式在 L1 开 [128, 512] 的 KV 缓冲，滑窗行和压缩行都拼进这一块</td></tr>'
-      + '<tr data-line="289"><td>289</td><td>用加法 bias（无效位置加 NEG_INF）代替 <code>set_validshape</code> + <code>fillpad</code></td></tr>'
-      + '<tr data-line="208"><td>208</td><td><code>pl.spmd</code> <b>没有写</b> <code>optimizations=[pl.split(pl.SplitMode.UP_DOWN)]</code>，fa_fused 写了</td></tr>'
-      + '</tbody></table>'
-      + '<p class="note">第三处在源码里只是少了一个参数，读代码看不出后果。下一步看编译器给出的真实分配。</p>'
-      + '<p class="note">281 行的 <code>stage</code> 可以直接点选 1–4：管道槽数、L1 和 Vec 的占用，以及逻辑图下方的时间线会跟着变。只有 stage=2 是真实产物，其余是推算。</p>'
-      + '<div class="st-actions">' + next(2, '展开：编译器把它放在哪') + '</div>';
+  function evTag(kind) {
+    if (kind === 'real') return '<span class="tag-real">真实</span>';
+    if (kind === 'proj') return '<span class="tag-proj">推算</span>';
+    return '<span class="tag-open">待确认</span>';
   }
 
+  // ── 可视化小件：右栏问题分析用，HTML + CSS，颜色沿用硅片画布（AIC lavender · AIV sky · 空转斜纹）；小标签用 path.css 的 .meter-k ──
+  function vizCores(split) {
+    let top = '', bottom = '';
+    for (let i = 0; i < NUM_QK_CORES; i++) { top += '<i class="on"></i>'; bottom += '<i class="' + (split ? 'on is-proj' : 'idle') + '"></i>'; }
+    return '<div class="viz viz-cores" role="img" aria-label="' + NUM_QK_CORES + ' 个 AIC 各配 2 个 AIV：AIV0 全部在算，AIV1 ' + (split ? '推算后也在算' : '全部空转') + '">'
+      + '<span class="vc-k meter-k">AIV0</span><span class="vc-row">' + top + '</span>'
+      + '<span class="vc-k meter-k">AIV1</span><span class="vc-row">' + bottom + '</span>'
+      + '<span></span><span class="vc-axis meter-k"><b>AIC 0</b><b>每列 1 个 AIC · 共 ' + NUM_QK_CORES + ' 个</b><b>23</b></span></div>';
+  }
+  // 横向环节轨道：s = miss（没拦住）/ hit（能看到）/ open（待回答）/ todo
+  function vizTrack(items, label) {
+    return '<ol class="viz viz-track" aria-label="' + label + '">' + items.map(function (it) {
+      return '<li class="vt-' + it.s + '"><span class="vt-dot" aria-hidden="true"></span><span class="vt-k meter-k">' + it.k + '</span><span class="vt-v">' + it.v + '</span></li>';
+    }).join('') + '</ol>';
+  }
+  // 一行 32 行的切分条：AIV0 / AIV1 各算几行
+  function splitBar(label, a0, a1, proj) {
+    const seg = function (n, who) {
+      return '<span class="vs-seg' + (n ? (proj ? ' on is-proj' : ' on') : ' idle') + '" style="flex:' + Math.max(n, 11) + '">' + who + (n ? ' · ' + n + ' 行' : ' 空') + '</span>';
+    };
+    return '<div class="vs-row"><span class="vs-k meter-k">' + label + '</span><span class="vs-bar">' + seg(a0, 'AIV0') + seg(a1, 'AIV1') + '</span></div>';
+  }
+  function vizChain(nodes) {
+    return '<div class="viz viz-chain">' + nodes.map(function (n, i) {
+      return (i ? '<span class="ch-arrow" aria-hidden="true"></span>' : '')
+        + '<div class="ch-node' + (n.cls ? ' ' + n.cls : '') + '"><span class="ch-k meter-k">' + n.k + '</span><span class="ch-v">' + n.v + '</span></div>';
+    }).join('') + '</div>';
+  }
+  // Vec 容量条：同一把尺子（0–220 KB），184 可用线与 192 标称线
+  const CAP_MAX = 220 * KB;
+  function capPct(b) { return (b / CAP_MAX * 100).toFixed(2) + '%'; }
+  function vizCap(rows) {
+    return '<div class="viz viz-cap" role="img" aria-label="' + rows.map(function (r) { return r.k + ' ' + kb(r.b); }).join('，') + '；可用 184 KB，标称 192 KB">'
+      + '<div class="vk-scale"><span style="left:' + capPct(UB_USABLE) + '" class="is-usable">184 可用</span><span style="left:' + capPct(UB_NOMINAL) + '">192</span></div>'
+      + rows.map(function (r) {
+        const over = Math.max(0, r.b - UB_NOMINAL);
+        return '<div class="vk-row"><span class="vk-k meter-k">' + r.k + '</span><span class="vk-track">'
+          + '<span class="vk-fill ' + r.cls + '" style="width:' + capPct(r.b - over) + '"></span>'
+          + (over ? '<span class="vk-over" style="left:' + capPct(UB_NOMINAL) + ';width:' + capPct(over) + '"></span>' : '')
+          + '<i style="left:' + capPct(UB_USABLE) + '"></i><em style="left:' + capPct(UB_NOMINAL) + '"></em></span>'
+          + '<span class="vk-v">' + kb(r.b) + '</span></div>';
+      }).join('') + '</div>';
+  }
+  // Vec 组成：估算与真实按同一把尺子堆叠
+  function vizStack() {
+    const tile = 32 * 128 * 4, chain = 4 * tile + 32 * 128 * 2, rows = 2 * 32 * 4;
+    const est = [['slot', 32768, 'c2v 管道'], ['bias', 512, 'bias'], ['chain', 2 * chain, 'softmax 链 × 2'], ['tmp', 2 * tile, '临时 × 2'], ['row', 2 * rows, 'mi / li × 2']];
+    const vec = vecOf(false, 2);
+    const size = function (id) { return vec.filter(function (b) { return b.id === id; }).map(function (b) { return b.hi - b.lo; })[0] || 0; };
+    const kindOf = { slots: 'slot', bias: 'bias', tmp: 'tmp', mi: 'row', li: 'row', work: 'work' };
+    const real = vec.map(function (b) { return [kindOf[b.id], b.hi - b.lo, b.name]; });
+    const bar = function (label, parts) {
+      return '<div class="vk-row"><span class="vk-k meter-k">' + label + '</span><span class="vk-track">' + parts.map(function (p) {
+        return '<span class="vk-seg k-' + p[0] + '" style="width:' + capPct(p[1]) + '" title="' + p[2] + ' · ' + bytes(p[1]) + '"></span>';
+      }).join('') + '<i style="left:' + capPct(UB_USABLE) + '"></i><em style="left:' + capPct(UB_NOMINAL) + '"></em></span>'
+        + '<span class="vk-v">' + kb(parts.reduce(function (a, p) { return a + p[1]; }, 0)) + '</span></div>';
+    };
+    return '<div class="viz viz-cap"><div class="viz-cap" role="img" aria-label="组成对比：Lens 估算 ' + kb(NAIVE.staged) + '，编译产物 ' + kb(hwOf(false, 2)) + '">'
+      + bar('Lens 估算', est) + bar('编译产物', real) + '</div>'
+      + '<table class="vk-cmp"><thead><tr><th></th><th>估算</th><th>真实</th></tr></thead><tbody>'
+      + '<tr class="is-diff"><td><span class="vk-sw k-chain"></span>softmax 中间量</td><td>' + kb(2 * chain) + ' 各占一块</td><td>' + kb(size('work')) + ' 原地</td></tr>'
+      + '<tr><td><span class="vk-sw k-tmp"></span>临时</td><td>' + kb(2 * tile) + '</td><td>' + kb(size('tmp')) + '</td></tr>'
+      + '<tr><td><span class="vk-sw k-slot"></span>c2v 管道</td><td>32 KB</td><td>' + kb(size('slots')) + '</td></tr>'
+      + '</tbody></table></div>';
+  }
+  function vizPipe() {
+    return '<div class="viz viz-pipe" role="img" aria-label="AIC 与 AIV 之间 2 个管道槽，每槽 16 KB；槽数来源待确认">'
+      + '<span class="vp-core k-aic">AIC</span><span class="vp-slots"><span>槽 0<small>16 KB</small></span><span>槽 1<small>16 KB</small></span><em>slot_num = 2 · 从哪来？</em></span><span class="vp-core k-aiv">AIV</span></div>';
+  }
+  // 时间线示意：用 schedule() 的排布，两条泳道等比画（只在 stage 那条问题里出现）
+  function vizGantt(rows) {
+    const total = Math.max.apply(null, rows.map(function (r) { return Math.max.apply(null, r.blocks.map(function (b) { return b.e; })); }));
+    return '<div class="viz viz-gantt" role="img" aria-label="' + rows.map(function (r) { return r.label + ' 共 ' + Math.max.apply(null, r.blocks.map(function (b) { return b.e; })) + ' 格'; }).join('，') + '">' + rows.map(function (r) {
+      const end = Math.max.apply(null, r.blocks.map(function (b) { return b.e; }));
+      const lane = function (name) {
+        return '<span class="vg-lane"><span class="vg-k meter-k">' + name.toUpperCase() + '</span><span class="vg-track">' + r.blocks.filter(function (b) { return b.lane === name; }).map(function (b) {
+          return '<span class="vg-b u-' + name + '" style="left:' + (b.s / total * 100) + '%;width:' + ((b.e - b.s) / total * 100) + '%">' + b.label + '</span>';
+        }).join('') + '</span></span>';
+      };
+      return '<div class="vg-case"><span class="vg-title meter-k">' + r.label + '<b>' + end + ' 格</b></span>' + lane('aic') + lane('aiv') + '</div>';
+    }).join('') + '<p class="vg-note">示意：QK、softmax、PV 按等长画，只看重叠关系</p></div>';
+  }
+  function vizFlight(stage) {
+    let cells = '';
+    for (let i = 0; i < Math.max(stage, HEAD_BLOCKS); i++) {
+      const used = i < Math.min(stage, HEAD_BLOCKS);
+      cells += '<span class="vf-cell' + (i < stage ? (used ? ' on' : ' empty') : ' wait') + '">' + (i < stage ? 'stage ' + (i + 1) : '排队')
+        + '<small>' + (i < stage ? (used ? '头块 ' + i : '无块可填') : '头块 ' + i) + '</small></span>';
+    }
+    return '<div class="viz viz-flight" role="img" aria-label="64 个头分成 2 个头块；stage=' + stage + ' 时同时在飞 ' + Math.min(stage, HEAD_BLOCKS) + ' 个">'
+      + '<span class="vf-k meter-k">64 头 ÷ 32 = 2 个头块</span><span class="vf-row">' + cells + '</span></div>';
+  }
+  function vizChecks(items) {
+    return '<ul class="checklist viz-checks">' + items.map(function (it) {
+      return '<li><span><span class="ev ' + it.ev + '">' + it.phase + '</span>' + it.t + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
+  function aivEvidence() {
+    return '<div class="evidence"><i># 3023</i>  else:  <i># AIV1</i>\n'
+      + '<i># 3038</i>    qk_raw = tpop_from_aic(split=0)  <b>valid_shape=[0, 0]</b>\n'
+      + '<i># 3048</i>    qk_exp_bf16 = cast(...)  <b>valid_shape=[0, 0]</b></div>';
+  }
+  function aivDesc() {
+    if (state.split) {
+      return '<div class="diagnosis-primary"><span>参与计算的 AIV</span><strong class="is-good">48 / 48</strong></div>'
+        + vizCores(true)
+        + '<p class="note">208 行已加 UP_DOWN，两个 AIV 各算 16 行 ' + evTag('proj') + '　切分前 24 / 48 空转，要重新编译确认。</p>'
+        + '<details class="story-detail"><summary>切分前的编译产物证据</summary>' + aivEvidence() + '</details>';
+    }
+    return '<div class="diagnosis-primary"><span>空转的 AIV</span><strong class="is-warn">24 / 48</strong></div>'
+      + vizCores(false)
+      + '<p class="note">AIV1 照常取数、释放槽位，但 tile 全是 <code>valid_shape=[0, 0]</code>：不算 softmax，也不写 mi / li。' + evTag('real') + '</p>'
+      + aivEvidence()
+      + vizTrack([
+        { k: '读源码', v: '看不到', s: 'miss' }, { k: '编译', v: '无警告', s: 'miss' }, { k: '上板', v: '数值正确', s: 'miss' },
+        { k: '编译产物', v: '本页可见', s: 'hit' }, { k: 'Profiling', v: '才能回答', s: 'open' }
+      ], '在哪一环能看到这个问题');
+  }
+  function aivCause() {
+    return vizChain([
+      { k: '源码 · 208 行', v: '没写 <code>pl.split(pl.SplitMode.UP_DOWN)</code>', cls: 'is-src' },
+      { k: '编译器', v: '<code>tpop_from_aic(split=0)</code>：32 行整块交给 AIV0' },
+      { k: '结果', v: 'AIV1 只剩握手', cls: 'is-warn' }
+    ])
+      + '<div class="viz viz-split" role="img" aria-label="当前 AIV0 32 行、AIV1 空；加 UP_DOWN 后各 16 行（推算）">' + splitBar('当前', 32, 0, false) + splitBar('加 UP_DOWN', 16, 16, true) + '</div>'
+      + '<p class="note">' + evTag('open') + ' 推断：fa_fused 写了这个参数；要加上切分重新编译确认。</p>';
+  }
+  function aivFix() {
+    const opt = function (key, title, sub, bar, res, cost, scope) {
+      const chosen = state.chosen === key;
+      return '<div class="opt' + (state.preview === key ? ' is-preview' : '') + (chosen ? ' is-chosen' : '') + '" data-opt="' + key + '" tabindex="0">'
+        + '<div class="opt-head"><span class="opt-id">' + key + '</span><span class="opt-title">' + title + '</span><span class="opt-sub">' + sub + '</span></div>'
+        + '<div class="viz viz-split is-compact">' + bar + '</div>'
+        + '<div class="opt-res">' + res + '</div>'
+        + '<details class="story-detail"><summary>代价与前提</summary><p class="opt-cost">' + cost + '</p></details>'
+        + '<div class="opt-foot"><span class="opt-scope">' + scope + '</span>'
+        + '<button class="btn' + (chosen ? '' : ' btn-primary') + '" type="button" data-act="choose" data-opt="' + key + '">' + (chosen ? '已采用' : '采用并复查') + '</button></div></div>';
+    };
+    let html = '<p class="note">悬停卡片预览方案 · 这不是正确性问题，值不值得改要看 AIV 是否拖慢这一段</p>'
+      + opt('A', '加 UP_DOWN 切分', '208 行加一个参数', splitBar('AIV', 16, 16, true),
+        '<span>每个 Vec <b>≈ ' + kb(hwOf(true)) + '</b><span class="tag-proj">推算</span></span>',
+        '两个 AIV 各算 16 行。297 行的写回循环本来就按 16 行一半组织，形状上是顺的。<em>C2V 搬运怎么切、写回是否仍正确，要重新编译后看产物</em>。',
+        '改动 · 算子 1 行')
+      + opt('B', '保持现状', '不改', splitBar('AIV', 32, 0, false),
+        '<span>Vec <b>' + kb(hwOf(false)) + '</b>'
+          + (isReal(false, state.stage) ? '<span class="tag-real">真实</span>' : '<span class="tag-proj">推算</span>') + '</span>',
+        '如果瓶颈在 AIC（两次 K=512 的 matmul，加上 L1 里逐行拼压缩 KV），AIV 空着不影响端到端。<em>要拿 profiling 证明 AIV 不在关键路径上</em>。',
+        '改动 · 无')
+      + '<p class="note">A 要编译产物证明，B 要 profiling 证明；本页只能指出现象和原因。</p>';
+    if (!state.chosen) return html;
+    const A = state.chosen === 'A';
+    const row = function (name, a, b, ev, evText) {
+      return '<tr><td>' + name + '</td><td class="v">' + a + '</td><td class="v">' + b + '</td><td><span class="ev ' + ev + '">' + evText + '</span></td></tr>';
+    };
+    const checks = A
+      ? [{ ev: 'e-build', phase: '编译产物', t: 'pass 25 <code>SplitVectorKernel</code>：subblock 1 不再是 valid_shape=[0, 0]' },
+        { ev: 'e-build', phase: '编译产物', t: 'pass 36 <code>AllocateMemoryAddr</code>：两个 AIV 的 Vec 与推算一致' },
+        { ev: 'e-board', phase: '上板', t: '对比 golden：mi / li 写回行号没有错位' },
+        { ev: 'e-board', phase: 'Profiling', t: '改前改后 qk_pv 耗时' }]
+      : [{ ev: 'e-board', phase: 'Profiling', t: 'AIV0 的 softmax 是否被 AIC 完全盖住' },
+        { ev: 'e-est', phase: '回退', t: '若 AIV0 在关键路径上，回到方案 A' }];
+    return html
+      + '<p class="st-sec">方案 ' + state.chosen + ' 的复查</p>'
+      + '<table class="cmp"><thead><tr><th>项目</th><th>现状</th><th>方案 ' + state.chosen + '</th><th>依据</th></tr></thead><tbody>'
+      + row('参与计算的 AIV', '1 / 2', A ? '2 / 2' : '1 / 2', A ? 'e-build' : 'e-est', A ? '需重新编译' : '编译产物')
+      + row('每个 AIV 的 Vec 高水位', kb(hwOf(false)), A ? '≈ ' + kb(hwOf(true)) : kb(hwOf(false)), A ? 'e-build' : 'e-est', A ? '推算' : '编译产物')
+      + row('端到端耗时', '—', '—', 'e-board', '需 profiling')
+      + '</tbody></table>'
+      + vizChecks(checks)
+      + '<div class="st-actions"><button class="btn" type="button" data-act="reset">撤销方案，恢复原配置</button></div>';
+  }
+
+  // ── Lens 估算偏大 ──
   function allocRow(name, sp, off, size, attr) {
     return '<tr ' + attr + '><td>' + name + '</td><td class="sp">' + sp + '</td><td class="num">' + off + '</td><td class="num">' + size + '</td></tr>';
   }
-  function body2() {
+  function vecDesc() {
+    return '<div class="diagnosis-primary"><span>估算 / 真实</span><strong>' + (NAIVE.staged / hwOf(false, 2)).toFixed(1) + '×</strong></div>'
+      + vizCap([{ k: 'Lens 估算', b: NAIVE.staged, cls: 'is-est' }, { k: '编译产物', b: hwOf(false, 2), cls: 'is-real' }])
+      + '<p class="note">按 Lens 口径会判为超过 192 KB；AIV0 实际只用 ' + kb(hwOf(false, 2)) + '。' + evTag('real') + '</p>';
+  }
+  function vecCause() {
     const rows = '<tr class="grp"><td colspan="4">AIC · qk_pv_aic</td></tr>'
       + allocRow('v2c 管道槽', 'Mat', '0', '2 × 16 KB', 'data-region="l1-slot"')
       + allocRow('<code>qk_kv</code> [128,512]', 'Mat', '32 KB', '128 KB', 'data-region="l1-kv"')
@@ -814,125 +962,110 @@
       + vecOf(false, 2).map(function (b) {
         return allocRow(b.name, 'Vec', b.lo < KB ? b.lo : kb(b.lo), bytes(b.hi - b.lo), 'data-buf="' + b.id + '"');
       }).join('');
-    const stageNote = state.stage === 2 ? ''
-      : '<div class="callout is-plain">下表是 stage=2 的真实分配。当前 stage=' + state.stage + '，推算为 ' + effStage(state.stage) + ' 个管道槽：'
-        + 'L1 已用 ' + kb(l1Of(state.stage)[2].hi) + '，AIV0 的 Vec 高水位 ' + kb(hwOf(state.split)) + '，见硅片画布的虚线框。</div>';
-    return '<h2 class="st-h">这是编译器真正给出的地址，不是估算 <span class="tag-real">真实</span></h2>'
-      + stageNote
-      + '<p class="st-p">悬停表格行，右边对应的存储块会亮起。</p>'
+    return vizStack()
+      + '<p class="note">估算让每个中间量各占一块并按 stage=2 复制；产物里 5 个 [32,128] 中间量原地写在 49920 起的同一块。</p>'
+      + (state.stage === 2 ? '' : '<p class="note">当前 stage=' + state.stage + '：L1 ' + kb(l1Of(state.stage)[2].hi) + '、Vec ' + kb(hwOf(state.split))
+        + '，按 ' + effStage(state.stage) + ' 个管道槽推算。<span class="tag-proj">推算</span></p>')
+      + '<details class="story-detail"><summary>完整分配表 · pass 36</summary>'
+      + '<p>悬停表格行，硅片上对应的存储块会亮起。</p>'
       + '<table class="alloc"><thead><tr><th>内容</th><th>空间</th><th>起始</th><th>大小</th></tr></thead><tbody>' + rows + '</tbody></table>'
-      + '<p class="st-sec">和估算对照</p>'
-      + '<div class="callout is-plain">按 Lens 工作台的口径（每个中间量各占一块，再按 stage=2 复制一份），Vec 会估成 <b>' + kb(NAIVE.staged) + '</b>，判为超过 192 KB。'
-      + '真实只有 <b>' + kb(hwOf(false, 2)) + '</b>：5 个 [32,128] 中间量都原地写在 49920 起的同一块 16 KB 里；Vec 里也没有第二份 softmax 链。'
-      + '<code>pl.pipeline</code> 在 pass 28 之后已改写成普通循环，AIC / AIV 之间靠 2 槽 × 16 KB 的管道交接。槽数是否由 stage 决定，产物里看不出来，需对照编译器实现。</div>'
-      + '<p class="note">这也提醒 fa_fused 主线：那一页的 Vec 数字同样是估算，结论要以编译产物为准。</p>'
-      + '<p class="note">来源：<code>' + DUMP + '</code> 第 2761–2771 行（AIC）、2951–2961 行（AIV）。</p>'
-      + '<div class="st-actions">' + next(3, '展开：第二个 AIV 在做什么') + '</div>';
+      + '<p>来源：<code>' + DUMP + '</code> 第 2761–2771 行（AIC）、2951–2961 行（AIV）。</p></details>';
+  }
+  function vecFix() {
+    return vizChain([
+      { k: '容量结论', v: '以编译产物为准：pass 36 <code>AllocateMemoryAddr</code>', cls: 'is-src' },
+      { k: '同样适用', v: 'fa_fused 主线的 Vec 数字也是估算' }
+    ]);
   }
 
-  function body3() {
-    return '<h2 class="st-h">每个 AIC 配 2 个 AIV，第二个只在握手 <span class="tag-real">真实</span></h2>'
-      + '<p class="st-p">a2a3 上 24 个 AIC 配 48 个 AIV。编译产物给 <code>qk_pv_aiv</code> 标了双 AIV 派发，但两条分支不一样：</p>'
-      + '<div class="evidence"><i># 2952</i>  pl.func_attr({"dual_aiv_dispatch": True})\n'
-      + '<i># 2962</i>  if subblock_idx == 0:   <i># AIV0：完整的 softmax，写回 mi / li</i>\n'
-      + '<i># 3023</i>  else:                  <i># AIV1</i>\n'
-      + '<i># 3038</i>    qk_raw = tpop_from_aic(split=0)   <b>valid_shape=[0, 0]</b>\n'
-      + '<i># 3048</i>    qk_exp_bf16 = cast(...)            <b>valid_shape=[0, 0]</b>\n'
-      + '<i># 3055</i>    sparse_blk_mi = sparse_blk_mi      <i># 不写回</i></div>'
-      + '<p class="st-p">AIV1 照常从管道取数、释放槽位，让 AIC 不被卡住，但 tile 的有效形状都是 0：不算 softmax，也不写 mi / li。<b>24 个 AIV 的算力没有用上</b>。</p>'
-      + '<p class="st-sec">在哪一环能看到</p>'
-      + '<ol class="timeline">'
-      + '<li class="t-pass"><span class="t-k">读源码</span><span class="t-v"><b>看不到</b>：只是少写了一个参数</span></li>'
-      + '<li class="t-pass"><span class="t-k">编译</span><span class="t-v"><b>通过</b>：没有警告</span></li>'
-      + '<li class="t-pass"><span class="t-k">上板</span><span class="t-v"><b>结果正确</b>：空转不影响数值</span></li>'
-      + '<li class="t-stop"><span class="t-k">编译产物 · 本页</span><span class="t-v"><b>能看到</b>：subblock 1 全部 valid_shape=[0, 0]</span></li>'
-      + '<li class="t-fail"><span class="t-k">Profiling</span><span class="t-v"><b>才能回答</b>：AIV 是不是这一段的瓶颈</span></li>'
-      + '</ol>'
-      + '<div class="callout is-plain">这不是正确性问题。值不值得改，取决于 AIV 有没有拖慢这一段：如果 AIC 两次 K=512 的 matmul 加上 L1 拼块本来就更慢，AIV 空着也不影响端到端。</div>'
-      + '<p class="note">原因推断：fa_fused 写了 <code>pl.split(pl.SplitMode.UP_DOWN)</code>，qk_pv 没写，编译器就把 32 行整块交给 AIV0（<code>tpop_from_aic(split=0)</code>）。这一点需要加上切分重新编译来确认。</p>'
-      + '<div class="st-actions">' + next(4, '展开：怎么改') + '</div>';
+  // ── 管道槽数来源待确认 ──
+  function slotDesc() {
+    return vizPipe()
+      + '<p class="note"><code>' + VEC_NOTES.slots + '</code>：槽数是否由 stage 决定，产物里看不出。' + evTag('open') + '</p>';
+  }
+  function slotCause() {
+    return vizTrack([
+      { k: '源码', v: 'stage=2', s: 'miss' },
+      { k: 'pass 28', v: '改成普通循环', s: 'hit' },
+      { k: 'pass 36', v: '2 槽 × 16 KB', s: 'hit' },
+      { k: '槽数来源', v: '没留下', s: 'open' }
+    ], '槽数在编译各阶段的痕迹');
+  }
+  function slotFix() {
+    return vizChain([
+      { k: '确认', v: '对照编译器实现，找 slot_num 的来源', cls: 'is-src' },
+      { k: '确认之前', v: 'stage ≠ 2 时的槽数、L1、Vec 一律标推算' }
+    ]);
   }
 
-  function body4() {
-    const opt = function (key, title, sub, res, cost, scope) {
-      const chosen = state.chosen === key;
-      return '<div class="opt' + (state.preview === key ? ' is-preview' : '') + (chosen ? ' is-chosen' : '') + '" data-opt="' + key + '" tabindex="0">'
-        + '<div class="opt-head"><span class="opt-id">' + key + '</span><span class="opt-title">' + title + '</span><span class="opt-sub">' + sub + '</span></div>'
-        + '<div class="opt-res">' + res + '</div><p class="opt-cost">' + cost + '</p>'
-        + '<div class="opt-foot"><span class="opt-scope">' + scope + '</span>'
-        + '<button class="btn' + (chosen ? '' : ' btn-primary') + '" type="button" data-act="choose" data-opt="' + key + '">' + (chosen ? '已采用' : '采用并复查') + '</button></div></div>';
-    };
-    return '<h2 class="st-h">加上切分，还是保持现状</h2>'
-      + '<p class="st-p">悬停卡片，逻辑图和两个 AIV 会切到这个方案的样子。</p>'
-      + opt('A', '加 UP_DOWN 切分', '208 行加一个参数',
-        '<span>AIV 用上 <b class="is-good">2 / 2</b></span><span>每个 Vec <b>≈ ' + kb(hwOf(true)) + '</b><span class="tag-proj">推算</span></span>',
-        '两个 AIV 各算 16 行。297 行的写回循环本来就按 16 行一半组织，形状上是顺的。<em>C2V 搬运怎么切、写回是否仍正确，要重新编译后看产物</em>。',
-        '改动 · 算子 1 行')
-      + opt('B', '保持现状', '不改',
-        '<span>AIV 用上 <b class="is-warn">1 / 2</b></span><span>Vec <b>' + kb(hwOf(false)) + '</b>'
-          + (isReal(false, state.stage) ? '<span class="tag-real">真实</span>' : '<span class="tag-proj">推算</span>') + '</span>',
-        '如果瓶颈在 AIC（两次 K=512 的 matmul，加上 L1 里逐行拼压缩 KV），AIV 空着不影响端到端。<em>要拿 profiling 证明 AIV 不在关键路径上</em>。',
-        '改动 · 无')
-      + '<p class="note">两个方案都需要一份证据：A 要编译产物，B 要 profiling。本页只能指出现象和原因。</p>';
+  // ── stage 设置（只在改了 281 行时出现）──
+  function stageDesc() {
+    const now = schedule(state.split, state.stage), base = schedule(state.split, 2);
+    return vizGantt([{ label: 'stage=' + state.stage + '（当前）', blocks: now }, { label: 'stage=2（原值）', blocks: base }])
+      + '<p class="note">' + (state.stage > HEAD_BLOCKS ? '和 stage=2 完全一样：多出的 stage 不起作用。' : 'AIC 与 AIV 交替空等，总时长拉长。') + evTag('proj') + '</p>';
+  }
+  function stageCause() {
+    return vizFlight(state.stage)
+      + '<p class="note">' + (state.stage > HEAD_BLOCKS
+        ? 'stage 决定同时在飞的头块数，上限是 H / QK_M_TILE = 2；多出的位置没有块可填。'
+        : '只有 1 个头块在飞：AIC 做完 QK 要等 AIV 送回 softmax 才能做 PV，下一块排在后面。') + '</p>';
+  }
+  function stageFix() {
+    return '<p class="note">改回原值 stage=2：2 个头块同时在飞，也是唯一有真实产物的配置。</p>'
+      + '<div class="st-actions"><button class="btn btn-primary" type="button" data-act="stage" data-v="2">恢复 stage=2</button></div>';
   }
 
-  function body5() {
-    if (!state.chosen) {
-      return '<h2 class="st-h">还没有选方案</h2><div class="callout is-plain">先在“改法”里选一个，再看要补哪些证据。</div>'
-        + '<div class="st-actions">' + next(4, '展开改法') + '</div>';
+  function problemList() {
+    const list = [{
+      id: 'aiv1', sev: state.split ? 'good' : 'warn', line: 208,
+      title: state.split ? '已加 UP_DOWN，待重新编译' : 'AIV1 空转',
+      pill: state.split ? '推算 2 / 2 在算' : '24 / 48 空转',
+      parts: [aivDesc, aivCause, aivFix]
+    }];
+    if (state.stage !== 2) {
+      list.push({ id: 'stage', sev: 'warn', line: 281,
+        title: state.stage > HEAD_BLOCKS ? '多出的 stage 无效' : 'AIC 与 AIV 交替空等',
+        pill: 'stage=' + state.stage + ' 推算', parts: [stageDesc, stageCause, stageFix] });
     }
-    const row = function (name, a, b, ev, evText) {
-      return '<tr><td>' + name + '</td><td class="v">' + a + '</td><td class="v">' + b + '</td><td><span class="ev ' + ev + '">' + evText + '</span></td></tr>';
-    };
-    const A = state.chosen === 'A';
-    const table = '<table class="cmp"><thead><tr><th>项目</th><th>现状</th><th>' + (A ? '方案 A' : '方案 B') + '</th><th>依据</th></tr></thead><tbody>'
-      + row('参与计算的 AIV', '1 / 2', A ? '2 / 2' : '1 / 2', A ? 'e-build' : 'e-est', A ? '需重新编译' : '编译产物')
-      + row('每个 AIV 的 softmax 行数', '32 / 0', A ? '16 / 16' : '32 / 0', A ? 'e-build' : 'e-est', A ? '推算' : '编译产物')
-      + row('每个 AIV 的 Vec 高水位', kb(hwOf(false)), A ? '≈ ' + kb(hwOf(true)) : kb(hwOf(false)), A ? 'e-build' : 'e-est', A ? '推算' : '编译产物')
-      + row('AIC 侧分配', 'L0B 64 / 64 KB', '不变', 'e-est', '编译产物')
-      + row('端到端耗时', '—', '—', 'e-board', '需 profiling')
-      + '</tbody></table>';
-    const checks = A
-      ? ['重新编译，查看 <code>25_after_SplitVectorKernel</code>：subblock 1 的 tile 不再是 valid_shape=[0, 0]',
-        '查看 <code>36_after_AllocateMemoryAddr</code>：两个 AIV 的 Vec 高水位与推算是否一致',
-        '上板与 golden_sparse_attn 逐元素对比，确认 mi / li 的写回行号没有错位',
-        'Profiling 对比改前改后的 qk_pv 耗时，确认 AIV 原本在关键路径上']
-      : ['Profiling 看 qk_pv 的 AIC / AIV 时间线：AIV0 的 softmax 是否被 AIC 的 matmul 和 L1 拼块完全盖住',
-        '如果 AIV0 在关键路径上，回到方案 A'];
-    return '<h2 class="st-h">' + (A ? '加了切分之后，要拿编译产物和 profiling 证明' : '保持现状，要拿 profiling 证明') + '</h2>'
-      + table
-      + '<p class="st-sec">接下来要看</p>'
-      + '<ul class="checklist">' + checks.map(function (t) { return '<li><span>' + t + '</span></li>'; }).join('') + '</ul>'
-      + '<div class="st-actions"><button class="btn" type="button" data-act="open" data-step="4">换个方案</button>'
-      + '<button class="btn" type="button" data-act="reset">从头再走一遍</button></div>';
-  }
-
-  function sectionSummary(n) {
-    if (n === 1) return state.split ? { t: 'stage=' + state.stage + ' · 已加 UP_DOWN', cls: 'is-warn' }
-      : { t: 'stage=' + state.stage + ' · 未写 UP_DOWN', cls: state.stage !== 2 ? 'is-warn' : '' };
-    if (n === 2) return { t: 'Vec ' + kb(hwOf(state.split)) + ' · L0B 64/64' + (isReal(state.split, state.stage) ? '' : ' · 推算'), cls: isReal(state.split, state.stage) ? '' : 'is-warn' };
-    if (n === 3) return state.split ? { t: '推算：2 个 AIV 都在算', cls: 'is-good' } : { t: '24 / 48 个 AIV 空转', cls: 'is-warn' };
-    if (n === 4) return state.chosen ? { t: '已采用 ' + state.chosen + (state.chosen === 'A' ? ' · 加切分' : ' · 保持'), cls: 'is-good' } : { t: '2 个方案' };
-    return state.chosen ? { t: state.chosen === 'A' ? '待重新编译 / profiling' : '待 profiling', cls: 'is-warn' } : { t: '—' };
+    list.push({ id: 'vec-est', sev: 'info', region: 'aiv0', title: 'Lens 估算 Vec 偏大', pill: '真实 ' + kb(hwOf(false, 2)), parts: [vecDesc, vecCause, vecFix] });
+    list.push({ id: 'slots', sev: 'info', line: 281, title: '管道槽数来源', pill: '待确认', parts: [slotDesc, slotCause, slotFix] });
+    return list.filter(function (p) { return p.sev === 'warn'; }).concat(list.filter(function (p) { return p.sev !== 'warn'; }));
   }
 
   function renderStory() {
-    const bodies = [body1, body2, body3, body4, body5];
-    document.getElementById('hpStory').innerHTML = SECTIONS.map(function (sec, i) {
-      const n = i + 1, open = state.step === n, sum = sectionSummary(n);
-      return '<section class="sec' + (open ? ' is-open' : '') + '" data-sec="' + n + '">'
-        + '<button class="sec-head" type="button" data-act="toggle" data-step="' + n + '" aria-expanded="' + open + '" aria-controls="cs-body-' + n + '">'
-        + '<span class="sec-no">0' + n + '</span><span class="sec-name">' + sec.name + '</span><span class="sec-q">' + sec.q + '</span>'
-        + '<span class="sec-sum ' + (sum.cls || '') + '">' + sum.t + '</span><span class="sec-chev" aria-hidden="true"></span></button>'
-        + (open ? '<div class="sec-body" id="cs-body-' + n + '">' + bodies[i]() + '</div>' : '')
+    const box = document.getElementById('hpStory');
+    const list = problemList();
+    const warn = list.filter(function (p) { return p.sev === 'warn'; }).length;
+    document.getElementById('hpStoryMeta').textContent = list.length + ' 个问题' + (warn ? ' · ' + warn + ' 警告' : '');
+    // 改 stage / 切分会重画：记住已经展开的折叠项，重画后照原样打开
+    const opened = [].map.call(box.querySelectorAll('details.story-detail[open] > summary'), function (s) {
+      const opt = s.closest('[data-opt]');
+      return (opt ? opt.dataset.opt + ':' : '') + s.textContent;
+    });
+    box.innerHTML = list.map(function (p, i) {
+      const open = state.open === p.id;
+      const target = p.line ? ' data-line="' + p.line + '"' : ' data-region="' + p.region + '"';
+      const cls = p.sev === 'warn' ? 'is-warn' : p.sev === 'good' ? 'is-good' : '';
+      return '<section class="sec' + (open ? ' is-open' : '') + '" data-pid="' + p.id + '">'
+        + '<button class="sec-head" type="button" data-act="toggle" data-pid="' + p.id + '"' + target + ' aria-expanded="' + open + '" aria-controls="cs-body-' + p.id + '">'
+        + '<span class="sec-no">0' + (i + 1) + '</span><span class="sec-name">' + p.title + '</span>'
+        + '<span class="sec-sum ' + cls + '">' + p.pill + '</span><span class="sec-chev" aria-hidden="true"></span></button>'
+        + (open ? '<div class="sec-body" id="cs-body-' + p.id + '">'
+          + '<p class="st-sec">问题描述</p>' + p.parts[0]()
+          + '<p class="st-sec">根因分析</p>' + p.parts[1]()
+          + '<p class="st-sec">修改建议</p>' + p.parts[2]()
+          + '</div>' : '')
         + '</section>';
     }).join('');
+    box.querySelectorAll('details.story-detail > summary').forEach(function (s) {
+      const opt = s.closest('[data-opt]');
+      if (opened.indexOf((opt ? opt.dataset.opt + ':' : '') + s.textContent) >= 0) s.parentNode.open = true;
+    });
   }
 
   function renderStatus() {
     const el = document.getElementById('hpStatus');
-    const span = Math.max.apply(null, schedule(state.split, state.stage).map(function (b) { return b.e; }));
-    const tail = ' · stage=' + state.stage + '（' + effStage(state.stage) + ' 槽）· 时间线示意 ' + span + ' 格';
+    const tail = ' · stage=' + state.stage + '（' + effStage(state.stage) + ' 槽）';
     if (state.split) {
       el.textContent = '推算 · 加 UP_DOWN 后两个 AIV 各算 16 行 · 每个 Vec ≈ ' + kb(hwOf(true)) + tail;
     } else {
@@ -944,13 +1077,33 @@
       : '以 stage=2 的真实产物为基准推算 · 需重新编译确认';
   }
 
-  function render() { renderCode(); renderLogic(); renderSvg(); renderStory(); renderStatus(); applyFocus(); }
-  function openSection(n, scroll) {
-    state.step = n; state.preview = null; state.hover = null;
+  // ════════════════════════════════════════════════════════════════════════════
+  // 硅片落点标题栏：资源占用摘要。数字与画布同源；推算值用琥珀色，和画布上的“推算”一致
+  // ════════════════════════════════════════════════════════════════════════════
+  function renderChipStats() {
+    const real = isReal(state.split, state.stage), l1used = l1Of(state.stage)[2].hi, hw = hwOf(state.split), eff = effStage(state.stage);
+    const stat = function (k, v, cap, proj) {
+      return '<span class="cs-stat' + (proj ? ' is-proj' : '') + '"' + (proj ? ' title="推算"' : '') + '><span class="meter-k">' + k + '</span><b>' + v + '</b>'
+        + (cap ? '<small>/ ' + cap + '</small>' : '') + '</span>';
+    };
+    const el = document.getElementById('hpChipStats');
+    el.innerHTML = stat('L1', kb(l1used), '192 KB', state.stage !== 2)
+      + stat('L0B', '64 KB', '64 KB', false)
+      + stat('Vec', kb(hw), '184 KB', !real)
+      + stat('AIV', state.split ? '2' : '1', '2 每 AIC', state.split)
+      + stat('C2V', eff + ' × ' + (state.split ? '8' : '16') + ' KB', '', !real)
+      + evTag(real ? 'real' : 'proj');
+    el.setAttribute('aria-label', '资源占用：L1 ' + kb(l1used) + ' / 192 KB，L0B 64 / 64 KB，AIV0 Vec ' + kb(hw) + ' / 184 KB 可用，每个 AIC 有 '
+      + (state.split ? '2' : '1') + ' / 2 个 AIV 在算，C2V 管道 ' + eff + ' 槽 × ' + (state.split ? '8' : '16') + ' KB；' + (real ? '真实分配' : '含推算'));
+  }
+
+  function render() { renderCode(); renderLogic(); renderSvg(); renderStory(); renderStatus(); renderChipStats(); applyFocus(); }
+  function openSection(id, scroll) {
+    state.open = id; state.preview = null; state.hover = null;
     render();
     revealLines();
-    if (scroll && n) {
-      const el = document.querySelector('.sec[data-sec="' + n + '"]');
+    if (scroll && id) {
+      const el = document.querySelector('.sec[data-pid="' + id + '"]');
       if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
@@ -960,15 +1113,22 @@
   // 事件
   // ════════════════════════════════════════════════════════════════════════════
   document.addEventListener('click', function (e) {
+    // 顶栏开关问题分析栏（页面内联脚本先切换 hidden）：默认点亮跟着更新
+    if (e.target.closest('#hpStoryToggle')) { applyFocus(); return; }
     const act = e.target.closest('[data-act]');
     if (!act) return;
     const a = act.dataset.act;
     if (a === 'split') setSplit(act.dataset.on === '1');
     else if (a === 'stage') { state.stage = Number(act.dataset.v); state.preview = null; render(); }
-    else if (a === 'toggle') { const n = Number(act.dataset.step); openSection(state.step === n ? 0 : n, false); }
-    else if (a === 'open') openSection(Number(act.dataset.step), true);
-    else if (a === 'choose') { state.chosen = act.dataset.opt; state.step = 5; setSplit(act.dataset.opt === 'A'); }
-    else if (a === 'reset') { state.step = 1; state.chosen = null; state.hover = null; state.stage = 2; setSplit(false); }
+    else if (a === 'toggle') {
+      const id = act.dataset.pid;
+      openSection(state.open === id ? null : id, false);
+      // 重画后把焦点还给同一个问题标题，键盘可以继续往下走
+      const again = document.querySelector('.sec-head[data-pid="' + id + '"]');
+      if (again && document.activeElement === document.body) again.focus();
+    }
+    else if (a === 'choose') { state.chosen = act.dataset.opt; state.open = 'aiv1'; setSplit(act.dataset.opt === 'A'); }
+    else if (a === 'reset') { state.open = 'aiv1'; state.chosen = null; state.hover = null; state.stage = 2; setSplit(false); }
   });
 
 
@@ -981,10 +1141,11 @@
     if (node) return { type: 'node', id: node.dataset.node };
     const line = target.closest('.cl.is-mapped');
     if (line) return { type: 'line', no: Number(line.dataset.line) };
-    const row = target.closest('.map-table tr[data-line]');
-    if (row) return { type: 'line', no: Number(row.dataset.line), fromStory: true };
     const arow = target.closest('.alloc tr[data-region], .alloc tr[data-buf]');
     if (arow) return arow.dataset.buf ? { type: 'buf', id: arow.dataset.buf, fromStory: true } : { type: 'region', id: arow.dataset.region, fromStory: true };
+    // 问题标题：悬停时点亮它落在的源码行或硅片区域
+    const head = target.closest('.sec-head[data-pid]');
+    if (head) return head.dataset.line ? { type: 'line', no: Number(head.dataset.line), fromStory: true } : { type: 'region', id: head.dataset.region, fromStory: true };
     return null;
   }
   document.addEventListener('mouseover', function (e) {
@@ -1002,7 +1163,30 @@
   document.addEventListener('focusin', function (e) {
     const opt = e.target.closest('.opt[data-opt]');
     if (opt && opt.dataset.opt !== state.preview) { state.preview = opt.dataset.opt; renderLogic(); renderSvg(); applyFocus(); }
+    const head = e.target.closest('.sec-head[data-pid]');
+    if (head) { state.hover = hoverFrom(head); applyFocus(); }
+  });
+  // 键盘焦点离开问题标题时收回联动，否则高亮会一直停在上一条
+  document.addEventListener('focusout', function (e) {
+    if (!e.target.closest('.sec-head[data-pid]')) return;
+    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.sec-head[data-pid]')) return;
+    state.hover = null; applyFocus();
   });
 
   render();
+
+  // 首屏引导：先从源码 225 行点亮三处，再从硅片上的 KV 缓冲反向点亮；鼠标一动就交还给用户
+  (function intro() {
+    const beats = [{ type: 'line', no: 225 }, { type: 'region', id: 'l1-kv' }];
+    let i = 0, current = null;
+    function step() {
+      if (current && state.hover !== current) return; // 用户已经接手
+      current = beats[i++] || null;
+      state.hover = current;
+      applyFocus();
+      if (current) setTimeout(step, 2200);
+      else document.getElementById('hpCode').scrollTo({ top: 0, behavior: 'smooth' }); // 回到 208 行开头
+    }
+    setTimeout(step, 500);
+  })();
 })();
