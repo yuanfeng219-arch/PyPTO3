@@ -159,6 +159,80 @@
   function shownIn(a, b) { return range(a, b).filter(function (no) { return SHOWN.indexOf(no) >= 0; }); }
 
   // ════════════════════════════════════════════════════════════════════════════
+  // 行内标签：① 层级（缩进导轨 + 作用域标签）② Hardware-Native（落点标签 + API 下划线）
+  // ════════════════════════════════════════════════════════════════════════════
+  // 结构深度按 4 格缩进算；续行（上一行括号没闭）跟着语句本身的深度，不另算一层，
+  // 否则 254–256 这种对齐到括号的续行会画出十几条导轨。
+  const INDENT = 4;
+  const META = (function () {
+    const out = []; let open = 0, stmt = 0;
+    SOURCE.forEach(function (row) {
+      const cont = open > 0;
+      if (!cont) stmt = Math.floor(row.t.match(/^ */)[0].length / INDENT);
+      out.push({ no: row.no, depth: stmt, cont: cont, opens: !cont && /:$/.test(row.t) });
+      for (let i = 0; i < row.t.length; i++) {
+        const ch = row.t[i];
+        if (ch === '(' || ch === '[') open++;
+        else if (ch === ')' || ch === ']') open--;
+      }
+      if (open < 0) open = 0;
+    });
+    return out;
+  })();
+  // 每个开头行覆盖的行区间：联动时整段 body 点亮同一条导轨
+  const SCOPES = META.map(function (m, i) {
+    if (!m.opens) return null;
+    let j = i + 1;
+    while (j < META.length && META[j].depth > m.depth) j++;
+    return { no: m.no, depth: m.depth, from: i, to: j - 1 };
+  }).filter(function (s) { return !!s; });
+  function scopeOf(no) {
+    const i = SHOWN.indexOf(no);
+    if (i < 0) return null;
+    if (META[i].opens) return SCOPES.filter(function (s) { return s.from === i; })[0] || null;
+    let best = null;
+    SCOPES.forEach(function (s) { if (i > s.from && i <= s.to && (!best || s.depth > best.depth)) best = s; });
+    return best;
+  }
+  // ① 层级标签：这一层循环跑多少次、这是哪个分支。名字与逻辑图里的框一致
+  const SCOPE_TAG = {
+    208: function () { return 'SPMD × 24'; },
+    214: function () { return 'GRID-STRIDE'; },
+    224: function () { return '有效块'; },
+    246: function () { return 'UNROLL · 按页'; },
+    264: function () { return '逐行 · 压缩段'; },
+    281: function () { return 'PIPELINE · ' + effStage(state.stage) + ' 块在飞'; },
+    297: function () { return 'UNROLL × 2'; },
+    305: function () { return '空块'; },
+    307: function () { return '× 4 头块'; },
+    310: function () { return '× 16 行'; }
+  };
+  // ② Hardware-Native 落点标签：这一行把数据落到哪里。
+  //    mat = AIC 的 Mat / L0 / Cube，vec = AIV 的 Vec 与管道，gm = 读写 GM
+  const HW_TAG = [
+    [/pl\.create_l1/, 'L1 · 128 KB', 'mat'],
+    [/pl\.gather_row/, 'GM → L1', 'mat'],
+    [/pl\.matmul/, 'CUBE → L0C', 'mat'],
+    [/q_flat\[/, 'GM → L1 · Q', 'mat'],
+    [/target_type=pl\.BF16/, 'VEC → V2C', 'vec'],
+    [/sparse_bias\[/, 'GM → VEC · bias', 'vec'],
+    [/pl\.row_max\(/, 'VEC · mi', 'vec'],
+    [/pl\.row_sum\(/, 'VEC · li', 'vec'],
+    [/pl\.(mul|col_expand_add|row_expand_sub|exp|full)\(/, 'VEC · 原地', 'vec'],
+    [/pl\.write\(|sparse_blk_\w+\[[^\]]*\] =/, '→ GM', 'gm']
+  ];
+  function hwTag(t) {
+    for (let i = 0; i < HW_TAG.length; i++) if (HW_TAG[i][0].test(t)) return HW_TAG[i];
+    return null;
+  }
+  // 把硬件写进源码的 API 与参数：虚线下划线，和普通张量运算区分开
+  const HW_API = {
+    spmd: 1, pipeline: 1, unroll: 1, create_l1: 1, gather_row: 1, matmul: 1,
+    split: 1, SplitMode: 1, UP_DOWN: 1, stage: 1, optimizations: 1,
+    valid_shape: 1, out_dtype: 1, b_trans: 1, target_type: 1
+  };
+
+  // ════════════════════════════════════════════════════════════════════════════
   // 联动表：逻辑节点 = 源码行 + 硅片区域 + Vec 缓冲
   // ════════════════════════════════════════════════════════════════════════════
   const NODES = [
@@ -306,6 +380,7 @@
         else if (/^=(?!=)/.test(next)) cls = 'tk-kwarg';
         else if (/^[A-Z][A-Z0-9_]+$/.test(tok)) cls = 'tk-const';
         else if (prev === '.') cls = 'tk-attr';
+        if (HW_API[tok]) cls += ' tk-hw';
         out += '<span class="' + cls + '">' + tok + '</span>';
       } else if (m[4]) out += tok;
       else out += '<span class="tk-punc">' + esc(tok) + '</span>';
@@ -330,16 +405,20 @@
     return html + '</span>' + (state.stage !== 2 ? '<span class="stage-was">原 stage=2</span>' : '');
   }
   function renderCode() {
-    const html = SOURCE.map(function (row) {
+    const html = SOURCE.map(function (row, i) {
       let text;
       if (row.no === 208 || row.no === 281) {
         const parts = row.t.split('§');
         text = hl(parts[0]) + (row.no === 208 ? splitControl() : stageControl()) + hl(parts[1]);
       } else text = hl(row.t);
+      // 一行最多一个标签：开头行标层级，其余标落点
+      const scope = SCOPE_TAG[row.no], hw = hwTag(row.t);
+      if (scope) text += '<span class="cl-tag t-scope">' + scope() + '</span>';
+      else if (hw) text += '<span class="cl-tag t-' + hw[2] + '">' + hw[1] + '</span>';
       const modified = (row.no === 208 && state.split) || (row.no === 281 && state.stage !== 2);
       const cls = ['cl', lineMapped(row.no) ? 'is-mapped' : '', modified ? 'is-modified' : ''].join(' ');
       return '<div class="' + cls + '" data-line="' + row.no + '"><span class="cl-mark"></span><span class="cl-no">' + row.no
-        + '</span><span class="cl-text">' + text + '</span></div>';
+        + '</span><span class="cl-text" style="--d:' + META[i].depth + '">' + text + '</span></div>';
     }).join('');
     document.getElementById('hpCode').innerHTML = html;
   }
@@ -661,7 +740,15 @@
     // 只有真正悬停时才把无关部分压暗；章节默认焦点不压暗，避免页面长期发灰
     document.body.classList.toggle('is-focusing', !!state.hover);
     // 只有 AIV0 的缓冲参与联动；AIV1 空转时不点亮
-    document.querySelectorAll('.cl').forEach(function (el) { el.classList.toggle('is-hot', f.lines.indexOf(Number(el.dataset.line)) >= 0); });
+    // 命中行所在的那一层：开头行到段尾点亮同一条缩进导轨，告诉你现在在第几层里
+    const sc = state.hover && f.lines.length ? scopeOf(f.lines[0]) : null;
+    document.querySelectorAll('.cl').forEach(function (el) {
+      const no = Number(el.dataset.line), i = SHOWN.indexOf(no);
+      el.classList.toggle('is-hot', f.lines.indexOf(no) >= 0);
+      el.classList.toggle('is-inscope', !!sc && i >= sc.from && i <= sc.to);
+      el.classList.toggle('is-scope', !!sc && i === sc.from);
+      el.querySelector('.cl-text').style.setProperty('--ad', sc ? sc.depth : 0);
+    });
     document.querySelectorAll('.sv-region').forEach(function (el) { el.classList.toggle('is-hot', f.regions.indexOf(el.dataset.region) >= 0); });
     document.querySelectorAll('.sv-ub').forEach(function (el) { el.classList.toggle('has-hot', f.bufs.length > 0); });
     document.querySelectorAll('.sv-buf').forEach(function (el) {

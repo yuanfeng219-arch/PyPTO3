@@ -6,6 +6,7 @@
   <title>编码到上板 · CSA</title>
   <link rel="stylesheet" href="../hardware-native-ide-ui/styles/path.css?v=20261105-focus38" />
   <link rel="stylesheet" href="../hardware-native-ide/styles/path-csa.css?v=20261031-2" />
+  <link rel="stylesheet" href="./source-tags.css?v=20261109-1" />
 <style>.story-toggle { width:30px; justify-content:center; padding:0; } .story-toggle svg { width:16px; height:16px; } .story-toggle[aria-expanded="false"] .story-panel { opacity:.35; } .run-button { background:#c8ef6b; border-color:#c8ef6b; color:#17200a; font-weight:700; text-decoration:none; gap:8px; } .run-button:hover,.run-button:focus-visible { background:#dcfa94; border-color:#dcfa94; color:#17200a; } @media(max-width:700px){.hp-top-right{gap:5px}.run-button{white-space:nowrap}}
 .hp-svg .sv-box { fill:#282828; stroke:none; rx:12px; }
 .hp-svg .sv-mem { fill:#333; stroke:#454545; }
@@ -24,13 +25,13 @@
 @media(max-width:1280px) { .hp-main:has(.hp-mid[hidden]), .hp-main:has(.hp-mid[hidden]):has(.hp-story[hidden]) { grid-template-columns:minmax(0,1fr); } }
 </style>
 <style>.demo-home{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:none;border:1px solid #444;border-radius:5px;background:#1a1a1a;color:#c8d2ce;text-decoration:none}.demo-home:hover,.demo-home:focus-visible{color:#fff;border-color:#9bafa3;background:#292f2b;outline:2px solid transparent;outline-offset:2px}.demo-home:focus-visible{outline-color:#b1ef6b}</style>
+<link rel="stylesheet" href="./header.css">
 </head>
 <body>
   <div class="hp-app">
     <header class="hp-top">
       <div class="hp-top-left">
         <a class="demo-home" href="index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5v10.5h13V9.5M9.5 20v-6h5v6"/></svg></a><span class="hp-brand">HARDWARE-NATIVE LENS</span>
-        <span class="hp-mode">主线 · CSA</span>
         <span class="hp-crumb">decode_sparse_attn_csa.py<i>/</i><b>qk_pv</b></span>
       </div>
       <div class="hp-top-right">
@@ -46,7 +47,15 @@
       <section class="hp-pane hp-code" id="hpCodePane" aria-label="算子代码">
         <header class="hp-pane-head">
           <span class="hp-pane-title">源码</span>
-          <details class="pane-info"><summary aria-label="源码说明">ⓘ</summary><div class="pane-info-body">decode_sparse_attn_csa.py · 208–313 · 只列代码行</div></details>
+          <details class="pane-info"><summary aria-label="源码说明">ⓘ</summary><div class="pane-info-body">decode_sparse_attn_csa.py · 208–313 · 只列代码行
+            <span class="tag-legend"><b>行内标签</b>
+              <span><i class="cl-tag t-scope">层级</i>这一层循环跑多少次、走哪个分支；左侧导轨是缩进层级</span>
+              <span><i class="cl-tag t-mat">GM → L1</i>AIC 一侧：Mat / L0 / Cube</span>
+              <span><i class="cl-tag t-vec">VEC · 原地</i>AIV 一侧：Vec 中间量与 C2V / V2C 管道</span>
+              <span><i class="cl-tag t-gm">→ GM</i>读写 GM</span>
+              <span><u class="tk-hw">虚线下划线</u>把硬件写进源码的 API 与参数</span>
+            </span></div></details>
+          <button class="hp-topbtn tag-toggle" id="hpTagToggle" type="button" aria-pressed="true" aria-label="隐藏行内标签" title="隐藏行内标签"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="M7 7h.01"/></svg></button>
           <button class="hp-topbtn lens-toggle" id="hpLensToggle" type="button" aria-controls="hpLensPane" aria-expanded="false" aria-label="显示 Lens" title="显示算子逻辑和硅片落点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.3 15.3 4.2 4.2M8 10.5h5M10.5 8v5"/></svg></button>
         </header>
         <div class="hp-code-body" id="hpCode"></div>
@@ -97,6 +106,15 @@
     const lensToggle = document.getElementById("hpLensToggle");
     const lensPane = document.getElementById("hpLensPane");
     const codeResize = document.getElementById("hpCodeResize");
+    const tagToggle = document.getElementById("hpTagToggle");
+    const tagPane = document.getElementById("hpCodePane");
+    tagToggle.addEventListener("click", () => {
+      const on = tagToggle.getAttribute("aria-pressed") === "true";
+      tagToggle.setAttribute("aria-pressed", String(!on));
+      tagPane.classList.toggle("is-tags-off", on);
+      tagToggle.title = on ? "显示行内标签" : "隐藏行内标签";
+      tagToggle.setAttribute("aria-label", tagToggle.title);
+    });
     lensToggle.addEventListener("click", () => {
       lensPane.hidden = !lensPane.hidden;
       codeResize.hidden = lensPane.hidden;
