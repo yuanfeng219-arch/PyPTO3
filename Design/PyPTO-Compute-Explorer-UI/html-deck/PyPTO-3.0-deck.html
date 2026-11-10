@@ -650,9 +650,6 @@ body.is-presenting > main { inset:104px 46% 58px 20px; border:1px solid #303642;
 }
 
 /* style.css */
-@import '../tokens/foundation.css';
-@import '../tokens/semantic.css';
-@import '../tokens/components.css';
 
 /* ──── Design Tokens ──── */
 :scope {
@@ -8783,7 +8780,7 @@ footer{height:65px;color:#aaa;font-size:13px}footer nav{display:flex;gap:7px;ali
 &lt;button class=&quot;axis&quot; data-col=&quot;2&quot;&gt;&lt;strong&gt;时间&lt;/strong&gt;&lt;small&gt;Pipeline&lt;/small&gt;&lt;span&gt;什么时候做、如何协同？&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
 &lt;div class=&quot;viewport&quot; id=&quot;viewport&quot;&gt;&lt;/div&gt;
 &lt;div class=&quot;takeaway&quot; aria-live=&quot;polite&quot;&gt;&lt;b id=&quot;label&quot;&gt;&lt;/b&gt;&lt;span id=&quot;takeaway&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-&lt;footer&gt;&lt;nav aria-label=&quot;页面&quot;&gt;&lt;button data-go=&quot;0&quot;&gt;P4 · 三个维度&lt;/button&gt;&lt;button data-go=&quot;5&quot;&gt;P5 · 工具断点&lt;/button&gt;&lt;/nav&gt;&lt;span&gt;← / → 逐步讲述&lt;/span&gt;&lt;nav aria-label=&quot;关键帧&quot;&gt;&lt;button id=&quot;previous&quot;&gt;Previous&lt;/button&gt;&lt;output id=&quot;frame&quot;&gt;&lt;/output&gt;&lt;button id=&quot;next&quot;&gt;Next&lt;/button&gt;&lt;button id=&quot;reset&quot;&gt;Reset&lt;/button&gt;&lt;/nav&gt;&lt;/footer&gt;
+&lt;footer&gt;&lt;nav aria-label=&quot;页面&quot;&gt;&lt;button data-go=&quot;0&quot;&gt;P4 · 三个维度&lt;/button&gt;&lt;button data-go=&quot;5&quot;&gt;P5 · 工具断点&lt;/button&gt;&lt;/nav&gt;&lt;span&gt;← / → 逐步讲述　↑ / ↓ 直接翻页&lt;/span&gt;&lt;nav aria-label=&quot;关键帧&quot;&gt;&lt;button id=&quot;previous&quot;&gt;Previous&lt;/button&gt;&lt;output id=&quot;frame&quot;&gt;&lt;/output&gt;&lt;button id=&quot;next&quot;&gt;Next&lt;/button&gt;&lt;button id=&quot;reset&quot;&gt;Reset&lt;/button&gt;&lt;/nav&gt;&lt;/footer&gt;
 &lt;/main&gt;
 &lt;script&gt;
 const $ = selector =&gt; document.querySelector(selector);
@@ -8942,11 +8939,12 @@ document.querySelectorAll(&#x27;[data-go]&#x27;).forEach(button=&gt;button.oncli
 $(&#x27;#previous&#x27;).onclick=()=&gt;go(step-1);
 $(&#x27;#next&#x27;).onclick=()=&gt;go(step+1);
 $(&#x27;#reset&#x27;).onclick=()=&gt;go(step&lt;5?0:5);
-addEventListener(&#x27;keydown&#x27;,event=&gt;{
- if(event.altKey||event.metaKey||event.ctrlKey||event.shiftKey) return;
- const delta={ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1}[event.key];
- if(delta &amp;&amp; step+delta&gt;=0 &amp;&amp; step+delta&lt;=9){event.preventDefault();go(step+delta);}
-});
+function advanceComputeFrame(delta){
+ const target=step+delta;
+ if(target&lt;0||target&gt;9) return false;
+ go(target);
+ return true;
+}
 function fit(){ $(&#x27;main&#x27;).style.setProperty(&#x27;--scale&#x27;,Math.min(innerWidth/1600,innerHeight/900)); }
 addEventListener(&#x27;resize&#x27;,fit);
 new ResizeObserver(fit).observe(document.documentElement);
@@ -18196,7 +18194,14 @@ function onKey(event) {
                    ArrowDown:current + 1, Space:current + 1, Home:0, End:slides.length - 1};
   if (!(event.code in targets)) return;
   event.preventDefault();
-  show(targets[event.code]);
+  const horizontal = event.code === 'ArrowLeft' || event.code === 'ArrowRight';
+  if (horizontal && slides[current] === computeFrame &&
+      computeFrame.contentWindow.advanceComputeFrame?.(event.code === 'ArrowLeft' ? -1 : 1)) return;
+  const target = targets[event.code];
+  show(target);
+  if (event.code === 'ArrowLeft' && target === computeStart + 1) {
+    computeFrame.contentWindow.go?.(9);
+  }
 }
 
 function onWheel(event) {
@@ -18233,6 +18238,8 @@ const notesStatus = document.querySelector('#presenter-save-status');
 const syncStatus = document.querySelector('#presenter-sync');
 const preview = document.querySelector('#presenter-next-preview');
 const notesKey = 'pypto-presenter-notes:' + location.pathname;
+const legacyNotesKey = 'pypto-presenter-notes:' + location.pathname.replace(
+  '/Design/PyPTO-Compute-Explorer-UI/html-deck/', '/docs/html-deck/');
 const session = deckParams.get('session') || Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(36)).join('-');
 const targetOrigin = location.protocol==='file:' ? '*' : location.origin;
 let audienceWindow = null;
@@ -18268,7 +18275,10 @@ function warnBeforeClose(event) {
 }
 
 if (deckRole==='deck') {
-  try { Object.assign(drafts,readNotes(localStorage.getItem(notesKey) || '{}')); } catch {}
+  try {
+    const savedDraft = localStorage.getItem(notesKey) ?? localStorage.getItem(legacyNotesKey);
+    Object.assign(drafts,readNotes(savedDraft || '{}'));
+  } catch {}
 }
 
 function mergeNotes(raw) {

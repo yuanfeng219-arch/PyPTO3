@@ -47,6 +47,9 @@ jobs:
           cp launch.html _site/index.html
           cp launch.html _site/launch.html
           cp -R Design _site/Design
+          # Keep local presenter notes out of the published site.
+          rm -f "_site/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-演讲词.json" \
+                "_site/Design/PyPTO-Compute-Explorer-UI/html-deck/keynote-text.md"
           cp -R inference _site/inference
           cp -R Insight _site/Insight
           mkdir -p _site/Product_Planning
