@@ -27,14 +27,12 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
 .pairs button{display:flex;width:100%;text-align:left;align-items:center;gap:14px;height:54px;border-bottom:1px solid var(--line);font-size:20px;padding:0 10px}
 .pairs button[aria-pressed="true"]{background:#212b36;color:#fff}
 .pairs i{width:8px;height:8px;background:var(--pair-color)}
-.rail{position:absolute;left:1572px;top:295px;width:274px;display:grid;gap:36px}
-.rail button{display:grid;grid-template-columns:36px 1fr;align-content:center;text-align:left;height:110px;padding:7px 10px 7px 17px;border-left:1px solid var(--line)}
-.rail button[aria-pressed="true"]{border-left:2px solid #aac3e8;background:#1b2430;color:#fff}
+.rail{position:absolute;left:1572px;top:286px;width:274px;display:grid;gap:135px}
+.rail button{display:grid;grid-template-columns:36px 1fr;align-content:center;text-align:left;height:100px;padding:7px 10px 7px 17px;border-left:2px solid color-mix(in srgb,var(--line),#aac3e8 calc(var(--weight,0)*100%));color:color-mix(in srgb,#a3afbd,#fff calc(var(--weight,0)*100%))}
 .rail small{font:15px var(--mono);color:#aab9cb;padding-top:7px}
 .rail strong{font-size:29px;line-height:1.1;font-weight:620}
 .rail span{grid-column:2;font-size:18px;color:#b6c0cc;margin-top:6px}
-.rail em{grid-column:2;font:12px var(--mono);font-style:normal;color:#b5cff2;margin-top:5px;visibility:hidden}
-.rail button[aria-pressed="true"] em{visibility:visible}
+.rail em{grid-column:2;font:12px var(--mono);font-style:normal;color:#b5cff2;margin-top:5px;opacity:var(--weight,0)}
 .footer{bottom:31px;height:57px;border-top:1px solid var(--line)}
 .controls{display:flex;gap:7px;align-items:center;letter-spacing:0}
 .controls button{padding:9px 13px;font:15px var(--mono)}
@@ -112,10 +110,9 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
 </aside>
 
 <div class="rail" role="group" aria-label="执行层级" inert>
-  <button type="button" data-level="0" aria-pressed="true"><small>01</small><strong>Operator</strong><span>完整算子上下文</span><em>FOCUS</em></button>
-  <button type="button" data-level="1" aria-pressed="false"><small>02</small><strong>Block</strong><span>同组 Task 的分配</span><em>FOCUS</em></button>
-  <button type="button" data-level="2" aria-pressed="false"><small>03</small><strong>Task</strong><span>批次与 KV Head</span><em>FOCUS</em></button>
-  <button type="button" data-level="3" aria-pressed="false"><small>04</small><strong>Stack</strong><span>Task 内的一组 KV 页</span><em>FOCUS</em></button>
+  <button type="button" data-level="device" aria-pressed="true"><small>01</small><strong>Device</strong><span>设备范围</span><em>FOCUS</em></button>
+  <button type="button" data-level="ai-core" aria-pressed="false"><small>02</small><strong>AI Core</strong><span>核内执行</span><em>FOCUS</em></button>
+  <button type="button" data-level="iteration" aria-pressed="false"><small>03</small><strong>Iteration</strong><span>单次迭代</span><em>FOCUS</em></button>
 </div>
 
 <div class="debug" hidden>
@@ -129,7 +126,6 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
   <button type="button" data-step="1">S1</button>
   <button type="button" data-step="2">S2</button>
   <button type="button" data-step="3">S3</button>
-  <button type="button" data-step="4">S4</button>
 </div>
 <div class="footer">
   <span id="scene-step">S0 / 三位一体</span>
@@ -143,15 +139,17 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
 <script>
 /* Timing in milliseconds. Story beats and the scrubber share this clock. */
 const MOTION = Object.freeze({
-  entrance:1000, relation:400, hold:260, tilt:820, spread:920, layer:780, view:340,
+  entrance:1000, relation:400, hold:260, tilt:820, spread:920, view:340,
 });
 const relationStart = MOTION.entrance;
 const relationSpan = MOTION.relation + MOTION.hold;
 const relationEnd = relationStart + 4 * relationSpan;
 const tiltEnd = relationEnd + MOTION.tilt;
 const spreadEnd = tiltEnd + MOTION.spread;
-const total = spreadEnd + MOTION.layer;
-const steps = [relationStart,relationEnd,tiltEnd,spreadEnd,total];
+const total = spreadEnd;
+const steps = [relationStart,relationEnd,tiltEnd,spreadEnd];
+const HIGHLIGHT = Object.freeze({hold:1800,fade:360});
+const LAYER_GEOMETRY = Object.freeze({x:1115,firstY:336,gap:235,scale:.86,vertical:.31});
 const scene = document.querySelector('main');
 const svg = document.querySelector('.diagram');
 const rail = document.querySelector('.rail');
@@ -162,12 +160,10 @@ const stepButtons = [...document.querySelectorAll('[data-step]')];
 const slider = document.querySelector('#progress');
 const playback = document.querySelector('#playback');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const levels = ['operator','block','task','stack'];
-const layerCopy = [
-  '观察整个算子的计算结构、数据分配与执行组织。',
-  '观察同一执行分组内的 Task 分配与运行组织。',
-  '沿同一个 Task 查看计算依赖、所属数据和执行阶段。',
-  '观察同一批 KV 页如何参与计算，以及如何在阶段间流转。',
+const levels = [
+  {id:'device',name:'Device',copy:'在设备范围内观察计算结构、数据分配与执行组织。'},
+  {id:'ai-core',name:'AI Core',copy:'进入单个 AI Core，观察核内计算、数据搬运与执行时序。'},
+  {id:'iteration',name:'Iteration',copy:'聚焦一次迭代，观察本次计算步骤、使用的数据与时间顺序。'},
 ];
 const views = ['all','graph','assignment','pipeline','graph-assignment','graph-pipeline','assignment-pipeline','center'];
 const viewCopy = [
@@ -211,7 +207,7 @@ const matrix = (node,values) => node.setAttribute('transform','matrix('+values.j
 const point = (m,x,y) => [m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
 const focusSeed = document.querySelector('#focus-plane');
 const labelSeed = document.querySelector('#focus-labels');
-const planes = levels.map((id,i) => {
+const planes = levels.map(({id},i) => {
   const fill = i ? focusSeed.cloneNode(true) : focusSeed;
   const labelGroup = i ? labelSeed.cloneNode(true) : labelSeed;
   if (i) {
@@ -226,14 +222,14 @@ const planes = levels.map((id,i) => {
   const line = svgNode('path',document.querySelector('#leaders'));
   const regions = [...fill.querySelectorAll('[data-region]')];
   const labels = [...labelGroup.children];
-  labels[3].firstChild.nodeValue = ['算子','分组','任务','批次'][i];
-  labels[3].querySelector('tspan').textContent = id.toUpperCase();
-  return {fill,wire,line,regions,labelGroup,labels,x:1267+i*17,y:350+i*146};
+  return {fill,wire,line,regions,labelGroup,labels,
+    x:LAYER_GEOMETRY.x,y:LAYER_GEOMETRY.firstY+i*LAYER_GEOMETRY.gap};
 });
 
 const state = {
   time:0, requestedStep:0, speed:1, clock:null, frame:0,
-  viewFocus:null, layerFocus:null, viewTween:null, layerTween:null,
+  viewFocus:null, viewTween:null,
+  highlight:null, exitWeights:null, deckActive:true, onScreen:true, pageActive:true,
 };
 let noteKey = '';
 
@@ -248,25 +244,55 @@ function storyView(time) {
   return mix(unit(views.length,sequence[beat]),unit(views.length,sequence[beat+1]),
     segment(local-beat*relationSpan,0,MOTION.relation));
 }
-function storyLayer(time) {
-  return mix(unit(4,0),unit(4,2),segment(time,spreadEnd,total));
+function viewWeightsAt(time,now) {
+  const chosen = state.viewFocus;
+  const target = chosen===null ? storyView(time) : unit(views.length,chosen);
+  const tween = state.viewTween;
+  return tween ? mix(tween.from,target,segment(now,tween.start,tween.start+tween.duration)) : target;
 }
-function resolveFocus(kind,time,now) {
-  const automatic = kind==='view' ? storyView(time) : storyLayer(time);
-  const chosen = state[kind+'Focus'];
-  let to = chosen===null ? automatic : unit(automatic.length,chosen);
-  if (kind==='layer' && chosen!==null) {
-    to = mix(automatic,to,segment(time,tiltEnd,spreadEnd));
+
+const deviceWeights = () => unit(levels.length,0);
+const visible = () => state.deckActive && state.onScreen && state.pageActive && !document.hidden;
+const expanded = () => state.time===spreadEnd && (!state.clock || state.clock.to===spreadEnd);
+const highlightRunning = () => !!state.highlight && visible() && !reducedMotion.matches;
+
+function highlightWeights() {
+  const loop = state.highlight;
+  if (!loop) return deviceWeights();
+  const initial = unit(levels.length,loop.initial);
+  const lead = loop.from ? HIGHLIGHT.fade : 0;
+  if (loop.from && loop.elapsed<lead) return mix(loop.from,initial,segment(loop.elapsed,0,lead));
+  const elapsed = loop.elapsed-lead;
+  const interval = HIGHLIGHT.hold+HIGHLIGHT.fade;
+  const current = (loop.initial+Math.floor(elapsed/interval))%levels.length;
+  const next = (current+1)%levels.length;
+  return mix(unit(levels.length,current),unit(levels.length,next),
+    segment(elapsed%interval,HIGHLIGHT.hold,interval));
+}
+
+function syncHighlight(now) {
+  if (!expanded()) {
+    if (state.highlight) state.exitWeights=highlightWeights();
+    state.highlight=null;
+    if (state.time<=tiltEnd) state.exitWeights=null;
+    return;
   }
-  const tween = state[kind+'Tween'];
-  if (!tween) return to;
-  return mix(tween.from,to,segment(now,tween.start,tween.start+tween.duration));
+  if (!state.highlight) {
+    state.highlight={initial:0,elapsed:0,last:null,from:null};
+    state.exitWeights=null;
+  }
+  const loop = state.highlight;
+  if (!highlightRunning()) {
+    loop.last=null;
+    return;
+  }
+  if (loop.last!==null) loop.elapsed+=Math.max(0,now-loop.last);
+  loop.last=now;
 }
 
 /* All circle centers, clips, and strokes share the same animated geometry.
    The plane is an orthographic projection of a single X-axis tilt. */
-function projectPlane(tilt,x,y,scale=1) {
-  const vertical = Math.cos(Math.sin(tilt*Math.PI/2)*0.84);
+function projectPlane(tilt,x,y,scale=1,vertical=Math.cos(Math.sin(tilt*Math.PI/2)*0.84)) {
   const roll = -tilt*.065;
   return [scale*Math.cos(roll),scale*Math.sin(roll),
     -scale*vertical*Math.sin(roll),scale*vertical*Math.cos(roll),x,y];
@@ -275,8 +301,10 @@ function paint(now=performance.now()) {
   const t = state.time;
   const tilt = segment(t,relationEnd,tiltEnd);
   const spread = segment(t,tiltEnd,spreadEnd);
-  const viewWeights = resolveFocus('view',t,now);
-  const layerWeights = resolveFocus('layer',t,now);
+  syncHighlight(now);
+  const viewWeights = viewWeightsAt(t,now);
+  const layerWeights = state.highlight ? highlightWeights() :
+    mix(deviceWeights(),state.exitWeights || deviceWeights(),spread);
   const activeLayer = dominant(layerWeights);
   const activeView = dominant(viewWeights);
   const entry = circlePositions.map((_,i) => segment(t,i*120,MOTION.entrance-160+i*80));
@@ -286,20 +314,19 @@ function paint(now=performance.now()) {
     circle.setAttribute('cy',y);
     circle.setAttribute('r',lerp(163,214,entry[i]));
   });
-  const foreground = projectPlane(tilt,lerp(1115,952,spread),lerp(545,552,spread),lerp(1,.92,spread));
+  const origin = projectPlane(tilt,LAYER_GEOMETRY.x,545);
   const palette = regionColors.map((_,i) => blendRegion(i,viewWeights));
   planes.forEach((plane,i) => {
-    const staggered = segment(t,tiltEnd+i*95,spreadEnd-((3-i)*55));
-    const contextMatrix = projectPlane(tilt,plane.x,plane.y,.60);
-    contextMatrix[3] *= .58;
-    const resting = mix(foreground,contextMatrix,staggered);
+    const reveal = i===0 ? spread : segment(t,tiltEnd+i*85,spreadEnd);
+    const resting = projectPlane(1,plane.x,plane.y,LAYER_GEOMETRY.scale,LAYER_GEOMETRY.vertical);
+    // Expansion alone controls pose. Every highlight uses the same fixed matrix.
+    const pose = mix(origin,resting,reveal);
     const weight = layerWeights[i];
-    const pose = mix(resting,foreground,weight);
     matrix(plane.fill,pose);
     matrix(plane.wire,pose);
     const visibleFill = smooth(weight) * segment(t,0,260);
     plane.fill.style.opacity = visibleFill;
-    plane.wire.style.opacity = staggered * .63 * (1-visibleFill);
+    plane.wire.style.opacity = reveal * .65 * (1-visibleFill);
     plane.regions.forEach((region,j) => region.setAttribute('fill',palette[j]));
     const available = i===activeLayer && weight>.72 && t>=steps[0];
     plane.fill.style.pointerEvents = available ? '' : 'none';
@@ -308,7 +335,7 @@ function paint(now=performance.now()) {
     plane.regions.forEach(region => {
       if (region.hasAttribute('role')) region.setAttribute('tabindex',available ? '0' : '-1');
     });
-    plane.labelGroup.style.opacity = segment(weight,.40,.90);
+    plane.labelGroup.style.opacity = smooth(weight);
     plane.labels.forEach((label,j) => {
       let x=Number(label.dataset.x), y=Number(label.dataset.y);
       if (j<3) {
@@ -321,24 +348,32 @@ function paint(now=performance.now()) {
       const region = j<3 ? j : j===3 ? 6 : j-1;
       const emphasis = viewWeights.reduce((sum,value,view) =>
         sum+value*(view===0 || regionSets[view].includes(region) ? 1 : .64),0);
-      label.style.opacity = (j<3 ? entry[j] : segment(t,610,MOTION.entrance))*emphasis;
+      if (j<3) {
+        label.querySelector('.name').style.fontSize=lerp(21,17,spread)+'px';
+        const role=label.querySelector('.role');
+        role.style.fontSize=lerp(27,21,spread)+'px';
+        role.setAttribute('dy',lerp(35,25,spread));
+      }
+      const geometryVisibility = j===3 ? 1-spread : 1;
+      label.style.opacity = (j<3 ? entry[j] : segment(t,610,MOTION.entrance))*emphasis*geometryVisibility;
     });
     const anchor = point(pose,367,-88);
-    const labelY = 350+i*146;
+    const labelY = plane.y;
     plane.line.setAttribute('d',`M${anchor.join(' ')} H1537 L1567 ${labelY}`);
     plane.line.setAttribute('stroke',color(mix(rgb('#465463'),rgb('#a8c1e3'),weight)));
-    plane.line.style.opacity = segment(staggered,.72,1) * (.65+weight*.35);
+    plane.line.style.opacity = segment(reveal,.72,1) * (.65+weight*.35);
     const button = levelButtons[i];
-    const arrival = segment(staggered,.54,1);
+    const arrival = segment(reveal,.54,1);
     button.style.opacity = arrival;
     button.style.transform = `translate(${(1-arrival)*-24}px,${(1-arrival)*(pose[5]-labelY)*.2}px)`;
+    button.style.setProperty('--weight',weight);
     button.setAttribute('aria-pressed',String(i===activeLayer));
   });
   rail.inert = spread<.98;
   pairButtons.forEach((button,i) => button.setAttribute('aria-pressed',String(activeView===i+4)));
   viewButtons.forEach((button,i) => button.setAttribute('aria-pressed',String(activeView===i)));
   const step = steps.findIndex(end => t<=end+.001);
-  document.querySelector('#scene-step').textContent = 'S'+step+' / '+['三位一体','建立关联','空间倾斜','层级展开','跨层聚焦'][step];
+  document.querySelector('#scene-step').textContent = 'S'+step+' / '+['三位一体','建立关联','空间倾斜','层级展开'][step];
   stepButtons.forEach((button,i) => button.setAttribute('aria-pressed',String(step===i)));
   slider.value = 100*t/total;
   document.querySelector('#progress-value').value = Math.round(100*t/total)+'%';
@@ -347,13 +382,13 @@ function paint(now=performance.now()) {
   const key = [activeView,activeLayer,step,layered].join('/');
   if (noteKey !== key) {
     noteKey = key;
-    document.querySelector('#note-kicker').textContent = layered ? '当前粒度 / '+levels[activeLayer].toUpperCase() : '三个观察维度';
+    document.querySelector('#note-kicker').textContent = layered ? '当前粒度 / '+levels[activeLayer].name : '三个观察维度';
     document.querySelector('#note-title').textContent = activeView===0 && layered ? '下钻粒度，保留视角' : viewCopy[activeView][0];
-    document.querySelector('#note-copy').textContent = activeView===0 && layered ? layerCopy[activeLayer] : viewCopy[activeView][1];
+    document.querySelector('#note-copy').textContent = activeView===0 && layered ? levels[activeLayer].copy : viewCopy[activeView][1];
   }
 }
 function schedule() {
-  if (!state.frame) state.frame = requestAnimationFrame(tick);
+  if (!state.frame && visible()) state.frame = requestAnimationFrame(tick);
 }
 function tick(now) {
   state.frame = 0;
@@ -363,12 +398,9 @@ function tick(now) {
     state.time = from + Math.sign(to-from)*Math.min(Math.abs(to-from),elapsed);
     if (state.time===to) state.clock = null;
   }
-  for (const kind of ['view','layer']) {
-    const tween = state[kind+'Tween'];
-    if (tween && now>=tween.start+tween.duration) state[kind+'Tween']=null;
-  }
+  if (state.viewTween && now>=state.viewTween.start+state.viewTween.duration) state.viewTween=null;
   paint(now);
-  if (state.clock || state.viewTween || state.layerTween) schedule();
+  if (state.clock || state.viewTween || highlightRunning()) schedule();
 }
 function play(to) {
   state.resumeTo = to;
@@ -380,20 +412,20 @@ function play(to) {
     schedule();
   }
   paint();
+  if (highlightRunning()) schedule();
 }
-function changeFocus(kind,index) {
+function changeFocus(index) {
   const now = performance.now();
-  const from = resolveFocus(kind,state.time,now);
-  state[kind+'Focus']=index;
-  state[kind+'Tween']=reducedMotion.matches ? null : {from,start:now,duration:MOTION[kind]};
+  const from = viewWeightsAt(state.time,now);
+  state.viewFocus=index;
+  state.viewTween=reducedMotion.matches ? null : {from,start:now,duration:MOTION.view};
   paint(now);
   schedule();
 }
 function goToStep(index) {
   if (!Number.isInteger(index) || index<0 || index>=steps.length) return false;
   state.requestedStep=index;
-  if (state.viewFocus!==null) changeFocus('view',null);
-  if (state.layerFocus!==null) changeFocus('layer',null);
+  if (state.viewFocus!==null) changeFocus(null);
   play(steps[index]);
   return true;
 }
@@ -404,38 +436,42 @@ function seek(time) {
   state.resumeTo=total;
   state.time=time;
   state.requestedStep=steps.findIndex(end => time<=end+.001);
-  state.viewFocus=state.layerFocus=state.viewTween=state.layerTween=null;
+  state.viewFocus=state.viewTween=null;
   paint();
+  if (highlightRunning()) schedule();
 }
 function reset() { seek(0); play(steps[0]); }
 function focusLayer(id) {
-  const index=levels.indexOf(id);
-  if (index<0 || state.time<spreadEnd) return false;
-  changeFocus('layer',index);
+  const index=levels.findIndex(level => level.id===id);
+  if (index<0 || !expanded()) return false;
+  const from=reducedMotion.matches ? null : highlightWeights();
+  state.highlight={initial:index,elapsed:0,last:null,from};
+  paint();
+  if (highlightRunning()) schedule();
   return true;
 }
 function focusView(id,intersection='graph-assignment') {
   const index=views.indexOf(id==='intersection' ? intersection : id);
   if (index<0) return false;
-  changeFocus('view',index);
+  changeFocus(index);
   return true;
 }
 window.ComputeExplorerStory=Object.freeze({
-  next,previous,reset,goToStep,focusLayer,focusView,
+  next,previous,reset,goToStep,focusLayer,focusView,setActive,
   getState() {
     const now = performance.now();
-    const view = dominant(resolveFocus('view',state.time,now));
+    const view = dominant(viewWeightsAt(state.time,now));
     return {
       presentationProgress:state.time/total,
       viewFocus:view>=4 ? 'intersection' : views[view],
       intersection:view>=4 ? views[view] : null,
-      layerFocus:levels[dominant(resolveFocus('layer',state.time,now))],
+      layerFocus:levels[dominant(highlightWeights())].id,
     };
   },
 });
 function selectRegion(region) {
   const selected=views[region+1];
-  const current=dominant(resolveFocus('view',state.time,performance.now()));
+  const current=dominant(viewWeightsAt(state.time,performance.now()));
   focusView(views[current]===selected ? 'all' : selected);
 }
 planes.forEach(plane => plane.regions.forEach((node,i) => {
@@ -444,7 +480,7 @@ planes.forEach(plane => plane.regions.forEach((node,i) => {
     if (event.key==='Enter' || event.key===' ') { event.preventDefault(); selectRegion(i); }
   });
 }));
-levelButtons.forEach((button,i) => button.onclick=() => focusLayer(levels[i]));
+levelButtons.forEach((button,i) => button.onclick=() => focusLayer(levels[i].id));
 pairButtons.forEach((button,i) => button.onclick=() => selectRegion(i+3));
 viewButtons.forEach((button,i) => button.onclick=() => focusView(views[i]));
 document.querySelector('#next').onclick=next;
@@ -463,9 +499,33 @@ stepButtons.forEach((button,i) => button.onclick=() => seek(steps[i]));
 function fit() {
   scene.style.setProperty('--fit',Math.min(innerWidth/1920,innerHeight/1080));
 }
+function updateVisibility() {
+  if (state.highlight) state.highlight.last=null;
+  if (!visible() && state.frame) {
+    cancelAnimationFrame(state.frame);
+    state.frame=0;
+  }
+  if (visible() && (state.clock || state.viewTween || highlightRunning())) schedule();
+}
+function setActive(active) {
+  state.deckActive=Boolean(active);
+  updateVisibility();
+}
+document.addEventListener('visibilitychange',updateVisibility);
+addEventListener('pagehide',() => { state.pageActive=false; updateVisibility(); });
+addEventListener('pageshow',() => { state.pageActive=true; updateVisibility(); });
+new IntersectionObserver(([entry]) => {
+  state.onScreen=entry.isIntersecting;
+  updateVisibility();
+}).observe(scene);
+reducedMotion.addEventListener('change',() => {
+  if (state.highlight) state.highlight={initial:dominant(highlightWeights()),elapsed:0,last:null,from:null};
+  paint();
+  updateVisibility();
+});
 const params = new URLSearchParams(location.search);
 document.querySelector('.debug').hidden=!params.has('debug');
-const captures = {s0:steps[0],s1:relationStart+MOTION.relation,s2:relationEnd+MOTION.tilt/2,s3:steps[3],s4:steps[4]};
+const captures = {s0:steps[0],s1:relationStart+MOTION.relation,s2:relationEnd+MOTION.tilt/2,s3:steps[3]};
 const capture=params.get('frame');
 addEventListener('resize',fit);
 fit();
