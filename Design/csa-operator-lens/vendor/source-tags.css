@@ -1,0 +1,103 @@
+/* 源码区的行内标签：只在 compile-board-demo/workbench.html 使用。
+ * 两个家族：① PTO 框架——PyPTO 自己的抽象（作用域外提、循环怎么编译、标量分支），
+ *          中性底 + 蓝灰虚线竖条，虚线仍然表示"编译期的事"；
+ *        ② 硬件落点——这一行把数据落到哪里，极淡的角色色底 + 实线竖条，
+ *          沿用 path.css 的角色色：GM lime · Mat / L1 / Cube lavender · Vec sky。
+ * 两类共用一套壳子（填充色块），区别在竖条是虚是实、底色有没有角色偏色。 */
+:root { --fw: #9fb0d0; }
+
+/* ── 缩进导轨（画在代码文字底下，不是标签） ──
+ * 用背景画，不加 DOM：重复的 1px 竖线按 4 个字符一格铺到当前缩进深度（--d），
+ * 上下行连成一条，所以能一眼看出这一行属于哪一层。
+ * 另一层单独的 1px 竖线（--ad）用来点亮联动时命中的那一层。 */
+.cl-text {
+  --cl-guide: #2b2b2b;
+  --cl-rail: transparent;
+  background-image:
+    linear-gradient(to right, var(--cl-rail) 0 1px, transparent 1px),
+    repeating-linear-gradient(to right, var(--cl-guide) 0 1px, transparent 1px 4ch);
+  background-position: calc(var(--ad, 0) * 4ch) top, left top;
+  background-size: 1px 100%, calc(var(--d, 0) * 4ch) 100%;
+  background-repeat: no-repeat, no-repeat;
+}
+.cl.is-mapped:hover .cl-text { --cl-guide: #3a3a3a; }
+/* 命中的那一层：开头行和整段 body 共用一条亮导轨 */
+.cl.is-inscope .cl-text { --cl-rail: var(--border-strong); }
+.cl.is-scope .cl-no { color: var(--muted); }
+
+/* ── 行内标签：统一壳子 ──
+ * 代码本身已经用颜色分了变量 / 函数 / 常量 / 字符串，标签再用彩色文字就和代码混在一起。
+ * 所以标签走另一种材质：填充的小色块（背景 + 圆角），文字一律中性灰，
+ * 家族色只放在左边那条 3px 的竖条上，底色和文字至多带一点偏色——
+ * 和代码的区分靠"块 vs 文字"，标签之间的区分才靠竖条（虚/实）和那点偏色。 */
+.cl-tag {
+  display: inline-block; height: 17px; margin-left: 12px; padding: 0 6px 0 9px;
+  border: 0; border-radius: 3px;
+  font: 9.5px/17px var(--mono); letter-spacing: .04em; color: var(--tag-fg, #b2b2b2);
+  white-space: nowrap; user-select: none;
+  background: var(--tag-bg, #242424);
+  box-shadow: inset 3px 0 0 var(--tag-accent, #5f5f5f);
+  /* 行高 21px，标签 17px：vertical-align:top 让它完整落在行盒里不撑高行，
+   * 再用 transform 把它压到行中间（transform 不参与排版，行距保持 21px） */
+  vertical-align: top; transform: translateY(2px);
+  /* 源码横向滚动，深层的行很长：标签贴着可视区右沿停住，窄栏下也始终看得到 */
+  position: sticky; right: 14px;
+}
+.cl.is-mapped:hover .cl-tag, .cl.is-hot .cl-tag { color: var(--text); }
+/* 贴边时会压住长行的代码，左侧加一段渐隐，读起来像浮在代码上而不是切掉一块 */
+.cl-tag::before { content: ""; position: absolute; top: 0; bottom: 0; left: -20px; width: 20px;
+  background: linear-gradient(to right, transparent, var(--canvas)); pointer-events: none; }
+/* 整行命中时底色变成 #1d1d1d，渐隐也要跟着换，否则标签左边会留一道暗痕 */
+.cl.is-mapped:hover .cl-tag::before, .cl.is-hot .cl-tag::before {
+  background: linear-gradient(to right, transparent, #1d1d1d); }
+/* 渐隐的包含块是 padding box：框架族左边多了 3px 边框，不往左挪就会盖住虚线竖条 */
+.cl-tag.t-fw::before { left: -23px; }
+.cl.is-hot .cl-tag.t-fw::before { left: -24px; }
+/* 图例里的色块不吸附、不要左边那段渐隐 */
+.tag-legend .cl-tag { position: static; transform: none; }
+.tag-legend .cl-tag::before { display: none; }
+.is-tags-off .cl-tag { display: none; }
+
+/* ① PTO 框架标签：中性底色，竖条是蓝灰虚线，不占用任何硬件角色色 */
+.cl-tag.t-fw {
+  --tag-accent: var(--fw); --tag-bg: #2a2b31; --tag-bg-hot: #34353c; --tag-fg: #bcbfc7;
+  /* vec 也是冷色，光靠一条 3px 的蓝分不开：框架族的竖条画成虚线 */
+  box-shadow: none; border-left: 3px dashed var(--fw); padding-left: 6px;
+}
+.cl.is-hot .cl-tag.t-fw { box-shadow: none; border-left-width: 4px; padding-left: 5px; }
+.cl.is-scope .cl-tag.t-fw { color: var(--text); border-left-color: #cfdaf0; }
+
+/* ② 硬件落点标签：按角色色分三类 */
+.cl-tag.t-mat { --tag-accent: var(--lav); --tag-bg: #2c2836; --tag-bg-hot: #373043; --tag-fg: #c3b9d5; }
+.cl-tag.t-vec { --tag-accent: var(--sky); --tag-bg: #232e36; --tag-bg-hot: #2b3a43; --tag-fg: #add0de; }
+.cl-tag.t-gm  { --tag-accent: var(--lime); --tag-bg: #283024; --tag-bg-hot: #323c2c; --tag-fg: #bfd2aa; }
+
+/* 命中整行时色块亮一档：底色提上来，竖条变宽 */
+.cl.is-mapped:hover .cl-tag, .cl.is-hot .cl-tag { background: var(--tag-bg-hot, #2c2c2c); }
+.cl.is-hot .cl-tag { box-shadow: inset 4px 0 0 var(--tag-accent, #5f5f5f); }
+
+/* ── ③ PyPTO 特有的接口与参数：虚线下划线，框架侧和硬件侧都在内 ── */
+.tk-hw { text-decoration: underline dotted; text-decoration-color: #6a6a6a; text-underline-offset: 3px; }
+.cl.is-hot .tk-hw { text-decoration-color: var(--muted); }
+
+/* ── 图例（源码说明弹层里） ── */
+.hp-code .pane-info-body { width: 352px; }
+.tag-legend { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid #4a4a4a; font-size: 11.5px; }
+.tag-legend > b { display: block; margin-bottom: 6px; font: 600 10px/1.6 var(--mono); letter-spacing: .12em; color: #aaa; }
+.tag-legend > span { display: grid; grid-template-columns: 94px 1fr; align-items: center; gap: 8px; margin-bottom: 4px; line-height: 1.5; }
+/* 只有一句话的行（没有标签样例）铺满两栏，不要挤在 94px 的标签栏里 */
+.tag-legend > span.lg-note { display: block; margin-top: 7px; color: #bdbdbd; }
+.tag-legend .cl-tag { margin-left: 0; font-style: normal; justify-self: start; color: #cfcfcf; }
+.tag-legend .lg-fam { font-weight: 600; color: #ddd; }
+.tag-legend .lg-fam::after { content: "："; font-weight: 400; color: #999; }
+.tag-legend u { font-style: normal; color: #ddd; }
+.tag-legend .tk-hw { text-decoration-color: #aaa; }
+
+/* ── 标签开关（源码栏头部） ── */
+.tag-toggle { margin-left: 0; flex: none; width: 28px; height: 26px; justify-content: center; padding: 0; }
+.tag-toggle svg { width: 16px; height: 16px; }
+.tag-toggle[aria-pressed="false"] svg { opacity: .5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-text, .cl-tag { transition: none; }
+}

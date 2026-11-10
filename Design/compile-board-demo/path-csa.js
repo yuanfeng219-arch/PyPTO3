@@ -194,41 +194,73 @@
     SCOPES.forEach(function (s) { if (i > s.from && i <= s.to && (!best || s.depth > best.depth)) best = s; });
     return best;
   }
-  // ① 层级标签：这一层循环跑多少次、这是哪个分支。名字与逻辑图里的框一致
-  const SCOPE_TAG = {
-    208: function () { return 'SPMD × 24'; },
-    214: function () { return 'GRID-STRIDE'; },
-    224: function () { return '有效块'; },
-    246: function () { return 'UNROLL · 按页'; },
-    264: function () { return '逐行 · 压缩段'; },
-    281: function () { return 'PIPELINE · ' + effStage(state.stage) + ' 块在飞'; },
-    297: function () { return 'UNROLL × 2'; },
-    305: function () { return '空块'; },
-    307: function () { return '× 4 头块'; },
-    310: function () { return '× 16 行'; }
+  // ① PTO 框架标签：这一行用的是 PyPTO 自己的抽象——作用域怎么外提、循环怎么编译、
+  //    标量分支会不会进 IR。语义取自 PyPTO DSL 文档字符串，数值取自 pass 36 真实分配。
+  const FW_TAG = {
+    208: function () {
+      return ['INCORE · SPMD × 24', 'pl.spmd(24)：with 块里的内联体被自动外提成一个 InCore kernel（OutlineIncoreScopes），按 24 个 block 派发。'
+        + 'as qk_tid 捕获这次派发的 TaskId，deps 是显式的生产者边，allow_early_resolve 允许调度器提前预备下游任务。'
+        + '编译产物标了 dual_aiv_dispatch：每个 block 1 个 AIC 配 2 个 AIV。'
+        + (state.split ? '已加 UP_DOWN：两个 AIV 各算 16 行（推算）。' : '没写 optimizations=[pl.split(...)]，32 行整块交给 AIV0。')];
+    },
+    209: function () { return ['TILE 层 · block 号', 'pl.tile.get_block_idx()：tile 层接口，拿当前 block 号（tensor 层有同名别名，编译时降到同一个 tile.get_block_idx）。spmd 内联体必须自己读 block 号来分工，否则 24 个 block 做同样的事。']; },
+    214: function () { return ['RANGE · 步长 24', 'pl.range：运行期循环，次数由标量算出，编译期不展开。每个 block 从自己的 block 号起步，每次跨 24 取下一个 (token, 稀疏块)。']; },
+    224: function () { return ['标量分支 · 进 IR', 'qk_block_valid 是运行期才知道的标量（从 GM 读出来），所以这个 if 不是 Python 的编译期判断：比较被 trace 成 IR 里的 gt 算子，分支被 trace 成 IR 的条件语句，编译出真正的两条路。305 行是它的 else。']; },
+    246: function () { return ['UNROLL · 编译期展开', 'pl.unroll：编译期展开、不带循环携带状态，所以段数 SWA_RUNS 必须是常量。']; },
+    264: function () { return ['RANGE · 逐行', 'pl.range：运行期顺序循环，压缩 KV 按 top-k 每次搬 1 行。']; },
+    281: function () {
+      return ['PIPELINE · ' + effStage(state.stage) + ' 块在飞', 'pl.pipeline(stage=N)：PyPTO 自己的软流水循环——每轮把循环体复制 N 份做乒乓缓冲，由 LowerPipelineLoops 在 tile 层展开。'
+        + '这里只有 64 / 32 = 2 个头块，同时在飞最多 2 个。'];
+    },
+    297: function () { return ['UNROLL × 2', 'pl.unroll：编译期展开成两段，按 16 行一半写回 mi / li / oi。']; },
+    307: function () { return ['RANGE × 4 头块', 'pl.range：空块分支按 16 行一组走 4 组。和 281 行对照——同样是遍历头块，那边用 pl.pipeline 做乒乓缓冲，这里只是普通的运行期循环。']; },
+    310: function () { return ['RANGE × 16 行', 'pl.range：逐行写 mi / li 的初值。次数是常量，但没写 unroll，编译出来是真的循环。']; }
   };
-  // ② Hardware-Native 落点标签：这一行把数据落到哪里。
-  //    mat = AIC 的 Mat / L0 / Cube，vec = AIV 的 Vec 与管道，gm = 读写 GM
-  const HW_TAG = [
-    [/pl\.create_l1/, 'L1 · 128 KB', 'mat'],
-    [/pl\.gather_row/, 'GM → L1', 'mat'],
-    [/pl\.matmul/, 'CUBE → L0C', 'mat'],
-    [/q_flat\[/, 'GM → L1 · Q', 'mat'],
-    [/target_type=pl\.BF16/, 'VEC → V2C', 'vec'],
-    [/sparse_bias\[/, 'GM → VEC · bias', 'vec'],
-    [/pl\.row_max\(/, 'VEC · mi', 'vec'],
-    [/pl\.row_sum\(/, 'VEC · li', 'vec'],
-    [/pl\.(mul|col_expand_add|row_expand_sub|exp|full)\(/, 'VEC · 原地', 'vec'],
-    [/pl\.write\(|sparse_blk_\w+\[[^\]]*\] =/, '→ GM', 'gm']
-  ];
-  function hwTag(t) {
-    for (let i = 0; i < HW_TAG.length; i++) if (HW_TAG[i][0].test(t)) return HW_TAG[i];
-    return null;
+  // ② 硬件落点标签：这一行把数据放到哪块硬件、经过哪条通路。按行号写死，
+  //    同一个 API 在不同行的落点不同（285 与 296 的 matmul、302 与 304 的写回）。
+  //    mat = AIC 的 Mat / L0 / Cube，vec = AIV 的 Vec 与核间管道，gm = 读写 GM
+  const LINE_TAG = {
+    222: ['GM → VEC · bias', 'vec', 'sparse_bias 切片进 AIV 的 Vec：qk_bias_row [1,128]，512 B。'],
+    225: ['L1 · Mat 128 KB', 'mat', 'pl.create_l1：直接在 L1（Mem.Mat）开矩阵操作数，片上拼块，不经 GM 往返。真实地址 Mat 32–160 KB。'],
+    254: ['GM → L1 · DMA', 'mat', 'pl.gather_row：从 GM 直接 DMA 进 L1 累加块，不经 tmov；滑窗段按页成段搬。'],
+    261: ['GM → L1 · DMA', 'mat', 'pl.gather_row：滑窗尾段从 GM 直接 DMA 进 L1。'],
+    267: ['标量读 GM · 逐行', 'gm', 'pl.read：从 GM 读一个标量（压缩索引），在逐行循环里每行一次。'],
+    270: ['标量读 GM · 逐行', 'gm', 'pl.read：从 GM 读块表，在逐行循环里每行一次。'],
+    272: ['GM → L1 · 1 行', 'mat', 'pl.gather_row：压缩 KV 按 top-k 每次搬 1 行进 L1。'],
+    274: ['GM → L1 · 占位行', 'mat', '索引无效时搬 GM 第 0 行填这一行，由 289 行的 bias 屏蔽。'],
+    276: ['GM → L1 · 占位行', 'mat', '超出 top-k 的位置搬 1 行占位，由 289 行的 bias 屏蔽。'],
+    284: ['GM → L1 · Q 32 KB', 'mat', 'Q 块 [32,512] BF16 从 GM 进 L1（Mat 160–192 KB），再按 K 切片进 L0A（2 × 8 KB）。'],
+    285: ['CUBE · QKᵀ → L0C → C2V', 'mat', 'pl.matmul(b_trans=True, out_dtype=FP32)：K=512 被编译器切成 4 段 × 128，L0B 两块 32 KB 轮换；结果 16 KB 在 L0C，经 C2V 管道送给 AIV。'],
+    286: ['C2V → VEC · 原地', 'vec', 'AIV 从管道取 qk_raw；scaled / scores / exp / bf16 都原地写在同一块工作区。'],
+    290: ['VEC · mi', 'vec', 'pl.row_max → qk_mi [32,1]，128 B。'],
+    294: ['VEC · li', 'vec', 'pl.row_sum → qk_li [32,1]，128 B。'],
+    295: ['VEC → V2C · BF16', 'vec', 'pl.cast(target_type=BF16, mode="rint")：转成 BF16 后经 V2C 管道送回 AIC 的 L1 v2c 槽（2 × 16 KB）。'],
+    296: ['CUBE · P·V → L0C', 'mat', 'pl.matmul：P [32,128] × KV [128,512]，结果 64 KB，与 qk_raw 共用 L0C 同一地址。'],
+    302: ['VEC → GM · mi / li', 'gm', 'mi / li 由 AIV 写回 GM（302–303 行）。'],
+    304: ['AIC · L0C → GM', 'gm', 'oi 由 AIC 直接从 L0C 按 16 行切两次写回 GM，不经 AIV。'],
+    306: function () { return ['VEC · 工作区 ' + kb(hwWork()), 'vec', 'pl.full([16,512], FP32)：空块分支的零块，决定了 Vec 工作区的大小（mem_vec_27）。']; },
+    311: ['标量写 GM · 逐行', 'gm', 'pl.write：逐行写 mi / li 的初值（311–312 行）。'],
+    313: ['VEC → GM', 'gm', '零块写回 sparse_blk_oi。']
+  };
+  // 这些行的数字是 stage=2、不切分时的真实分配；配置改了就在依据里说明
+  const ALLOC_LINES = [225, 284, 285, 290, 294, 295, 306];
+  function hwWork() { return vecOf(state.split).filter(function (b) { return b.id === 'work'; }).map(function (b) { return b.hi - b.lo; })[0]; }
+  // 一行最多一个标签：框架标签优先（开头行、分支行），其余标硬件落点。返回 [文字, 类别, 依据]
+  function tagOf(no) {
+    if (FW_TAG[no]) { const s = FW_TAG[no](); return [s[0], 'fw', s[1]]; }
+    let t = LINE_TAG[no];
+    if (!t) return null;
+    if (typeof t === 'function') t = t();
+    if (ALLOC_LINES.indexOf(no) >= 0 && !isReal(state.split, state.stage)) t = [t[0], t[1], t[2] + '（数字是 stage=2、不切分时的真实分配；当前配置见硅片画布，按推算）'];
+    return t;
   }
-  // 把硬件写进源码的 API 与参数：虚线下划线，和普通张量运算区分开
+  // PyPTO 特有的接口与参数：虚线下划线，和普通张量运算区分开。
+  // 两类都在里面——框架侧（作用域、循环、任务依赖）和硬件侧（片上存储、Cube、跨核切分）
   const HW_API = {
-    spmd: 1, pipeline: 1, unroll: 1, create_l1: 1, gather_row: 1, matmul: 1,
-    split: 1, SplitMode: 1, UP_DOWN: 1, stage: 1, optimizations: 1,
+    spmd: 1, get_block_idx: 1, tile: 1, deps: 1, allow_early_resolve: 1,
+    pipeline: 1, stage: 1, unroll: 1, range: 1,
+    create_l1: 1, gather_row: 1, matmul: 1,
+    split: 1, SplitMode: 1, UP_DOWN: 1, optimizations: 1,
     valid_shape: 1, out_dtype: 1, b_trans: 1, target_type: 1
   };
 
@@ -405,10 +437,8 @@
         const parts = row.t.split('§');
         text = hl(parts[0]) + (row.no === 208 ? splitControl() : stageControl()) + hl(parts[1]);
       } else text = hl(row.t);
-      // 一行最多一个标签：开头行标层级，其余标落点
-      const scope = SCOPE_TAG[row.no], hw = hwTag(row.t);
-      if (scope) text += '<span class="cl-tag t-scope">' + scope() + '</span>';
-      else if (hw) text += '<span class="cl-tag t-' + hw[2] + '">' + hw[1] + '</span>';
+      const tag = tagOf(row.no);
+      if (tag) text += '<span class="cl-tag t-' + tag[1] + '" title="' + esc(tag[2]) + '">' + tag[0] + '</span>';
       const modified = (row.no === 208 && state.split) || (row.no === 281 && state.stage !== 2);
       const cls = ['cl', lineMapped(row.no) ? 'is-mapped' : '', modified ? 'is-modified' : ''].join(' ');
       return '<div class="' + cls + '" data-line="' + row.no + '"><span class="cl-mark"></span><span class="cl-no">' + row.no
@@ -507,7 +537,7 @@
     // softmax 段底部：32 行由谁来算
     s += split
       ? txt(288, 278, 'AIV0 算行 0–15 · AIV1 算行 16–31', 'sv-text') + txt(288, 292, '推算 · 需重新编译确认', 'sv-label sv-warn')
-      : txt(288, 278, '32 行全部在 AIV0', 'sv-text') + txt(288, 292, 'AIV1 只握手，不计算', 'sv-label sv-warn');
+      : '';
     s += LG_EDGES.map(function (e) { return '<path d="' + e[2] + '" class="lg-edge" data-from="' + e[0] + '" data-to="' + e[1] + '"/>'; }).join('');
     Object.keys(LG).forEach(function (id) { s += logicNode(id); });
     s += '</svg>';

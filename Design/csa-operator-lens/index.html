@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSA 算子透镜</title>
+  <link rel="stylesheet" href="./vendor/path.css" />
+  <link rel="stylesheet" href="./vendor/path-csa.css" />
+  <link rel="stylesheet" href="./vendor/source-tags.css" />
+  <link rel="stylesheet" href="./vendor/header.css" />
+  <link rel="stylesheet" href="./vendor/workbench.css" />
+  <link rel="stylesheet" href="./styles/lens.css" />
+</head>
+<body data-level="1">
+  <div class="hp-app">
+    <header class="hp-top">
+      <div class="hp-top-left">
+        <a class="demo-home" href="../../launch.html" aria-label="返回 Demo 入口" title="返回 Demo 入口"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5v10.5h13V9.5M9.5 20v-6h5v6"/></svg></a>
+        <span class="hp-brand">CSA OPERATOR LENS</span>
+        <nav class="hp-crumb lens-crumb" id="lensCrumb" aria-label="当前层级路径"></nav>
+      </div>
+      <div class="hp-top-right">
+        <div class="lens-levels" id="lensLevels" role="tablist" aria-label="阅读层级">
+          <button type="button" role="tab" data-level="1"><b>L1</b>整层</button>
+          <button type="button" role="tab" data-level="2"><b>L2</b>Kernel</button>
+          <button type="button" role="tab" data-level="3"><b>L3</b>Tile</button>
+          <button type="button" role="tab" data-level="4"><b>L4</b>硅片</button>
+        </div>
+        <span class="hp-target" title="默认配置取自 config.py：DECODE_BATCH=64，TP=2，S=1+7"><span class="hp-dot"></span>TP=2 · T=256</span>
+      </div>
+    </header>
+
+    <main class="hp-main">
+      <!-- 左：源码。L1 / L2 是整文件阅读，L3 / L4 换成 qk_pv 带硬件标签的摘录 -->
+      <section class="hp-pane hp-code" id="hpCodePane" aria-label="源码">
+        <header class="hp-pane-head">
+          <span class="hp-pane-title">源码</span>
+          <span class="hp-pane-meta" id="srcMeta">—</span>
+          <details class="pane-info"><summary aria-label="源码说明">ⓘ</summary><div class="pane-info-body" id="srcInfo">
+            <p>源码随层级收窄：L1 看 <code>decode_csa.py</code> 的整层编排，L2 看所选 Kernel 所在函数，L3 / L4 只看 qk_pv 的循环体。</p>
+            <span class="tag-legend"><b>行内标签</b>
+              <span><i class="cl-tag t-fw">SPMD × 24</i><span><b class="lg-fam">PTO 框架</b>作用域、派发、Task 依赖；左侧导轨是缩进层级</span></span>
+              <span><i class="cl-tag t-gm">COMM · Put</i><span><b class="lg-fam">数据搬运</b>跨 Rank 通信与 GM 读写</span></span>
+              <span><i class="cl-tag t-mat">GM → L1</i><span><b class="lg-fam">硬件 · AIC</b>L3 / L4 才出现</span></span>
+              <span><i class="cl-tag t-vec">C2V → VEC</i><span><b class="lg-fam">硬件 · AIV</b>L3 / L4 才出现</span></span>
+              <span class="lg-note">悬停标签看依据；点行在右栏看“这一行在各层是什么”。</span>
+            </span></div></details>
+          <button class="hp-topbtn tag-toggle" id="hpTagToggle" type="button" aria-pressed="true" aria-label="隐藏行内标签" title="隐藏行内标签"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="M7 7h.01"/></svg></button>
+        </header>
+        <div class="hp-code-body lens-src" id="srcFile" tabindex="0" aria-label="整文件源码"></div>
+        <div class="hp-code-body" id="hpCode" hidden></div>
+        <div class="hp-resize" id="hpCodeResize" role="separator" tabindex="0" aria-label="调整源码区宽度" aria-orientation="vertical" aria-controls="hpCodePane" title="拖动或使用左右方向键调整源码区宽度"></div>
+      </section>
+
+      <!-- 中：画布。四层各一个视图，同一时刻只显示一个 -->
+      <section class="hp-pane lens-mid" id="lensMid" aria-label="可视化">
+        <div class="lens-view" data-view="1" id="viewLayer">
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">整层计算图</span>
+            <span class="hp-pane-meta">decode_csa · 5 个阶段 · 图元同 PyPTO Compute Explorer Graph</span>
+            <details class="pane-info"><summary aria-label="整层计算图说明">ⓘ</summary><div class="pane-info-body">
+              <p>蓝色矩形是 Tensor，深色胶囊是计算 / 通信，带 ＋ 的模块可展开内部；虚线框是语义阶段。</p>
+              <p>节点名里的 Local / Gathered 是数据归属：本 Rank 的 T 行，或 AllGather 后的 2T 行。</p>
+              <p>位置只表达依赖，不表达耗时或实际重叠。滚轮缩放、拖动平移；双击 Sparse Attention、KV Writeback、Merge · Publish、RoPE 表进入 L2。</p>
+            </div></details>
+          </header>
+          <iframe class="lens-frame" id="layerFrame" src="./l1-graph.html" title="decode_csa 整层计算图"></iframe>
+        </div>
+
+        <div class="lens-view" data-view="2" id="viewKernel" hidden>
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">Kernel 派发</span>
+            <span class="hp-pane-meta" id="kernelMeta">—</span>
+            <div class="lens-tabs" id="kernelTabs" role="tablist" aria-label="L2 视角">
+              <button type="button" role="tab" data-tab="assignment">Assignment</button>
+              <button type="button" role="tab" data-tab="pipeline">Pipeline</button>
+            </div>
+            <details class="pane-info"><summary aria-label="Kernel 派发说明">ⓘ</summary><div class="pane-info-body">
+              <p>上方是这个模块里的 Kernel（一次 <code>pl.spmd</code> 或 <code>pl.at</code> 就是一个）以及它们之间的 TaskId 依赖。</p>
+              <p><b>Assignment</b>：同一批 Work Item 依次经过 Generation（源码产生哪些工作）→ Ordering（qk_plan 排队）→ Assignment（SPMD Lane 领取）。</p>
+              <p><b>Pipeline</b>：每条 Lane 按轮次领到的 Work Item；列是领取顺序，不是时间。</p>
+              <p>分配规则取自源码；qk_pv 的有效 / 空块来自 Synthetic 输入。</p>
+            </div></details>
+          </header>
+          <div class="lens-chain" id="kernelChain"></div>
+          <div class="lens-bar" id="kernelBar"></div>
+          <div class="lens-lanes" id="kernelLanes"></div>
+          <div class="lens-legend-bar" id="kernelLegend"></div>
+        </div>
+
+        <!-- L3 / L4：复用 workbench 的算子逻辑与硅片落点 -->
+        <div class="lens-view lens-tile" data-view="34" id="hpLensPane" hidden>
+          <div class="lens-ctx" id="tileCtx" role="status" hidden></div>
+          <div class="hp-logic" id="hpLogicPane">
+            <header class="hp-pane-head">
+              <span class="hp-pane-title">算子逻辑</span>
+              <details class="pane-info"><summary aria-label="算子逻辑说明">ⓘ</summary><div class="pane-info-body" id="hpLogicMeta">qk_pv · 循环嵌套与计算链</div></details>
+            </header>
+            <div class="hp-logic-svg" id="hpLogic"></div>
+          </div>
+          <div class="hp-splitter" id="hpVerticalResize" role="separator" tabindex="0" aria-label="调整算子逻辑与硅片落点高度" aria-orientation="horizontal" aria-controls="hpLogicPane" title="拖动或使用上下方向键调整高度"></div>
+          <div class="hp-chip">
+            <header class="hp-pane-head">
+              <span class="hp-pane-title">硅片落点</span>
+              <span class="chip-stats" id="hpChipStats" role="group"></span>
+              <details class="pane-info"><summary aria-label="硅片落点说明">ⓘ</summary><div class="pane-info-body" id="hpChipMeta">真实分配 · pass 36 AllocateMemoryAddr</div></details>
+            </header>
+            <div class="hp-svg" id="hpSvg"></div>
+          </div>
+          <div class="hp-caption" id="hpCaption" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- 右：详情。L1 / L2 是对象详情与跨层说明，L3 / L4 是 qk_pv 的问题分析 -->
+      <aside class="hp-pane hp-story lens-side" aria-label="详情">
+        <div class="lens-side-view" id="inspectorView">
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">详情</span>
+            <span class="hp-pane-meta" id="inspectorMeta">—</span>
+          </header>
+          <div class="hp-story-body lens-inspector" id="inspector"></div>
+        </div>
+        <div class="lens-side-view" id="hpStoryPane" hidden>
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">洞察 · qk_pv</span>
+            <span class="hp-pane-meta" id="hpStoryMeta">—</span>
+          </header>
+          <div class="hp-story-body" id="hpStory"></div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="hp-status">
+      <span class="hp-status-main" id="hpStatus" aria-live="polite">—</span>
+      <span class="hp-status-dim" id="hpStatusDim">—</span>
+    </footer>
+  </div>
+
+  <script src="./vendor/path-visual-system.js"></script>
+  <script src="./vendor/path-op-icons.js"></script>
+  <script src="./vendor/path-grid-glyphs.js"></script>
+  <script src="./js/source-snapshot.js"></script>
+  <script src="./js/lens-data.js"></script>
+  <script src="./js/kernel-scan.js"></script>
+  <script src="./js/csa-graph-model.js"></script>
+  <script src="./js/lens-tile.js"></script>
+  <script src="./js/lens.js"></script>
+</body>
+</html>

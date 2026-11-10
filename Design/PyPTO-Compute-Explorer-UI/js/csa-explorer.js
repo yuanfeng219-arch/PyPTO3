@@ -15,6 +15,12 @@
   const objectToGraph={pre:'input/hc-pre',gather:'input/allgather',q:'input/q',kv:'input/kv',main:'cache/main',idxcomp:'cache/idxcomp',write:'cache/write',indexer:'cache/indexer',attention:'sparse/attention',publish:'redistribute/publish',a2a:'redistribute/a2a',oproj:'output/oproj',rs:'output/oproj/rs',post:'output/post',local:'input/local',full:'input/full',original:'cache/original',compressed:'cache/compressed',indexcache:'cache/indexcache',ready:'cache/ready'};
   const graphToObject=Object.fromEntries(Object.entries(objectToGraph).map(([object,id])=>[id,object]));
   const semantic=global.PTO_CSA_SEMANTIC_GRAPH;
+  const fullGraphStages=semantic.nodes.map(node=>node.id);
+  const fullGraphQk=[...fullGraphStages,'sparse/attention','sparse/attention/qk-pv'];
+  if(new URLSearchParams(global.location.search).get('graph')==='full'){
+    state.tab='graph';
+    state.views.graph.expanded=fullGraphQk.slice();
+  }
   const semanticNodes=new Map();
   function indexSemantic(nodes,parentId=null){for(const n of nodes){const id=parentId?parentId+'/'+n.id:n.id;semanticNodes.set(id,{...n,parentId});if(n.composite?.subgraph)indexSemantic(n.composite.subgraph.nodes,id);}}
   indexSemantic(semantic.nodes);
@@ -158,7 +164,7 @@
     root.setAttribute('aria-label','DeepSeek V4 CSA Compute Explorer');
     root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">PyPTO Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
     '<div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="CSA 可视化视图">'+tabs.map(id=>'<button class="tab-control-item" role="tab" id="csa-tab-'+id+'" data-csa-tab="'+id+'" aria-controls="csa-panel"><span class="viz2-tab-icon viz2-tab-icon--'+id+'"></span>'+id[0].toUpperCase()+id.slice(1)+'</button>').join('')+'</div></div>'+
-    '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button></div>'+
+    '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button><button class="btn btn-ghost btn-sm" data-csa-full-graph hidden>完整计算图</button><button class="btn btn-ghost btn-sm" data-csa-qk-graph hidden>展开 QK / PV</button></div>'+
     '<div class="csa-stagebar" hidden>'+stageBarHtml()+'</div>'+
     '<div class="csa-focusbar" aria-label="关键路径焦点"></div>'+
     '<div class="csa-workspace" id="csa-panel" role="tabpanel"><div class="csa-canvas-column"><div class="csa-caption"></div><div class="csa-stage pto-model-graphviz-pattern-page" role="group" aria-label="CSA 数据与任务关系，拖拽平移，按住 Command 或 Ctrl 滚轮缩放"></div><footer class="csa-footer"><div class="csa-legend"><span>中性矩形 · Tensor / Cache</span><span>彩色模块 · 计算 / 通信 / 同步</span><span>实线 · 数据</span><span class="csa-comm-legend">蓝线 · 跨 Rank</span><span>虚线 · 控制 / 同步</span></div><button class="btn btn-ghost btn-sm" data-csa-fit>全览</button><button class="btn btn-ghost btn-sm" data-csa-read>阅读</button><button class="btn btn-ghost btn-sm" data-csa-zoom="0.8" aria-label="缩小 CSA">−</button><button class="btn btn-ghost btn-sm" data-csa-zoom="1.25" aria-label="放大 CSA">＋</button></footer></div>'+
@@ -167,6 +173,9 @@
     document.getElementById('ideWorkarea').append(root);
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
+      if(b.hasAttribute('data-csa-full-graph')||b.hasAttribute('data-csa-qk-graph')){
+        const v=state.views.graph;setFocus(null);v.expanded=(b.hasAttribute('data-csa-qk-graph')?fullGraphQk:fullGraphStages).slice();v.scope='local';v.camera=null;render();return;
+      }
       if(b.hasAttribute('data-csa-back'))return close();
       if(b.hasAttribute('data-csa-navreturn')){returnFromNavigation();return;}
       if(b.dataset.csaStage){selectStage(b.dataset.csaStage);return;}
@@ -309,6 +318,8 @@
   }
   function render(){
     controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
+    root.querySelector('[data-csa-full-graph]').hidden=state.tab!=='graph';
+    root.querySelector('[data-csa-qk-graph]').hidden=state.tab!=='graph';
     const qkHost=root.querySelector('.csa-qk-host'),qkActive=state.tab==='assignment'&&state.assignmentStage===qkPvId;
     const stageHoldHost=root.querySelector('.csa-stage-hold'),stageHoldActive=state.tab!=='graph'&&(state.tab==='assignment'?state.assignmentStage:state.pipelineStage)!==qkPvId;
     const qkPipelineHost=root.querySelector('.csa-qk-pipeline-host'),qkPipelineActive=state.tab==='pipeline'&&state.pipelineStage===qkPvId;

@@ -192,11 +192,12 @@
           <span class="hp-pane-title">源码</span>
           <details class="pane-info"><summary aria-label="源码说明">ⓘ</summary><div class="pane-info-body">decode_sparse_attn_csa.py · 208–313 · 只列代码行
             <span class="tag-legend"><b>行内标签</b>
-              <span><i class="cl-tag t-scope">层级</i>这一层循环跑多少次、走哪个分支；左侧导轨是缩进层级</span>
-              <span><i class="cl-tag t-mat">GM → L1</i>AIC 一侧：Mat / L0 / Cube</span>
-              <span><i class="cl-tag t-vec">VEC · 原地</i>AIV 一侧：Vec 中间量与 C2V / V2C 管道</span>
-              <span><i class="cl-tag t-gm">→ GM</i>读写 GM</span>
-              <span><u class="tk-hw">虚线下划线</u>把硬件写进源码的 API 与参数</span>
+              <span><i class="cl-tag t-fw">UNROLL</i><span><b class="lg-fam">PTO 框架</b>作用域怎么外提、循环怎么编译、标量分支进不进 IR；左侧导轨是缩进层级</span></span>
+              <span><i class="cl-tag t-mat">GM → L1</i><span><b class="lg-fam">硬件 · AIC</b>Mat / L0 / Cube</span></span>
+              <span><i class="cl-tag t-vec">C2V → VEC</i><span><b class="lg-fam">硬件 · AIV</b>Vec 中间量与 C2V / V2C 管道</span></span>
+              <span><i class="cl-tag t-gm">VEC → GM</i><span><b class="lg-fam">硬件 · GM</b>读写 GM，含逐行标量读写</span></span>
+              <span class="lg-note">悬停标签可看依据：语义取自 PyPTO DSL，数值取自 pass 36 真实分配</span>
+              <span><u class="tk-hw">虚线下划线</u>PyPTO 特有的接口与参数：作用域、流水、片上存储</span>
             </span></div></details>
           <button class="hp-topbtn tag-toggle" id="hpTagToggle" type="button" aria-pressed="true" aria-label="隐藏行内标签" title="隐藏行内标签"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="M7 7h.01"/></svg></button>
           <button class="hp-topbtn lens-toggle" id="hpLensToggle" type="button" aria-controls="hpLensPane" aria-expanded="true" aria-label="隐藏 Lens" title="隐藏算子逻辑和硅片落点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.3 15.3 4.2 4.2M8 10.5h5M10.5 8v5"/></svg></button>

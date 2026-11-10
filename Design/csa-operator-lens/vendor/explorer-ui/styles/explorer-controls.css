@@ -1,0 +1,271 @@
+/* Approved control states: fill changes only; no browser-native menu or selection ring. */
+.explorer-native-select{display:none!important}
+.explorer-dropdown-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:12px;min-height:30px;min-width:56px;padding:5px 10px;border:0!important;border-radius:16px;background:#242424;color:#ddd;font:12px system-ui;box-shadow:none!important;cursor:pointer;outline:none!important}
+.explorer-dropdown-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px}
+.explorer-dropdown-trigger>svg{display:block;flex:none}
+.explorer-dropdown-trigger:is(:hover,:focus-visible,[aria-expanded="true"]){background:color-mix(in srgb,#242424,white 10%)}
+.explorer-dropdown-menu{position:fixed;z-index:100;max-height:min(300px,55vh);overflow:auto;padding:5px;border:0;border-radius:12px;background:#242424;color:#ddd;box-sizing:border-box}
+.explorer-dropdown-menu[hidden]{display:none}
+.explorer-dropdown-menu>button{display:block;width:100%;text-align:left;border:0!important;outline:0!important;border-radius:7px;padding:9px 10px;background:transparent;color:#ddd;box-shadow:none!important;font:12px system-ui;cursor:pointer}
+.explorer-dropdown-menu>button:is(:hover,:focus-visible,[aria-selected="true"]){background:color-mix(in srgb,#242424,white 10%)}
+body.ai-extracted :is(button,summary,select,a):focus{outline:none!important;box-shadow:none!important}
+body.ai-extracted :is(button,summary,a):focus-visible{background-color:color-mix(in srgb,#242424,white 10%)}
+body.ai-extracted :is(.is-selected,[aria-selected="true"],[aria-pressed="true"]):not(svg *){border-color:transparent!important;box-shadow:none!important}
+.csa-visual .csa-stage-picker{display:none!important}
+.csa-visual .csa-qk-canvas-controls>.segmented-control{border:0!important;border-radius:0!important;box-shadow:none!important;filter:none!important;padding:0!important}
+.csa-visual .csa-qk-canvas-controls .btn.is-selected{background:#3a3a3a!important;color:#eee!important}
+.csa-visual .csa-qk-scenario{gap:10px;font-size:11px}
+.csa-visual .csa-qk-scenario-count{font-size:10px;opacity:.7}
+.csa-visual .ai-presentation-overlay{top:126px;width:300px;padding:8px 10px}
+.csa-visual .ai-presentation-overlay h2{font-size:17px;margin-bottom:3px}
+.csa-visual .ai-presentation-overlay .ai-guide-object{display:none}
+.csa-visual .ai-presentation-overlay p{font-size:12px;line-height:1.4}
+.csa-visual .csa-qp-context{gap:10px}
+.csa-visual .csa-qp-context-title,.csa-visual .csa-qp-context-sep{display:none}
+.csa-visual .csa-qp-context-tools{gap:8px;margin-left:auto}
+.csa-visual .csa-qp-map-mode{border:0;background:transparent;padding:0;font-size:11px}
+.csa-visual .csa-qp-timeline-data{stroke-width:1.2;stroke:#80b7f7}
+.csa-visual .csa-qp-timeline-reuse{stroke-width:1.1}
+.csa-visual .csa-qp-svg marker path{fill:context-stroke}
+.viz2 [data-intra-kind]:is(.is-selected,.is-related) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important;stroke:none!important}
+.viz2 [data-intra-kind]:is(.is-selected,.is-related) .ai-operation-glyph [data-kind="op"] text{fill:#fff!important}
+.viz2 [data-intra-kind]:focus{outline:none!important}
+
+.viz2 .viz2-intra-flow.is-related,.viz2 .viz2-intra-reuse.is-related,.viz2 .viz2-intra-reuse.is-highlighted{stroke:var(--slot-color,#80b7f7)!important;stroke-width:1.5!important}
+.viz2 [data-intra-kind]:focus{outline:0!important;box-shadow:none!important}
+
+.viz2 [data-intra-kind="stage"] .ai-operation-glyph [data-kind="op"]>rect{fill:color-mix(in srgb,var(--slot-color,#80b7f7) 15%,#333)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important}
+.csa-visual .csa-qp-timeline-data{stroke:var(--slot-color,#80b7f7)!important}
+.csa-visual .csa-qp-svg .csa-qp-node.is-selected rect{fill:var(--slot-color,#80b7f7)!important}
+
+/* Full canvas. Only the individual controls participate in pointer hit testing. */
+body.csa-visual .csa-explorer{padding-top:0!important}
+.csa-visual .csa-explorer>.viz2-header{position:fixed!important;top:0;left:0;right:0;background:transparent!important;pointer-events:none;z-index:30}
+.csa-visual .csa-explorer>.viz2-header :is(button,summary,a){pointer-events:auto}
+.csa-visual .csa-explorer>.viz2-tabs{z-index:31}
+.csa-visual .csa-toolbar{position:absolute;top:64px;left:0;right:0;z-index:10;background:transparent!important;pointer-events:none}
+.csa-visual .csa-toolbar button{pointer-events:auto}
+.csa-visual :is(.csa-qk-host,.csa-qk-pipeline-host,.csa-workspace){position:absolute;inset:0}
+.csa-visual .csa-qk-scenario{position:absolute;top:96px;left:0;right:0;z-index:10;background:transparent!important;pointer-events:none}
+.csa-visual .csa-qk-scenario button{pointer-events:auto}
+.csa-visual .csa-qk-canvas-viewport{position:absolute;inset:0;margin:0!important}
+.csa-visual .csa-qk-canvas-head,.csa-visual .csa-qk-canvas-footer{z-index:15}
+.csa-visual .csa-qp-shell{position:relative;background:transparent}
+.csa-visual :is(.csa-qp-stage,.csa-qp-map,.csa-qp-map-viewport){position:absolute;inset:0;background:transparent!important}
+.csa-visual .csa-qp-context{position:absolute;top:96px;left:24px;right:24px;z-index:10;background:transparent!important;border:0;pointer-events:none}
+.csa-visual .csa-qp-context :is(button,label,input){pointer-events:auto}
+.csa-visual .csa-qp-item-top{position:absolute;top:110px;left:24px;right:24px;min-height:0;padding:0;border:0;background:transparent!important;z-index:10;pointer-events:none}
+.csa-visual .csa-qp-item-top details{pointer-events:auto}
+.csa-visual .csa-qp-unit-nav{position:absolute;bottom:20px;left:24px;min-height:36px;width:max-content;max-width:calc(100% - 300px);padding:5px 10px;border:0;border-radius:28px;background:#242424;z-index:15}
+.csa-visual .csa-qp-unit-nav>b{display:none}
+.csa-visual .csa-qp-unit-nav>[data-qp-back]{position:fixed;left:24px;top:60px;border-radius:22px;background:#242424}
+.csa-visual .csa-explorer:has(.csa-qk-pipeline-host[data-level="item"]) .csa-toolbar{left:170px}
+.csa-visual .csa-qp-bottom{position:absolute;inset:0;padding:0;pointer-events:none}
+.csa-visual .csa-qp-footer-tools{position:absolute;right:24px;bottom:20px;z-index:15;pointer-events:auto}
+.csa-visual .csa-qp-map-footer{position:absolute;left:24px;right:24px;bottom:20px;z-index:15;pointer-events:none;padding:0;background:transparent}
+.csa-visual .csa-qp-map-footer>div{pointer-events:auto}
+.csa-visual .csa-qp-map-legend{font-size:10px}
+.csa-visual .csa-qp-svg .csa-qp-tick rect{fill:none;stroke:#303030;stroke-width:1;vector-effect:non-scaling-stroke}
+.csa-visual .csa-qp-svg .ai-operation-glyph text{font:12px ui-monospace,monospace}
+.csa-visual .csa-qp-node rect{rx:17px}
+.csa-visual .csa-qp-node .ai-operation-category circle{fill:#222}
+.csa-visual .csa-qp-node:is(.is-selected,.is-related) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important}
+.csa-visual .csa-qp-node.is-selected .ai-operation-glyph text{fill:#111}
+.viz2-intra .viz2-anatomy-workspace{position:absolute!important;inset:0!important;background:transparent!important}
+.viz2-intra .viz2-anatomy-viewport{position:absolute!important;inset:0!important;overflow:hidden!important;touch-action:none;cursor:grab}
+.viz2-intra .viz2-anatomy-track{height:100%!important}
+.viz2-intra .viz2-intra-card{position:absolute!important;inset:0!important;height:100%!important;max-height:none!important;min-height:0!important;padding:0!important;background:transparent!important}
+.viz2-intra .viz2-intra-card>header{position:absolute!important;left:24px;top:110px;z-index:5;pointer-events:none;background:transparent!important}
+.viz2-intra .viz2-intra-tick-scroll{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;overflow:hidden!important;padding:0!important;touch-action:none;background:transparent!important}
+.viz2-intra .viz2-intra-svg{width:100%!important;height:100%!important}
+.viz2-intra .viz2-anatomy-taskbar{position:absolute;z-index:12;top:60px;left:24px;right:auto;background:transparent!important;pointer-events:none}
+.viz2-intra .viz2-anatomy-taskbar button{pointer-events:auto}
+@media(max-width:800px){.csa-visual .csa-toolbar{top:110px}.csa-visual .csa-qk-scenario,.csa-visual .csa-qp-context{top:142px}.csa-visual .csa-qp-item-top{top:150px}.csa-visual .csa-qp-unit-nav{max-width:calc(100% - 48px);bottom:76px}.csa-visual .csa-qp-unit-nav>[data-qp-back]{top:108px}.csa-visual .csa-explorer:has(.csa-qk-pipeline-host[data-level="item"]) .csa-toolbar{left:170px}}
+
+.viz2-intra .viz2-anatomy-taskbar{position:fixed!important;top:60px!important;left:24px!important;padding:0!important;min-height:36px!important}
+.viz2-intra .viz2-intra-tick-hit{stroke:#303030!important;stroke-width:1!important}
+.csa-visual .csa-qp-svg .ai-operation-glyph [data-kind="op"]>rect{fill:color-mix(in srgb,var(--slot-color,#80b7f7) 15%,#333)!important}
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important}
+
+.viz2-intra .viz2-anatomy-taskbar{left:160px!important}
+.csa-visual .csa-qp-item-top b{display:inline-flex;align-items:center;gap:8px;min-width:156px;min-height:36px;padding:4px 10px;box-sizing:border-box;background:#262626;font-size:13px;font-weight:600}
+.csa-visual .csa-qp-item-top b>svg{position:static;width:26px;height:26px;flex:none}
+.csa-visual .csa-qp-item-meta{margin-top:8px;font-size:11px}
+
+/* OP icon sizing: glyph has its own inset inside the circular category badge. */
+.viz2 .legend-icon{width:24px;height:24px}
+.viz2 .legend-icon svg{width:14px;height:14px;stroke-width:1.5}
+.viz2 .legend-icon>span{font-size:12px;line-height:1}
+.viz2 .ai-operation-category path{vector-effect:none}
+
+.csa-visual .csa-qp-node .csa-qp-hit{fill:transparent!important;stroke:none!important;pointer-events:all}
+.csa-qp-hover-tip{position:fixed;z-index:90;max-width:360px;padding:12px 14px;border-radius:10px;background:#292929;color:#ddd;font:13px/1.6 sans-serif;white-space:pre-line;pointer-events:none}
+.csa-qp-hover-tip[hidden]{display:none}
+.csa-visual .csa-qp-node:is(.is-selected,.is-related) .ai-operation-glyph text{fill:#111}
+
+/* Canvas objects use fill feedback, including browser keyboard/click focus. */
+body.ai-extracted svg :is([tabindex],[role="button"],[role="checkbox"]):focus{outline:none!important;box-shadow:none!important}
+.csa-visual .csa-qk-canvas-lane:is(:hover,:focus-visible,.is-selected,.is-containing)>rect{stroke:none!important;fill:#252525!important;filter:none!important}
+.csa-visual .csa-qk-canvas-group:is(:focus-visible,.is-focused)>rect{stroke:none!important;fill:#252525!important}
+.csa-visual .csa-qk-canvas-item:is(:focus-visible,.is-selected,.is-related) rect{stroke:none!important;filter:none!important}
+.csa-visual .csa-qk-canvas-item:focus-visible rect{fill:#e8c85c!important;fill-opacity:1!important}
+.csa-visual .csa-qp-node:is(:focus-visible,.is-selected,.is-related) rect{stroke:none!important;filter:none!important}
+
+.viz2 svg [role="button"]:focus-visible>rect{stroke:none!important;fill:#353535}
+
+/* Hit regions never paint; state changes only recolor the fixed 34-unit capsule. */
+.csa-visual .csa-qp-svg .csa-qp-node{--slot-color:#80b7f7}
+.csa-visual .csa-qp-svg .csa-qp-node[data-qp-batch="1"]{--slot-color:#81d8c4}
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible)>.csa-qp-hit,
+.csa-visual .csa-qp-svg .csa-qp-node>.csa-qp-hit{fill:transparent!important;stroke:none!important;filter:none!important}
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color)!important;stroke:none!important}
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text{fill:#111!important}
+.csa-visual .csa-qp-svg .csa-qp-node .ai-operation-slot{fill:#aaa!important}
+.csa-visual .csa-qp-svg [data-qp-link-batch="1"]{--slot-color:#81d8c4}
+.csa-visual .csa-qp-svg :is(.csa-qp-timeline-data,.csa-qp-timeline-reuse).is-related{stroke:var(--slot-color,#80b7f7)!important}
+
+.csa-visual .csa-qp-unit-nav{position:fixed;bottom:auto;background:transparent;padding:0;max-width:none;border-radius:0;min-height:30px}
+.csa-qp-item-picker{display:flex;align-items:center;gap:12px;color:#777}
+.csa-qp-item-picker .explorer-dropdown-trigger{font-size:12px;max-width:240px}
+
+/* Graph hover remains visible without selection rings. */
+:is(.viz2,.csa-explorer) .legend-skin .kf-pypa-graph__node.is-hovered{background:#606060!important;color:#eee!important;border-color:transparent!important;box-shadow:none!important}
+:is(.viz2,.csa-explorer) .legend-skin .kf-pypa-graph__node.is-hovered .legend-text :is(b,small){color:#eee!important}
+:is(.viz2,.csa-explorer) .legend-skin .legend-data.is-hovered{background:transparent!important}
+:is(.viz2,.csa-explorer) .legend-data.is-hovered .ai-role-outline{fill:color-mix(in srgb,var(--graph-semantic-color) 28%,#171717)!important}
+:is(.viz2,.csa-explorer) .viz2-graph-scene [data-pypa-edge].is-viz2-related{stroke:#c8c8c8!important;opacity:1}
+
+:is(.viz2,.csa-explorer) .viz2-graph-scene [data-pypa-edge].is-viz2-related{color:#c8c8c8!important;stroke:#c8c8c8!important}
+
+/* Unified, compact object inspector surface. */
+:is(.viz2,.csa-explorer) .viz2-graph-inspector{background:#222!important;max-height:calc(100vh - 110px);height:auto!important;bottom:auto!important;border-radius:18px!important}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector :is(.pto-ide-frame__pane-header,.pto-ide-frame__pane-body){background:transparent!important}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector .pto-ide-frame__pane-header{padding:14px 18px!important;min-height:0;border-bottom:0!important}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector .pto-ide-frame__pane-header b{font-size:16px;font-weight:600}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector .pto-ide-frame__pane-body{padding:0 18px 18px!important;font-size:13px;line-height:1.65}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector section{padding:12px 0;border-top:1px solid #333}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector h3{font-size:12px;color:#aaa;margin:0 0 8px;font-weight:500}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector .graph-detail-overview{border:0;padding-top:0}
+.graph-detail-overview p{margin:0;color:#e4e4e4;font-size:13px;line-height:1.7}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector dl{display:grid;grid-template-columns:64px minmax(0,1fr);gap:7px 12px}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector :is(dt,dd){margin:0;font-size:12px;line-height:1.6}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector dt{color:#888}
+:is(.viz2,.csa-explorer) .viz2-graph-inspector dd{color:#ccc}
+.graph-evidence-details{font-size:12px;color:#aaa}
+
+/* Upstream 116fa06b / Issue #160: paths must not form black filled faces. */
+.viz2 .kf-pypa-graph__edge,.viz2 .kf-pypa-graph__edge-hit{fill:none!important}
+.viz2 :is(.kf-pypa-graph__sync-path,.kf-pypa-graph__edge-hit){fill:none!important}
+
+/* Upstream visual encoding; local spatial layout remains authoritative. */
+/* Reference contrast pass: neutral idle, solid semantic ink on interaction. */
+:is(.viz2,.csa-explorer) .legend-data .ai-role-tensor text{stroke:none!important;paint-order:normal!important;font-weight:600}
+:is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .ai-role-outline{fill:var(--data-role)!important;fill-opacity:.65!important}
+:is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .data-tile{opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data:is(.is-hovered,.is-selected,.is-related,.is-viz2-related) .ai-role-tensor text{fill:#080b0b!important}
+.viz2 [data-intra-kind="stage"] .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .ai-operation-glyph [data-kind="op"]>rect{fill:#454545!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text{fill:#101010!important;font-weight:600}
+:is(.viz2,.csa-explorer) .ai-operation-category circle{fill:#202020!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover) .ai-operation-category circle,
+.csa-visual .csa-qp-node:is(.is-selected,.is-related,:hover) .ai-operation-category circle{fill:color-mix(in srgb,var(--slot-color,#80b7f7) 40%,#07121f)!important}
+:is(.viz2,.csa-explorer) .ai-operation-category path{stroke:#fff!important;stroke-width:1.8}
+
+
+/* Semantic OP categories reuse reference hues; slot colors remain on dependencies. */
+.ai-operation-glyph{--op-fill:#ef8844;--op-badge:#ba2c0b}
+.ai-operation-glyph[data-op-category="softmax"]{--op-fill:#7970eb;--op-badge:#3023bb}
+.ai-operation-glyph[data-op-category="reduce"]{--op-fill:#a267de;--op-badge:#5722a0}
+.ai-operation-glyph[data-op-category="cache"]{--op-fill:#32bdd4;--op-badge:#087e9e}
+.ai-operation-glyph[data-op-category="exchange"]{--op-fill:#52b99b;--op-badge:#176c56}
+.viz2 .viz2-intra-svg [data-intra-scene].has-selection [data-intra-kind="stage"]:is(.is-upstream,.is-related,.is-selected,:hover){opacity:1!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--op-fill)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"] text{fill:#fff!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover) .ai-operation-category circle,
+.csa-visual .csa-qp-node:is(.is-selected,.is-related,:hover) .ai-operation-category circle{fill:var(--op-badge)!important}
+/* A continuous label field keeps tensor texture away from glyph strokes. */
+:is(.viz2,.csa-explorer) .legend-data .ai-role-outline{fill:var(--data-role)!important;fill-opacity:.8!important}
+:is(.viz2,.csa-explorer) .legend-data .data-tile{opacity:.6!important}
+:is(.viz2,.csa-explorer) .legend-data .ai-role-label-band{fill:var(--data-role)!important;opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data .ai-role-tensor text{fill:#080b0b!important;stroke:none!important}
+
+/* Pipeline color identifies the carried slot, shared by edges and consumers. */
+.viz2 .viz2-intra{--intra-slot-0:#ef8844;--intra-slot-1:#32bdd4;--intra-slot-2:#a267de}
+.csa-visual .csa-qp-svg .csa-qp-node{--slot-color:#ef8844}
+.csa-visual .csa-qp-svg .csa-qp-node[data-qp-batch="1"],
+.csa-visual .csa-qp-svg [data-qp-link-batch="1"]{--slot-color:#32bdd4}
+.csa-visual .csa-qp-svg [data-qp-link-batch="0"]{--slot-color:#ef8844}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect,
+.csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color)!important}
+.viz2 [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover) .ai-operation-category circle,
+.csa-visual .csa-qp-node:is(.is-selected,.is-related,:hover) .ai-operation-category circle{fill:color-mix(in srgb,var(--slot-color) 45%,#111)!important}
+
+/* Fine, continuous tensor grid: narrow gutters, saturated tiles, no label plate. */
+:is(.viz2,.csa-explorer) .legend-data .ai-role-outline{fill:color-mix(in srgb,var(--data-role) 78%,#242424)!important;fill-opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data .data-tile{fill:var(--data-role)!important;opacity:1!important}
+:is(.viz2,.csa-explorer) .legend-data[data-semantic-role="aggregate"]{--data-role:#ffbc20!important}
+
+
+.viz2 .kf-pa-map__task-id{display:block!important;fill:#ddd;font:6px var(--font-mono);pointer-events:none}
+.viz2 .viz2-am-task .ai-q-dot{fill:#aaa!important}
+.viz2 .viz2-am-task:is(:hover,.is-selected) .ai-q-dot{fill:var(--ai-data-fill)!important}
+.viz2 .viz2-graph-scene:not([data-overlay-sync="false"]) .kf-pypa-graph__sync-marker{display:flex!important}
+.viz2 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker{display:none!important}
+.viz2 .viz2-graph-scene:not([data-overlay-execution="false"]) [data-pypa-execution-count]{visibility:visible!important;pointer-events:auto!important;z-index:5}
+.viz2 .kf-pypa-graph__execution-layer{border:1.5px solid #888!important;background:#333!important}
+.viz2 .kf-pypa-graph__execution-layer{border:0!important;box-shadow:none!important;background:var(--execution-layer-fill,#383838)!important}
+.viz2 .viz2-am-task .ai-q-dot{fill:#ccc!important;fill-opacity:1!important}
+.viz2 .viz2-graph-scene .kf-pypa-graph__edge-label:is([data-edge-type="state"],[data-edge-type="feedback"]){opacity:.8}
+
+/* Keep pipeline ownership visible and distinguish data flow from slot reuse. */
+.viz2 .viz2-intra-svg [data-intra-kind="stage"] .ai-operation-glyph [data-kind="op"]>rect { fill:color-mix(in srgb,var(--slot-color) 22%,#242424)!important; stroke:none!important; }
+.viz2 .viz2-intra-svg [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect { fill:var(--slot-color)!important; stroke:none!important; }
+.viz2-intra-svg .viz2-intra-flow { stroke-width:1.5; opacity:.95; }
+.viz2-intra-svg .viz2-intra-reuse { stroke-width:2; opacity:.55; }
+
+.viz2-intra-svg .viz2-intra-reuse.is-highlighted { opacity:1; stroke-width:2.5; }
+.viz2-intra-svg [data-intra-kind="tick"].is-related > rect { fill:var(--surface-3); fill-opacity:.6; }
+
+/* Slot metadata sits outside the colored operation body. */
+.viz2 .viz2-intra-svg [data-intra-kind="stage"] .ai-operation-glyph > .ai-operation-slot { fill:#bcbcbc!important; fill-opacity:1!important; opacity:1!important; }
+.viz2 .viz2-intra-svg [data-intra-kind="stage"]:is(:hover,:focus-visible,.is-selected,.is-related) .ai-operation-glyph > .ai-operation-slot { fill:#eee!important; }
+
+/* READY events retain their slot ring when the whole Stack is highlighted. */
+.viz2 .viz2-intra-svg [data-intra-kind="event"] > .viz2-intra-event {
+  fill:var(--surface-2)!important;
+  stroke:var(--slot-color)!important;
+  stroke-width:1.5;
+  stroke-opacity:1;
+}
+.viz2 .viz2-intra-svg [data-intra-kind="event"]:is(:hover,:focus-visible,.is-selected,.is-related) > .viz2-intra-event {
+  stroke-width:2;
+}
+
+/* Cross-tick transfers brighten only for the active Stack or READY event. */
+.viz2 .viz2-intra-svg [data-intra-dependency$=":probability_transfer"] {
+  opacity:.32;
+  stroke-width:1;
+}
+.viz2 .viz2-intra-svg [data-intra-stack-path].is-related [data-intra-dependency$=":probability_transfer"],
+.viz2 .viz2-intra-svg [data-intra-dependency$=":probability_transfer"].is-related {
+  opacity:1;
+  stroke-width:1.8!important;
+}
+
+/* One visual intensity scale for every pipeline connection. */
+.viz2 .viz2-intra-svg :is(.viz2-intra-flow,.viz2-intra-reuse,.viz2-intra-output-link) {
+  opacity:.45!important;
+  stroke-width:1.5!important;
+}
+.viz2 .viz2-intra-svg [data-intra-stack-path].is-related .viz2-intra-flow,
+.viz2 .viz2-intra-svg .viz2-intra-flow.is-related,
+.viz2 .viz2-intra-svg .viz2-intra-reuse:is(.is-highlighted,.is-related,.is-selected,:hover,:focus-visible) {
+  opacity:1!important;
+  stroke-width:2!important;
+}

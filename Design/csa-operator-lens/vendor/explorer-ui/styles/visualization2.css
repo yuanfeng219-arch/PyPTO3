@@ -1,0 +1,131 @@
+/* A single canvas pane inside the existing shared IDE frame. */
+#ideWorkarea[data-visualization2="open"] > :not(.viz2) { display: none !important; }
+.viz2[hidden], .viz2 [hidden] { display: none !important; }
+.viz2 { flex: 1; min-width: 0; min-height: 0; width: 100%; }
+.viz2-header { flex: none; gap: var(--space-3); }
+.viz2-header .pto-ide-frame__pane-meta { margin-left: auto; }
+.viz2-content { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.viz2-tabs { flex: none; justify-content: center; padding: var(--space-3) var(--space-5); }
+.viz2-tabs .tab-control-item { display: inline-flex; align-items: center; gap: var(--space-2); }
+.viz2-tab-icon { display: inline-block; flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: var(--viz2-tab-icon) center / contain no-repeat; mask: var(--viz2-tab-icon) center / contain no-repeat; }
+.viz2-tab-icon--assignment { --viz2-tab-icon: url('../assets/viz2-tabs/assignment.svg'); }
+.viz2-tab-icon--pipeline { --viz2-tab-icon: url('../assets/viz2-tabs/pipeline.svg'); }
+.viz2-tab-icon--graph { --viz2-tab-icon: url('../assets/viz2-tabs/graph.svg'); }
+.viz2-canvas { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.viz2 .kf-pa-map { padding-top: var(--space-2); }
+.viz2 .kf-pa-map__context { font: var(--type-label); margin-top: var(--space-3); }
+@media (max-width: 720px) {
+  .viz2-header { flex-wrap: wrap; }
+  .viz2-header .pto-ide-frame__pane-meta { display: none; }
+  .viz2 .kf-pa-map { padding-inline: var(--space-3); }
+  .viz2 .kf-pa-map__shelf-label { flex-wrap: wrap; }
+  .viz2 .kf-pa-map__footer { flex-wrap: wrap; }
+}
+/* Phase0 owns its data diagram; existing Attention matrix styles are unchanged. */
+#viz2-assignment { display: flex; flex-direction: column; }
+.viz2-phase-toolbar { flex: none; padding: 0 var(--space-5) var(--space-2); }
+/* All scope switches share one canvas-space position across tabs. */
+.viz2-phase-toolbar > .segmented-control[aria-label$="范围"],
+#viz2-assignment [data-viz2-phases] {
+  position: absolute;
+  z-index: 6;
+  left: var(--space-3);
+  box-shadow: var(--shadow-md);
+}
+#viz2-assignment [data-viz2-phases] { top: calc(50% - 44px); transform: translateY(-100%); }
+.viz2-phase-toolbar > .segmented-control[aria-label$="范围"] {
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  align-items: stretch;
+}
+.viz2-phase-toolbar > .segmented-control[aria-label$="范围"] > .btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; padding-inline: var(--space-2); }
+.viz2-block-scope-icon { display: block; width: 20px; height: 20px; background: currentColor; -webkit-mask: url('../assets/viz2-tabs/block-scope.svg') center / contain no-repeat; mask: url('../assets/viz2-tabs/block-scope.svg') center / contain no-repeat; }
+.viz2-block-scope-icon--inter { transform: rotate(180deg); }
+@media (max-width: 720px) {
+  .viz2-phase-toolbar > .segmented-control[aria-label$="范围"],
+  #viz2-assignment [data-viz2-phases] { left: var(--space-2); }
+}
+.viz2-phase-surface { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.viz2-p0-summary { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); padding: var(--space-2) var(--space-5); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-p0-summary b { color: var(--foreground); font-family: var(--font-mono); }
+.viz2-p0-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.viz2-p0-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.viz2-p0-operations { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2) var(--space-5); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-p0-operations b { color: var(--foreground); margin-right: var(--space-3); }
+.viz2-p0-operations i { color: var(--foreground-muted); font-style: normal; }
+.viz2-p0-viewport { position: relative; flex: 1; min-height: 120px; overflow: hidden; touch-action: none; cursor: grab; }
+.viz2-p0-viewport.is-dragging { cursor: grabbing; }
+.viz2-p0-svg { display: block; width: 100%; height: 100%; overflow: hidden; user-select: none; }
+.viz2-p0-svg text { font: var(--type-mono); font-size: var(--p0-label-size, 12px); fill: var(--foreground-secondary); pointer-events: none; }
+.viz2-p0-link { stroke: var(--foreground-muted); stroke-opacity: .45; stroke-width: 1; fill: none; }
+/* The Block boundary and lane marks encode hardware membership and work, not UI cards. */
+.viz2-p0-boundary { fill: var(--surface-2); }
+.viz2-p0-block.is-idle .viz2-p0-boundary { fill: var(--surface-1); stroke: var(--border-default); stroke-dasharray: 3 4; }
+.viz2-p0-block.is-idle .viz2-p0-mark { fill: var(--surface-3); }
+.viz2-p0-hit { fill: transparent; }
+.viz2-p0-block-target, .viz2-p0-lane { cursor: pointer; }
+.viz2-p0-lane-fill { fill: var(--surface-3); }
+.viz2-p0-mark { fill: var(--surface-4); }
+.viz2-p0-mark.is-work { fill: var(--primary); fill-opacity: .7; }
+.viz2-p0-block.is-selected .viz2-p0-boundary { stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: none; }
+.viz2-p0-lane:hover .viz2-p0-lane-fill, .viz2-p0-lane.is-selected .viz2-p0-lane-fill { fill: var(--state-selected); }
+.viz2-p0-lane.is-selected text { fill: var(--foreground); }
+.viz2-p0-mark.is-focused { fill: var(--foreground); fill-opacity: 1; }
+.viz2-p0-block-target:hover text { fill: var(--foreground); }
+.viz2-p0-lane:focus-visible .viz2-p0-lane-fill, .viz2-p0-block-target:focus-visible .viz2-p0-hit { stroke: var(--focus-ring); stroke-width: 2; }
+.viz2-p0-barrier rect { fill: var(--surface-3); }
+.viz2-p0-barrier text { fill: var(--foreground); }
+.viz2-p0-next { fill: var(--foreground) !important; }
+.viz2-p0-footer { display: flex; flex: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2) var(--space-5) var(--space-3); font: var(--type-body-sm); color: var(--foreground-muted); }
+.viz2-p0-inspector { flex: 0 0 300px; min-width: 0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
+.viz2-p0-inspector .pto-ide-frame__pane-header { justify-content: space-between; }
+.viz2-p0-inspector .pto-ide-frame__pane-body { padding: 0 var(--space-4) var(--space-4); overflow: auto; font: var(--type-body); }
+.viz2-p0-detail-section { padding-block: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.viz2-p0-detail-section h3 { margin: 0 0 var(--space-2); font: var(--type-title-3); }
+.viz2-p0-detail-section h3 small { color: var(--foreground-muted); font: var(--type-body-sm); margin-left: var(--space-2); }
+.viz2-p0-inspector p { color: var(--foreground-secondary); margin: var(--space-3) 0; }
+.viz2-p0-inspector code { font: var(--type-mono); color: var(--foreground-secondary); }
+.viz2-p0-table { width: 100%; border-collapse: collapse; font: var(--type-mono); text-align: left; }
+.viz2-p0-table th { font: var(--type-label); color: var(--foreground-muted); padding-bottom: var(--space-2); }
+.viz2-p0-table td { padding-block: var(--space-1); color: var(--foreground-secondary); }
+.viz2-p0-table .is-focused { background: var(--state-selected); }
+@media (max-width: 900px) {
+  .viz2-p0-body { position: relative; }
+  .viz2-p0-inspector { position: absolute; right: 0; top: 0; bottom: 0; width: min(300px, 80%); z-index: 4; }
+  .viz2-p0-summary { gap: var(--space-2) var(--space-3); }
+}
+
+/* A screen-space overlay owns Morph only; neither view's layout is animated. */
+.viz2 { position: relative; }
+.viz2-transition-overlay { position: absolute; inset: 0; overflow: hidden; z-index: 12; pointer-events: none; }
+.viz2.viz2-morph-preparing[data-morph-destination="pipeline"] #viz2-pipeline,
+.viz2.viz2-morph-preparing[data-morph-destination="assignment"] #viz2-assignment,
+.viz2.viz2-morph-preparing[data-morph-destination="graph"] #viz2-graph { visibility: hidden; }
+.viz2.viz2-morph-graph #viz2-graph-inter [data-viz2-graph-block] { visibility: hidden; }
+.viz2.viz2-morph-assignment #viz2-attention [data-pa-block],
+.viz2.viz2-morph-assignment #viz2-attention [data-pa-task] { visibility: hidden; }
+
+/* Global narrative perspective control; shares the existing toolbar skin. */
+.viz2-story-toggle{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+.viz2-story-indicator{width:26px;height:16px;border:1px solid currentColor;border-radius:9px;display:inline-flex;align-items:center;padding:2px;opacity:.7}
+.viz2-story-indicator::after{content:"";width:10px;height:10px;background:currentColor;border-radius:50%;transition:transform 180ms ease-out}
+.viz2-story-toggle[aria-checked="true"] .viz2-story-indicator::after{transform:translateX(10px)}
+.viz2-story-toggle:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.viz2-story-indicator::after{transition:none}}
+
+/* Narrative context shares the IDE frame; the graph remains the original canvas. */
+.viz2-photo-guide{padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary);background:var(--surface-secondary)}
+.viz2-photo-guide[hidden]{display:none}.viz2-photo-guide p{margin:2px 0;line-height:1.5}.viz2-photo-guide>p{color:var(--text-primary);font-weight:500}.viz2-photo-guide details{margin-top:3px}.viz2-photo-guide summary{cursor:pointer;width:fit-content}.viz2-photo-guide details[open]{max-height:110px;overflow:auto}
+body.ai-extracted .viz2>.viz2-photo-guide{position:absolute;top:56px;left:24px;right:24px;z-index:15;display:flex;align-items:center;gap:16px;padding:6px 10px;background:var(--card,#252525);border:1px solid var(--border,#444);border-radius:6px;font-size:11px;pointer-events:auto}
+body.ai-extracted .viz2-photo-guide>p{flex:1;min-width:0;white-space:normal;color:var(--foreground,#eee)}
+body.ai-extracted .viz2-photo-guide details{flex:none;margin:0;color:var(--foreground-secondary,#bbb)}
+body.ai-extracted .viz2-photo-guide details[open]{position:absolute;right:0;top:0;width:min(520px,90vw);max-height:180px;padding:10px;background:var(--card,#252525);border:1px solid var(--border,#444);border-radius:6px}
+@media(max-width:700px){body.ai-extracted .viz2>.viz2-photo-guide{top:98px;left:12px;right:12px}body.ai-extracted .viz2-photo-guide details:not([open]) summary{max-width:70px}}
+/* Keep the summary left of the centered view tabs in the extracted shell. */
+body.ai-extracted .viz2>.viz2-photo-guide{top:56px;right:auto;width:380px;max-width:calc(50vw - 220px);box-sizing:border-box;gap:8px;border:0;padding:4px 0;background:transparent;font-size:10px}
+body.ai-extracted .viz2-photo-guide>p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+body.ai-extracted .viz2-photo-guide details:not([open]) summary{font-size:0;width:16px}
+body.ai-extracted .viz2-photo-guide details:not([open]) summary::after{content:'ⓘ';font-size:13px}
+body.ai-extracted .viz2-photo-guide details[open]{left:0;right:auto;width:min(520px,90vw);font-size:12px}
+@media(max-width:700px){body.ai-extracted .viz2>.viz2-photo-guide{top:98px;max-width:calc(100vw - 24px);width:calc(100vw - 24px)}}

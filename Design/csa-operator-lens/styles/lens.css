@@ -1,0 +1,216 @@
+/* CSA Operator Lens：在 workbench（Hardware-Native）样式之上补充四层切换、L1 整层图、L2 Kernel 派发与详情栏。
+ * 颜色一律走 path.css 的 :root 变量；硬件角色色（lime / lav / amber / sky）只用于和硬件同义的地方。 */
+
+/* ── 三栏：源码 | 画布 | 详情 ── */
+@media (min-width: 1101px) {
+  .hp-main { grid-template-columns: clamp(320px, var(--code-width, 26%), max(320px, calc(100% - 940px))) minmax(0, 1fr) minmax(320px, 350px); }
+}
+.lens-mid { display: flex; flex-direction: column; background: var(--canvas); min-height: 0; }
+.lens-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.lens-view[hidden], .lens-side-view[hidden], .hp-code-body[hidden] { display: none; }
+.lens-view > .hp-pane-head { flex: none; }
+.lens-side { display: flex; flex-direction: column; }
+.lens-side-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+/* L3 / L4 容器不用 .hp-mid：workbench 的 .hp-main:has(.hp-mid[hidden]) 会把三栏收成两栏 */
+.lens-tile { background: var(--canvas); }
+/* L2 → L3：带入一个 Work Item 时，逻辑图只亮它会走的路径，并叠加实例数据 */
+.lens-ctx { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--divider); font-size: 12.5px; color: var(--muted); }
+.lens-ctx[hidden] { display: none; }
+.lens-ctx b { color: var(--text); font-weight: 600; }
+.lens-ctx-k { font: 600 10px/1.6 var(--mono); letter-spacing: .14em; color: var(--dim); text-transform: uppercase; }
+.lens-ctx-v { color: #cfcfcf; }
+.lens-ctx-note { flex-basis: 100%; font-size: 11.5px; color: var(--dim); }
+.lens-ctx-x { margin-left: auto; width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font: 15px/1 var(--sans); cursor: pointer; }
+.lens-ctx-x:hover, .lens-ctx-x:focus-visible { background: var(--raised); color: var(--text); outline: none; }
+#hpLensPane.has-ctx .lg-hit:not(.is-ctx) > *, #hpLensPane.has-ctx .lg-edge { opacity: .3; }
+#hpLensPane.has-ctx .lg-hit.is-ctx > * { opacity: 1; }
+.lg-ctx-badge rect { fill: #232e36; }
+.lg-ctx-badge text { fill: #add0de; font-size: 9px; }
+#hpCode.has-ctx .cl:not(.is-ctx) .cl-text { opacity: .5; }
+#hpCode.has-ctx .cl.is-ctx .cl-mark { box-shadow: inset 2px 0 0 #9aa3b5; }
+.lens-preview { display: grid; gap: 4px; margin: 0 0 10px; padding: 10px 12px; border-radius: 4px; background: #1d2328; font-size: 12.5px; line-height: 1.7; color: #c4c4c4; }
+.lens-preview b { color: #add0de; font-weight: 600; }
+
+/* L3 只看算子逻辑；L4 逻辑在上、硅片在下 */
+#hpLensPane[data-zoom="logic"] .hp-chip, #hpLensPane[data-zoom="logic"] .hp-splitter { display: none; }
+#hpLensPane[data-zoom="logic"] .hp-logic { flex: 1 1 auto; max-height: none; }
+
+/* ── 顶栏：层级切换与路径 ── */
+.lens-levels { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 5px; overflow: hidden; }
+.lens-levels button { height: 34px; padding: 0 12px; border: 0; border-right: 1px solid var(--border); background: transparent;
+  color: var(--muted); font: 13px var(--sans); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lens-levels button:last-child { border-right: 0; }
+.lens-levels button b { font: 600 11px var(--mono); color: var(--dim); }
+.lens-levels button:hover, .lens-levels button:focus-visible { background: var(--raised); color: var(--text); outline: none; }
+.lens-levels button[aria-selected="true"] { background: #e0e0e0; color: #111; font-weight: 600; }
+.lens-levels button[aria-selected="true"] b { color: #444; }
+.lens-levels button[disabled] { opacity: .35; cursor: not-allowed; }
+.lens-crumb { display: inline-flex; align-items: center; min-width: 0; }
+.lens-crumb button { border: 0; background: transparent; padding: 2px 4px; border-radius: 3px; color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap; }
+.lens-crumb button:hover, .lens-crumb button:focus-visible { color: var(--text); background: var(--raised); outline: none; }
+.lens-crumb button[aria-current="true"] { color: var(--text); font-weight: 500; cursor: default; background: transparent; }
+.lens-crumb i { font-style: normal; color: var(--dim); margin: 0 2px; }
+
+/* 页面只有一列：限定为 minmax(0,1fr)，否则最长的一行内容会把窄屏的布局视口撑宽 */
+.hp-app { grid-template-columns: minmax(0, 1fr); }
+/* 状态栏两段都可省略，不能把窄屏的布局视口撑宽 */
+.hp-status-main, .hp-status-dim { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* 栏头：标题不换行，说明文字可省略 */
+.hp-pane-head .hp-pane-title { flex: none; white-space: nowrap; }
+.hp-pane-head .hp-pane-meta { min-width: 0; flex: 0 1 auto; }
+
+/* ── 源码（L1 / L2 整文件） ── */
+.lens-src .cl { cursor: pointer; }
+.lens-src .cl.is-dim .cl-text { opacity: .45; }
+.lens-src .cl.is-sel { background: #222; }
+.lens-src .cl.is-sel .cl-mark { box-shadow: inset 2px 0 0 var(--amber); }
+.lens-src .cl.is-sel .cl-no { color: var(--text); }
+.lens-src .cl-gap { display: grid; grid-template-columns: 14px 44px 1fr; color: #555; font-size: 11px; line-height: 22px; user-select: none; }
+.lens-src .cl-gap span:last-child { border-top: 1px dashed #2a2a2a; border-bottom: 1px dashed #2a2a2a; padding: 0 10px 0 6px; margin: 2px 0; width: max-content; }
+
+/* ── 画布公共 ── */
+.lens-chain, .lens-lanes { background-image: radial-gradient(#1a1a1a .7px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px; }
+.lens-view .pane-info { margin-left: 8px; }
+.lens-view .hp-pane-meta + .pane-info, .lens-view .hp-pane-meta + details { margin-left: auto; }
+
+/* L1：Explorer-UI Graph 图元放在 iframe 里，样式互不影响 */
+.lens-frame { flex: 1; min-height: 0; width: 100%; border: 0; display: block; background: #131313; }
+
+/* L2：视角切换、工具条、Kernel 链、Assignment / Pipeline */
+.lens-tabs { display: inline-flex; margin-left: auto; border: 1px solid var(--border-strong); border-radius: 5px; overflow: hidden; flex: none; }
+.lens-tabs button { height: 26px; padding: 0 12px; border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+.lens-tabs button:last-child { border-right: 0; }
+.lens-tabs button:hover, .lens-tabs button:focus-visible { background: var(--raised); color: var(--text); outline: none; }
+.lens-tabs button[aria-selected="true"] { background: #e0e0e0; color: #111; font-weight: 600; }
+.lens-tabs button:disabled { opacity: .35; cursor: not-allowed; }
+.lens-tabs + .pane-info { margin-left: 8px !important; }
+.lens-bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 6px 14px; border-top: 1px solid var(--divider); min-height: 0; }
+.lens-bar:empty { display: none; }
+.lens-bar-k { font: 11px var(--mono); color: var(--dim); }
+.lens-ic { width: 28px; height: 26px; border: 1px solid var(--border-strong); border-radius: 4px; background: transparent; color: var(--text); font: 11px var(--mono); cursor: pointer; }
+.lens-ic:hover, .lens-ic:focus-visible { background: var(--raised); outline: none; }
+.lens-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 4px; overflow: hidden; }
+.lens-seg button { height: 26px; padding: 0 10px; border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+.lens-seg button:last-child { border-right: 0; }
+.lens-seg button:hover, .lens-seg button:focus-visible { background: var(--raised); color: var(--text); outline: none; }
+.lens-seg button[aria-pressed="true"] { background: #e0e0e0; color: #111; font-weight: 600; }
+.lens-field { display: inline-flex; align-items: center; gap: 6px; font: 12px var(--sans); color: var(--muted); }
+.lens-field select { height: 26px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: 4px; background: #1b1b1b; color: var(--text); font: 12px var(--mono); }
+.lens-field select:disabled { opacity: .45; }
+.lens-check { display: inline-flex; align-items: center; gap: 6px; font: 12px var(--sans); color: var(--muted); cursor: pointer; }
+.lens-bar .lens-chip { margin-left: auto; }
+.lens-legend-bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 7px 14px; border-top: 1px solid var(--divider); background: var(--surface); }
+.lens-legend-bar:empty { display: none; }
+.lens-key { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.lane-sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
+.lane-sw.k-win { background: #5d7d3a; }
+.lane-sw.k-cmp, .lane-sw.k-r0 { background: #6f5b9b; }
+.lane-sw.k-r1 { background: #4a5f73; }
+.lane-sw.k-idle { background: repeating-linear-gradient(45deg, #1d1d1d 0 3px, #4a4a4a 3px 4px); }
+
+.lens-chain { flex: none; max-height: 40%; overflow: auto; padding: 2px 14px 6px; }
+.lens-chain > svg { display: block; width: 100%; height: auto; }
+.lens-lanes { flex: 1; min-height: 0; overflow: auto; padding: 8px 14px 12px; border-top: 1px solid var(--divider); }
+.lens-lanes > svg { display: block; width: 100%; height: auto; min-width: 640px; }
+.lens-lanes > svg.lens-asg { height: 100%; max-height: 100%; }
+.kc-hit { cursor: pointer; }
+.kc-hit:focus { outline: none; }
+.kc-node { fill: #262626; stroke: #3a3a3a; rx: 6px; }
+.kc-hit[data-dispatch="at"] .kc-node { fill: #1f1f1f; stroke-dasharray: 3 3; }
+.kc-hit:hover .kc-node, .kc-hit:focus-visible .kc-node { stroke: #8a8a8a; }
+.kc-hit.is-hot .kc-node { stroke: var(--text); stroke-width: 1.5; }
+.kc-hit.is-sel .kc-node { fill: #e6e6e6; stroke: #e6e6e6; }
+.kc-title { fill: var(--text); font-size: 12.5px; font-family: var(--sans); font-weight: 600; }
+.kc-sub { fill: var(--dim); font-size: 10.5px; }
+.kc-hit.is-sel .kc-title { fill: #111; }
+.kc-hit.is-sel .kc-sub { fill: #444; }
+.kc-edge { fill: none; stroke: #6c7890; stroke-width: 1.2; stroke-dasharray: 4 3; }
+.kc-ext { fill: var(--dim); font-size: 10px; }
+.kc-deep { fill: var(--lime); font-size: 9px; font-weight: 600; letter-spacing: .06em; }
+.kc-hit.is-sel .kc-deep { fill: #3c5a2a; }
+
+.lane-sub { fill: var(--dim); font-size: 9.5px; }
+.lane-label { fill: var(--muted); font-size: 10px; cursor: pointer; pointer-events: auto; }
+.lane-row:hover .lane-label, .lane-row.is-sel .lane-label { fill: var(--text); }
+.lane-row.is-sel .lane-bg { fill: rgba(255, 255, 255, .05); }
+.lane-bg { fill: transparent; }
+.lane-cell { stroke: #131313; stroke-width: 1; cursor: pointer; rx: 1.5px; transition: opacity .2s; }
+.lane-cell.k-win { fill: #5d7d3a; }
+.lane-cell.k-cmp { fill: #6f5b9b; }
+.lane-cell.k-idle { fill: url(#laneIdle); }
+.lane-cell.k-r0 { fill: #6f5b9b; }
+.lane-cell.k-r1 { fill: #4a5f73; }
+.lane-cell:hover { stroke: #aaa; }
+.lane-cell.is-sel { stroke: var(--text); stroke-width: 2; }
+.lane-cell.is-mate { stroke: #b8b8b8; stroke-width: 1.2; }
+.lane-cell.is-out { opacity: .14; }
+.lane-axis { fill: var(--dim); font-size: 9.5px; }
+.asg-cell { transition: transform .8s cubic-bezier(.4, 0, .2, 1), opacity .2s; }
+.asg-labels { opacity: 0; transition: opacity .35s; pointer-events: none; }
+.asg-labels.is-on { opacity: 1; pointer-events: auto; }
+.asg-label { fill: var(--muted); font-size: 9.5px; }
+.asg-label.is-lane { cursor: pointer; }
+.asg-label.is-lane:hover, .asg-label.is-sel { fill: var(--text); }
+@media (prefers-reduced-motion: reduce) { .asg-cell, .asg-labels { transition: none; } }
+.lens-card { margin: 14px 4px; padding: 14px 16px; border-radius: 6px; background: var(--raised); color: var(--muted); font-size: 13px; line-height: 1.7; max-width: 640px; }
+.lens-card b, .lens-card code { color: var(--text); font-weight: 500; }
+.lens-card .st-k { margin-bottom: 8px; }
+
+/* ── 详情栏 ── */
+.lens-inspector { padding: 6px 20px 28px; overflow: auto; overflow-wrap: anywhere; }
+.lens-inspector .st-k { margin-top: 10px; }
+.lens-inspector .st-h { font-size: 17px; margin-bottom: 6px; }
+.lens-inspector .st-p { font-size: 13px; line-height: 1.75; color: #c4c4c4; }
+.lens-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.lens-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: #2a2a2a; color: var(--muted); font: 11px var(--mono); white-space: nowrap; }
+.lens-chip.is-real { background: #283024; color: #bfd2aa; }
+.lens-chip.is-syn { background: #232e36; color: #add0de; }
+.lens-chip.is-proj { background: #3a3220; color: var(--amber); }
+.lens-kv { margin: 0 0 6px; }
+.lens-kv > div { padding: 10px 0; }
+.lens-kv dt { font: 600 10px/1.6 var(--mono); letter-spacing: .14em; color: var(--dim); text-transform: uppercase; margin-bottom: 2px; }
+.lens-kv dd { margin: 0; font-size: 13px; line-height: 1.7; color: #d0d0d0; }
+.lens-kv dd code { font-size: 12px; color: var(--text); }
+.lens-src-links { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; }
+.lens-src-link { display: flex; justify-content: space-between; gap: 10px; padding: 7px 10px; border: 0; border-radius: 4px; background: #202020;
+  color: var(--muted); font: 12px var(--mono); text-align: left; cursor: pointer; }
+.lens-src-link:hover, .lens-src-link:focus-visible { background: #2a2a2a; color: var(--text); outline: none; }
+.lens-src-link b { color: var(--text); font-weight: 500; }
+.lens-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+.lens-actions .btn[disabled] { opacity: .4; }
+/* workbench 的洞察栏把 .btn 去了边框；详情栏的按钮要能一眼认出来 */
+.lens-inspector .btn { border: 0; background: #2c2c2c; color: var(--text); height: 28px; font-size: 12px; }
+.lens-inspector .btn:hover, .lens-inspector .btn:focus-visible { background: #3a3a3a; outline: none; }
+.lens-inspector .btn:focus-visible { box-shadow: 0 0 0 2px #ddd; }
+.lens-inspector .btn-primary { background: #e0e0e0; color: #111; }
+.lens-inspector .btn-primary:hover, .lens-inspector .btn-primary:focus-visible { background: #fff; }
+.lens-formula { margin: 0 0 14px; padding: 10px 12px; border-radius: 4px; background: var(--canvas); font: 12px/1.8 var(--mono); color: var(--muted); white-space: pre-wrap; }
+.lens-formula b { color: var(--text); font-weight: 500; }
+.lens-xlevel { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 2px; }
+.lens-xlevel li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 9px 10px; border-radius: 4px; background: #1d1d1d; }
+.lens-xlevel li.is-here { box-shadow: inset 2px 0 0 var(--text); background: #232323; }
+.lens-xlevel li.is-none { opacity: .5; }
+.lens-xlevel .xl-k { font: 600 11px/1.6 var(--mono); color: var(--dim); }
+.lens-xlevel .xl-v { font-size: 12.5px; line-height: 1.65; color: #cfcfcf; }
+.lens-xlevel .xl-v b { color: var(--text); font-weight: 500; }
+.lens-xlevel .xl-v .cl-tag { position: static; transform: none; margin: 0 0 0 6px; }
+.lens-xlevel .xl-v .cl-tag::before { display: none; }
+.lens-xlevel button { margin-top: 4px; }
+.lens-hint { margin: 2px 0 14px; padding: 8px 10px; border-radius: 4px; background: #1d1d1d; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.lens-empty { color: var(--dim); font-size: 12.5px; line-height: 1.7; margin: 8px 0 18px; }
+
+/* 详情栏在宽屏下独立滚动 */
+@media (min-width: 1101px) { .lens-side { min-height: 0; } }
+@media (max-width: 1100px) {
+  .lens-mid { min-height: 760px; }
+  .lens-side { grid-column: 1 / -1; }
+  .lens-levels button { padding: 0 9px; }
+}
+@media (max-width: 860px) {
+  .hp-top-right { flex-wrap: wrap; }
+  .hp-target { display: none; }
+  .lens-levels button { height: 30px; padding: 0 8px; font-size: 12px; }
+  #srcFile, #hpCode { height: 320px; max-height: 320px; }
+}
