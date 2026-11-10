@@ -156,4 +156,66 @@
     if (!K.fn) K.fn = K.file === D.FILES.SPARSE ? [105, 358] : [151, 499];
     if (K.compiled === undefined) K.compiled = PASS36.indexOf(K.name) >= 0;
   });
+
+  // ── Kernel 之间的数据依赖：从源码里张量的读写推出 ──
+  // 张量 = 函数参数 + 函数体里 pl.create_tensor / pl.reshape 出来的名字（Kernel 内部的 Tile 不跨 Kernel，不算）。
+  // 写：X[...] = …、pl.write(X, …)、pl.store(…, X)、pld.tensor.put(dst=X, …)；读：Kernel 体里出现、但不是写目标的张量名。
+  // A → B：B 读到的张量，在链里最近一次由排在它前面的 A 写过。只是“谁写谁读”，不推断耗时或重叠。
+  const tensorCache = {};
+  function fnTensors(file, fn) {
+    const key = file + ':' + fn[0];
+    if (tensorCache[key]) return tensorCache[key];
+    const L = lines(file), set = {};
+    let inSig = true;
+    for (let i = fn[0] - 1; i < fn[1]; i++) {
+      const t = L[i];
+      if (inSig) { const p = /^\s+(\w+)\s*:/.exec(t); if (p) set[p[1]] = 1; if (/\)\s*(->.*)?:\s*$/.test(t)) inSig = false; continue; }
+      const a = /^\s*(\w+)\s*=\s*pl\.(create_tensor|reshape)\(/.exec(t);
+      if (a) set[a[1]] = 1;
+    }
+    return (tensorCache[key] = set);
+  }
+  function lastArg(text) {
+    let depth = 0, cut = 0;
+    for (let k = 0; k < text.length; k++) {
+      const ch = text[k];
+      if (ch === '(' || ch === '[') depth++;
+      else if (ch === ')' || ch === ']') depth--;
+      else if (ch === ',' && depth === 1) cut = k + 1;
+    }
+    const m = /^\s*(\w+)/.exec(text.slice(cut));
+    return m ? m[1] : null;
+  }
+  function flowOf(K) {
+    const L = lines(K.file), T = fnTensors(K.file, K.fn), reads = {}, writes = {};
+    const a = K.range[0] - 1, b = K.range[1];
+    for (let i = a; i < b; i++) {
+      let t = L[i].replace(/#.*$/, '');
+      const sub = /^\s*(\w+)\s*\[[^\n]*?\]\s*=(?!=)/.exec(t);
+      if (sub && T[sub[1]]) { writes[sub[1]] = 1; t = t.slice(sub[0].length); }
+      [/pl\.write\(\s*(\w+)/g, /dst\s*=\s*(\w+)/g].forEach(function (re) {
+        let m; while ((m = re.exec(t))) if (T[m[1]]) { writes[m[1]] = 1; t = t.slice(0, m.index) + t.slice(m.index + m[0].length); re.lastIndex = 0; }
+      });
+      const st = t.indexOf('pl.store(');
+      if (st >= 0) { const c = callText(L, i, L[i].indexOf('pl.store(')); const w = lastArg(c.text); if (w && T[w]) writes[w] = 1; }
+      (t.match(/[A-Za-z_]\w*/g) || []).forEach(function (n) { if (T[n] && !(sub && n === sub[1])) reads[n] = 1; });
+    }
+    Object.keys(writes).forEach(function (n) { if (reads[n] && !new RegExp('(^|[^\\w])' + n + '\\s*\\[[^\\]]*\\]\\s*[^=\\s]').test(L.slice(a, b).join('\n'))) delete reads[n]; });
+    return { reads: Object.keys(reads), writes: Object.keys(writes) };
+  }
+  Object.keys(D.CHAINS).forEach(function (mod) {
+    const ch = D.CHAINS[mod], flows = {};
+    ch.order.forEach(function (id) { flows[id] = flowOf(D.KERNELS[id]); D.KERNELS[id].flow = flows[id]; });
+    const pairs = {}, control = {};
+    ch.edges.forEach(function (e) { control[e[0] + '>' + e[1]] = 1; });
+    ch.order.forEach(function (id, j) {
+      flows[id].reads.forEach(function (tn) {
+        for (let i = j - 1; i >= 0; i--) {
+          const src = ch.order[i];
+          if (flows[src].writes.indexOf(tn) >= 0) { (pairs[src + '>' + id] = pairs[src + '>' + id] || [src, id, []])[2].push(tn); break; }
+        }
+      });
+    });
+    ch.flow = Object.keys(pairs).filter(function (k) { return !control[k]; }).map(function (k) { return pairs[k]; });
+  });
 })(window);
