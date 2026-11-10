@@ -119,7 +119,15 @@
       if (computeToolbar && !computeToolbar.closest('.viz2-compute') && computeToolbar.parentElement!==dock) dock.prepend(computeToolbar);
       const detail=panel.querySelector('.viz2-compute:not([hidden])');
       const back=[...panel.querySelectorAll('[data-intra-back],[data-anatomy-back],[data-graph-back]')].find(n=>!n.hidden&&(detail||n.getClientRects().length));
-      if (back) { back.classList.add('ai-detail-back'); back.dataset.liquidGlass='control'; if (back.parentElement!==panel) panel.prepend(back); }
+      if (back) {
+        back.classList.add('ai-detail-back');
+        back.dataset.liquidGlass='control';
+        const controls = detail?.id === 'viz2-graph-intra' && back.matches('[data-graph-back]')
+          ? footer.querySelector('.viz2-graph-footer__controls')
+          : null;
+        const mount = controls || panel;
+        if (back.parentElement !== mount) mount.prepend(back);
+      }
       const tasknav=[...panel.querySelectorAll('.viz2-anatomy-task-nav')].find(n=>n.getClientRects().length);
       if (tasknav && tasknav.parentElement!==dock) dock.prepend(tasknav);
       const phase=panel.querySelector('.viz2-phase-toolbar');
