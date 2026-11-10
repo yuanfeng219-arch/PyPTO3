@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 170" role="img" aria-labelledby="title desc">
+  <title id="title">Excel 手工 Tiling</title>
+  <desc id="desc">将 128 个元素按每块 32 个切分。在表格中记录每个 Tile 的索引范围和负责的执行单元。</desc>
+  <style>
+    text { font: 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #e8edeb; }
+    .muted { fill: #a9b9b2; }
+    .number { font-family: ui-monospace, Menlo, monospace; }
+  </style>
+  <rect width="560" height="170" fill="#171d1a"/>
+  <rect width="560" height="30" fill="#233a2e"/>
+  <text x="14" y="20">总元素数 128</text>
+  <text x="158" y="20">每块 32</text>
+  <text class="number" x="320" y="20">= ROUNDUP(128/32, 0) → 4</text>
+  <path d="M0 30H560V72H0Z M0 96H560V120H0Z M0 144H560V168H0Z" fill="#202925"/>
+  <path d="M0 30H42V168H0Z M42 30H560V49H42Z" fill="#29332e"/>
+  <rect x="42.5" y="72.5" width="110" height="23" fill="#2d4b3c" stroke="#71c9b0"/>
+  <path d="M0 49H560M0 72H560M0 96H560M0 120H560M0 144H560M0 168H560M42 30V168M153 30V168M273 30V168M393 30V168" fill="none" stroke="#3b4942"/>
+  <g text-anchor="middle" class="muted number">
+    <text x="97" y="44">A</text><text x="213" y="44">B</text><text x="333" y="44">C</text><text x="476" y="44">D</text>
+    <text x="21" y="65">1</text><text x="21" y="89">2</text><text x="21" y="113">3</text><text x="21" y="137">4</text><text x="21" y="161">5</text>
+  </g>
+  <g text-anchor="middle">
+    <text x="97" y="65">Tile</text><text x="213" y="65">起始索引</text><text x="333" y="65">结束索引</text><text x="476" y="65">执行单元</text>
+    <g class="number">
+      <text x="97" y="89">T1</text><text x="213" y="89">0</text><text x="333" y="89">31</text><text x="476" y="89">1</text>
+      <text x="97" y="113">T2</text><text x="213" y="113">32</text><text x="333" y="113">63</text><text x="476" y="113">2</text>
+      <text x="97" y="137">T3</text><text x="213" y="137">64</text><text x="333" y="137">95</text><text x="476" y="137">3</text>
+      <text x="97" y="161">T4</text><text x="213" y="161">96</text><text x="333" y="161">127</text><text x="476" y="161">4</text>
+    </g>
+  </g>
+</svg>
