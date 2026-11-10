@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>从局部可视化，走向连续的计算探索体验</title>
+<style>
+:root{color-scheme:dark;--line:#303033;--muted:#aaa;--blue:#91adf5;--green:#71c9b0;--amber:#e0b47a}
+*{box-sizing:border-box}
+body{margin:0;background:#101010;color:#f3f3f3;font:18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+main{width:1600px;height:900px;padding:36px 54px;position:relative}
+small,output,.evidence,.anchor{font-family:ui-monospace,Menlo,monospace}
+small{color:var(--muted);letter-spacing:1px;font-size:14px}
+h1{font-size:46px;font-weight:650;letter-spacing:-.7px;margin:20px 0 10px}
+p{margin:6px 0;color:var(--muted)}
+.anchor{display:flex;align-items:center;gap:16px;margin-top:28px;font-size:15px}
+.anchor b{color:var(--amber);border:1px solid #62503d;padding:6px 10px;font-weight:500}
+.anchor i{width:115px;border-top:1px dashed var(--amber);opacity:.55}
+.anchor span{color:#c9c9c9}
+.argument{position:absolute;top:250px;left:54px;right:54px;height:382px;border-top:1px solid var(--line);display:grid;grid-template-columns:560px 310px 1fr;padding-top:16px}
+.argument h2{font-size:24px;margin:9px 0 6px}
+.problem{padding:12px 0;border-bottom:1px solid var(--line)}
+.evidence{display:flex;align-items:center;gap:12px;font-size:15px;margin:12px 0 4px;color:#bbb}
+.evidence span{border:1px solid var(--line);padding:5px 9px}
+.evidence em{font-style:normal;color:var(--amber)}
+.goals{grid-column:3}
+.goal{height:103px;padding:8px 0 8px 19px;border-left:2px solid var(--accent)}
+.goal h2{color:var(--accent);font-size:29px}
+.goal p{font-size:17px}
+.goal:first-of-type{margin-top:9px}
+svg{position:absolute;left:565px;top:0;width:305px;height:360px;overflow:visible}
+path{fill:none;stroke:var(--accent);stroke-width:1.4}
+.strategies{position:absolute;top:641px;left:54px;right:54px}
+.route{display:grid;grid-template-columns:repeat(3,1fr);margin-top:11px;border-top:1px solid #555}
+.route article{position:relative;padding:13px 20px 0 0}
+.route article::before{content:"";position:absolute;top:-4px;left:0;width:7px;height:7px;background:var(--blue);border-radius:50%}
+.route h3{font-size:22px;margin:5px 0}
+.route p{font-size:16px}
+footer{position:absolute;bottom:27px;left:54px;right:54px;display:flex;justify-content:space-between;align-items:center}
+footer strong{font-size:23px}
+output{font-size:13px;color:var(--muted)}
+button{font:inherit;font-size:14px;color:inherit;background:#191919;border:1px solid #38383a;border-radius:6px;padding:6px 12px;margin-left:14px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--blue)}
+[hidden]{display:none!important}
+[data-min],.goal,.route article,path{transition:opacity .22s ease}
+.goal.dim,.route article.dim{opacity:.48}
+path.dim{opacity:.15}
+body[data-step="6"] .argument{opacity:.6}
+body[data-step="6"] .route article:first-child h3{color:var(--blue)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<main>
+  <header>
+    <small>■　PyPTO 3.0 / COMPUTE EXPLORER <span id="page"></span></small>
+    <h1>从局部可视化，走向连续的计算探索体验</h1>
+    <p>面对复杂计算规则与割裂的工具上下文，从信息架构、交互感知和主动推演三个层次重构理解过程。</p>
+    <div class="anchor"><b>Runtime Task / WAIT</b><i aria-hidden="true"></i><span>我们看到了执行现象，却难以连续解释它从哪里来、为什么发生。</span></div>
+  </header>
+  <section class="argument" data-min="1" hidden>
+    <div>
+      <small>体验断点</small>
+      <article class="problem">
+        <h2>01　计算理解依赖经验和手工还原</h2>
+        <p>步骤、数据分配和执行依赖，藏在索引、循环与配置中。</p>
+        <div class="evidence"><span>索引 · 循环 · 配置</span> → <em>手工画图 / 推算</em> → <span>换参数再算</span></div>
+      </article>
+      <article class="problem">
+        <h2>02　同一次计算的上下文被打断</h2>
+        <p>切换视角或运行阶段时，需要重新寻找同一个对象。</p>
+        <div class="evidence"><span>Graph</span> ┄ <span>Assignment</span> ┄ <span>Pipeline</span> ··· <em>对应哪个对象？</em></div>
+      </article>
+    </div>
+    <svg viewBox="0 0 305 360" aria-hidden="true" data-min="2" hidden>
+      <defs><marker id="arrow" viewBox="0 0 6 8" refX="6" refY="4" markerWidth="6" markerHeight="8" orient="auto"><path d="M0 0 L6 4 L0 8" style="--accent:#999"/></marker></defs>
+      <path data-focus="2" style="--accent:var(--blue)" d="M0 122 H66 C130 122 146 82 225 82 H305" marker-end="url(#arrow)"/>
+      <path data-focus="3" style="--accent:var(--green)" d="M0 240 H66 C130 240 146 185 225 185 H305" marker-end="url(#arrow)"/>
+      <path data-focus="4" style="--accent:var(--amber)" d="M66 122 C156 122 131 288 225 288 H305" marker-end="url(#arrow)"/>
+    </svg>
+    <div class="goals" data-min="2" hidden>
+      <small>体验目标</small>
+      <article class="goal" data-focus="2" style="--accent:var(--blue)"><h2>降低理解门槛</h2><p>让规则、对象和关系直接可见，减少手工还原。</p></article>
+      <article class="goal" data-focus="3" style="--accent:var(--green)"><h2>建立认知连续性</h2><p>让同一个对象在不同视角中保持关联，为跨阶段追溯打基础。</p></article>
+      <article class="goal" data-focus="4" style="--accent:var(--amber)"><h2>支持计算推演</h2><p>带入真实输入与参数，观察配置如何改变计算组织。</p></article>
+    </div>
+  </section>
+  <section class="strategies" data-min="5" hidden>
+    <small>设计介入路径</small>
+    <div class="route">
+      <article><small>01 / 信息架构层</small><h3>计算认知模型</h3><p>围绕同一组对象和关系，组织三个视图。</p></article>
+      <article><small>02 / 交互感知层</small><h3>跨视角对象定位 / 算法直观可感</h3><p>保持对象焦点，让计算的空间与时间关系可感知。</p></article>
+      <article><small>03 / 体验创新层</small><h3>参数驱动的计算推演</h3><p>带入实际参数，观察并比较不同的计算组织。</p></article>
+    </div>
+  </section>
+  <footer><strong data-min="6" hidden>让同一次计算可理解、可追踪、可推演。</strong><span></span><div><output aria-live="polite"></output><button type="button" id="reset">Reset</button></div></footer>
+</main>
+<script>
+const labels = ['继承问题','体验断点','降低理解门槛','建立认知连续性','支持计算推演','设计策略','设计主张'];
+let step = 0;
+function goToStep(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= labels.length) return false;
+  const changed = step !== index;
+  step = index;
+  document.body.dataset.step = step;
+  document.querySelectorAll('[data-min]').forEach(el => { el.toggleAttribute('hidden', step < Number(el.dataset.min)); });
+  document.querySelectorAll('[data-focus]').forEach(el => el.classList.toggle('dim', step < 5 && step !== Number(el.dataset.focus)));
+  document.querySelectorAll('.route article').forEach((el,i) => el.classList.toggle('dim', step === 6 && i !== 0));
+  document.querySelector('output').textContent = (step + 1) + ' / ' + labels.length + ' · ' + labels[step];
+  if (changed) dispatchEvent(new Event('p6-step-change'));
+  return true;
+}
+window.P6Story = {get step(){ return step; }, lastStep:labels.length - 1, next:() => goToStep(step + 1), previous:() => goToStep(step - 1), reset:() => goToStep(0), goToStep};
+const embedded = parent !== window;
+const parentOrigin = location.protocol === 'file:' ? '*' : location.origin;
+function notifyDeck(type, details = {}) {
+  parent.postMessage({pyptoP6: type, ...details}, parentOrigin);
+}
+
+document.querySelector('#reset').onclick = () => {
+  if (embedded) notifyDeck('reset');
+  else window.P6Story.reset();
+};
+
+if (embedded) {
+  addEventListener('message', event => {
+    if (event.source !== parent || event.data?.pyptoP6 !== 'render') return;
+    if (location.protocol !== 'file:' && event.origin !== location.origin) return;
+    const {step, page, count} = event.data;
+    goToStep(step);
+    const format = value => String(value).padStart(2, '0');
+    document.querySelector('#page').textContent = ' / ' + format(page) + ' / ' + format(count);
+  });
+  addEventListener('keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+    if (event.code === 'Space' && event.target.closest?.('button')) return;
+    if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','Home','End','KeyP'].includes(event.code)) return;
+    event.preventDefault();
+    notifyDeck('key', {code: event.code, repeat: event.repeat});
+  });
+  addEventListener('wheel', event => {
+    event.preventDefault();
+    notifyDeck('wheel', {x: event.deltaX, y: event.deltaY});
+  }, {passive:false});
+  let startX;
+  addEventListener('touchstart', event => { startX = event.changedTouches[0].clientX; }, {passive:true});
+  addEventListener('touchend', event => {
+    const delta = startX - event.changedTouches[0].clientX;
+    if (Math.abs(delta) > 36) notifyDeck('swipe', {direction: Math.sign(delta)});
+  }, {passive:true});
+}
+goToStep(0);
+</script>
+</html>
