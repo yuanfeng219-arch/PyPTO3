@@ -129,7 +129,8 @@
 .viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-detail-back { position:fixed; top:auto; bottom:var(--ss-space-5); left:var(--ss-space-5); height:44px; box-sizing:border-box; margin:0; }
 .viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-control-bar > .kf-pa-map__tools { position:absolute; right:0; bottom:0; height:44px; box-sizing:border-box; margin:0; }
 .viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-control-bar > :is(span,p),.viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-control-bar > .viz2-intra-legend { position:fixed; left:var(--ss-space-5); right:var(--ss-space-5); bottom:calc(var(--ss-space-5) + 44px + var(--ss-space-4)); max-width:none; width:auto; margin:0; line-height:1.6; white-space:normal; display:flex; flex-wrap:wrap; gap:var(--ss-space-2); }
-.viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .viz2-graph-footer__controls { position:absolute; left:160px; bottom:0; height:44px; width:max-content; display:flex; align-items:center; }
+.viz2 #viz2-graph:has(> #viz2-graph-intra:not([hidden])) .viz2-graph-footer__controls { position:absolute; left:0; bottom:0; width:max-content; display:flex; flex-wrap:nowrap; align-items:center; gap:var(--ss-space-2); }
+.viz2 #viz2-graph:has(> #viz2-graph-intra:not([hidden])) .viz2-graph-footer__controls > .ai-detail-back { position:static; display:inline-flex; align-items:center; white-space:nowrap; }
 .viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-control-bar .viz2-graph-layer-menu__content { bottom:calc(100% + var(--ss-space-2)); }
 @media(max-height:800px) { .viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-control-bar > :is(span,p),.viz2 :is(#viz2-assignment:has(> #viz2-anatomy:not([hidden])),#viz2-pipeline:has(> #viz2-pipeline-intra:not([hidden])),#viz2-graph:has(> #viz2-graph-intra:not([hidden]))) .ai-control-bar > .viz2-intra-legend { left:320px; } }
 @media(max-height:740px) {
@@ -151,3 +152,24 @@
 .compute-parameter-field output svg { flex:none; }
 .viz2-compute .compute-derived-readouts > .compute-parameter-field:last-child { margin-left:auto; text-align:right; }
 .viz2-compute .compute-derived-readouts input { text-align:inherit; }
+
+/* Chinese labels need room to wrap at their natural width. */
+.viz2[data-story-mode="true"] :is(.viz2-am-head,.viz2-am-controls,.ai-control-bar,.viz2-graph-footer__controls) {
+ flex-wrap:wrap;
+ row-gap:var(--ss-space-2);
+}
+.viz2[data-story-mode="true"] :is(.viz2-am-head,.viz2-am-footer,.viz2-graph-inspector,.viz2-anatomy-inspector) {
+ overflow-wrap:anywhere;
+}
+.viz2[data-story-mode="true"] .ai-detail-back {
+ width:max-content;
+ max-width:calc(100% - 2 * var(--ss-space-5));
+}
+.viz2[data-story-mode="true"] :is(#viz2-assignment,#viz2-pipeline,#viz2-graph) > .ai-detail-back {
+ inset-block-start:auto;
+ inset-block-end:var(--ss-space-5);
+}
+.viz2[data-story-mode="true"] :is(.viz2-intra-card,.viz2-anatomy-card) > header {
+ flex-wrap:wrap;
+ gap:var(--ss-space-2);
+}

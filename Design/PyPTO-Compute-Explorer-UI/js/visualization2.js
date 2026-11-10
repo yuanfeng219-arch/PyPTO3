@@ -145,7 +145,7 @@
       <button type="button" class="btn btn-ghost btn-sm viz2-story-toggle" data-ai-tip="切换计算世界与冲印工作室的观察视角" data-viz2-story role="switch" aria-checked="false" aria-label="📸 冲印一下"><span>📸 冲印一下</span><span class="viz2-story-indicator" aria-hidden="true"></span><span data-viz2-world>计算世界</span></button></div>
       <span class="pto-ide-frame__pane-meta">paged_attention_pypto.py</span>
     </header>
-    <aside class="viz2-photo-guide" data-photo-guide hidden><p data-photo-summary></p><details><summary>照片如何分组与交接</summary><p>每位顾客按主题生成工单；每张工单含 5 个匹配子项。标准照片包最多 128 张，处理批次最多 4 包、512 张；不足的尾包与尾批显示有效数量。3 个周转台位按 0 → 1 → 2 循环分配，仅表示逻辑归属与交接。</p><p>照片加工图是叙事投影，不代表源码实现这些照片算法。流水线为逻辑编排，非真实运行记录，也不推断提速或真实并发。</p></details></aside><div class="viz2-content">
+    <aside class="viz2-photo-guide" data-photo-guide hidden><p data-photo-summary></p><details><summary>照片如何分组与交接</summary><p>每位顾客按主题生成工单；每张工单含 5 个匹配子项。标准照片包最多 128 张，处理批次最多 4 包、512 张；不足的尾包与尾批显示有效数量。3 个周转台位按 0 → 1 → 2 循环分配，仅表示逻辑归属与交接。</p><p>工作流程是叙事投影，不代表源码实现这些照片算法。流水线为逻辑编排，非真实运行记录，也不推断提速或真实并发。</p></details></aside><div class="viz2-content">
       <div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="可视化视图">${tabs.map(id => `<button type="button" class="tab-control-item" role="tab" id="viz2-tab-${id}" aria-controls="viz2-${id}" data-viz2-tab="${id}"><span class="viz2-tab-icon viz2-tab-icon--${id}" aria-hidden="true"></span>${id[0].toUpperCase()+id.slice(1)}</button>`).join('')}</div></div>
       ${tabs.map(id => `<section class="viz2-canvas" id="viz2-${id}" role="tabpanel" aria-labelledby="viz2-tab-${id}" tabindex="0" hidden></section>`).join('')}
     </div>`);
@@ -292,7 +292,7 @@
     storyButton.classList.toggle('is-selected',state.storyMode);
     window.PtoPhotoNarrative.text(root.querySelector('[data-viz2-world]'),state.storyMode?'冲印工作室':'计算世界');
     window.PtoPhotoNarrative.text(root.querySelector('[data-viz2-world-title]'),state.storyMode?'照片冲印工作室':'PyPTO Compute Explorer');
-    const names=state.storyMode?{assignment:'今日订单分配',pipeline:'冲印流水线',graph:'照片加工流程图'}:{assignment:'Assignment',pipeline:'Pipeline',graph:'Graph'};
+    const names=state.storyMode?{assignment:'订单分配',pipeline:'冲印流水线',graph:'工作流程'}:{assignment:'Assignment',pipeline:'Pipeline',graph:'Graph'};
     tabs.forEach(id=>{const button=root.querySelector(`[data-viz2-tab="${id}"]`);const label=button.lastChild;if(label?.nodeType===Node.TEXT_NODE)window.PtoPhotoNarrative.text(label,names[id]);});
     // Language is a rendering concern; preserve the complete workspace state.
     phase0Controller?.update(state.selection, state.views.assignment.phase0Camera, {

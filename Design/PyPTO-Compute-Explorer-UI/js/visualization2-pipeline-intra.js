@@ -69,8 +69,9 @@
       const next=clamp(target+direction);if(next!==target){pendingFocus=null;tooltip.hidden=true;snap(next,true);}
     }});
     // Both operators use horizontal logical progress and fixed vertical stage rows.
-    const LEFT=118,TOP=82,STEP=150,ROW=104,W=124,H=56,stageRows={qk:0,softmax:1,pv:2,accumulate:3};
-    const diagramSize=t=>({width:LEFT+t.ticks.length*STEP+180,height:TOP+4*ROW+105});
+    const LEFT=118,TOP=82,STEP=174,ROW=104,W=148,H=56,stageRows={qk:0,softmax:1,pv:2,accumulate:3};
+    const outputWidth=164;
+    const diagramSize=t=>({width:LEFT+t.ticks.length*STEP+outputWidth+28,height:TOP+4*ROW+105});
     const stagePosition=(t,s,stage)=>({x:LEFT+t.operations.find(op=>op.stack===s.index&&op.stage===stage).tick*STEP,y:TOP+stageRows[stage]*ROW});
     const text=(x,y,s,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(s)}</text>`;
     const rect=(x,y,w,h,cls,extra='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" class="${cls}" ${extra}/>`;
@@ -109,7 +110,7 @@
         // A compact Stack navigator gives Stack selection a distinct hit target.
         t.stacks.map(stack=>{const n=stagePosition(t,stack,'qk');return object('stack',stack.index,rect(n.x,TOP+4*ROW+10,W,24,'viz2-intra-stack-hit')+text(n.x+8,TOP+4*ROW+27,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`);}).join('')+
         (lastPosition?`<path class="viz2-intra-output-link" d="M ${lastPosition.x+W} ${lastPosition.y+H/2} H ${outputX}" marker-end="url(#${arrow})"/>`:'')+
-        object('output',0,rect(outputX,outputY,142,H,'viz2-intra-output-hit','data-intra-output')+rect(outputX,outputY,142,H,'viz2-intra-output')+text(outputX+10,outputY+19,'Normalize / Store','viz2-intra-small')+text(outputX+10,outputY+38,'BF16 · 全部 Stack','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
+        object('output',0,rect(outputX,outputY,outputWidth,H,'viz2-intra-output-hit','data-intra-output')+rect(outputX,outputY,outputWidth,H,'viz2-intra-output')+text(outputX+10,outputY+19,'Normalize / Store','viz2-intra-small')+text(outputX+10,outputY+38,'全部 Stack 完成','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
       return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="${isCustom?`Custom · 模型推导调度`:`Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens`}"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens · ${t.stacks.length} Stacks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的横向 Logical Tick"><svg class="viz2-intra-svg" viewBox="0 0 ${width} ${height}" data-intra-width="${width}" data-intra-height="${height}" aria-label="横向 Logical Tick × 纵向计算阶段"><g data-intra-scene>${diagram}</g></svg></div></article>`;
     }
     function saveScroll(){cards.forEach(card=>{const scroller=card.querySelector('.viz2-intra-tick-scroll');scrollStates.set(Number(card.dataset.intraTask),{top:scroller.scrollTop,left:scroller.scrollLeft});});}
@@ -231,10 +232,9 @@
       const positionEvidence=f.kind==='tick'?task.ticks[f.index]?.evidence:operation?.evidence.logicalPosition;
       if(global.PtoPhotoNarrative.enabled){
         const batch=f.kind==='slot'?null:task.stacks[f.index];
-        const stageNames={qk:'照片分析',softmax:'照片整理',pv:'后段加工',accumulate:'成品汇总'};
-        const actions={qk:'前段处理：分析这一批照片，形成整理所需的结果。',softmax:'前段处理：整理照片分析结果，形成后段加工的交接资料。',pv:'后段加工：读取整理结果，完成这一批照片的加工。',accumulate:'后段加工：汇总本批成品，等待全部批次完成后打印整理。'};
-        const description=f.kind==='stage'?actions[f.stage]:f.kind==='event'?'上道工序发出交接就绪，下道工序等待对应资料后继续。':f.kind==='slot'?`周转台位 ${f.index} 循环服务处理批次 ${task.slots[f.index].stacks.map(i=>i+1).join('、')}；复用表示共用位置，不表示传递同一批照片。`:f.kind==='output'?'全部处理批次完成后，打印整理并保存成品。':'沿本批次路径查看前段处理、后段加工与交接关系。';
-        window.PtoPhotoNarrative.text(host.querySelector('[data-intra-title]'),f.kind==='slot'?`周转台位 ${f.index}`:f.kind==='tick'?`流水轮次 ${f.index}`:f.kind==='output'?'打印整理':`第 ${f.index+1} 批${f.stage?' · '+stageNames[f.stage]:''}`);
+        const actions={qk:'前段处理：按顾客选择的主题匹配本批照片。',softmax:'前段处理：筛选入选照片并去重，整理打印清单。',pv:'后段加工：按清单准备照片并完成打印。',accumulate:'后段加工：待全部批次打印完成后，按工单整理并装帧。'};
+        const description=f.kind==='stage'?actions[f.stage]:f.kind==='event'?'上道工序发出交接就绪，下道工序等待对应资料后继续。':f.kind==='slot'?`周转台位 ${f.index} 循环服务处理批次 ${task.slots[f.index].stacks.map(i=>i+1).join('、')}；复用表示共用位置，不表示传递同一批照片。`:f.kind==='output'?'全部处理批次完成后，装帧并保存成品。':'沿本批次路径查看前段处理、后段加工与交接关系。';
+        window.PtoPhotoNarrative.text(host.querySelector('[data-intra-title]'),f.kind==='slot'?`周转台位 ${f.index}`:f.kind==='tick'?`流水轮次 ${f.index}`:f.kind==='output'?'装帧':`第 ${f.index+1} 批${f.stage?' · '+stages[f.stage]:''}`);
         window.PtoPhotoNarrative.html(host.querySelector('[data-intra-detail]'),`<section><h3>当前工单</h3><p>${global.PtoPhotoNarrative.taskSummary(task)}</p></section><section><h3>处理内容</h3><p>${description}</p>${batch?`<p>第 ${batch.index+1} 批 · ${batch.tokens} / ${task.stackTokens} 张照片 · ${batch.pages.length} 个标准照片包 · 周转台位 ${batch.slot}</p>`:''}</section><section><h3>工序交接</h3>${relation('上道工序',upstream)}${relation('下道工序',downstream)}</section><section><h3>逻辑编排</h3><p>前段先处理并交接资料，后段按逻辑轮次接续。轮次横向间距不表示实际时间；就绪等待不表示实际发生停顿；不据此推断提速或真实并发。</p></section>`);
         return;
       }

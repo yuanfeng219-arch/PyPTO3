@@ -10,9 +10,9 @@ const operation=(id,name,description)=>({id,type:'operation',name,description,so
 const edge=(s,t,label)=>({id:`${s}>${t}`,s,t,label,type:'data',sourcePort:'default',targetPort:'default'});
 const stages=[
  ['qk','主题匹配',[['conditions','读取匹配条件','读取顾客选择的主题与匹配子项。'],['match','匹配照片主题','按主题组织待处理照片；每个标准照片包最多 128 张。'],['score','形成匹配结果','将匹配结果交给筛选去重。']]],
- ['softmax','筛选去重',[['select','筛选入选照片','结合本批照片的主题匹配结果确定入选照片。'],['deduplicate','去除重复照片','在叙事中合并重复选择；不声称真实源码执行照片去重。'],['handoff','整理精修清单','按处理批次交给精修工序，并保留交接记录。']]],
- ['pv','修图',[['crop','裁剪','按成品构图要求调整照片边界。'],['brightness','亮度调整','整理当前处理批次照片的明暗表现。'],['color','色彩调整','整理色彩并形成该批次的精修结果。']]],
- ['output-norm','打印出片',[['collect','汇总精修照片','收齐各处理批次的精修结果。'],['print','打印照片','将整理完成的照片交给冲印输出。'],['deliver','整理交付','按顾客与主题归档成品，完成工单。']]]
+ ['softmax','筛选去重',[['select','筛选入选照片','结合本批照片的主题匹配结果确定入选照片。'],['deduplicate','去除重复照片','在叙事中合并重复选择；不声称真实源码执行照片去重。'],['handoff','整理打印清单','按处理批次交给打印工序，并保留交接记录。']]],
+ ['pv','打印',[['prepare','准备打印','按清单确认照片和打印尺寸。'],['print','打印照片','按批次输出纸质照片。'],['check','检查打印结果','确认照片齐全并交给装帧工序。']]],
+ ['output-norm','装帧',[['collect','汇总已打印照片','收齐各处理批次打印完成的照片。'],['bind','装帧照片','按工单要求装裱照片或编入相册。'],['deliver','整理交付','按顾客与主题归档成品，完成工单。']]]
 ];
 function project(base){
  if(cache.has(base))return cache.get(base);
@@ -21,7 +21,7 @@ function project(base){
   const description=`${name}：${children.map(x=>x[1]).join(' → ')}。照片叙事投影，不代表源码照片算法。`;
   return {id,type:'composite',name,description,source,provenance,ports:ports(),composite:{semantics:description,category:'photo-narrative',api:[],subgraph:{schemaVersion:2,id:`photo-${id}`,nodes:childNodes,edges:childNodes.slice(1).map((n,i)=>edge(childNodes[i].id,n.id,'照片资料')),groups:[]},portMappings:{inputs:{default:{node:first,port:'default',relation:'view'}},outputs:{default:{node:last,port:'default',relation:'view'}}}}};
  });
- const model={schemaVersion:2,id:`photo-${base.id}`,sourceFiles:[{file:'photo-narrative',lineCount:1}],constants:base.constants,runtimeDims:[],nodes,edges:nodes.slice(1).map((n,i)=>edge(nodes[i].id,n.id,['匹配结果','入选照片','精修成品'][i])),groups:[{id:'photo-workflow',type:'region',name:'原始照片 → 照片加工（叙事投影）→ 整理完成',description:global.PtoPhotoNarrative.boundary,source,provenance,members:nodes.map(n=>n.id)}],synchronizations:[]};
+ const model={schemaVersion:2,id:`photo-${base.id}`,sourceFiles:[{file:'photo-narrative',lineCount:1}],constants:base.constants,runtimeDims:[],nodes,edges:nodes.slice(1).map((n,i)=>edge(nodes[i].id,n.id,['匹配结果','入选照片','已打印照片'][i])),groups:[{id:'photo-workflow',type:'region',name:'原始照片 → 照片加工（叙事投影）→ 整理完成',description:global.PtoPhotoNarrative.boundary,source,provenance,members:nodes.map(n=>n.id)}],synchronizations:[]};
  cache.set(base,model);return model;
 }
 function focus(graph,selection,view,adapter){

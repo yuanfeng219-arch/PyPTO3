@@ -22,8 +22,8 @@
 
   function createLayout({ batch, kvHeads, blocks }) {
     const width = 1250, height = 600, top = 58, bottom = 580;
-    const columnPitch = 1048 / kvHeads, frameWidth = columnPitch - 10;
-    const columns = Array.from({ length: kvHeads }, (_, kv) => ({ kv, x: 172 + kv * columnPitch, width: frameWidth }));
+    const columnPitch = 1030 / kvHeads, frameWidth = columnPitch - 10;
+    const columns = Array.from({ length: kvHeads }, (_, kv) => ({ kv, x: 190 + kv * columnPitch, width: frameWidth }));
     const assignments = Array.from({ length: blocks }, () => []);
     for (let id = 0; id < batch * kvHeads; id++) assignments[id % blocks].push(id);
     // Whole KV cycles produce one Block per KV column in each Batch-residue group.
@@ -75,19 +75,22 @@
     });
     svg('line', { x1: layout.columns[0].x, x2: layout.columns.at(-1).x + layout.columns.at(-1).width, y1: 44, y2: 44, class: 'viz2-am-column-rule' }, columnLayer);
     window.PtoPhotoNarrative.text(svg('text', { x: 8, y: 30, class: 'viz2-am-axis' }, generation),'BATCH');
-    window.PtoPhotoNarrative.text(svg('text', { x: 80, y: 30, class: 'viz2-am-axis' }, generation),'seq_lens');
+    window.PtoPhotoNarrative.text(svg('text', { x: 100, y: 30, class: 'viz2-am-axis' }, generation),'seq_lens');
     const sourceConstants=global.PTO_PYPA_SEMANTIC_GRAPH.constants;
     const pageTokens=sourceConstants.BLOCK_SIZE.value,pagesPerStack=sourceConstants.STACK_PAGES.value;
     const stackTokens=pageTokens*pagesPerStack,glyphs=global.PtoTaskObjectGlyphs;
     const segments = Math.max(1, Math.ceil(Math.max(...seqLens) / stackTokens));
-    const gridSide = 9, gridGap = 2;
+    const sequenceX = 24, idGutter = 28;
+    const sequenceWidth = layout.sources[0].w - sequenceX - idGutter;
+    const gridPitch = Math.min(11, sequenceWidth / segments);
+    const gridSide = Math.min(9, gridPitch * .82);
     const gridY = (layout.sources[0].h - gridSide) / 2;
     // Shared square size and pitch for Q Heads and Stacks.
     function drawSequence(parent, len, { x, y, width, height }) {
       return sequenceSegments(len, width, segments, stackTokens, 1.4).map((segment,index) => {
         const track=svg('rect', {x:x+segment.x,y,width:segment.width,height,class:'kf-pa-map__seq-track'},parent);
         const fill=svg('rect', {x:x+segment.x,y,width:segment.fillWidth,height,class:'kf-pa-map__seq-fill'},parent);
-        if(segment.fraction>0)parent.insertAdjacentHTML('beforeend',glyphs.stack({index,tokens:Math.min(stackTokens,Math.max(0,len-index*stackTokens)),pageTokens,pagesPerStack,x:x+index*(gridSide+gridGap),y:gridY,w:gridSide,h:gridSide}));
+        if(segment.fraction>0)parent.insertAdjacentHTML('beforeend',glyphs.stack({index,tokens:Math.min(stackTokens,Math.max(0,len-index*stackTokens)),pageTokens,pagesPerStack,x:x+index*gridPitch,y:gridY,w:gridSide,h:gridSide}));
         return {track,fill};
       });
     }
@@ -95,10 +98,10 @@
     for (let b = 0; b < batch; b++) {
       const row = svg('g', { 'data-am-batch': b }, generation), y = layout.sources[b * kvHeads].y, len = seqLens[b] || 0;
       window.PtoPhotoNarrative.text(svg('text', { x: 8, y: y + layout.sources[0].h / 2, class: 'viz2-am-batch' }, row),`B${b}`);
-      window.PtoPhotoNarrative.text(svg('text', { x: 75, y: y + layout.sources[0].h / 2, class: 'viz2-am-seq' }, row),len);
+      window.PtoPhotoNarrative.text(svg('text', { x: 88, 'text-anchor': 'end', y: y + layout.sources[0].h / 2, class: 'viz2-am-seq' }, row),len);
       // Keep the sequence snapshot contract used by Anatomy; metadata now follows Batch rows.
       const seq = svg('g', { class: 'kf-pa-map__sequence', 'aria-label': `seq_lens ${len}` }, row);
-      batchSequences.push({ node: seq, parts: drawSequence(seq, len, { x: 24, y: layout.sources[0].h - 8, width: layout.sources[0].w - 30, height: 7 }) });
+      batchSequences.push({ node: seq, parts: drawSequence(seq, len, { x: 24, y: layout.sources[0].h - 8, width: sequenceWidth, height: 7 }) });
     }
     layout.groups.forEach(group => {
       window.PtoPhotoNarrative.text(svg('text', { x: layout.columns[0].x - 14, y: group.y + group.height / 2, 'text-anchor': 'end', class: 'viz2-am-group-label', 'data-am-group': group.index }, groupLabels),group.label);
@@ -114,11 +117,11 @@
       const group = svg('g', { 'data-pa-task': id, 'data-am-kv-column': id % kvHeads, class: 'kf-pa-map__task viz2-am-task', role: 'button', tabindex: id === 0 ? '0' : '-1', 'aria-label': `Task ${id}, Batch ${Math.floor(id / kvHeads)}, KV Head ${id % kvHeads}, Q Heads ${(id % kvHeads) * qPerKv}–${(id % kvHeads + 1) * qPerKv - 1}, Block ${id % blocks}` }, taskLayer);
       svg('rect', { class: 'kf-pa-map__cell', width: r.w, height: r.h, rx: 3 }, group);
       if (global.PtoAIInfraPresentation?.taskGlyph) group.insertAdjacentHTML('beforeend', global.PtoAIInfraPresentation.taskGlyph(id, r.w, r.h));
-      const inner = { x: 24, y: 2, width: r.w - 30, height: Math.max(1, r.h - 4) };
+      const inner = { x: 24, y: 2, width: sequenceWidth, height: Math.max(1, r.h - 4) };
       const qLayer = svg('g', { class: 'viz2-am-q-encoding', 'data-am-q-encoding': '', 'aria-hidden': 'true' }, group);
       const qDetails = svg('g', { class: 'ai-q-detail' }, qLayer);
       for (let q = 0; q < qPerKv; q++) svg('circle', {class:'kf-pa-map__q ai-q-dot',cx:27+q*4.5,cy:r.h/2,r:1.3},qDetails);
-      window.PtoPhotoNarrative.text(svg('text',{x:r.w-12,y:r.h/2,'text-anchor':'middle','dominant-baseline':'central',class:'kf-pa-map__task-id'},group),id);
+      window.PtoPhotoNarrative.text(svg('text',{x:r.w-8,y:r.h/2,'text-anchor':'end','dominant-baseline':'central',class:'kf-pa-map__task-id'},group),id);
       const len = seqLens[Math.floor(id / kvHeads)] || 0;
       const seqLayer = svg('g', { class: 'viz2-am-seq-encoding', 'data-am-task-sequence': '', 'data-am-seq-len': len, 'aria-hidden': 'true' }, group);
       if (id % kvHeads === 0) {
@@ -162,12 +165,12 @@
         const y = from.y + (to.y - from.y) * progress;
         // Tasks remain in fixed KV columns. Batch strips separately travel into KV0.
         node.setAttribute('transform', `translate(${from.x} ${y})`);
-        qEncodings[id].style.opacity = '1';
+        qEncodings[id].style.opacity = String(1 - progress);
         if (id % kvHeads === 0) {
-          const b = Math.floor(id / kvHeads), width = from.w - 30, height = 7;
-          const x = (87-from.x-24)*(1-progress);
+          const b = Math.floor(id / kvHeads), width = sequenceWidth, height = 7;
+          const x = (100-from.x-sequenceX)*(1-progress);
           const localY = 0;
-          seqEncodings[id].style.opacity = '1';
+          seqEncodings[id].style.opacity = String(1 - progress);
           seqEncodings[id].setAttribute('transform', `translate(${x} ${localY})`);
           sequenceSegments(seqLens[b] || 0, width, segments, stackTokens, 1.4).forEach((segment, i) => {
             const { track, fill } = batchSequences[b].parts[i];
