@@ -8594,159 +8594,6 @@ h1.deck-heading {
   &lt;/main&gt;
   &lt;footer class=&quot;bottom&quot;&gt;&lt;div class=&quot;bottom-left&quot;&gt;&lt;div class=&quot;bottom-mark&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot;&gt;&lt;path d=&quot;M4 7h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6zM10 10l4-3M10 13l4 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;&lt;div class=&quot;bottom-copy&quot;&gt;&lt;strong&gt;设计切入点：建立从代码结构到计算执行的统一解释路径&lt;/strong&gt;&lt;p&gt;把离散的实现细节，组织成可探索、可追踪、可验证的计算关系&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;bottom-triad&quot;&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;01&lt;/i&gt;计算分配&lt;/span&gt;&lt;span class=&quot;sep&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;02&lt;/i&gt;执行组织&lt;/span&gt;&lt;span class=&quot;sep&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;03&lt;/i&gt;对象关联&lt;/span&gt;&lt;/div&gt;&lt;/footer&gt;
 &lt;/div&gt;&lt;/body&gt;&lt;/html&gt;" hidden=""></iframe>
-<iframe title="3 · 可追溯的计算解释" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
-&lt;html lang=&quot;zh-CN&quot;&gt;
-&lt;head&gt;
-&lt;meta charset=&quot;utf-8&quot;&gt;
-&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
-&lt;meta name=&quot;color-scheme&quot; content=&quot;dark&quot;&gt;
-&lt;title&gt;PyPTO 3.0｜可解释性计算探索 · 可追溯的计算解释&lt;/title&gt;
-&lt;style&gt;
-:root {
-  --bg: #101010; --pane: #171717; --pane2:#1c1c1c; --pane3:#242424;
-  --line:#343434; --weak:#292929; --fg:#f2f2f2; --secondary:#b7b7b7; --muted:#7e7e7e;
-  --blue:#78a0ff; --teal:#4bcba8; --amber:#e7b46a; --violet:#af99e5;
-  --mono: &quot;JetBrains Mono&quot;, &quot;SFMono-Regular&quot;, &quot;Menlo&quot;, &quot;Consolas&quot;, monospace;
-  --sans: Inter, &quot;PingFang SC&quot;, &quot;Source Han Sans SC&quot;, &quot;Noto Sans SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;
-}
-*{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:#0b0b0b;color:var(--fg);font-family:var(--sans)}
-body{display:flex;justify-content:center;align-items:flex-start;padding:0}
-.slide{width:1600px;height:900px;flex-shrink:0;position:relative;overflow:hidden;background:var(--bg);padding:31px 52px 24px;}
-.slide::before{content:&quot;&quot;;pointer-events:none;position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.16) .7px,transparent .85px);background-size:23px 23px;opacity:.15;mask-image:linear-gradient(to bottom,transparent 9%,black 90%)}
-.slide::after{content:&quot;&quot;;pointer-events:none;position:absolute;left:-130px;bottom:-200px;width:470px;height:470px;background:radial-gradient(circle,rgba(93,121,194,.09),transparent 70%)}
-.slide&gt;*{position:relative;z-index:1}
-.eyebrow{display:flex;justify-content:space-between;align-items:center;font:11px/1.2 var(--mono);letter-spacing:.13em;color:#858585}
-.marker{display:inline-block;width:8px;height:8px;background:var(--blue);border-radius:2px;margin-right:10px}
-h1{margin:27px 0 9px;font-size:49px;line-height:1.23;letter-spacing:-1px;font-weight:690;color:#f5f5f5}
-.lead{font-size:18px;line-height:1.5;color:#ababab;margin:0;max-width:1330px}
-.stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-top:27px;height:129px}
-.stage{background:#181818;border:1px solid #343434;border-radius:14px;padding:17px 21px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden}
-.stage:before{content:&quot;&quot;;height:2px;position:absolute;left:20px;right:20px;top:0;background:linear-gradient(90deg,var(--accent),transparent 85%);opacity:.95}
-.stage .index{font:11px var(--mono);color:var(--muted);margin-right:8px}
-.stage-title{display:flex;align-items:center;font-size:21px;line-height:1.25;font-weight:690}
-.stage-desc{font-size:14px;color:#b7b7b7;line-height:1.4;margin-top:8px}
-.stage-tag{display:inline-flex;align-items:center;gap:6px;font:11px/1.2 var(--mono);color:var(--accent);margin-top:11px}
-.stage-tag i{display:block;width:6px;height:6px;background:var(--accent);border-radius:50%}
-.stage-art{width:131px;height:90px;flex-shrink:0;opacity:.92}
-.stage-art svg{width:100%;height:100%;display:block}
-.bridge{height:34px;margin:0 auto;width:100%;display:block}
-.bridge path,.bridge line{stroke:#4a4a4a;stroke-width:1.2;fill:none}
-.bridge .arrow{fill:#666;stroke:none}
-.model{border:1px solid #5c6680;border-radius:14px;background:linear-gradient(100deg,#20222a 0%,#1b1d22 63%,#191919 100%);height:118px;display:grid;grid-template-columns:308px 1fr 280px;align-items:center;padding:18px 28px;position:relative;gap:22px}
-.model:before{content:&quot;&quot;;position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:14px 0 0 14px;background:#80a4ff}
-.model-head .kicker{font:11px/1.2 var(--mono);color:#93aafa;letter-spacing:.07em;margin-bottom:9px}
-.model-head strong{font-size:25px;line-height:1.1;letter-spacing:-.5px}
-.model-head p{font-size:13px;color:#a5a5a5;margin:9px 0 0;white-space:nowrap}
-.objects{display:flex;flex-wrap:wrap;justify-content:center;gap:9px 8px}
-.object{font:12px/1 var(--mono);padding:10px 13px;border-radius:7px;background:#303238;border:1px solid #464750;color:#e1e1e1;white-space:nowrap}
-.object:first-child{color:#b6caff;border-color:#637ca7;background:#30394b}
-.model-trace{border-left:1px solid #40444b;padding-left:21px;align-self:stretch;display:flex;justify-content:center;flex-direction:column;gap:7px}
-.model-trace .name{font-size:13px;color:#d9dded;font-weight:630}
-.model-trace .id{font:13px var(--mono);color:#8eafff}
-.model-trace .meta{font-size:12px;color:#9b9b9b;line-height:1.3}
-.arrow-down{height:29px;display:flex;align-items:center;justify-content:center;color:#717171}
-.lower-title{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px}
-.lower-title strong{font-size:21px;letter-spacing:-.2px}
-.lower-title span{font-size:13px;color:#8e8e8e}
-.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;height:218px}
-.card{background:#1a1a1a;border:1px solid #373737;border-radius:14px;overflow:hidden;padding:17px 17px 15px;position:relative;display:flex;flex-direction:column}
-.card:before{content:&quot;&quot;;position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent 85%);opacity:.85}
-.card-top{display:flex;align-items:center;gap:10px}
-.card-no{font:11px var(--mono);color:var(--accent);background:#292929;border:1px solid #3f3f3f;border-radius:5px;padding:5px 6px}
-.card-title{font-size:16px;font-weight:690;white-space:nowrap;letter-spacing:-.3px}
-.card-visual{height:88px;margin:9px 0 0;background:#151515;border:1px solid #292929;border-radius:9px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.card-visual svg{display:block;height:77px;width:100%}
-.card-bottom{margin-top:10px}
-.card-bottom .question{font-size:15px;font-weight:640;color:#e5e5e5;line-height:1.2}
-.card-bottom .copy{font-size:12px;line-height:1.45;color:#969696;margin-top:5px}
-.closing{height:67px;margin-top:18px;background:#181818;border:1px solid #3b3b3b;border-radius:13px;display:flex;align-items:center;padding:10px 22px;gap:20px;justify-content:space-between}
-.closing-main{display:flex;align-items:center;gap:12px;min-width:340px}
-.closing-mark{width:32px;height:32px;border:1px solid #566b8c;border-radius:50%;display:grid;place-items:center;color:#a1b6e4;font-size:21px;line-height:1}
-.closing-main strong{font-size:18px;white-space:nowrap}
-.closing-steps{display:flex;align-items:center;gap:11px;font-size:15px;color:#d0d0d0;white-space:nowrap}
-.closing-steps .step{padding:7px 0}
-.closing-steps b{font-size:14px;font-weight:400;color:#777}
-.closing-note{font-size:12px;color:#91a8d2;border-left:1px solid #3c3c3c;padding-left:20px;white-space:nowrap}
-.bottomline{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font:10px var(--mono);letter-spacing:.07em;color:#626262}
-@media(max-width:1599px){body{overflow-x:auto}.slide{margin-left:0;margin-right:0}}
-@media print{@page{size:16in 9in;margin:0}html,body{background:#101010;print-color-adjust:exact;-webkit-print-color-adjust:exact}.slide{width:1600px;height:900px;page-break-after:avoid}}
-&lt;/style&gt;
-
-&lt;style&gt;
-html,body { overflow:hidden; }
-h1.deck-heading {
-  font: 650 48px/1.25 -apple-system,BlinkMacSystemFont,&quot;PingFang SC&quot;,&quot;Microsoft YaHei&quot;,sans-serif;
-  letter-spacing:-1px;
-  color:#f3f3f3;
-  margin:0;
-}
-.slide &gt; h1.deck-heading { margin:27px 0 9px; }
-.page { min-height:900px; }
-&lt;/style&gt;
-&lt;style&gt;
-
-.slide .stages { height:120px; }
-.slide .cards { height:207px; }
-.slide .closing { margin-top:14px; }&lt;/style&gt;&lt;/head&gt;
-&lt;body&gt;
-&lt;main class=&quot;slide&quot; role=&quot;img&quot; aria-label=&quot;统一计算模型，贯通静态分析、模拟仿真与真实运行，并通过 Assignment、Pipeline Trace、Graph、Tensor Memory Inspector 四种视角追溯计算行为&quot;&gt;
-  &lt;header data-deck-title=&quot;统一计算模型，让计算可追溯&quot;&gt;&lt;/header&gt;
-
-  &lt;section class=&quot;stages&quot; aria-label=&quot;三种分析状态&quot;&gt;
-    &lt;article class=&quot;stage&quot; style=&quot;--accent:var(--blue)&quot;&gt;
-      &lt;div&gt;&lt;div class=&quot;stage-title&quot;&gt;&lt;span class=&quot;index&quot;&gt;01 /&lt;/span&gt;静态分析&lt;/div&gt;&lt;div class=&quot;stage-desc&quot;&gt;计算结构与预期行为&lt;/div&gt;&lt;div class=&quot;stage-tag&quot;&gt;&lt;i&gt;&lt;/i&gt;结构 / 依赖 / 预期分配&lt;/div&gt;&lt;/div&gt;
-      &lt;div class=&quot;stage-art&quot;&gt;&lt;svg viewBox=&quot;0 0 136 90&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#617cae&quot; stroke-width=&quot;1.3&quot; fill=&quot;none&quot; opacity=&quot;.65&quot;&gt;&lt;path d=&quot;M29 27H57L83 51H106&quot;/&gt;&lt;path d=&quot;M29 62H52L75 39H106&quot;/&gt;&lt;path d=&quot;M57 27v13&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;8&quot; y=&quot;16&quot; width=&quot;32&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#2b3650&quot; stroke=&quot;#80a5fa&quot;/&gt;&lt;rect x=&quot;8&quot; y=&quot;51&quot; width=&quot;32&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#2b3650&quot; stroke=&quot;#80a5fa&quot;/&gt;&lt;rect x=&quot;58&quot; y=&quot;32&quot; width=&quot;32&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#323645&quot; stroke=&quot;#a4b5d1&quot;/&gt;&lt;rect x=&quot;100&quot; y=&quot;36&quot; width=&quot;29&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#2b3650&quot; stroke=&quot;#80a5fa&quot;/&gt;&lt;g fill=&quot;#85aafc&quot;&gt;&lt;circle cx=&quot;24&quot; cy=&quot;27&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;24&quot; cy=&quot;62&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;74&quot; cy=&quot;44&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;114.5&quot; cy=&quot;47.5&quot; r=&quot;3&quot;/&gt;&lt;/g&gt;&lt;/svg&gt;&lt;/div&gt;
-    &lt;/article&gt;
-    &lt;article class=&quot;stage&quot; style=&quot;--accent:var(--teal)&quot;&gt;
-      &lt;div&gt;&lt;div class=&quot;stage-title&quot;&gt;&lt;span class=&quot;index&quot;&gt;02 /&lt;/span&gt;模拟仿真&lt;/div&gt;&lt;div class=&quot;stage-desc&quot;&gt;场景推演与调度验证&lt;/div&gt;&lt;div class=&quot;stage-tag&quot;&gt;&lt;i&gt;&lt;/i&gt;预测时序 / 资源竞争&lt;/div&gt;&lt;/div&gt;
-      &lt;div class=&quot;stage-art&quot;&gt;&lt;svg viewBox=&quot;0 0 136 90&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#57605d&quot; stroke-width=&quot;1.4&quot;&gt;&lt;path d=&quot;M8 20H126M8 45H126M8 70H126&quot;/&gt;&lt;path d=&quot;M11 10V80&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;20&quot; y=&quot;15&quot; width=&quot;49&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#3a786b&quot; stroke=&quot;#74dfbb&quot;/&gt;&lt;rect x=&quot;74&quot; y=&quot;15&quot; width=&quot;36&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#284b43&quot; stroke=&quot;#579f86&quot;/&gt;&lt;rect x=&quot;30&quot; y=&quot;40&quot; width=&quot;32&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#3a786b&quot; stroke=&quot;#74dfbb&quot;/&gt;&lt;rect x=&quot;68&quot; y=&quot;40&quot; width=&quot;46&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#284b43&quot; stroke=&quot;#579f86&quot;/&gt;&lt;rect x=&quot;47&quot; y=&quot;65&quot; width=&quot;44&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#3a786b&quot; stroke=&quot;#74dfbb&quot;/&gt;&lt;path d=&quot;M12 10V80&quot; stroke=&quot;#d1dfdc&quot; stroke-dasharray=&quot;3 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
-    &lt;/article&gt;
-    &lt;article class=&quot;stage&quot; style=&quot;--accent:var(--amber)&quot;&gt;
-      &lt;div&gt;&lt;div class=&quot;stage-title&quot;&gt;&lt;span class=&quot;index&quot;&gt;03 /&lt;/span&gt;真实运行&lt;/div&gt;&lt;div class=&quot;stage-desc&quot;&gt;Trace / Dump / Profiling 证据&lt;/div&gt;&lt;div class=&quot;stage-tag&quot;&gt;&lt;i&gt;&lt;/i&gt;实测时序 / 性能 / 数据&lt;/div&gt;&lt;/div&gt;
-      &lt;div class=&quot;stage-art&quot;&gt;&lt;svg viewBox=&quot;0 0 136 90&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#57504b&quot; stroke-width=&quot;1.2&quot;&gt;&lt;path d=&quot;M8 73H130M8 15V73&quot;/&gt;&lt;path d=&quot;M8 53H130M8 33H130&quot; stroke-dasharray=&quot;2 4&quot;/&gt;&lt;/g&gt;&lt;path d=&quot;M14 63L33 59L49 42L66 48L81 25L100 34L122 13&quot; stroke=&quot;#e7b46a&quot; stroke-width=&quot;2.3&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;g fill=&quot;#f0bb70&quot;&gt;&lt;circle cx=&quot;33&quot; cy=&quot;59&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;49&quot; cy=&quot;42&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;81&quot; cy=&quot;25&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;122&quot; cy=&quot;13&quot; r=&quot;3&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;17&quot; y=&quot;77&quot; width=&quot;17&quot; height=&quot;4&quot; fill=&quot;#816c4e&quot;/&gt;&lt;rect x=&quot;39&quot; y=&quot;77&quot; width=&quot;29&quot; height=&quot;4&quot; fill=&quot;#c7975b&quot;/&gt;&lt;rect x=&quot;75&quot; y=&quot;77&quot; width=&quot;19&quot; height=&quot;4&quot; fill=&quot;#816c4e&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
-    &lt;/article&gt;
-  &lt;/section&gt;
-  &lt;svg class=&quot;bridge&quot; viewBox=&quot;0 0 1496 34&quot; preserveAspectRatio=&quot;none&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M249 0V13H748V26M748 0V26M1247 0V13H748&quot;/&gt;&lt;path class=&quot;arrow&quot; d=&quot;M744 24L748 30L752 24Z&quot;/&gt;&lt;/svg&gt;
-
-  &lt;section class=&quot;model&quot; aria-label=&quot;统一计算语义模型&quot;&gt;
-    &lt;div class=&quot;model-head&quot;&gt;&lt;div class=&quot;kicker&quot;&gt;SHARED COMPUTE SEMANTICS&lt;/div&gt;&lt;strong&gt;统一计算语义模型&lt;/strong&gt;&lt;p&gt;对象身份、关系映射与证据来源保持一致&lt;/p&gt;&lt;/div&gt;
-    &lt;div class=&quot;objects&quot;&gt;&lt;span class=&quot;object&quot;&gt;Operation&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Task&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Tensor&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Buffer&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Dependency&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Event&lt;/span&gt;&lt;/div&gt;
-    &lt;div class=&quot;model-trace&quot;&gt;&lt;div class=&quot;name&quot;&gt;跨阶段追溯同一计算语义&lt;/div&gt;&lt;div class=&quot;id&quot;&gt;QK Matmul &lt;span style=&quot;font-size:11px;color:#888&quot;&gt;· 示例对象&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;meta&quot;&gt;静态定义 ↔ 仿真事件 ↔ 运行证据&lt;/div&gt;&lt;/div&gt;
-  &lt;/section&gt;
-
-  &lt;div class=&quot;arrow-down&quot; aria-hidden=&quot;true&quot;&gt;&lt;svg width=&quot;35&quot; height=&quot;25&quot; viewBox=&quot;0 0 35 25&quot;&gt;&lt;path d=&quot;M17.5 0V16M12 11L17.5 17L23 11&quot; stroke=&quot;#7a7a7a&quot; fill=&quot;none&quot; stroke-width=&quot;1.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
-  &lt;div class=&quot;lower-title&quot;&gt;&lt;strong&gt;四个诊断视角 · 同一计算上下文&lt;/strong&gt;&lt;span&gt;选择任一计算对象，联动查看分配、时序、依赖与数据状态&lt;/span&gt;&lt;/div&gt;
-
-  &lt;section class=&quot;cards&quot; aria-label=&quot;四个关联诊断视角&quot;&gt;
-    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--blue)&quot;&gt;
-      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;01&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Assignment&lt;/span&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;g font-family=&quot;monospace&quot; font-size=&quot;9&quot; fill=&quot;#9a9a9a&quot;&gt;&lt;text x=&quot;11&quot; y=&quot;19&quot;&gt;RANK 0&lt;/text&gt;&lt;text x=&quot;11&quot; y=&quot;47&quot;&gt;RANK 1&lt;/text&gt;&lt;/g&gt;&lt;rect x=&quot;72&quot; y=&quot;8&quot; width=&quot;228&quot; height=&quot;23&quot; rx=&quot;5&quot; fill=&quot;#232323&quot; stroke=&quot;#454545&quot;/&gt;&lt;rect x=&quot;72&quot; y=&quot;36&quot; width=&quot;228&quot; height=&quot;23&quot; rx=&quot;5&quot; fill=&quot;#232323&quot; stroke=&quot;#454545&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;13&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#556fa8&quot; stroke=&quot;#8babf5&quot;/&gt;&lt;rect x=&quot;131&quot; y=&quot;13&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;181&quot; y=&quot;13&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;41&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;131&quot; y=&quot;41&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;181&quot; y=&quot;41&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;g fill=&quot;#b4caff&quot; font-size=&quot;9&quot; font-family=&quot;monospace&quot;&gt;&lt;text x=&quot;87&quot; y=&quot;23&quot;&gt;QK&lt;/text&gt;&lt;/g&gt;&lt;path d=&quot;M104 26V33L152 38&quot; stroke=&quot;#83a7f3&quot; stroke-width=&quot;1.4&quot; stroke-dasharray=&quot;3 3&quot; fill=&quot;none&quot;/&gt;&lt;text x=&quot;228&quot; y=&quot;74&quot; font-size=&quot;9&quot; font-family=&quot;monospace&quot; fill=&quot;#7e98ca&quot;&gt;TASK → CORE&lt;/text&gt;&lt;/svg&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;计算被分配到哪里？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;工作负载、Task 与 Core / Rank 的归属&lt;/div&gt;&lt;/div&gt;
-    &lt;/article&gt;
-    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--teal)&quot;&gt;
-      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;02&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Pipeline / Trace&lt;/span&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;g font-family=&quot;monospace&quot; font-size=&quot;9&quot; fill=&quot;#9a9a9a&quot;&gt;&lt;text x=&quot;11&quot; y=&quot;22&quot;&gt;AIC&lt;/text&gt;&lt;text x=&quot;11&quot; y=&quot;45&quot;&gt;AIV&lt;/text&gt;&lt;text x=&quot;11&quot; y=&quot;67&quot;&gt;DMA&lt;/text&gt;&lt;/g&gt;&lt;g stroke=&quot;#383838&quot; stroke-width=&quot;1&quot;&gt;&lt;path d=&quot;M49 17H304M49 40H304M49 63H304&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;52&quot; y=&quot;11&quot; width=&quot;93&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#286351&quot; stroke=&quot;#64d9b2&quot;/&gt;&lt;rect x=&quot;151&quot; y=&quot;11&quot; width=&quot;39&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#254c42&quot;/&gt;&lt;rect x=&quot;78&quot; y=&quot;34&quot; width=&quot;47&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#255a4b&quot; stroke=&quot;#64d9b2&quot;/&gt;&lt;rect x=&quot;196&quot; y=&quot;34&quot; width=&quot;80&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#255a4b&quot; stroke=&quot;#64d9b2&quot;/&gt;&lt;rect x=&quot;54&quot; y=&quot;57&quot; width=&quot;47&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#484848&quot;/&gt;&lt;rect x=&quot;115&quot; y=&quot;57&quot; width=&quot;55&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#484848&quot;/&gt;&lt;path d=&quot;M145 5V75&quot; stroke=&quot;#7de7bf&quot; stroke-dasharray=&quot;3 3&quot; stroke-width=&quot;1.5&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;计算何时、如何执行？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;计算、搬运、同步与等待的时序&lt;/div&gt;&lt;/div&gt;
-    &lt;/article&gt;
-    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--violet)&quot;&gt;
-      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;03&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Graph / Execution Graph&lt;/span&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#787083&quot; fill=&quot;none&quot; stroke-width=&quot;1.5&quot;&gt;&lt;path d=&quot;M63 42H109M167 42H209M236 42H273M137 30V12H202V30&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;17&quot; y=&quot;28&quot; width=&quot;47&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#333039&quot; stroke=&quot;#716783&quot;/&gt;&lt;rect x=&quot;109&quot; y=&quot;28&quot; width=&quot;58&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#4c3f63&quot; stroke=&quot;#b39bdd&quot;/&gt;&lt;rect x=&quot;209&quot; y=&quot;28&quot; width=&quot;49&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#333039&quot; stroke=&quot;#716783&quot;/&gt;&lt;rect x=&quot;274&quot; y=&quot;28&quot; width=&quot;36&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#333039&quot; stroke=&quot;#716783&quot;/&gt;&lt;g fill=&quot;#e5dcf5&quot; text-anchor=&quot;middle&quot; font-family=&quot;monospace&quot; font-size=&quot;10&quot;&gt;&lt;text x=&quot;40&quot; y=&quot;46&quot;&gt;Load&lt;/text&gt;&lt;text x=&quot;138&quot; y=&quot;46&quot;&gt;QK&lt;/text&gt;&lt;text x=&quot;234&quot; y=&quot;46&quot;&gt;Norm&lt;/text&gt;&lt;text x=&quot;292&quot; y=&quot;46&quot;&gt;PV&lt;/text&gt;&lt;/g&gt;&lt;path d=&quot;M167 12H202&quot; stroke=&quot;#b39bdd&quot; stroke-width=&quot;1.4&quot; stroke-dasharray=&quot;3 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;为什么形成这条路径？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;计算操作、数据流与控制依赖关系&lt;/div&gt;&lt;/div&gt;
-    &lt;/article&gt;
-    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--amber)&quot;&gt;
-      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;04&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Tensor / Memory Inspector&lt;/span&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;14&quot; y=&quot;12&quot; width=&quot;128&quot; height=&quot;58&quot; rx=&quot;7&quot; fill=&quot;#242424&quot; stroke=&quot;#555&quot;/&gt;&lt;rect x=&quot;185&quot; y=&quot;12&quot; width=&quot;119&quot; height=&quot;58&quot; rx=&quot;7&quot; fill=&quot;#26241f&quot; stroke=&quot;#786348&quot;/&gt;&lt;g fill=&quot;#a2a2a2&quot; font-family=&quot;monospace&quot; font-size=&quot;10&quot;&gt;&lt;text x=&quot;25&quot; y=&quot;25&quot;&gt;TENSOR&lt;/text&gt;&lt;text x=&quot;196&quot; y=&quot;25&quot;&gt;BUFFER&lt;/text&gt;&lt;/g&gt;&lt;g fill=&quot;#e2b779&quot; opacity=&quot;.8&quot;&gt;&lt;rect x=&quot;24&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;43&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;62&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;24&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;43&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;62&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;/g&gt;&lt;path d=&quot;M148 41H176M169 35L176 41L169 47&quot; stroke=&quot;#b3a48c&quot; stroke-width=&quot;1.6&quot; fill=&quot;none&quot;/&gt;&lt;rect x=&quot;196&quot; y=&quot;35&quot; width=&quot;97&quot; height=&quot;22&quot; rx=&quot;3&quot; fill=&quot;#3c3325&quot;/&gt;&lt;rect x=&quot;196&quot; y=&quot;35&quot; width=&quot;59&quot; height=&quot;22&quot; rx=&quot;3&quot; fill=&quot;#b28d53&quot;/&gt;&lt;g fill=&quot;#161616&quot; font-family=&quot;monospace&quot; font-size=&quot;8&quot;&gt;&lt;text x=&quot;203&quot; y=&quot;49&quot;&gt;ALLOC&lt;/text&gt;&lt;/g&gt;&lt;/svg&gt;&lt;/div&gt;
-      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;数据在哪里出现异常？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;数值、Shape、Layout、Buffer 与内存状态&lt;/div&gt;&lt;/div&gt;
-    &lt;/article&gt;
-  &lt;/section&gt;
-
-  &lt;footer class=&quot;closing&quot;&gt;&lt;div class=&quot;closing-main&quot;&gt;&lt;span class=&quot;closing-mark&quot;&gt;◎&lt;/span&gt;&lt;strong&gt;问题驱动的诊断与优化闭环&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;closing-steps&quot;&gt;&lt;span class=&quot;step&quot;&gt;异常发现&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;跨视角追溯&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;根因定位&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;优化调整&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;运行对比验证&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;closing-note&quot;&gt;性能优化 · 精度保障&lt;/div&gt;&lt;/footer&gt;
-  &lt;div class=&quot;bottomline&quot;&gt;&lt;span&gt;同一计算语义 · 不同阶段的推断、预测与实测证据保持可区分&lt;/span&gt;&lt;span&gt;SCHEMATIC / NOT MEASURED DATA&lt;/span&gt;&lt;/div&gt;
-&lt;/main&gt;
-&lt;/body&gt;
-&lt;/html&gt;
-" hidden=""></iframe>
 <iframe title="三个观察维度与工具断点" data-compute-scenes sandbox="allow-same-origin allow-scripts" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
@@ -8923,7 +8770,7 @@ function go(value, dimension=-1) {
  });
  if(step&gt;=7) activeScene.querySelector(&#x27;.trace&#x27;).setAttribute(&#x27;aria-pressed&#x27;,&#x27;true&#x27;);
  if(step&gt;=8) addTracking();
- $(&#x27;#page&#x27;).textContent=matrix?&#x27;05 / 06&#x27;:&#x27;04 / 06&#x27;;
+ $(&#x27;#page&#x27;).textContent=matrix?&#x27;04 / 06&#x27;:&#x27;03 / 06&#x27;;
  $(&#x27;#title&#x27;).textContent=titles[Number(matrix)];
  $(&#x27;#subtitle&#x27;).textContent=subtitles[Number(matrix)];
  $(&#x27;#label&#x27;).textContent=beats[step][0];
@@ -8969,16 +8816,169 @@ go(0);
     </div>
   </div>
 </section>
+<iframe data-note-index="2" title="6 · 可追溯的计算解释" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
+&lt;html lang=&quot;zh-CN&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;color-scheme&quot; content=&quot;dark&quot;&gt;
+&lt;title&gt;PyPTO 3.0｜可解释性计算探索 · 可追溯的计算解释&lt;/title&gt;
+&lt;style&gt;
+:root {
+  --bg: #101010; --pane: #171717; --pane2:#1c1c1c; --pane3:#242424;
+  --line:#343434; --weak:#292929; --fg:#f2f2f2; --secondary:#b7b7b7; --muted:#7e7e7e;
+  --blue:#78a0ff; --teal:#4bcba8; --amber:#e7b46a; --violet:#af99e5;
+  --mono: &quot;JetBrains Mono&quot;, &quot;SFMono-Regular&quot;, &quot;Menlo&quot;, &quot;Consolas&quot;, monospace;
+  --sans: Inter, &quot;PingFang SC&quot;, &quot;Source Han Sans SC&quot;, &quot;Noto Sans SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#0b0b0b;color:var(--fg);font-family:var(--sans)}
+body{display:flex;justify-content:center;align-items:flex-start;padding:0}
+.slide{width:1600px;height:900px;flex-shrink:0;position:relative;overflow:hidden;background:var(--bg);padding:31px 52px 24px;}
+.slide::before{content:&quot;&quot;;pointer-events:none;position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.16) .7px,transparent .85px);background-size:23px 23px;opacity:.15;mask-image:linear-gradient(to bottom,transparent 9%,black 90%)}
+.slide::after{content:&quot;&quot;;pointer-events:none;position:absolute;left:-130px;bottom:-200px;width:470px;height:470px;background:radial-gradient(circle,rgba(93,121,194,.09),transparent 70%)}
+.slide&gt;*{position:relative;z-index:1}
+.eyebrow{display:flex;justify-content:space-between;align-items:center;font:11px/1.2 var(--mono);letter-spacing:.13em;color:#858585}
+.marker{display:inline-block;width:8px;height:8px;background:var(--blue);border-radius:2px;margin-right:10px}
+h1{margin:27px 0 9px;font-size:49px;line-height:1.23;letter-spacing:-1px;font-weight:690;color:#f5f5f5}
+.lead{font-size:18px;line-height:1.5;color:#ababab;margin:0;max-width:1330px}
+.stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-top:27px;height:129px}
+.stage{background:#181818;border:1px solid #343434;border-radius:14px;padding:17px 21px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden}
+.stage:before{content:&quot;&quot;;height:2px;position:absolute;left:20px;right:20px;top:0;background:linear-gradient(90deg,var(--accent),transparent 85%);opacity:.95}
+.stage .index{font:11px var(--mono);color:var(--muted);margin-right:8px}
+.stage-title{display:flex;align-items:center;font-size:21px;line-height:1.25;font-weight:690}
+.stage-desc{font-size:14px;color:#b7b7b7;line-height:1.4;margin-top:8px}
+.stage-tag{display:inline-flex;align-items:center;gap:6px;font:11px/1.2 var(--mono);color:var(--accent);margin-top:11px}
+.stage-tag i{display:block;width:6px;height:6px;background:var(--accent);border-radius:50%}
+.stage-art{width:131px;height:90px;flex-shrink:0;opacity:.92}
+.stage-art svg{width:100%;height:100%;display:block}
+.bridge{height:34px;margin:0 auto;width:100%;display:block}
+.bridge path,.bridge line{stroke:#4a4a4a;stroke-width:1.2;fill:none}
+.bridge .arrow{fill:#666;stroke:none}
+.model{border:1px solid #5c6680;border-radius:14px;background:linear-gradient(100deg,#20222a 0%,#1b1d22 63%,#191919 100%);height:118px;display:grid;grid-template-columns:308px 1fr 280px;align-items:center;padding:18px 28px;position:relative;gap:22px}
+.model:before{content:&quot;&quot;;position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:14px 0 0 14px;background:#80a4ff}
+.model-head .kicker{font:11px/1.2 var(--mono);color:#93aafa;letter-spacing:.07em;margin-bottom:9px}
+.model-head strong{font-size:25px;line-height:1.1;letter-spacing:-.5px}
+.model-head p{font-size:13px;color:#a5a5a5;margin:9px 0 0;white-space:nowrap}
+.objects{display:flex;flex-wrap:wrap;justify-content:center;gap:9px 8px}
+.object{font:12px/1 var(--mono);padding:10px 13px;border-radius:7px;background:#303238;border:1px solid #464750;color:#e1e1e1;white-space:nowrap}
+.object:first-child{color:#b6caff;border-color:#637ca7;background:#30394b}
+.model-trace{border-left:1px solid #40444b;padding-left:21px;align-self:stretch;display:flex;justify-content:center;flex-direction:column;gap:7px}
+.model-trace .name{font-size:13px;color:#d9dded;font-weight:630}
+.model-trace .id{font:13px var(--mono);color:#8eafff}
+.model-trace .meta{font-size:12px;color:#9b9b9b;line-height:1.3}
+.arrow-down{height:29px;display:flex;align-items:center;justify-content:center;color:#717171}
+.lower-title{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px}
+.lower-title strong{font-size:21px;letter-spacing:-.2px}
+.lower-title span{font-size:13px;color:#8e8e8e}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;height:218px}
+.card{background:#1a1a1a;border:1px solid #373737;border-radius:14px;overflow:hidden;padding:17px 17px 15px;position:relative;display:flex;flex-direction:column}
+.card:before{content:&quot;&quot;;position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent 85%);opacity:.85}
+.card-top{display:flex;align-items:center;gap:10px}
+.card-no{font:11px var(--mono);color:var(--accent);background:#292929;border:1px solid #3f3f3f;border-radius:5px;padding:5px 6px}
+.card-title{font-size:16px;font-weight:690;white-space:nowrap;letter-spacing:-.3px}
+.card-visual{height:88px;margin:9px 0 0;background:#151515;border:1px solid #292929;border-radius:9px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.card-visual svg{display:block;height:77px;width:100%}
+.card-bottom{margin-top:10px}
+.card-bottom .question{font-size:15px;font-weight:640;color:#e5e5e5;line-height:1.2}
+.card-bottom .copy{font-size:12px;line-height:1.45;color:#969696;margin-top:5px}
+.closing{height:67px;margin-top:18px;background:#181818;border:1px solid #3b3b3b;border-radius:13px;display:flex;align-items:center;padding:10px 22px;gap:20px;justify-content:space-between}
+.closing-main{display:flex;align-items:center;gap:12px;min-width:340px}
+.closing-mark{width:32px;height:32px;border:1px solid #566b8c;border-radius:50%;display:grid;place-items:center;color:#a1b6e4;font-size:21px;line-height:1}
+.closing-main strong{font-size:18px;white-space:nowrap}
+.closing-steps{display:flex;align-items:center;gap:11px;font-size:15px;color:#d0d0d0;white-space:nowrap}
+.closing-steps .step{padding:7px 0}
+.closing-steps b{font-size:14px;font-weight:400;color:#777}
+.closing-note{font-size:12px;color:#91a8d2;border-left:1px solid #3c3c3c;padding-left:20px;white-space:nowrap}
+.bottomline{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font:10px var(--mono);letter-spacing:.07em;color:#626262}
+@media(max-width:1599px){body{overflow-x:auto}.slide{margin-left:0;margin-right:0}}
+@media print{@page{size:16in 9in;margin:0}html,body{background:#101010;print-color-adjust:exact;-webkit-print-color-adjust:exact}.slide{width:1600px;height:900px;page-break-after:avoid}}
+&lt;/style&gt;
+
+&lt;style&gt;
+html,body { overflow:hidden; }
+h1.deck-heading {
+  font: 650 48px/1.25 -apple-system,BlinkMacSystemFont,&quot;PingFang SC&quot;,&quot;Microsoft YaHei&quot;,sans-serif;
+  letter-spacing:-1px;
+  color:#f3f3f3;
+  margin:0;
+}
+.slide &gt; h1.deck-heading { margin:27px 0 9px; }
+.page { min-height:900px; }
+&lt;/style&gt;
+&lt;style&gt;
+
+.slide .stages { height:120px; }
+.slide .cards { height:207px; }
+.slide .closing { margin-top:14px; }&lt;/style&gt;&lt;/head&gt;
+&lt;body&gt;
+&lt;main class=&quot;slide&quot; role=&quot;img&quot; aria-label=&quot;统一计算模型，贯通静态分析、模拟仿真与真实运行，并通过 Assignment、Pipeline Trace、Graph、Tensor Memory Inspector 四种视角追溯计算行为&quot;&gt;
+  &lt;header data-deck-title=&quot;统一计算模型，让计算可追溯&quot;&gt;&lt;/header&gt;
+
+  &lt;section class=&quot;stages&quot; aria-label=&quot;三种分析状态&quot;&gt;
+    &lt;article class=&quot;stage&quot; style=&quot;--accent:var(--blue)&quot;&gt;
+      &lt;div&gt;&lt;div class=&quot;stage-title&quot;&gt;&lt;span class=&quot;index&quot;&gt;01 /&lt;/span&gt;静态分析&lt;/div&gt;&lt;div class=&quot;stage-desc&quot;&gt;计算结构与预期行为&lt;/div&gt;&lt;div class=&quot;stage-tag&quot;&gt;&lt;i&gt;&lt;/i&gt;结构 / 依赖 / 预期分配&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;stage-art&quot;&gt;&lt;svg viewBox=&quot;0 0 136 90&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#617cae&quot; stroke-width=&quot;1.3&quot; fill=&quot;none&quot; opacity=&quot;.65&quot;&gt;&lt;path d=&quot;M29 27H57L83 51H106&quot;/&gt;&lt;path d=&quot;M29 62H52L75 39H106&quot;/&gt;&lt;path d=&quot;M57 27v13&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;8&quot; y=&quot;16&quot; width=&quot;32&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#2b3650&quot; stroke=&quot;#80a5fa&quot;/&gt;&lt;rect x=&quot;8&quot; y=&quot;51&quot; width=&quot;32&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#2b3650&quot; stroke=&quot;#80a5fa&quot;/&gt;&lt;rect x=&quot;58&quot; y=&quot;32&quot; width=&quot;32&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#323645&quot; stroke=&quot;#a4b5d1&quot;/&gt;&lt;rect x=&quot;100&quot; y=&quot;36&quot; width=&quot;29&quot; height=&quot;23&quot; rx=&quot;4&quot; fill=&quot;#2b3650&quot; stroke=&quot;#80a5fa&quot;/&gt;&lt;g fill=&quot;#85aafc&quot;&gt;&lt;circle cx=&quot;24&quot; cy=&quot;27&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;24&quot; cy=&quot;62&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;74&quot; cy=&quot;44&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;114.5&quot; cy=&quot;47.5&quot; r=&quot;3&quot;/&gt;&lt;/g&gt;&lt;/svg&gt;&lt;/div&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;stage&quot; style=&quot;--accent:var(--teal)&quot;&gt;
+      &lt;div&gt;&lt;div class=&quot;stage-title&quot;&gt;&lt;span class=&quot;index&quot;&gt;02 /&lt;/span&gt;模拟仿真&lt;/div&gt;&lt;div class=&quot;stage-desc&quot;&gt;场景推演与调度验证&lt;/div&gt;&lt;div class=&quot;stage-tag&quot;&gt;&lt;i&gt;&lt;/i&gt;预测时序 / 资源竞争&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;stage-art&quot;&gt;&lt;svg viewBox=&quot;0 0 136 90&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#57605d&quot; stroke-width=&quot;1.4&quot;&gt;&lt;path d=&quot;M8 20H126M8 45H126M8 70H126&quot;/&gt;&lt;path d=&quot;M11 10V80&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;20&quot; y=&quot;15&quot; width=&quot;49&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#3a786b&quot; stroke=&quot;#74dfbb&quot;/&gt;&lt;rect x=&quot;74&quot; y=&quot;15&quot; width=&quot;36&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#284b43&quot; stroke=&quot;#579f86&quot;/&gt;&lt;rect x=&quot;30&quot; y=&quot;40&quot; width=&quot;32&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#3a786b&quot; stroke=&quot;#74dfbb&quot;/&gt;&lt;rect x=&quot;68&quot; y=&quot;40&quot; width=&quot;46&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#284b43&quot; stroke=&quot;#579f86&quot;/&gt;&lt;rect x=&quot;47&quot; y=&quot;65&quot; width=&quot;44&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#3a786b&quot; stroke=&quot;#74dfbb&quot;/&gt;&lt;path d=&quot;M12 10V80&quot; stroke=&quot;#d1dfdc&quot; stroke-dasharray=&quot;3 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;stage&quot; style=&quot;--accent:var(--amber)&quot;&gt;
+      &lt;div&gt;&lt;div class=&quot;stage-title&quot;&gt;&lt;span class=&quot;index&quot;&gt;03 /&lt;/span&gt;真实运行&lt;/div&gt;&lt;div class=&quot;stage-desc&quot;&gt;Trace / Dump / Profiling 证据&lt;/div&gt;&lt;div class=&quot;stage-tag&quot;&gt;&lt;i&gt;&lt;/i&gt;实测时序 / 性能 / 数据&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;stage-art&quot;&gt;&lt;svg viewBox=&quot;0 0 136 90&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#57504b&quot; stroke-width=&quot;1.2&quot;&gt;&lt;path d=&quot;M8 73H130M8 15V73&quot;/&gt;&lt;path d=&quot;M8 53H130M8 33H130&quot; stroke-dasharray=&quot;2 4&quot;/&gt;&lt;/g&gt;&lt;path d=&quot;M14 63L33 59L49 42L66 48L81 25L100 34L122 13&quot; stroke=&quot;#e7b46a&quot; stroke-width=&quot;2.3&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;g fill=&quot;#f0bb70&quot;&gt;&lt;circle cx=&quot;33&quot; cy=&quot;59&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;49&quot; cy=&quot;42&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;81&quot; cy=&quot;25&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;122&quot; cy=&quot;13&quot; r=&quot;3&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;17&quot; y=&quot;77&quot; width=&quot;17&quot; height=&quot;4&quot; fill=&quot;#816c4e&quot;/&gt;&lt;rect x=&quot;39&quot; y=&quot;77&quot; width=&quot;29&quot; height=&quot;4&quot; fill=&quot;#c7975b&quot;/&gt;&lt;rect x=&quot;75&quot; y=&quot;77&quot; width=&quot;19&quot; height=&quot;4&quot; fill=&quot;#816c4e&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+    &lt;/article&gt;
+  &lt;/section&gt;
+  &lt;svg class=&quot;bridge&quot; viewBox=&quot;0 0 1496 34&quot; preserveAspectRatio=&quot;none&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M249 0V13H748V26M748 0V26M1247 0V13H748&quot;/&gt;&lt;path class=&quot;arrow&quot; d=&quot;M744 24L748 30L752 24Z&quot;/&gt;&lt;/svg&gt;
+
+  &lt;section class=&quot;model&quot; aria-label=&quot;统一计算语义模型&quot;&gt;
+    &lt;div class=&quot;model-head&quot;&gt;&lt;div class=&quot;kicker&quot;&gt;SHARED COMPUTE SEMANTICS&lt;/div&gt;&lt;strong&gt;统一计算语义模型&lt;/strong&gt;&lt;p&gt;对象身份、关系映射与证据来源保持一致&lt;/p&gt;&lt;/div&gt;
+    &lt;div class=&quot;objects&quot;&gt;&lt;span class=&quot;object&quot;&gt;Operation&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Task&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Tensor&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Buffer&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Dependency&lt;/span&gt;&lt;span class=&quot;object&quot;&gt;Event&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;model-trace&quot;&gt;&lt;div class=&quot;name&quot;&gt;跨阶段追溯同一计算语义&lt;/div&gt;&lt;div class=&quot;id&quot;&gt;QK Matmul &lt;span style=&quot;font-size:11px;color:#888&quot;&gt;· 示例对象&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;meta&quot;&gt;静态定义 ↔ 仿真事件 ↔ 运行证据&lt;/div&gt;&lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;div class=&quot;arrow-down&quot; aria-hidden=&quot;true&quot;&gt;&lt;svg width=&quot;35&quot; height=&quot;25&quot; viewBox=&quot;0 0 35 25&quot;&gt;&lt;path d=&quot;M17.5 0V16M12 11L17.5 17L23 11&quot; stroke=&quot;#7a7a7a&quot; fill=&quot;none&quot; stroke-width=&quot;1.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class=&quot;lower-title&quot;&gt;&lt;strong&gt;四个诊断视角 · 同一计算上下文&lt;/strong&gt;&lt;span&gt;选择任一计算对象，联动查看分配、时序、依赖与数据状态&lt;/span&gt;&lt;/div&gt;
+
+  &lt;section class=&quot;cards&quot; aria-label=&quot;四个关联诊断视角&quot;&gt;
+    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--blue)&quot;&gt;
+      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;01&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Assignment&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;g font-family=&quot;monospace&quot; font-size=&quot;9&quot; fill=&quot;#9a9a9a&quot;&gt;&lt;text x=&quot;11&quot; y=&quot;19&quot;&gt;RANK 0&lt;/text&gt;&lt;text x=&quot;11&quot; y=&quot;47&quot;&gt;RANK 1&lt;/text&gt;&lt;/g&gt;&lt;rect x=&quot;72&quot; y=&quot;8&quot; width=&quot;228&quot; height=&quot;23&quot; rx=&quot;5&quot; fill=&quot;#232323&quot; stroke=&quot;#454545&quot;/&gt;&lt;rect x=&quot;72&quot; y=&quot;36&quot; width=&quot;228&quot; height=&quot;23&quot; rx=&quot;5&quot; fill=&quot;#232323&quot; stroke=&quot;#454545&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;13&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#556fa8&quot; stroke=&quot;#8babf5&quot;/&gt;&lt;rect x=&quot;131&quot; y=&quot;13&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;181&quot; y=&quot;13&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;41&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;131&quot; y=&quot;41&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;rect x=&quot;181&quot; y=&quot;41&quot; width=&quot;45&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#343a45&quot;/&gt;&lt;g fill=&quot;#b4caff&quot; font-size=&quot;9&quot; font-family=&quot;monospace&quot;&gt;&lt;text x=&quot;87&quot; y=&quot;23&quot;&gt;QK&lt;/text&gt;&lt;/g&gt;&lt;path d=&quot;M104 26V33L152 38&quot; stroke=&quot;#83a7f3&quot; stroke-width=&quot;1.4&quot; stroke-dasharray=&quot;3 3&quot; fill=&quot;none&quot;/&gt;&lt;text x=&quot;228&quot; y=&quot;74&quot; font-size=&quot;9&quot; font-family=&quot;monospace&quot; fill=&quot;#7e98ca&quot;&gt;TASK → CORE&lt;/text&gt;&lt;/svg&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;计算被分配到哪里？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;工作负载、Task 与 Core / Rank 的归属&lt;/div&gt;&lt;/div&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--teal)&quot;&gt;
+      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;02&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Pipeline / Trace&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;g font-family=&quot;monospace&quot; font-size=&quot;9&quot; fill=&quot;#9a9a9a&quot;&gt;&lt;text x=&quot;11&quot; y=&quot;22&quot;&gt;AIC&lt;/text&gt;&lt;text x=&quot;11&quot; y=&quot;45&quot;&gt;AIV&lt;/text&gt;&lt;text x=&quot;11&quot; y=&quot;67&quot;&gt;DMA&lt;/text&gt;&lt;/g&gt;&lt;g stroke=&quot;#383838&quot; stroke-width=&quot;1&quot;&gt;&lt;path d=&quot;M49 17H304M49 40H304M49 63H304&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;52&quot; y=&quot;11&quot; width=&quot;93&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#286351&quot; stroke=&quot;#64d9b2&quot;/&gt;&lt;rect x=&quot;151&quot; y=&quot;11&quot; width=&quot;39&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#254c42&quot;/&gt;&lt;rect x=&quot;78&quot; y=&quot;34&quot; width=&quot;47&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#255a4b&quot; stroke=&quot;#64d9b2&quot;/&gt;&lt;rect x=&quot;196&quot; y=&quot;34&quot; width=&quot;80&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#255a4b&quot; stroke=&quot;#64d9b2&quot;/&gt;&lt;rect x=&quot;54&quot; y=&quot;57&quot; width=&quot;47&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#484848&quot;/&gt;&lt;rect x=&quot;115&quot; y=&quot;57&quot; width=&quot;55&quot; height=&quot;13&quot; rx=&quot;3&quot; fill=&quot;#484848&quot;/&gt;&lt;path d=&quot;M145 5V75&quot; stroke=&quot;#7de7bf&quot; stroke-dasharray=&quot;3 3&quot; stroke-width=&quot;1.5&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;计算何时、如何执行？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;计算、搬运、同步与等待的时序&lt;/div&gt;&lt;/div&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--violet)&quot;&gt;
+      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;03&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Graph / Execution Graph&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;g stroke=&quot;#787083&quot; fill=&quot;none&quot; stroke-width=&quot;1.5&quot;&gt;&lt;path d=&quot;M63 42H109M167 42H209M236 42H273M137 30V12H202V30&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;17&quot; y=&quot;28&quot; width=&quot;47&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#333039&quot; stroke=&quot;#716783&quot;/&gt;&lt;rect x=&quot;109&quot; y=&quot;28&quot; width=&quot;58&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#4c3f63&quot; stroke=&quot;#b39bdd&quot;/&gt;&lt;rect x=&quot;209&quot; y=&quot;28&quot; width=&quot;49&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#333039&quot; stroke=&quot;#716783&quot;/&gt;&lt;rect x=&quot;274&quot; y=&quot;28&quot; width=&quot;36&quot; height=&quot;29&quot; rx=&quot;6&quot; fill=&quot;#333039&quot; stroke=&quot;#716783&quot;/&gt;&lt;g fill=&quot;#e5dcf5&quot; text-anchor=&quot;middle&quot; font-family=&quot;monospace&quot; font-size=&quot;10&quot;&gt;&lt;text x=&quot;40&quot; y=&quot;46&quot;&gt;Load&lt;/text&gt;&lt;text x=&quot;138&quot; y=&quot;46&quot;&gt;QK&lt;/text&gt;&lt;text x=&quot;234&quot; y=&quot;46&quot;&gt;Norm&lt;/text&gt;&lt;text x=&quot;292&quot; y=&quot;46&quot;&gt;PV&lt;/text&gt;&lt;/g&gt;&lt;path d=&quot;M167 12H202&quot; stroke=&quot;#b39bdd&quot; stroke-width=&quot;1.4&quot; stroke-dasharray=&quot;3 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;为什么形成这条路径？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;计算操作、数据流与控制依赖关系&lt;/div&gt;&lt;/div&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;card&quot; style=&quot;--accent:var(--amber)&quot;&gt;
+      &lt;div class=&quot;card-top&quot;&gt;&lt;span class=&quot;card-no&quot;&gt;04&lt;/span&gt;&lt;span class=&quot;card-title&quot;&gt;Tensor / Memory Inspector&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-visual&quot;&gt;&lt;svg viewBox=&quot;0 0 320 83&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;14&quot; y=&quot;12&quot; width=&quot;128&quot; height=&quot;58&quot; rx=&quot;7&quot; fill=&quot;#242424&quot; stroke=&quot;#555&quot;/&gt;&lt;rect x=&quot;185&quot; y=&quot;12&quot; width=&quot;119&quot; height=&quot;58&quot; rx=&quot;7&quot; fill=&quot;#26241f&quot; stroke=&quot;#786348&quot;/&gt;&lt;g fill=&quot;#a2a2a2&quot; font-family=&quot;monospace&quot; font-size=&quot;10&quot;&gt;&lt;text x=&quot;25&quot; y=&quot;25&quot;&gt;TENSOR&lt;/text&gt;&lt;text x=&quot;196&quot; y=&quot;25&quot;&gt;BUFFER&lt;/text&gt;&lt;/g&gt;&lt;g fill=&quot;#e2b779&quot; opacity=&quot;.8&quot;&gt;&lt;rect x=&quot;24&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;43&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;62&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;34&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;24&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;43&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;62&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;81&quot; y=&quot;50&quot; width=&quot;15&quot; height=&quot;12&quot; rx=&quot;2&quot;/&gt;&lt;/g&gt;&lt;path d=&quot;M148 41H176M169 35L176 41L169 47&quot; stroke=&quot;#b3a48c&quot; stroke-width=&quot;1.6&quot; fill=&quot;none&quot;/&gt;&lt;rect x=&quot;196&quot; y=&quot;35&quot; width=&quot;97&quot; height=&quot;22&quot; rx=&quot;3&quot; fill=&quot;#3c3325&quot;/&gt;&lt;rect x=&quot;196&quot; y=&quot;35&quot; width=&quot;59&quot; height=&quot;22&quot; rx=&quot;3&quot; fill=&quot;#b28d53&quot;/&gt;&lt;g fill=&quot;#161616&quot; font-family=&quot;monospace&quot; font-size=&quot;8&quot;&gt;&lt;text x=&quot;203&quot; y=&quot;49&quot;&gt;ALLOC&lt;/text&gt;&lt;/g&gt;&lt;/svg&gt;&lt;/div&gt;
+      &lt;div class=&quot;card-bottom&quot;&gt;&lt;div class=&quot;question&quot;&gt;数据在哪里出现异常？&lt;/div&gt;&lt;div class=&quot;copy&quot;&gt;数值、Shape、Layout、Buffer 与内存状态&lt;/div&gt;&lt;/div&gt;
+    &lt;/article&gt;
+  &lt;/section&gt;
+
+  &lt;footer class=&quot;closing&quot;&gt;&lt;div class=&quot;closing-main&quot;&gt;&lt;span class=&quot;closing-mark&quot;&gt;◎&lt;/span&gt;&lt;strong&gt;问题驱动的诊断与优化闭环&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;closing-steps&quot;&gt;&lt;span class=&quot;step&quot;&gt;异常发现&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;跨视角追溯&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;根因定位&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;优化调整&lt;/span&gt;&lt;b&gt;→&lt;/b&gt;&lt;span class=&quot;step&quot;&gt;运行对比验证&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;closing-note&quot;&gt;性能优化 · 精度保障&lt;/div&gt;&lt;/footer&gt;
+  &lt;div class=&quot;bottomline&quot;&gt;&lt;span&gt;同一计算语义 · 不同阶段的推断、预测与实测证据保持可区分&lt;/span&gt;&lt;span&gt;SCHEMATIC / NOT MEASURED DATA&lt;/span&gt;&lt;/div&gt;
+&lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+" hidden=""></iframe>
 </main>
 <nav id="deck-nav" aria-label="幻灯片导航">
 <button type="button" id="presenter-toggle" title="演讲者模式（P）">演讲者模式</button>
 <button type="button" id="previous" aria-label="上一页">‹</button>
 <button type="button" data-index="0" aria-label="架构对比">●</button>
 <button type="button" data-index="1" aria-label="从代码到计算">●</button>
-<button type="button" data-index="2" aria-label="可追溯的计算解释">●</button>
-<button type="button" data-index="3" aria-label="三个观察维度">●</button>
-<button type="button" data-index="4" aria-label="工具支撑断点">●</button>
-<button type="button" data-index="5" aria-label="跨视角对象定位">●</button>
+<button type="button" data-index="2" aria-label="三个观察维度">●</button>
+<button type="button" data-index="3" aria-label="工具支撑断点">●</button>
+<button type="button" data-index="4" aria-label="跨视角对象定位">●</button>
+<button type="button" data-index="5" aria-label="可追溯的计算解释">●</button>
 <button type="button" id="next" aria-label="下一页">›</button>
 <output id="deck-page-count" aria-live="polite"></output>
 </nav>
@@ -18425,7 +18425,7 @@ function updatePresenter() {
     if (preview.hasAttribute('src')) send(preview.contentWindow,'goto',nextIndex);
     else preview.src=roleUrl('preview',nextIndex);
   }
-  const noteIndex = slides[current] === computeFrame ? String(current + 1) : slides[current].dataset.noteIndex ?? String(current);
+  const noteIndex = slides[current] === computeFrame ? String(4 + current - computeStart) : slides[current].dataset.noteIndex ?? String(current);
   if (notes.dataset.page!==noteIndex) {
     notes.dataset.page=noteIndex;
     notes.value=typeof drafts[noteIndex]==='string' ? drafts[noteIndex] : '';
