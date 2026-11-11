@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>昇腾算子开发可解释/可观测设计</title>
-<link rel="stylesheet" href="cover-glow.css">
+<link rel="stylesheet" href="cover-glow.css?v=20261111-bg2">
 <style>
 :root{
   color-scheme:dark;
@@ -32,6 +32,8 @@ body{margin:0;background:var(--kn-void);-webkit-font-smoothing:antialiased}
 /* ---------------- poster shell ---------------- */
 .poster{position:relative;min-height:100svh;display:flex;flex-direction:column;isolation:isolate;
   background:radial-gradient(118% 68% at 50% -8%,rgba(40,41,46,.44),transparent 58%),var(--kn-void)}
+.ascend-brand{position:absolute;left:clamp(20px,3vw,42px);top:24px;z-index:5;width:105px;height:40px;object-fit:contain;pointer-events:none}
+@media(max-width:600px){.ascend-brand{top:12px;left:16px;width:84px;height:32px}.poster .heading{padding-top:64px}}
 .poster::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
   background:radial-gradient(128% 80% at 50% 46%,transparent 38%,rgba(0,0,0,.52) 78%,rgba(0,0,0,.86) 100%)}
 
@@ -249,7 +251,7 @@ h2{margin:0;font-size:clamp(24px,2.1vw,36px);line-height:1.18;font-weight:600;le
 }
 @media(prefers-reduced-motion:reduce){.stage[href="result.html"] :is(.stage-illustration,.compact-illustration){transition:none!important}}
 </style><style>
-.poster .stage[href="result.html"] .go{color:#fff}
+.poster .stage:is([href="compile.html"],[href="result.html"]) .go{color:#fff}
 .poster .stage[href="result.html"]::before{display:block}
 .poster .stage[href="result.html"] .stage-illustration{filter:none!important}
 .pass-neighbors{transition:opacity 300ms ease-out,transform 450ms cubic-bezier(.22,1,.36,1);transform-origin:200px 79px}
@@ -259,12 +261,10 @@ h2{margin:0;font-size:clamp(24px,2.1vw,36px);line-height:1.18;font-weight:600;le
  animation:kn-links-in 700ms ease-out 3s both;stroke-dasharray:1;stroke-dashoffset:0
 }
 @keyframes kn-links-in{from{opacity:0;stroke-dashoffset:1}to{opacity:1;stroke-dashoffset:0}}
-/* Static gradient replaces the layered moving tail: no continuous stroke repaint. */
-.poster .cycle .pulse{display:none!important;animation:none!important}
-.cycle .travel-light{opacity:0;offset-anchor:0px 0px;offset-rotate:auto;pointer-events:none}
-.poster.is-ready .cycle .travel-light{animation:travel-light 6.5s linear 3.8s infinite}
-@keyframes travel-light{0%{offset-distance:0%;opacity:0}5%,94%{opacity:1}100%{offset-distance:100%;opacity:0}}
-@media(prefers-reduced-motion:reduce){.poster.is-ready .cycle .travel-light{animation:none}}
+/* A single dashed stroke bends with the actual loop, including its rounded corners. */
+.poster .cycle .pulse{display:none;animation:none}
+.poster.is-ready #pulse-return{display:block;stroke:#f2f3f7;stroke-width:2.2;stroke-dasharray:.035 .965;stroke-linecap:round;animation:kn-travel 6.5s linear 3.8s infinite;filter:none}
+@media(prefers-reduced-motion:reduce){.poster.is-ready #pulse-return{display:none;animation:none}}
 @media(prefers-reduced-motion:reduce){
  .poster.is-ready #cycle-forward-1,.poster.is-ready #cycle-forward-2{animation:none;opacity:1}
 }
@@ -275,9 +275,25 @@ h2{margin:0;font-size:clamp(24px,2.1vw,36px);line-height:1.18;font-weight:600;le
 .poster .stage .cover-glass{backdrop-filter:none;-webkit-backdrop-filter:none}
 .poster .stage::before{filter:none!important}
 .poster .stage .glass-scene{contain:layout style;isolation:isolate}
+/* Match 01's local frosted backing without blurring the exported face or labels. */
+.poster .stage:nth-of-type(2) .cover-glass,
+.poster .stage:nth-of-type(3) .device-asset-surface{
+ background:rgb(8 9 14 / .24);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);
+}
+.poster .stage:nth-of-type(3) .device-asset-surface{
+ border-radius:var(--cover-radius);
+}
+/* will-change:opacity creates a backdrop root and prevents sampling the stage image. */
+.poster .stage .glass-scene{will-change:transform;isolation:auto}
+.poster .stage .hardware-map-caption{opacity:1;transition:opacity .35s var(--kn-ease)}
+.poster .stage.is-compact .hardware-map-caption{opacity:.2}
+.card-background-sample{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:-1;background:#101014}
+.card-background-sample > div{position:absolute;filter:blur(12px);pointer-events:none}
+.poster .pass-frost-surface{overflow:hidden}
 </style></head>
 <body>
 <main class="poster">
+<img class="ascend-brand" src="assets/ascend-logo.svg" width="105" height="40" alt="Ascend 昇腾" />
 <header class="heading"><h1><span class="title-line">昇腾算子开发</span><span class="title-line title-glow"><span class="title-halo" aria-hidden="true">可解释·可观测设计</span><span class="title-front">可解释·可观测设计</span></span></h1><p class="subtitle">PyPTO 模型/算子开发</p></header>
 <nav class="stages is-overview" aria-label="算子开发、可视化编译、性能调优，性能反馈驱动持续迭代"><svg class="cycle" aria-hidden="true"><defs><linearGradient id="cycle-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0"><stop stop-color="#8bd8af"/><stop offset=".5" stop-color="#c4a5f5"/><stop offset="1" stop-color="#89d4ef"/></linearGradient><marker id="cycle-arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1.4 8.6 5 1 8.6" fill="none" stroke="#d6f2ea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker><radialGradient id="cycle-decay-grad" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1"><stop offset="0" stop-color="#fff"/><stop offset=".42" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity=".17"/></radialGradient><mask id="cycle-decay" maskUnits="userSpaceOnUse" x="-400" y="-400" width="5000" height="4000"><rect id="cycle-decay-rect" x="-400" y="-400" width="5000" height="4000" fill="url(#cycle-decay-grad)"/></mask></defs><path class="halo" id="cycle-halo" pathLength="1"/><path class="trunk" id="cycle-forward-1" pathLength="1"/><path class="trunk" id="cycle-forward-2" pathLength="1"/><path class="trunk" id="cycle-return" pathLength="1"/><path class="pulse" id="pulse-forward-1" pathLength="1"/><path class="pulse" id="pulse-forward-2" pathLength="1"/><path class="pulse" id="pulse-return" pathLength="1"/><path class="ticks" id="cycle-ticks"/><circle class="origin" id="cycle-origin" r="0"/></svg><span class="cycle-caption" aria-hidden="true"><span class="caption-border-glow"><span></span></span>性能反馈 · 持续迭代</span>
 <a class="stage" href="workbench.html"><div class="orbit-node"><svg class="stage-illustration" viewBox="0 0 400 250" aria-hidden="true"><defs><linearGradient id="a1-card" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#262a28"/><stop offset="1" stop-color="#141716"/></linearGradient><linearGradient id="a1-beam" gradientUnits="userSpaceOnUse" x1="168" y1="0" x2="214" y2="0"><stop offset="0" stop-color="#88EC30" stop-opacity="0"/><stop offset=".55" stop-color="#88EC30" stop-opacity=".85"/><stop offset="1" stop-color="#dcfeee"/></linearGradient><linearGradient id="a1-live" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#88EC30"/><stop offset=".5" stop-color="#88EC30"/><stop offset="1" stop-color="#88EC30"/></linearGradient><linearGradient id="a1-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a7f4ca" stop-opacity=".9"/><stop offset="1" stop-color="#a7f4ca" stop-opacity=".12"/></linearGradient><filter id="a1-bloom" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="5"/></filter></defs><g fill="none" stroke="#7ed3a9" stroke-opacity=".4" stroke-width="1"><path d="M8 26h13M8 26v13M392 26h-13M392 26v13M8 224h13M8 224v-13M392 224h-13M392 224v-13"/></g><text x="8" y="16" fill="#89caac" font-family="monospace" font-size="7.5" letter-spacing="1.6">SOURCE</text><text x="392" y="16" text-anchor="end" fill="#89caac" font-family="monospace" font-size="7.5" letter-spacing="1.6">HARDWARE MAP</text><rect x="16" y="38" width="152" height="176" rx="9" fill="url(#a1-card)" stroke="#5ba27d"/><path d="M16 60h152" stroke="#417c61"/><circle cx="28" cy="49" r="2.8" fill="#88EC30"/><text x="38" y="52.5" fill="#b2d6c1" font-family="monospace" font-size="8.5">qk_pv.py</text><g font-family="monospace" font-size="9"><text x="40" y="84" fill="#d0b0f0">with</text><text x="68" y="84" fill="#e5e7e5">pl.spmd(24):</text><text x="50" y="106" fill="#abd0ba">q</text><text x="58" y="106" fill="#919995">=</text><text x="67" y="106" fill="#a5e7c7">load</text><text x="92" y="106" fill="#e5e7e5">(Q)</text><text x="50" y="128" fill="#abd0ba">kv</text><text x="64" y="128" fill="#919995">=</text><text x="73" y="128" fill="#a5e7c7">gather</text><text x="110" y="128" fill="#e5e7e5">(KV)</text><text x="50" y="150" fill="#abd0ba">qk</text><text x="64" y="150" fill="#919995">=</text><text x="73" y="150" fill="#a5e7c7">matmul</text><text x="110" y="150" fill="#e5e7e5">(q,kv)</text><text x="50" y="172" fill="#abd0ba">p</text><text x="58" y="172" fill="#919995">=</text><text x="67" y="172" fill="#a5e7c7">softmax</text><text x="110" y="172" fill="#e5e7e5">(qk)</text><text x="50" y="194" fill="#abd0ba">out</text><text x="71" y="194" fill="#919995">=</text><text x="80" y="194" fill="#a5e7c7">matmul</text><text x="117" y="194" fill="#e5e7e5">(p,kv)</text></g><g fill="#727c77" font-family="monospace" font-size="7.5"><text x="26" y="84">01</text><text x="26" y="106">02</text><text x="26" y="128">03</text><text x="26" y="150">04</text><text x="26" y="172">05</text><text x="26" y="194">06</text></g><rect x="46" y="120" width="120" height="16" rx="3" fill="#88EC30" fill-opacity=".08"/><path d="M168 128h44" stroke="url(#a1-beam)" stroke-width="2" stroke-linecap="round"/><path d="m206 124 6 4-6 4" fill="none" stroke="#dcfeee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><g fill="#2d302f" stroke="#4a806c" stroke-width=".8"><rect x="220" y="62" width="18" height="18" rx="3"/><rect x="242" y="62" width="18" height="18" rx="3"/><rect x="308" y="62" width="18" height="18" rx="3"/><rect x="330" y="62" width="18" height="18" rx="3"/><rect x="352" y="62" width="18" height="18" rx="3"/><rect x="220" y="84" width="18" height="18" rx="3"/><rect x="330" y="84" width="18" height="18" rx="3"/><rect x="352" y="84" width="18" height="18" rx="3"/><rect x="220" y="106" width="18" height="18" rx="3"/><rect x="330" y="106" width="18" height="18" rx="3"/><rect x="352" y="106" width="18" height="18" rx="3"/><rect x="220" y="128" width="18" height="18" rx="3"/><rect x="330" y="128" width="18" height="18" rx="3"/><rect x="352" y="128" width="18" height="18" rx="3"/><rect x="220" y="150" width="18" height="18" rx="3"/><rect x="242" y="150" width="18" height="18" rx="3"/><rect x="264" y="150" width="18" height="18" rx="3"/><rect x="286" y="150" width="18" height="18" rx="3"/><rect x="308" y="150" width="18" height="18" rx="3"/><rect x="330" y="150" width="18" height="18" rx="3"/><rect x="352" y="150" width="18" height="18" rx="3"/><rect x="220" y="172" width="18" height="18" rx="3"/><rect x="242" y="172" width="18" height="18" rx="3"/><rect x="264" y="172" width="18" height="18" rx="3"/><rect x="286" y="172" width="18" height="18" rx="3"/><rect x="308" y="172" width="18" height="18" rx="3"/><rect x="330" y="172" width="18" height="18" rx="3"/><rect x="352" y="172" width="18" height="18" rx="3"/></g><g filter="url(#a1-bloom)" opacity=".55"><rect x="242" y="62" width="84" height="84" rx="10" fill="#88EC30"/></g><g fill="url(#a1-live)"><rect x="242" y="62" width="18" height="18" rx="3"/><rect x="242" y="84" width="18" height="18" rx="3"/><rect x="242" y="106" width="18" height="18" rx="3"/><rect x="242" y="128" width="18" height="18" rx="3"/><rect x="264" y="62" width="18" height="18" rx="3"/><rect x="264" y="84" width="18" height="18" rx="3"/><rect x="264" y="106" width="18" height="18" rx="3"/><rect x="264" y="128" width="18" height="18" rx="3"/><rect x="286" y="62" width="18" height="18" rx="3"/><rect x="286" y="84" width="18" height="18" rx="3"/><rect x="286" y="106" width="18" height="18" rx="3"/><rect x="286" y="128" width="18" height="18" rx="3"/><rect x="308" y="62" width="18" height="18" rx="3"/><rect x="308" y="84" width="18" height="18" rx="3"/><rect x="308" y="106" width="18" height="18" rx="3"/><rect x="308" y="128" width="18" height="18" rx="3"/></g><g fill="none" stroke="url(#a1-rim)" stroke-width=".9"><rect x="242.5" y="62.5" width="17" height="17" rx="2.6"/><rect x="242.5" y="84.5" width="17" height="17" rx="2.6"/><rect x="242.5" y="106.5" width="17" height="17" rx="2.6"/><rect x="242.5" y="128.5" width="17" height="17" rx="2.6"/><rect x="264.5" y="62.5" width="17" height="17" rx="2.6"/><rect x="264.5" y="84.5" width="17" height="17" rx="2.6"/><rect x="264.5" y="106.5" width="17" height="17" rx="2.6"/><rect x="264.5" y="128.5" width="17" height="17" rx="2.6"/><rect x="286.5" y="62.5" width="17" height="17" rx="2.6"/><rect x="286.5" y="84.5" width="17" height="17" rx="2.6"/><rect x="286.5" y="106.5" width="17" height="17" rx="2.6"/><rect x="286.5" y="128.5" width="17" height="17" rx="2.6"/><rect x="308.5" y="62.5" width="17" height="17" rx="2.6"/><rect x="308.5" y="84.5" width="17" height="17" rx="2.6"/><rect x="308.5" y="106.5" width="17" height="17" rx="2.6"/><rect x="308.5" y="128.5" width="17" height="17" rx="2.6"/></g><g fill="none" stroke="#c2fbde" stroke-width="1.2" stroke-opacity=".8" stroke-linecap="round"><path d="M236 72v-16h16M332 72v-16h-16M236 136v16h16M332 136v16h-16"/></g><text x="295" y="208" text-anchor="middle" fill="#c2fbde" font-family="monospace" font-size="8.5" letter-spacing="1.8">NATIVE LENS</text><text x="295" y="222" text-anchor="middle" fill="#949d99" font-family="monospace" font-size="7">16 / 42 CORES · UB 184KB</text><circle cx="16" cy="125" r="2.5" fill="#c2fbde" stroke="#183a2a" stroke-width="1"/><path d="M370 125H392" fill="none" stroke="#c2fbde" stroke-opacity=".65" stroke-width="1"/><circle cx="392" cy="125" r="2.5" fill="#c2fbde" stroke="#183a2a" stroke-width="1"/></svg></div><div class="stage-content"><div class="stage-title"><h2>算子开发</h2><span class="go" aria-hidden="true">↗</span></div><p class="desc">从源码出发，理解算子逻辑与硬件落点。</p></div></a>
@@ -401,6 +417,10 @@ function finishDeviceTasks(svg,compact=false){
 
   if(i===1){
    wrapper.classList.add('compile-scene');
+   const backing=document.createElement('div');
+   backing.className='cover-glass pass-frost-surface';backing.setAttribute('aria-hidden','true');
+   backing.style.cssText='left:32.5%;top:4%;width:35%;height:56%;--cover-radius:22px';
+   wrapper.prepend(backing);
    svg.innerHTML=`
     <text x="200" y="-5" text-anchor="middle" fill="#fff" font-family="var(--kn-sans)" font-size="11" letter-spacing=".3">PASS PIPELINE</text>
     <g class="pass-neighbors" font-family="var(--kn-sans)" text-anchor="middle">
@@ -488,6 +508,30 @@ function finishDeviceTasks(svg,compact=false){
  // Edge highlights now belong to the CSS surface.
  scenes[1].querySelector('path[d="M29 48.5h34M103 48.5h34M265 48.5h34M339 48.5h34"]')?.remove();
  scenes[1].querySelector('path[d="M178 34.6h44"]')?.remove();
+ // Sample the actual stage preview explicitly: backdrop-filter cannot cross every
+ // SVG/compositing boundary. Only this clipped background is blurred, never the face.
+ document.querySelectorAll('.pass-frost-surface,.device-asset-surface').forEach(plate=>{
+  const stage=plate.closest('.stage');
+  const clip=document.createElement('div');clip.className='card-background-sample';
+  const sample=document.createElement('div');clip.append(sample);plate.prepend(clip);
+  let frame=0;
+  const sync=()=>{
+   frame=0;
+   const bg=getComputedStyle(stage,'::before'),a=stage.getBoundingClientRect(),b=plate.getBoundingClientRect();
+   if(!b.width)return;
+   const scale=plate.offsetWidth/b.width;
+   Object.assign(sample.style,{
+    left:((a.left-b.left)*scale+parseFloat(bg.left)*scale)+'px',
+    top:((a.top-b.top)*scale+parseFloat(bg.top)*scale)+'px',
+    width:parseFloat(bg.width)*scale+'px',height:parseFloat(bg.height)*scale+'px',
+    backgroundImage:bg.backgroundImage,backgroundSize:bg.backgroundSize,
+    backgroundPosition:bg.backgroundPosition,backgroundRepeat:'no-repeat',opacity:'.5'
+   });
+  };
+  const schedule=()=>{if(!frame)frame=requestAnimationFrame(sync)};
+  new ResizeObserver(schedule).observe(stage);new ResizeObserver(schedule).observe(plate);
+  stage.addEventListener('transitionend',schedule);sync();
+ });
 })();
 </script>
 
@@ -527,16 +571,7 @@ function finishDeviceTasks(svg,compact=false){
   const pulses = ['pulse-forward-1','pulse-forward-2','pulse-return'].map(id => document.getElementById(id));
 
   const setAttr=(node,key,value)=>{value=String(value);if(node.getAttribute(key)!==value)node.setAttribute(key,value);};
-  const svgNS='http://www.w3.org/2000/svg';
-  const travelGradient=document.createElementNS(svgNS,'linearGradient');
-  travelGradient.id='travel-light-gradient';
-  travelGradient.innerHTML='<stop stop-color="#e7f4ff" stop-opacity="0"/><stop offset=".7" stop-color="#e7f4ff" stop-opacity=".65"/><stop offset="1" stop-color="#fff"/>';
-  paths[2].ownerSVGElement.querySelector('defs').append(travelGradient);
-  const travelLight=document.createElementNS(svgNS,'rect');
-  travelLight.classList.add('travel-light');
-  for(const [key,value] of Object.entries({x:-85,y:-1.5,width:85,height:3,rx:1.5,fill:'url(#travel-light-gradient)'}))travelLight.setAttribute(key,value);
-  paths[2].after(travelLight);
-  const setPath=(i,d)=>{setAttr(paths[i],'d',d);if(i===2)travelLight.style.offsetPath='path("'+d+'")';};
+  const setPath=(i,d)=>{setAttr(paths[i],'d',d);if(i===2)setAttr(pulses[2],'d',d);};
   const caption = document.querySelector('.cycle-caption');
   const blocks = [...document.querySelectorAll('.stage-content')];
   const footer = document.querySelector('.footer');

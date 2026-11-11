@@ -6,6 +6,7 @@
   <title>编译并上板 · CSA</title>
   <link rel="stylesheet" href="../hardware-native-ide-ui/styles/path.css?v=20261105-focus38" />
 <style>
+@font-face{font-family:'JetBrains Mono';src:url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
 /* 同 workbench.html 的返回键，两页顶栏必须完全对齐 */
 .demo-home{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:none;border:1px solid #444;border-radius:5px;background:#1a1a1a;color:#c8d2ce;text-decoration:none}
 .demo-home:hover,.demo-home:focus-visible{color:#fff;border-color:#9bafa3;background:#292f2b;outline:2px solid transparent;outline-offset:2px}
@@ -36,16 +37,12 @@
   margin:46px 0 0;padding:0;list-style:none}
 .cb-node{display:flex;flex-direction:column;align-items:center;gap:10px;width:126px;text-align:center}
 .cb-tile{position:relative;width:42px;height:42px;display:grid;place-items:center;flex:none;
-  border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--dim);
-  transition:color .35s ease,border-color .35s ease,background-color .35s ease}
+  border:0;border-radius:12px;background:#202020;color:#777;
+  transition:color .25s ease,background-color .25s ease,transform .25s ease}
 .cb-tile svg{width:19px;height:19px}
-/* 运行中：一圈 1px 的呼吸环，保持平面无阴影 */
-.cb-tile::after{content:"";position:absolute;inset:-4px;border:1px solid var(--c);border-radius:8px;opacity:0}
-.cb-node[data-state="run"] .cb-tile{color:var(--c);border-color:var(--c)}
-.cb-node[data-state="run"] .cb-tile::after{animation:cb-ring 1.5s ease-out infinite}
-.cb-node[data-state="done"] .cb-tile{color:var(--c);border-color:var(--c);
-  background:color-mix(in srgb,var(--c) 13%,var(--surface))}
-@keyframes cb-ring{0%{opacity:.55;transform:scale(.94)}70%,100%{opacity:0;transform:scale(1.1)}}
+/* Active steps use solid role colour; completed steps retain a quieter tint. */
+.cb-node[data-state="run"] .cb-tile{color:#111;background:var(--c);transform:translateY(-2px)}
+.cb-node[data-state="done"] .cb-tile{color:var(--c);background:color-mix(in srgb,var(--c) 16%,#171717)}
 .cb-name{font:600 10px/1.4 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
   transition:color .35s ease}
 .cb-node[data-state="run"] .cb-name,.cb-node[data-state="done"] .cb-name{color:var(--text)}
@@ -53,26 +50,25 @@
   opacity:0;transition:opacity .45s ease}
 .cb-node[data-state="done"] .cb-meta{opacity:1}
 
-.cb-link{position:relative;height:1px;margin:21px 14px 0;background:var(--divider)}
-.cb-link i{position:relative;display:block;height:100%;width:0;background:var(--c);transition:width linear}
-.cb-link i::after{content:"";position:absolute;top:50%;right:-2px;width:4px;height:4px;margin-top:-2px;
-  border-radius:50%;background:var(--c);opacity:0;transition:opacity .25s ease}
-.cb-link[data-state="run"] i::after{opacity:1}
+.cb-link{position:relative;height:4px;margin:19px 14px 0;background:radial-gradient(circle,#ffffff80 1.5px,transparent 1.6px) center/12px 4px repeat-x;overflow:hidden}
+.cb-link i{display:none}
+.cb-link i{border-radius:inherit}
 
 /* ── 日志：IDE 里本来就有的那条流 ── */
-.cb-log{margin:44px 0 0;border:1px solid var(--divider);border-radius:5px;background:var(--surface);overflow:hidden}
+.cb-log{margin:44px 0 0;border:0;border-radius:14px;background:#191919;overflow:hidden}
 .cb-log-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:9px 14px;border-bottom:1px solid var(--divider)}
+  padding:12px 16px;border:0;background:#202020}
 .cb-log-head .t{font:600 10px/1.4 var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
 .cb-log-head .m{font:11px var(--mono);color:var(--dim)}
 /* exactly 8 lines and no vertical padding, so a scroll always lands on a line */
 .cb-log-body{height:calc(var(--lh) * 8);overflow-y:auto;padding:0;font:11.5px var(--mono)}
-.cb-line{display:grid;grid-template-columns:52px 76px 1fr;gap:10px;padding:0 14px;
+.cb-line{display:grid;grid-template-columns:52px 76px 1fr;gap:10px;padding:0 16px;
   line-height:var(--lh);color:var(--dim);animation:cb-in .32s ease both}
-.cb-line .ts{color:#5a5a5a;font-variant-numeric:tabular-nums}
+.cb-line .ts{color:#858585;font-variant-numeric:tabular-nums}
 .cb-line .kind{color:var(--c);letter-spacing:.06em}
 .cb-line .msg{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cb-line:last-child .msg{color:var(--text)}
+.cb-line:last-child{background:#242424}
 @keyframes cb-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
 .cb-foot{display:flex;align-items:center;gap:10px;margin:18px 2px 0;
@@ -90,7 +86,7 @@
   .cb-rail{grid-template-columns:1fr;gap:0}
   .cb-node{flex-direction:row;width:auto;gap:14px;text-align:left}
   .cb-node .cb-name{flex:none;width:7em}
-  .cb-link{height:18px;width:1px;margin:0 0 0 21px;background:var(--divider)}
+  .cb-link{height:18px;width:4px;margin:0 0 0 19px;background:radial-gradient(circle,#ffffff80 1.5px,transparent 1.6px) center/4px 9px repeat-y}
   .cb-link i{width:1px;height:0;transition:height linear}
   .cb-link i::after{top:auto;bottom:-2px;right:50%;margin:0 -2px 0 0}
   .cb-col h1{font-size:23px}
@@ -102,6 +98,25 @@
 /* 无顶栏时，主体占满视口，底部状态栏保持可见。 */
 .cb-app { height:100dvh; min-height:0; grid-template-rows:minmax(0,1fr) auto; }
 .cb-next { margin-top:16px; }
+.cb-app{--lime:#88EC30;--lav:#A459FF;--sky:#1953FC;--canvas:#111;--text:#f5f5f5;--muted:#b8b8b8;--dim:#858585}
+.cb-col h1{font-weight:400;letter-spacing:-.035em;color:#fff}
+.cb-name{font:500 11px/1.4 var(--sans);letter-spacing:.04em}
+.cb-meta{color:#999;font-variant-numeric:tabular-nums}
+.cb-line .kind{font-size:10px;line-height:18px;align-self:center;border-radius:5px;text-align:center;background:color-mix(in srgb,var(--c) 16%,transparent);letter-spacing:0}
+.cb-next{border:0;border-radius:999px;background:var(--sky);color:#fff;padding:9px 16px}
+.cb-next:hover,.cb-next:focus-visible{background:#3468ff;color:#fff}
+.cb-next{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:44px;min-height:44px;padding:0 22px;box-sizing:border-box;font:500 13px/1 var(--sans)}
+.cb-node:nth-child(3):is([data-state="run"],[data-state="done"]) .cb-tile,.cb-node:nth-child(7):is([data-state="run"],[data-state="done"]) .cb-tile{color:#fff}
+.cb-log{--mono:'JetBrains Mono',monospace}
+.cb-log-body,.cb-log-head .m{font-family:var(--mono);font-weight:400}
+.cb-line .kind{color:#d9c2ff}
+.cb-line[data-kind="trace"] .kind,.cb-line[data-kind="ready"] .kind{color:#a9c5ff}
+.cb-line:is([data-kind="emit"],[data-kind="launch"],[data-kind="sync"]) .kind{color:#a5e780}
+.cb-line .code-number{color:#eebc86}
+.cb-line .code-symbol{color:#b5a2d9}
+.cb-line .code-name{color:#8fd5ec}
+.cb-line .code-keyword{color:#c5a1f5}
+.hp-status{border:0;background:#181818}
 </style>
 </head>
 <body>
@@ -115,7 +130,7 @@
         <p class="cb-sub" id="detail">把 <code>qk_pv</code> 的源码降到设备可执行的产物，再加载到 a2a3 上取回一次真实执行。</p>
 
         <ol class="cb-rail" id="rail" aria-label="编译上板流程">
-          <li class="cb-node" data-state="done" style="--c:var(--muted)">
+          <li class="cb-node" data-state="done" style="--c:var(--lime)">
             <span class="cb-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5 5 12l4.5 5.5M14.5 6.5 19 12l-4.5 5.5"/></svg></span>
             <span class="cb-name">源码</span>
             <span class="cb-meta">208–313 行</span>
@@ -209,11 +224,17 @@ const stamp = t => t.toFixed(1).padStart(4, '0') + 's';
 function line(t, kind, msg) {
   const el = document.createElement('div');
   el.className = 'cb-line';
+  el.dataset.kind = kind;
   el.style.setProperty('--c', colourFor(t));
   el.innerHTML = '<span class="ts"></span><span class="kind"></span><span class="msg"></span>';
   el.children[0].textContent = stamp(t);
   el.children[1].textContent = kind;
-  el.children[2].textContent = msg;
+  const tokens=msg.split(/(\b\d+(?:\.\d+)?\b|\b(?:kernel|grid|tiling|lane|critical|path|focus|device|done|tasks|passes|op|trace)\b|\b(?:qk_pv|csa_merge|a2a3|\w+\.py)\b|[·×/–])/g);
+  tokens.forEach(token=>{
+    const span=document.createElement('span');span.textContent=token;
+    span.className=/^\d/.test(token)?'code-number':/^[·×/–]$/.test(token)?'code-symbol':/^(qk_pv|csa_merge|a2a3|\w+\.py)$/.test(token)?'code-name':/^(kernel|grid|tiling|lane|critical|path|focus|device|done|tasks|passes|op|trace)$/.test(token)?'code-keyword':'';
+    el.children[2].append(span);
+  });
   log.appendChild(el);
   log.scrollTop = log.scrollHeight;
 }

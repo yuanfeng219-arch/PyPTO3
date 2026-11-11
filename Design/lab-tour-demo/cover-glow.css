@@ -56,8 +56,8 @@
 }
 .poster .stage:nth-of-type(1) .glass-scene{isolation:isolate}
 
-.poster .stage::before{filter:saturate(.8) brightness(.5);opacity:.08}
-.poster .stage:hover::before,.poster .stage.is-auto::before{opacity:.19;filter:saturate(.9) brightness(.65)}
+
+
 .poster .orbit-node::before{opacity:.3}
 .poster .stage:hover .orbit-node::before,.poster .stage.is-auto .orbit-node::before{opacity:.55}
 
@@ -150,9 +150,8 @@
  box-shadow:inset 0 1px 3px rgb(255 255 255 / .24),inset 0 -1px 2px rgb(160 184 255 / .7);
 }
 
-.poster .stage:nth-of-type(3)::before{opacity:.035;filter:blur(4px) saturate(.65) brightness(.45)}
-.poster .stage:nth-of-type(3):hover::before,
-.poster .stage:nth-of-type(3).is-auto::before{opacity:.07;filter:blur(4px) saturate(.7) brightness(.5)}
+
+
 
 /* Offset the two pass objects in depth as the detailed illustration returns. */
 .compile-scene .pass-card-enter{
@@ -258,8 +257,8 @@
  .poster h2{font-size:clamp(28px,1.8vw,42px)}
  .poster .desc{font-size:clamp(14px,.9vw,18px)}
  .poster .stage-content::after{display:none}
- .poster .stage::before{opacity:.025;filter:blur(4px) saturate(.6) brightness(.4)}
- .poster .stage:hover::before,.poster .stage.is-auto::before{opacity:.055;filter:blur(4px) saturate(.65) brightness(.45)}
+
+
  .poster .stages.is-overview .stage{opacity:1;filter:none}
 }
 
@@ -273,8 +272,7 @@
 @media(prefers-reduced-motion:reduce){.poster.is-ready #pulse-return{display:none;animation:none}}
 /* Explicit SVG sampling already blurs the source background. */
 .poster .stage:first-of-type .source-asset-surface{backdrop-filter:none;-webkit-backdrop-filter:none}
-.poster .stage::before,
-.poster .stage:hover::before,.poster .stage.is-auto::before{filter:blur(4px) saturate(.65) brightness(.45);transition:opacity .4s var(--kn-ease)}
+
 @media(min-width:761px){
  .poster .stage:not(:first-of-type) .stage-illustration{visibility:visible;transition:opacity .4s var(--kn-ease),transform .85s var(--kn-ease),visibility 0s}
  .poster .stage:not(:first-of-type).is-compact .stage-illustration{visibility:hidden;transition:opacity .4s var(--kn-ease),transform .85s var(--kn-ease),visibility 0s .45s}
@@ -325,3 +323,9 @@
 @media(prefers-reduced-motion:reduce){
  .poster #cycle-forward-1,.poster #cycle-forward-2{opacity:1;stroke-dashoffset:0}
 }
+
+/* Background context stays quiet until its stage receives hover, keyboard, or carousel focus.
+   Only opacity changes: no full-card animated blur/brightness filter. */
+.poster .stages > .stage::before{display:block;opacity:var(--kn-backdrop,.12);transition:opacity .45s var(--kn-ease)}
+.poster .stages > .stage:is(:hover,:focus-visible,.is-auto)::before{opacity:var(--kn-backdrop-lit,.4)}
+@media(prefers-reduced-motion:reduce){.poster .stage::before{transition:none}}
