@@ -265,8 +265,8 @@
   };
 
   // ── qk_pv Work Item 规则：取自 csa-qk-work.js 的纯函数，输入为 Synthetic ──
-  // 4 类上下文长度（≤ max_position_embeddings 4096）；两个 Rank 用不同的组合，只为示意分布差异
-  const POSITIONS = [[7, 1023, 2047, 4088], [63, 3071, 511, 1535]];
+  // 4 类上下文长度；两个 Rank 用不同的组合，只为示意分布差异（Synthetic）
+  const POSITIONS = [[7, 1023, 2047, 4088], [63, 3071, 511, 1535]];   // 远小于 FLASH 的 max_position_embeddings（1,048,576），只为覆盖短 / 中上下文
   function syntheticValid(position, sb) {
     if (sb === 0) return { valid: true, kv: Math.min(FACTS.WIN, position + 1), reason: 'SB0：滑动窗口块，qk_plan 固定写 1' };
     const upper = Math.floor((position + 1) / 4), count = Math.min(FACTS.IDX_TOPK, upper);

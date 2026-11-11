@@ -1,7 +1,9 @@
-/* CSA Operator Lens · 四层下钻的主控：层级切换、源码联动、详情与跨层说明。
- * L1 整层图：iframe l1-graph.html，用 PyPTO-Compute-Explorer-UI Graph 页签的图元渲染（经 postMessage 互通）。
- * L2 Kernel：派发链 + Assignment（Generation → Ordering → Assignment）+ Pipeline（Lane × 轮次）。
- * L3 / L4 的渲染与联动在 lens-tile.js（复制自 compile-board-demo/path-csa.js）。 */
+/* CSA Operator Lens 主控：层级切换、源码联动、详情与跨层说明。
+ * L1 整层图与 L2 Kernel 链：iframe graph.html，用 PyPTO-Compute-Explorer-UI Graph 页签的图元渲染（经 postMessage 互通）。
+ * L2 Kernel 工作区：上方计算逻辑图（qk_pv 的 Tile 计算图，或模块 Kernel 链）；
+ *   下方三个视图 Assignment（Generation → Ordering → Assignment）/ Pipeline（Lane × 轮次）/ 硅片落点。
+ * 计算图与硅片落点的渲染与三处联动在 lens-tile.js（复制自 compile-board-demo/path-csa.js）。
+ * 旧的 #L3 / #L4 链接落到 L2 的 qk_pv：#L3 = 上方计算图，#L4 = 下方硅片落点。 */
 (function () {
   'use strict';
 
@@ -21,7 +23,8 @@
     module: 'attention',      // 当前模块；决定 L2 的 Kernel 链
     gnode: 'attention',       // L1 图上选中的节点（可能是数据节点或展开后的子节点）
     kernel: 'qk_pv',          // L2 选中的 Kernel
-    tab: 'assignment',        // L2：assignment | pipeline
+    tab: 'assignment',        // L2 下方视图：assignment | pipeline | chip（硅片落点，目前只有 qk_pv）
+    l2top: 'logic',           // L2 顶部：logic（Kernel 计算图）| chain（模块 Kernel 链）
     phase: 'assignment',      // L2 Assignment 的阶段：generation | ordering | assignment
     filter: { rank: 0, req: null, q: null, kvRows: false },
     sel: null,                // L2 Lane / Work Item：{ type:'lane'|'cell', lane, idx }
@@ -151,7 +154,9 @@
   // L1：Explorer-UI Graph 图元（iframe）
   // ════════════════════════════════════════════════════════════════════════
   // 与 iframe 只用 postMessage 通信：file:// 打开时两边被当成不同源，直接调用对方函数会被浏览器拦下
-  function postGraph(msg) { const f = $('layerFrame'); if (f && f.contentWindow) f.contentWindow.postMessage(Object.assign({ lens: 'graph' }, msg), '*'); }
+  function postTo(frameId, msg) { const f = $(frameId); if (f && f.contentWindow) f.contentWindow.postMessage(Object.assign({ lens: 'graph' }, msg), '*'); }
+  function postGraph(msg) { postTo('layerFrame', msg); }
+  function postChain(msg) { postTo('chainFrame', msg); }
   const GRAPH = {
     highlight: function (ids) { postGraph({ type: 'highlight', ids: ids }); },
     clear: function () { postGraph({ type: 'clear' }); },
@@ -160,22 +165,79 @@
   };
   const graphApi = function () { return GRAPH; };
   window.addEventListener('message', function (e) {
-    const m = e.data, f = $('layerFrame');
-    if (!f || e.source !== f.contentWindow || !m || m.lens !== 'l1' || !L1_BRIDGE[m.type]) return;
-    L1_BRIDGE[m.type](m.id);
+    const m = e.data, f1 = $('layerFrame'), f2 = $('chainFrame');
+    if (!m) return;
+    if (f1 && e.source === f1.contentWindow && m.lens === 'l1' && L1_BRIDGE[m.type]) L1_BRIDGE[m.type](m.id, m.point);
+    else if (f2 && e.source === f2.contentWindow && m.lens === 'l2' && L2_BRIDGE[m.type]) L2_BRIDGE[m.type](m.id);
   });
+  // L2 的 Kernel 链：同一套图元，模块变了才重新挂载，否则只同步选中
+  let chainShown = null;
+  function syncChain(force) {
+    if (!chainOf(state.module)) return;
+    // 模块里没有 Lane 视图的 Kernel 时，下方只有一张规则卡片：把高度让给 Kernel 链
+    $('viewKernel').classList.toggle('is-rules-only', !chainOf(state.module).order.some(laneModelOf));
+    if (force || chainShown !== state.module) { chainShown = state.module; postChain({ type: 'chain', module: state.module, id: state.kernel }); }
+    else postChain({ type: 'select', id: state.kernel });
+  }
+  if ($('chainFrame')) $('chainFrame').addEventListener('load', function () { if (state.level === 2 && l2TopMode() === 'chain') syncChain(true); });
+
+  // L2 顶部：所选 Kernel 有 Tile 计算图（qk_pv）时显示它；否则显示模块的 Kernel 链
+  function l2TopMode() {
+    const K = D.KERNELS[state.kernel];
+    return K && K.deep && window.CsaTile && state.l2top !== 'chain' ? 'logic' : 'chain';
+  }
+  function renderL2Top() {
+    const K = D.KERNELS[state.kernel], hasLogic = !!(K && K.deep && window.CsaTile), mode = l2TopMode(), M = MOD[state.module];
+    document.querySelectorAll('#l2TopSwitch button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.l2top === mode));
+      b.disabled = b.dataset.l2top === 'logic' && !hasLogic;
+      if (b.disabled) b.title = '这个 Kernel 的 Tile 计算图未接入（目前只有 qk_pv）'; else if (b.dataset.l2top === 'logic') b.title = '所选 Kernel 的循环嵌套与计算链';
+    });
+    const ch = chainOf(state.module);
+    $('viewKernel').classList.toggle('is-rules-only', !!ch && !ch.order.some(laneModelOf));
+    const wasChain = !$('chainFrame').hidden;
+    $('hpLogic').hidden = mode !== 'logic';
+    $('hpLogicMeta').hidden = mode !== 'logic';
+    $('chainFrame').hidden = mode !== 'chain';
+    $('l2TopTitle').textContent = mode === 'logic' ? K.name + ' · 计算图' : (M ? M.label : '') + ' · Kernel 链';
+    if (mode === 'logic') {
+      // 图由 lens-tile.js 渲染并维护（stage / UP_DOWN 切换、Work Item 上下文、与硅片落点的联动）
+      if (!$('hpLogic').querySelector('svg')) window.CsaTile.renderLogic();
+      paintL2Ctx();
+    } else {
+      $('l2TopNote').textContent = hasLogic ? '' : 'Tile 计算图目前只接入 qk_pv';
+      syncChain(!wasChain);
+    }
+  }
+  // 下方选中一个 Work Item 时，上方计算图只亮它会走的路径（变暗与实例标注由 lens-tile.js 的上下文完成）
+  function paintL2Ctx() {
+    const it = selItem(), plan = it ? itemPlan(it) : null;
+    $('l2TopNote').textContent = plan ? 'Work Item #' + it.id + '（Q' + it.token + ' / SB' + it.sb + '）· ' + plan.kind + ' · ' + plan.short + (state.tab === 'chip' ? '' : ' · 双击切到硅片落点')
+      : state.tab === 'chip' ? '悬停节点，下方硅片区域与左侧源码一起亮起' : '单击下方 Work Item，图上只亮它会走的路径';
+  }
+  function selItem() { return state.kernel === 'qk_pv' && state.sel && state.sel.type === 'cell' ? QK.items[state.sel.idx] : null; }
+  const L2_BRIDGE = {
+    ready: function () { chainShown = null; if (state.level === 2) syncChain(true); },
+    hover: function (id) { if (state.level !== 2) return; state.hover = id && D.KERNELS[id] ? { type: 'kernel', id: id } : null; applyFocus(); },
+    select: function (id) { if (state.level === 2 && D.KERNELS[id]) { if (id !== state.kernel) selectKernel(id); showDetail(); } },
+    // 双击有 Tile 计算图的 Kernel：上方换成它的计算图
+    drill: function (id) { if (state.level === 2 && D.KERNELS[id] && D.KERNELS[id].deep) { state.l2top = 'logic'; if (id !== state.kernel) selectKernel(id); else renderL2Top(); } }
+  };
+  let drillTimer = null;
   const L1_BRIDGE = {
     ready: function () { syncGraph(); },
     hover: function (id) { if (state.level !== 1) return; state.hover = id ? { type: 'gnode', id: id } : null; applyFocus(); },
     select: function (id) {
+      if (state.level !== 1 || drillTimer !== null) return;
       state.gnode = id; state.line = null;
+      showDetail();
       const root = String(id).split('/')[0];
       if (MOD[root]) state.module = root;
       renderInspector(); renderStatus(); applyFocus();
       const lines = graphNodeLines(id, shownSrc.file);
       if (lines.length) revealLines(Math.min.apply(null, lines), Math.max.apply(null, lines));
     },
-    drill: function (id) { drillTo(id); }
+    drill: function (id, point) { if (state.level === 1 && drillTimer === null) drillTo(id, point); }
   };
   // iframe 的 ready 消息可能早于本脚本注册监听，load 时再同步一次
   if ($('layerFrame')) $('layerFrame').addEventListener('load', function () { syncGraph(); });
@@ -196,7 +258,8 @@
   const CHILD_KERNEL = { 'attention/kv_touch': 'kv_touch', 'attention/qk_plan': 'qk_plan', 'attention/qk_order': 'qk_plan', 'attention/qk_pv': 'qk_pv', 'attention/rope_cs': 'rope_cs' };
   function entryKernel(id) {
     if (CHILD_KERNEL[id]) return CHILD_KERNEL[id];
-    const root = String(id).split('/')[0];
+    const root = String(id).split('/')[0], child = String(id).split('/')[1];
+    if (child && D.KERNELS[child]) return child;   // 展开后的 Kernel 子节点
     if (root === 'publish') return 'merge_publish';
     const ch = chainOf(root);
     if (!ch) return null;
@@ -207,63 +270,48 @@
     const e = G.edges.filter(function (x) { return x.t === id && MOD[x.s] && chainOf(x.s); })[0];
     return e ? e.s : null;
   }
-  function drillTo(id) {
+  // 派发多个 Kernel 的模块在 L1 是“容器”：双击展开，再双击其中的 Kernel 才进入 L2
+  function isMultiKernel(mod) { const ch = chainOf(mod); return !!ch && ch.order.length > 1 && mod !== 'publish'; }
+  function drillTo(id, point) {
+    const rootId = String(id).split('/')[0], isChild = String(id).indexOf('/') > 0;
+    if (!isChild && isMultiKernel(rootId)) { setDetailVisible(false); postGraph({ type: 'expand', id: rootId }); return false; }
     let k = entryKernel(id);
     // 只有数据 / 状态节点才退到产生它的模块；cache_ready_dep 这类依赖节点本身没有 L2
-    const mk = MOD[String(id).split('/')[0]];
-    if (!k && (!mk || mk.kind === 'state') && producerOf(id)) k = entryKernel(producerOf(id));
+    const mk = MOD[rootId];
+    if (!k && (!mk || mk.kind === 'state') && producerOf(id)) {
+      const p = producerOf(id);
+      if (isMultiKernel(p)) { setDetailVisible(false); postGraph({ type: 'expand', id: p, open: true }); return false; }
+      k = entryKernel(p);
+    }
     if (!k) return false;
+    setDetailVisible(false);
     state.kernel = k; state.module = D.KERNELS[k].module; state.sel = null;
-    setLevel(2);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setLevel(2); }
+    else {
+      const frame = $('layerFrame'), rect = frame.getBoundingClientRect();
+      // 图内坐标相对于 iframe；限制到可见画布，避免缩放焦点落在屏幕外。
+      const x = point && Number.isFinite(point.x) ? Math.max(0, Math.min(rect.width, point.x)) : rect.width / 2;
+      const y = point && Number.isFinite(point.y) ? Math.max(0, Math.min(rect.height, point.y)) : rect.height / 2;
+      frame.style.setProperty('--drill-x', x + 'px');
+      frame.style.setProperty('--drill-y', y + 'px');
+      frame.style.setProperty('--drill-dx', (rect.width / 2 - x) + 'px');
+      frame.style.setProperty('--drill-dy', (rect.height / 2 - y) + 'px');
+      $('viewLayer').classList.add('is-drilling-out');
+      drillTimer = window.setTimeout(function () {
+        drillTimer = null;
+        setLevel(2);
+        const view = $('viewKernel');
+        view.classList.add('is-drilling-in');
+        view.addEventListener('animationend', function finish(e) {
+          if (e.target !== view) return;
+          view.classList.remove('is-drilling-in');
+          view.removeEventListener('animationend', finish);
+        });
+      }, 420);
+    }
     return true;
   }
-  function renderChain() {
-    const ch = chainOf(state.module);
-    if (!ch) { $('kernelChain').innerHTML = ''; return; }
-    // 按源码顺序排成每行最多 4 个；只有源码里显式的 TaskId 依赖才画箭头
-    const n = ch.order.length, cols = Math.min(n, 4), rows = Math.ceil(n / cols), W = 760, w = 166, h = 50, rowGap = 44, y0 = 26;
-    const gap = cols > 1 ? (W - 24 - cols * w) / (cols - 1) : 0, x0 = cols > 1 ? 12 : (W - w) / 2;
-    const X = {}, Y = {}, RC = {};
-    ch.order.forEach(function (k, i) { const r = Math.floor(i / cols), c = i % cols; RC[k] = [r, c]; X[k] = x0 + c * (w + gap); Y[k] = y0 + r * (h + rowGap); });
-    const H = y0 + rows * (h + rowGap) - rowGap + 28;
-    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Kernel 派发链">'
-      + '<defs><marker id="kcArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6c7890"/></marker></defs>';
-    ch.edges.forEach(function (e, i) {
-      const a = RC[e[0]], b = RC[e[1]], off = (i % 3 - 1) * 8;
-      let d, lx, ly;
-      if (a[0] === b[0] && b[1] === a[1] + 1) {
-        d = 'M' + (X[e[0]] + w) + ' ' + (Y[e[0]] + h / 2) + ' L' + (X[e[1]] - 2) + ' ' + (Y[e[1]] + h / 2);
-        lx = (X[e[0]] + w + X[e[1]]) / 2; ly = Y[e[0]] + h / 2 - 6;
-      } else if (b[0] > a[0]) {
-        const gy = Y[e[0]] + h + rowGap / 2 + off, sx = X[e[0]] + w / 2 + off, ex = X[e[1]] + w / 2 + off;
-        d = 'M' + sx + ' ' + (Y[e[0]] + h) + ' V' + gy + ' H' + ex + ' V' + (Y[e[1]] - 2);
-        lx = (sx + ex) / 2; ly = gy - 4;
-      } else {
-        const gy = Y[e[0]] + h + 14 + off, sx = X[e[0]] + w / 2, ex = X[e[1]] + w / 2;
-        d = 'M' + sx + ' ' + (Y[e[0]] + h) + ' V' + gy + ' H' + ex + ' V' + (Y[e[1]] + h + 2);
-        lx = (sx + ex) / 2; ly = gy - 4;
-      }
-      s += '<path class="kc-edge" d="' + d + '" marker-end="url(#kcArrow)"/>'
-        + '<text class="kc-ext" x="' + lx + '" y="' + ly + '" text-anchor="middle">' + esc(e[2]) + '</text>';
-    });
-    ch.order.forEach(function (k) {
-      const K = D.KERNELS[k], x = X[k], y = Y[k];
-      const spmd = K.dispatch === 'spmd', expr = String(K.lanes || '');
-      const sub = (spmd ? 'SPMD × ' + (expr.length > 16 ? expr.slice(0, 15) + '…' : expr) : 'AT · CORE_GROUP') + (K.produces ? ' → ' + K.produces.replace(/^_/, '') : '');
-      s += '<g class="kc-hit" data-kernel="' + k + '" data-dispatch="' + K.dispatch + '" tabindex="0" role="button" aria-label="' + esc(K.name + '，' + sub) + '">'
-        + '<rect class="kc-node" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/>'
-        + '<text class="kc-title" x="' + (x + 12) + '" y="' + (y + 21) + '">' + esc(K.name.length > 22 ? K.name.slice(0, 21) + '…' : K.name) + '<title>' + esc(K.name) + '</title></text>'
-        + '<text class="kc-sub" x="' + (x + 12) + '" y="' + (y + 37) + '">' + esc(sub.length > 28 ? sub.slice(0, 27) + '…' : sub) + '</text>'
-        + (K.deep ? '<text class="kc-deep" x="' + (x + w - 10) + '" y="' + (y + 37) + '" text-anchor="end">L3 · L4 ↘</text>'
-          : laneModelOf(k) ? '<text class="kc-deep" x="' + (x + w - 10) + '" y="' + (y + 37) + '" text-anchor="end">Lane ↘</text>' : '')
-        + '</g>';
-    });
-    ch.external.forEach(function (e) {
-      if (D.KERNELS[e[1]]) s += '<text class="kc-ext" x="' + (X[e[1]] + w / 2) + '" y="' + (Y[e[1]] - 8) + '" text-anchor="middle">' + esc(e[0]) + ' ↓</text>';
-      else s += '<text class="kc-ext" x="' + (X[e[0]] + w / 2) + '" y="' + (Y[e[0]] + h + 16) + '" text-anchor="middle">' + esc(e[1]) + '</text>';
-    });
-    $('kernelChain').innerHTML = s + '</svg>';
-  }
+  function renderChain() { renderL2Top(); }
 
   // ════════════════════════════════════════════════════════════════════════
   // L2：Work Item 模型（Assignment 与 Pipeline 共用）
@@ -343,7 +391,8 @@
     const K = D.KERNELS[state.kernel], M = K && K.dispatch === 'spmd' ? workModel(state.kernel) : null;
     document.querySelectorAll('#kernelTabs button').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.tab === state.tab));
-      b.disabled = !M;
+      b.disabled = b.dataset.tab === 'chip' ? state.kernel !== 'qk_pv' : b.dataset.tab === 'pipeline' ? !M : false;
+      b.title = b.dataset.tab === 'chip' && b.disabled ? '硅片落点目前只接入 qk_pv' : ''; 
     });
     if (!M) { $('kernelBar').innerHTML = ''; return; }
     let s = '';
@@ -376,7 +425,7 @@
     const host = $('kernelLanes');
     if (asgKey !== key || !host.querySelector('svg.lens-asg')) {
       asgKey = key;
-      let s = '<svg class="lens-asg" viewBox="-4 -4 ' + (M.vb[0] + 8) + ' ' + (M.vb[1] + 8) + '" role="group" aria-label="' + esc(D.KERNELS[state.kernel].name + ' 工作分配') + '">'
+      let s = '<svg class="lens-asg" viewBox="-4 -4 ' + (M.vb[0] + 8) + ' ' + (M.vb[1] + 8) + '" preserveAspectRatio="xMidYMin meet" role="group" aria-label="' + esc(D.KERNELS[state.kernel].name + ' 工作分配') + '">'
         + '<defs><pattern id="laneIdle" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#1d1d1d"/><rect width="1" height="4" fill="#4a4a4a"/></pattern></defs>';
       M.phases.forEach(function (p) {
         s += '<g class="asg-labels" data-phase="' + p + '">' + M.labels[p].map(function (l) {
@@ -437,7 +486,7 @@
     const step = cw + gap, W = Math.max(640, LX + maxIt * step + RX), H = top + M.lanes * rowH + 6;
     const selKey = state.sel && state.sel.type === 'cell' ? state.sel.idx : null;
     const mateTok = selKey != null && state.kernel === 'qk_pv' ? QK.items[selKey].token : null;
-    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="' + esc(D.KERNELS[state.kernel].name + ' Pipeline') + '">'
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin meet" role="group" aria-label="' + esc(D.KERNELS[state.kernel].name + ' Pipeline') + '">'
       + '<defs><pattern id="laneIdle" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#1d1d1d"/><rect width="1" height="4" fill="#4a4a4a"/></pattern></defs>'
       + '<text class="lane-axis" x="' + LX + '" y="10">' + (state.kernel === 'cache_writeback' ? 'write_dt →（块内逐行）' : '轮次 →') + '</text>';
     const tick = maxIt > 20 ? 5 : 1;
@@ -502,7 +551,8 @@
     }).join('') + '</div>';
   }
   function xLevelCard(file, no) {
-    const here = state.level;
+    // 行：L1 · L2 · 计算图 · 硅片（后两行都在 L2 里，对应上方计算图与下方硅片落点）
+    const here = state.level === 1 ? 1 : tileOwns() ? 4 : 2;
     const gid = file === CSA ? graphNodeForLine(file, no) : null, gi = gid ? window.LENS_GRAPH_INFO(gid) : null;
     const m = moduleForLine(file, no), K = kernelForLine(file, no), role = K && K.id === 'qk_pv' ? qkRole(no) : null;
     const info = file === SPARSE && window.CsaTile ? window.CsaTile.lineInfo(no) : null;
@@ -519,34 +569,35 @@
     rows.push(['L2', l2 || '—', !!(K || goKernel), goKernel ? '<button class="btn" type="button" data-lens-go="2" data-kernel="' + goKernel + '">看 L2</button>' : '']);
     if (info) {
       const tag = info.tag ? '<span class="cl-tag t-' + info.tag[1] + '">' + esc(info.tag[0]) + '</span>' : '';
-      rows.push(['L3', '<b>' + (info.nodes.length ? info.nodes.map(function (n) { return esc(TILE_NODE[n] || n); }).join(' · ') : 'qk_pv 循环体') + '</b>' + tag + (info.caption ? '<br>' + info.caption : ''), true,
-        '<button class="btn" type="button" data-lens-go="3" data-line="' + no + '">看 L3</button>']);
+      rows.push(['计算图', '<b>' + (info.nodes.length ? info.nodes.map(function (n) { return esc(TILE_NODE[n] || n); }).join(' · ') : 'qk_pv 循环体') + '</b>' + tag + (info.caption ? '<br>' + info.caption : ''), true,
+        '<button class="btn" type="button" data-lens-go="3" data-line="' + no + '">看计算图</button>']);
       const places = info.regions.map(function (r) { return TILE_REGION[r] || r; }).concat(info.bufs.map(function (b) { return TILE_BUF[b] || b; }));
-      rows.push(['L4', places.length ? '<b>' + esc(places.join(' · ')) + '</b>' : '这一行不直接落到片上存储（标量计算或控制流）', places.length > 0,
-        places.length ? '<button class="btn" type="button" data-lens-go="4" data-line="' + no + '">看 L4</button>' : '']);
+      rows.push(['硅片', places.length ? '<b>' + esc(places.join(' · ')) + '</b>' : '这一行不直接落到片上存储（标量计算或控制流）', places.length > 0,
+        places.length ? '<button class="btn" type="button" data-lens-go="4" data-line="' + no + '">看硅片落点</button>' : '']);
     } else {
       const deep = (file === CSA && no >= 384 && no <= 393) || (K && K.deep);
-      rows.push(['L3', deep ? 'qk_pv 的 Tile 视图只摘录 208–313 行的代码行；这一行不在摘录里' : '未接入：Tile / 硅片视图目前只覆盖 qk_pv', false, '']);
-      rows.push(['L4', deep ? '同上' : '未接入', false, '']);
+      rows.push(['计算图', deep ? 'qk_pv 的计算图只映射 208–313 行的代码行；这一行不在其中' : '未接入：Tile 计算图与硅片落点目前只覆盖 qk_pv', false, '']);
+      rows.push(['硅片', deep ? '同上' : '未接入', false, '']);
     }
     return '<p class="st-k">这一行在各层</p><p class="st-p"><code>' + esc(file) + ' · ' + no + '</code><br><code>' + esc(text.length > 90 ? text.slice(0, 88) + '…' : text) + '</code></p>'
       + '<ol class="lens-xlevel">' + rows.map(function (r, i) {
         return '<li class="' + (i + 1 === here ? 'is-here' : '') + (r[2] ? '' : ' is-none') + '"><span class="xl-k">' + r[0] + '</span><span class="xl-v">' + r[1] + '</span></li>';
       }).join('') + '</ol>';
   }
+  // 右侧详情的算子卡片：功能摘要 / 数学表达式 / 输入输出示例 / 场景与限制（op-card-view.js 负责可视化）
+  function cardHtml(card, op, caption) {
+    if (!card || !window.LensCardView) return '';
+    return (caption ? '<p class="oc-cap">' + esc(caption) + '</p>' : '') + window.LensCardView.html(card, { op: op });
+  }
   function moduleDetail(m) {
     const kernels = m.kernels ? m.kernels.map(function (k) { return D.KERNELS[k]; }) : [];
     return '<p class="st-k">' + esc(STAGE[m.stage].label) + ' · ' + esc(STAGE[m.stage].en) + '</p>'
       + '<h2 class="st-h">' + esc(m.label) + '</h2>'
       + '<div class="lens-chips">' + chip(KIND_LABEL[m.kind]) + chip(SCOPE_LABEL[m.scope]) + chip('源码静态关系', 'is-real') + '</div>'
-      + '<dl class="lens-kv">'
-      + '<div><dt>是什么</dt><dd>' + esc(m.what) + '</dd></div>'
-      + '<div><dt>为什么</dt><dd>' + esc(m.why) + '</dd></div>'
-      + '<div><dt>数据</dt><dd>' + esc(m.data) + '</dd></div>'
-      + '<div><dt>怎么执行</dt><dd>' + esc(m.how) + '</dd></div></dl>'
+      + cardHtml(window.LensCards && window.LensCards.forModule(m.id), m.label)
       + '<p class="st-k">源码</p>' + srcLinks(m.src)
       + (kernels.length ? '<p class="st-k">Kernel · ' + kernels.length + ' 个</p><div class="lens-chips">' + kernels.map(function (K) { return chip(K.name); }).join('') + '</div>'
-        + '<p class="lens-hint">双击图上的节点下钻到 L2。</p>' : '<p class="lens-empty">' + (m.kind === 'sync' ? 'task_dummy 只承载依赖、不派发 Kernel，所以没有 L2。' : producerOf(m.id) ? '双击这个节点下钻到写它的 ' + esc(MOD[producerOf(m.id)].label) + '（L2）。' : '这个模块没有可下钻的 Kernel。') + '</p>');
+        + (isMultiKernel(m.id) ? '' : '<p class="lens-hint">它只派发这一个 Kernel：双击直接进入 L2。</p>') : '<p class="lens-empty">' + (m.kind === 'sync' ? 'task_dummy 只承载依赖、不派发 Kernel，所以没有 L2。' : producerOf(m.id) ? '双击这个节点下钻到写它的 ' + esc(MOD[producerOf(m.id)].label) + '（L2）。' : '这个模块没有可下钻的 Kernel。') + '</p>');
   }
   function graphNodeDetail(gi) {
     const n = gi.node, p = n.data || n.state || n.operation || n.composite || {};
@@ -561,25 +612,28 @@
       + (n.state ? '<div><dt>初值</dt><dd>' + esc(n.state.initial) + '</dd></div><div><dt>本步更新</dt><dd>' + esc(n.state.update) + '</dd></div>' : '')
       + (n.source.symbols.length ? '<div><dt>符号</dt><dd><code>' + esc(n.source.symbols.join(', ')) + '</code></dd></div>' : '')
       + '</dl><p class="st-k">源码</p>' + srcLinks(src)
-      + (entryKernel(gi.id) ? '<p class="lens-hint">双击这个节点下钻到 L2 · ' + esc(D.KERNELS[entryKernel(gi.id)].name) + '。</p>'
-        : producerOf(n.id) ? '<p class="lens-hint">双击这个节点下钻到产生它的 ' + esc(MOD[producerOf(n.id)].label) + '（L2）。</p>' : '');
+      + (entryKernel(gi.id) ? '<p class="lens-hint">双击这个节点进入 L2 · ' + esc(D.KERNELS[entryKernel(gi.id)].name) + '。</p>'
+        : producerOf(n.id) ? '<p class="lens-hint">' + (isMultiKernel(producerOf(n.id)) ? '双击这个节点展开产生它的 ' + esc(MOD[producerOf(n.id)].label) + '，再双击其中的 Kernel 进入 L2。' : '双击这个节点进入产生它的 ' + esc(MOD[producerOf(n.id)].label) + '（L2）。') + '</p>' : '');
   }
   function kernelDetail(K) {
     const ch = chainOf(K.module);
+    const own = window.LensCards && window.LensCards.isKernelCard(K);
+    const card = window.LensCards ? cardHtml(window.LensCards.forKernel(K), own ? K.name : MOD[K.module].label, own ? '' : '下面是所属模块 ' + MOD[K.module].label + ' 的卡片；这个 Kernel 是它派发的其中一个') : '';
     let s = '<p class="st-k">' + esc(MOD[K.module].label) + ' · Kernel</p><h2 class="st-h">' + esc(K.name) + '</h2>'
       + '<div class="lens-chips">' + chip(K.dispatch === 'spmd' ? (K.auto ? 'SPMD' : 'SPMD × ' + K.lanes) : 'AT · CORE_GROUP') + (K.produces ? chip('→ ' + K.produces) : '')
       + chip(K.id === 'qk_pv' ? 'Synthetic 输入 · 规则取自源码' : '规则取自源码', K.id === 'qk_pv' ? 'is-syn' : 'is-real')
       + (K.compiled ? chip('pass 36 有同名 Kernel', 'is-real') : '') + '</div>'
-      + '<dl class="lens-kv"><div><dt>派发</dt><dd>' + esc(K.what) + '</dd></div>'
+      + card
+      + '<p class="st-k">派发</p><dl class="lens-kv"><div><dt>派发</dt><dd>' + esc(K.what) + '</dd></div>'
       + (K.laneExpr ? '<div><dt>' + (K.auto ? '派发数' : 'Lane 数') + '</dt><dd><code>' + esc(K.laneExpr) + '</code></dd></div>' : '')
       + (K.fnName ? '<div><dt>所在函数</dt><dd><code>' + esc(K.fnName) + '()</code> · ' + esc(K.file) + '</dd></div>' : '')
       + (K.deps.length ? '<div><dt>等待</dt><dd><code>' + esc(K.deps.join(', ')) + '</code>：只画源码显式声明的依赖。</dd></div>' : '')
       + '</dl><p class="st-k">源码</p>' + srcLinks([[K.file, K.range[0], K.range[1]]]);
-    if (K.deep) s += '<p class="lens-hint">双击上方的 qk_pv 进入 L3 · Tile；双击下方任一格子，带着那个 Work Item 进入 L3。</p>';
-    if (ch && ch.order.length > 1) s += '<p class="note">上方派发链按源码顺序排列；只有显式 TaskId 才画成箭头，顺序本身不代表等待。</p>';
+    if (K.deep) s += '<p class="lens-hint">上方是它的计算图：单击下方 Work Item，图上只亮它会走的路径；双击 Work Item 或图上节点，切到硅片落点看它落在 AIC / AIV 的哪里。</p>';
+    if (ch && ch.order.length > 1) s += '<p class="note">模块 Kernel 链里，虚线是源码写出的 TaskId 依赖，实线是按张量读写推出的数据依赖。</p>';
     return s;
   }
-  // ── L2 → L3：一个 Work Item 在 qk_pv 循环体里会走哪条路。全部由源码规则 + 该项的 position / 有效行数推出 ──
+  // ── Work Item → 计算图：一个 Work Item 在 qk_pv 循环体里会走哪条路。全部由源码规则 + 该项的 position / 有效行数推出 ──
   const CHAIN = ['f-pipe', 'p-score', 'p-softmax', 'p-weight', 'q', 'kvref', 'qk', 'scale', 'max', 'exp', 'sum', 'cast', 'pv', 'out'];
   function itemPlan(it) {
     const head = 'Work Item #' + it.id + ' · Q' + it.token + ' / SB' + it.sb;
@@ -606,26 +660,32 @@
   }
   function tileContextFor(it) {
     const p = itemPlan(it);
-    return { item: it, plan: p, ctx: { key: '来自 L2 · Work Item #' + it.id, nodes: p.nodes, badges: p.badges,
+    return { item: it, plan: p, ctx: { key: 'Work Item #' + it.id, nodes: p.nodes, badges: p.badges,
       caption: '<b>Lane ' + pad2(it.lane) + ' · 第 ' + it.iter + ' 轮 · Q' + it.token + ' / SB' + it.sb + '</b>：' + esc(p.summary) + '。其余节点已变暗；悬停任意部分照常联动。' } };
   }
   let tileCtx = null;
   function renderTileCtx() {
     const el = $('tileCtx');
-    if (!tileCtx || state.level < 3) { el.hidden = true; el.innerHTML = ''; return; }
+    if (!tileCtx || !tileOwns()) { el.hidden = true; el.innerHTML = ''; return; }
     const it = tileCtx.item;
     el.hidden = false;
-    el.innerHTML = '<span class="lens-ctx-k">来自 L2</span>'
+    el.innerHTML = '<span class="lens-ctx-k">Work Item</span>'
       + '<b>Lane ' + pad2(it.lane) + ' · 第 ' + it.iter + ' 轮 · Work Item #' + it.id + '（Q' + it.token + ' / SB' + it.sb + '）</b>'
       + '<span class="lens-ctx-v">' + esc(tileCtx.plan.kind) + ' · ' + esc(tileCtx.plan.short) + '</span>'
       + '<span class="lens-chip is-syn">Synthetic · Rank ' + it.rank + '</span>'
-      + (state.level === 4 ? '<span class="lens-ctx-note">硅片分配对每个 Work Item 相同；Lane ' + pad2(it.lane) + ' 是逻辑 block，物理核由运行时调度</span>' : '')
+      + '<span class="lens-ctx-note">硅片分配对每个 Work Item 相同；Lane ' + pad2(it.lane) + ' 是逻辑 block，物理核由运行时调度</span>'
       + '<button class="lens-ctx-x" type="button" data-lens-ctx-clear aria-label="清除 Work Item，回到通用循环体" title="回到通用循环体">×</button>';
   }
   function setTileCtx(next) {
     tileCtx = next;
     if (window.CsaTile) window.CsaTile.setContext(next ? next.ctx : null);
     renderTileCtx();
+  }
+  // 计算图与硅片落点上的 Work Item 上下文始终跟着下方的选中走
+  function syncCtx() {
+    const it = selItem(), cur = tileCtx ? tileCtx.item : null;
+    if (it === cur) { renderTileCtx(); return; }
+    setTileCtx(it ? tileContextFor(it) : null);
   }
 
   function selectionDetail() {
@@ -634,8 +694,8 @@
     if (state.kernel === 'qk_pv') {
       if (sel.type === 'cell') {
         const it = QK.items[sel.idx], plan = itemPlan(it);
-        const preview = '<p class="st-k">进入 L3 会看到</p><div class="lens-preview"><b>' + esc(plan.kind) + ' · ' + esc(plan.short) + '</b><span>' + esc(plan.summary) + '。</span></div>'
-          + '<p class="lens-hint">双击这个格子进入 L3，看' + (it.valid ? '它怎么算' : '空块分支') + '。</p>';
+        const preview = '<p class="st-k">计算路径</p><div class="lens-preview"><b>' + esc(plan.kind) + ' · ' + esc(plan.short) + '</b><span>' + esc(plan.summary) + '。</span></div>'
+          + '<p class="lens-hint">双击这个格子切换到硅片落点，看' + (it.valid ? '它怎么算' : '空块分支') + '。</p>';
         return '<p class="st-k">Work Item · Rank ' + it.rank + '</p><h2 class="st-h">#' + it.id + ' · Q' + it.token + ' / SB' + it.sb + '</h2>'
           + '<div class="lens-chips">' + chip(it.valid ? (it.sb === 0 ? '滑窗块' : '压缩块') : '空块') + chip('Synthetic', 'is-syn') + '</div>'
           + '<div class="lens-formula">workItemId = token × 5 + sb = <b>' + it.token + ' × 5 + ' + it.sb + ' = ' + it.id + '</b>\nqk_order 位置 = <b>' + it.q + '</b>\nLane = ' + it.q + ' mod 24 = <b>' + it.lane + '</b>\n轮次 = ⌊' + it.q + ' / 24⌋ = <b>' + it.iter + '</b></div>'
@@ -692,18 +752,23 @@
       if (h && h.type === 'gnode') hotLines = graphNodeLines(h.id, file);
       else if (h && h.type === 'line') { hotLines = [h.no]; const id = graphNodeForLine(file, h.no); if (g) { if (id) g.highlight([id]); else g.clear(); } }
       if (g && !(h && h.type === 'line')) g.clear();
+    } else if (tileOwns()) {
+      return; // 硅片落点视图：源码摘录、计算图、硅片三处联动由 lens-tile.js 负责
     } else if (state.level === 2) {
       const K = D.KERNELS[state.kernel];
-      if (h && h.type === 'kernel') { hotKernel = h.id; const R = D.KERNELS[h.id].range; for (let i = R[0]; i <= R[1]; i++) hotLines.push(i); }
+      // 计算图节点：悬停节点本身，或悬停源码行时它落在的节点
+      const lineInfo = h && h.type === 'line' && file === SPARSE && window.CsaTile ? window.CsaTile.lineInfo(h.no) : null;
+      const hotNodes = h && h.type === 'lnode' ? [h.id] : lineInfo ? lineInfo.nodes : [];
+      document.querySelectorAll('#hpLogic .lg-hit').forEach(function (g) { g.classList.toggle('is-hot', hotNodes.indexOf(g.dataset.node) >= 0); });
+      if (h && h.type === 'lnode' && window.CsaTile) hotLines = window.CsaTile.nodeLines(h.id);
+      else if (h && h.type === 'kernel') { hotKernel = h.id; const R = D.KERNELS[h.id].range; for (let i = R[0]; i <= R[1]; i++) hotLines.push(i); }
       else if (h && h.type === 'line') { const k = kernelForLine(file, h.no); hotKernel = k ? k.id : null; hotLines = [h.no]; }
       else if (h && (h.type === 'lane' || h.type === 'cell') && K && K.lineMap) {
         const lm = K.lineMap, add = function (r) { if (r) for (let i = r[0]; i <= r[1]; i++) hotLines.push(i); };
         add(lm.lane); if (h.type === 'cell') { add(lm.item); const it = state.kernel === 'qk_pv' ? QK.items[h.idx] : null; if (it && !it.valid) add(lm.invalid); else add(lm.valid); }
       }
-      document.querySelectorAll('#kernelChain .kc-hit').forEach(function (el) {
-        el.classList.toggle('is-hot', el.dataset.kernel === hotKernel);
-        el.classList.toggle('is-sel', el.dataset.kernel === state.kernel);
-      });
+      if (h && h.type === 'line' && hotKernel) postChain({ type: 'highlight', ids: [hotKernel] });
+      else if (!(h && h.type === 'kernel')) postChain({ type: 'clear' });
     }
     const sel = state.line && state.line.file === file ? state.line.no : null;
     document.querySelectorAll('#srcFile .cl').forEach(function (el) {
@@ -721,19 +786,17 @@
     const K = D.KERNELS[state.kernel], m = MOD[state.module];
     const parts = [[1, 'Decode CSA']];
     if (state.level >= 2) parts.push([2, (m ? m.label : '') + ' / ' + (K ? K.name : '')]);
-    if (state.level >= 3) parts.push([3, 'Tile']);
-    if (state.level >= 4) parts.push([4, '硅片']);
     $('lensCrumb').innerHTML = parts.map(function (p, i) {
       return (i ? '<i>/</i>' : '') + '<button type="button" data-lens-go="' + p[0] + '"' + (p[0] === state.level ? ' aria-current="true"' : '') + '>' + esc(p[1]) + '</button>';
     }).join('');
   }
   function renderStatus() {
-    if (state.level >= 3) return; // L3 / L4 的状态栏由 lens-tile.js 写
+    if (tileOwns()) return; // 硅片落点视图的状态栏由 lens-tile.js 写
     const main = $('hpStatus'), dim = $('hpStatusDim');
     main.className = 'hp-status-main';
     if (state.level === 1) {
       const gi = state.gnode ? window.LENS_GRAPH_INFO(state.gnode) : null;
-      main.textContent = 'L1 整层 · 5 个阶段 · ' + G.nodes.length + ' 个节点 · 当前：' + (gi ? gi.node.name : '—') + ' · 双击 Sparse Attention 等模块下钻，＋ 展开内部';
+      main.textContent = 'L1 整层 · 5 个阶段 · ' + G.nodes.length + ' 个节点 · 当前：' + (gi ? gi.node.name : '—') + ' · 双击模块展开，双击 Kernel 进入 L2';
       dim.textContent = '数据：decode_csa.py 源码静态关系 · 图元复用 PyPTO Compute Explorer · 位置不表示耗时';
     } else {
       const K = D.KERNELS[state.kernel];
@@ -741,50 +804,81 @@
       dim.textContent = state.kernel === 'qk_pv' ? '数据：分配规则取自源码 · 有效 / 空块为 Synthetic 输入 · 列是领取顺序，不是时间' : '数据：分配规则取自源码 · 默认 T=256';
     }
   }
-  function setLevel(n, opts) {
-    opts = opts || {};
-    stopPlay();
-    if (n >= 3) { state.module = 'attention'; state.kernel = 'qk_pv'; }
-    if (n === 2 && !chainOf(state.module)) state.module = 'attention';
-    if (n === 2 && (!D.KERNELS[state.kernel] || D.KERNELS[state.kernel].module !== state.module)) state.kernel = entryKernel(state.module);
-    const changed = state.level !== n, fromOuter = state.level < 3;
-    state.level = n; state.hover = null;
-    if (changed) state.sel = opts.keepSel ? state.sel : null;
-    document.body.dataset.level = n;
-    document.querySelectorAll('#lensLevels button').forEach(function (b) { b.setAttribute('aria-selected', String(Number(b.dataset.level) === n)); });
+  // L2 下方是硅片落点时：源码栏换成 qk_pv 带硬件标签的摘录，详情换成问题分析，三处联动交给 lens-tile.js
+  function tileOwns() { return state.level === 2 && state.tab === 'chip'; }
+  function applyView() {
+    const n = state.level, chip = tileOwns();
     $('viewLayer').hidden = n !== 1;
     $('viewKernel').hidden = n !== 2;
-    $('hpLensPane').hidden = n < 3;
-    if (n === 3) $('hpLensPane').dataset.zoom = 'logic'; else delete $('hpLensPane').dataset.zoom;
-    $('srcFile').hidden = n >= 3;
-    $('hpCode').hidden = n < 3;
-    $('inspectorView').hidden = n >= 3;
-    $('hpStoryPane').hidden = n < 3;
+    $('viewKernel').classList.toggle('is-chip', chip);
+    $('kernelWork').hidden = chip;
+    $('hpLensPane').hidden = !chip;
+    $('srcFile').hidden = chip;
+    $('hpCode').hidden = !chip;
+    $('inspectorView').hidden = chip;
+    $('hpStoryPane').hidden = !chip;
+    if (window.CsaTile) { if (!chip) window.CsaTile.clearFocus(); window.CsaTile.setActive(chip); }
+  }
+  function setLevel(n, opts) {
+    opts = opts || {};
+    // 旧层级 L3 / L4（以及“这一行在各层”的跳转）都落到 L2 的 qk_pv：L3 = 上方计算图，L4 = 下方硅片落点
+    if (n >= 3) {
+      state.module = 'attention'; state.kernel = 'qk_pv'; state.l2top = 'logic';
+      if (n === 4) state.tab = 'chip';
+      n = 2;
+    }
+    if (drillTimer !== null) { window.clearTimeout(drillTimer); drillTimer = null; }
+    $('viewLayer').classList.remove('is-drilling-out');
+    $('viewKernel').classList.remove('is-drilling-in');
+    stopPlay();
+    if (n === 2 && !chainOf(state.module)) state.module = 'attention';
+    if (n === 2 && (!D.KERNELS[state.kernel] || D.KERNELS[state.kernel].module !== state.module)) state.kernel = entryKernel(state.module);
+    if (n === 2 && state.tab === 'chip' && state.kernel !== 'qk_pv') state.tab = 'assignment';
+    const changed = state.level !== n;
+    state.level = n; state.hover = null;
+    if (changed && !opts.keepSel) state.sel = null;
+    document.body.dataset.level = n;
+    document.querySelectorAll('#lensLevels button').forEach(function (b) { b.setAttribute('aria-selected', String(Number(b.dataset.level) === n)); });
+    applyView();
     if (n === 1) { renderSource(CSA, 151, 499); $('srcMeta').textContent = CSA + ' · decode_csa() 151–499'; }
-    else if (n === 2) { showKernelSource(D.KERNELS[state.kernel]); renderChain(); renderKernelBody(); }
-    else $('srcMeta').textContent = SPARSE + ' · qk_pv 208–313 · 只列代码行';
-    if (window.CsaTile) window.CsaTile.setActive(n >= 3);
-    // 从 L1 / L2 进来：带了 Work Item 就套上下文，否则回到通用循环体；L3 ↔ L4 之间保留
-    if (n >= 3 && (opts.ctx || fromOuter)) setTileCtx(opts.ctx || null); else renderTileCtx();
-    if (n >= 3) syncVerticalHandle();
+    else { showKernelSource(D.KERNELS[state.kernel]); renderChain(); renderKernelBody(); }
+    syncCtx();
+
     renderCrumb(); renderStatus(); renderInspector(); applyFocus();
     if (n === 1) syncGraph();
-    if (opts.line && n >= 3 && window.CsaTile) window.CsaTile.focusLine(opts.line);
-    else if (opts.line && n < 3) revealLines(opts.line, opts.line, true);
+    if (opts.line && tileOwns() && window.CsaTile) window.CsaTile.focusLine(opts.line);
+    else if (opts.line) revealLines(opts.line, opts.line, true);
     else if (n === 1 && state.gnode) { const ls = graphNodeLines(state.gnode, CSA); if (ls.length) revealLines(Math.min.apply(null, ls), Math.max.apply(null, ls), false); }
-    else if (n === 2) { const K = D.KERNELS[state.kernel]; revealLines(K.line, K.line, false); }
+    else if (n === 2 && !tileOwns()) { const K = D.KERNELS[state.kernel]; revealLines(K.line, K.line, false); }
     syncResizeHandle();
   }
-  // L2 源码栏：显示所选 Kernel 所在函数（模块可能跨多个函数、多个文件）
+  // L2 下方视图切换：Assignment / Pipeline / 硅片落点（只有 qk_pv 有硅片落点）
+  function setTab(tab) {
+    if (tab === 'chip' && state.kernel !== 'qk_pv') return;
+    stopPlay();
+    state.tab = tab; state.hover = null;
+    if (tab === 'chip') state.l2top = 'logic'; // 硅片落点与上方计算图联动
+    applyView();
+    showKernelSource(D.KERNELS[state.kernel]);
+    renderL2Top(); refreshL2(); renderCrumb();
+  }
+  // L2 源码栏：显示所选 Kernel 所在函数（模块可能跨多个函数、多个文件）；硅片落点视图下显示 qk_pv 摘录
   function showKernelSource(K) {
     renderSource(K.file, K.fn[0], K.fn[1]);
-    $('srcMeta').textContent = K.file + ' · ' + (K.fnName ? K.fnName + '() ' : '') + K.fn[0] + '–' + K.fn[1];
+    $('srcMeta').textContent = tileOwns() ? SPARSE + ' · qk_pv 208–313 · 只列代码行，带硬件标签'
+      : K.file + ' · ' + (K.fnName ? K.fnName + '() ' : '') + K.fn[0] + '–' + K.fn[1];
   }
-  function selectKernel(id) { stopPlay(); state.kernel = id; showKernelSource(D.KERNELS[id]); state.sel = null; state.line = null; renderKernelBody(); renderInspector(); renderStatus(); renderCrumb(); applyFocus(); revealLines(D.KERNELS[id].line, D.KERNELS[id].line); }
-  function refreshL2() { renderKernelBody(); renderInspector(); renderStatus(); applyFocus(); }
+  function selectKernel(id) {
+    stopPlay();
+    state.kernel = id; state.sel = null; state.line = null;
+    if (state.tab === 'chip' && id !== 'qk_pv') { state.tab = 'assignment'; applyView(); }
+    showKernelSource(D.KERNELS[id]); renderL2Top(); refreshL2(); renderCrumb();
+    if (!tileOwns()) revealLines(D.KERNELS[id].line, D.KERNELS[id].line);
+  }
+  function refreshL2() { syncCtx(); renderKernelBody(); renderInspector(); renderStatus(); applyFocus(); if (l2TopMode() === 'logic') paintL2Ctx(); }
   function openSrc(file, a, b) {
-    // 源码链接：留在当前层能显示的文件里；否则切到能显示它的那一层
-    if (state.level >= 3) { if (file === SPARSE && a >= 208 && a <= 313) { window.CsaTile.focusLine(a); return; } setLevel(file === CSA ? 1 : 2); }
+    // 源码链接：留在当前视图能显示的文件里；否则切到能显示它的那一层
+    if (tileOwns()) { if (file === SPARSE && a >= 208 && a <= 313) { window.CsaTile.focusLine(a); return; } setTab('assignment'); }
     if (shownSrc.file !== file || a < shownSrc.a || a > shownSrc.b) {
       if (file === CSA) setLevel(1);
       else {
@@ -802,6 +896,9 @@
   // 事件
   // ════════════════════════════════════════════════════════════════════════
   document.addEventListener('click', function (e) {
+    if (e.target.closest('.lens-detail-close')) { setDetailVisible(false); return; }
+    if (e.target.closest('#lensDetailToggle')) { setDetailVisible($('lensDetail').hidden); return; }
+    if (tileOwns() && e.target.closest('#hpSvg .sv-buf, #hpSvg .sv-region')) showDetail();
     const lv = e.target.closest('#lensLevels button');
     if (lv) { setLevel(Number(lv.dataset.level)); return; }
     const go = e.target.closest('[data-lens-go]');
@@ -809,38 +906,36 @@
       if (go.dataset.mod) state.module = go.dataset.mod;
       if (go.dataset.gnode) { state.gnode = go.dataset.gnode; const r = go.dataset.gnode.split('/')[0]; if (MOD[r]) state.module = r; }
       if (go.dataset.kernel) { state.kernel = go.dataset.kernel; state.module = D.KERNELS[go.dataset.kernel].module; }
-      const withCtx = go.dataset.ctx && state.kernel === 'qk_pv' && state.sel && state.sel.type === 'cell';
-      setLevel(Number(go.dataset.lensGo), { line: go.dataset.line ? Number(go.dataset.line) : null, keepSel: true, ctx: withCtx ? tileContextFor(QK.items[state.sel.idx]) : null });
+      setLevel(Number(go.dataset.lensGo), { line: go.dataset.line ? Number(go.dataset.line) : null, keepSel: true });
       return;
     }
-    if (e.target.closest('[data-lens-ctx-clear]')) { setTileCtx(null); return;
-    }
+    if (e.target.closest('[data-lens-ctx-clear]')) { state.sel = null; refreshL2(); return; }
     const sl = e.target.closest('[data-lens-src]');
     if (sl) { const p = sl.dataset.lensSrc.split(':'); openSrc(p[0], Number(p[1]), Number(p[2])); return; }
-    if (state.level >= 3) return;
     const tab = e.target.closest('#kernelTabs button');
-    if (tab && !tab.disabled) { stopPlay(); state.tab = tab.dataset.tab; refreshL2(); return; }
+    if (tab && !tab.disabled) { if (tab.dataset.tab !== state.tab) setTab(tab.dataset.tab); return; }
     const l2 = e.target.closest('[data-l2]');
     if (l2 && l2.dataset.l2 === 'play') { play(); return; }
     if (l2 && l2.dataset.l2 === 'phase') { stopPlay(); state.phase = l2.dataset.v; renderKernelBar(); renderAssignment(); renderStatus(); return; }
-    const kn = e.target.closest('#kernelChain .kc-hit');
-    if (kn) {
-      if (e.detail >= 2 && D.KERNELS[kn.dataset.kernel].deep) { state.kernel = kn.dataset.kernel; setLevel(3); return; }
-      if (kn.dataset.kernel !== state.kernel) selectKernel(kn.dataset.kernel);
-      return;
-    }
+    // 双击上方计算图节点：切到硅片落点，看这一步落在哪
+    const lnode = e.target.closest('#hpLogic .lg-hit');
+    if (lnode && e.detail >= 2 && state.tab !== 'chip' && state.kernel === 'qk_pv') { setTab('chip'); return; }
     const cell = e.target.closest('#kernelLanes .lane-cell[data-key]');
     if (cell && e.detail >= 2 && state.kernel === 'qk_pv') {
       const it = QK.items[Number(cell.dataset.key)];
       state.sel = { type: 'cell', lane: it.lane, idx: it.id };
-      setLevel(3, { keepSel: true, ctx: tileContextFor(it) });
+      setTab('chip');
       return;
     }
-    if (cell) { state.sel = { type: 'cell', lane: Number(cell.dataset.lane), idx: Number(cell.dataset.key) }; state.line = null; renderKernelBody(); renderInspector(); applyFocus(); return; }
+    if (cell) { showDetail(); state.sel = { type: 'cell', lane: Number(cell.dataset.lane), idx: Number(cell.dataset.key) }; state.line = null; refreshL2(); return; }
+    const top = e.target.closest('#l2TopSwitch button');
+    if (top && !top.disabled) { state.l2top = top.dataset.l2top; renderL2Top(); return; }
+
     const lane = e.target.closest('#kernelLanes .lane-label, #kernelLanes .asg-label.is-lane');
-    if (lane) { state.sel = { type: 'lane', lane: Number(lane.dataset.lane) }; state.line = null; renderKernelBody(); renderInspector(); applyFocus(); return; }
+    if (lane) { showDetail(); state.sel = { type: 'lane', lane: Number(lane.dataset.lane) }; state.line = null; refreshL2(); return; }
     const row = e.target.closest('#srcFile .cl');
     if (row) {
+      showDetail();
       const no = Number(row.dataset.line);
       state.line = { file: shownSrc.file, no: no };
       if (state.level === 1) {
@@ -861,29 +956,22 @@
     else if (c.dataset.l2 === 'kv') f.kvRows = c.checked;
     refreshL2();
   });
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const node = e.target.closest('#kernelChain .kc-hit');
-    if (!node) return;
-    e.preventDefault();
-    selectKernel(node.dataset.kernel);
-  });
   function hoverFrom(t) {
-    const kn = t.closest('#kernelChain .kc-hit'); if (kn) return { type: 'kernel', id: kn.dataset.kernel };
     const cell = t.closest('#kernelLanes .lane-cell[data-key]'); if (cell) return { type: 'cell', idx: Number(cell.dataset.key) };
     const lane = t.closest('#kernelLanes .lane-label, #kernelLanes .asg-label.is-lane'); if (lane) return { type: 'lane', lane: Number(lane.dataset.lane) };
+    const ln = t.closest('#hpLogic .lg-hit'); if (ln) return { type: 'lnode', id: ln.dataset.node };
     const row = t.closest('#srcFile .cl'); if (row) return { type: 'line', no: Number(row.dataset.line) };
     return null;
   }
   document.addEventListener('mouseover', function (e) {
-    if (state.level >= 3) return;
+    if (tileOwns()) return; // 硅片落点视图的悬停联动由 lens-tile.js 处理
     const h = hoverFrom(e.target);
     if (!h && state.hover && state.hover.type === 'gnode') return; // L1 图的悬停由 iframe 管理
     if (JSON.stringify(h) === JSON.stringify(state.hover)) return;
     state.hover = h; applyFocus();
   });
   document.addEventListener('focusin', function (e) {
-    if (state.level >= 3) return;
+    if (tileOwns()) return;
     const h = hoverFrom(e.target);
     if (h) { state.hover = h; applyFocus(); }
   });
@@ -895,11 +983,35 @@
     btn.setAttribute('aria-label', btn.title);
   });
 
-  // ── 拖动：源码栏宽度与 L4 上下分栏（改写自 compile-board-demo/resize.js） ──
+  // 详情窗保持在视口内；拖动标题栏，内容区域仍可滚动和交互。
+  const detail = $('lensDetail'), detailToggle = $('lensDetailToggle');
+  function setDetailVisible(visible) { detail.hidden = !visible; detailToggle.setAttribute('aria-expanded', String(visible)); if (visible) clampDetail(); }
+  function showDetail() { setDetailVisible(true); }
+  function clampDetail(left, top) {
+    if (detail.hidden) return;
+    const rect = detail.getBoundingClientRect();
+    const x = Math.max(0, Math.min(window.innerWidth - rect.width, left == null ? rect.left : left));
+    const y = Math.max(0, Math.min(window.innerHeight - rect.height, top == null ? rect.top : top));
+    detail.style.left = x + 'px'; detail.style.top = y + 'px'; detail.style.right = 'auto';
+  }
+  detail.querySelectorAll('.lens-drag-handle').forEach(function (handle) {
+    handle.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || e.target.closest('button')) return;
+      e.preventDefault();
+      const rect = detail.getBoundingClientRect(), x = e.clientX, y = e.clientY;
+      handle.setPointerCapture(e.pointerId); handle.classList.add('is-dragging');
+      function move(ev) { clampDetail(rect.left + ev.clientX - x, rect.top + ev.clientY - y); }
+      function end() { handle.classList.remove('is-dragging'); handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', end); handle.removeEventListener('pointercancel', end); handle.removeEventListener('lostpointercapture', end); }
+      handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end); handle.addEventListener('lostpointercapture', end);
+    });
+  });
+  window.addEventListener('resize', function () { clampDetail(); });
+
+  // ── 拖动：源码栏宽度与 L2 上下分栏（改写自 compile-board-demo/resize.js） ──
   const codePane = $('hpCodePane'), resizeHandle = $('hpCodeResize'), mainPane = document.querySelector('.hp-main');
   function resizeBounds() {
     const width = mainPane.getBoundingClientRect().width;
-    return window.innerWidth > 1100 ? { min: 320, max: Math.max(320, width - 940) } : { min: 260, max: Math.max(260, width - 360) };
+    return window.innerWidth > 1100 ? { min: 320, max: Math.max(320, width - 560) } : { min: 260, max: Math.max(260, width - 360) };
   }
   function setCodeWidth(w) {
     const b = resizeBounds(), v = Math.round(Math.max(b.min, Math.min(b.max, w)));
@@ -934,26 +1046,21 @@
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault(); setCodeWidth(codePane.getBoundingClientRect().width + (e.key === 'ArrowLeft' ? -20 : 20));
   });
-  const midPane = $('hpLensPane'), logicPane = $('hpLogicPane'), vHandle = $('hpVerticalResize');
-  function vBounds() { return { min: 140, max: Math.max(140, midPane.clientHeight - 240) }; }
-  function setLogicHeight(h) {
-    const b = vBounds(), v = Math.round(Math.max(b.min, Math.min(b.max, h)));
-    midPane.style.setProperty('--logic-height', v + 'px'); syncVerticalHandle();
+  const l2Kernel = $('viewKernel'), l2Graph = $('l2GraphPane'), l2Split = $('l2Split');
+  function setL2Height(h) {
+    const max = Math.max(160, l2Kernel.clientHeight - 220), v = Math.round(Math.max(140, Math.min(max, h)));
+    l2Kernel.style.setProperty('--l2-graph-height', v + 'px');
+    l2Split.setAttribute('aria-valuemin', 140); l2Split.setAttribute('aria-valuemax', max); l2Split.setAttribute('aria-valuenow', v);
   }
-  function syncVerticalHandle() {
-    const b = vBounds();
-    vHandle.setAttribute('aria-valuemin', b.min); vHandle.setAttribute('aria-valuemax', b.max);
-    vHandle.setAttribute('aria-valuenow', Math.round(logicPane.getBoundingClientRect().height));
-  }
-  dragWith(vHandle, 'is-resizing-vertical', function (m) { if (!m) return logicPane.getBoundingClientRect().height; setLogicHeight(m.begin + m.dy); });
-  vHandle.addEventListener('keydown', function (e) {
+  dragWith(l2Split, 'is-resizing-vertical', function (m) { if (!m) return l2Graph.getBoundingClientRect().height; setL2Height(m.begin + m.dy); });
+  l2Split.addEventListener('keydown', function (e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault(); setLogicHeight(logicPane.getBoundingClientRect().height + (e.key === 'ArrowUp' ? -20 : 20));
+    e.preventDefault(); setL2Height(l2Graph.getBoundingClientRect().height + (e.key === 'ArrowUp' ? -20 : 20));
   });
-  window.addEventListener('resize', function () { syncResizeHandle(); syncVerticalHandle(); });
+  window.addEventListener('resize', function () { syncResizeHandle(); });
 
-  // ── 启动：支持 #L2 / #L3 等直达；L2 可带 :pipeline ──
-  const m = /^#L([1-4])(?::(assignment|pipeline))?$/.exec(location.hash || '');
+  // ── 启动：支持 #L1 / #L2 直达；L2 可带 :pipeline / :chip；旧的 #L3 / #L4 落到 L2 的 qk_pv ──
+  const m = /^#L([1-4])(?::(assignment|pipeline|chip))?$/.exec(location.hash || '');
   if (m && m[2]) state.tab = m[2];
   setLevel(m ? Number(m[1]) : 1);
 })();

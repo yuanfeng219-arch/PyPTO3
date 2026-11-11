@@ -1,9 +1,9 @@
 /* ──────────────────────────────────────────────────────────────────────────────
- * CSA Operator Lens · L3 Tile / L4 硅片
+ * CSA Operator Lens · qk_pv 计算图与硅片落点（L2 上方计算图 + 下方“硅片落点”视图）
  * 复制自 Design/compile-board-demo/path-csa.js（2026-11-10），原文件未改动。本副本的改动：
  *   - 源码行查询限定在 #hpCode 内，避免与 L1 / L2 的整文件源码互相点亮；
- *   - 只在 L3 / L4 激活时响应事件、切换 body.is-focusing；
- *   - 去掉首屏自动引导，改为首次进入 L3 / L4 时播放一次；
+ *   - 只在 L2 切到硅片落点时激活、响应事件、切换 body.is-focusing；
+ *   - 去掉首屏自动引导，改为首次打开硅片落点时播放一次；
  *   - 通过 window.CsaTile 暴露行 → 逻辑节点 / 硅片区域的映射，供跨层说明使用。
  * ──────────────────────────────────────────────────────────────────────────────
  * Hardware-Native 主线 · CSA（DeepSeek-V4 qk_pv）
@@ -318,7 +318,9 @@
   // 只在当前 Work Item 会走的节点上叠加实例数据；其余节点变暗，不改原有图形
   function paintCtx() {
     const pane = document.getElementById('hpLensPane'), svg = document.querySelector('#hpLogic svg'), code = document.getElementById('hpCode');
+    const logic = document.getElementById('hpLogic');
     if (pane) pane.classList.toggle('has-ctx', !!ctx);
+    if (logic) logic.classList.toggle('has-ctx', !!ctx);
     if (code) code.classList.toggle('has-ctx', !!ctx);
     if (!svg) return;
     svg.querySelectorAll('.lg-ctx-badge').forEach(function (el) { el.remove(); });
@@ -547,7 +549,9 @@
     }
     return out;
   }
-  function renderLogic() {
+  // 逻辑图只有一份，放在 L2 上方（#hpLogic）；下方硅片落点视图与它联动
+  function renderLogic() { logicSvgInto(document.getElementById('hpLogic')); }
+  function logicSvgInto(el) {
     const split = shownSplit(), eff = effStage(state.stage);
     let s = '<svg viewBox="0 0 720 338" role="img" aria-label="qk_pv 的循环嵌套与计算链"><defs>' + markers('lg') + '</defs>';
     s += '<g class="lg-hit" data-node="f-spmd"><rect x="12" y="8" width="696" height="322" class="lg-frame"/>'
@@ -577,7 +581,8 @@
     s += LG_EDGES.map(function (e) { return '<path d="' + e[2] + '" class="lg-edge" data-from="' + e[0] + '" data-to="' + e[1] + '"/>'; }).join('');
     Object.keys(LG).forEach(function (id) { s += logicNode(id); });
     s += '</svg>';
-    document.getElementById('hpLogic').innerHTML = s;
+    if (!el) return s;
+    el.innerHTML = s;
     document.getElementById('hpLogicMeta').textContent = 'qk_pv · stage=' + state.stage + (split ? ' · 推算：加 UP_DOWN 切分' : ' · 循环嵌套与计算链');
     paintCtx();
   }
@@ -1284,6 +1289,9 @@
     // L2 → L3：带入一个 Work Item；传 null 回到通用循环体
     setContext: function (c) { ctx = c || null; if (ctx) introStop = true; state.hover = null; paintCtx(); applyFocus(); },
     hasContext: function () { return !!ctx; },
+    renderLogic: function () { renderLogic(); },
+    nodeLines: function (id) { const n = nodeById(id); return n ? fromNodes([id]).lines : []; },
+    nodeCaption: function (id) { return nodeCaption(id, false); },
     rerender: function () { render(); }
   };
 })();

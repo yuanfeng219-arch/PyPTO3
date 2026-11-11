@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSA 整层图</title>
-  <!-- L1 用 PyPTO-Compute-Explorer-UI Graph 页签的图元渲染；单独放在 iframe 里，PTO 设计系统样式不会影响外层 Hardware-Native 页面 -->
+  <title>CSA 计算图</title>
+  <!-- L1 整层图与 L2 Kernel 链都用 PyPTO-Compute-Explorer-UI Graph 页签的图元渲染（?mode=chain 为 L2）；单独放在 iframe 里，PTO 设计系统样式不会影响外层 Hardware-Native 页面 -->
   <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
@@ -55,7 +55,7 @@
     </div>
   </section>
   <div class="lens-dock">
-    <span class="lens-dock__hint">单击看详情 · 双击节点下钻到 L2 · ＋ 展开内部</span>
+    <span class="lens-dock__hint">单击看详情 · 双击模块展开 · 双击 Kernel 进入 L2</span>
     <span class="lens-dock__tools" role="group" aria-label="缩放">
       <button type="button" data-lens-zoom="0.8" aria-label="缩小">−</button><output id="lensScale">100%</output><button type="button" data-lens-zoom="1.25" aria-label="放大">＋</button><button type="button" data-lens-fit>适应</button>
     </span>
@@ -67,6 +67,8 @@
   </script>
   <script src="./js/source-snapshot.js"></script>
   <script src="./js/lens-data.js"></script>
+  <script src="./js/kernel-scan.js"></script>
+  <script src="./js/chain-graph-model.js"></script>
   <script src="./vendor/explorer-ui/js/photo-narrative.js"></script>
   <script src="./vendor/explorer-ui/js/semantic-computation-graph.js"></script>
   <script src="./vendor/explorer-ui/js/semantic-computation-presentation.js"></script>
@@ -80,6 +82,6 @@
   <script src="./vendor/explorer-ui/js/ai-infra-presentation.js"></script>
   <script src="./vendor/explorer-ui/js/visualization2-graph.js"></script>
   <script src="./js/csa-graph-model.js"></script>
-  <script src="./js/l1-graph-host.js"></script>
+  <script src="./js/graph-host.js"></script>
 </body>
 </html>

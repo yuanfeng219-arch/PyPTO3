@@ -1,14 +1,22 @@
-/* L1 图宿主：用 Explorer-UI 的 PtoVisualization2Graph.mount 渲染 CSA 语义图，并与外层页面互通。
+/* 图宿主：用 Explorer-UI 的 PtoVisualization2Graph.mount 渲染语义图，并与外层页面互通。L1 与 L2 共用这一页：
+ *   ?mode 缺省 → L1 整层图（LENS_CSA_GRAPH）；?mode=chain → L2 某个模块的 Kernel 链（外层发 chain 消息后再挂载）。
  * 两个方向都走 postMessage：用 file:// 直接打开时浏览器把 iframe 当成不同源，不能直接调用对方的函数。
- * 外层 → 本页：{ lens: 'graph', type: 'highlight' | 'clear' | 'select' | 'fit', ids, id }
- * 本页 → 外层：{ lens: 'l1', type: 'ready' | 'hover' | 'select' | 'drill', id } */
+ * 外层 → 本页：{ lens: 'graph', type: 'highlight' | 'clear' | 'select' | 'fit' | 'chain', ids, id, module }
+ * 本页 → 外层：{ lens: 'l1' | 'l2', type: 'ready' | 'hover' | 'select' | 'drill', id }（L2 的 id 已换成 Kernel id） */
 (function () {
   'use strict';
-  const model = window.LENS_CSA_GRAPH;
-  window.PTO_PYPA_SEMANTIC_GRAPH = model; // compute-graph-scene 取 overlay 时的默认模型
+  const MODE = /[?&]mode=chain/.test(location.search) ? 'chain' : 'l1';
+  const CG = window.LensChainGraph;
+  let model = MODE === 'l1' ? window.LENS_CSA_GRAPH : null;
   const host = document.getElementById('viz2-graph-inter');
-  function send(type, id) {
-    if (window.parent && window.parent !== window) window.parent.postMessage({ lens: 'l1', type: type, id: id == null ? null : id }, '*');
+  const toOuter = function (id) { return MODE === 'chain' && id && CG ? (CG.kernelOf(id) || id) : id; };
+  const toInner = function (id) { return MODE === 'chain' && id && CG && window.LensData.KERNELS[id] ? CG.nodeOf(id) : id; };
+  function send(type, id, point) {
+    if (window.parent && window.parent !== window) window.parent.postMessage({ lens: MODE === 'chain' ? 'l2' : 'l1', type: type, id: id == null ? null : toOuter(id), point: point }, '*');
+  }
+  if (MODE === 'chain') {
+    const hint = document.querySelector('.lens-dock__hint');
+    if (hint) hint.textContent = '单击选中 Kernel · 双击 qk_pv 进入 L3 · 实线 = 张量读写，虚线 = TaskId 依赖';
   }
 
   const scene = function () { return host.querySelector('[data-viz2-graph-scene]'); };
@@ -18,9 +26,8 @@
   let silent = false, ctl = null, hot = [];
 
   function onView(patch) {
-    const prev = view.nodeId;
     view = Object.assign({}, view, patch, { inspectorOpen: false }); // 详情放在外层右栏，不用图内抽屉
-    if (Object.prototype.hasOwnProperty.call(patch, 'nodeId') && patch.nodeId && patch.nodeId !== prev && !silent) {
+    if (Object.prototype.hasOwnProperty.call(patch, 'nodeId') && patch.nodeId && !silent) {
       send('select', patch.nodeId);
     }
     ctl.update(null, view, { active: true });
@@ -28,8 +35,16 @@
     const out = document.getElementById('lensScale');
     if (out && view.camera) out.textContent = Math.round(view.camera.scale * 100) + '%';
   }
-  ctl = window.PtoVisualization2Graph.mount(host, { onSelect: function () {}, onView: onView, execution: { blocks: 0, taskCount: 0 } });
-  ctl.update(null, view, { active: true });
+  // 挂载（或换一个模型重新挂载）：同一个 host，旧实例先 destroy，事件随之解绑
+  function mountModel(next) {
+    if (ctl) ctl.destroy();
+    model = next; hot = [];
+    window.PTO_PYPA_SEMANTIC_GRAPH = model; // compute-graph-scene 取 overlay 时的默认模型
+    view = { camera: null, expanded: [], nodeId: null, inspectorOpen: false, overlays: {} };
+    ctl = window.PtoVisualization2Graph.mount(host, { onSelect: function () {}, onView: onView, execution: { blocks: 0, taskCount: 0 } });
+    ctl.update(null, view, { active: true });
+  }
+  if (model) mountModel(model);
 
   // 首屏：按宽度适配、顶端对齐，节点名可读；“适应”再看全图
   function extent() {
@@ -40,14 +55,18 @@
     });
     return { w: w, h: h };
   }
+  // L1：按宽度适配、顶端对齐；L2：整条链放得下（不小于 45%）就整体适配，否则按宽度适配
   function frameWidth() {
     const vp = host.querySelector('.viz2-graph-viewport'), ex = extent();
-    if (!vp || !vp.clientWidth || !ex.w) return false;
-    const scale = Math.max(.3, Math.min(.85, (vp.clientWidth - 48) / ex.w));
-    onView({ camera: { scale: scale, x: (vp.clientWidth - ex.w * scale) / 2, y: 20 } });
+    if (!vp || !vp.clientWidth || !vp.clientHeight || !ex.w) return false;
+    const byW = (vp.clientWidth - 48) / ex.w, byH = (vp.clientHeight - 56) / ex.h;
+    let scale = Math.max(.3, Math.min(.85, byW));
+    if (MODE === 'chain') scale = Math.min(byW, byH) >= .45 ? Math.min(.85, byW, byH) : Math.max(.35, Math.min(.85, byW));
+    onView({ camera: { scale: scale, x: (vp.clientWidth - ex.w * scale) / 2, y: MODE === 'chain' && Math.min(byW, byH) >= .45 ? (vp.clientHeight - ex.h * scale) / 2 : 20 } });
     return true;
   }
-  (function waitFrame(n) { if (!frameWidth() && n < 40) requestAnimationFrame(function () { waitFrame(n + 1); }); })(0);
+  function waitFrame(n, then) { if (frameWidth()) { if (then) then(); } else if (n < 60) requestAnimationFrame(function () { waitFrame(n + 1, then); }); }
+  if (model) waitFrame(0);
   document.addEventListener('click', function (e) {
     const z = e.target.closest('[data-lens-zoom]');
     if (z) { const b = host.querySelector('[data-viz2-graph-zoom="' + z.dataset.lensZoom + '"]'); if (b) b.click(); return; }
@@ -124,14 +143,30 @@
   host.addEventListener('dblclick', function (e) {
     const t = e.target.closest('[data-pypa-node], [data-viz2-graph-label]');
     if (!t) return;
-    send('drill', t.dataset.pypaNode || t.dataset.viz2GraphLabel);
+    const id = t.dataset.pypaNode || t.dataset.viz2GraphLabel;
+    const node = nodeEl(id) || t, rect = node.getBoundingClientRect();
+    send('drill', id, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
   });
   window.addEventListener('message', function (e) {
     const m = e.data;
     if (e.source !== window.parent || !m || m.lens !== 'graph') return;
-    if (m.type === 'highlight') window.LensGraph.highlight(m.ids);
+    if (m.type === 'chain' && CG) {
+      const next = CG.build(m.module);
+      if (!next) return;
+      mountModel(next);
+      waitFrame(0, function () { if (m.id) window.LensGraph.select(toInner(m.id)); });
+      return;
+    }
+    if (!ctl) return;
+    // 展开 / 收起一个可展开的模块：走图元自带的 ＋ / − 切换
+    if (m.type === 'expand') {
+      // open：只展开不收起（双击数据节点时展开产生它的模块）
+      if (m.open && host.querySelector('[data-pypa-node^="' + m.id + '/"]')) return;
+      const tg = host.querySelector('[data-pypa-expand-toggle="' + m.id + '"]'); if (tg) tg.click(); return;
+    }
+    if (m.type === 'highlight') window.LensGraph.highlight((m.ids || []).map(toInner));
     else if (m.type === 'clear') window.LensGraph.clear();
-    else if (m.type === 'select') window.LensGraph.select(m.id);
+    else if (m.type === 'select') window.LensGraph.select(toInner(m.id));
     else if (m.type === 'fit') window.LensGraph.fit();
   });
   send('ready');

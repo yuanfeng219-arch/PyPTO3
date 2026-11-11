@@ -1,4 +1,4 @@
-/* CSA Operator Lens：在 workbench（Hardware-Native）样式之上补充四层切换、L1 整层图、L2 Kernel 派发与详情栏。
+/* CSA Operator Lens：在 workbench（Hardware-Native）样式之上补充层级切换、L1 整层图、L2 Kernel 工作区与详情栏。
  * 颜色一律走 path.css 的 :root 变量；硬件角色色（lime / lav / amber / sky）只用于和硬件同义的地方。 */
 
 /* ── 三栏：源码 | 画布 | 详情 ── */
@@ -12,9 +12,9 @@
 .lens-side { display: flex; flex-direction: column; }
 .lens-side-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-/* L3 / L4 容器不用 .hp-mid：workbench 的 .hp-main:has(.hp-mid[hidden]) 会把三栏收成两栏 */
+/* 硅片落点容器不用 .hp-mid：workbench 的 .hp-main:has(.hp-mid[hidden]) 会把三栏收成两栏 */
 .lens-tile { background: var(--canvas); }
-/* L2 → L3：带入一个 Work Item 时，逻辑图只亮它会走的路径，并叠加实例数据 */
+/* 选中一个 Work Item 时，计算图只亮它会走的路径，并叠加实例数据 */
 .lens-ctx { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--divider); font-size: 12.5px; color: var(--muted); }
 .lens-ctx[hidden] { display: none; }
 .lens-ctx b { color: var(--text); font-weight: 600; }
@@ -32,9 +32,6 @@
 .lens-preview { display: grid; gap: 4px; margin: 0 0 10px; padding: 10px 12px; border-radius: 4px; background: #1d2328; font-size: 12.5px; line-height: 1.7; color: #c4c4c4; }
 .lens-preview b { color: #add0de; font-weight: 600; }
 
-/* L3 只看算子逻辑；L4 逻辑在上、硅片在下 */
-#hpLensPane[data-zoom="logic"] .hp-chip, #hpLensPane[data-zoom="logic"] .hp-splitter { display: none; }
-#hpLensPane[data-zoom="logic"] .hp-logic { flex: 1 1 auto; max-height: none; }
 
 /* ── 顶栏：层级切换与路径 ── */
 .lens-levels { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 5px; overflow: hidden; }
@@ -71,7 +68,7 @@
 .lens-src .cl-gap span:last-child { border-top: 1px dashed #2a2a2a; border-bottom: 1px dashed #2a2a2a; padding: 0 10px 0 6px; margin: 2px 0; width: max-content; }
 
 /* ── 画布公共 ── */
-.lens-chain, .lens-lanes { background-image: radial-gradient(#1a1a1a .7px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px; }
+.lens-lanes { background-image: radial-gradient(#1a1a1a .7px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px; }
 .lens-view .pane-info { margin-left: 8px; }
 .lens-view .hp-pane-meta + .pane-info, .lens-view .hp-pane-meta + details { margin-left: auto; }
 
@@ -110,26 +107,25 @@
 .lane-sw.k-r1 { background: #4a5f73; }
 .lane-sw.k-idle { background: repeating-linear-gradient(45deg, #1d1d1d 0 3px, #4a4a4a 3px 4px); }
 
-.lens-chain { flex: none; max-height: 40%; overflow: auto; padding: 2px 14px 6px; }
-.lens-chain > svg { display: block; width: 100%; height: auto; }
-.lens-lanes { flex: 1; min-height: 0; overflow: auto; padding: 8px 14px 12px; border-top: 1px solid var(--divider); }
-.lens-lanes > svg { display: block; width: 100%; height: auto; min-width: 640px; }
-.lens-lanes > svg.lens-asg { height: 100%; max-height: 100%; }
-.kc-hit { cursor: pointer; }
-.kc-hit:focus { outline: none; }
-.kc-node { fill: #262626; stroke: #3a3a3a; rx: 6px; }
-.kc-hit[data-dispatch="at"] .kc-node { fill: #1f1f1f; stroke-dasharray: 3 3; }
-.kc-hit:hover .kc-node, .kc-hit:focus-visible .kc-node { stroke: #8a8a8a; }
-.kc-hit.is-hot .kc-node { stroke: var(--text); stroke-width: 1.5; }
-.kc-hit.is-sel .kc-node { fill: #e6e6e6; stroke: #e6e6e6; }
-.kc-title { fill: var(--text); font-size: 12.5px; font-family: var(--sans); font-weight: 600; }
-.kc-sub { fill: var(--dim); font-size: 10.5px; }
-.kc-hit.is-sel .kc-title { fill: #111; }
-.kc-hit.is-sel .kc-sub { fill: #444; }
-.kc-edge { fill: none; stroke: #6c7890; stroke-width: 1.2; stroke-dasharray: 4 3; }
-.kc-ext { fill: var(--dim); font-size: 10px; }
-.kc-deep { fill: var(--lime); font-size: 9px; font-weight: 600; letter-spacing: .06em; }
-.kc-hit.is-sel .kc-deep { fill: #3c5a2a; }
+/* L2：上方 Kernel 链（与 L1 同一套图元，在 iframe 里），下方工作分配，中间可拖动 */
+.lens-l2-graph { flex: 0 0 var(--l2-graph-height, 36%); min-height: 140px; display: flex; flex-direction: column; border-top: 1px solid var(--divider); }
+/* L2 顶部：Kernel 计算图（与下方硅片落点联动）或模块 Kernel 链 */
+.lens-l2-top { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 14px; }
+.lens-l2-title { font: 600 12px var(--sans); color: var(--text); }
+.lens-l2-note { font-size: 12px; color: var(--muted); min-width: 0; }
+.lens-seg button:disabled { opacity: .4; cursor: not-allowed; }
+.lens-l2-meta { font: 11px var(--mono); color: var(--dim); }
+.lens-l2-meta[hidden], .lens-l2-logic[hidden], .lens-frame[hidden] { display: none; }
+.lens-l2-logic { flex: 1; min-height: 0; }
+#hpLogic .lg-hit { cursor: pointer; }
+#hpLogic.has-ctx .lg-hit:not(.is-ctx) > *, #hpLogic.has-ctx .lg-edge { opacity: .3; }
+#hpLogic.has-ctx .lg-hit.is-ctx > * { opacity: 1; }
+#viewKernel.is-rules-only .lens-l2-graph { flex-basis: var(--l2-graph-height, 66%); }
+.lens-l2-work { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.lens-l2-work .lens-bar { border-top: 0; }
+/* Assignment / Pipeline 按可用区域等比缩放（contain）；区域太小时保底尺寸并在框内滚动，不再撑出页面 */
+.lens-lanes { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 14px 10px; }
+.lens-lanes > svg { display: block; width: 100%; height: 100%; min-width: 560px; min-height: 180px; }
 
 .lane-sub { fill: var(--dim); font-size: 9.5px; }
 .lane-label { fill: var(--muted); font-size: 10px; cursor: pointer; pointer-events: auto; }
@@ -189,7 +185,7 @@
 .lens-formula { margin: 0 0 14px; padding: 10px 12px; border-radius: 4px; background: var(--canvas); font: 12px/1.8 var(--mono); color: var(--muted); white-space: pre-wrap; }
 .lens-formula b { color: var(--text); font-weight: 500; }
 .lens-xlevel { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 2px; }
-.lens-xlevel li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 9px 10px; border-radius: 4px; background: #1d1d1d; }
+.lens-xlevel li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 9px 10px; border-radius: 4px; background: #1d1d1d; }
 .lens-xlevel li.is-here { box-shadow: inset 2px 0 0 var(--text); background: #232323; }
 .lens-xlevel li.is-none { opacity: .5; }
 .lens-xlevel .xl-k { font: 600 11px/1.6 var(--mono); color: var(--dim); }
@@ -214,3 +210,42 @@
   .lens-levels button { height: 30px; padding: 0 8px; font-size: 12px; }
   #srcFile, #hpCode { height: 320px; max-height: 320px; }
 }
+
+/* 详情以浮窗覆盖画布，不占用布局列。
+ * 所以宽屏（含 1101–1280px 笔记本宽度）都保持一屏工作台：vendor 在 ≤1280px 改成整页滚动是为停靠的第三栏准备的，这里不需要。 */
+@media (min-width: 1101px) {
+  .hp-app { height: 100vh; min-height: 600px; grid-template-rows: 64px minmax(0, 1fr) 28px; }
+  .hp-main, .hp-main:has(.hp-story[hidden]) { grid-template-columns: clamp(320px, var(--code-width, 26%), max(320px, calc(100% - 560px))) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .hp-code { max-height: none; }
+}
+.lens-side { position: fixed; z-index: 50; top: 76px; right: 20px; width: min(380px, calc(100vw - 24px)); height: min(860px, calc(100dvh - 100px)); min-height: 0; overflow: hidden; background: var(--surface, #1b1b1b); border: 1px solid var(--border-strong, #444); border-radius: 8px; box-shadow: 0 12px 36px #0009; }
+.lens-side[hidden] { display: none; }
+.lens-side .hp-story-body { overflow: auto; }
+.lens-drag-handle { flex: none; cursor: grab; touch-action: none; user-select: none; border-bottom: 1px solid var(--divider); }
+.lens-drag-handle.is-dragging { cursor: grabbing; }
+.lens-detail-close { margin-left: auto; flex: none; width: 28px; height: 28px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
+.lens-detail-close:hover, .lens-detail-close:focus-visible { background: var(--raised); color: var(--text); }
+.lens-detail-toggle { white-space: nowrap; }
+@media (max-width: 860px) { .lens-side { top: 12px; right: 12px; height: min(860px, calc(100dvh - 24px)); } }
+
+/* 从整层图下钻到单个 Kernel。 */
+.lens-mid { overflow: hidden; }
+.lens-view.is-drilling-out { pointer-events: none; }
+.lens-view.is-drilling-out .lens-frame { transform-origin: var(--drill-x, 50%) var(--drill-y, 50%); animation: lens-drill-out 420ms cubic-bezier(.3, 0, .5, 1) both; }
+.lens-view.is-drilling-in { animation: lens-drill-in 300ms cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes lens-drill-out { 65% { opacity: 1; } to { opacity: 0; transform: translate(var(--drill-dx, 0px), var(--drill-dy, 0px)) scale(2.4); } }
+@keyframes lens-drill-in { from { opacity: 0; transform: scale(.975); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .lens-view.is-drilling-out .lens-frame, .lens-view.is-drilling-in { animation: none; } }
+
+/* Kernel 工作区：计算图在上，三种视图在下。 */
+.lens-bottom-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 6px 14px; border-bottom: 1px solid var(--divider); color: var(--muted); font-size: 12px; }
+.lens-bottom-head .lens-tabs { margin-left: 0; }
+.lens-l2-work[hidden] { display: none; }
+/* 硅片落点：默认把高度多让给下方；硅片图保底 320px，空间不够时整块滚动 */
+#viewKernel.is-chip .lens-l2-graph { flex-basis: var(--l2-graph-height, 34%); }
+#viewKernel > #hpLensPane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+#viewKernel > #hpLensPane[hidden] { display: none; }
+#viewKernel > #hpLensPane > .hp-chip { flex: 1 0 auto; min-height: 0; }
+#viewKernel > #hpLensPane .hp-svg { flex: 1 0 320px; }
+#viewKernel > #hpLensPane .lens-ctx { padding: 6px 14px; }
+#viewKernel > #hpLensPane .lens-ctx-note { flex-basis: auto; }

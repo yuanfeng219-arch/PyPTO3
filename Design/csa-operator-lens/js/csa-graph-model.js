@@ -44,10 +44,19 @@
     return { graph: { schemaVersion: 2, id: id, nodes: nodes, edges: edges, groups: [] },
       portMappings: { inputs: { default: { node: first, port: 'default', relation: 'view' } }, outputs: { default: { node: last, port: 'default', relation: 'view' } } } };
   }
-  // 模块（计算 / 通信 / 依赖）直接复用 lens-data 的文字
+  // 模块（计算 / 通信 / 依赖）直接复用 lens-data 的文字。
+  // 派发多个 Kernel 的模块画成可展开的模块：子节点就是它的 Kernel（来自 kernel-scan.js），L1 双击 Kernel 才下钻到 L2
   function op(id, category, api) {
-    const m = MOD[id];
-    return O(id, m.label, m.src, api, m.what + ' ' + m.how, category);
+    const m = MOD[id], ch = L.CHAINS && L.CHAINS[id];
+    if (!ch || ch.order.length < 2) return O(id, m.label, m.src, api, m.what + ' ' + m.how, category);
+    const kid = function (k) { return k.replace(/[^\w.-]/g, '_'); };
+    const kids = ch.order.map(function (k) {
+      const K = L.KERNELS[k];
+      return O(kid(k), K.name, [[K.file, K.range[0], K.range[1]]], [K.dispatch === 'spmd' ? 'pl.spmd' : 'pl.at'], K.what, K.dispatch === 'spmd' ? 'spmd' : 'core_group', [K.name]);
+    });
+    const ke = ch.edges.map(function (e) { return E(kid(e[0]), kid(e[1]), e[2], 'control'); })
+      .concat((ch.flow || []).map(function (e) { return E(kid(e[0]), kid(e[1]), e[2].length > 2 ? e[2].slice(0, 2).join(', ') + ' …' : e[2].join(', '), 'data'); }));
+    return C(id, m.label, m.src, api, m.what + ' ' + m.how, category, frame('k-' + id, kids, ke, kids[0].id, kids[kids.length - 1].id));
   }
 
   // ── Sparse Attention 内部：四个 Kernel（decode_sparse_attn_csa.py） ──
@@ -143,7 +152,7 @@
   ];
 
   const lines = function (file) { return (root.LENS_SOURCE.files[file].text.replace(/\n$/, '').split('\n')).length; };
-  const sourceFiles = {}; sourceFiles[CSA] = { lineCount: lines(CSA) }; sourceFiles[SPARSE] = { lineCount: lines(SPARSE) };
+  const sourceFiles = {}; Object.keys(root.LENS_SOURCE.files).forEach(function (f) { sourceFiles[f] = { lineCount: lines(f) }; });
   const c = function (value, line) { return { value: value, line: line }; };
   root.LENS_CSA_GRAPH = {
     schemaVersion: 2, id: 'decode-csa', sourceFiles: sourceFiles,
