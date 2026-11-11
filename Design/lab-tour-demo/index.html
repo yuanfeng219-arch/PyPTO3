@@ -250,7 +250,7 @@ h2{margin:0;font-size:clamp(24px,2.1vw,36px);line-height:1.18;font-weight:600;le
 @media(prefers-reduced-motion:reduce){.stage[href="result.html"] :is(.stage-illustration,.compact-illustration){transition:none!important}}
 </style><style>
 .poster .stage[href="result.html"] .go{color:#fff}
-.poster .stage[href="result.html"]::before{display:none}
+.poster .stage[href="result.html"]::before{display:block}
 .poster .stage[href="result.html"] .stage-illustration{filter:none!important}
 .pass-neighbors{transition:opacity 300ms ease-out,transform 450ms cubic-bezier(.22,1,.36,1);transform-origin:200px 79px}
 .stage.is-compact .pass-neighbors{opacity:0;transform:scale(.8)}
@@ -261,6 +261,10 @@ h2{margin:0;font-size:clamp(24px,2.1vw,36px);line-height:1.18;font-weight:600;le
 @keyframes kn-links-in{from{opacity:0;stroke-dashoffset:1}to{opacity:1;stroke-dashoffset:0}}
 /* Static gradient replaces the layered moving tail: no continuous stroke repaint. */
 .poster .cycle .pulse{display:none!important;animation:none!important}
+.cycle .travel-light{opacity:0;offset-anchor:0px 0px;offset-rotate:auto;pointer-events:none}
+.poster.is-ready .cycle .travel-light{animation:travel-light 6.5s linear 3.8s infinite}
+@keyframes travel-light{0%{offset-distance:0%;opacity:0}5%,94%{opacity:1}100%{offset-distance:100%;opacity:0}}
+@media(prefers-reduced-motion:reduce){.poster.is-ready .cycle .travel-light{animation:none}}
 @media(prefers-reduced-motion:reduce){
  .poster.is-ready #cycle-forward-1,.poster.is-ready #cycle-forward-2{animation:none;opacity:1}
 }
@@ -523,7 +527,16 @@ function finishDeviceTasks(svg,compact=false){
   const pulses = ['pulse-forward-1','pulse-forward-2','pulse-return'].map(id => document.getElementById(id));
 
   const setAttr=(node,key,value)=>{value=String(value);if(node.getAttribute(key)!==value)node.setAttribute(key,value);};
-  const setPath=(i,d)=>{setAttr(paths[i],'d',d);};
+  const svgNS='http://www.w3.org/2000/svg';
+  const travelGradient=document.createElementNS(svgNS,'linearGradient');
+  travelGradient.id='travel-light-gradient';
+  travelGradient.innerHTML='<stop stop-color="#e7f4ff" stop-opacity="0"/><stop offset=".7" stop-color="#e7f4ff" stop-opacity=".65"/><stop offset="1" stop-color="#fff"/>';
+  paths[2].ownerSVGElement.querySelector('defs').append(travelGradient);
+  const travelLight=document.createElementNS(svgNS,'rect');
+  travelLight.classList.add('travel-light');
+  for(const [key,value] of Object.entries({x:-85,y:-1.5,width:85,height:3,rx:1.5,fill:'url(#travel-light-gradient)'}))travelLight.setAttribute(key,value);
+  paths[2].after(travelLight);
+  const setPath=(i,d)=>{setAttr(paths[i],'d',d);if(i===2)travelLight.style.offsetPath='path("'+d+'")';};
   const caption = document.querySelector('.cycle-caption');
   const blocks = [...document.querySelectorAll('.stage-content')];
   const footer = document.querySelector('.footer');
