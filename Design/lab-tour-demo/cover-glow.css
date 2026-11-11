@@ -325,3 +325,11 @@
 @media(prefers-reduced-motion:reduce){
  .poster #cycle-forward-1,.poster #cycle-forward-2{opacity:1;stroke-dashoffset:0}
 }
+
+/* Background context stays quiet until its stage receives hover, keyboard, or carousel focus.
+   Only opacity changes: no full-card animated blur/brightness filter. */
+.poster .stage::before{opacity:.045}
+.poster .stage:hover::before,
+.poster .stage:focus-visible::before,
+.poster .stage.is-auto::before{opacity:.22}
+@media(prefers-reduced-motion:reduce){.poster .stage::before{transition:none}}
