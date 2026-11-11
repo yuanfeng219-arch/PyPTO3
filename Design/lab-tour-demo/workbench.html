@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>编码到上板 · CSA</title>
+  <link rel="stylesheet" href="../hardware-native-ide-ui/styles/path.css?v=20261105-focus38" />
+  <link rel="stylesheet" href="../hardware-native-ide/styles/path-csa.css?v=20261031-2" />
+  <link rel="stylesheet" href="./source-tags.css?v=20261109-1" />
+<style>.story-toggle { width:30px; justify-content:center; padding:0; } .story-toggle svg { width:16px; height:16px; } .story-toggle[aria-expanded="false"] .story-panel { opacity:.35; } .run-button { background:#c8ef6b; border-color:#c8ef6b; color:#17200a; font-weight:700; text-decoration:none; gap:8px; } .run-button:hover,.run-button:focus-visible { background:#dcfa94; border-color:#dcfa94; color:#17200a; } @media(max-width:700px){.hp-top-right{gap:5px}.run-button{white-space:nowrap}}
+.hp-svg .sv-box { fill:#282828; stroke:none; rx:12px; }
+.hp-svg .sv-mem { fill:#333; stroke:#454545; }
+.hp-svg .sv-buf.k-slot { fill:#0062d6; }
+.hp-svg .sv-buf.k-bias, .hp-svg .sv-buf.k-row { fill:#79c1ff; }
+.hp-svg .sv-buf.k-tmp, .hp-svg .sv-buf.k-work { fill:#087cfa; }
+.hp-svg .sv-buf.is-idle { fill:url(#csIdle); }
+.hp-svg .sv-region.is-hot .sv-box, .hp-svg .sv-region.is-hot .sv-mem { stroke:#e8e8e8; }
+.hp-resize[hidden] { display:none; }
+.hp-code .pane-info { margin-left:auto; }
+.lens-toggle { margin-left:0; flex:none; width:28px; height:26px; justify-content:center; padding:0; }
+.lens-toggle svg { width:16px; height:16px; }
+.lens-toggle[aria-expanded="false"] svg { opacity:.5; }
+.hp-main:has(.hp-mid[hidden]) { grid-template-columns: minmax(0,1fr) minmax(320px,360px); }
+.hp-main:has(.hp-mid[hidden]):has(.hp-story[hidden]) { grid-template-columns: minmax(0,1fr); }
+@media(max-width:1280px) { .hp-main:has(.hp-mid[hidden]), .hp-main:has(.hp-mid[hidden]):has(.hp-story[hidden]) { grid-template-columns:minmax(0,1fr); } }
+</style>
+<style>.demo-home{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:none;border:0;border-radius:999px;background:rgb(255 255 255 / 5%);color:#c8d2ce;text-decoration:none}.demo-home:hover,.demo-home:focus-visible{color:#fff;border-color:#9bafa3;background:#292f2b;outline:2px solid transparent;outline-offset:2px}.demo-home:focus-visible{outline-color:#b1ef6b}</style>
+<link rel="stylesheet" href="./header.css">
+<link rel="stylesheet" href="../lab-tour-demo/vendor/liquid-glass-controls/liquid-glass.css?v=final-v2"><link rel="stylesheet" href="../lab-tour-demo/liquid-final.css?v=8"><script defer src="../lab-tour-demo/vendor/liquid-glass-controls/liquid-glass.js?v=final-v2"></script><script defer src="../lab-tour-demo/liquid-final.js?v=8"></script></head>
+<body>
+  <div class="hp-app">
+    <header class="hp-top">
+      <div class="hp-top-left">
+        <a class="demo-home" data-liquid-glass="icon" href="index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5v10.5h13V9.5M9.5 20v-6h5v6"/></svg></a><span class="hp-brand">HARDWARE-NATIVE LENS</span>
+        <span class="hp-crumb">decode_sparse_attn_csa.py<i>/</i><b>qk_pv</b></span>
+      </div>
+      <div class="hp-top-right">
+        <span class="hp-target" id="hpSource" title="地址与大小取自 Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/36_after_AllocateMemoryAddr.py">
+          <span class="hp-dot"></span>a2a3
+        </span>
+
+        <div class="workbench-icon-actions">
+        <button class="hp-topbtn story-toggle" type="button" id="hpStoryToggle" aria-controls="hpStoryPane" aria-expanded="false" aria-label="显示主线" title="显示主线"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path class="story-panel" d="M17.5 8h1M17.5 11h1M17.5 14h1"/></svg></button>
+          <details class="pane-info"><summary aria-label="源码说明">ⓘ</summary><div class="pane-info-body">decode_sparse_attn_csa.py · 208–313 · 只列代码行
+            <span class="tag-legend"><b>行内标签</b>
+              <span><i class="cl-tag t-scope">层级</i>这一层循环跑多少次、走哪个分支；左侧导轨是缩进层级</span>
+              <span><i class="cl-tag t-mat">GM → L1</i>AIC 一侧：Mat / L0 / Cube</span>
+              <span><i class="cl-tag t-vec">VEC · 原地</i>AIV 一侧：Vec 中间量与 C2V / V2C 管道</span>
+              <span><i class="cl-tag t-gm">→ GM</i>读写 GM</span>
+              <span><u class="tk-hw">虚线下划线</u>把硬件写进源码的 API 与参数</span>
+            </span></div></details>
+          <button class="hp-topbtn tag-toggle" id="hpTagToggle" type="button" aria-pressed="true" aria-label="隐藏行内标签" title="隐藏行内标签"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="M7 7h.01"/></svg></button>
+          <button class="hp-topbtn lens-toggle" id="hpLensToggle" type="button" aria-controls="hpLensPane" aria-expanded="false" aria-label="显示 Lens" title="显示算子逻辑和硅片落点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.3 15.3 4.2 4.2M8 10.5h5M10.5 8v5"/></svg></button>
+        </div>
+        <a class="hp-topbtn run-button" href="loading.html">编译并上板 <span aria-hidden="true">→</span></a>
+      </div>
+    </header>
+
+    <main class="hp-main">
+      <section class="hp-pane hp-code" id="hpCodePane" aria-label="算子代码">
+        <header class="hp-pane-head">
+          <span class="hp-pane-title">源码</span>
+        </header>
+        <div class="hp-code-body" id="hpCode"></div>
+        <div class="hp-resize" id="hpCodeResize" hidden role="separator" tabindex="0" aria-label="调整源码区宽度" aria-orientation="vertical" aria-controls="hpCodePane" title="拖动或使用左右方向键调整源码区宽度"></div>
+      </section>
+
+      <section class="hp-pane hp-mid" id="hpLensPane" aria-label="算子逻辑与硅片落点" hidden>
+        <div class="hp-logic" id="hpLogicPane">
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">算子逻辑</span>
+            <details class="pane-info"><summary aria-label="算子逻辑说明">ⓘ</summary><div class="pane-info-body" id="hpLogicMeta">qk_pv · 循环嵌套与计算链</div></details>
+          </header>
+          <div class="hp-logic-svg" id="hpLogic"></div>
+        </div>
+        <div class="hp-splitter" id="hpVerticalResize" role="separator" tabindex="0" aria-label="调整算子逻辑与硅片落点高度" aria-orientation="horizontal" aria-controls="hpLogicPane" title="拖动或使用上下方向键调整高度"></div>
+        <div class="hp-chip">
+          <header class="hp-pane-head">
+            <span class="hp-pane-title">硅片落点</span>
+            <details class="pane-info"><summary aria-label="硅片落点说明">ⓘ</summary><div class="pane-info-body" id="hpChipMeta">真实分配 · pass 36 AllocateMemoryAddr · Vec 地址条按比例</div></details>
+          </header>
+          <div class="hp-svg" id="hpSvg"></div>
+        </div>
+        <div class="hp-caption" id="hpCaption" aria-live="polite"></div>
+      </section>
+
+      <aside class="hp-pane hp-story" id="hpStoryPane" aria-label="主线" hidden>
+        <header class="hp-pane-head">
+          <span class="hp-pane-title">主线</span>
+          <span class="hp-pane-meta">第二个 AIV 在做什么</span>
+        </header>
+        <div class="hp-story-body" id="hpStory"></div>
+      </aside>
+    </main>
+
+    <footer class="hp-status">
+      <span class="hp-status-main" id="hpStatus" aria-live="polite">—</span>
+      <span class="hp-status-dim" id="hpStatusDim">数据：真实编译产物 · 未上板 · 未 profiling</span>
+    </footer>
+  </div>
+
+  <script src="../hardware-native-ide-ui/js/path-visual-system.js"></script>
+  <script src="../hardware-native-ide-ui/js/path-op-icons.js"></script>
+  <script src="../hardware-native-ide-ui/js/path-grid-glyphs.js"></script>
+  <script src="./path-csa.js"></script>
+  <script>
+    const storyToggle = document.getElementById("hpStoryToggle");
+    const storyPane = document.getElementById("hpStoryPane");
+    const lensToggle = document.getElementById("hpLensToggle");
+    const lensPane = document.getElementById("hpLensPane");
+    const codeResize = document.getElementById("hpCodeResize");
+    const tagToggle = document.getElementById("hpTagToggle");
+    const tagPane = document.getElementById("hpCodePane");
+    tagToggle.addEventListener("click", () => {
+      const on = tagToggle.getAttribute("aria-pressed") === "true";
+      tagToggle.setAttribute("aria-pressed", String(!on));
+      tagPane.classList.toggle("is-tags-off", on);
+      tagToggle.title = on ? "显示行内标签" : "隐藏行内标签";
+      tagToggle.setAttribute("aria-label", tagToggle.title);
+    });
+    lensToggle.addEventListener("click", () => {
+      lensPane.hidden = !lensPane.hidden;
+      codeResize.hidden = lensPane.hidden;
+      lensToggle.setAttribute("aria-expanded", String(!lensPane.hidden));
+      lensToggle.setAttribute("aria-label", lensPane.hidden ? "显示 Lens" : "隐藏 Lens");
+      lensToggle.title = lensPane.hidden ? "显示算子逻辑和硅片落点" : "隐藏算子逻辑和硅片落点";
+      if (!lensPane.hidden) { syncResizeHandle(); syncVerticalHandle(); }
+    });
+    storyToggle.addEventListener("click", () => {
+      storyPane.hidden = !storyPane.hidden;
+      storyToggle.setAttribute("aria-expanded", String(!storyPane.hidden));
+      const label = storyPane.hidden ? "显示主线" : "隐藏主线";
+      storyToggle.setAttribute("aria-label", label);
+      storyToggle.title = label;
+      syncResizeHandle();
+    });
+  </script>
+  <script src="./resize.js"></script>
+</body>
+</html>

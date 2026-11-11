@@ -1,0 +1,327 @@
+/* Lab Tour glow-edge study, 2026-11-10.
+   Reference technique: gradient lighting + masked edge, as used by
+   https://ui.aceternity.com/components/glowing-effect
+   https://magicui.design/docs/components/border-beam
+   Original framework-free implementation; no external runtime or copied code. */
+.poster .stage:nth-of-type(1){--edge-rgb:136 236 48;--accent:#88EC30;--glow:rgb(136 236 48 / .22);--tint:rgb(38 86 40 / .08)}
+.poster .stage:nth-of-type(2){--edge-rgb:183 107 255;--accent:#b76bff;--glow:rgb(157 53 255 / .25);--tint:rgb(85 32 107 / .09)}
+.poster .stage:nth-of-type(3){--edge-rgb:105 133 255;--accent:#849bff;--glow:rgb(68 96 255 / .25);--tint:rgb(31 45 117 / .1)}
+.poster .cover-glass{
+ isolation:isolate;
+ background:radial-gradient(ellipse 115% 30% at 50% 108%,rgb(var(--edge-rgb) / .82),transparent 90%),
+  radial-gradient(ellipse 90% 52% at 105% 100%,rgb(var(--edge-rgb) / .15),transparent 80%),
+  linear-gradient(155deg,#131617,#07090c 55%,#0c1012);
+ box-shadow:inset 0 1px 0 rgb(255 255 255 / .16),inset 0 -1px 0 rgb(var(--edge-rgb) / .65);
+}
+.cover-glass::before,.cover-glass::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+.cover-glass::before{
+ padding:1px;
+ background:linear-gradient(145deg,rgb(255 255 255 / .48),rgb(255 255 255 / .06) 28%,transparent 52%,rgb(var(--edge-rgb) / .75) 86%,rgb(255 255 255 / .65));
+ -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ -webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;
+}
+.cover-glass::after{
+ background:radial-gradient(ellipse 80% 5% at 50% 100%,rgb(240 255 244 / .8),transparent 95%);
+ opacity:.75;
+}
+.poster .stage:nth-of-type(2) .cover-glass{
+ background:radial-gradient(ellipse 100% 65% at 8% 110%,rgb(183 107 255 / .28),transparent 85%),linear-gradient(145deg,#21152b,#0c0912 70%);
+}
+.poster .stage:nth-of-type(2) .is-current-pass{
+ background:radial-gradient(ellipse 35% 100% at 22% 66%,rgb(216 122 255 / .68),transparent 90%),
+ radial-gradient(ellipse 95% 25% at 70% 105%,#9823f6,transparent 100%),linear-gradient(135deg,#25162e,#180d24);
+}
+.poster .stage:nth-of-type(3) .cover-glass{
+ background:radial-gradient(ellipse 100% 24% at 50% 106%,rgb(102 125 255 / .85),transparent 92%),linear-gradient(155deg,#080b14,#05060b 65%,#10152a);
+}
+.poster .stage:nth-of-type(3) .cover-glass::after{background:radial-gradient(ellipse 85% 4% at 50% 100%,#bdcaff,transparent 96%)}
+/* Source in front, hardware behind: one radius for face, light and edge. */
+.glass-scene > svg.hardware-rear{z-index:0}
+.poster .stage:nth-of-type(1) .cover-glass{
+ backdrop-filter:blur(9px) saturate(1.25);
+ -webkit-backdrop-filter:blur(9px) saturate(1.25);
+ background:
+  radial-gradient(ellipse 110% 19% at 50% 105%,#caffb7 0%,rgb(73 255 64 / .92) 26%,rgb(40 230 46 / .35) 62%,transparent 100%),
+  radial-gradient(ellipse 22% 80% at 101% 75%,rgb(48 255 66 / .2),transparent 95%),
+  radial-gradient(ellipse 100% 28% at 35% -10%,rgb(235 255 232 / .22),transparent 100%),
+  linear-gradient(145deg,rgb(30 39 31 / .76),rgb(9 15 12 / .86) 45%,rgb(7 20 10 / .74));
+ box-shadow:inset 0 1px 1px rgb(239 255 239 / .25),inset 0 -1px 1px rgb(190 255 166 / .7);
+}
+.poster .stage:nth-of-type(1) .cover-glass::before{
+ background:linear-gradient(140deg,rgb(235 255 235 / .42),rgb(201 255 202 / .06) 30%,rgb(39 187 54 / .18) 63%,rgb(161 255 141 / .8) 90%,rgb(248 255 240 / .9));
+}
+.poster .stage:nth-of-type(1) .cover-glass::after{
+ background:radial-gradient(ellipse 90% 9% at 50% 103%,rgb(221 255 204 / .85),transparent 95%);
+ opacity:.9;
+}
+.poster .stage:nth-of-type(1) .glass-scene{isolation:isolate}
+
+.poster .stage::before{filter:saturate(.8) brightness(.5);opacity:.08}
+.poster .stage:hover::before,.poster .stage.is-auto::before{opacity:.19;filter:saturate(.9) brightness(.65)}
+.poster .orbit-node::before{opacity:.3}
+.poster .stage:hover .orbit-node::before,.poster .stage.is-auto .orbit-node::before{opacity:.55}
+
+/* Use the supplied Figma export directly. Updated Frame 297 face: (13.8877,9.25879), size 177.067 × 206.
+   Export padding is mapped to the existing face without changing its layout. */
+.poster .stage:nth-of-type(1) .source-asset-surface{
+ overflow:visible;clip-path:none;background:rgb(7 10 7 / .48);box-shadow:none;
+ backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+}
+.poster .stage:nth-of-type(1) .source-asset-surface::before,
+.poster .stage:nth-of-type(1) .source-asset-surface::after{display:none}
+.source-asset-surface > img{
+ position:absolute;left:-7.843189%;top:-4.494558%;width:115.775384%;height:113.592233%;
+ max-width:none;pointer-events:none;
+}
+
+/* Source card has internal lighting only; no surrounding glow halo. */
+.poster .stage:nth-of-type(1) .orbit-node::before{display:none}
+
+/* Native backdrop blur lives in the document, not inside the exported SVG image. */
+.poster .stage:nth-of-type(1) .source-asset-surface{
+ background:rgb(7 10 7 / .16);backdrop-filter:blur(12px) saturate(1.2);
+ -webkit-backdrop-filter:blur(12px) saturate(1.2);
+}
+.poster .stage::after{left:6%;right:auto;text-indent:-.065em}
+/* Each scene occupies the same centered drawing area independent of copy height. */
+.poster .orbit-node{align-self:center;margin-inline:auto;flex-shrink:0}
+@media(min-width:761px){
+ .poster .stage{justify-content:flex-start;padding-top:clamp(220px,29vh,320px)}
+ .poster .orbit-node{height:clamp(210px,25vw,330px)}
+ .poster .stage-content{min-height:142px}
+ .poster .stage::after{top:22%}
+}
+
+/* Sample layer is clipped to the glass face; foreground text stays sharp. */
+.glass-scene > svg.hardware-blur{z-index:0;overflow:visible}
+
+/* Source scene: the same two objects move between summary and overlap. */
+.poster .stage:first-of-type:hover::after,
+.poster .stage:first-of-type:focus-visible::after{color:#fff;opacity:1}
+.hardware-map-caption{position:absolute;left:6%;top:calc(22% + clamp(64px,7.5vw,132px) + 12px);font:500 clamp(12px,.9vw,14px)/1.4 monospace;letter-spacing:1.4px;color:#c7dfce}
+.source-summary-lines{opacity:0;transition:opacity .3s var(--kn-ease)}
+.source-detail-label,.source-code-detail{transition:opacity .35s var(--kn-ease)}
+.hardware-grid{transform-origin:0 0;transition:transform .85s var(--kn-ease),opacity .35s var(--kn-ease)}
+.source-asset-surface{transition:opacity .35s var(--kn-ease)}
+@media(min-width:761px){
+ .poster .stage:first-of-type.is-compact .stage-illustration{opacity:1;transform:scale(.55)}
+ .stage:first-of-type.is-compact .hardware-grid{transform:translate(-90px,-10.8px) scale(1.4);opacity:.5}
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(n+4){opacity:0}
+ .hardware-grid rect{transition:opacity .35s var(--kn-ease)}
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(6),
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(7),
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(8),
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(11),
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(12),
+ .stage:first-of-type.is-compact .hardware-grid rect:nth-of-type(13){opacity:1}
+ .stage:first-of-type.is-compact .source-asset-surface{opacity:0}
+ .stage:first-of-type.is-compact .source-code-detail,
+ .stage:first-of-type.is-compact .source-detail-label,
+ .stage:first-of-type.is-compact .hardware-blur{opacity:0}
+ .hardware-blur{transition:opacity .4s var(--kn-ease)}
+ .stage:first-of-type.is-compact .source-summary-lines{opacity:1}
+}
+@media(max-width:760px){.hardware-map-caption{display:none}}
+
+/* Quiet, continuous connections without travelling highlights or endpoint beads. */
+.poster .cycle .pulse,.poster .cycle .origin{display:none;animation:none}
+.poster .cycle-caption{
+ color:#f1f1ff;border:1px solid transparent;
+ background:linear-gradient(110deg,#16251a,#20162d 52%,#142033) padding-box,
+  linear-gradient(105deg,#88ec30,#b76bff 52%,#849bff) border-box;
+ box-shadow:inset 0 1px 8px rgb(224 228 255 / .12),0 0 16px rgb(183 107 255 / .22),0 0 28px rgb(105 133 255 / .1);
+}
+.poster .cycle-caption::before{background:#aaf26a;box-shadow:0 0 8px rgb(136 236 48 / .65);animation:none}
+
+/* Pass 36: supplied glass face and UB geometry, with crisp foreground labels. */
+.poster .stage:nth-of-type(2):hover::after,
+.poster .stage:nth-of-type(2):focus-visible::after{color:#fff;opacity:1}
+.poster .stage:nth-of-type(2) .orbit-node::before{display:none}
+
+/* Device trace: two readable compute lanes with flat task fills. */
+.poster .stage:nth-of-type(3){--accent:#7D9AFF;--edge-rgb:91 131 255}
+.poster .stage:nth-of-type(3):hover::after,
+.poster .stage:nth-of-type(3):focus-visible::after{color:#fff;opacity:1}
+.poster .stage:nth-of-type(3) .orbit-node::before{display:none}
+.poster .stage:nth-of-type(3) .cover-glass{
+ background:radial-gradient(ellipse 100% 32% at 50% 112%,rgb(91 131 255 / .65),transparent 90%),
+  radial-gradient(ellipse 24% 80% at 104% 80%,rgb(125 154 255 / .12),transparent 90%),
+  linear-gradient(155deg,rgb(23 26 35 / .94),rgb(7 9 15 / .96) 55%,rgb(12 17 31 / .95));
+ box-shadow:inset 0 1px 3px rgb(255 255 255 / .24),inset 0 -1px 2px rgb(160 184 255 / .7);
+}
+
+.poster .stage:nth-of-type(3)::before{opacity:.035;filter:blur(4px) saturate(.65) brightness(.45)}
+.poster .stage:nth-of-type(3):hover::before,
+.poster .stage:nth-of-type(3).is-auto::before{opacity:.07;filter:blur(4px) saturate(.7) brightness(.5)}
+
+/* Offset the two pass objects in depth as the detailed illustration returns. */
+.compile-scene .pass-card-enter{
+ transform-box:view-box;transform-origin:200px 80px;
+ opacity:1;transform:translateY(0) scale(1);
+ transition:transform .65s var(--kn-ease),opacity .35s var(--kn-ease);
+}
+.compile-scene .pass-grid-enter{
+ transform-box:view-box;transform-origin:200px 218px;
+ opacity:1;transform:translateY(0) scale(1);
+ transition:transform .75s var(--kn-ease) .08s,opacity .45s var(--kn-ease) .08s;
+}
+@media(min-width:761px){
+ .stage.is-compact .pass-card-enter{opacity:0;transform:translateY(-8px) scale(.97)}
+ .stage.is-compact .pass-grid-enter{opacity:0;transform:translateY(28px) scale(.84);transition-delay:0s}
+}
+
+/* Preserve the title copy and make its two-line hierarchy explicit. */
+.poster h1{background:none;-webkit-text-fill-color:currentColor;line-height:1.28}
+.poster h1 .title-line{display:block}
+.poster h1 .title-gradient{
+ margin-top:.1em;color:#b9a0ff;
+ background:linear-gradient(100deg,#88EC30 3%,#A459FF 52%,#7D9AFF 97%);
+ -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+
+/* Keep the two-line heading in normal flow, above the scenes and their numerals. */
+.poster .heading{position:relative;flex:none;padding:clamp(32px,5vh,56px) 24px 26px}
+.poster h1 .title-line:first-child{font-weight:300}
+.poster h1 .title-gradient{width:fit-content;max-width:100%;margin-inline:auto}
+@media(min-width:761px){
+ .poster .stages{min-height:700px}
+ .poster .stage{padding-top:clamp(190px,22vh,240px)}
+ .poster .stage::after{top:20px}
+ .poster .hardware-map-caption{top:calc(20px + clamp(64px,7.5vw,132px) + 12px)}
+}
+
+/* Compact composition: each stage shares one aligned number / art / copy column. */
+@media(min-width:761px){
+ .poster .heading{padding:clamp(28px,3.4vh,42px) 24px 22px}
+ .poster h1{font-size:clamp(32px,3vw,54px);line-height:1.22}
+ .poster .eyebrow{margin-bottom:14px}
+ .poster .subtitle{margin-top:12px;font-size:14px}
+ .poster .stages{min-height:0}
+ .poster .stage{padding-top:144px;padding-bottom:116px;justify-content:flex-start}
+ .poster .stage::after{left:max(28px,calc(50% - 195px));top:24px;font-size:72px;letter-spacing:-.06em}
+ .poster .scene-caption{position:absolute;left:max(28px,calc(50% - 195px));top:108px;
+  font:500 11px/1.4 var(--kn-mono);letter-spacing:1.5px;color:#aeb4bc}
+ .poster .orbit-node{height:290px;max-width:500px;padding:0}
+ .poster .stage-content{margin-top:50px;min-height:124px}
+ .poster .stage-title{margin-top:9px}
+ .poster .desc{margin-top:12px}
+ .poster .stage-content::after{margin-top:18px}
+}
+@media(max-width:760px){.scene-caption{display:none}}
+
+/* Large displays scale the complete composition rather than stretching empty columns. */
+@media(min-width:1800px){
+ .poster{--tour-art-width:clamp(460px,26vw,760px);--tour-copy-width:clamp(390px,22vw,560px)}
+ .poster h1{font-size:clamp(54px,2.7vw,80px)}
+ .poster .subtitle{font-size:clamp(14px,.85vw,20px)}
+ .poster .stage{padding-top:clamp(156px,8.2vw,222px)}
+ .poster .stage::after{left:calc(50% - var(--tour-copy-width)/2);font-size:clamp(72px,4vw,108px)}
+ .poster .scene-caption{left:calc(50% - var(--tour-copy-width)/2);top:calc(36px + clamp(72px,4vw,108px));font-size:clamp(11px,.65vw,15px)}
+ .poster .orbit-node{max-width:var(--tour-art-width);height:calc(var(--tour-art-width)*.68)}
+ .poster .orbit-node .stage-illustration{width:var(--tour-art-width)}
+ .poster .compact-illustration{max-width:calc(var(--tour-art-width)*.65)}
+ .poster .stage-content{max-width:var(--tour-copy-width);margin-top:clamp(48px,3vw,74px)}
+ .poster h2{font-size:clamp(36px,1.8vw,52px)}
+ .poster .desc{font-size:clamp(15px,.9vw,20px)}
+ .poster .stage-kicker{font-size:clamp(10px,.6vw,14px)}
+}
+
+/* Give the first stage copy an inset from the fixed feedback rail. */
+@media(min-width:761px){
+ .poster .stage:first-of-type .stage-content{padding-left:clamp(28px,1.6vw,44px)}
+}
+
+/* Start with the central scene already expanded, before the opening fade. */
+.poster:not(.is-ready) .stages{transition:none!important}
+
+/* Lab Tour composition: bounded central stage, two-layer title, quiet metadata. */
+.poster h1{filter:none;text-shadow:none}
+.poster h1 .title-glow{position:relative;isolation:isolate;width:fit-content;max-width:100%;margin:.1em auto 0}
+.poster h1 .title-front{position:relative;z-index:1;display:block;color:#fff;-webkit-text-fill-color:#fff;background:none;filter:none;text-shadow:none}
+.poster h1 .title-halo{position:absolute;inset:0;z-index:0;pointer-events:none;
+ background:linear-gradient(90deg,#88EC30 0%,#78e6b9 32%,#79bbff 65%,#A459FF 100%);
+ -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+ filter:blur(8px);opacity:.95;transform:scale(1.015);user-select:none}
+@media(min-width:761px){
+ .poster{--tour-art-width:clamp(420px,24vw,620px);--tour-copy-width:clamp(350px,22vw,500px)}
+ .poster .heading{padding:clamp(32px,4.5vh,60px) 24px 28px}
+ .poster h1{font-size:clamp(36px,3.2vw,64px);line-height:1.24}
+ .poster .stages{width:88%;max-width:1920px;align-self:center;margin-inline:auto}
+ .poster .stage{padding:clamp(128px,7vw,164px) clamp(24px,2vw,42px) 112px}
+ .poster .stage::after{left:max(32px,calc(50% - var(--tour-copy-width)/2));top:20px;font-size:clamp(72px,4vw,96px)}
+ .poster .scene-caption{left:max(32px,calc(50% - var(--tour-copy-width)/2));top:calc(32px + clamp(72px,4vw,96px));font-size:11px}
+ .poster .orbit-node{max-width:var(--tour-art-width);height:calc(var(--tour-art-width)*.68)}
+ .poster .orbit-node .stage-illustration{width:var(--tour-art-width)}
+ .poster .compact-illustration{max-width:calc(var(--tour-art-width)*.65)}
+ .poster .stage-content{max-width:var(--tour-copy-width);margin-top:38px;min-height:112px;padding-left:16px;padding-right:16px}
+ .poster .stage:first-of-type .stage-content{padding-left:24px}
+ .poster h2{font-size:clamp(28px,1.8vw,42px)}
+ .poster .desc{font-size:clamp(14px,.9vw,18px)}
+ .poster .stage-content::after{display:none}
+ .poster .stage::before{opacity:.025;filter:blur(4px) saturate(.6) brightness(.4)}
+ .poster .stage:hover::before,.poster .stage.is-auto::before{opacity:.055;filter:blur(4px) saturate(.65) brightness(.45)}
+ .poster .stages.is-overview .stage{opacity:1;filter:none}
+}
+
+/* Generous feedback frame with viewport-stable large corners. */
+@media(min-width:761px){.poster .stage{padding-bottom:200px}}
+/* Composite the stationary halo; update thin paths as the artwork moves. */
+.poster .cycle .trunk{filter:none}
+.poster .cycle .halo{filter:blur(4px)}
+.poster .cycle .ticks{display:none}
+.poster.is-ready #pulse-return{display:block;animation:kn-travel 6.5s linear 2.8s infinite}
+@media(prefers-reduced-motion:reduce){.poster.is-ready #pulse-return{display:none;animation:none}}
+/* Explicit SVG sampling already blurs the source background. */
+.poster .stage:first-of-type .source-asset-surface{backdrop-filter:none;-webkit-backdrop-filter:none}
+.poster .stage::before,
+.poster .stage:hover::before,.poster .stage.is-auto::before{filter:blur(4px) saturate(.65) brightness(.45);transition:opacity .4s var(--kn-ease)}
+@media(min-width:761px){
+ .poster .stage:not(:first-of-type) .stage-illustration{visibility:visible;transition:opacity .4s var(--kn-ease),transform .85s var(--kn-ease),visibility 0s}
+ .poster .stage:not(:first-of-type).is-compact .stage-illustration{visibility:hidden;transition:opacity .4s var(--kn-ease),transform .85s var(--kn-ease),visibility 0s .45s}
+ .source-asset-surface,.hardware-blur{visibility:visible}
+ .stage:first-of-type.is-compact .source-asset-surface,
+ .stage:first-of-type.is-compact .hardware-blur{visibility:hidden;transition:opacity .4s var(--kn-ease),visibility 0s .45s}
+}
+
+/* Supplied Frame 302: face (40,28), 258×156; preserve the exported aspect and padding. */
+.poster .stage:nth-of-type(3) .device-asset-surface{
+ overflow:visible;clip-path:none;background:rgb(7 9 15 / .9);box-shadow:none;
+}
+.poster .stage:nth-of-type(3) .device-asset-surface::before,
+.poster .stage:nth-of-type(3) .device-asset-surface::after{display:none}
+.device-asset-surface > img{
+ position:absolute;left:-15.503876%;top:-17.948718%;width:131.007752%;height:151.282051%;
+ max-width:none;pointer-events:none;
+}
+
+/* Keep the remaining footer note anchored to the right. */
+.poster .footer{justify-content:flex-end}
+
+/* Device palette follows the refreshed supplied glass asset. */
+.poster .stage:nth-of-type(3){--accent:#1953FC;--edge-rgb:25 83 252}
+.poster .stage:nth-of-type(3) h2{color:#1953FC}
+
+/* White title and a crisp white capsule over a separate blurred spectrum border. */
+.poster .stage:nth-of-type(3) h2{color:#fff}
+.poster .cycle-caption{
+ isolation:isolate;border:1px solid rgb(255 255 255 / .92);background:#101116;
+ color:#f3f4f7;box-shadow:none;overflow:visible;
+}
+.poster .cycle-caption::after{content:"";position:absolute;inset:-1px;border:1px solid #fff;border-radius:inherit;pointer-events:none}
+.caption-border-glow{position:absolute;inset:-2px;border-radius:inherit;z-index:-1;pointer-events:none;filter:blur(6px);opacity:.95}
+.caption-border-glow > span{
+ position:absolute;inset:0;border-radius:inherit;padding:2px;
+ background:linear-gradient(100deg,#88EC30 0%,#78e6b9 32%,#79bbff 65%,#A459FF 100%);
+ -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ -webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;
+}
+
+/* Draw the return frame first; fill in the two inter-illustration connections after it. */
+.poster #cycle-forward-1,.poster #cycle-forward-2{opacity:0;stroke-dashoffset:1}
+.poster.is-ready #cycle-forward-1,.poster.is-ready #cycle-forward-2{
+ animation:kn-draw .6s var(--kn-ease) 3s forwards,kn-fade .2s var(--kn-ease) 3s forwards;
+}
+.poster.is-ready #pulse-return{animation-delay:3.6s}
+@media(prefers-reduced-motion:reduce){
+ .poster #cycle-forward-1,.poster #cycle-forward-2{opacity:1;stroke-dashoffset:0}
+}

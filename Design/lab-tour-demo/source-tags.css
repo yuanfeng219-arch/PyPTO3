@@ -1,0 +1,94 @@
+/* 源码区的行内标签：只在 lab-tour-demo/workbench.html 使用。
+ * 两件事：① 层级——缩进导轨 + 作用域标签（循环跑几次、哪个分支）；
+ *        ② Hardware-Native——这一行把数据落到哪里，以及写死硬件的 API。
+ * 颜色沿用 path.css 的角色色：GM lime · Mat / L1 / Cube lavender · Vec sky。 */
+
+/* ── ① 层级：缩进导轨 ──
+ * 用背景画，不加 DOM：重复的 1px 竖线按 4 个字符一格铺到当前缩进深度（--d），
+ * 上下行连成一条，所以能一眼看出这一行属于哪一层。
+ * 另一层单独的 1px 竖线（--ad）用来点亮联动时命中的那一层。 */
+.cl-text {
+  --cl-guide: #2b2b2b;
+  --cl-rail: transparent;
+  background-image:
+    linear-gradient(to right, var(--cl-rail) 0 1px, transparent 1px),
+    repeating-linear-gradient(to right, var(--cl-guide) 0 1px, transparent 1px 4ch);
+  background-position: calc(var(--ad, 0) * 4ch) top, left top;
+  background-size: 1px 100%, calc(var(--d, 0) * 4ch) 100%;
+  background-repeat: no-repeat, no-repeat;
+}
+.cl.is-mapped:hover .cl-text { --cl-guide: #3a3a3a; }
+/* 命中的那一层：开头行和整段 body 共用一条亮导轨 */
+.cl.is-inscope .cl-text { --cl-rail: var(--border-strong); }
+.cl.is-scope .cl-no { color: var(--muted); }
+
+/* ── 行内标签：统一壳子（沿用 path-csa.css 里 .tag-real / .tag-proj 的写法） ── */
+.cl-tag {
+  display: inline-block; height: 15px; margin-left: 10px; padding: 0 5px;
+  border: 1px solid var(--border); border-radius: 3px;
+  font: 9.5px/13px var(--mono); letter-spacing: .04em; color: var(--dim);
+  white-space: nowrap; user-select: none; background: var(--canvas);
+  /* 行高 21px，标签连边框共 17px：vertical-align:top 让它完整落在行盒里不撑高行，
+   * 再用 transform 把它压到行中间（transform 不参与排版，行距保持 21px） */
+  vertical-align: top; transform: translateY(2px);
+  /* 源码横向滚动，深层的行很长：标签贴着可视区右沿停住，窄栏下也始终看得到 */
+  position: sticky; right: 14px;
+}
+.cl.is-mapped:hover .cl-tag, .cl.is-hot .cl-tag { background: #1d1d1d; }
+/* 贴边时会压住长行的代码，左侧加一段渐隐，读起来像浮在代码上而不是切掉一块 */
+.cl-tag::before { content: ""; position: absolute; top: -1px; bottom: -1px; left: -19px; width: 18px;
+  background: linear-gradient(to right, transparent, var(--canvas)); pointer-events: none; }
+.cl.is-mapped:hover .cl-tag::before, .cl.is-hot .cl-tag::before {
+  background: linear-gradient(to right, transparent, #1d1d1d); }
+.tag-legend .cl-tag { position: static; transform: none; background: transparent; }
+.tag-legend .cl-tag::before { display: none; }
+.is-tags-off .cl-tag { display: none; }
+
+/* ① 层级标签：结构信息，不着色，只在命中时提亮 */
+.cl-tag.t-scope { border-style: dashed; color: var(--muted); }
+.cl.is-scope .cl-tag.t-scope { border-color: var(--border-strong); color: var(--text); }
+
+/* ② Hardware-Native 落点标签：按角色色分三类 */
+.cl-tag.t-mat { border-color: #4a3f63; color: var(--lav); }
+.cl-tag.t-vec { border-color: #2f5868; color: var(--sky); }
+.cl-tag.t-gm  { border-color: #3c5a2a; color: var(--lime); }
+
+/* 命中整行时标签跟着亮一档 */
+.cl.is-hot .cl-tag { border-color: var(--border-strong); }
+.cl.is-hot .cl-tag.t-mat { border-color: var(--lav); }
+.cl.is-hot .cl-tag.t-vec { border-color: var(--sky); }
+.cl.is-hot .cl-tag.t-gm { border-color: var(--lime); }
+
+/* ── ② Hardware-Native：把硬件写进源码的 API 与参数，虚线下划线 ── */
+.tk-hw { text-decoration: underline dotted; text-decoration-color: #6a6a6a; text-underline-offset: 3px; }
+.cl.is-hot .tk-hw { text-decoration-color: var(--muted); }
+
+/* ── 图例（源码说明弹层里） ── */
+.hp-code .pane-info-body { width: 352px; }
+.tag-legend { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid #4a4a4a; font-size: 11.5px; }
+.tag-legend > b { display: block; margin-bottom: 6px; font: 600 10px/1.6 var(--mono); letter-spacing: .12em; color: #aaa; }
+.tag-legend > span { display: grid; grid-template-columns: 94px 1fr; align-items: center; gap: 8px; margin-bottom: 4px; line-height: 1.5; }
+/* 弹层底色是 #303030，标签和虚线要比正文里的再亮一档才看得见 */
+.tag-legend .cl-tag { margin-left: 0; font-style: normal; justify-self: start; }
+.tag-legend .cl-tag.t-scope { border-color: #6a6a6a; color: #ddd; }
+.tag-legend u { font-style: normal; color: #ddd; }
+.tag-legend .tk-hw { text-decoration-color: #aaa; }
+
+/* ── 标签开关（源码栏头部） ── */
+.tag-toggle { margin-left: 0; flex: none; width: 28px; height: 26px; justify-content: center; padding: 0; }
+.tag-toggle svg { width: 16px; height: 16px; }
+.tag-toggle[aria-pressed="false"] svg { opacity: .5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-text, .cl-tag { transition: none; }
+}
+
+/* Match result task labels: filled semantic capsules with dark text. */
+.cl-tag{border:0;border-radius:999px;background:#383838;color:#eee;padding:0 7px;font-family:var(--sans,system-ui);letter-spacing:0}
+.cl-tag.t-mat,.cl.is-hot .cl-tag.t-mat{background:var(--lav,#b6a0ed);color:#111;border:0}
+.cl-tag.t-vec,.cl.is-hot .cl-tag.t-vec{background:var(--sky,#80d9ef);color:#111;border:0}
+.cl-tag.t-gm,.cl.is-hot .cl-tag.t-gm{background:var(--lime,#c8ef6b);color:#111;border:0}
+.cl-tag.t-scope{border:0;background:#383838;color:#ddd}
+.cl.is-mapped:hover .cl-tag.t-mat{background:var(--lav,#b6a0ed)}
+.cl.is-mapped:hover .cl-tag.t-vec{background:var(--sky,#80d9ef)}
+.cl.is-mapped:hover .cl-tag.t-gm{background:var(--lime,#c8ef6b)}
