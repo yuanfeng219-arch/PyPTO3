@@ -1,0 +1,24 @@
+[data-strategy="scale"] .strategy-demo {height:584px}
+[data-strategy="scale"] .p13-workspace {
+  display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);height:100%;
+}
+[data-strategy="scale"] .p13-workspace > div {display:flex;flex-direction:column}
+[data-strategy="scale"] .p13-workspace > div + div {border-left:1px solid #343434}
+[data-strategy="scale"] .p13-workspace h2 {
+  font-size:16px;margin:0;padding:10px 14px;border-bottom:1px solid #343434;
+}
+[data-strategy="scale"] .compute-identity h2 {border:0;padding:0;font-size:15px}
+[data-strategy="scale"] [data-p13-graph] [data-compute-toolbar],
+[data-strategy="scale"] [data-p13-assignment] [data-compute-toolbar] {display:flex!important}
+[data-strategy="scale"] [data-compute-pipeline-ready] {display:none!important}
+[data-strategy="scale"] [data-p13-assignment] {position:relative}
+[data-strategy="scale"] .p13-exits {position:absolute;pointer-events:none;z-index:4}
+[data-strategy="scale"] .p13-tools {display:flex;gap:5px;flex:none}
+[data-strategy="scale"] :is(.p13-tools,.strategy-controls) button {
+  background:#212121;border:1px solid #474747;border-radius:5px;padding:0 8px;
+}
+[data-strategy="scale"] .p13-tools button[aria-pressed="true"] {
+  border-color:#91adf5;color:#edf2ff;background:#283653;
+}
+[data-strategy="scale"] .strategy-controls {justify-content:flex-end;margin-top:5px}
+body:not([data-deck-role="deck"]) [data-strategy="scale"] .p13-tools {visibility:hidden}

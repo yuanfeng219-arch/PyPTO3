@@ -1,0 +1,13 @@
+/* Geometry matches the actual glass image bounds; retain a safe canvas gutter. */
+:root .canvas-tools[data-liquid-glass],:root .rail-surface[data-liquid-glass]{border:0!important}
+:root .canvas-tools{right:36px!important;margin-right:0!important}
+:root .pass-rail{left:36px;right:280px;width:auto;transform:none;max-width:calc(100% - 316px)}
+:root .rail-window{right:12px}
+@media(max-width:900px){:root .canvas-tools{right:20px!important}:root .pass-rail{left:20px;right:94px;max-width:calc(100% - 114px)}}
+
+:root .top-actions{top:22px;right:36px;display:flex;flex-wrap:nowrap;gap:8px}
+:root .top-actions button{box-sizing:border-box;width:36px;height:36px;min-width:36px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+:root .top-actions button svg,:root .canvas-tools button svg{width:18px;height:18px}
+:root .canvas-tools button{width:36px;height:36px;min-width:36px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+:root .canvas-tools{gap:8px;padding:6px}
+:root .focus-heading{top:82px}

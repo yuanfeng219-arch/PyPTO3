@@ -1,0 +1,58 @@
+/* Lab Tour result menus: one left-aligned row contract, independent of toolbar pills. */
+:root #run-header .lane-toolbar .menu-panel .ctl{
+ display:flex;justify-content:flex-start;align-items:center;text-align:left;
+ width:100%;height:auto;min-height:38px;padding:8px 12px;gap:10px;
+ border-radius:8px;font:13px/1.45 var(--font);white-space:normal;
+}
+:root #run-header .lane-toolbar .menu-panel .ctl::before{width:16px;min-width:16px;flex:0 0 16px;text-align:center}
+:root #run-header .lane-toolbar .menu-panel .choice-item{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:10px}
+:root #run-header .lane-toolbar .menu-panel .choice-item > span{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;text-align:left}
+:root #run-header .lane-toolbar .menu-panel .semantic-icon{margin:0;flex:0 0 24px}
+:root #run-header .lane-toolbar .menu-panel .result-item{
+ display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:5px;min-height:58px;
+}
+:root #run-header .lane-toolbar .menu-panel .result-item::before{display:none}
+:root #run-header .lane-toolbar .menu-panel .result-name{display:flex;align-items:center;gap:10px;min-width:0;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+:root #run-header .lane-toolbar .menu-panel .result-name > i{flex:none;margin:0}
+:root #run-header .lane-toolbar .menu-panel .result-item small{display:block;margin:0;padding-left:30px;color:#aaa;font:12px/1.5 var(--font);white-space:normal;overflow-wrap:anywhere}
+:root #run-header .lane-toolbar .menu-panel .result-item[aria-pressed=true]{background:#ffffff12!important;color:#eee!important}
+:root #run-header .lane-toolbar .menu-panel > details{width:100%}
+:root #run-header .lane-toolbar .menu-panel > details > summary.ctl::before{display:none}
+:root #run-header .lane-toolbar .menu-panel > details > summary.ctl::after{margin-left:auto;flex:none}
+:root #run-header .lane-toolbar .menu-panel > details > .result-item{padding-left:20px}
+:root #run-header .lane-toolbar .menu-panel strong{display:block;padding:6px 12px 10px;line-height:1.4}
+:root #run-header .lane-toolbar .menu-panel .menu-divider{flex:none;margin:8px 0}
+#lane [data-result-tag]:focus-visible .result-tag-rim{stroke:#fff;stroke-opacity:1;stroke-width:1.2}
+
+/* Continuous dependency inspector: filled groups and reusable neutral capsule tags. */
+#single-panel{border:0;box-shadow:none}
+#single-panel table{border:0;border-collapse:separate;border-spacing:0 8px}
+#single-panel thead th{border:0;padding:4px 8px 8px;font-size:12px}
+#single-panel tbody td,#single-panel tbody td:first-child,#single-panel tbody td:last-child{
+ border:0;box-shadow:none;background:#202020;
+}
+#single-panel tbody td{padding-top:14px;padding-bottom:14px}
+#single-panel tbody td:first-child{border-radius:10px 0 0 10px}
+#single-panel tbody td:last-child{border-radius:0 10px 10px 0;padding:8px 10px 8px 0}
+#single-panel tbody tr:hover td{background:#262626}
+#single-panel tbody tr.single-selected td{background:#24332c}
+#single-panel .single-path{border:0;border-radius:8px;padding:4px 6px}
+#single-panel .single-count,#single-panel .single-path-id{
+ display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;
+ background:#bca0f3;color:#17121f;
+ box-shadow:none;font-variant-numeric:tabular-nums;
+}
+#single-panel .single-count{min-width:28px;height:24px;padding:0 8px;font:500 12px/1 var(--mono)}
+#single-panel .single-path-id{background:#b9cbff;color:#131d36;padding:3px 8px;margin-top:1px;font:500 12px/1.5 var(--mono)}
+#single-panel .single-path-step{padding-top:6px;padding-bottom:6px;gap:10px}
+#single-panel .single-path-name{color:#eee;font:13px/1.6 var(--mono)}
+#single-panel .single-path-number{top:8px;border:0;background:#3b3b3b;color:#eee}
+#single-panel .single-path-step:not(:last-child)::before{border:0;left:7px;width:1px;background:#ffffff22;top:23px;bottom:-5px}
+#single-panel .single-selected .single-count{background:#88ec30;color:#152009}
+#single-panel .single-path[aria-pressed=true] .single-path-number{border:0;background:#63e6b3;color:#102219}
+#single-panel .single-phase-legend{border:0;background:#ffffff06;border-radius:10px}
+.single-panel-grip{border:0}
+
+/* Keep supporting text readable against the flat group surfaces. */
+#single-panel thead th{color:#b8b8b8}
+#single-panel tbody td:first-child{color:#aaa}
