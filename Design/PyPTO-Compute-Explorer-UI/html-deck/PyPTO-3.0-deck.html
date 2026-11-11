@@ -7369,6 +7369,10 @@ body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 aut
 .p07-views section:last-of-type {border:0}
 .p07 h2 {font:700 21px monospace;margin:0 0 25px;color:var(--view)}
 .p07 h2 small {font:400 20px system-ui;margin-left:10px}
+/* Object accents belong to headings; diagram colors retain local meanings. */
+[data-compute-axis="graph"] {color:#819efe}
+[data-compute-axis="assignment"] {color:#6ad9a2}
+[data-compute-axis="pipeline"] {color:#efb864}
 .p07-views section:nth-child(1) {--view:#819efe}
 .p07-views section:nth-child(2) {--view:#6ad9a2}
 .p07-views section:nth-child(3) {--view:#efb864}
@@ -8689,7 +8693,8 @@ main{position:absolute;left:50%;top:50%;width:1600px;height:900px;padding:36px 5
 .mast,footer{display:flex;align-items:center;justify-content:space-between}.mast{height:24px;color:var(--muted);font:500 12px var(--mono);letter-spacing:1px}.brand:before{content:&quot;&quot;;display:inline-block;width:8px;height:8px;background:#819efe;border-radius:2px;margin-right:11px}
 header{height:146px}h1{font-size:46px;letter-spacing:-.7px;margin:20px 0 10px;font-weight:650}header p{margin:0;color:var(--muted);font-size:16px}
 .axes,.row{display:grid;grid-template-columns:var(--grid)}.axes{height:84px;border-block:1px solid var(--line)}.axis,.cell,.rail{border-right:1px solid var(--line)}.axis:last-child,.cell:last-child{border-right:0}
-[data-col=&quot;0&quot;]{--accent:#91adf5}[data-col=&quot;1&quot;]{--accent:#71c9b0}[data-col=&quot;2&quot;]{--accent:#e0b47a}
+[data-col=&quot;0&quot;]{--accent:#819efe}[data-col=&quot;1&quot;]{--accent:#6ad9a2}[data-col=&quot;2&quot;]{--accent:#efb864}
+.cell .eyebrow{color:var(--accent)}
 button{font:inherit;color:inherit;background:#191919;border:1px solid #38383a;border-radius:7px;padding:8px 13px;cursor:pointer}button:hover,button[aria-pressed=true]{background:#28282b}button:focus-visible{outline:2px solid #aac0ff;outline-offset:-3px}button:disabled{opacity:.35;cursor:default}
 .axis{border-radius:0;border-width:0 1px 0 0;text-align:left;background:transparent;padding:10px 22px}.axis strong{color:var(--accent);font-size:24px}.axis small{font:13px var(--mono);color:var(--accent);margin-left:12px}.axis span{display:block;margin-top:5px;color:#bebebe;font-size:15px}
 .axis[aria-pressed=true]{box-shadow:inset 0 2px var(--accent)}
@@ -8700,10 +8705,8 @@ button{font:inherit;color:inherit;background:#191919;border:1px solid #38383a;bo
 .tiling-grid,.tiling-tile{display:grid;grid-template-columns:repeat(2,1fr);gap:2px}
 .tiling-grid{margin-top:5px}.tiling-tile{padding:2px;border:1px solid var(--tile);border-radius:2px;opacity:.65}
 .tiling-tile:first-child{opacity:1;background:#24443c}.tiling-tile i{width:7px;height:7px;background:var(--tile);opacity:.55}
-.tiling-info{min-width:0;flex:1}.tiling-info small{color:#aaa;font-size:11px}.tiling-ub{margin-top:10px}
-.tiling-bar{display:grid;grid-template-columns:1fr 1fr 2fr;margin:4px 0;border:1px solid #50635d;border-radius:3px;overflow:hidden}
-.tiling-bar span{padding:4px 0;text-align:center;font-size:10px;white-space:nowrap;background:#28443c}
-.tiling-bar span+span{border-left:1px solid #50635d}.tiling-bar span:last-child{background:#232626}
+.tiling-info{min-width:0;flex:1;display:grid;gap:8px}
+.tiling-info small{color:#aaa;font-size:11px;white-space:pre}
 .viewport{position:relative;height:calc(2 * var(--row));isolation:isolate}.scene{position:absolute;inset:0}.row{height:var(--row);border-bottom:1px solid var(--line)}.cell{min-width:0;padding:19px 22px 13px;transition:opacity .2s}.cell.dim{opacity:.36}.cell.pending{opacity:0;visibility:hidden}.cell h2{font-size:23px;margin:8px 0}.cell p{font-size:15px;line-height:1.6;margin:6px 0;color:#b9b9b9}.cell .eyebrow{color:var(--accent)}.cell svg{width:100%;height:139px;display:block;overflow:visible}.cell svg text{fill:#eee;font:14px var(--mono)}.cell svg .sub{fill:#aaa;font-size:12px}.cell svg .node{fill:#1b1c20;stroke:var(--accent);stroke-opacity:.65}.cell svg path{fill:none;stroke:var(--accent);stroke-width:1.5}.cell svg .guide{stroke:#333}
 .flow path,.flow .pulse{animation:signal .55s ease both;animation-delay:var(--delay,0ms)}@keyframes signal{from{opacity:.2;transform:translateY(4px)}}
 .badge{display:inline-block;font:12px var(--mono);border:1px solid #414145;border-radius:4px;color:#c1c1c5;padding:4px 7px;margin-top:5px}.trace{position:relative;margin-top:10px;width:100%;text-align:left;font:13px var(--mono);border-color:#604f37}.trace strong{color:#efc28a}.schedule{font:12px var(--mono);padding:3px 7px;margin-left:8px}.trace .wait{float:right;border-bottom:2px dashed #e0b47a;color:#e0b47a}
@@ -8787,16 +8790,11 @@ function assignment(photo) {
  const matrix = name =&gt; `&lt;div class=&quot;tiling-tensor&quot;&gt;&lt;b&gt;${name}&lt;/b&gt;&lt;div class=&quot;tiling-grid&quot;&gt;
   ${batchColors.map((color,index)=&gt;`&lt;div class=&quot;tiling-tile pulse&quot; style=&quot;--tile:${color};--delay:${index*60}ms&quot;&gt;${&#x27;&lt;i&gt;&lt;/i&gt;&#x27;.repeat(4)}&lt;/div&gt;`).join(&#x27;&#x27;)}
  &lt;/div&gt;&lt;/div&gt;`;
- return `&lt;div class=&quot;tiling-viz&quot; role=&quot;img&quot; aria-label=&quot;A、B 各 1024 × 1024。每个矩阵分成四个 512 × 512 Tile。UB 一次载入一对 Tile，共约 1 MiB 输入。&quot;&gt;
+ return `&lt;div class=&quot;tiling-viz&quot; role=&quot;img&quot; aria-label=&quot;UB 容量限制，A、B 输入矩阵需要分块。Shape 为 1024 × 1024，Tile 为 512 × 512。&quot;&gt;
   &lt;div class=&quot;tiling-matrices&quot;&gt;${matrix(&#x27;A&#x27;)}${matrix(&#x27;B&#x27;)}&lt;/div&gt;
   &lt;div class=&quot;tiling-info&quot;&gt;
-   &lt;div&gt;[1024, 1024] · FP16 · 各 2 MiB&lt;/div&gt;
-   &lt;small&gt;1 格 = 256 × 256 · 1 Tile = 512 × 512&lt;/small&gt;
-   &lt;div class=&quot;tiling-ub pulse&quot; style=&quot;--delay:260ms&quot;&gt;
-    &lt;div&gt;UB ≈ 2 MiB &lt;small&gt;· 容量示意&lt;/small&gt;&lt;/div&gt;
-    &lt;div class=&quot;tiling-bar&quot;&gt;&lt;span&gt;A Tile&lt;/span&gt;&lt;span&gt;B Tile&lt;/span&gt;&lt;span&gt;输出 / 中间缓冲&lt;/span&gt;&lt;/div&gt;
-    &lt;small&gt;一次载入一对 · 输入共 ≈ 1 MiB&lt;/small&gt;
-   &lt;/div&gt;
+   &lt;div&gt;UB 容量限制，输入矩阵需要分块（Tiling）&lt;/div&gt;
+   &lt;small&gt;Shape = [1024, 1024]    Tile = [512, 512]&lt;/small&gt;
   &lt;/div&gt;
  &lt;/div&gt;`;
 }
@@ -8816,7 +8814,7 @@ const example = [
 ];
 const phases = [[&#x27;运行前&#x27;,&#x27;理解与推演&#x27;,&#x27;预期怎样组织？&#x27;],[&#x27;运行后&#x27;,&#x27;观察与诊断&#x27;,&#x27;实际发生什么？&#x27;]];
 const captions = [
- [&#x27;A 分别参与加法和逐元素乘法&#x27;,&#x27;每个 Tensor 切成 4 个 Tile&#x27;,&#x27;T1–T4 为示意批次 · 同一 Tile 先 Add 后 Multiply&#x27;],
+ [&#x27;A 分别参与加法和逐元素乘法&#x27;,&#x27;&#x27;,&#x27;T1–T4 为示意批次 · 同一 Tile 先 Add 后 Multiply&#x27;],
  [&#x27;工序依次交接&#x27;,&#x27;工作量 → 分组 → 小组分配&#x27;,&#x27;B1–B4 各 320 张 · 可同时处于不同工序&#x27;]
 ];
 let serial = false;
@@ -8842,7 +8840,7 @@ function makeScene(matrix) {
    const cellClass = reference ? (i === 5 ? &#x27;cell has-reference has-trace&#x27; : &#x27;cell has-reference&#x27;) : &#x27;cell&#x27;;
    return `&lt;div class=&quot;${cellClass}&quot; data-col=&quot;${c}&quot; data-row=&quot;${r}&quot;&gt;${matrix?
     `&lt;div class=&quot;eyebrow&quot;&gt;0${i+1} / ${[&#x27;GRAPH&#x27;,&#x27;ASSIGNMENT&#x27;,&#x27;PIPELINE&#x27;][c]}&lt;/div&gt;&lt;h2&gt;${name}&lt;/h2&gt;${reference?`&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;`:&#x27;&#x27;}&lt;p&gt;${copy}&lt;/p&gt;${reference?&#x27;&#x27;:`&lt;span class=&quot;badge&quot;&gt;${badge}&lt;/span&gt;`}${i===5?&#x27;&lt;button class=&quot;trace&quot; aria-pressed=&quot;false&quot;&gt;&lt;strong&gt;Runtime Task&lt;/strong&gt;&lt;span class=&quot;wait&quot;&gt;等待区间&lt;/span&gt;&lt;/button&gt;&#x27;:&#x27;&#x27;}`:
-    `&lt;div class=&quot;eyebrow&quot;&gt;${[&#x27;依赖&#x27;,r===0?&#x27;大 Shape → Tiling&#x27;:&#x27;1280 张照片 → 4 个装帧小组&#x27;,&#x27;时间组织&#x27;][c]}${c===2&amp;&amp;r===0?&#x27;&lt;button class=&quot;schedule&quot; aria-pressed=&quot;&#x27;+serial+&#x27;&quot;&gt;&#x27;+(serial?&#x27;串行 · 切换流水&#x27;:&#x27;流水 · 切换串行&#x27;)+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;}&lt;/div&gt;${diagram(r===1)}&lt;p&gt;${captions[r][c]}&lt;/p&gt;`}&lt;/div&gt;`;
+    `&lt;div class=&quot;eyebrow&quot;&gt;${[&#x27;依赖&#x27;,r===0?&#x27;大 Shape → Tiling&#x27;:&#x27;1280 张照片 → 4 个装帧小组&#x27;,&#x27;时间组织&#x27;][c]}${c===2&amp;&amp;r===0?&#x27;&lt;button class=&quot;schedule&quot; aria-pressed=&quot;&#x27;+serial+&#x27;&quot;&gt;&#x27;+(serial?&#x27;串行 · 切换流水&#x27;:&#x27;流水 · 切换串行&#x27;)+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;}&lt;/div&gt;${diagram(r===1)}${captions[r][c] ? `&lt;p&gt;${captions[r][c]}&lt;/p&gt;` : &#x27;&#x27;}`}&lt;/div&gt;`;
   }).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;);
  el.querySelector(&#x27;.trace&#x27;)?.addEventListener(&#x27;click&#x27;,()=&gt;{
   go(step===7?8:7);
@@ -8983,7 +8981,7 @@ go(0);
 <section class="design-slide" data-p09 data-note-index="8" data-width="1600" aria-label="逐层深入执行细节，同时保留观察上下文" hidden>
   <header data-deck-title="逐层深入执行细节，同时保留观察上下文"><div class="design-topics"><span>UX 设计</span><span>交互感知</span><span aria-current="true">纵向分层下钻</span></div></header>
   <div class="p09-intro">
-    <p>纵向分层下钻 · Device → AI Core → Iteration</p>
+    <p><span data-compute-axis="assignment">数据 / Assignment</span> · Device / AI Core → <span data-compute-axis="pipeline">时间 / Pipeline</span> · Iteration</p>
     <p class="p09-context"></p>
   </div>
   <div class="p09-layout">
@@ -9012,7 +9010,7 @@ go(0);
 </section>
 <section class="design-slide" data-strategy="assignment" data-note-index="9" data-width="1600" aria-label="多级并行调度的空间化映射" hidden>
   <header data-deck-title="让任务分配规则变成可直观看见的空间组织"><div class="design-topics"><span>UX 设计</span><span>算法直观可感</span><span aria-current="true">多级并行调度的空间化映射</span></div></header>
-  <div class="strategy-line"><span>DESIGN STRATEGY / SPATIAL MAPPING</span><span class="strategy-context"></span></div>
+  <div class="strategy-line"><span><span data-compute-axis="assignment">数据 / Assignment</span> · 任务到资源的映射</span><span class="strategy-context"></span></div>
   <div class="design-demo strategy-demo">
     <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
       <div class="viz2 strategy-workspace">
@@ -9027,7 +9025,7 @@ go(0);
 </section>
 <section class="design-slide" data-strategy="pipeline" data-note-index="10" data-width="1600" aria-label="执行流水的动态演绎" hidden>
   <header data-deck-title="让数据依赖、同步交接与资源复用成为可观察的流水过程"><div class="design-topics"><span>UX 设计</span><span>算法直观可感</span><span aria-current="true">执行流水的动态演绎</span></div></header>
-  <div class="strategy-line"><span>DESIGN STRATEGY / PIPELINE DYNAMICS</span><span class="strategy-context"></span></div>
+  <div class="strategy-line"><span><span data-compute-axis="pipeline">时间 / Pipeline</span> · 阶段交接与逻辑重叠</span><span class="strategy-context"></span></div>
   <div class="design-demo strategy-demo">
     <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
       <div class="viz2 strategy-workspace">
@@ -9042,12 +9040,12 @@ go(0);
 </section>
 <section class="design-slide" data-strategy="scale" data-note-index="11" data-width="1600" aria-label="循环执行规模直观可见" hidden>
   <header data-deck-title="让隐藏在循环中的重复计算规模直接可见"><div class="design-topics"><span>UX 设计</span><span>算法直观可感</span><span aria-current="true">循环执行规模直观可见</span></div></header>
-  <div class="strategy-line"><span>GRAPH × ASSIGNMENT · STACK SCALE</span><span class="strategy-context"></span></div>
+  <div class="strategy-line"><span>Stack / Page / Token · 从数据分块看计算规模</span><span class="strategy-context"></span></div>
   <div class="design-demo strategy-demo">
     <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
       <div class="viz2 p13-workspace">
-        <div class="strategy-pane"><h2>Graph · 计算规则</h2><div id="p13-graph" data-p13-graph class="viz2-phase-surface"></div></div>
-        <div class="strategy-pane"><h2>Assignment · 重复工作</h2><div id="p13-assignment" data-p13-assignment class="viz2-phase-surface"></div></div>
+        <div class="strategy-pane"><h2><span data-compute-axis="graph">计算 / Graph</span> · 计算规则</h2><div id="p13-graph" data-p13-graph class="viz2-phase-surface"></div></div>
+        <div class="strategy-pane"><h2><span data-compute-axis="assignment">数据 / Assignment</span> · 分块与工作量</h2><div id="p13-assignment" data-p13-assignment class="viz2-phase-surface"></div></div>
       </div>
     </div></div>
   </div>
@@ -9062,7 +9060,7 @@ go(0);
 </section>
 <section class="design-slide" data-strategy="what-if" data-p14="derive" data-note-index="12" data-width="1600" aria-label="P14-A · 建立计算现场" hidden>
   <header data-deck-title="让抽象的计算规则，变成可带入、可操控、可推演的计算体验"><div class="design-topics"><span>UX 设计</span><span>参数驱动的计算推演</span><span aria-current="true">P14-A · 建立计算现场</span></div></header>
-  <div class="strategy-line"><span>DESIGN STRATEGY / RULES TO INPUT</span></div>
+  <div class="strategy-line"><span><span data-compute-axis="graph">计算规则</span> → <span data-compute-axis="assignment">数据分块</span> · 从源码常量与输入推导 Page / Stack</span></div>
   <div class="design-demo p14-surface p14-derive">
     <div class="p14-source"><h2>paged_attention_pypto.py</h2><div data-p14-source></div></div>
     <div data-p14-derivation aria-label="当前 Task 的规模推导"></div>
@@ -9077,12 +9075,12 @@ go(0);
 </section>
 <section class="design-slide" data-strategy="what-if" data-p14="explore" data-note-index="13" data-width="1600" aria-label="P14-B · 主动计算推演" hidden>
   <header data-deck-title="让抽象的计算规则，变成可带入、可操控、可推演的计算体验"><div class="design-topics"><span>UX 设计</span><span>参数驱动的计算推演</span><span aria-current="true">P14-B · 主动计算推演</span></div></header>
-  <div class="strategy-line"><span>DESIGN STRATEGY / WHAT-IF EXPLORATION</span><span class="strategy-context" data-p14-current></span></div>
+  <div class="strategy-line"><span>沿用计算规则 · 比较不同 Sequence Length 的工作划分与逻辑轮次</span><span class="strategy-context" data-p14-current></span></div>
   <div class="design-demo p14-surface">
     <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
       <div class="viz2 p14-workspace">
-        <div class="p14-pane"><h2>Assignment · 数据工作组织</h2><div id="p14-assignment" data-p14-assignment class="viz2-phase-surface"></div></div>
-        <div class="p14-pane"><h2>Pipeline · 逻辑执行组织</h2><div id="p14-pipeline" data-p14-pipeline class="viz2-phase-surface"></div></div>
+        <div class="p14-pane"><h2><span data-compute-axis="assignment">数据 / Assignment</span> · 工作划分</h2><div id="p14-assignment" data-p14-assignment class="viz2-phase-surface"></div></div>
+        <div class="p14-pane"><h2><span data-compute-axis="pipeline">时间 / Pipeline</span> · 逻辑轮次</h2><div id="p14-pipeline" data-p14-pipeline class="viz2-phase-surface"></div></div>
       </div>
     </div></div>
   </div>
