@@ -243,7 +243,7 @@
     $('.p09-workspace').addEventListener('keydown', () => { if (playMode === 'auto') stop('manual'); });
     reduced.addEventListener('change', () => { if (reduced.matches && playMode === 'auto') stop(); });
     return {
-      enter, leave, apply,
+      enter, leave, apply, pause:() => { if (playMode === 'auto') stop(); },
       advance: direction => set(beat + direction),
       get beat() { return beat; },
       get context() { return {...selectedContext,focus:nativeFocus,inspectorOpen}; },
