@@ -2,6 +2,8 @@
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PyPTO 3.0｜可解释性计算探索</title>
+<link rel="stylesheet" href="light-table.css">
+<script src="light-table.js"></script>
 <link rel="stylesheet" href="p09-drilldown.css">
 <script src="p09-drilldown.js"></script>
 <link rel="stylesheet" href="p11-p13-strategy.css">
@@ -7454,9 +7456,28 @@ body.is-presenting .p08-footer nav,:fullscreen .p08-footer nav {visibility:hidde
 .design-demo .viz2-header { display:none; }
 .design-demo .viz2-tabs { justify-content:center; }
 
+
+/* The three strategy chapters share the same title and canvas rhythm. */
+.design-slide[data-strategy-chapter] { display:flex; flex-direction:column; }
+[data-strategy-chapter] .deck-header { flex:0 0 160px; }
+[data-strategy-chapter="exploration"] .deck-header { flex-basis:138px; }
+[data-strategy-chapter] .deck-header .strategy-outgoing-title {
+  position:absolute; inset:36px 0 auto; margin:0; pointer-events:none;
+}
+[data-strategy-chapter] .deck-header h1 { margin:12px 0 6px; white-space:nowrap; }
+.strategy-subtitle {
+  display:flex; align-items:baseline; gap:12px; margin:0;
+  color:#eee; font:600 24px/1.3 var(--deck-sans);
+}
+.strategy-subtitle span { color:#b6caff; font:500 15px var(--deck-mono); }
+.strategy-description {
+  margin:4px 0 0; color:#bcbcbc; font:400 16px/1.4 var(--deck-sans);
+}
+.design-slide[data-strategy-chapter] .strategy-line { min-height:24px; margin-bottom:8px; }
+.design-slide[data-strategy-chapter] .strategy-demo { flex:1; min-height:0; height:auto; }
 </style>
 </head><body data-deck-role="deck"><main aria-label="演示文稿">
-<iframe data-note-index="1" title="1 · Ascend C 与 PyPTO 3.0 架构对比" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
+<iframe data-slide-label="架构对比" data-note-index="1" title="1 · Ascend C 与 PyPTO 3.0 架构对比" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;utf-8&quot; /&gt;
@@ -7657,7 +7678,7 @@ h1.deck-heading {
 &lt;/body&gt;
 &lt;/html&gt;
 " hidden=""></iframe>
-<iframe data-note-index="0" title="2 · 从代码到计算" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
+<iframe data-slide-label="从代码到计算" data-note-index="0" title="2 · 从代码到计算" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;&gt;
@@ -8681,7 +8702,7 @@ h1.deck-heading {
   &lt;/main&gt;
   &lt;footer class=&quot;bottom&quot;&gt;&lt;div class=&quot;bottom-left&quot;&gt;&lt;div class=&quot;bottom-mark&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot;&gt;&lt;path d=&quot;M4 7h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6zM10 10l4-3M10 13l4 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;&lt;div class=&quot;bottom-copy&quot;&gt;&lt;strong&gt;设计切入点：建立从代码结构到计算执行的统一解释路径&lt;/strong&gt;&lt;p&gt;把离散的实现细节，组织成可探索、可追踪、可验证的计算关系&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;bottom-triad&quot;&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;01&lt;/i&gt;计算分配&lt;/span&gt;&lt;span class=&quot;sep&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;02&lt;/i&gt;执行组织&lt;/span&gt;&lt;span class=&quot;sep&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;03&lt;/i&gt;对象关联&lt;/span&gt;&lt;/div&gt;&lt;/footer&gt;
 &lt;/div&gt;&lt;/body&gt;&lt;/html&gt;" hidden=""></iframe>
-<iframe title="三个观察维度与工具断点" data-compute-scenes sandbox="allow-same-origin allow-scripts" data-width="1600" data-source="&lt;!doctype html&gt;
+<iframe data-slide-label="三个观察维度" data-next-scene-label="代码给出了计算规则，但理解计算仍需要人工还原" title="三个观察维度与工具断点" data-compute-scenes sandbox="allow-same-origin allow-scripts" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
 &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
@@ -8694,31 +8715,82 @@ main{position:absolute;left:50%;top:50%;width:1600px;height:900px;padding:36px 5
 header{height:146px}h1{font-size:46px;letter-spacing:-.7px;margin:20px 0 10px;font-weight:650}header p{margin:0;color:var(--muted);font-size:16px}
 .axes,.row{display:grid;grid-template-columns:var(--grid)}.axes{height:84px;border-block:1px solid var(--line)}.axis,.cell,.rail{border-right:1px solid var(--line)}.axis:last-child,.cell:last-child{border-right:0}
 [data-col=&quot;0&quot;]{--accent:#819efe}[data-col=&quot;1&quot;]{--accent:#6ad9a2}[data-col=&quot;2&quot;]{--accent:#efb864}
-.cell .eyebrow{color:var(--accent)}
 button{font:inherit;color:inherit;background:#191919;border:1px solid #38383a;border-radius:7px;padding:8px 13px;cursor:pointer}button:hover,button[aria-pressed=true]{background:#28282b}button:focus-visible{outline:2px solid #aac0ff;outline-offset:-3px}button:disabled{opacity:.35;cursor:default}
 .axis{border-radius:0;border-width:0 1px 0 0;text-align:left;background:transparent;padding:10px 22px}.axis strong{color:var(--accent);font-size:24px}.axis small{font:13px var(--mono);color:var(--accent);margin-left:12px}.axis span{display:block;margin-top:5px;color:#bebebe;font-size:15px}
 .axis[aria-pressed=true]{box-shadow:inset 0 2px var(--accent)}
-.rail{padding:22px 12px 10px 0}.rail small,.eyebrow{color:#a0a0a0;font:12px var(--mono);letter-spacing:1px}.rail strong{display:block;font-size:23px;margin:10px 0 7px}.rail span{display:block;color:var(--muted);font-size:14px;line-height:1.55}
+.rail{padding:22px 12px 10px 0}.rail small{color:#a0a0a0;font:12px var(--mono);letter-spacing:1px}.rail strong{display:block;font-size:23px;margin:10px 0 7px}.rail span{display:block;color:var(--muted);font-size:14px;line-height:1.55}
 
 .tiling-viz{height:139px;display:flex;align-items:center;gap:18px;font:13px var(--mono)}
 .tiling-matrices{display:flex;gap:8px}.tiling-tensor{text-align:center}
 .tiling-grid,.tiling-tile{display:grid;grid-template-columns:repeat(2,1fr);gap:2px}
-.tiling-grid{margin-top:5px}.tiling-tile{padding:2px;border:1px solid var(--tile);border-radius:2px;opacity:.65}
-.tiling-tile:first-child{opacity:1;background:#24443c}.tiling-tile i{width:7px;height:7px;background:var(--tile);opacity:.55}
+.tiling-grid{margin-top:5px}.tiling-tile{--tile:#68686e;padding:2px;border:1px solid var(--tile);border-radius:2px;opacity:.65}
+.tiling-tile:first-child{--tile:var(--accent);opacity:1;background:#24443c}.tiling-tile i{width:7px;height:7px;background:var(--tile);opacity:.55}
 .tiling-info{min-width:0;flex:1;display:grid;gap:8px}
 .tiling-info small{color:#aaa;font-size:11px;white-space:pre}
-.viewport{position:relative;height:calc(2 * var(--row));isolation:isolate}.scene{position:absolute;inset:0}.row{height:var(--row);border-bottom:1px solid var(--line)}.cell{min-width:0;padding:19px 22px 13px;transition:opacity .2s}.cell.dim{opacity:.36}.cell.pending{opacity:0;visibility:hidden}.cell h2{font-size:23px;margin:8px 0}.cell p{font-size:15px;line-height:1.6;margin:6px 0;color:#b9b9b9}.cell .eyebrow{color:var(--accent)}.cell svg{width:100%;height:139px;display:block;overflow:visible}.cell svg text{fill:#eee;font:14px var(--mono)}.cell svg .sub{fill:#aaa;font-size:12px}.cell svg .node{fill:#1b1c20;stroke:var(--accent);stroke-opacity:.65}.cell svg path{fill:none;stroke:var(--accent);stroke-width:1.5}.cell svg .guide{stroke:#333}
-.flow path,.flow .pulse{animation:signal .55s ease both;animation-delay:var(--delay,0ms)}@keyframes signal{from{opacity:.2;transform:translateY(4px)}}
-.badge{display:inline-block;font:12px var(--mono);border:1px solid #414145;border-radius:4px;color:#c1c1c5;padding:4px 7px;margin-top:5px}.trace{position:relative;margin-top:10px;width:100%;text-align:left;font:13px var(--mono);border-color:#604f37}.trace strong{color:#efc28a}.schedule{font:12px var(--mono);padding:3px 7px;margin-left:8px}.trace .wait{float:right;border-bottom:2px dashed #e0b47a;color:#e0b47a}
+.viewport{position:relative;height:calc(2 * var(--row));isolation:isolate}.scene{position:absolute;inset:0}.row{height:var(--row);border-bottom:1px solid var(--line)}.cell{min-width:0;padding:19px 22px 13px}.cell.dim{opacity:.36}.cell h2{font-size:23px;margin:8px 0}.cell p{font-size:15px;line-height:1.6;margin:6px 0;color:#b9b9b9}.cell .eyebrow{color:var(--accent)}.cell svg{width:100%;height:139px;display:block;overflow:visible}.cell svg text{fill:#eee;font:14px var(--mono)}.cell svg .sub{fill:#aaa;font-size:12px}.cell svg .node{fill:#1b1c20;stroke:var(--accent);stroke-opacity:.65}.cell svg path{fill:none;stroke:var(--accent);stroke-width:1.5}.cell svg .guide{stroke:#333}
+.row-heading{width:100%;padding:0;border:0;border-radius:0;text-align:left;background:transparent;}
+.badge{display:inline-block;font:12px var(--mono);border:1px solid #414145;border-radius:4px;color:#c1c1c5;padding:4px 7px;margin-top:5px}.trace{position:relative;margin-top:10px;width:100%;text-align:left;font:13px var(--mono);border-color:#604f37}.trace strong{color:#efc28a}
+main[data-tool-evidence=&quot;true&quot;] .row :is(.rail,.cell){
+ display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+ padding-block:12px;text-align:left;
+}
 .cell.has-reference{padding-top:12px}
 .has-reference h2{margin:4px 0 5px}
 .has-reference p{margin:4px 0 0;line-height:1.35}
 .tool-reference{display:block;width:auto;max-width:100%;height:96px;object-fit:contain;object-position:left center;border:1px solid var(--line);border-radius:4px}
-.has-trace .tool-reference{height:76px}
+.trace-references{display:flex;gap:8px;width:100%;min-width:0}
+.has-trace .tool-reference{height:76px;max-width:calc((100% - 8px)/2)}
 .has-trace .trace{margin-top:5px;padding:5px 12px}
 .overlay{pointer-events:none;position:absolute;inset:0;width:100%;height:100%}.overlay path{stroke:#e0b47a;stroke-width:1.5;fill:none;stroke-dasharray:5 6}.overlay circle{fill:var(--bg);stroke:#e0b47a}.overlay text{fill:#efc28a;font-size:13px}
 .takeaway{height:92px;display:flex;align-items:center;gap:19px;border-bottom:1px solid var(--line);font-size:19px;line-height:1.45}.takeaway b{font:12px var(--mono);color:#a9bcf5;flex:none}.takeaway span{max-width:1250px}
 footer{height:65px;color:#aaa;font-size:13px}footer nav{display:flex;gap:7px;align-items:center}footer output{font:13px var(--mono);min-width:65px;text-align:center}
+
+header,.axes,.viewport,.takeaway {
+ transition:opacity 440ms ease,transform 440ms ease;
+}
+main[data-reveal]:is([data-reveal=&quot;1&quot;],[data-reveal=&quot;2&quot;],[data-reveal=&quot;3&quot;],[data-reveal=&quot;4&quot;]) :is(header,.axes,.viewport,.takeaway) {
+ opacity:.52;transform:scale(.99);
+}
+.design-reveal {
+ position:absolute;inset:26px 0 97px;z-index:2;display:grid;align-items:center;
+ background:rgb(16 16 16 / .87);padding:30px 0;
+}
+.reveal-copy {width:82%;margin:auto;}
+.reveal-kicker,.reveal-label,.reveal-index {
+ font:600 14px var(--mono);letter-spacing:.08em;color:#a9bcf5;
+}
+.reveal-copy h2 {font-size:54px;line-height:1.18;margin:12px 0 14px;letter-spacing:-.025em;}
+.reveal-summary {font-size:23px;color:#dedfe3;margin:0;}
+.reveal-body {
+ display:grid;grid-template-columns:1fr 1fr;gap:58px;margin-top:35px;
+ border-block:1px solid transparent;padding:22px 0;
+ transition:border-color 440ms ease;
+}
+main:is([data-reveal=&quot;3&quot;],[data-reveal=&quot;4&quot;]) .reveal-body {border-color:#55565f;}
+.reveal-body &gt; div + div {border-left:1px solid #55565f;padding-left:34px;}
+.reveal-list,.reveal-path {list-style:none;margin:12px 0 0;padding:0;}
+.reveal-list li {display:grid;grid-template-columns:32px 1fr;gap:4px 10px;margin-top:12px;}
+.reveal-list b,.reveal-path b {font-size:20px;}
+.reveal-list p {grid-column:2;margin:0;color:#c2c3c9;font-size:17px;line-height:1.45;}
+.reveal-strategy {margin-top:25px;}
+.reveal-path {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;}
+.reveal-path li {border-top:2px solid #819efe;padding-top:11px;display:grid;gap:6px;}
+.reveal-path b {line-height:1.35;}
+[data-reveal-part] {transition:opacity 440ms ease,transform 440ms ease,visibility 440ms;}
+[data-reveal-part][inert] {visibility:hidden;opacity:0;transform:translateY(8px);pointer-events:none;}
+.reveal-goals,.reveal-path li:nth-child(2) {transition-delay:110ms;}
+.reveal-path li:nth-child(3) {transition-delay:220ms;}
+[data-reveal-part][inert],.design-reveal[inert] * {transition-delay:0ms;}
+
+main[data-evidence-summary=&quot;true&quot;]{--row:146px}
+main[data-evidence-summary=&quot;true&quot;] .axes{height:64px}
+main[data-evidence-summary=&quot;true&quot;] .axes :is(.rail small,.axis span){display:none}
+main[data-evidence-summary=&quot;true&quot;] .row-heading strong{font-size:20px}
+main[data-evidence-summary=&quot;true&quot;] .cell p{font-size:21px;line-height:1.45;margin:0;color:#eee}
+main[data-evidence-summary=&quot;true&quot;] .takeaway{font-size:23px;color:#c6d6ff}
+main[data-evidence-summary=&quot;true&quot;] #label{display:none}
+main[data-evidence-summary=&quot;true&quot;] footer{position:absolute;inset:auto 54px 28px}
+main[data-tool-evidence=&quot;true&quot;] * {animation:none;transition:none;}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 &lt;/style&gt;
 &lt;main aria-label=&quot;Compute Explorer 演示&quot;&gt;
@@ -8729,19 +8801,51 @@ footer{height:65px;color:#aaa;font-size:13px}footer nav{display:flex;gap:7px;ali
 &lt;button class=&quot;axis&quot; data-col=&quot;2&quot;&gt;&lt;strong&gt;时间&lt;/strong&gt;&lt;small&gt;Pipeline&lt;/small&gt;&lt;span&gt;什么时候做、如何协同？&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
 &lt;div class=&quot;viewport&quot; id=&quot;viewport&quot;&gt;&lt;/div&gt;
 &lt;div class=&quot;takeaway&quot; aria-live=&quot;polite&quot;&gt;&lt;b id=&quot;label&quot;&gt;&lt;/b&gt;&lt;span id=&quot;takeaway&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-&lt;footer&gt;&lt;nav aria-label=&quot;页面&quot;&gt;&lt;button data-go=&quot;0&quot;&gt;P4 · 三个维度&lt;/button&gt;&lt;button data-go=&quot;5&quot;&gt;P5 · 工具断点&lt;/button&gt;&lt;/nav&gt;&lt;span&gt;← / → 逐步讲述　↑ / ↓ 直接翻页&lt;/span&gt;&lt;nav aria-label=&quot;关键帧&quot;&gt;&lt;button id=&quot;previous&quot;&gt;Previous&lt;/button&gt;&lt;output id=&quot;frame&quot;&gt;&lt;/output&gt;&lt;button id=&quot;next&quot;&gt;Next&lt;/button&gt;&lt;button id=&quot;reset&quot;&gt;Reset&lt;/button&gt;&lt;/nav&gt;&lt;/footer&gt;
+&lt;section class=&quot;design-reveal&quot; data-reveal-part=&quot;2&quot; inert aria-labelledby=&quot;reveal-title&quot;&gt;
+ &lt;div class=&quot;reveal-copy&quot;&gt;
+  &lt;div class=&quot;reveal-kicker&quot;&gt;设计判断&lt;/div&gt;
+  &lt;h2 id=&quot;reveal-title&quot;&gt;从局部可视化，走向连续的计算探索体验&lt;/h2&gt;
+  &lt;p class=&quot;reveal-summary&quot;&gt;不是再补齐几张图，而是让同一次计算可理解、可追踪、可推演。&lt;/p&gt;
+  &lt;div class=&quot;reveal-body&quot;&gt;
+   &lt;div data-reveal-part=&quot;3&quot; inert&gt;
+    &lt;div class=&quot;reveal-label&quot;&gt;体验断点&lt;/div&gt;
+    &lt;ol class=&quot;reveal-list&quot;&gt;
+     &lt;li&gt;&lt;span class=&quot;reveal-index&quot;&gt;01&lt;/span&gt;&lt;b&gt;计算理解依赖经验和手工还原&lt;/b&gt;&lt;p&gt;计算步骤、数据分配和执行依赖分散在代码、索引及工具中&lt;/p&gt;&lt;/li&gt;
+     &lt;li&gt;&lt;span class=&quot;reveal-index&quot;&gt;02&lt;/span&gt;&lt;b&gt;同一次计算的上下文被打断&lt;/b&gt;&lt;p&gt;不同视角、不同阶段之间缺少连续的对象关联&lt;/p&gt;&lt;/li&gt;
+    &lt;/ol&gt;
+   &lt;/div&gt;
+   &lt;div class=&quot;reveal-goals&quot; data-reveal-part=&quot;3&quot; inert&gt;
+    &lt;div class=&quot;reveal-label&quot;&gt;设计目标&lt;/div&gt;
+    &lt;ol class=&quot;reveal-list&quot;&gt;
+     &lt;li&gt;&lt;span class=&quot;reveal-index&quot;&gt;01&lt;/span&gt;&lt;b&gt;降低理解门槛&lt;/b&gt;&lt;p&gt;让抽象规则和对象关系直接可见&lt;/p&gt;&lt;/li&gt;
+     &lt;li&gt;&lt;span class=&quot;reveal-index&quot;&gt;02&lt;/span&gt;&lt;b&gt;建立认知连续性&lt;/b&gt;&lt;p&gt;在不同视角间保持对象与上下文关联&lt;/p&gt;&lt;/li&gt;
+     &lt;li&gt;&lt;span class=&quot;reveal-index&quot;&gt;03&lt;/span&gt;&lt;b&gt;支持计算推演&lt;/b&gt;&lt;p&gt;通过可控参数探索不同计算组织方式&lt;/p&gt;&lt;/li&gt;
+    &lt;/ol&gt;
+   &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;reveal-strategy&quot; data-reveal-part=&quot;4&quot; inert&gt;
+   &lt;div class=&quot;reveal-label&quot;&gt;设计路径&lt;/div&gt;
+   &lt;ol class=&quot;reveal-path&quot;&gt;
+    &lt;li data-reveal-part=&quot;4&quot; inert&gt;&lt;span class=&quot;reveal-index&quot;&gt;01 信息架构层&lt;/span&gt;&lt;b&gt;统一计算认知模型&lt;/b&gt;&lt;/li&gt;
+    &lt;li data-reveal-part=&quot;4&quot; inert&gt;&lt;span class=&quot;reveal-index&quot;&gt;02 交互感知层&lt;/span&gt;&lt;b&gt;跨视角对象定位与关系可感知&lt;/b&gt;&lt;/li&gt;
+    &lt;li data-reveal-part=&quot;4&quot; inert&gt;&lt;span class=&quot;reveal-index&quot;&gt;03 体验创新层&lt;/span&gt;&lt;b&gt;参数驱动的计算推演&lt;/b&gt;&lt;/li&gt;
+   &lt;/ol&gt;
+  &lt;/div&gt;
+ &lt;/div&gt;
+&lt;/section&gt;
+&lt;footer&gt;&lt;nav aria-label=&quot;页面&quot;&gt;&lt;button data-go=&quot;1&quot;&gt;P3 · 三个维度&lt;/button&gt;&lt;button data-go=&quot;5&quot;&gt;P4 · 工具断点&lt;/button&gt;&lt;/nav&gt;&lt;span&gt;← / → 逐步讲述　↑ / ↓ 直接翻页&lt;/span&gt;&lt;nav aria-label=&quot;关键帧&quot;&gt;&lt;button id=&quot;previous&quot;&gt;Previous&lt;/button&gt;&lt;output id=&quot;frame&quot;&gt;&lt;/output&gt;&lt;button id=&quot;next&quot;&gt;Next&lt;/button&gt;&lt;button id=&quot;reset&quot;&gt;Reset&lt;/button&gt;&lt;/nav&gt;&lt;/footer&gt;
 &lt;/main&gt;
 &lt;script&gt;
 const $ = selector =&gt; document.querySelector(selector);
 const axes = [...document.querySelectorAll(&#x27;.axis&#x27;)];
 const viewport = $(&#x27;#viewport&#x27;);
 const batchColors = [&#x27;#91adf5&#x27;,&#x27;#71c9b0&#x27;,&#x27;#e0b47a&#x27;,&#x27;#bb9bd8&#x27;];
-const titles = [&#x27;理解一次计算，需要回答三个问题&#x27;,&#x27;现有工具能够解释局部，却难以贯通完整计算上下文&#x27;];
+const titles = [&#x27;理解一次计算，需要回答三个问题&#x27;,&#x27;代码给出了计算规则，但理解计算仍需要人工还原&#x27;];
 const subtitles = [&#x27;从 (A+B)×A=C 到冲印店，计算、数据和时间描述的是同一套工作组织逻辑。&#x27;,&#x27;同一组计算问题，贯穿运行前的理解与推演，也贯穿运行后的观察与诊断。&#x27;];
 const beats = [
  [&#x27;建立案例&#x27;,&#x27;算子案例处理大型 Tensor，冲印店案例处理 1280 张照片。&#x27;],
  [&#x27;观察计算&#x27;,&#x27;沿箭头读依赖。算子复用 A 参与乘法，冲印店按工序推进。&#x27;],
- [&#x27;观察分配&#x27;,&#x27;算子按片上容量分块，冲印店按工作量把照片分给装帧小组。&#x27;],
+ [&#x27;观察分配&#x27;,&#x27;算子按片上容量分块，冲印店按工作量把照片分给工作小组。&#x27;],
  [&#x27;观察时间&#x27;,&#x27;同一批次按依赖推进，不同批次可占用不同资源。示意节拍无实测单位。&#x27;],
  [&#x27;三个维度&#x27;,&#x27;计算描述工作逻辑，数据描述工作分配，时间描述执行组织——三者共同构成同一个计算过程。&#x27;],
  [&#x27;运行前&#x27;,&#x27;开发者分别借助源码、切分草图和手工推演理解计划中的计算。&#x27;],
@@ -8751,12 +8855,12 @@ const beats = [
  [&#x27;设计机会&#x27;,&#x27;需要让同一计算对象跨视角、跨阶段持续关联，开发者才能从运行证据追溯到计算上下文。&#x27;]
 ];
 const tools = [
- [&#x27;源码阅读&#x27;,&#x27;从循环和调用中手工还原计算步骤与依赖。&#x27;,&#x27;结构信息在代码中&#x27;],
- [&#x27;Excel / Triton-Viz&#x27;,&#x27;用 Excel 手工记录切分与分工，用 Triton-Viz 查看张量访存范围。&#x27;,&#x27;切分与访存参考&#x27;],
- [&#x27;Pipeline 手工推演&#x27;,&#x27;在纸面或白板上推演依赖、同步与流水编排。&#x27;,&#x27;预期执行顺序&#x27;],
- [&#x27;计算图 / IR&#x27;,&#x27;提供操作与依赖的结构线索。&#x27;,&#x27;结构证据&#x27;],
- [&#x27;Dump 等数据证据&#x27;,&#x27;可检查局部数据，仍需关联逻辑任务、数据范围和执行单元。&#x27;,&#x27;分配关系待关联&#x27;],
- [&#x27;泳道图 / Timeline / Trace&#x27;,&#x27;观察任务、事件和等待区间。&#x27;,&#x27;运行时证据&#x27;]
+ [&#x27;&#x27;,&#x27;阅读源码进行分析并手工整理计算图&#x27;],
+ [&#x27;Excel手工Tiling/Triton-viz&#x27;,&#x27;&#x27;],
+ [&#x27;手排流水图&#x27;,&#x27;&#x27;],
+ [&#x27;计算图 / IR&#x27;,&#x27;&#x27;],
+ [&#x27;&#x27;,&#x27;数值精度、内存复用等分散在编译产物和日志中&#x27;],
+ [&#x27;泳道图 / Timeline / Trace&#x27;,&#x27;&#x27;]
 ];
 const toolReferences = {
  1: [&#x27;triton-viz.png&#x27;,&#x27;Triton-Viz 的三维张量视图，青色标出当前 Load 访问的区域&#x27;],
@@ -8780,15 +8884,15 @@ function graph(photo) {
 }
 function assignment(photo) {
  const stage = (delay, content) =&gt; `&lt;g class=&quot;pulse&quot; style=&quot;--delay:${delay}ms&quot;&gt;${content}&lt;/g&gt;`;
- if (photo) return svg(&#x27;1280 张照片分给四个装帧小组，每组 320 张&#x27;,
-  stage(0, &#x27;&lt;text x=&quot;0&quot; y=&quot;23&quot;&gt;1280 张照片 → 平均分成 4 组&lt;/text&gt;&#x27;) +
-  stage(100, edge(&#x27;M196 33V51 M45 66V51H342V66 M144 51V66 M243 51V66&#x27;)) +
-  batchColors.map((color,i) =&gt; {
+ if (photo) return svg(&#x27;1280 张照片分给四个工作小组，每组 320 张&#x27;,
+  stage(0, &#x27;&lt;text x=&quot;193.5&quot; y=&quot;23&quot; text-anchor=&quot;middle&quot;&gt;1280张照片&lt;/text&gt;&#x27;) +
+  stage(100, edge(&#x27;M193.5 33V51 M45.5 66V51H342.5V66 M144.5 51V66 M243.5 51V66&#x27;)) +
+  batchColors.map((_,i) =&gt; {
    const x=i*99;
-   return stage(200+i*65,`&lt;rect x=&quot;${x}&quot; y=&quot;69&quot; width=&quot;91&quot; height=&quot;57&quot; rx=&quot;4&quot; fill=&quot;${color}&quot; fill-opacity=&quot;.14&quot; stroke=&quot;${color}&quot;/&gt;&lt;text class=&quot;sub&quot; x=&quot;${x+45}&quot; y=&quot;89&quot; text-anchor=&quot;middle&quot;&gt;装帧小组 ${i+1}&lt;/text&gt;&lt;text x=&quot;${x+45}&quot; y=&quot;111&quot; text-anchor=&quot;middle&quot;&gt;B${i+1} · 320 张&lt;/text&gt;`);
+   return stage(200+i*65,`&lt;rect x=&quot;${x}&quot; y=&quot;69&quot; width=&quot;91&quot; height=&quot;57&quot; rx=&quot;4&quot; fill=&quot;#8b8b92&quot; fill-opacity=&quot;.14&quot; stroke=&quot;#8b8b92&quot;/&gt;&lt;text class=&quot;sub&quot; x=&quot;${x+45}&quot; y=&quot;89&quot; text-anchor=&quot;middle&quot;&gt;工作小组 ${i+1}&lt;/text&gt;&lt;text x=&quot;${x+45}&quot; y=&quot;111&quot; text-anchor=&quot;middle&quot;&gt;320张&lt;/text&gt;`);
   }).join(&#x27;&#x27;));
  const matrix = name =&gt; `&lt;div class=&quot;tiling-tensor&quot;&gt;&lt;b&gt;${name}&lt;/b&gt;&lt;div class=&quot;tiling-grid&quot;&gt;
-  ${batchColors.map((color,index)=&gt;`&lt;div class=&quot;tiling-tile pulse&quot; style=&quot;--tile:${color};--delay:${index*60}ms&quot;&gt;${&#x27;&lt;i&gt;&lt;/i&gt;&#x27;.repeat(4)}&lt;/div&gt;`).join(&#x27;&#x27;)}
+  ${batchColors.map((_,index)=&gt;`&lt;div class=&quot;tiling-tile pulse&quot; style=&quot;--delay:${index*60}ms&quot;&gt;${&#x27;&lt;i&gt;&lt;/i&gt;&#x27;.repeat(4)}&lt;/div&gt;`).join(&#x27;&#x27;)}
  &lt;/div&gt;&lt;/div&gt;`;
  return `&lt;div class=&quot;tiling-viz&quot; role=&quot;img&quot; aria-label=&quot;UB 容量限制，A、B 输入矩阵需要分块。Shape 为 1024 × 1024，Tile 为 512 × 512。&quot;&gt;
   &lt;div class=&quot;tiling-matrices&quot;&gt;${matrix(&#x27;A&#x27;)}${matrix(&#x27;B&#x27;)}&lt;/div&gt;
@@ -8800,56 +8904,92 @@ function assignment(photo) {
 }
 function pipeline(photo) {
  const stages=photo?[&#x27;主题匹配&#x27;,&#x27;筛选去重&#x27;,&#x27;打印&#x27;,&#x27;装帧&#x27;]:[&#x27;搬运&#x27;,&#x27;Add&#x27;,&#x27;Multiply&#x27;];
- // Keep a common time scale for each serial/pipelined comparison.
  const slot=320/(stages.length*4);
- const x=(batch,stage)=&gt;66+(serial?batch*stages.length+stage:batch+stage)*slot;
+ const x=(batch,stage)=&gt;66+(batch+stage)*slot;
+ const ticks=Array.from({length:stages.length*4+1},(_,i)=&gt;`M${66+i*slot} 16v4`).join(&#x27; &#x27;);
+ const axis=`&lt;path d=&quot;M66 16H386 ${ticks}&quot; fill=&quot;none&quot; stroke=&quot;#777&quot;/&gt;&lt;text class=&quot;sub&quot; x=&quot;386&quot; y=&quot;11&quot; text-anchor=&quot;end&quot;&gt;时间 →&lt;/text&gt;`;
  return svg(&#x27;不同批次在不同资源上重叠，同一批次依次执行各阶段&#x27;,
-  stages.map((name,y)=&gt;`&lt;text class=&quot;sub&quot; x=&quot;0&quot; y=&quot;${22+y*28}&quot;&gt;${name}&lt;/text&gt;`+edge(`M64 ${31+y*28}H385`).replace(&#x27;&lt;path&#x27;,&#x27;&lt;path class=&quot;guide&quot;&#x27;)+
-   batchColors.map((color,i)=&gt;`&lt;g class=&quot;pulse&quot; style=&quot;--delay:${(y+i)*75}ms&quot;&gt;&lt;rect x=&quot;${x(i,y)}&quot; y=&quot;${6+y*28}&quot; width=&quot;${slot-2}&quot; height=&quot;21&quot; rx=&quot;3&quot; fill=&quot;${color}&quot; fill-opacity=&quot;.2&quot; stroke=&quot;${color}&quot;/&gt;&lt;text x=&quot;${x(i,y)+(slot-2)/2}&quot; y=&quot;${21+y*28}&quot; text-anchor=&quot;middle&quot;&gt;${photo?&#x27;B&#x27;:&#x27;T&#x27;}${i+1}&lt;/text&gt;&lt;/g&gt;`).join(&#x27;&#x27;)
-  ).join(&#x27;&#x27;)+`&lt;text class=&quot;sub&quot; x=&quot;323&quot; y=&quot;133&quot;&gt;时间 →&lt;/text&gt;`);
+  axis + stages.map((name,y)=&gt;`&lt;text class=&quot;sub&quot; x=&quot;0&quot; y=&quot;${44+y*28}&quot;&gt;${name}&lt;/text&gt;`+edge(`M64 ${53+y*28}H385`).replace(&#x27;&lt;path&#x27;,&#x27;&lt;path class=&quot;guide&quot;&#x27;)+
+   batchColors.map((color,i)=&gt;`&lt;g class=&quot;pulse&quot; style=&quot;--delay:${(y+i)*75}ms&quot;&gt;&lt;rect x=&quot;${x(i,y)}&quot; y=&quot;${28+y*28}&quot; width=&quot;${slot-2}&quot; height=&quot;21&quot; rx=&quot;3&quot; fill=&quot;${color}&quot; fill-opacity=&quot;.2&quot; stroke=&quot;${color}&quot;/&gt;&lt;text x=&quot;${x(i,y)+(slot-2)/2}&quot; y=&quot;${43+y*28}&quot; text-anchor=&quot;middle&quot;&gt;${photo?&#x27;B&#x27;:&#x27;T&#x27;}${i+1}&lt;/text&gt;&lt;/g&gt;`).join(&#x27;&#x27;)
+  ).join(&#x27;&#x27;));
 }
 const example = [
  [&#x27;算子案例&#x27;,&#x27;C = (A+B) ⊙ A&#x27;,&#x27;示意 · A、B、C 均为 1024 × 1024 FP16&#x27;],
  [&#x27;冲印店&#x27;,&#x27;按主题打印相册&#x27;,&#x27;1280 张照片 · 一张工单&#x27;]
 ];
-const phases = [[&#x27;运行前&#x27;,&#x27;理解与推演&#x27;,&#x27;预期怎样组织？&#x27;],[&#x27;运行后&#x27;,&#x27;观察与诊断&#x27;,&#x27;实际发生什么？&#x27;]];
+const phases = [[&#x27;&#x27;,&#x27;算子运行前&#x27;,&#x27;预期怎样组织？&#x27;],[&#x27;&#x27;,&#x27;算子运行后&#x27;,&#x27;实际发生什么？&#x27;]];
 const captions = [
- [&#x27;A 分别参与加法和逐元素乘法&#x27;,&#x27;&#x27;,&#x27;T1–T4 为示意批次 · 同一 Tile 先 Add 后 Multiply&#x27;],
- [&#x27;工序依次交接&#x27;,&#x27;工作量 → 分组 → 小组分配&#x27;,&#x27;B1–B4 各 320 张 · 可同时处于不同工序&#x27;]
+ [&#x27;A 分别参与加法和逐元素乘法&#x27;,&#x27;&#x27;,&#x27;&#x27;],
+ [&#x27;工序依次交接&#x27;,&#x27;&#x27;,&#x27;&#x27;]
 ];
-let serial = false;
-let step = 0;
-let focus = -1;
-let activeScene;
-const animations = new Set();
-function animate(element, keyframes, options) {
- if(matchMedia(&#x27;(prefers-reduced-motion: reduce)&#x27;).matches) return;
- const animation = element.animate(keyframes,options);
- animations.add(animation);
- animation.finished.catch(()=&gt;{}).finally(()=&gt;animations.delete(animation));
+const replayEvidence = $(&#x27;main&#x27;).hasAttribute(&#x27;data-evidence-replay&#x27;);
+const evidenceStart = 5;
+const firstStep = replayEvidence ? evidenceStart : 1;
+let step = firstStep;
+const evidenceEnd = beats.length - 1;
+const lastStep = replayEvidence ? evidenceEnd + 4 : evidenceStart;
+const revealParts = [...document.querySelectorAll(&#x27;[data-reveal-part]&#x27;)];
+const evidence = [...document.querySelectorAll(&#x27;main &gt; header, .axes, .viewport, .takeaway&#x27;)];
+function updateReveal() {
+ const reveal = Math.max(0, step - evidenceEnd);
+ $(&#x27;main&#x27;).dataset.toolEvidence = String(step &gt;= 5);
+ $(&#x27;main&#x27;).dataset.reveal = reveal;
+ revealParts.forEach(part =&gt; { part.inert = reveal &lt; Number(part.dataset.revealPart); });
+ evidence.forEach(part =&gt; { part.inert = reveal &gt;= 2; });
+ $(&#x27;#frame&#x27;).textContent = `S${step} / S${lastStep}`;
+ $(&#x27;#next&#x27;).disabled = step === lastStep;
+ dispatchEvent(new CustomEvent(&#x27;compute-step-change&#x27;, {detail:step}));
 }
+window.computeStory = {get step(){return step;}, lastStep};
+let selection;
+function highlight(next) {
+ selection = next;
+ axes.forEach(axis =&gt; axis.setAttribute(&#x27;aria-pressed&#x27;, String(next === axis)));
+ viewport.querySelectorAll(&#x27;.row-heading&#x27;).forEach(row =&gt; row.setAttribute(&#x27;aria-pressed&#x27;, String(next === row)));
+ viewport.querySelectorAll(&#x27;.cell&#x27;).forEach(cell =&gt; {
+  const selected = next &amp;&amp; (next.dataset.col !== undefined
+   ? cell.dataset.col === next.dataset.col
+   : cell.dataset.row === next.dataset.row);
+  cell.classList.toggle(&#x27;dim&#x27;, Boolean(next &amp;&amp; !selected));
+ });
+}
+document.addEventListener(&#x27;click&#x27;, event =&gt; {
+ const heading = event.target.closest(&#x27;.axis,.row-heading&#x27;);
+ if (heading) highlight(heading === selection ? undefined : heading);
+ else if (!event.target.closest(&#x27;.axes,.viewport&#x27;)) highlight();
+});
+window.clearComputeHighlight = () =&gt; highlight();
+let activeScene;
+const evidenceSummary = [
+ [&#x27;开发者要理解&#x27;,&#x27;有哪些计算、依赖是什么&#x27;,&#x27;数据怎样分块、任务怎么映射&#x27;,&#x27;阶段怎样交接和重叠&#x27;],
+ [&#x27;当前需要做&#x27;,&#x27;阅读源码、IR，还原计算关系&#x27;,&#x27;从循环索引、Tiling 规则推导分配&#x27;,&#x27;阅读同步与流水代码，推演执行顺序&#x27;],
+];
+const evidenceQuestion = &#x27;如果将输入 Sequence Length 从 1024 调整到 2048，会影响多少数据块、任务和逻辑执行轮次？&#x27;;
+
 function makeScene(matrix) {
  const el = document.createElement(&#x27;div&#x27;);
  el.className=&#x27;scene&#x27;;
- el.innerHTML = (matrix?phases:example).map(([tag,heading,caption],r)=&gt;`&lt;div class=&quot;row&quot;&gt;&lt;div class=&quot;rail&quot;&gt;&lt;small&gt;${tag}&lt;/small&gt;&lt;strong&gt;${heading}&lt;/strong&gt;&lt;span&gt;${caption}&lt;/span&gt;&lt;/div&gt;`+
+ if (matrix &amp;&amp; !replayEvidence) {
+  el.innerHTML = evidenceSummary.map(([heading,...cells],row) =&gt; `&lt;div class=&quot;row&quot;&gt;
+   &lt;div class=&quot;rail&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;row-heading&quot; data-row=&quot;${row}&quot; aria-pressed=&quot;false&quot;&gt;&lt;strong&gt;${heading}&lt;/strong&gt;&lt;/button&gt;&lt;/div&gt;
+   ${cells.map((copy,col) =&gt; `&lt;div class=&quot;cell&quot; data-col=&quot;${col}&quot; data-row=&quot;${row}&quot;&gt;&lt;p&gt;${copy}&lt;/p&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}
+  &lt;/div&gt;`).join(&#x27;&#x27;);
+  return el;
+ }
+ el.innerHTML = (matrix?phases:example).map(([tag,heading,caption],r)=&gt;`&lt;div class=&quot;row&quot;&gt;&lt;div class=&quot;rail&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;row-heading&quot; data-row=&quot;${r}&quot; aria-pressed=&quot;false&quot;&gt;${tag?`&lt;small&gt;${tag}&lt;/small&gt;`:&#x27;&#x27;}&lt;strong&gt;${heading}&lt;/strong&gt;&lt;span&gt;${caption}&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;`+
   axes.map((_,c)=&gt;{
    const i=r*3+c;
-   const [name,copy,badge]=tools[i];
+   const [name,copy]=tools[i];
    const diagram=[graph,assignment,pipeline][c];
    const reference = matrix &amp;&amp; toolReferences[i];
    const cellClass = reference ? (i === 5 ? &#x27;cell has-reference has-trace&#x27; : &#x27;cell has-reference&#x27;) : &#x27;cell&#x27;;
    return `&lt;div class=&quot;${cellClass}&quot; data-col=&quot;${c}&quot; data-row=&quot;${r}&quot;&gt;${matrix?
-    `&lt;div class=&quot;eyebrow&quot;&gt;0${i+1} / ${[&#x27;GRAPH&#x27;,&#x27;ASSIGNMENT&#x27;,&#x27;PIPELINE&#x27;][c]}&lt;/div&gt;&lt;h2&gt;${name}&lt;/h2&gt;${reference?`&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;`:&#x27;&#x27;}&lt;p&gt;${copy}&lt;/p&gt;${reference?&#x27;&#x27;:`&lt;span class=&quot;badge&quot;&gt;${badge}&lt;/span&gt;`}${i===5?&#x27;&lt;button class=&quot;trace&quot; aria-pressed=&quot;false&quot;&gt;&lt;strong&gt;Runtime Task&lt;/strong&gt;&lt;span class=&quot;wait&quot;&gt;等待区间&lt;/span&gt;&lt;/button&gt;&#x27;:&#x27;&#x27;}`:
-    `&lt;div class=&quot;eyebrow&quot;&gt;${[&#x27;依赖&#x27;,r===0?&#x27;大 Shape → Tiling&#x27;:&#x27;1280 张照片 → 4 个装帧小组&#x27;,&#x27;时间组织&#x27;][c]}${c===2&amp;&amp;r===0?&#x27;&lt;button class=&quot;schedule&quot; aria-pressed=&quot;&#x27;+serial+&#x27;&quot;&gt;&#x27;+(serial?&#x27;串行 · 切换流水&#x27;:&#x27;流水 · 切换串行&#x27;)+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;}&lt;/div&gt;${diagram(r===1)}${captions[r][c] ? `&lt;p&gt;${captions[r][c]}&lt;/p&gt;` : &#x27;&#x27;}`}&lt;/div&gt;`;
+    `${name?`&lt;h2&gt;${name}&lt;/h2&gt;`:&#x27;&#x27;}${i===5?`&lt;div class=&quot;trace-references&quot;&gt;&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/swimlane-task-detail.png&quot; alt=&quot;选中 matmul 任务后的泳道图、任务参数与依赖关系&quot;&gt;&lt;/div&gt;`:reference?`&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;`:&#x27;&#x27;}${copy?`&lt;p&gt;${copy}&lt;/p&gt;`:&#x27;&#x27;}${i===5?&#x27;&lt;button class=&quot;trace&quot; aria-pressed=&quot;false&quot;&gt;&lt;strong&gt;Runtime Task&lt;/strong&gt;&lt;/button&gt;&#x27;:&#x27;&#x27;}`:
+    `${diagram(r===1)}${captions[r][c] ? `&lt;p&gt;${captions[r][c]}&lt;/p&gt;` : &#x27;&#x27;}`}&lt;/div&gt;`;
   }).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;);
  el.querySelector(&#x27;.trace&#x27;)?.addEventListener(&#x27;click&#x27;,()=&gt;{
   go(step===7?8:7);
   activeScene.querySelector(&#x27;.trace&#x27;).focus();
- });
- el.querySelector(&#x27;.schedule&#x27;)?.addEventListener(&#x27;click&#x27;,()=&gt;{
-  serial=!serial;
-  go(3);
-  activeScene.querySelector(&#x27;.schedule&#x27;).focus();
  });
  return el;
 }
@@ -8860,57 +9000,39 @@ function addTracking() {
  overlay.setAttribute(&#x27;aria-hidden&#x27;,&#x27;true&#x27;);
  overlay.innerHTML=&#x27;&lt;path d=&quot;M1285 388V408H905&quot;/&gt;&lt;circle cx=&quot;899&quot; cy=&quot;408&quot; r=&quot;4&quot;/&gt;&lt;text x=&quot;755&quot; y=&quot;413&quot;&gt;数据归属待核对&lt;/text&gt;&lt;path d=&quot;M885 408H510&quot;/&gt;&lt;circle cx=&quot;504&quot; cy=&quot;408&quot; r=&quot;4&quot;/&gt;&lt;text x=&quot;339&quot; y=&quot;413&quot;&gt;逻辑操作待核对&lt;/text&gt;&lt;path d=&quot;M325 408H168V181H218&quot;/&gt;&lt;circle cx=&quot;224&quot; cy=&quot;181&quot; r=&quot;4&quot;/&gt;&lt;text x=&quot;235&quot; y=&quot;186&quot;&gt;源码范围待定位&lt;/text&gt;&#x27;;
  activeScene.append(overlay);
- [...overlay.children].forEach((part,i)=&gt;animate(part,[{opacity:0},{opacity:1}],{duration:260,delay:Math.floor(i/3)*150,fill:&#x27;backwards&#x27;}));
 }
-function go(value, dimension=-1) {
- const next=Math.max(0,Math.min(9,value));
- const matrix=next&gt;=5;
- if(next===0) serial=false;
- const changed=!activeScene || matrix!==(step&gt;=5);
- for(const animation of animations) animation.cancel();
+function go(value) {
+ const next=Math.max(firstStep,Math.min(lastStep,value));
+ if(step &gt;= evidenceEnd &amp;&amp; next &gt;= evidenceEnd){
+  step=next;
+  updateReveal();
+  return;
+ }
+ const matrix=next&gt;=evidenceStart;
+ const summary=matrix &amp;&amp; !replayEvidence;
+ $(&#x27;main&#x27;).dataset.evidenceSummary = String(summary);
  step=next;
- focus=dimension;
- const old=activeScene;
  activeScene=makeScene(matrix);
  viewport.replaceChildren(activeScene);
- if(changed &amp;&amp; old &amp;&amp; !matchMedia(&#x27;(prefers-reduced-motion: reduce)&#x27;).matches){
-  old.inert=true;
-  old.setAttribute(&#x27;aria-hidden&#x27;,&#x27;true&#x27;);
-  viewport.prepend(old);
-  const exit=old.animate([{opacity:1},{opacity:0,transform:&#x27;scale(.985)&#x27;}],{duration:220});
-  animations.add(exit);
-  exit.finished.catch(()=&gt;{}).finally(()=&gt;{old.remove();animations.delete(exit);});
- }
- const column=focus&gt;=0?focus:step&gt;=1&amp;&amp;step&lt;=3?step-1:-1;
- axes.forEach((axis,i)=&gt;axis.setAttribute(&#x27;aria-pressed&#x27;,String(i===column)));
- activeScene.querySelectorAll(&#x27;.cell&#x27;).forEach((cell,i)=&gt;{
-  const selected=Number(cell.dataset.col)===column;
-  cell.classList.toggle(&#x27;pending&#x27;,step===0);
-  cell.classList.toggle(&#x27;dim&#x27;,(column&gt;=0&amp;&amp;!selected)||(matrix&amp;&amp;column&lt;0&amp;&amp;((step===5&amp;&amp;i&gt;=3)||(step===6&amp;&amp;i&lt;3))));
-  cell.classList.toggle(&#x27;flow&#x27;,!matrix&amp;&amp;selected);
-  if(changed&amp;&amp;matrix) animate(cell,[{opacity:0,transform:&#x27;translateY(9px)&#x27;},{opacity:getComputedStyle(cell).opacity,transform:&#x27;none&#x27;}],{duration:250,delay:180+i*55,fill:&#x27;backwards&#x27;});
- });
+ highlight();
  if(step&gt;=7) activeScene.querySelector(&#x27;.trace&#x27;).setAttribute(&#x27;aria-pressed&#x27;,&#x27;true&#x27;);
  if(step&gt;=8) addTracking();
- $(&#x27;#page&#x27;).textContent=matrix?&#x27;04 / 06&#x27;:&#x27;03 / 06&#x27;;
  $(&#x27;#title&#x27;).textContent=titles[Number(matrix)];
- $(&#x27;#subtitle&#x27;).textContent=subtitles[Number(matrix)];
- $(&#x27;#label&#x27;).textContent=beats[step][0];
- $(&#x27;#takeaway&#x27;).textContent=beats[step][1];
- $(&#x27;#frame&#x27;).textContent=`S${step} / S9`;
- $(&#x27;#previous&#x27;).disabled=step===0;
- $(&#x27;#next&#x27;).disabled=step===9;
+ $(&#x27;#subtitle&#x27;).textContent=summary ? &#x27;&#x27; : subtitles[Number(matrix)];
+ $(&#x27;#label&#x27;).textContent=beats[Math.min(step,evidenceEnd)][0];
+ $(&#x27;#takeaway&#x27;).textContent=summary ? evidenceQuestion : beats[Math.min(step,evidenceEnd)][1];
+ $(&#x27;#previous&#x27;).disabled=step===firstStep;
  dispatchEvent(new CustomEvent(&#x27;compute-scene-change&#x27;,{detail:Number(matrix)}));
- document.querySelectorAll(&#x27;[data-go]&#x27;).forEach(button=&gt;button.setAttribute(&#x27;aria-pressed&#x27;,String(Number(button.dataset.go)===(matrix?5:0))));
+ document.querySelectorAll(&#x27;[data-go]&#x27;).forEach(button=&gt;button.setAttribute(&#x27;aria-pressed&#x27;,String(Number(button.dataset.go)===(matrix?5:firstStep))));
+ updateReveal();
 }
-axes.forEach((axis,i)=&gt;axis.onclick=()=&gt;step&lt;5?go(i+1):go(step,focus===i?-1:i));
 document.querySelectorAll(&#x27;[data-go]&#x27;).forEach(button=&gt;button.onclick=()=&gt;go(Number(button.dataset.go)));
 $(&#x27;#previous&#x27;).onclick=()=&gt;go(step-1);
 $(&#x27;#next&#x27;).onclick=()=&gt;go(step+1);
-$(&#x27;#reset&#x27;).onclick=()=&gt;go(step&lt;5?0:5);
+$(&#x27;#reset&#x27;).onclick=()=&gt;go(step&lt;5?firstStep:5);
 function advanceComputeFrame(delta){
  const target=step+delta;
- if(target&lt;0||target&gt;9) return false;
+ if(target&lt;firstStep||target&gt;lastStep) return false;
  go(target);
  return true;
 }
@@ -8918,12 +9040,126 @@ function fit(){ $(&#x27;main&#x27;).style.setProperty(&#x27;--scale&#x27;,Math.m
 addEventListener(&#x27;resize&#x27;,fit);
 new ResizeObserver(fit).observe(document.documentElement);
 fit();
-go(0);
+go(firstStep);
 &lt;/script&gt;
 &lt;/html&gt;
 " hidden></iframe>
-<iframe title="从局部可视化，走向连续的计算探索体验" data-p6-story data-note-index="6" data-width="1600" hidden></iframe>
-<section class="design-slide p07" data-p07 data-note-index="7" data-width="1600" data-beat="0" hidden>
+<section data-slide-label="多级并行调度的空间化映射" class="design-slide" data-strategy="assignment" data-strategy-chapter="native" data-note-index="9" data-width="1600" aria-label="多级并行调度的空间化映射" hidden>
+  <header data-deck-title>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">01</span>多级并行调度的空间化映射</h2>
+    <p class="strategy-description">将任务分配、计算资源层级与工作项映射关系进行空间化组织，让开发者直观理解计算任务由谁执行、如何分配。</p>
+  </header>
+  <div class="strategy-line"><span><span data-compute-axis="assignment">数据 / Assignment</span> · 任务到资源的映射</span><span class="strategy-context"></span></div>
+  <div class="design-demo strategy-demo">
+    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
+      <div class="viz2 strategy-workspace">
+        <div class="strategy-pane"><div class="strategy-view viz2-phase-surface" id="strategy-assignment" data-strategy-primary></div></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="strategy-footer">
+    <p class="strategy-caption" aria-live="polite"></p>
+    <div class="strategy-controls" role="group" aria-label="P5 关键帧"></div>
+  </div>
+</section>
+<section data-slide-label="执行流水的动态演绎" class="design-slide" data-strategy="pipeline" data-strategy-chapter="native" data-note-index="10" data-width="1600" aria-label="执行流水的动态演绎" hidden>
+  <header data-deck-title>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">02</span>执行流水的动态演绎</h2>
+    <p class="strategy-description">将代码中的生产消费关系、数据依赖和资源复用机制转化为动态流水表达，直观呈现计算任务如何衔接。</p>
+  </header>
+  <div class="strategy-line"><span><span data-compute-axis="pipeline">时间 / Pipeline</span> · 阶段交接与逻辑重叠</span><span class="strategy-context"></span></div>
+  <div class="design-demo strategy-demo">
+    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
+      <div class="viz2 strategy-workspace">
+        <div class="strategy-pane"><div class="strategy-view viz2-phase-surface" id="strategy-pipeline" data-strategy-primary></div></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="strategy-footer">
+    <p class="strategy-caption" aria-live="polite"></p>
+    <div class="strategy-controls" role="group" aria-label="P6 关键帧"></div>
+  </div>
+</section>
+<section data-slide-label="循环执行规模直观可见" class="design-slide" data-strategy="scale" data-strategy-chapter="native" data-note-index="11" data-width="1600" aria-label="循环执行规模直观可见" hidden>
+  <header data-deck-title>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">03</span>循环执行规模直观可见</h2>
+    <p class="strategy-description">将计算节点的静态执行次数转化为多层重叠的视觉表达，让代码中的循环结构和重复计算规模显性化。</p>
+  </header>
+  <div class="strategy-line"><span>Stack / Page / Token · 从数据分块看计算规模</span><span class="strategy-context"></span></div>
+  <div class="design-demo strategy-demo">
+    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
+      <div class="viz2 p13-workspace">
+        <div class="strategy-pane"><h2><span data-compute-axis="graph">计算 / Graph</span> · 计算规则</h2><div id="p13-graph" data-p13-graph class="viz2-phase-surface"></div></div>
+        <div class="strategy-pane"><h2><span data-compute-axis="assignment">数据 / Assignment</span> · 分块与工作量</h2><div id="p13-assignment" data-p13-assignment class="viz2-phase-surface"></div></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="strategy-footer">
+    <p class="strategy-caption" aria-live="polite"></p>
+    <div class="p13-tools" role="group" aria-label="规模比较">
+      <button type="button" data-p13-baseline></button><button type="button" data-p13-alternate></button>
+      <button type="button" data-p13-pause>暂停过渡</button><button type="button" data-p13-reset>重置</button>
+    </div>
+  </div>
+  <div class="strategy-controls" role="group" aria-label="P7 关键帧"></div>
+</section>
+<section data-slide-label="让计算关系在视角切换中连续可感知" data-p08 data-strategy-chapter="exploration" data-note-index="3" class="design-slide" data-width="1600" aria-label="从空间组织到执行时序" hidden>
+  <header data-deck-title>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">01</span>让计算关系在视角切换中连续可感知</h2>
+  </header>
+  <div class="design-demo p08-surface">
+    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
+      <div class="viz2 p08-workspace">
+        <div data-p08-assignment class="viz2-phase-surface" aria-label="Assignment"></div>
+        <div data-p08-pipeline class="viz2-phase-surface" aria-label="Pipeline" hidden></div>
+      </div>
+    </div></div>
+    <div class="p08-motion" aria-hidden="true"></div>
+  </div>
+  <div class="p08-footer">
+    <p class="p08-caption" aria-live="polite"></p>
+    <nav aria-label="P8 关键帧">
+      <button type="button" data-p08-step>S0</button><button type="button" data-p08-step>S1</button>
+      <button type="button" data-p08-step>S2</button><button type="button" data-p08-step>S3</button>
+      <button type="button" data-p08-step>S4</button><button type="button" data-p08-step>S5</button>
+      <button type="button" data-p08-play>播放</button><button type="button" data-p08-reset>重置</button>
+      <button type="button" data-p08-back>返回空间视图</button>
+    </nav>
+  </div>
+</section>
+<section data-slide-label="逐层深入执行细节，同时保留观察上下文" class="design-slide" data-p09 data-strategy-chapter="exploration" data-note-index="8" data-width="1600" aria-label="逐层深入执行细节，同时保留观察上下文" hidden>
+  <header data-deck-title>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">02</span>逐层深入执行细节，同时保留观察上下文</h2>
+  </header>
+  <div class="p09-intro">
+    <p><span data-compute-axis="assignment">数据 / Assignment</span> · Device / AI Core → <span data-compute-axis="pipeline">时间 / Pipeline</span> · Iteration</p>
+    <p class="p09-context"></p>
+  </div>
+  <div class="p09-layout">
+    <div class="design-demo p09-surface">
+      <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
+        <div class="viz2 p09-workspace">
+          <div class="p09-pane"><div data-p09-outer class="viz2-phase-surface" aria-label="Block Execution Map"></div></div>
+          <div class="p09-pane p09-detail" inert aria-hidden="true"><p class="p09-tick-summary"></p><div data-p09-inner class="viz2-phase-surface" aria-label="Task 内逻辑流水线"></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="p09-axis" role="group" aria-label="观察粒度">
+      <button type="button" data-p09-level="device">Device</button>
+      <button type="button" data-p09-level="ai-core">AI Core</button>
+      <button type="button" data-p09-level="iteration">Iteration</button>
+    </div>
+  </div>
+  <div class="p09-footer">
+    <p><span class="p09-caption"></span><small>　· Block 是逻辑执行范围，Tick 是源码循环进度</small></p>
+    <div class="p09-controls" role="group" aria-label="P9 播放控制">
+      <output data-p09-step></output>
+      <button type="button" data-p09-play>继续播放</button>
+      <button type="button" data-p09-reset>重置</button>
+    </div>
+  </div>
+</section>
+<section data-slide-label="共享计算上下文" class="design-slide p07" data-p07 data-note-index="7" data-width="1600" data-beat="0" hidden>
   <header data-deck-title="三个视图不是三套工具，而是同一个计算上下文"><div class="design-topics"><span>UX 设计</span><span aria-current="true">计算认知模型</span><span>跨视角对象定位</span></div></header>
   <div class="p07-context"><strong>Paged Attention</strong><span>代表性静态局部 · 原型默认场景</span></div>
   <div class="p07-body">
@@ -8956,109 +9192,7 @@ go(0);
   <p class="p07-caption" aria-live="polite"></p>
   <nav class="p07-steps" aria-label="P07 关键帧"></nav>
 </section>
-<section data-p08 data-note-index="3" class="design-slide" data-width="1600" aria-label="从空间组织到执行时序" hidden>
-  <header data-deck-title="让计算关系在视角切换中连续可感知"><div class="design-topics"><span>UX 设计</span><span>计算认知模型</span><span aria-current="true">跨视角对象定位</span></div></header>
-  <div class="design-demo p08-surface">
-    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
-      <div class="viz2 p08-workspace">
-        <div data-p08-assignment class="viz2-phase-surface" aria-label="Assignment"></div>
-        <div data-p08-pipeline class="viz2-phase-surface" aria-label="Pipeline" hidden></div>
-      </div>
-    </div></div>
-    <div class="p08-motion" aria-hidden="true"></div>
-  </div>
-  <div class="p08-footer">
-    <p class="p08-caption" aria-live="polite"></p>
-    <nav aria-label="P08 关键帧">
-      <button type="button" data-p08-step>S0</button><button type="button" data-p08-step>S1</button>
-      <button type="button" data-p08-step>S2</button><button type="button" data-p08-step>S3</button>
-      <button type="button" data-p08-step>S4</button><button type="button" data-p08-step>S5</button>
-      <button type="button" data-p08-play>播放</button><button type="button" data-p08-reset>重置</button>
-      <button type="button" data-p08-back>返回空间视图</button>
-    </nav>
-  </div>
-</section>
-<section class="design-slide" data-p09 data-note-index="8" data-width="1600" aria-label="逐层深入执行细节，同时保留观察上下文" hidden>
-  <header data-deck-title="逐层深入执行细节，同时保留观察上下文"><div class="design-topics"><span>UX 设计</span><span>交互感知</span><span aria-current="true">纵向分层下钻</span></div></header>
-  <div class="p09-intro">
-    <p><span data-compute-axis="assignment">数据 / Assignment</span> · Device / AI Core → <span data-compute-axis="pipeline">时间 / Pipeline</span> · Iteration</p>
-    <p class="p09-context"></p>
-  </div>
-  <div class="p09-layout">
-    <div class="design-demo p09-surface">
-      <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
-        <div class="viz2 p09-workspace">
-          <div class="p09-pane"><div data-p09-outer class="viz2-phase-surface" aria-label="Block Execution Map"></div></div>
-          <div class="p09-pane p09-detail" inert aria-hidden="true"><p class="p09-tick-summary"></p><div data-p09-inner class="viz2-phase-surface" aria-label="Task 内逻辑流水线"></div></div>
-        </div>
-      </div></div>
-    </div>
-    <div class="p09-axis" role="group" aria-label="观察粒度">
-      <button type="button" data-p09-level="device">Device</button>
-      <button type="button" data-p09-level="ai-core">AI Core</button>
-      <button type="button" data-p09-level="iteration">Iteration</button>
-    </div>
-  </div>
-  <div class="p09-footer">
-    <p><span class="p09-caption"></span><small>　· Block 是逻辑执行范围，Tick 是源码循环进度</small></p>
-    <div class="p09-controls" role="group" aria-label="P09 播放控制">
-      <output data-p09-step></output>
-      <button type="button" data-p09-play>继续播放</button>
-      <button type="button" data-p09-reset>重置</button>
-    </div>
-  </div>
-</section>
-<section class="design-slide" data-strategy="assignment" data-note-index="9" data-width="1600" aria-label="多级并行调度的空间化映射" hidden>
-  <header data-deck-title="让任务分配规则变成可直观看见的空间组织"><div class="design-topics"><span>UX 设计</span><span>算法直观可感</span><span aria-current="true">多级并行调度的空间化映射</span></div></header>
-  <div class="strategy-line"><span><span data-compute-axis="assignment">数据 / Assignment</span> · 任务到资源的映射</span><span class="strategy-context"></span></div>
-  <div class="design-demo strategy-demo">
-    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
-      <div class="viz2 strategy-workspace">
-        <div class="strategy-pane"><div class="strategy-view viz2-phase-surface" id="strategy-assignment" data-strategy-primary></div></div>
-      </div>
-    </div></div>
-  </div>
-  <div class="strategy-footer">
-    <p class="strategy-caption" aria-live="polite"></p>
-    <div class="strategy-controls" role="group" aria-label="P11 关键帧"></div>
-  </div>
-</section>
-<section class="design-slide" data-strategy="pipeline" data-note-index="10" data-width="1600" aria-label="执行流水的动态演绎" hidden>
-  <header data-deck-title="让数据依赖、同步交接与资源复用成为可观察的流水过程"><div class="design-topics"><span>UX 设计</span><span>算法直观可感</span><span aria-current="true">执行流水的动态演绎</span></div></header>
-  <div class="strategy-line"><span><span data-compute-axis="pipeline">时间 / Pipeline</span> · 阶段交接与逻辑重叠</span><span class="strategy-context"></span></div>
-  <div class="design-demo strategy-demo">
-    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
-      <div class="viz2 strategy-workspace">
-        <div class="strategy-pane"><div class="strategy-view viz2-phase-surface" id="strategy-pipeline" data-strategy-primary></div></div>
-      </div>
-    </div></div>
-  </div>
-  <div class="strategy-footer">
-    <p class="strategy-caption" aria-live="polite"></p>
-    <div class="strategy-controls" role="group" aria-label="P12 关键帧"></div>
-  </div>
-</section>
-<section class="design-slide" data-strategy="scale" data-note-index="11" data-width="1600" aria-label="循环执行规模直观可见" hidden>
-  <header data-deck-title="让隐藏在循环中的重复计算规模直接可见"><div class="design-topics"><span>UX 设计</span><span>算法直观可感</span><span aria-current="true">循环执行规模直观可见</span></div></header>
-  <div class="strategy-line"><span>Stack / Page / Token · 从数据分块看计算规模</span><span class="strategy-context"></span></div>
-  <div class="design-demo strategy-demo">
-    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
-      <div class="viz2 p13-workspace">
-        <div class="strategy-pane"><h2><span data-compute-axis="graph">计算 / Graph</span> · 计算规则</h2><div id="p13-graph" data-p13-graph class="viz2-phase-surface"></div></div>
-        <div class="strategy-pane"><h2><span data-compute-axis="assignment">数据 / Assignment</span> · 分块与工作量</h2><div id="p13-assignment" data-p13-assignment class="viz2-phase-surface"></div></div>
-      </div>
-    </div></div>
-  </div>
-  <div class="strategy-footer">
-    <p class="strategy-caption" aria-live="polite"></p>
-    <div class="p13-tools" role="group" aria-label="规模比较">
-      <button type="button" data-p13-baseline></button><button type="button" data-p13-alternate></button>
-      <button type="button" data-p13-pause>暂停过渡</button><button type="button" data-p13-reset>重置</button>
-    </div>
-  </div>
-  <div class="strategy-controls" role="group" aria-label="P13 关键帧"></div>
-</section>
-<section class="design-slide" data-strategy="what-if" data-p14="derive" data-note-index="12" data-width="1600" aria-label="P14-A · 建立计算现场" hidden>
+<section data-slide-label="P14-A · 建立计算现场" class="design-slide" data-strategy="what-if" data-p14="derive" data-note-index="12" data-width="1600" aria-label="P14-A · 建立计算现场" hidden>
   <header data-deck-title="让抽象的计算规则，变成可带入、可操控、可推演的计算体验"><div class="design-topics"><span>UX 设计</span><span>参数驱动的计算推演</span><span aria-current="true">P14-A · 建立计算现场</span></div></header>
   <div class="strategy-line"><span><span data-compute-axis="graph">计算规则</span> → <span data-compute-axis="assignment">数据分块</span> · 从源码常量与输入推导 Page / Stack</span></div>
   <div class="design-demo p14-surface p14-derive">
@@ -9073,7 +9207,7 @@ go(0);
     </div>
   </div>
 </section>
-<section class="design-slide" data-strategy="what-if" data-p14="explore" data-note-index="13" data-width="1600" aria-label="P14-B · 主动计算推演" hidden>
+<section data-slide-label="P14-B · 主动计算推演" class="design-slide" data-strategy="what-if" data-p14="explore" data-note-index="13" data-width="1600" aria-label="P14-B · 主动计算推演" hidden>
   <header data-deck-title="让抽象的计算规则，变成可带入、可操控、可推演的计算体验"><div class="design-topics"><span>UX 设计</span><span>参数驱动的计算推演</span><span aria-current="true">P14-B · 主动计算推演</span></div></header>
   <div class="strategy-line"><span>沿用计算规则 · 比较不同 Sequence Length 的工作划分与逻辑轮次</span><span class="strategy-context" data-p14-current></span></div>
   <div class="design-demo p14-surface">
@@ -9095,7 +9229,7 @@ go(0);
     </div>
   </div>
 </section>
-<iframe data-note-index="2" title="6 · 可追溯的计算解释" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
+<iframe data-slide-label="可追溯的计算解释" data-note-index="2" title="6 · 可追溯的计算解释" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
@@ -9259,27 +9393,29 @@ h1.deck-heading {
 &lt;/body&gt;
 &lt;/html&gt;
 " hidden=""></iframe>
+<iframe data-compute-repeat data-slide-label="代码给出了计算规则，但理解计算仍需要人工还原" title="代码给出了计算规则，但理解计算仍需要人工还原" sandbox="allow-same-origin allow-scripts" data-width="1600" hidden></iframe>
 </main>
-<nav id="deck-nav" aria-label="幻灯片导航">
+<nav id="deck-nav" aria-label="幻灯片导航" title="← / → 逐步讲述　↑ / ↓ 直接翻页">
 <button type="button" id="presenter-toggle" title="演讲者模式（P）">演讲者模式</button>
 <button type="button" id="previous" aria-label="上一页">‹</button>
-<button type="button" data-index="0" aria-label="架构对比">●</button>
-<button type="button" data-index="1" aria-label="从代码到计算">●</button>
-<button type="button" data-index="2" aria-label="三个观察维度">●</button>
-<button type="button" data-index="3" aria-label="工具支撑断点">●</button>
-<button type="button" data-index="4" aria-label="从局部可视化，走向连续的计算探索体验">●</button>
-<button type="button" data-index="5" aria-label="共享计算上下文">●</button>
-<button type="button" data-index="6" aria-label="跨视角对象定位">●</button>
-<button type="button" data-index="7" aria-label="逐层深入执行细节">●</button>
-<button type="button" data-index="8" aria-label="多级并行调度的空间化映射">●</button>
-<button type="button" data-index="9" aria-label="执行流水的动态演绎">●</button>
-<button type="button" data-index="10" aria-label="循环执行规模直观可见">●</button>
-<button type="button" data-index="11" aria-label="P14-A · 建立计算现场">●</button>
-<button type="button" data-index="12" aria-label="P14-B · 主动计算推演">●</button>
-<button type="button" data-index="13" aria-label="可追溯的计算解释">●</button>
 <button type="button" id="next" aria-label="下一页">›</button>
+<button type="button" id="light-table-toggle" aria-label="幻灯片总览（G）" title="幻灯片总览（G）" aria-controls="light-table" aria-expanded="false">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+    <rect x="1.5" y="2.5" width="5" height="4"/><rect x="9.5" y="2.5" width="5" height="4"/>
+    <rect x="1.5" y="9.5" width="5" height="4"/><rect x="9.5" y="9.5" width="5" height="4"/>
+  </svg>
+</button>
 <output id="deck-page-count" aria-live="polite"></output>
 </nav>
+
+<section id="light-table" role="dialog" aria-modal="true" aria-labelledby="light-table-title" hidden>
+  <header id="light-table-header">
+    <h2 id="light-table-title">Slide Overview</h2>
+    <span id="light-table-count"></span>
+    <button type="button" id="light-table-close" title="返回演讲（Esc）">返回演讲</button>
+  </header>
+  <div id="light-table-scroll"><div id="light-table-grid"></div></div>
+</section>
 
 <aside id="presenter-panel" aria-label="演讲者控制台" hidden="">
   <header id="presenter-toolbar">
@@ -18440,8 +18576,21 @@ global.PtoComputeScenario=Object.freeze({create,limits,edit,project});
 const stage = document.querySelector('main');
 const slideElements = [...stage.querySelectorAll(':scope > iframe, :scope > .design-slide')];
 const computeFrame = stage.querySelector('[data-compute-scenes]');
-const slides = slideElements.flatMap(slide => slide === computeFrame ? [slide, slide] : [slide]);
-const p6Frame = stage.querySelector('[data-p6-story]');
+const computeRepeat = stage.querySelector('[data-compute-repeat]');
+// The two compute scenes share one iframe. Animation beats stay inside each scene.
+const slideEntries = slideElements.flatMap(element => {
+  const entry = { element, label: element.dataset.slideLabel };
+  return element === computeFrame
+    ? [entry, { element, label:element.dataset.nextSceneLabel }]
+    : [entry];
+});
+const slides = slideEntries.map(({ element }) => element);
+const formatPage = number => String(number).padStart(2, '0');
+const pageCountText = index => `${formatPage(index + 1)} / ${formatPage(slides.length)}`;
+const strategyTitles = {
+  native:'以昇腾原生计算机制为设计语言，让编程接口和算法语义直观可感',
+  exploration:'让计算对象跨视角、跨层级连续可感知',
+};
 const p7Slide = stage.querySelector('[data-p07]');
 const p7Model = window.PtoPagedAttentionIntro.model;
 const p7Graph = window.PTO_PYPA_SEMANTIC_GRAPH;
@@ -18736,7 +18885,7 @@ function mountP8(slide, onBeat) {
   slide.querySelector('[data-p08-back]').onclick=()=>set(5);
   addEventListener('resize',cancel);
   reduced.addEventListener('change',cancel);
-  return {get beat(){return beat;},set,reset,leave};
+  return {get beat(){return beat;},set,reset,leave,pause};
 }
 const p8Slide = stage.querySelector('[data-p08]');
 const p8 = mountP8(p8Slide, () => {
@@ -18760,34 +18909,43 @@ const strategySlides = new Map([...stage.querySelectorAll('[data-strategy]')].ma
       if (deckRole === 'deck' && slides[current] === changed) send(audienceWindow,'goto');
     }})
   : strategy.mount(slide)]));
-const stagedSlides = new Set([p6Frame,p7Slide,p8Slide,p9Slide,...strategySlides.keys()]);
-let p6Entry = 0;
-const p6LastStep = 6;
-function renderP6() {
-  p6Frame.contentWindow.postMessage({
-    pyptoP6: 'render',
-    step: p6Entry,
-    page: slides.indexOf(p6Frame) + 1,
-    count: slides.length,
-  }, targetOrigin);
-}
-function setP6Step(step) {
-  if (!Number.isInteger(step) || step < 0 || step > p6LastStep) return false;
-  p6Entry = step;
-  renderP6();
-  return true;
-}
+const stagedSlides = new Set([p7Slide,p8Slide,p9Slide,computeRepeat,...strategySlides.keys()]);
 const computeStart = slides.indexOf(computeFrame);
 let computeScene = 0;
+let requestedComputeStep;
+const atToolEvidence = () => current === computeStart + 1;
 function syncComputeScene() {
+  if (slides[current] === computeRepeat) {
+    const win = computeRepeat.contentWindow;
+    if (typeof win.go !== 'function') return;
+    if (Number.isInteger(requestedComputeStep)) win.go(requestedComputeStep);
+    requestedComputeStep = undefined;
+    win.document.getElementById('page').textContent = pageCountText(current);
+    return;
+  }
   if (slides[current] !== computeFrame) return;
   const scene = current - computeStart;
   const win = computeFrame.contentWindow;
-  if (scene !== computeScene && typeof win.go === 'function') win.go(scene * 5);
+  if (typeof win.go === 'function') {
+    const step = requestedComputeStep;
+    requestedComputeStep = undefined;
+    if (Number.isInteger(step)) win.go(step);
+    else if (scene !== computeScene) win.go(scene === 0 ? 1 : 5);
+  }
+  const pageNumber = computeFrame.contentDocument?.getElementById('page');
+  if (pageNumber) pageNumber.textContent = pageCountText(current);
 }
-const dots = [...document.querySelectorAll('[data-index]')];
 const previous = document.querySelector('#previous');
 const next = document.querySelector('#next');
+const dots = slideEntries.map(({ label }, index) => {
+  const dot = document.createElement('button');
+  dot.type = 'button';
+  dot.dataset.index = index;
+  dot.setAttribute('aria-label', label);
+  dot.textContent = '●';
+  next.before(dot);
+  return dot;
+});
 let current = 0;
 let lastWheel = -Infinity;
 
@@ -18805,8 +18963,12 @@ function show(index, step, context) {
   const before = slides[current];
   current = Math.max(0, Math.min(slides.length - 1, index));
   slideElements.forEach(slide => { slide.hidden = slide !== slides[current]; });
-  if (slides[current] === p6Frame && (before !== p6Frame || Number.isInteger(step))) {
-    setP6Step(step ?? 0);
+  requestedComputeStep = undefined;
+  if (slides[current] === computeRepeat) {
+    requestedComputeStep = step ?? (before !== computeRepeat ? 5 : undefined);
+  } else if (slides[current] === computeFrame) {
+    if (Number.isInteger(step)) requestedComputeStep = step;
+    else if (before !== computeFrame && current === computeStart) requestedComputeStep = 1;
   }
   if (slides[current] === p7Slide && (before !== p7Slide || Number.isInteger(step))) setP7Beat(step ?? 0);
   if (before === p8Slide && slides[current] !== p8Slide) p8.leave();
@@ -18831,19 +18993,48 @@ function show(index, step, context) {
   });
   previous.disabled = current === 0;
   next.disabled = current === slides.length - 1;
-  document.querySelector('#deck-page-count').textContent = [current + 1, slides.length].map(n=>String(n).padStart(2,'0')).join(' / ');
+  document.querySelector('#deck-page-count').textContent = pageCountText(current);
   fit();
+  animateStrategyHeader(before,slides[current]);
   if (slides[current].matches('.design-slide:not(.p07,[data-p08],[data-p09],[data-strategy])') && !window.PtoVisualization2.getState().open) {
     window.PtoVisualization2.open();
   }
   updatePresenter();
 }
 
-function navigate(direction) {
-  if (slides[current] === p6Frame && setP6Step(p6Entry + direction)) {
-    send(audienceWindow,'goto');
-    return;
+function animateStrategyHeader(from,to) {
+  const previousChapter = from.dataset.strategyChapter;
+  const nextChapter = to.dataset.strategyChapter;
+  if (from === to || deckRole === 'preview') return;
+  if (previousChapter) {
+    const previousHeader = from.querySelector('.deck-header');
+    previousHeader.getAnimations({subtree:true}).forEach(animation => animation.cancel());
+    previousHeader.querySelector('.strategy-outgoing-title')?.remove();
   }
+  if (!previousChapter || !nextChapter || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const header = to.querySelector('.deck-header');
+  const subtitle = header.querySelector('.strategy-subtitle');
+  subtitle.animate(
+    [{opacity:.55,transform:'translateY(3px)'},{opacity:1,transform:'translateY(0)'}],
+    {duration:170,easing:'ease-out'});
+
+  if (previousChapter === nextChapter) return;
+  const title = header.querySelector('h1');
+  const outgoing = title.cloneNode(false);
+  outgoing.textContent = strategyTitles[previousChapter];
+  outgoing.classList.add('strategy-outgoing-title');
+  outgoing.setAttribute('aria-hidden','true');
+  header.append(outgoing);
+  const duration = 220;
+  outgoing.animate([{opacity:1},{opacity:0,offset:.45},{opacity:0}],{duration})
+    .finished.then(() => outgoing.remove(),() => outgoing.remove());
+  title.animate([{opacity:0},{opacity:0,offset:.45},{opacity:1}],{duration,easing:'ease-in-out'});
+}
+
+function navigate(direction) {
+  const frame = slides[current];
+  if ((frame === computeFrame || frame === computeRepeat) && frame.contentWindow.advanceComputeFrame?.(direction)) return;
   if (slides[current] === p7Slide) {
     const beat = p7State.beatIndex + direction;
     if (beat >= 0 && beat < p7Captions.length) { setP7Beat(beat); return; }
@@ -18858,8 +19049,7 @@ function navigate(direction) {
   const target = current + direction;
   const targetStory = strategySlides.get(slides[target]);
   if (targetStory && direction < 0) { show(target,targetStory.last); return; }
-  show(target, direction < 0 && slides[target] === p6Frame ? p6LastStep : direction < 0 && slides[target] === p7Slide ? 4 : direction < 0 && slides[target] === p8Slide ? 4 : direction < 0 && slides[target] === p9Slide ? 4 : undefined);
-  if (direction < 0 && slides[target] === computeFrame && target === computeStart + 1) computeFrame.contentWindow.go?.(9);
+  show(target, direction < 0 && target === computeStart + 1 ? computeFrame.contentWindow.computeStory?.lastStep : direction < 0 && target === computeStart ? 4 : direction < 0 && slides[target] === p7Slide ? 4 : direction < 0 && slides[target] === p8Slide ? 5 : direction < 0 && slides[target] === p9Slide ? 4 : undefined);
 }
 
 function onKey(event) {
@@ -18889,42 +19079,51 @@ function onKey(event) {
     if (story.set(Number(event.code.slice(-1)))) event.preventDefault();
     return;
   }
-  const targets = {ArrowLeft:current - 1, ArrowUp:current - 1, ArrowRight:current + 1,
-                   ArrowDown:current + 1, Space:current + 1, Home:0, End:slides.length - 1};
-  if (!(event.code in targets)) return;
+  const targets = {Space:current + 1, Home:0, End:slides.length - 1};
+  if (!Object.hasOwn(targets,event.code)) return;
   event.preventDefault();
-  const horizontal = event.code === 'ArrowLeft' || event.code === 'ArrowRight';
-  if (horizontal && slides[current] === computeFrame &&
-      computeFrame.contentWindow.advanceComputeFrame?.(event.code === 'ArrowLeft' ? -1 : 1)) return;
-  if (stagedSlides.has(slides[current]) && !['Home','End'].includes(event.code)) {
-    navigate(targets[event.code] - current);
-    return;
-  }
-  const target = targets[event.code];
-  if (event.code === 'ArrowLeft' && stagedSlides.has(slides[target])) { navigate(-1); return; }
-  show(target);
-  if (event.code === 'ArrowLeft' && target === computeStart + 1) {
-    computeFrame.contentWindow.go?.(9);
-  }
+  if (event.code === 'Space' && stagedSlides.has(slides[current])) navigate(1);
+  else show(targets[event.code]);
 }
 
 function onWheel(event) {
-  if (deckRole!=='deck' || event.target.closest?.('#presenter-panel,.design-demo,[data-pa-source]')) return;
+  if (deckRole!=='deck' || lightTable?.active || event.target.closest?.('#presenter-panel,.design-demo,[data-pa-source]')) return;
   event.preventDefault();
   const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
   if (Math.abs(delta) < 8 || performance.now() - lastWheel < 650) return;
   lastWheel = performance.now();
-  stagedSlides.has(slides[current]) ? navigate(Math.sign(delta)) : show(current + Math.sign(delta));
+  (atToolEvidence() || stagedSlides.has(slides[current])) ? navigate(Math.sign(delta)) : show(current + Math.sign(delta));
+}
+
+function onArrowKey(event) {
+  if (deckRole !== 'deck' || event.defaultPrevented ||
+      event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+      event.target.closest?.('input,textarea,select,[contenteditable]')) return;
+  const direction = {ArrowLeft:-1, ArrowRight:1, ArrowUp:-1, ArrowDown:1}[event.code];
+  if (!direction) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+    navigate(direction);
+  } else {
+    const target = current + direction;
+    if (target >= 0 && target < slides.length) show(target);
+  }
 }
 
 function bindNavigation(doc) {
+  doc.addEventListener('keydown', onArrowKey, {capture:true});
+  doc.addEventListener('keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+    if (lightTable?.onKey(event)) event.stopPropagation();
+  }, {capture:true});
   doc.addEventListener('keydown', onKey);
   doc.addEventListener('wheel', onWheel, {passive:false});
   let start;
-  doc.addEventListener('touchstart', event => { start = deckRole!=='deck' || event.target.closest?.('#presenter-panel,.design-demo,[data-pa-source]') ? undefined : event.changedTouches[0].clientX; }, {passive:true});
+  doc.addEventListener('touchstart', event => { start = deckRole!=='deck' || lightTable?.active || event.target.closest?.('#presenter-panel,.design-demo,[data-pa-source]') ? undefined : event.changedTouches[0].clientX; }, {passive:true});
   doc.addEventListener('touchend', event => {
     const delta = start - event.changedTouches[0].clientX;
-    if (Math.abs(delta) > 36) stagedSlides.has(slides[current]) ? navigate(Math.sign(delta)) : show(current + Math.sign(delta));
+    if (!lightTable?.active && Math.abs(delta) > 36) (atToolEvidence() || stagedSlides.has(slides[current])) ? navigate(Math.sign(delta)) : show(current + Math.sign(delta));
   }, {passive:true});
 }
 
@@ -19100,14 +19299,14 @@ if (deckRole==='deck' && window.showOpenFilePicker) {
   }).catch(() => {});
 }
 
-const slideTitle = index => dots[index]?.getAttribute('aria-label') || '第 ' + (index+1) + ' 页';
+const slideTitle = index => slideEntries[index].label;
 
 function send(target,type,index=current) {
   if (!target || target.closed) return;
   const slide = slides[current];
   const story = strategySlides.get(slide);
   const step = index !== current ? null : story ? story.beat : slide === p9Slide ? p9.beat
-    : slide === p8Slide ? p8.beat : slide === p7Slide ? p7State.beatIndex : slide === p6Frame ? p6Entry : null;
+    : slide === p8Slide ? p8.beat : slide === p7Slide ? p7State.beatIndex : (slide === computeFrame || slide === computeRepeat) ? slide.contentWindow.computeStory?.step : null;
   const context = index !== current ? null : story ? story.context : slide === p9Slide ? p9.context : null;
   target.postMessage({pyptoPresenter:1,session,type,index,step,context},targetOrigin);
 }
@@ -19137,7 +19336,7 @@ function updatePresenter() {
     if (preview.hasAttribute('src')) send(preview.contentWindow,'goto',nextIndex);
     else preview.src=roleUrl('preview',nextIndex);
   }
-  const noteIndex = slides[current] === computeFrame ? String(4 + current - computeStart) : slides[current].dataset.noteIndex ?? String(current);
+  const noteIndex = slides[current] === computeRepeat ? (computeRepeat.contentWindow.computeStory?.step >= 10 ? '6' : '5') : slides[current] === computeFrame ? String(atToolEvidence() && computeFrame.contentWindow.computeStory?.step >= 10 ? 6 : 4 + current - computeStart) : slides[current].dataset.noteIndex ?? String(current);
   if (notes.dataset.page!==noteIndex) {
     notes.dataset.page=noteIndex;
     notes.value=typeof drafts[noteIndex]==='string' ? drafts[noteIndex] : strategyNotes[noteIndex] ?? (noteIndex === '8' ? "上一页改变的是观察角度，从空间组织转到执行时间。这一页改变的是观察粒度。先看设备范围内的准备工作、同步和各 Block 的任务分配，再沿选中的 Task 聚焦到它所属的逻辑执行块。这里的 Block 有源码分配规则，不能拿来推断物理 AI Core 的实际落位。\n\n进一步选择一次 Logical Tick，可以同时看到这一轮生产的 Stack 和消费的 Stack，以及对应的阶段。Tick 表示循环进度，不是硬件耗时。回到设备总览时，仍可沿同一个 Block 和 Task 找回刚才的局部。\n\n横向切换决定从什么角度看，纵向下钻决定要看到多细。实际遇到问题时，也可以从最相关的入口开始探索。" : noteIndex === '6' ? p6DefaultNotes : noteIndex === '7' ? '三个视图围绕同一算子。Task 48 的输入范围让我们推导计算模板的重复次数和逻辑流水。三个圆归纳的是共享上下文。接下来，选中 Task 48 后切换视图，看看用户怎样继续定位。' : '');
@@ -19234,50 +19433,38 @@ function renderDeckHeader(root, index) {
   const topics = header.querySelector('.design-topics');
   const content = headerTemplate.content.cloneNode(true);
   const pageNumber = content.querySelector('.deck-page-number');
-  const formatPage = number => String(number).padStart(2, '0');
-  pageNumber.textContent = `${formatPage(index + 1)} / ${formatPage(slides.length)}`;
-  content.querySelector('h1').textContent = header.dataset.deckTitle;
+  pageNumber.textContent = pageCountText(index);
+  const strategyTitle = strategyTitles[root.dataset?.strategyChapter];
+  content.querySelector('h1').textContent = strategyTitle ?? header.dataset.deckTitle;
+  if (strategyTitle) content.append(...header.querySelectorAll('.strategy-subtitle,.strategy-description'));
   if (topics) pageNumber.before(topics);
   header.classList.add('deck-header');
   header.replaceChildren(content);
 }
 slideElements.forEach(slide => {
   const index = slides.indexOf(slide);
-  if (slide === p6Frame) {
-    slide.addEventListener('load', renderP6);
-    addEventListener('message', event => {
-      if (event.source !== slide.contentWindow || slides[current] !== slide) return;
-      if (location.protocol !== 'file:' && event.origin !== location.origin) return;
-      const message = event.data;
-      if (deckRole !== 'deck') return;
-      if (message?.pyptoP6 === 'reset') {
-        setP6Step(0);
-        send(audienceWindow,'goto');
-      } else if (message?.pyptoP6 === 'key') {
-        document.dispatchEvent(new KeyboardEvent('keydown', {code: message.code, repeat: message.repeat}));
-      } else if (message?.pyptoP6 === 'wheel') {
-        document.dispatchEvent(new WheelEvent('wheel', {deltaX: message.x, deltaY: message.y}));
-      } else if (message?.pyptoP6 === 'swipe' && [1,-1].includes(message.direction)) {
-        navigate(message.direction);
-      }
-    });
-    slide.src = 'p6-experience.html';
-    return;
-  }
-  if (slide === computeFrame) {
+  if (slide === computeFrame || slide === computeRepeat) {
     slide.addEventListener('load', () => {
       const win = slide.contentWindow;
-      computeScene = 0;
-      win.addEventListener('compute-scene-change', event => {
+      if (slide === computeFrame) computeScene = Number(win.computeStory?.step >= 5);
+      if (slide === computeFrame) win.addEventListener('compute-scene-change', event => {
         computeScene = event.detail;
         const index = computeStart + computeScene;
         if (slides[current] === slide && current !== index) show(index);
+      });
+      win.addEventListener('compute-step-change', () => {
+        if (slides[current] !== slide || deckRole !== 'deck') return;
+        if (audiencePage === current) send(audienceWindow,'goto');
+        updatePresenter();
       });
       bindNavigation(slide.contentDocument);
       syncComputeScene();
       if (!slide.hidden) fit();
     });
-    slide.srcdoc = slide.dataset.source;
+    slide.srcdoc = slide === computeRepeat
+      ? computeFrame.dataset.source.replace('<main aria-label=', '<main data-evidence-replay aria-label=')
+        .replace('<nav aria-label="页面">', '<nav aria-label="页面" inert style="visibility:hidden">')
+      : slide.dataset.source;
     return;
   }
   if (!slide.matches('iframe')) {
@@ -19307,12 +19494,44 @@ slideElements.forEach(slide => {
   });
   slide.srcdoc = slide.dataset.source.replace('</head>', slideTheme + '</head>');
 });
+function suspendSlide(slide, stopAutoplay = true) {
+  if (stopAutoplay) {
+    if (slide === p8Slide) p8.pause();
+    if (slide === p9Slide) p9.pause();
+    strategySlides.get(slide)?.pause?.();
+  }
+  const animations = [...slide.getAnimations({subtree:true}),
+    ...(slide.contentDocument?.getAnimations() ?? [])].filter(animation => animation.playState === 'running');
+  animations.forEach(animation => animation.pause());
+  return () => animations.forEach(animation => {
+    if (animation.playState === 'paused') animation.play();
+  });
+}
+function showPageStart(index) {
+  show(index, slides[index] === computeFrame ? (index === computeStart ? 1 : 5) : slides[index] === computeRepeat ? 5 : undefined);
+}
+const lightTable = deckRole === 'deck' ? createDeckLightTable({
+  entries:slideEntries, page:() => current, formatPage, suspend:suspendSlide,
+  showPage:showPageStart, rendererUrl:roleUrl('preview',0), session, targetOrigin,
+}) : null;
 bindNavigation(document);
+document.addEventListener('click', event => {
+  if (!lightTable?.active && !event.target.closest('#light-table-toggle') && [computeFrame,computeRepeat].includes(slides[current])) slides[current].contentWindow.clearComputeHighlight?.();
+}, {capture:true});
 dots.forEach((dot, i) => { dot.onclick = () => show(i); });
-previous.onclick = () => stagedSlides.has(slides[current]) || stagedSlides.has(slides[current - 1]) ? navigate(-1) : show(current - 1);
+previous.onclick = () => atToolEvidence() || current - 1 === computeStart + 1 || stagedSlides.has(slides[current]) || stagedSlides.has(slides[current - 1]) ? navigate(-1) : show(current - 1);
 next.onclick = () => navigate(1);
 new ResizeObserver(fit).observe(stage);
 p7Steps.hidden = deckRole !== 'deck';
 show(initialPage);
 if (deckRole==='audience') send(opener,'ready');
+if (deckRole === 'preview' && deckParams.has('lightTable')) {
+  serveDeckThumbnails({
+    session, targetOrigin, count:slides.length,
+    select(index) {
+      showPageStart(index);
+      return slides[index];
+    },
+  });
+}
 </script></body></html>

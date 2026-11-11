@@ -362,6 +362,7 @@
           anatomyView?.update(taskId,null,null,{active:false});
           pipelineView?.update(taskId,null,null,{active:false});
         },
+        pause:() => assignment?.pause(),
         set,
       };
     }
