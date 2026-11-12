@@ -309,8 +309,7 @@
 .wb-steps button[aria-pressed="true"] small { color: #555; }
 /* 工具条放不下两行：只有当前步骤带术语小字 */
 .wb-steps button:not([aria-pressed="true"]) small { display: none; }
-/* 叙事视图需要更多高度：上方计算图默认 41% → 34%（拖动分隔条后仍以拖动为准）；Synthetic 标记挪进底部图例，工具条保持一行 */
-#viewKernel:not(.is-chip):not(.is-rules-only):has(#kernelWork.wb-story-on) { --l2-graph-height: 34%; }
+/* Synthetic 标记挪进底部图例，工具条保持一行。 */
 #kernelWork.wb-story-on #kernelBar .lens-chip.is-syn { display: none; }
 .wb-story-key .k-syn { margin-left: auto; font: 11px var(--mono); color: #b9cbff; }
 
