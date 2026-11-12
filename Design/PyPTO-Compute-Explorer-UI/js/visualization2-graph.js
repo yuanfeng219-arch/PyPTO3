@@ -50,7 +50,7 @@
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,...adapter?.layoutOptions});
       // Reserve the same visual footprint in Structure and Weight so switching
       // decoration never moves nodes. Front card dimensions remain unchanged.
-      const counts=staticExecutionData(graph);
+      const counts=adapter?.layoutExecutionData?.(graph) ?? staticExecutionData(graph);
       const executionFootprints=Object.fromEntries(graph.nodes.flatMap(node=>{
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
@@ -155,6 +155,12 @@
           box.x=Math.min(box.x,group.x);box.y=Math.min(box.y,group.y-12);
           box.w=right-box.x;box.h=bottom-box.y;
         }
+      }
+      if(adapter?.fitPadding){
+        const {top,right,bottom,left}=adapter.fitPadding;
+        const width=viewport.clientWidth-left-right,height=viewport.clientHeight-top-bottom;
+        const scale=Math.max(.01,Math.min(width/box.w,height/box.h,1));
+        return {scale,x:left+(width-box.w*scale)/2-box.x*scale,y:top+(height-box.h*scale)/2-box.y*scale};
       }
       const scale=Math.max(.01,Math.min((viewport.clientWidth-80)/box.w,(viewport.clientHeight-112)/box.h,1));
       return {scale,x:(viewport.clientWidth-box.w*scale)/2-box.x*scale,y:72+(viewport.clientHeight-96-box.h*scale)/2-box.y*scale};

@@ -1,0 +1,158 @@
+* { box-sizing:border-box; }
+[hidden] { display:none!important; }
+body {
+  margin:0; height:100svh; display:grid; place-items:center; overflow:hidden;
+  background:var(--surface-1); color:var(--foreground); font-family:var(--font-sans),system-ui,sans-serif;
+}
+#frame { width:min(100vw,177.7778svh); aspect-ratio:16/9; overflow:hidden; }
+#story { width:100%; height:100%; min-height:0; container-type:inline-size; }
+#ideWorkarea { padding:clamp(12px,1.55cqw,30px); gap:clamp(8px,1cqw,20px); }
+.workbench-header {
+  display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1.48fr) auto;
+  align-items:center; gap:clamp(10px,1.55cqw,30px);
+  min-height:74px;
+}
+.identity { min-width:0; }
+.identity h1 { margin:0 0 5px; font-size:clamp(17px,1.8cqw,34px); letter-spacing:-.03em; line-height:1.15; }
+.identity p { margin:0; font:var(--type-mono); font-size:clamp(9px,.85cqw,16px); color:var(--foreground-secondary); white-space:nowrap; }
+#shared-controls { min-width:0; }
+#shared-controls [data-compute-toolbar] {
+  display:grid; grid-template-columns:auto minmax(36px,1fr) auto; align-items:center;
+  gap:3px clamp(6px,.9cqw,16px); min-width:0;
+}
+#shared-controls [data-compute-context] { display:none; }
+.compute-parameter-field { display:grid; gap:4px; color:var(--foreground-secondary); font-size:clamp(10px,.85cqw,15px); white-space:nowrap; }
+.compute-derived-readouts { display:flex; gap:clamp(10px,1cqw,18px); }
+.compute-parameter-field output {
+  display:flex; align-items:center; gap:4px; color:var(--foreground);
+  font:var(--type-mono); font-size:clamp(13px,1.15cqw,22px);
+}
+.compute-parameter-field output svg { width:11px; height:11px; color:var(--foreground-secondary); }
+#shared-controls [data-compute-pages] {
+  width:100%; min-height:35px; appearance:textfield; padding:3px 7px;
+  background:var(--surface-3); color:var(--foreground); border:1px solid var(--border-subtle);
+  border-radius:var(--radius-sm); font:var(--type-mono); font-size:clamp(15px,1.25cqw,24px);
+}
+#shared-controls [data-compute-pages]::-webkit-inner-spin-button { appearance:none; }
+#shared-controls [data-compute-pages][aria-invalid="true"] { border-color:var(--danger); }
+.compute-page-stepper { display:flex; align-items:center; min-width:0; align-self:end; gap:3px; }
+.compute-page-stepper button { padding:0; min-width:24px; min-height:32px; }
+.compute-page-stepper input { flex:1; min-width:0; width:100%; accent-color:var(--highlight-ub-green-300); color-scheme:dark; }
+.compute-parameter-status {
+  grid-column:1/-1; display:flex; align-items:center; gap:6px; position:relative;
+  min-height:20px; font-size:clamp(9px,.75cqw,13px); color:var(--foreground-secondary);
+}
+.compute-parameter-status [data-page-error]:not(:empty) { color:var(--highlight-mte-amber-300); }
+.compute-parameter-status:has([data-page-error]:not(:empty)) [data-page-summary] { display:none; }
+#shared-controls [data-scenario-reset] {
+  margin-inline-start:auto; padding:0 6px; min-height:20px; font-size:inherit;
+}
+.presets { display:flex; gap:5px; align-items:center; }
+.presets button { padding:0 clamp(6px,.75cqw,14px); font-size:clamp(10px,.82cqw,15px); white-space:nowrap; }
+.presets button[aria-pressed="true"] { background:var(--surface-4); box-shadow:inset 0 -2px var(--highlight-ub-green-300); }
+
+.workbench-views {
+  display:grid; grid-template-columns:minmax(0,.58fr) minmax(0,1fr);
+  grid-template-rows:minmax(0,1.08fr) minmax(0,1fr); flex:1; min-height:0;
+  border-top:1px solid var(--border-subtle); background:var(--surface-1);
+}
+.view { display:flex; flex-direction:column; min-width:0; min-height:0; position:relative; }
+.view[data-axis="graph"] { --axis-color:var(--highlight-copy-blue-300); grid-row:1/-1; }
+.view[data-axis="assignment"] { --axis-color:var(--highlight-ub-green-300); border-inline-start:1px solid var(--border-subtle); }
+.view[data-axis="pipeline"] {
+  --axis-color:var(--highlight-mte-amber-300); grid-column:2; border-top:1px solid var(--border-subtle); border-inline-start:1px solid var(--border-subtle);
+}
+.view > header {
+  display:flex; justify-content:space-between; align-items:baseline; flex:none;
+  gap:8px; padding:clamp(5px,.63cqw,12px) clamp(9px,1cqw,19px);
+}
+.view > header h2 { margin:0; font-size:clamp(13px,1.18cqw,22px); color:var(--axis-color); white-space:nowrap; }
+.view > header h2 span { margin-inline-start:4px; color:var(--foreground-secondary); font-size:.72em; font-weight:500; }
+.view > header p { margin:0; color:var(--foreground-secondary); font-size:clamp(9px,.78cqw,15px); white-space:nowrap; }
+.view-mount { position:relative; display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; }
+#p14-graph .viz2-graph-body, #story .viz2-anatomy-body { position:relative; }
+#story :is(.viz2-graph-inspector,.viz2-anatomy-inspector) {
+  position:absolute; z-index:8; inset:4px 5px 39px auto; width:min(315px,58%); margin:0;
+  background:var(--surface-2); box-shadow:var(--shadow-md);
+}
+#story :is(.viz2-graph-inspector,.viz2-anatomy-inspector) .pto-ide-frame__pane-body { overflow:auto; min-height:0; }
+#story :is(.viz2-graph-footer,.viz2-anatomy-footer) {
+  justify-content:space-between; gap:6px; flex-wrap:nowrap;
+  min-height:32px; padding:1px 9px; font-size:clamp(9px,.74cqw,13px);
+}
+#story :is(.viz2-graph-footer__controls,.kf-pa-map__tools) { gap:3px; padding:0; box-shadow:none; background:transparent; }
+#story :is(.viz2-graph-footer__controls,.kf-pa-map__tools) :is(.btn,summary) { min-height:26px; height:26px; padding:0 5px; font-size:11px; }
+#story :is(.viz2-graph-footer,.viz2-anatomy-footer) output { min-width:31px; text-align:center; font:var(--type-mono); font-size:10px; }
+#story .viz2-anatomy-workspace { gap:8px; padding:0 9px; min-height:0; }
+#story .viz2-anatomy-viewport { mask-image:none; min-height:0; }
+#story .viz2-anatomy-track { inset:0 0 0 0; }
+#story .viz2-anatomy-card { inset:0; width:100%; max-width:none; padding:0; }
+#story .viz2-anatomy-card > header { display:none; }
+#story .viz2-anatomy-cache-scroll { padding:0; }
+#story .viz2-anatomy-query { flex:0 0 clamp(78px,9cqw,160px); align-self:start; margin-top:4px; }
+#story .viz2-anatomy-query h3 { font-size:clamp(12px,.93cqw,17px); margin:0 0 5px; }
+#story .viz2-anatomy-query p,#story .viz2-anatomy-query b { font-size:clamp(9px,.74cqw,14px); line-height:1.35; margin:4px 0; }
+#story #p14-assignment { --ai-data-fill:var(--highlight-ub-green-300); }
+#story .viz2-intra-tick-scroll { overflow:hidden; scrollbar-gutter:auto; }
+#story .viz2-intra-svg { display:block; }
+#story .viz2-intra-legend { flex-wrap:nowrap; gap:6px; white-space:nowrap; }
+#story [data-intra-dependency-summary] { display:none; }
+#story .viz2-graph-node-title > [data-viz2-graph-name] {
+  font-size:clamp(10px,.78cqw,15px); line-height:1.15;
+}
+#story .viz2-graph-floating-count { font-size:clamp(9px,.68cqw,13px); }
+#story :is([data-anatomy-kind],[data-intra-kind]):focus-visible { outline:1px solid var(--foreground); }
+#source-dialog {
+  width:min(900px,85vw); max-height:75vh; background:var(--surface-2);
+  color:var(--foreground); border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+}
+#source-dialog form { display:flex; justify-content:space-between; align-items:center; }
+#source-dialog h2 { font-size:16px; }
+#source-lines { overflow:auto; max-height:59vh; font:var(--type-mono); white-space:pre; }
+#source-dialog::backdrop { background:var(--scrim,rgba(0,0,0,.6)); }
+
+@container (max-width:1100px) {
+  .workbench-header { min-height:62px; }
+  #story .viz2-anatomy-footer > span > small { display:none; }
+  #story :is(.viz2-graph-footer,.viz2-anatomy-footer) { padding-inline:5px; }
+}
+@container (max-width:760px) {
+  .workbench-header { min-height:48px; gap:5px; }
+  .identity h1 { font-size:13px; }
+  .identity p { font-size:8px; white-space:normal; }
+  .compute-derived-readouts,.view > header p { display:none; }
+  #shared-controls [data-compute-toolbar] { grid-template-columns:auto minmax(20px,1fr); }
+  #shared-controls [data-compute-pages] { min-height:24px; }
+  #story :is(.viz2-graph-footer,.viz2-anatomy-footer) > :is(span,.viz2-intra-legend) { display:none; }
+}
+
+#story #p14-pipeline .viz2-anatomy-stage { display:grid; grid-template-rows:minmax(0,1fr) auto; }
+#story #p14-pipeline :is(.viz2-anatomy-workspace,.viz2-anatomy-footer) { position:relative!important; inset:auto!important; }
+#story #p14-pipeline .viz2-anatomy-workspace { padding:0; }
+#story #p14-assignment .viz2-anatomy-key.is-capacity { background:var(--surface-4); }
+#story .viz2-graph-labels[data-density="compact"] .viz2-graph-node-title:not([data-ai-node-kind="data"]) {
+  display:inline-flex!important; margin-left:0;
+}
+#story .viz2-graph-labels[data-density="compact"] .viz2-graph-node-title:not([data-ai-node-kind="data"])[style*="visibility: visible"] {
+  visibility:visible!important; background:var(--surface-3); padding:1px 4px;
+}
+#story .viz2-graph-node-title > button { min-height:16px; line-height:14px; }
+#story .viz2-graph-floating-count { position:static; }
+#story .viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node:not(.legend-data) .legend-text { visibility:hidden; }
+#story .viz2-intra-svg :is(.viz2-intra-tick-label,.viz2-intra-axis,.viz2-intra-row-title) { font-size:18px; }
+#story .viz2-intra-svg .ai-operation-glyph [data-kind="op"] text { font-size:13px!important; }
+#story .viz2-intra-svg .ai-operation-glyph .ai-operation-slot { font-size:14px; }
+#story .viz2-intra-svg .viz2-intra-small { font-size:15px; }
+#story .viz2-intra-legend > small:not([data-intra-dependency-summary]) { display:none; }
+
+#story .viz2-graph-labels[data-density="compact"] .viz2-graph-stage-title { translate:0 -8px; }
+#story .viz2-graph-labels[data-density="compact"] .viz2-graph-node-title[data-ai-node-kind="data"] {
+  display:inline-flex!important; margin-left:0; padding:0;
+}
+#story .viz2-graph-labels[data-density="compact"] .viz2-graph-node-title[data-ai-node-kind="data"][style*="visibility: visible"] {
+  visibility:visible!important;
+}
+#story .viz2-graph-labels[data-density="compact"] [data-ai-node-kind="data"] > [data-viz2-graph-name] {
+  font-size:clamp(8px,.62cqw,11px); background:var(--surface-2); padding:1px 3px; border-radius:var(--radius-sm);
+}
+#story .viz2-graph-labels[data-density="compact"] [data-ai-node-kind="data"] .viz2-graph-floating-count { display:none; }

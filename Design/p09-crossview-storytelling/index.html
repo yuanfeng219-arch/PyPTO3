@@ -59,10 +59,24 @@
     <article id="story" tabindex="0" aria-label="P10 跨视角对象定位 · 16:9">
       <header class="mast">PyPTO Compute Explorer / P10</header>
       <h1>让计算关系在视角切换中连续可感知</h1>
-      <nav class="views" aria-label="切换视角">
-        <button type="button" class="btn btn-ghost" data-view="graph" aria-pressed="false">← Graph</button>
+      <nav class="views local-navigation" aria-label="跨视角导航">
+        <button type="button" class="btn btn-ghost" data-view="graph" aria-pressed="false">Graph</button>
+        <div class="morph-path" data-path="graph">
+          <span>计算 × 数据</span>
+          <div class="morph-track" role="slider" tabindex="0" aria-label="计算 × 数据，左端 Graph，右端 Assignment"
+            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Assignment">
+            <i class="morph-thumb" aria-hidden="true"><span class="morph-value"></span></i>
+          </div>
+        </div>
         <button type="button" class="btn btn-ghost" data-view="assignment" aria-pressed="true">Assignment</button>
-        <button type="button" class="btn btn-ghost" data-view="pipeline" aria-pressed="false">Pipeline →</button>
+        <div class="morph-path" data-path="pipeline">
+          <span>数据 × 时间</span>
+          <div class="morph-track" role="slider" tabindex="0" aria-label="数据 × 时间，左端 Assignment，右端 Pipeline"
+            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Assignment">
+            <i class="morph-thumb" aria-hidden="true"><span class="morph-value"></span></i>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost" data-view="pipeline" aria-pressed="false">Pipeline</button>
       </nav>
       <section id="stage" aria-label="Task 48 的三个视角">
         <header class="task-identity"><strong>Task 48</strong><span id="context"></span></header>

@@ -24,7 +24,7 @@
         operations:stacks.flatMap(s=>Object.keys(stages).map(stage=>{const tick=['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick,operationId=`paged/task/${task.id}/stack/${s.index}/${stage}`,bufferObject=name=>({name,kind:'buffer'});return {stack:s.index,stage,tick,slot:s.slot,...buffers[stage],computeUnitId:`paged/task/${task.id}`,iterationId:`paged/task/${task.id}/stack/${s.index}`,operationId,operationType:stage,logicalPosition:{kind:'tick',index:tick},inputs:buffers[stage].read?[bufferObject(buffers[stage].read)]:[],outputs:buffers[stage].write?[bufferObject(buffers[stage].write)]:[],dependencies:transfers.filter(t=>t.consumer===stage).flatMap(t=>[{kind:'data',from:`paged/task/${task.id}/stack/${s.index}/${t.producer}`,to:operationId,buffer:t.buffer},{kind:'synchronization',from:`paged/task/${task.id}/stack/${s.index}/${t.producer}`,to:operationId,event:t.event}]),resourceRefs:[`paged/task/${task.id}/slot/${s.slot}`],evidence:{operation:{level:'source-confirmed',source:sourceRef(sourceRanges[stage])},logicalPosition:{level:'model-derived',rule:['qk','softmax'].includes(stage)?'stack.index':'stack.index + PRE_LAUNCH',inputs:{stackIndex:s.index,preLaunch},source:sourceRef([758,833])},visualSpacing:{level:'presentation-only'},runtimeDuration:{level:'unverified'}}};}))};
     })};
   }
-  function mount(host,{model,scenario,onTask,onFocus,onCamera,onInspector,onNavigate,onExit}){
+  function mount(host,{model,scenario,onTask,onFocus,onCamera,onInspector,onNavigate,onExit,presentation=false,onOpenSource}){
     const media=global.matchMedia('(prefers-reduced-motion: reduce)'),listeners=new AbortController();
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const listen=(element,type,fn,options={})=>element.addEventListener(type,fn,{...options,signal:listeners.signal});
@@ -40,7 +40,7 @@
     let sourceTask=null,isCustom=false;
     const controls=global.PtoComputeDetailControls,toolbar=host.querySelector('[data-compute-toolbar]');
     window.PtoPhotoNarrative.html(toolbar,controls.parameter('Stacks','Pages'));
-    const syncScenario=controls.connect(host,scenario);
+    const syncScenario=controls.connect(toolbar,scenario);
     window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),controls.picker(model,'Pipeline Task'));
     const stackInput=toolbar.querySelector('[data-compute-pages]'),stackRange=toolbar.querySelector('[data-page-range]');
     let maxStacks=1;
@@ -69,9 +69,14 @@
       const next=clamp(target+direction);if(next!==target){pendingFocus=null;tooltip.hidden=true;snap(next,true);}
     }});
     // Both operators use horizontal logical progress and fixed vertical stage rows.
-    const LEFT=118,TOP=82,STEP=174,ROW=104,W=148,H=56,stageRows={qk:0,softmax:1,pv:2,accumulate:3};
-    const outputWidth=164;
-    const diagramSize=t=>({width:LEFT+t.ticks.length*STEP+outputWidth+28,height:TOP+4*ROW+105});
+    const LEFT=118, TOP=presentation?74:82, STEP=presentation?145:174, ROW=presentation?64:104, W=presentation?124:148, H=56;
+    const stageRows={qk:0,softmax:1,pv:2,accumulate:3}, outputWidth=164;
+    const diagramSize=t=>({width:LEFT+t.ticks.length*STEP+outputWidth+28,height:TOP+4*ROW+(presentation?44:105)});
+    const viewportSize=t=>presentation ? diagramSize({ticks:{length:presentation.maxTicks}}) : diagramSize(t);
+    let automaticFit=false;
+    const fitScale=(scroller,size)=>Math.max(.05,Math.min(1,
+      (scroller.clientWidth-(presentation?12:64))/size.width,
+      (scroller.clientHeight-(presentation?12:48))/size.height));
     const stagePosition=(t,s,stage)=>({x:LEFT+t.operations.find(op=>op.stack===s.index&&op.stage===stage).tick*STEP,y:TOP+stageRows[stage]*ROW});
     const text=(x,y,s,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(s)}</text>`;
     const rect=(x,y,w,h,cls,extra='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" class="${cls}" ${extra}/>`;
@@ -104,8 +109,10 @@
         t.stacks.map(stack=>`<g data-intra-stack-path="${stack.index}" ${stroke(stack.slot)}>`+
           t.dependencies.filter(link=>link.stack===stack.index).map(link=>{const g=dependencyGeometry(t,link);return `<path class="viz2-intra-flow" data-intra-dependency="${stack.index}:${link.buffer}" d="${g.d}" marker-end="url(#${arrow})"/>`+
             object('event',stack.index,`<circle cx="${g.event.x}" cy="${g.event.y}" r="13" class="viz2-intra-event-hit"/><circle cx="${g.event.x}" cy="${g.event.y}" r="5" class="viz2-intra-event"/>`,`data-intra-event="${link.event}" data-intra-buffer="${link.buffer}" aria-label="Stack ${stack.index} ${link.event}"`);}).join('')+
-          Object.keys(stages).map(stage=>{const n=stagePosition(t,stack,stage);return object('stage',stack.index,
-            rect(n.x,n.y,W,H,'viz2-intra-operation',`data-intra-operation="${stack.index}:${stage}"`)+(global.PtoAIInfraPresentation?.operationGlyph ? global.PtoAIInfraPresentation.operationGlyph(`${t.id}:${stack.index}:${stage}`, `S${stack.index} · ${stages[stage]}`, n.x,n.y,W,H,stack.slot) : text(n.x+10,n.y+19,`S${stack.index}`)+text(n.x+10,n.y+36,`Slot ${stack.slot}`,'viz2-intra-node-slot')),
+          Object.keys(stages).map(stage=>{const n=stagePosition(t,stack,stage);
+            const label=presentation&&stage==='accumulate'?'Accum.':stages[stage];
+            return object('stage',stack.index,
+            rect(n.x,n.y,W,H,'viz2-intra-operation',`data-intra-operation="${stack.index}:${stage}"`)+(global.PtoAIInfraPresentation?.operationGlyph ? global.PtoAIInfraPresentation.operationGlyph(`${t.id}:${stack.index}:${stage}`, `S${stack.index} · ${label}`, n.x,n.y,W,H,stack.slot) : text(n.x+10,n.y+19,`S${stack.index}`)+text(n.x+10,n.y+36,`Slot ${stack.slot}`,'viz2-intra-node-slot')),
             `data-intra-stage="${stage}" aria-label="Stack ${stack.index} ${stages[stage]}，Slot ${stack.slot}"`);}).join('')+`</g>`).join('')+
         // A compact Stack navigator gives Stack selection a distinct hit target.
         t.stacks.map(stack=>{const n=stagePosition(t,stack,'qk');return object('stack',stack.index,rect(n.x,TOP+4*ROW+10,W,24,'viz2-intra-stack-hit')+text(n.x+8,TOP+4*ROW+27,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`);}).join('')+
@@ -129,10 +136,12 @@
         element.style.width=`${width}px`;element.style.left='0px';element.hidden=!current;
         element.style.opacity='1';
         element.classList.toggle('is-current',current);element.classList.remove('is-before');element.setAttribute('aria-current',String(current));
-        const localScale=current?scale:scales.get(tasks[index].id)||1,svg=element.querySelector('svg[data-intra-height]');
+        const svg=element.querySelector('svg[data-intra-height]');
         const scroller=element.querySelector('.viz2-intra-tick-scroll');
-        const diagramWidth=Number(svg.dataset.intraWidth)*localScale;
-        const vw=scroller.clientWidth,vh=scroller.clientHeight,dw=Number(svg.dataset.intraWidth),dh=Number(svg.dataset.intraHeight);svg.style.width='100%';svg.style.height='100%';const cp=current?pan:{x:0,y:0};svg.setAttribute('viewBox',[(dw-vw/localScale)/2+cp.x,(dh-vh/localScale)/2+cp.y,vw/localScale,vh/localScale].join(' '));
+        const size=viewportSize(tasks[index]);
+        if(automaticFit&&current)scale=fitScale(scroller,size);
+        const localScale=current?scale:scales.get(tasks[index].id)||1;
+        const vw=scroller.clientWidth,vh=scroller.clientHeight,dw=size.width,dh=size.height;svg.style.width='100%';svg.style.height='100%';const cp=current?pan:{x:0,y:0};svg.setAttribute('viewBox',[(dw-vw/localScale)/2+cp.x,(dh-vh/localScale)/2+cp.y,vw/localScale,vh/localScale].join(' '));
       });
       window.PtoPhotoNarrative.text(host.querySelector('[data-intra-scale]'),`${Math.round(scale*100)}%`);
     }
@@ -257,16 +266,17 @@
       const next=scenario.task('pipeline',id)||source,rebuild=task!==next;
       isCustom=!!scenario.get()?.isCustom;
       maxStacks=scenario.limits().stacks;stackInput.max=stackRange.max=maxStacks;
-      if(rebuild){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');stackInput.removeAttribute('aria-invalid');}
+      if(rebuild){if(!presentation||task?.id!==id){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;}window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');stackInput.removeAttribute('aria-invalid');}
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen&&!!focus;identity();
-      const needsInitialFit=!nextCamera&&!scales.has(id);
+      automaticFit=!!presentation&&!nextCamera;
+      const needsInitialFit=!presentation&&!nextCamera&&!scales.has(id);
       pan={x:nextCamera?.x||0,y:nextCamera?.y||0};scale=Math.max(.05,Math.min(3,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
       if(rebuild||block!==task.block){saveScroll();stop();buildBlock();}
       else if(entering){stop();position=target=tasks.findIndex(t=>t.id===id);velocity=0;}
       else if(changed){const index=tasks.findIndex(t=>t.id===id);if(Math.abs(position-index)>.001)snap(index);else target=index;}
       inspect();paint();paintFocus();if(entering||changed||focusChanged)revealFocus();
-      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=Math.max(.05,Math.min(1,(scroller.clientWidth-64)/size.width,(scroller.clientHeight-48)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});}}
+      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=fitScale(scroller,size);onCamera(task.id,{scale:fit,x:0,y:0});}}
     }
     function zoom(factor,point){
       paging.reset();const next=Math.max(.05,Math.min(3,scale*factor)),r=currentCard()?.querySelector('.viz2-intra-tick-scroll')?.getBoundingClientRect();const dx=point&&r?point.x-r.left-r.width/2:0,dy=point&&r?point.y-r.top-r.height/2:0;
@@ -276,14 +286,14 @@
     listen(host,'click',event=>{
       if(suppress){suppress=false;event.preventDefault();return;}tooltip.hidden=true;
       if(event.target.closest('[data-intra-graph-ready]')){stop();onNavigate?.();return;}
-      const operationSource=event.target.closest('[data-intra-operation-source]');if(operationSource){global.PtoComputeIDE.openSource({file:'paged_attention_pypto.py',start:Number(operationSource.dataset.intraOperationSource),end:Number(operationSource.dataset.intraOperationEnd)});return;}
+      const operationSource=event.target.closest('[data-intra-operation-source]');if(operationSource){(onOpenSource??global.PtoComputeIDE?.openSource)?.({file:'paged_attention_pypto.py',start:Number(operationSource.dataset.intraOperationSource),end:Number(operationSource.dataset.intraOperationEnd)});return;}
       const jump=event.target.closest('[data-intra-jump-task]');if(jump){if(Number(jump.dataset.intraJumpTask)!==task.id)return;onFocus({kind:jump.dataset.intraJumpKind,index:Number(jump.dataset.intraJumpIndex),...(jump.dataset.intraJumpStage?{stage:jump.dataset.intraJumpStage}:{})});return;}
       const sourceButton=event.target.closest('[data-intra-sync-source]');
       if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus);if(!sync)return;const ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;window.PtoPhotoNarrative.text(preview,global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n'));}return;}
       const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
       if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
       if(event.target.closest('[data-intra-close]')){paging.reset();onFocus(null);onInspector(false);return;}
-      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-64||size.width)/size.width,(scroller?.clientHeight-48||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
+      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=viewportSize(task),fit=scroller?fitScale(scroller,size):1;onCamera(task.id,{scale:fit,x:0,y:0});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
       const z=event.target.closest('[data-intra-zoom]');if(z){zoom(Number(z.dataset.intraZoom));return;}
       if(event.target.closest('[data-intra-prev]')){manualPage(target-1);return;}
       if(event.target.closest('[data-intra-next]')){manualPage(target+1);return;}
@@ -343,7 +353,7 @@
       const visibleRect=element=>{const r=screenRect(element),x=Math.max(clip.x,Math.min(r.x,clip.x+clip.width-1)),y=Math.max(clip.y,Math.min(r.y,clip.y+clip.height-1));return {x,y,width:Math.max(1,Math.min(r.width,clip.x+clip.width-x)),height:Math.max(1,Math.min(r.height,clip.y+clip.height-y))};};
       return {task:task.id,model:task,clip,frame:screenRect(card),title:screenRect(host.querySelector('[data-compute-identity]')),output:visibleRect(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:visibleRect(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};
     }
-    return {update,model,getOperationDescriptor(taskId,stack,stage){return (task?.id===taskId?task:model.tasks[taskId])?.operations.find(op=>op.stack===stack&&op.stage===stage)||null;},getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
+    return {update,model,validFocus,getOperationDescriptor(taskId,stack,stage){return (task?.id===taskId?task:model.tasks[taskId])?.operations.find(op=>op.stack===stack&&op.stage===stage)||null;},getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
       destroy(){active=false;saveScroll();stop();resizeObserver.disconnect();listeners.abort();host.classList.remove('viz2-intra-masked');host.replaceChildren();}};
   }
   global.PtoVisualization2PipelineIntra=Object.freeze({createModel,mount});

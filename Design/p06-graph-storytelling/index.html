@@ -39,39 +39,7 @@
 <body>
 <main class="pto-ide-frame story-shell" data-host="standalone">
   <div class="pto-ide-frame__workarea" id="ideWorkarea">
-    <article id="slide" aria-label="循环执行规模直观可见">
-      <header class="mast">
-        <p>PyPTO 3.0 <span> / </span> UX 设计 · 算法可感知</p>
-        <p><b id="task-context"></b><span> / </span> P06</p>
-      </header>
-      <h1>循环执行规模直观可见</h1>
-      <div class="stage" aria-label="Task 的数据分块与计算规模">
-        <header class="scene-heading">
-          <h2>数据分块决定重复计算规模</h2>
-          <p>Stack 决定模块重复几次，Page 决定 QK Matmul 重复几次。</p>
-        </header>
-        <div id="overview">
-          <div class="scale-summary" aria-label="重复规模">
-            <section><h3>Attention 计算模块</h3><strong id="module-count"></strong><p>每个 Stack 处理一组 Pages，汇出一份 Partial Context。</p></section>
-            <section><h3>QK Matmul</h3><strong id="qk-count"></strong><p>每个 Page 产生一份 Scores。次数按每 AIC、每 Task 计算。</p></section>
-          </div>
-          <section class="assignment viz2" aria-labelledby="assignment-title">
-            <h3 id="assignment-title">Assignment · Block 内</h3>
-            <p id="assignment-context"></p>
-            <div class="assignment-data">
-              <section><h4>KV Cache</h4><div id="assignment-stacks"></div></section>
-              <section id="assignment-query" aria-label="Q Tile"></section>
-            </div>
-          </section>
-          <section class="viz2 graph-view" aria-label="Task 完整 Graph">
-            <h3>Graph</h3>
-            <div class="graph-surface"><div id="graph" class="kf-pypa-graph__scene"></div></div>
-          </section>
-        </div>
-        <p id="story-note"></p>
-        <p id="error" role="alert" hidden>Task 视图未能加载。请保留本页与 Compute Explorer 的目录关系后重新打开。</p>
-      </div>
-    </article>
+    <article id="slide" aria-label="循环执行规模直观可见"></article>
   </div>
 </main>
 </body>

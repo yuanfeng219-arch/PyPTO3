@@ -102,12 +102,12 @@ function evolutionMarkup(e){
  const s=e.states,v=e.fifo.versions;
  return `<section class="viz2-stack-evolution" aria-label="S${e.index} 状态演化"><div class="viz2-stack-evolution__lane"><b>Previous · ${esc(e.previous)}</b><span>${esc(s.m.previous)} · ${esc(s.l.previous)} · ${esc(s.o.previous)}</span></div><div class="viz2-stack-evolution__lane"><b>Current · S${e.index}</b><span>Tick ${e.produceTick}: Scores → Online Softmax → ${esc(s.m.updated)}, ${esc(s.l.updated)}</span><small>m_new = max(m_old, row_max(Scores)); l_new = rescale × l_old + sum(exp)</small><span>Tick ${e.consumeTick}: PV Partial + delayed Rescale + ${esc(s.o.previous)} → ${esc(s.o.updated)}</span><small>o_new = delayed_rescale × o_old + PV Partial</small></div><div class="viz2-stack-evolution__lane"><b>Updated / Next</b><span>${esc(s.m.updated)} · ${esc(s.l.updated)} · ${esc(s.o.updated)}${e.next?` → ${esc(e.next)} Previous`:' → Output Normalize'}</span></div><div class="viz2-stack-evolution__fifo"><b>Rescale FIFO · 静态逻辑 Tick</b><span>produce → ${esc(v[0])} → ${esc(v[1])} → ${esc(v[2])}</span><small>Softmax 先生产；Context 在 ${e.consumeTick-e.produceTick} Tick 后读取 pending0，补偿此前 m 更新造成的缩放。</small></div></section>`;
 }
-function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
+function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate,presentation}){
  host.classList.add('viz2-compute');
  window.PtoPhotoNarrative.html(host,global.PtoComputeDetailControls.identity()+'<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>');
  const toolbar=host.querySelector('[data-compute-toolbar]');
  window.PtoPhotoNarrative.html(toolbar,global.PtoComputeDetailControls.parameter());
- const syncScenario=global.PtoComputeDetailControls.connect(host,scenario);
+ const syncScenario=global.PtoComputeDetailControls.connect(toolbar,scenario);
  window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),global.PtoComputeDetailControls.picker(model));
  let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null;
  const canvas=host.querySelector('.viz2-compute-canvas');
@@ -133,7 +133,8 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
   const sources=[...sync.producer.source.ranges.map((r,i)=>({end:'producer',range:i,label:`SET · :${r.start}–${r.end}`})),...waitRanges.map((r,i)=>({end:'consumer',range:i,label:`WAIT · :${r.start}–${r.end}`}))];
   return `<div class="viz2-ready-source-links">${sources.map(r=>`<button class="btn btn-ghost btn-sm" data-compute-sync-source="${sync.id}" data-compute-sync-end="${r.end}" data-compute-sync-range="${r.range}">${esc(r.label)}</button>`).join('')}</div><button class="btn btn-sm" data-compute-pipeline-ready>在 Pipeline 中查看</button><pre data-compute-code hidden></pre><details class="viz2-inspector-details"><summary>同步证据</summary><dl>${detail.rows.map(r=>`<dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd>`).join('')}</dl></details>`;
  };
- function executionData(graph){
+ function executionData(graph,taskForCounts=task){
+  const task=taskForCounts;
   const data=global.PtoPagedAttentionExecution.derive(task.graph,global.PtoPagedAttentionIntro.model,{task:task.id,seqLen:task.seqLen});
   if(!data)return null;
   const entry=(count,unit,formula,source)=>({count,unit,label:`${isCustom?'模拟 · ':''}×${count} · ${unit}`,formula,source});
@@ -201,7 +202,12 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
   return `<section class="viz2-page-instances"><h3>Page Instances · ${task.pageCount}</h3><p>Per Task / AIC · 每 Page 一次逻辑贡献；源码静态推导，物理 Cache Page ID 未知。</p>${groups.map(group=>`<div class="viz2-page-instance-group"><b>S${group.index}</b><div>${group.pages.map(page=>`<button class="btn btn-ghost btn-sm ${selected?.index===page.index?'is-selected':''}" data-compute-instance-page="${page.index}" aria-pressed="${selected?.index===page.index}" title="${esc(page.api)}">P${page.index}${root==='pv'?` · ${page.api.replace('pl.','')}`:''}</button>`).join('')}</div></div>`).join('')}${selected?`<section><h3>P${selected.index} · S${selected.stack}</h3><dl>${[['Page Index',selected.index],['有效 Token',`${selected.tokens} / ${task.pageTokens}`],['输入',selected.input],['计算',selected.api],['输出',selected.output]].map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl><button class="btn btn-ghost btn-sm" data-compute-source="${line}">PyPTO 源码 :${line}</button><pre data-compute-code hidden></pre></section>`:''}</section>`;
  }
  const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
-  narrativeTask:()=>task,alwaysExecution:true,initialMinScale:.5,initialAlignStart:true,getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
+  narrativeTask:()=>task,alwaysExecution:true,initialMinScale:.5,initialAlignStart:true,
+  ...(presentation?{
+   fitOnEnter:true,
+   fitPadding:{top:30,right:22,bottom:18,left:22},
+   layoutExecutionData:graph=>executionData(graph,presentation.layoutTask),
+  }:{}),getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
   stageLabel:g=>`<b>${esc(g.label)}</b>`,
   context:()=> 'Static Execution Weight · AIC / 每 AIV Lane 分别统计 · 非耗时',
   hasInspector:()=>!!focus,
@@ -243,9 +249,9 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate}){
  return {update(id,f,v,{active:next}={}){
   if(model.tasks[id])sourceTask=model.tasks[id];
   const effective=scenario.task('graph',id)||sourceTask;
-  const changed=task!==effective;task=effective;isCustom=!!scenario.get()?.isCustom;
+  const changed=task!==effective, preserveView=presentation&&task.id===effective.id;task=effective;isCustom=!!scenario.get()?.isCustom;
   focus=f;view=v;active=!!next;hover=null;
-  if(changed){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');pageInput.removeAttribute('aria-invalid');}
+  if(changed){if(!preserveView){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};}window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');pageInput.removeAttribute('aria-invalid');}
   maxPages=scenario.limits().pages;pageInput.max=pageRange.max=maxPages;
   if((Number.isInteger(f?.stackIndex)&&f.stackIndex>=task.stackCount)||(f?.kind==='stack'&&f.index>=task.stackCount)||(f?.kind==='page'&&f.index>=task.pageCount)){focus=null;f=null;v={...v,intraInspectorOpen:false};}
   if(active){

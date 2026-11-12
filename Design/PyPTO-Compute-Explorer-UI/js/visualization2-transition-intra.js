@@ -172,6 +172,25 @@
       // Keep the exact final outlines over a painted destination for one full frame.
       current.frame=requestAnimationFrame(()=>{if(job===current)current.frame=requestAnimationFrame(()=>{if(job===current)cancel();});});
     }
+    function startTimeline(current,duration,draw){
+      current.phase='animating';
+      current.duration=duration;
+      current.animations.forEach(animation=>animation.pause());
+      current.render=elapsed=>{
+        current.animations.forEach(animation=>{animation.currentTime=elapsed;});
+        draw(elapsed);
+      };
+      current.render(0);
+      if(current.manual)return;
+      const started=performance.now();
+      function frame(now){
+        if(job!==current)return;
+        const elapsed=Math.min(duration,now-started);
+        current.render(elapsed);
+        if(elapsed<duration)current.frame=requestAnimationFrame(frame);else finish(current);
+      }
+      current.frame=requestAnimationFrame(frame);
+    }
     function startGather(current,target,mapping){
       const o=origin(),overlay=svg('svg',{class:'viz2-transition-overlay',width:o.width,height:o.height,viewBox:`0 0 ${o.width} ${o.height}`,'aria-hidden':'true','data-direction':`${current.from}-${current.to}`},root);
       Object.assign(overlay.style,{overflow:'visible',visibility:'visible',opacity:'1'});
@@ -213,13 +232,7 @@
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
       const wasInert=current.destination.inert;current.destination.inert=true;current.restores.push(()=>{current.destination.inert=wasInert;});
       current.pendingStyle?.remove();current.pendingStyle=null;
-      current.phase='animating';const started=performance.now();
-      function frame(now){
-        if(job!==current)return;
-        const elapsed=Math.min(1100,now-started);draw(elapsed);
-        if(elapsed<1100)current.frame=requestAnimationFrame(frame);else finish(current);
-      }
-      current.frame=requestAnimationFrame(frame);
+      startTimeline(current,1100,draw);
     }
     // A computation-only paint snapshot: computed values preserve ID-scoped styles
     // without cloning the Detail shell, controls, fixed UI, or live interactions.
@@ -258,15 +271,15 @@
       for(const [element,clone] of [[viewport,paint],...[...viewport.querySelectorAll('*')].map(el=>[el,cloneMap.get(el)])])if(clone){clone.scrollTop=element.scrollTop;clone.scrollLeft=element.scrollLeft;}
       return {hold,cloneMap};
     }
-    function prepare(state,to){
+    function prepare(state,to,{manual=false}={}){
       cancel();
       const from=state.activeTab,task=state.selection?.task;
-      if(!state.open||from===to||media.matches||state.selection?.kind!=='task'||state.views[from]?.subview!=='block'||!Number.isInteger(task))return null;
+      if(!state.open||from===to||(!manual&&media.matches)||state.selection?.kind!=='task'||state.views[from]?.subview!=='block'||!Number.isInteger(task))return null;
       const gathered=[from,to].includes('assignment')&&[from,to].includes('graph');
       const source=snapshot(from,task,gathered);
       if(!source)return null;
       const {hold,cloneMap}=canvasHold(source,serial+1);
-      const current={id:++serial,from,to,task,source,gathered,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
+      const current={id:++serial,from,to,task,source,gathered,manual,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
       const pendingStyle=document.createElement('style');
       window.PtoPhotoNarrative.text(pendingStyle,`#${CSS.escape(root.id)} ${panes[to]} ${canvasSelector(to)}{visibility:hidden;opacity:0}`);
       root.append(pendingStyle);current.pendingStyle=pendingStyle;
@@ -325,10 +338,7 @@
         return {...pair,box,label,sourceContent};
       });
       current.pendingStyle?.remove();current.pendingStyle=null;
-      current.phase='animating';const started=performance.now(),duration=900;
-      function frame(now){
-        if(job!==current)return;
-        const elapsed=now-started;
+      startTimeline(current,900,elapsed=>{
         for(const item of items){
           const p=ease(clamp((elapsed-150-item.priority*.5)/610)),a=item.source.box,b=item.target.box;
           let geometry={x:mix(a.x,b.x,p),y:mix(a.y,b.y,p),width:mix(a.width,b.width,p),height:mix(a.height,b.height,p)};
@@ -340,13 +350,19 @@
           item.label.style.opacity=String(Math.min(1,p*4)*(1-Math.max(0,(p-.78)/.22)));
           item.box.style.opacity='1';
         }
-        if(elapsed<duration)current.frame=requestAnimationFrame(frame);else finish(current);
-      }
-      frame(started);
+      });
     }
-    global.addEventListener('resize',cancel);media.addEventListener('change',cancel);
-    root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.hold?.contains(event.target))cancel();},true);
-    return {prepare,play,cancel,get active(){return !!job;},get animating(){return job?.phase==='animating';}};
+    function seek(current,progress){
+      if(!current||current!==job||!current.manual)return false;
+      if(!current.render)start(current);
+      if(!current.render||current!==job)return false;
+      current.render(clamp(progress)*current.duration);
+      return true;
+    }
+    function cancelAutomatic(){if(job&&!job.manual)cancel();}
+    global.addEventListener('resize',cancelAutomatic);media.addEventListener('change',cancelAutomatic);
+    root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.manual&&!job.hold?.contains(event.target))cancel();},true);
+    return {prepare,play,seek,cancel,get active(){return !!job;},get animating(){return job?.phase==='animating';}};
   }
   global.PtoVisualization2IntraMorph=Object.freeze({create,mapFocus,stackOf});
 })(window);
