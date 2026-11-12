@@ -76,7 +76,7 @@
       ordering: ['<b>' + f.valid + '</b><i>｜</i><b class="is-dim">' + f.empty + '</b>', '真活在前'],
       assignment: ['<b>' + N + '</b>', '个核轮流领'],
       rounds: ['<b>' + f.rounds + '</b>', '轮'],
-      eval: ['<b class="' + verdict(m.ratio) + '">' + m.ratio.toFixed(2) + '×</b>', '分得好不好']
+      eval: ['<b class="' + verdict(m.ratio) + '">' + m.ratio.toFixed(2) + '×</b>', '好不好 · 空等 ' + Math.round(m.wait * 100) + '%']
     }[k];
     return '<button type="button" class="wb-flow-n' + (k === step ? ' is-on' : '') + '" data-wb-flow="' + k + '" aria-pressed="' + (k === step) + '">'
       + '<span class="wb-flow-g">' + G[k] + '</span><span class="wb-flow-v">' + v[0] + '</span><span class="wb-flow-k">' + v[1] + '</span></button>';
@@ -311,7 +311,7 @@
     const pipe = onTab('pipeline');
     if (k === 'rounds' || k === 'eval') {
       evalMode = k === 'eval';
-      if (!pipe) { const r = bar.querySelector('[data-wb-step="rounds"]'); if (r) r.click(); }
+      if (!pipe) { const r = tabs.querySelector('[data-tab="pipeline"]'); if (r && !r.disabled) r.click(); }
       schedule(false);
       return;
     }
