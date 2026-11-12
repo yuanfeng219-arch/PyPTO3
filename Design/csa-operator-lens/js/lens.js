@@ -94,6 +94,7 @@
         + hl(t) + (tag ? '<span class="cl-tag t-' + tag[1] + '" title="' + esc(tag[2]) + '">' + esc(tag[0]) + '</span>' : '') + '</span></div>';
     }
     if (b < lines.length - 1) html += '<div class="cl-gap"><span></span><span></span><span>… ' + (b + 1) + '–' + (lines.length - 1) + ' 行：测试入口、golden 与输入构造，不在本页范围</span></div>';
+    if (window.workbenchCancelSourceScroll) window.workbenchCancelSourceScroll($('srcFile'));
     $('srcFile').innerHTML = html;
     $('srcFile').scrollTop = 0;
   }
@@ -104,7 +105,11 @@
     const top = first.offsetTop, bottom = last.offsetTop + last.offsetHeight;
     if (top >= box.scrollTop && bottom <= box.scrollTop + box.clientHeight) return;
     const target = bottom - top < box.clientHeight ? (top + bottom - box.clientHeight) / 2 : top - 24;
-    box.scrollTo({ top: Math.max(0, target), behavior: smooth === false ? 'auto' : 'smooth' });
+    if (smooth !== false && window.workbenchScrollSource) window.workbenchScrollSource(box, target);
+    else {
+      if (window.workbenchCancelSourceScroll) window.workbenchCancelSourceScroll(box);
+      box.scrollTo({ top: Math.max(0, target), behavior: smooth === false ? 'auto' : 'smooth' });
+    }
   }
 
   // ── 行 → 对象 ──
@@ -298,10 +303,21 @@
       k = entryKernel(p);
     }
     if (!k) return false;
-    setDetailVisible(false);
     state.kernel = k; state.module = D.KERNELS[k].module; state.sel = null;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setLevel(2); }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setDetailVisible(false); setLevel(2); }
+    else if (document.body.dataset.workbenchTransition === 'true' && document.startViewTransition) {
+      const frameRect = $('layerFrame').getBoundingClientRect(), mid = $('lensMid'), midRect = mid.getBoundingClientRect();
+      const x = frameRect.left - midRect.left + (point && Number.isFinite(point.x) ? point.x : frameRect.width / 2);
+      const y = frameRect.top - midRect.top + (point && Number.isFinite(point.y) ? point.y : frameRect.height / 2);
+      document.documentElement.style.setProperty('--wb-origin-x', Math.max(0, Math.min(midRect.width, x)) + 'px');
+      document.documentElement.style.setProperty('--wb-origin-y', Math.max(0, Math.min(midRect.height, y)) + 'px');
+      document.body.classList.add('is-workbench-drill');
+      const transition = document.startViewTransition(function () { setDetailVisible(false); setLevel(2); });
+      const finishTransition = function () { document.body.classList.remove('is-workbench-drill'); };
+      transition.finished.then(finishTransition, finishTransition);
+    }
     else {
+      setDetailVisible(false);
       const frame = $('layerFrame'), rect = frame.getBoundingClientRect();
       // 图内坐标相对于 iframe；限制到可见画布，避免缩放焦点落在屏幕外。
       const x = point && Number.isFinite(point.x) ? Math.max(0, Math.min(rect.width, point.x)) : rect.width / 2;
@@ -310,6 +326,8 @@
       frame.style.setProperty('--drill-y', y + 'px');
       frame.style.setProperty('--drill-dx', (rect.width / 2 - x) + 'px');
       frame.style.setProperty('--drill-dy', (rect.height / 2 - y) + 'px');
+      frame.style.setProperty('--wb-drill-dx', ((rect.width / 2 - x) * .28) + 'px');
+      frame.style.setProperty('--wb-drill-dy', ((rect.height / 2 - y) * .28) + 'px');
       $('viewLayer').classList.add('is-drilling-out');
       drillTimer = window.setTimeout(function () {
         drillTimer = null;
@@ -321,7 +339,7 @@
           view.classList.remove('is-drilling-in');
           view.removeEventListener('animationend', finish);
         });
-      }, 420);
+      }, document.body.dataset.workbenchTransition === 'true' ? 320 : 420);
     }
     return true;
   }

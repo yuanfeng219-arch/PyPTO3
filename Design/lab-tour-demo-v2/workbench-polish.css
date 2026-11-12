@@ -91,6 +91,27 @@
 .lens-src .cl.is-phase { background: rgb(255 255 255 / 4.5%); }  /* L1 当前阶段的源码行：中性高亮 */
 .lens-src .cl.is-phase .cl-mark { box-shadow: inset 2px 0 0 #c6c7cb; }
 .lens-src .cl.is-phase .cl-no { color: var(--text); }
+/* 支持页面快照时，画布和其余界面各自过渡，节点是镜头推进的焦点。 */
+body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
+::view-transition-group(wb-drill-graph) { animation-duration: 440ms; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+::view-transition-old(wb-drill-graph) { transform-origin: var(--wb-origin-x, 50%) var(--wb-origin-y, 50%); animation: wb-graph-out 440ms cubic-bezier(.4, 0, .2, 1) both; }
+::view-transition-new(wb-drill-graph) { animation: wb-graph-in 440ms cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes wb-graph-out { to { opacity: 0; transform: scale(1.08); } }
+@keyframes wb-graph-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+:root:has(body.is-workbench-drill)::view-transition-old(root), :root:has(body.is-workbench-drill)::view-transition-new(root) { animation-duration: 440ms; animation-timing-function: ease-in-out; }
+/* 不支持页面快照时沿用轻量的节点推进。 */
+.lens-view.is-drilling-out .lens-frame { animation: wb-drill-out 320ms cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes wb-drill-out {
+  to { opacity: .82; transform: translate(var(--wb-drill-dx, 0px), var(--wb-drill-dy, 0px)) scale(1.25); }
+}
+/* 源码联动高亮随视线平滑切换。 */
+#hpCodePane .cl { transition: background-color .24s ease; }
+#hpCodePane .cl-mark { transition: box-shadow .24s ease; }
+#hpCodePane .cl-no { transition: color .24s ease; }
+@media (prefers-reduced-motion: reduce) {
+  #hpCodePane .cl, #hpCodePane .cl-mark, #hpCodePane .cl-no { transition: none; }
+  .lens-view.is-drilling-out .lens-frame { animation: none; }
+}
 
 /* ── 4 L2 画布分配 ── */
 /* 页签和资源读数保持同一行，切换时标题栏高度不变。 */
@@ -347,3 +368,109 @@
 .wb-advice-strip > b { color: var(--text); }
 .wb-adv-ba.is-sm { font-size: 15px; }
 .wb-advice-strip .wb-adv-go { width: auto; height: 26px; padding: 0 12px; margin-left: auto; }
+
+/* ── 11 硅片落点图整理（与 workbench-chip.js 配合） ── */
+/* P0-1 AIV1 “只占了地址、没有数据”：缓冲画成斜纹空心，和 AIV0 的实心蓝并排一比就看出来。
+   （第 0 节给 .hp-svg .sv-buf.k-* 换了蓝色，盖掉了原来的 is-idle 斜纹，这里提高优先级补回） */
+#hpSvg .sv-buf.is-idle { fill: url(#csIdle); stroke: rgb(251 197 104 / 70%); stroke-width: .8; stroke-dasharray: 2 2; }
+/* P0-2 默认不点亮：联动高亮只在悬停（body.is-focusing）或详情窗打开（有问题分析解释它）时出现，
+   否则三个大框都是白粗边，谁都不突出；AIV1 的琥珀虚线成为全图唯一的强调 */
+body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region.is-hot > .sv-box { stroke: var(--wb-box-stroke, #383838); stroke-width: 1; }
+body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region.is-hot .sv-mem { stroke: var(--wb-mem-stroke, #3b3b3b); stroke-width: 1; }
+body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region.is-hot .sv-l1 { stroke: #131313; stroke-width: .8; }
+body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region[data-region="aiv1"].is-hot > .sv-box,
+#hpSvg .sv-region[data-region="aiv1"] > .sv-box { stroke: var(--amber); stroke-width: 1.5; stroke-dasharray: 5 4; }
+/* P0-3 184 可用只是容量参考线：中性灰；红色只留给真的超限（.sv-over / .sv-reserved） */
+#hpSvg .sv-line-usable { stroke: #8a8a8a; }
+#hpSvg .sv-bad { fill: var(--muted); }
+/* P1-4 Block 0 分组框 + 放大锥 */
+#hpSvg .sv-frame.wb-block { fill: rgb(255 255 255 / 1.5%); stroke: rgb(226 227 233 / 16%); stroke-dasharray: 4 3; rx: 12px; }
+#hpSvg .wb-cone { fill: rgb(255 255 255 / 4%); stroke: rgb(226 227 233 / 14%); stroke-width: .8; pointer-events: none; }
+#hpSvg .wb-block-k { fill: var(--muted); letter-spacing: .04em; }
+#hpSvg .wb-strip-plate { fill: #131313; fill-opacity: .9; pointer-events: none; }
+/* P1-5 数据流：线色跟数据角色；底色描边让交叉处留缝 */
+#hpSvg .wb-links { pointer-events: none; }
+#hpSvg .wb-link-gap { fill: none; stroke: #191919; stroke-width: 4; }
+#hpSvg .wb-link { fill: none; stroke-width: 1.4; stroke-linejoin: round; }
+#hpSvg .wb-link.is-q { stroke: var(--lime); }
+#hpSvg .wb-link.is-kv { stroke: var(--lav-ink); }
+#hpSvg .wb-link.is-vec { stroke: var(--sky-ink); }
+#hpSvg .wb-link.is-dim { stroke: #92939a; stroke-dasharray: 4 3; }
+#hpSvg .wb-link-k { font: 10px var(--sans); }
+#hpSvg .wb-link-k.is-vec { fill: var(--sky-ink); }
+#hpSvg .wb-link-k.is-dim { fill: var(--muted); }
+/* P1-7 GM 卡：点阵只做底纹，文字区不再被压 */
+#hpSvg .sv-region[data-region^="gm-"] svg rect[fill="none"] { stroke-opacity: .32; }
+/* P2-8 字体：说明文字用正文字体、略放大；标题保留等宽，字距收一点 */
+#hpSvg .sv-label { font-family: var(--sans); font-size: 10.5px; letter-spacing: 0; }
+#hpSvg .sv-text { font-family: var(--sans); font-size: 11px; }
+#hpSvg .sv-title { letter-spacing: .06em; }
+#hpSvg .wb-chip-foot { fill: var(--dim); font-size: 10px; }
+/* P2-10 段说明引线 */
+#hpSvg .wb-leader { fill: none; stroke: rgb(226 227 233 / 28%); stroke-width: .8; pointer-events: none; }
+#hpSvg .wb-block-sub { fill: var(--dim); }
+
+/* ── 12 硅片落点图信息分层（workbench-chip.js 标出 .wb-sec 次要信息） ── */
+/* 次要说明默认隐藏：悬停所属区块（.is-peek）、点击钉住、源码联动点亮（悬停源码时的 .is-hot）或“全部标注”时显示 */
+#hpSvg .wb-sec { opacity: 0; pointer-events: none; transition: none; }
+#hpSvg .wb-sec.is-peek, #hpSvg svg.wb-all .wb-sec, body.is-focusing #hpSvg .sv-region.is-hot .wb-sec { opacity: 1; }
+#hpSvg .sv-region.wb-pinned > .sv-box, #hpSvg .sv-region.wb-pinned > .sv-mem, #hpSvg .sv-region.wb-pinned .sv-mem { stroke: #c6c7cb; stroke-width: 1.2; }
+#hpSvg .wb-peek-hint { fill: var(--dim); font: 10px var(--sans); pointer-events: none; }
+#hpSvg svg.wb-all .wb-peek-hint { opacity: 0; }
+.wb-peek-all { flex: none; height: 26px; padding: 0 12px; border: 0; border-radius: var(--demo-radius-control); background: var(--demo-raised); color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+.wb-peek-all:hover { background: #2a2a2a; color: var(--text); }
+.wb-peek-all[aria-pressed="true"] { background: #eee; color: #111; font-weight: 600; }
+.wb-peek-all:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 2px; }
+/* 资源读数行：常驻 Vec 与 AIV 在算两项，其余悬停这一行时展开 */
+.wb-chip-extra .chip-stats .wb-stat-sec { display: none; }
+.wb-chip-extra .chip-stats:hover .wb-stat-sec, .wb-chip-extra .chip-stats:focus-within .wb-stat-sec { display: inline-flex; }
+
+/* ── 13 两张图同一对象同一图元（workbench-polish.js unifyLogic + workbench-chip.js unify） ── */
+/* 执行单元竖条：搬运 GM→L1 绿 · Cube（AIC）紫 · Vec（AIV）蓝；计算图阶段卡与硅片图 AIC / AIV 框同一套 */
+#hpLogic .wb-logic .wb-unit, #hpSvg .wb-unit { pointer-events: none; }
+.wb-unit.is-gm { fill: var(--lime); } .wb-unit.is-cube { fill: var(--lav); } .wb-unit.is-vec { fill: var(--sky); }
+#hpLogic .wb-logic .wb-unit-k { font: 600 9.5px var(--mono); letter-spacing: .02em; pointer-events: none; }
+.wb-unit-k.is-gm { fill: var(--lime-ink); } .wb-unit-k.is-cube { fill: var(--lav-ink); } .wb-unit-k.is-vec { fill: var(--sky-ink); }
+/* SPMD 迷你方块条（计算图）与硅片图的 24 个小方块同形；硅片图标签前加计算图同款竖条图标 */
+#hpLogic .wb-logic .wb-mini-cores rect { fill: none; stroke: #92939a; stroke-width: .7; }
+#hpLogic .wb-logic .wb-mini-cores rect.is-on { fill: #d8d8d8; stroke: none; }
+#hpSvg .wb-chip-ic { fill: var(--fw); pointer-events: none; }
+/* 2 槽：两张图都是亮蓝方块（计算图 PIPELINE 右上角已是 --sky） */
+#hpSvg .sv-slot { fill: var(--sky); stroke: none; }
+#hpSvg .sv-l1.k-slot { fill: var(--sky); }
+#hpSvg .sv-region[data-region="l1-slot"] text { fill: #fff; }
+/* L1 上的 Q / KV = 计算图的 Q 块 / KV 张量：亮色 + 网格纹理 + 深色字 */
+#hpSvg .sv-l1.k-q { fill: var(--lime); }
+#hpSvg .sv-l1.k-kv { fill: var(--lav); }
+#hpSvg .wb-tensor text { fill: #080808 !important; font-weight: 700; }
+/* Q / KV 进入 Q·Kᵀ 的连线按角色上色，与硅片图 GM → L1 同色 */
+#hpLogic .wb-logic .lg-edge[data-from="q"] { stroke: var(--lime); marker-end: url(#wbLgQ); }
+#hpLogic .wb-logic .lg-edge[data-from="kvref"] { stroke: var(--lav-ink); marker-end: url(#wbLgKv); }
+/* 写回：从整个 block 发出（mi / li 来自 AIV0，oi 来自 AIC L0C） */
+#hpSvg .wb-link.is-out { stroke: #c6c7cb; }
+#hpSvg .wb-link-k.is-out { fill: var(--muted); }
+#hpSvg .wb-link.is-pipe { stroke: #92939a; }
+#hpSvg .wb-link.is-acc { stroke: var(--amber); }
+#hpSvg .wb-sw { stroke: none; }
+
+/* ── 15 硅片落点图：图形与布局参考 PTO 设计系统 hardware-architecture-viewport，颜色 / 字体 / 面板质感沿用本页（与上方计算图一致） ── */
+/* 核面板：同计算图阶段卡（#262628、圆角 8、无描边）；AIV1 保留琥珀虚线 */
+#hpSvg .sv-region:is([data-region="aic"], [data-region="aiv0"], [data-region="aiv1"]) { --wb-box-stroke: transparent; }
+#hpSvg .sv-region:is([data-region="aic"], [data-region="aiv0"], [data-region="aiv1"]) > .sv-box { fill: #262628; stroke: transparent; rx: 8px; }
+#hpSvg .sv-region[data-region="aiv1"] > .sv-box { stroke: var(--amber); }
+/* 存储：中性底 + 灰点阵（同 GM 卡片与原 L0），占用条仍按数据角色上色 */
+#hpSvg .wb-buf { --wb-mem-stroke: rgb(226 227 233 / 12%); }
+#hpSvg .wb-buf .sv-mem { fill: #303033; stroke: var(--wb-mem-stroke); rx: 5px; }
+/* 计算：实心块，按执行单元着色——Cube 紫、Vec 蓝（同计算图角标 AIC · Cube / AIV · Vec） */
+#hpSvg .wb-compute { --wb-mem-stroke: transparent; }
+#hpSvg .wb-compute .sv-mem { fill: var(--lav-mute); stroke: transparent; rx: 8px; }
+#hpSvg .wb-vector { fill: var(--sky-mute); }
+#hpSvg .wb-vector.is-idle { opacity: .3; }
+#hpSvg .wb-compute-k { fill: #fff !important; font: 600 11.5px var(--sans); pointer-events: none; }
+#hpSvg .wb-vec-link { fill: none; stroke: var(--sky-ink); stroke-width: 1.4; pointer-events: none; }
+/* 搬运单元：胶囊，同源码栏“GM → L1 · DMA”标签（深底 + 绿字 + 等宽字） */
+#hpSvg .wb-pill { fill: color-mix(in srgb, var(--lime) 14%, var(--canvas)); stroke: rgb(136 236 48 / 40%); stroke-width: .8; }
+#hpSvg .wb-pill-k { fill: #c5f39c; font: 600 8.5px var(--mono); }
+/* 悬停联动 / 钉住时的白色高亮边：盖过上面的“无描边 / 蓝描边” */
+body.is-focusing #hpSvg .sv-region.is-hot > .sv-box, body.is-focusing #hpSvg .sv-region.is-hot .sv-mem,
+#hpSvg .sv-region.wb-pinned > .sv-box, #hpSvg .sv-region.wb-pinned .sv-mem { stroke: var(--text); stroke-width: 1.5; }

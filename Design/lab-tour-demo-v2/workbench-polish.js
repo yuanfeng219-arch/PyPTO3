@@ -135,6 +135,34 @@
       lone.remove();
     }
     addFlowContext(svg);
+    unifyLogic(svg, group, defs);
+  }
+
+  // ── 与下方硅片图统一图元（硅片图一侧见 workbench-chip.js 的 unify） ──
+  //   阶段卡左侧加执行单元竖条 + 角标：① 搬运（GM→L1，绿）、②④ AIC · Cube（紫）、③ AIV · Vec（蓝），对应硅片图 AIC / AIV 框上的同色竖条
+  //   PIPELINE 的两格在飞 = 硅片图 C2V / V2C 的 2 个槽：文字统一叫“2 槽”
+  //   SPMD 标题右侧加一段迷你方块条，呼应硅片图的 PL.SPMD × 24
+  //   Q / KV 张量进入 Q·Kᵀ 的连线按角色上色（Q 绿、KV 紫），与硅片图 GM → L1 的连线同色
+  const UNIT = { 'p-gather': ['gm', '搬运 · GM→L1'], 'p-score': ['cube', 'AIC · Cube'], 'p-softmax': ['vec', 'AIV · Vec'], 'p-weight': ['cube', 'AIC · Cube'] };
+  function unifyLogic(svg, group, defs) {
+    Object.keys(UNIT).forEach(function (id) {
+      const g = group(id), r = g && g.querySelector('.lg-phase');
+      if (!r) return;
+      const x = Number(r.getAttribute('x')), y = Number(r.getAttribute('y')), w = Number(r.getAttribute('width')), h = Number(r.getAttribute('height'));
+      svgEl('text', { x: x + w - 8, y: y + 15, 'text-anchor': 'end', class: 'wb-unit-k is-' + UNIT[id][0] }, g).textContent = UNIT[id][1];
+    });
+    svg.querySelectorAll('text').forEach(function (t) {
+      if (/两块同时在飞/.test(t.textContent)) t.textContent = t.textContent.replace('两块同时在飞', '2 槽同时在飞');
+    });
+    const spmd = group('f-spmd');
+    if (spmd) {
+      const strip = svgEl('g', { class: 'wb-mini-cores', 'pointer-events': 'none' }, spmd);
+      for (let i = 0; i < 24; i++) svgEl('rect', { x: 560 + i * 5.6, y: 17, width: 4.2, height: 7, rx: 1, class: i ? '' : 'is-on' }, strip);
+    }
+    [['wbLgQ', 'var(--lime)'], ['wbLgKv', 'var(--lav-ink)']].forEach(function (m) {
+      const mk = svgEl('marker', { id: m[0], viewBox: '0 0 8 8', refX: '7', refY: '4', markerWidth: '6', markerHeight: '6', orient: 'auto' }, defs);
+      svgEl('path', { d: 'M0 0 L8 4 L0 8 z', style: 'fill:' + m[1] }, mk);
+    });
   }
 
   // ── 4b Kernel 计算图带上模块内的上下游 ──

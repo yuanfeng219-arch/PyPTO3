@@ -783,7 +783,8 @@
     const top = first.offsetTop, bottom = last.offsetTop + last.offsetHeight;
     if (top >= box.scrollTop && bottom <= box.scrollTop + box.clientHeight) return;
     const target = bottom - top < box.clientHeight ? (top + bottom - box.clientHeight) / 2 : top - 24;
-    box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+    if (window.workbenchScrollSource) window.workbenchScrollSource(box, target);
+    else box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
   }
   function applyFocus() {
     const f = focusFor(state.hover) || sectionFocus();
