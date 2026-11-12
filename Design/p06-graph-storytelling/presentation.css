@@ -1,0 +1,91 @@
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  display: grid; place-items: center; min-height: 100dvh; margin: 0;
+  color: var(--foreground); background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.story-shell.pto-ide-frame {
+  --ide-frame-bg: var(--background);
+  width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 0;
+}
+#ideWorkarea { position: relative; }
+#slide {
+  --repeat-ink: #a8bcf6;
+  --result-ink: #e5bd79;
+  position: absolute; width: 1600px; height: 900px; padding: 36px 58px 24px;
+  transform-origin: top left; transform: scale(var(--slide-scale, 1));
+  display: grid; grid-template-rows: 28px 80px minmax(0, 1fr);
+}
+.mast { display: flex; align-items: center; justify-content: space-between; }
+.mast { color: var(--foreground-secondary); font-size: 14px; }
+.mast p { margin: 0; }
+.mast span { margin-inline: 9px; opacity: .65; }
+.mast b { font-weight: 500; }
+h1 { margin: 10px 0 0; font-size: 48px; line-height: 1.14; letter-spacing: -.025em; }
+.stage { position: relative; }
+.scene-heading { position: relative; z-index: 3; }
+.scene-heading h2 { margin: 0 0 8px; font-size: 29px; }
+.scene-heading p { margin: 0; color: var(--foreground-secondary); font-size: 18px; }
+#overview {
+  position: absolute; inset: 80px 0 50px;
+  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 48px;
+}
+.assignment h3, .graph-view h3 { margin: 0; font-size: 19px; }
+.assignment h4 { margin: 0 0 8px; font-size: 14px; color: var(--foreground-secondary); }
+#assignment-context { margin: 9px 0 14px; color: var(--foreground-secondary); font: 14px var(--font-mono); }
+.assignment-data { display: grid; grid-template-columns: 238px 116px; gap: 18px; }
+.assignment-data svg.viz2-anatomy-svg { width: 100% !important; height: auto !important; }
+.assignment-data [data-anatomy-kind] { cursor: default; pointer-events: none; }
+.assignment-data .viz2-anatomy-stack-boundary { fill: var(--surface-3); }
+.assignment-data [data-anatomy-kind="page"] text { fill: #111; }
+.task-controls { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; }
+#task-list, .playback { display: flex; align-items: center; gap: 4px; }
+.task-controls .btn { min-height: 28px; padding: 3px 8px; font-size: 13px; }
+.task-controls button[aria-pressed="true"] { background: var(--surface-3); color: var(--foreground); }
+.graph-view { display: flex; flex-direction: column; min-height: 0; min-width: 0; margin-bottom: -17px; }
+.graph-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.scale-summary { display: flex; gap: 20px; color: var(--foreground-secondary); font-size: 14px; }
+.scale-summary strong { margin-left: 4px; color: var(--repeat-ink); font: 600 19px var(--font-mono); }
+.scale-summary span + span strong { color: var(--result-ink); }
+.graph-surface { position: relative; flex: 1; min-height: 0; margin-top: 4px; }
+.graph-crop { position: relative; overflow: hidden; }
+#graph :is(.attention-layer,.kf-pypa-graph__execution-layer) { transition: opacity 250ms ease; }
+#graph .attention-layer.is-inactive, #graph .kf-pypa-graph__execution-layer.is-inactive { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  #graph :is(.attention-layer,.kf-pypa-graph__execution-layer) { transition: none; }
+}
+#graph .kf-pypa-graph__node:disabled { opacity: .62; cursor: default; }
+#graph .kf-pypa-graph__edge-hit { display: none; }
+#graph .ai-role-tensor .data-tile { opacity: .24; }
+#graph .ai-role-tensor text { fill: var(--foreground); stroke-width: 0 !important; }
+#graph :is([data-pypa-edge-label], .kf-pypa-graph__edge-tag, .kf-pypa-graph__sync) { opacity: .24; }
+#graph .kf-pypa-graph__edge { opacity: .35; }
+#graph .kf-pypa-graph__group { opacity: .45; }
+#graph .kf-pypa-graph__group.attention-region {
+  opacity: 1; border: 5px solid color-mix(in srgb,var(--repeat-ink) 76%,transparent);
+  background: color-mix(in srgb,var(--repeat-ink) 6%,transparent);
+}
+#graph .kf-pypa-graph__group.attention-layer {
+  border: 3px solid var(--repeat-ink); background: transparent;
+}
+#graph .kf-pypa-graph__group.attention-layer:not(.is-inactive) { opacity: .52; }
+#graph [data-pypa-node="qk"]:disabled {
+  opacity: 1; outline: 5px solid var(--result-ink); outline-offset: 6px; overflow: visible;
+}
+#graph [data-pypa-node="qk"] .kf-pypa-graph__execution-count {
+  right: -17px; top: -25px; color: #181411; background: var(--result-ink);
+  padding-inline: 8px; font-size: 23px;
+}
+#graph .kf-pypa-graph__execution-layer { pointer-events: none; }
+#graph [data-pypa-execution-stack="qk"] .kf-pypa-graph__execution-layer {
+  border-color: color-mix(in srgb,var(--result-ink) 60%,transparent);
+}
+#story-note { position: absolute; bottom: 10px; left: 0; right: 0; margin: 0; color: var(--foreground-secondary); font-size: 17px; }
+#error { position: relative; z-index: 4; padding-top: 30px; }
+.p06-embedded .story-shell.pto-ide-frame { width: 1600px; height: 900px; }
+.p06-embedded #slide { padding-inline: 54px; grid-template-rows: 108px minmax(0, 1fr); }
+.p06-embedded #slide > .deck-header { height: 108px; }
+.p06-embedded .graph-view { margin-bottom: -12px; }
+.p06-embedded #assignment-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.p06-embedded #task-context { font-size: 13px; font-weight: 500; color: var(--foreground-secondary); }

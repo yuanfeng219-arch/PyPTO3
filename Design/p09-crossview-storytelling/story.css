@@ -1,0 +1,154 @@
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body.ai-extracted {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+#screen {
+  position: relative;
+  width: min(100vw, 100dvh * 16 / 9);
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  overflow: hidden;
+}
+#screen:fullscreen { width: 100%; height: 100%; }
+#story {
+  position: absolute;
+  width: 1600px;
+  height: 900px;
+  padding: 26px 60px 22px;
+  display: grid;
+  grid-template-rows: 24px 68px 54px minmax(0, 1fr) 70px;
+  transform-origin: top left;
+  transform: scale(var(--story-scale, 1));
+}
+.mast { color: var(--foreground-secondary); font: 14px var(--font-mono); }
+#story > h1 { margin: 8px 0 0; font-size: 46px; line-height: 1.2; letter-spacing: -.035em; }
+.views, .transport { display: flex; align-items: center; gap: 8px; }
+.views { justify-content: center; gap: 12px; }
+.views .btn { min-width: 108px; min-height: 38px; color: var(--view-color); font-size: 16px; }
+.views :is([data-view="graph"], [data-path="graph"]) { --view-color: var(--highlight-copy-blue-300); }
+.views [data-view="assignment"] { --view-color: var(--highlight-ub-green-300); }
+.views :is([data-view="pipeline"], [data-path="pipeline"]) { --view-color: var(--highlight-mte-amber-300); }
+.views .btn[aria-pressed="true"] {
+  font-weight: 650;
+  box-shadow: inset 0 -2px color-mix(in srgb, var(--view-color) 65%, transparent);
+}
+#stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: 66px minmax(0, 1fr);
+  min-height: 0;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--ss-bg);
+}
+.task-identity {
+  display: flex;
+  align-items: baseline;
+  align-self: center;
+  gap: 18px;
+  padding-inline: 26px;
+}
+.task-identity strong { font: 600 26px var(--font-mono); }
+.task-identity span { color: var(--foreground-secondary); font: 14px var(--font-mono); }
+body.ai-extracted #camera { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.shot { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
+.crop { position: absolute; overflow: hidden; transform-origin: top left; }
+.native-frame {
+  position: absolute;
+  width: 1600px;
+  height: 900px;
+  top: var(--native-top, -110px);
+  left: var(--native-left, 0px);
+}
+.shot:not([data-shot="assignment"]) { --native-left: -300px; }
+/* The camera crops the native diagram region. Identity, parameters and
+   navigation belong to the presentation shell. */
+.native-frame :is(.compute-identity, [data-compute-toolbar], [data-anatomy-back], [data-intra-back], .ai-detail-back, .ai-control-bar) {
+  visibility: hidden;
+}
+.native-frame .viz2-canvas { width: 100%; height: 100%; }
+.story-controls { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.story-controls p { margin: 0; color: var(--foreground-secondary); font-size: 17px; }
+.transport { flex: none; }
+.transport .btn { min-height: 38px; font-size: 15px; }
+#error { position: absolute; inset: 70px 26px auto; }
+
+.morph-path {
+  --progress: 0%;
+  --position: var(--progress);
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  width: 178px;
+  text-align: center;
+  color: var(--foreground-secondary);
+  font-size: 13px;
+  line-height: 15px;
+}
+.morph-path[data-path="graph"] { --position: calc(100% - var(--progress)); }
+.morph-track {
+  position: relative;
+  height: 32px;
+  touch-action: none;
+  cursor: ew-resize;
+  user-select: none;
+}
+.morph-track::before, .morph-track::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 1px);
+  height: 2px;
+  border-radius: 2px;
+}
+.morph-track::before { inset-inline: 0; background: var(--border-subtle); }
+.morph-track::after { left: 0; width: var(--progress); background: var(--view-color); }
+[data-path="graph"] .morph-track::after { left: auto; right: 0; }
+.morph-thumb {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: var(--position);
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--foreground-secondary);
+  border-radius: 50%;
+  background: var(--background);
+}
+.morph-path:is([data-active], :hover, :focus-within) .morph-thumb {
+  border-color: var(--view-color);
+  background: var(--view-color);
+}
+.morph-path:is(:hover, :focus-within) .morph-track::before {
+  background: color-mix(in srgb, var(--view-color) 35%, var(--border-subtle));
+}
+.morph-track:focus-visible { outline: none; }
+.morph-track:focus-visible .morph-thumb {
+  outline: 1px solid var(--view-color);
+  outline-offset: 3px;
+}
+.morph-value {
+  display: none;
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--ss-surface);
+  color: var(--view-color);
+  font: 12px var(--font-mono);
+}
+.morph-path[data-dragging] { z-index: 2; }
+.morph-path[data-dragging] .morph-value, .morph-track:focus-visible .morph-value { display: block; }

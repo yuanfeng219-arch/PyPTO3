@@ -1,0 +1,194 @@
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+body {
+  margin:0;
+  min-height:100svh;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  background:var(--surface-1);
+  color:var(--foreground);
+  font-family:var(--font-sans), system-ui, sans-serif;
+}
+#frame {
+  width:min(100vw, 177.7778svh);
+  height:min(100svh, 56.25vw);
+  aspect-ratio:16/9;
+  min-height:0;
+  border:0;
+  border-radius:0;
+}
+#story {
+  width:1600px;
+  height:900px;
+  flex:none;
+  transform-origin:top left;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  padding:48px 60px 34px;
+  gap:28px;
+  background:var(--surface-1);
+  outline:none;
+}
+.headline { display:flex; flex-direction:column-reverse; gap:12px; }
+.headline h1 { margin:0; font-size:50px; font-weight:650; letter-spacing:-.035em; }
+.subject { margin:0; color:var(--foreground-secondary); font:var(--type-mono); font-size:16px; }
+.subject span { color:var(--primary); padding-inline:6px; }
+.workspace {
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) 278px;
+  gap:50px;
+  min-height:0;
+}
+.pipeline {
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-rows:48px minmax(0,1fr) 38px;
+  background:var(--surface-2);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+.path {
+  display:flex;
+  gap:6px;
+  align-items:center;
+  padding:0 14px;
+  border-bottom:1px solid var(--border-subtle);
+  font:var(--type-mono);
+}
+.path .btn, #tick { font:inherit; }
+.path .btn[aria-current="location"], #tick, .shared-task {
+  color:var(--foreground);
+  background:var(--surface-selected, var(--surface-4));
+}
+#tick { padding:7px 12px; border-radius:var(--radius-sm); }
+.path > :not(:first-child):not([hidden]) { margin-left:10px; }
+.canvas, #view { position:relative; min-height:0; overflow:hidden; }
+#view, #motion, .renderer, #block-detail { position:absolute; inset:0; }
+#motion, #block-detail { pointer-events:none; }
+#motion { z-index:3; overflow:hidden; }
+#block-detail button { pointer-events:auto; }
+#story :is(.viz2-pipeline-footer,.viz2-pipeline-inspector,.viz2-anatomy-footer,.compute-identity,
+[data-compute-toolbar],[data-intra-back],.viz2-intra-heading,.viz2-anatomy-inspector) { display:none !important; }
+#story .viz2-pipeline-target[aria-pressed="true"] { box-shadow:inset 0 0 0 1px var(--primary); }
+#story .viz2-pipeline-target[data-bem-block] { box-shadow:none; }
+#story .viz2-intra-card { padding:0; }
+#story .viz2-intra-tick-scroll { padding:0; }
+#story .viz2-pipeline-viewport { overflow:hidden; }
+#story .viz2-pipeline-tooltip { z-index:5; }
+.phases {
+  display:grid;
+  grid-template-columns:60px 103px 57px auto;
+  padding:33px 12px 0;
+  color:var(--foreground-secondary);
+  font:var(--type-mono);
+}
+.block-reading { position:absolute; left:30px; right:30px; top:144px; }
+.block-reading p { margin:0 0 18px; color:var(--foreground-secondary); font:var(--type-mono); }
+.block-reading h2 { margin:36px 0 10px; font-size:38px; font-weight:600; letter-spacing:-.03em; }
+.pipeline-legend {
+  display:flex;
+  align-items:center;
+  gap:13px;
+  margin:0;
+  padding:0 16px;
+  border-top:1px solid var(--border-subtle);
+  color:var(--foreground-secondary);
+  font-size:15px;
+}
+.pipeline-legend i { display:inline-block; }
+.hierarchy { position:relative; align-self:center; padding:10px 0 18px; }
+.hierarchy h2 { margin:0 0 29px; color:var(--foreground-secondary); font-size:16px; font-weight:550; }
+#story .p09-axis {
+  justify-items:start;
+  grid-template-rows:repeat(3,54px);
+  gap:64px;
+}
+#story .p09-axis::before { left:67.5px; }
+#story .p09-axis button { cursor:pointer; }
+#story .p09-axis [data-ancestor] { color:var(--foreground); border-color:var(--foreground-muted); }
+.layer-context {
+  position:absolute;
+  top:58px;
+  left:151px;
+  right:0;
+  display:grid;
+  grid-template-rows:repeat(3,54px);
+  gap:64px;
+  align-items:center;
+  font:var(--type-mono);
+  color:var(--foreground-secondary);
+}
+.story-controls {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  min-height:44px;
+}
+.story-controls p { margin:0; font-size:18px; color:var(--foreground-secondary); }
+.story-controls nav { display:flex; flex:none; align-items:center; gap:8px; }
+.btn:disabled { opacity:.38; cursor:default; }
+.shared-task, .shared-stack {
+  position:absolute;
+  display:grid;
+  place-items:center;
+  white-space:nowrap;
+  overflow:hidden;
+  border-radius:var(--radius-sm);
+  font:var(--type-mono);
+  color:var(--foreground);
+  background:var(--surface-selected, var(--surface-4));
+  border:1px solid var(--primary);
+}
+.shared-stack { background:var(--ai-data-fill, var(--primary)); border:0; }
+body .btn:focus-visible, #story .p09-axis button:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
+.pipeline { position:relative; }
+#story .viz2-intra .viz2-anatomy-viewport { overflow:hidden; }
+
+#stacks {
+  display:flex;
+  gap:8px;
+  margin:28px 0 20px;
+  max-height:150px;
+  flex-wrap:wrap;
+  overflow:hidden;
+}
+#stacks .btn {
+  pointer-events:auto;
+  display:grid;
+  gap:5px;
+  align-content:center;
+  justify-items:start;
+  flex:1 1 105px;
+  max-width:154px;
+  min-height:64px;
+  border-radius:var(--radius-md);
+  padding:9px 13px;
+  text-align:left;
+  font:var(--type-mono);
+  background:var(--surface-3);
+}
+#stacks .btn:hover { background:var(--surface-4); }
+#stacks small { color:var(--foreground-secondary); font:inherit; }
+#story .story-controls .btn, #open-task { font-size:16px; }
+.pipeline-legend i { flex:none; width:18px; }
+.pipeline-legend .viz2-intra-flow-key { border-top:2px solid var(--primary); }
+.pipeline-legend .viz2-intra-event-key { border-top:2px dashed var(--accent); }
+.pipeline-legend .viz2-intra-reuse-key { border-top:2px dotted var(--foreground-muted); }
+[data-p10-deck] #story {
+  padding:var(--deck-padding, 36px 54px 28px);
+  gap:16px;
+}
+[data-p10-deck] .headline {
+  display:block;
+  height:var(--deck-header-height, 156px);
+}
+[data-p10-deck] .strategy-subtitle {
+  margin:12px 0 0;
+  font-size:24px;
+  font-weight:550;
+  color:var(--foreground-secondary);
+}
+[data-p10-deck] .story-controls { min-height:32px; }

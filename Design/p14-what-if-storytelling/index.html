@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P14 · PyPTO Compute Explorer</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/compute-map.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/compute-shared.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/visualization2.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/visualization2-graph.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/visualization2-anatomy.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/visualization2-pipeline-intra.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/visualization2-graph-intra.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/assets/ai-infra/design-tokens.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/explorer-controls.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css">
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-pypto-source.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-graph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-presentation.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-layout.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-visibility.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-semantic-graph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-stack-dependency-model.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-model.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-execution.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/photo-narrative.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/photo-narrative-graph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/compute-graph-scene.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/visual-system.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/op-icons.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/tensor-role-glyph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/graph-legend-skin.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/system-transport.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/ai-infra-ui.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-task-encoding.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-graph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-anatomy.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/compute-detail-controls.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-pipeline-intra.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-graph-intra.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/compute-scenario.js"></script>
+<link rel="stylesheet" href="story.css">
+<script defer src="story.js"></script>
+</head>
+<body>
+<main id="frame">
+  <article id="story" class="pto-ide-frame p07-story-frame" data-host="standalone" aria-labelledby="title">
+    <div id="ideWorkarea" class="pto-ide-frame__workarea viz2">
+      <header class="workbench-header">
+        <div class="identity"><h1 id="title">PyPTO Compute Explorer</h1><p id="task"></p></div>
+        <div id="shared-controls" class="viz2-compute" aria-label="共享计算参数"></div>
+        <div class="presets" role="group" aria-label="切换计算配置">
+          <button type="button" class="btn btn-secondary" id="baseline"></button>
+          <button type="button" class="btn btn-secondary" id="comparison"></button>
+        </div>
+      </header>
+      <div class="workbench-views">
+        <section class="view" data-axis="graph" aria-labelledby="graph-title">
+          <header><h2 id="graph-title">Graph <span>计算</span></h2></header>
+          <div class="view-mount" id="p14-graph"></div>
+        </section>
+        <section class="view" data-axis="assignment" aria-labelledby="assignment-title">
+          <header><h2 id="assignment-title">Assignment <span>数据</span></h2><p id="tail"></p></header>
+          <div class="view-mount" id="p14-assignment"></div>
+        </section>
+        <section class="view" data-axis="pipeline" aria-labelledby="pipeline-title">
+          <header><h2 id="pipeline-title">Pipeline <span>时间</span></h2><p id="ticks"></p></header>
+          <div class="view-mount" id="p14-pipeline"></div>
+        </section>
+      </div>
+    </div>
+  </article>
+</main>
+<dialog id="source-dialog" aria-labelledby="source-title">
+  <form method="dialog"><h2 id="source-title"></h2><button class="btn btn-ghost">关闭</button></form>
+  <pre id="source-lines"></pre>
+</dialog>
+</body>
+</html>

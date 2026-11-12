@@ -7,7 +7,6 @@
   const panes={assignment:'#viz2-anatomy',pipeline:'#viz2-pipeline-intra',graph:'#viz2-graph-intra'};
   const clamp=n=>Math.max(0,Math.min(1,n));
   const ease=n=>n<.5?4*n*n*n:1-Math.pow(-2*n+2,3)/2;
-  const rect=element=>{const r=element.getBoundingClientRect();return {x:r.left,y:r.top,width:r.width,height:r.height};};
   const mix=(a,b,t)=>a+(b-a)*t;
   const visible=(item,clip)=>item&&item.box.width>0&&item.box.height>0&&item.box.x<clip.x+clip.width&&item.box.x+item.box.width>clip.x&&item.box.y<clip.y+clip.height&&item.box.y+item.box.height>clip.y;
   const svg=(name,attributes,parent)=>{const element=document.createElementNS(NS,name);for(const [key,value] of Object.entries(attributes))element.setAttribute(key,value);parent.append(element);return element;};
@@ -45,14 +44,28 @@
     }
     return null;
   }
-  function create({root,getTask}){
+  function create({root,getTask,getClip}){
     let job=null,serial=0;
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     const pane=tab=>root.querySelector(panes[tab]);
     // Assignment's workspace includes both the scrolling KV region and fixed Q Tile.
     const canvasSelector=tab=>tab==='assignment'?'.viz2-anatomy-workspace':tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport';
     const canvas=host=>host.querySelector(canvasSelector(host.id==='viz2-anatomy'?'assignment':host.id==='viz2-graph-intra'?'graph':'pipeline'));
-    const origin=()=>{const r=root.getBoundingClientRect();return {x:r.left+root.clientLeft,y:r.top+root.clientTop,width:root.clientWidth,height:root.clientHeight};};
+    const origin=()=>({x:0,y:0,width:root.clientWidth,height:root.clientHeight});
+    // Convert measurements to overlay coordinates when a presentation scales the host.
+    const rootScale=()=>root.getBoundingClientRect().width/(root.offsetWidth||1)||1;
+    const rect=element=>{
+      const r=element.getBoundingClientRect(),base=root.getBoundingClientRect(),scale=rootScale();
+      return {x:(r.left-base.left)/scale-root.clientLeft,y:(r.top-base.top)/scale-root.clientTop,
+        width:r.width/scale,height:r.height/scale};
+    };
+    function clipToView(tab,box){
+      const crop=getClip?.(tab);
+      if(!crop)return box;
+      const b=rect(crop),x=Math.max(box.x,b.x),y=Math.max(box.y,b.y);
+      return {x,y,width:Math.max(0,Math.min(box.x+box.width,b.x+b.width)-x),
+        height:Math.max(0,Math.min(box.y+box.height,b.y+b.height)-y)};
+    }
     function snapshot(tab,task,precise=false){
       const host=pane(tab),viewport=host?.querySelector(tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport');
       if(!host||!viewport)return null;
@@ -61,9 +74,9 @@
         const box=rect(precise||tab==='pipeline'?paint:element),style=getComputedStyle(paint),vector=paint instanceof SVGElement,item={id,element,box,
           fill:vector?(style.fill&&style.fill!=='none'?style.fill:'transparent'):style.backgroundColor,
           stroke:vector?(style.stroke&&style.stroke!=='none'?style.stroke:'transparent'):style.borderColor,
-          radius:(parseFloat(style.rx)||parseFloat(style.borderRadius)||5)*(vector?(paint.getScreenCTM()?.a||1):(element.offsetWidth?box.width/element.offsetWidth:1))};
+          radius:(parseFloat(style.rx)||parseFloat(style.borderRadius)||5)*(vector?(paint.getScreenCTM()?.a||1)/rootScale():(element.offsetWidth?box.width/element.offsetWidth:1))};
         if(precise){item.radius=Math.min(item.radius,box.width/2,box.height/2);
-        const scale=vector?Math.abs(paint.getScreenCTM()?.a||1):(paint.offsetWidth?box.width/paint.offsetWidth:1);
+        const scale=vector?Math.abs(paint.getScreenCTM()?.a||1)/rootScale():(paint.offsetWidth?box.width/paint.offsetWidth:1);
         item.strokeWidth=(parseFloat(vector?style.strokeWidth:style.borderTopWidth)||0)*scale;
         // CSS borders paint inside the box; SVG strokes are centered.
         if(!vector){const inset=item.strokeWidth/2;item.box={x:box.x+inset,y:box.y+inset,width:box.width-2*inset,height:box.height-2*inset};item.radius=Math.max(0,item.radius-inset);}
@@ -96,7 +109,7 @@
           objects.set('region:stack-loop',{id:'region:stack-loop',element:operations[0].element,elements:operations.map(item=>item.element),box:{x:left,y:top,width:right-left,height:bottom-top},fill:'transparent',stroke:operations[0].stroke,radius:8});
         }
       }
-      return {tab,task,host,clip:rect(viewport),objects};
+      return {tab,task,host,clip:clipToView(tab,rect(viewport)),objects};
     }
     function pairs(source,target,focus,task){
       const result=[],add=(a,b,kind,label,priority=0)=>{
@@ -159,6 +172,25 @@
       // Keep the exact final outlines over a painted destination for one full frame.
       current.frame=requestAnimationFrame(()=>{if(job===current)current.frame=requestAnimationFrame(()=>{if(job===current)cancel();});});
     }
+    function startTimeline(current,duration,draw){
+      current.phase='animating';
+      current.duration=duration;
+      current.animations.forEach(animation=>animation.pause());
+      current.render=elapsed=>{
+        current.animations.forEach(animation=>{animation.currentTime=elapsed;});
+        draw(elapsed);
+      };
+      current.render(0);
+      if(current.manual)return;
+      const started=performance.now();
+      function frame(now){
+        if(job!==current)return;
+        const elapsed=Math.min(duration,now-started);
+        current.render(elapsed);
+        if(elapsed<duration)current.frame=requestAnimationFrame(frame);else finish(current);
+      }
+      current.frame=requestAnimationFrame(frame);
+    }
     function startGather(current,target,mapping){
       const o=origin(),overlay=svg('svg',{class:'viz2-transition-overlay',width:o.width,height:o.height,viewBox:`0 0 ${o.width} ${o.height}`,'aria-hidden':'true','data-direction':`${current.from}-${current.to}`},root);
       Object.assign(overlay.style,{overflow:'visible',visibility:'visible',opacity:'1'});
@@ -200,13 +232,7 @@
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
       const wasInert=current.destination.inert;current.destination.inert=true;current.restores.push(()=>{current.destination.inert=wasInert;});
       current.pendingStyle?.remove();current.pendingStyle=null;
-      current.phase='animating';const started=performance.now();
-      function frame(now){
-        if(job!==current)return;
-        const elapsed=Math.min(1100,now-started);draw(elapsed);
-        if(elapsed<1100)current.frame=requestAnimationFrame(frame);else finish(current);
-      }
-      current.frame=requestAnimationFrame(frame);
+      startTimeline(current,1100,draw);
     }
     // A computation-only paint snapshot: computed values preserve ID-scoped styles
     // without cloning the Detail shell, controls, fixed UI, or live interactions.
@@ -230,7 +256,11 @@
       const paint=copy(viewport),o=origin(),bounds=rect(viewport),hold=document.createElement('div');
       hold.dataset.intraCanvasSnapshot=String(id);hold.setAttribute('aria-hidden','true');hold.inert=true;
       Object.assign(hold.style,{position:'absolute',left:`${bounds.x-o.x}px`,top:`${bounds.y-o.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`,overflow:'hidden',zIndex:11,pointerEvents:'none'});
-      Object.assign(paint.style,{position:'absolute',left:'0px',top:'0px',right:'auto',bottom:'auto',width:`${bounds.width}px`,height:`${bounds.height}px`,margin:'0px'});
+      const width=viewport.offsetWidth,height=viewport.offsetHeight;
+      const scale=bounds.width/(width||1),clip=clipToView(source.tab,bounds);
+      Object.assign(paint.style,{position:'absolute',left:'0px',top:'0px',right:'auto',bottom:'auto',
+        width:`${width}px`,height:`${height}px`,margin:'0px',transformOrigin:'top left',transform:`scale(${scale})`});
+      hold.style.clipPath=`inset(${clip.y-bounds.y}px ${bounds.x+bounds.width-clip.x-clip.width}px ${bounds.y+bounds.height-clip.y-clip.height}px ${clip.x-bounds.x}px)`;
       // Local SVG references must resolve to this snapshot, never a live renderer.
       for(const element of [paint,...paint.querySelectorAll('*')])for(const attr of [...element.attributes]){
         let value=attr.value.replace(/url\((['"]?)[^)]*#([^)'" ]+)\1\)/g,(all,quote,key)=>ids.has(key)?`url(#${ids.get(key)})`:all);
@@ -241,17 +271,17 @@
       for(const [element,clone] of [[viewport,paint],...[...viewport.querySelectorAll('*')].map(el=>[el,cloneMap.get(el)])])if(clone){clone.scrollTop=element.scrollTop;clone.scrollLeft=element.scrollLeft;}
       return {hold,cloneMap};
     }
-    function prepare(state,to){
+    function prepare(state,to,{manual=false}={}){
       cancel();
       const from=state.activeTab,task=state.selection?.task;
-      if(!state.open||from===to||media.matches||state.selection?.kind!=='task'||state.views[from]?.subview!=='block'||!Number.isInteger(task))return null;
+      if(!state.open||from===to||(!manual&&media.matches)||state.selection?.kind!=='task'||state.views[from]?.subview!=='block'||!Number.isInteger(task))return null;
       const gathered=[from,to].includes('assignment')&&[from,to].includes('graph');
       const source=snapshot(from,task,gathered);
       if(!source)return null;
       const {hold,cloneMap}=canvasHold(source,serial+1);
-      const current={id:++serial,from,to,task,source,gathered,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
+      const current={id:++serial,from,to,task,source,gathered,manual,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
       const pendingStyle=document.createElement('style');
-      window.PtoPhotoNarrative.text(pendingStyle,`#visualization2 ${panes[to]} ${canvasSelector(to)}{visibility:hidden}`);
+      window.PtoPhotoNarrative.text(pendingStyle,`#${CSS.escape(root.id)} ${panes[to]} ${canvasSelector(to)}{visibility:hidden;opacity:0}`);
       root.append(pendingStyle);current.pendingStyle=pendingStyle;
       job=current;
       return current;
@@ -308,10 +338,7 @@
         return {...pair,box,label,sourceContent};
       });
       current.pendingStyle?.remove();current.pendingStyle=null;
-      current.phase='animating';const started=performance.now(),duration=900;
-      function frame(now){
-        if(job!==current)return;
-        const elapsed=now-started;
+      startTimeline(current,900,elapsed=>{
         for(const item of items){
           const p=ease(clamp((elapsed-150-item.priority*.5)/610)),a=item.source.box,b=item.target.box;
           let geometry={x:mix(a.x,b.x,p),y:mix(a.y,b.y,p),width:mix(a.width,b.width,p),height:mix(a.height,b.height,p)};
@@ -323,13 +350,19 @@
           item.label.style.opacity=String(Math.min(1,p*4)*(1-Math.max(0,(p-.78)/.22)));
           item.box.style.opacity='1';
         }
-        if(elapsed<duration)current.frame=requestAnimationFrame(frame);else finish(current);
-      }
-      frame(started);
+      });
     }
-    global.addEventListener('resize',cancel);media.addEventListener('change',cancel);
-    root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.hold?.contains(event.target))cancel();},true);
-    return {prepare,play,cancel,get active(){return !!job;},get animating(){return job?.phase==='animating';}};
+    function seek(current,progress){
+      if(!current||current!==job||!current.manual)return false;
+      if(!current.render)start(current);
+      if(!current.render||current!==job)return false;
+      current.render(clamp(progress)*current.duration);
+      return true;
+    }
+    function cancelAutomatic(){if(job&&!job.manual)cancel();}
+    global.addEventListener('resize',cancelAutomatic);media.addEventListener('change',cancelAutomatic);
+    root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.manual&&!job.hold?.contains(event.target))cancel();},true);
+    return {prepare,play,seek,cancel,get active(){return !!job;},get animating(){return job?.phase==='animating';}};
   }
   global.PtoVisualization2IntraMorph=Object.freeze({create,mapFocus,stackOf});
 })(window);

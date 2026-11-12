@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P05 · Assignment 组件复用报告</title>
+<link rel="stylesheet" href="presentation.css">
+<style>
+.report{width:min(92%,920px);margin:2.2rem auto 4rem;color:#ecece7;line-height:1.65}
+.report h1{font-size:clamp(28px,5vw,50px);letter-spacing:-.035em;line-height:1.18}
+.report h2{margin-top:2rem;border-top:1px solid #454643;padding-top:.75rem;font-size:22px}
+.report table{border-collapse:collapse;width:100%;font-size:14px}
+.report th,.report td{padding:.6rem .5rem;border-bottom:1px solid #454643;text-align:left;vertical-align:top}
+.report th:first-child{min-width:8em}
+.report a{color:#a9d3ff;text-decoration:underline;text-underline-offset:.2em}
+.report .table-scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<main class="report">
+<a href="index.html">← P05 概念探索</a>
+<h1>Assignment 组件复用报告</h1>
+<p>三个概念从真实 Assignment 的 SVG 中取景。Task 48 对应 Batch 6、KV Head 0、3072 tokens，归属逻辑 Block 00。原组件的映射、对象 ID 和视觉编码随选择联动。</p>
+
+<h2>从原 Demo 提取的片段</h2>
+<div class="table-scroll"><table>
+<thead><tr><th>片段</th><th>原组件结构</th><th>展示中的用法</th></tr></thead>
+<tbody>
+<tr><th>输入坐标</th><td><code>data-am-columns</code>、<code>data-am-generation</code> 包含 KV Head 列、Batch 行、序列长度和 Batch 的数据量标记。</td><td>A 保留全矩阵的坐标。B 裁出当前交点附近的 Task，来源标签由同一 Task 记录提供。C 从完整坐标系开始。</td></tr>
+<tr><th>Task 生成与身份</th><td><code>data-am-tasks</code> 下的 <code>data-pa-task</code> 包含 Task ID、绿色身份标记和 Q Head / Stack 编码。原 morph 在两个状态间移动同一 SVG 节点。</td><td>A 放大单个原生 Task；B 移动该 Task 的特写；C 保留整张网格，使用原生 morph 把它推进到执行归属。</td></tr>
+<tr><th>Block 映射</th><td><code>data-am-blocks</code>、<code>data-am-group-labels</code> 与 <code>data-am-block-hit</code> 是真实 Block 边框、批次分组标签和交互热区。</td><td>A 并置一条 Block 纵剖面，可展开全部 24 个 Block；B 把所选 Block 放在路径末端；C 展开当前 Block 特写，整体仍可点选。</td></tr>
+<tr><th>高亮与详情</th><td><code>update(selection, true)</code> 负责 <code>is-selected</code> / <code>is-assigned</code> 与 <code>aria-pressed</code>。原 Deck 的 Task 摘要由控制器写入。</td><td>各裁片共用一个选中状态；外层将 Task 详情放在其附近。选 Block 会高亮同组 Task，选 Task 会定位它的来源与逻辑 Block。</td></tr>
+</tbody></table></div>
+<p><a href="../PyPTO-Compute-Explorer-UI/index.html">Compute Explorer 原 Demo</a> · <a href="../PyPTO-Compute-Explorer-UI/js/visualization2-assignment-morph.js">Assignment SVG 组件</a> · <a href="../PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js">Deck 选择与摘要控制器</a></p>
+
+<h2>直接复用的样式与展示层变换</h2>
+<p>直接加载原有 <code>compute-map.css</code>、<code>visualization2-assignment-morph.css</code>、<code>ai-infra-ui.css</code> 和设计令牌。沿用深色 Task、绿色身份图元、蓝色数据容量、行列标注和 Block 容器。Task 身份与 Stack 图元沿用原 Demo 的生成器。</p>
+<p>展示层隐藏原组件的页头和操作栏，固定 SVG 标签在源坐标中的尺寸，用 <code>viewBox</code> 裁切与等比放大。A 加展陈底纸与局部选中描边，B 加路径和位移，C 调低非焦点对象透明度、叠加特写与选中描边。新绘制的图形是 B 的叙事连线，表示来源与归属关系。Task、网格、Block、Q Head 和 Stack 都由原组件绘制。</p>
+
+<h2>状态与实现边界</h2>
+<p>每个概念中的裁片挂载独立的原生 SVG 实例，统一使用原 Demo 的 <code>defaultSeqLens</code>、<code>taskInfo()</code>、<code>tasksForBlock()</code> 和组件的 <code>createLayout()</code>。页面只保存演讲关键帧与一份选中状态，原生 <code>update()</code> 将选择应用到所有裁片，C 使用原生 <code>manual()</code> 驱动重排。</p>
+<p>原 Demo 的选择事件依附于工作台或 Deck 控制器，直接挂载 SVG 时需要接上演示页的点击与键盘事件。演示页用相同的 Task / Block DOM 命中点和选择结构，保留双向定位。滚轮与拖拽由演示构图接管，避免局部裁片的镜头被意外改变。深层 Inspector 和双击下钻留在原工具中。</p>
+<p>路径动画、裁切比例和淡化用于演讲聚焦。实际对象和归属来自原模型，Block 表达逻辑分配。</p>
+<p><a href="../PyPTO-Compute-Explorer-UI/js/paged-attention-model.js">原业务模型</a> · <a href="../PyPTO-Compute-Explorer-UI/styles/visualization2-assignment-morph.css">原 Assignment 样式</a> · <a href="../PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css">原对象视觉编码</a></p>
+</main>
+</body>
+</html>

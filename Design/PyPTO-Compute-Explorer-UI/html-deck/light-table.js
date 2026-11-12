@@ -102,7 +102,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
 
   function buildTiles() {
     document.querySelector('#light-table-count').textContent = entries.length + ' slides';
-    return entries.map(({label}, index) => {
+    return entries.map(({label, chapter}, index) => {
       const card = document.createElement('div');
       card.className = 'light-table-card';
       const tile = document.createElement('button');
@@ -122,6 +122,13 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
         const text = document.createElement('span');
         text.textContent = value;
         caption.append(text);
+      }
+      tile.title = chapter ? chapter + ' · ' + label : label;
+      if (chapter) {
+        const section = document.createElement('small');
+        section.className = 'light-table-chapter';
+        section.textContent = chapter;
+        caption.append(section);
       }
       tile.append(caption);
       tile.onclick = () => { if (phase() === 'open') close(index); };
