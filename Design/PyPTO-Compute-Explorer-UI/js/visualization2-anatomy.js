@@ -62,7 +62,7 @@
       reset(){resetGesture();lastTime=-Infinity;lastMagnitude=0;pending=0;},
       getState(){return {phase,pending};}};
   }
-  function mount(host,{model,scenario,onTask,onFocus,onCamera,onInspector,onExit}){
+  function mount(host,{model,scenario,onTask,onFocus,onCamera,onInspector,onExit,toolbarParent,stackColumns=1}){
     const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const listeners=new AbortController(),listen=(el,type,fn,options={})=>el.addEventListener(type,fn,{...options,signal:listeners.signal});
     host.classList.add('viz2-anatomy','viz2-compute','viz2-assignment-detail');
@@ -76,7 +76,8 @@
     const controls=global.PtoComputeDetailControls,toolbar=host.querySelector('[data-compute-toolbar]');
     window.PtoPhotoNarrative.html(toolbar,controls.sequence());
     window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),controls.picker(model,'Assignment Task'));
-    const syncScenario=controls.connect(host,scenario);
+    const syncScenario=controls.connect(toolbar,scenario);
+    if(toolbarParent)toolbarParent.append(toolbar);
     const input=toolbar.querySelector('[data-compute-pages]'),range=toolbar.querySelector('[data-page-range]');
     input.max=range.max=global.PtoPagedAttentionIntro.model.constants.maxSeq;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-anatomy-track]'),query=host.querySelector('[data-anatomy-query]'),inspector=host.querySelector('.viz2-anatomy-inspector'),tooltip=host.querySelector('[role="tooltip"]');
@@ -84,10 +85,14 @@
     const rect=(x,y,w,h,attrs='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${attrs}/>`;
     const text=(x,y,value,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(value)}</text>`;
     const object=(kind,index,label,body)=>`<g data-anatomy-kind="${kind}" data-anatomy-index="${index}" role="button" tabindex="0" aria-label="${esc(label)}" aria-pressed="false">${body}</g>`;
+    const stackWidth=368;
+    const stackGap=stackColumns>1?8:0;
+    const stackViewportWidth=stackColumns*stackWidth+(stackColumns-1)*stackGap;
+    const stackViewportHeight=t=>Math.max(84,Math.ceil(t.stacks.length/stackColumns)*104);
     function card(t){
-      return `<article class="viz2-anatomy-card" data-anatomy-task="${t.id}" role="group" aria-label="${scenario.get().isCustom?'Custom · ':''}KV Cache · ${t.seqLen} tokens"><div class="viz2-anatomy-cache-scroll" tabindex="0" aria-label="Task ${t.id} 的全部 KV Cache Stacks"><svg class="viz2-anatomy-svg" preserveAspectRatio="xMinYMin meet" viewBox="0 0 368 ${Math.max(84,t.stacks.length*104)}" style="height:${Math.max(84,t.stacks.length*104)}px" aria-label="KV Cache · 逻辑 Pages 与有效容量">${t.stacks.map(stack=>{
-        const y=stack.index*104;
-        return `<g data-anatomy-stack-container="${stack.index}">${object('stack',stack.index,`Stack ${stack.index}，${stack.tokens}/${t.stackTokens} tokens`,rect(0,y,368,96,'class="viz2-anatomy-stack-boundary"')+text(12,y+23,`Stack ${stack.index} · ${stack.tokens}/${t.stackTokens} tokens`))}${Array.from({length:t.pagesPerStack},(_,slot)=>{
+      return `<article class="viz2-anatomy-card" data-anatomy-task="${t.id}" role="group" aria-label="${scenario.get().isCustom?'Custom · ':''}KV Cache · ${t.seqLen} tokens"><div class="viz2-anatomy-cache-scroll" tabindex="0" aria-label="Task ${t.id} 的全部 KV Cache Stacks"><svg class="viz2-anatomy-svg" preserveAspectRatio="xMinYMin meet" viewBox="0 0 ${stackViewportWidth} ${stackViewportHeight(t)}" style="height:${stackViewportHeight(t)}px" aria-label="KV Cache · 逻辑 Pages 与有效容量">${t.stacks.map(stack=>{
+        const y=Math.floor(stack.index/stackColumns)*104,xOffset=(stack.index%stackColumns)*(stackWidth+stackGap);
+        return `<g data-anatomy-stack-container="${stack.index}"${xOffset?` transform="translate(${xOffset} 0)"`: ''}>${object('stack',stack.index,`Stack ${stack.index}，${stack.tokens}/${t.stackTokens} tokens`,rect(0,y,368,96,'class="viz2-anatomy-stack-boundary"')+text(12,y+23,`Stack ${stack.index} · ${stack.tokens}/${t.stackTokens} tokens`))}${Array.from({length:t.pagesPerStack},(_,slot)=>{
           const index=stack.index*t.pagesPerStack+slot,page=t.pages[index],gap=8,w=(344-gap*(t.pagesPerStack-1))/t.pagesPerStack,x=12+slot*(w+gap),key=`${stack.index}:${slot}`;
           if(!page)return rect(x,y+34,w,50,`class="viz2-anatomy-unused-page" data-anatomy-cell="${key}"`);
           return object('page',index,`逻辑 Page ${index}，${page.tokens}/${t.pageTokens} tokens`,rect(x,y+34,w,50,`class="viz2-anatomy-empty" data-anatomy-cell="${key}"`)+rect(x,y+34,w*page.tokens/t.pageTokens,50,`class="viz2-anatomy-valid" data-anatomy-page-fill="${index}"`)+`<text x="${x+7}" y="${y+53}" class="viz2-anatomy-page-label ${page.tokens<t.pageTokens/2?'is-tail':''}"><tspan x="${x+7}">P${index}</tspan><tspan x="${x+7}" dy="18">${page.tokens} tokens</tspan></text>`);
@@ -102,7 +107,7 @@
     function paint(){
       if(!active||!task)return;
       const svg=track.querySelector('svg');
-      svg.style.width=`${368*scale}px`;svg.style.height=`${Math.max(84,task.stacks.length*104)*scale}px`;
+      svg.style.width=`${stackViewportWidth*scale}px`;svg.style.height=`${stackViewportHeight(task)*scale}px`;
       window.PtoPhotoNarrative.text(host.querySelector('[data-anatomy-scale]'),`${Math.round(scale*100)}%`);
     }
     function describe(t,kind,index){
@@ -157,14 +162,17 @@
     listen(input,'input',()=>configure(input.value));listen(range,'input',()=>configure(range.value));
     listen(host.querySelector('[data-compute-task]'),'change',event=>onTask(Number(event.target.value)));
     function zoom(factor){onCamera(task.id,{scale:Math.max(.25,Math.min(2,scale*factor)),x:0,y:0});}
+    listen(toolbar,'click',event=>{
+      const step=event.target.closest('[data-page-step]');
+      if(step){tooltip.hidden=true;configure(task.seqLen+Number(step.dataset.pageStep));}
+    });
     listen(host,'click',event=>{
       tooltip.hidden=true;
-      const step=event.target.closest('[data-page-step]');if(step){configure(task.seqLen+Number(step.dataset.pageStep));return;}
       if(event.target.closest('[data-anatomy-back]')){onExit();return;}
       if(event.target.closest('[data-anatomy-close]')){onInspector(false);return;}
       if(event.target.closest('[data-anatomy-fit]')){
         const scroller=track.querySelector('.viz2-anatomy-cache-scroll');
-        onCamera(task.id,{scale:Math.max(.25,Math.min(1,(scroller.clientWidth-8)/368,(scroller.clientHeight-8)/Math.max(84,task.stacks.length*104))),x:0,y:0});scroller.scrollTop=scroller.scrollLeft=0;return;
+        onCamera(task.id,{scale:Math.max(.25,Math.min(1,(scroller.clientWidth-8)/stackViewportWidth,(scroller.clientHeight-8)/stackViewportHeight(task))),x:0,y:0});scroller.scrollTop=scroller.scrollLeft=0;return;
       }
       const z=event.target.closest('[data-anatomy-zoom]');if(z){zoom(Number(z.dataset.anatomyZoom));return;}
       const object=event.target.closest('[data-anatomy-kind]');if(object)onFocus({kind:object.dataset.anatomyKind,index:Number(object.dataset.anatomyIndex)});
@@ -188,7 +196,7 @@
       if(!task||!active||!cards[0])return null;const element=cards[0];
       return {task:task.id,model:task,frame:screenRect(element),title:screenRect(host.querySelector('[data-compute-identity]')),qRows:[...query.querySelectorAll('[data-anatomy-q-row]')].map(screenRect),cells:[...element.querySelectorAll('[data-anatomy-cell]')].map(cell=>({key:cell.dataset.anatomyCell,rect:screenRect(cell)}))};
     }
-    return {update,model,getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},destroy(){active=false;resizeObserver.disconnect();listeners.abort();host.replaceChildren();}};
+    return {update,model,stackViewportWidth,stackViewportHeight,getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},destroy(){active=false;resizeObserver.disconnect();listeners.abort();toolbar.remove();host.replaceChildren();}};
   }
   global.PtoVisualization2Anatomy=Object.freeze({createModel,related,mount,createPagingInput});
 })(window);
