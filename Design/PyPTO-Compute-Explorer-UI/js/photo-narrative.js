@@ -65,8 +65,8 @@ const phrases={
 };
 const keys=Object.keys(phrases).sort((a,b)=>b.length-a.length);
 const pattern=new RegExp(keys.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
-function translate(value){
- let t=String(value??'');if(!enabled)return t;
+function translate(value,active=enabled){
+ let t=String(value??'');if(!active)return t;
  if(/^g_idx = KV Head/.test(t))return '订单准备：为每位顾客按主题整理匹配条件与照片资料，再交给对应工单。';
  if(/^rope_core = g_idx/.test(t))return '准备项按处理位循环分配到工作小组；这里只表示逻辑分组，不表示真实物理排列。';
  // Customer names are one-based; all other identifiers retain their model IDs.
@@ -82,10 +82,14 @@ function translate(value){
   return phrases[m];
  }).replace(/主题\s*([0-7])(?!\d)/g,(_,id)=>themeName(id));
 }
+function translateFor(node,source){
+ const element=node.nodeType===1?node:node.parentElement;
+ return translate(source,enabled||!!element?.closest('[data-photo-narrative-scope]'));
+}
 function register(node,key,source,write){
  let entries=byNode.get(node);if(!entries){entries=new Map();byNode.set(node,entries);}
  const previous=entries.get(key);if(previous)bindings.delete(previous);
- const binding={node,source,write};entries.set(key,binding);bindings.add(binding);write(translate(source));
+ const binding={node,source,write};entries.set(key,binding);bindings.add(binding);write(translateFor(node,source));
 }
 function raw(node){return !!node.parentElement?.closest('pre,code,script,style,[data-narrative-raw]');}
 function text(node,value){
@@ -118,9 +122,14 @@ function html(node,source){
 }
 function setMode(value){
  if(enabled===!!value)return;enabled=!!value;revision++;
- for(const b of bindings){if(!b.node.isConnected){bindings.delete(b);continue;}b.write(translate(b.source));}
+ for(const b of bindings){if(!b.node.isConnected){bindings.delete(b);continue;}b.write(translateFor(b.node,b.source));}
+}
+function setScope(root,value){
+ if(root.hasAttribute('data-photo-narrative-scope')===!!value)return;
+ root.toggleAttribute('data-photo-narrative-scope',!!value);
+ for(const b of bindings)if(root.contains(b.node))b.write(translateFor(b.node,b.source));
 }
 const boundary='工作流程是叙事投影：主题匹配 → 筛选去重 → 打印 → 装帧。用于理解组织、分批和交接，不代表源码实现这些照片算法；流水线为逻辑编排，非真实运行记录。';
 function taskSummary(task){return `顾客 ${task.batch+1} · ${themeName(task.kvHead??task.kv)} · 工单 ${task.id} · 工作小组 ${task.block} · ${task.seqLen} 张照片 · ${task.pages.length} 个标准照片包 · ${task.stacks.length} 个处理批次 · 周转台位 ${task.stacks.map(s=>s.slot).join(' → ')}`;}
-global.PtoPhotoNarrative=Object.freeze({text,html,attr,translate,setMode,taskSummary,boundary,themes,themeName,get enabled(){return enabled;},get revision(){return revision;}});
+global.PtoPhotoNarrative=Object.freeze({text,html,attr,translate,setMode,setScope,taskSummary,boundary,themes,themeName,get enabled(){return enabled;},get revision(){return revision;}});
 })(window);
