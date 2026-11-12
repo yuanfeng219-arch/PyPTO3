@@ -1,0 +1,319 @@
+/* 算子开发页（workbench.html）视觉评审后的覆盖，只在本 Demo 生效，../csa-operator-lens/ 不动。
+ * 取值沿用 demo-shell.css 的令牌（--demo-raised / --demo-radius-control / --demo-focus）与 path.css 的 :root 变量。
+ *   1 栏标题与顶栏路径
+ *   2 页内控件：分段、页签、选择框、播放键与顶栏同一套胶囊
+ *   3 强调色收口：lime 只留给主按钮、焦点环和硬件“GM / 数据搬运”语义（行内标签 t-gm、硅片画布）
+ *   4 L2 画布分配：硅片落点去掉一行标题、默认结论条、AIV1 标注；Assignment 标签放大
+ *   5 详情窗停靠时画布让位；公式换行不溢出 */
+
+/* ── 0 色板：继承 Lab Tour 首页 / 项目背景 / 加载页的品牌色，替换透镜原版的粉彩色 ──
+ * 来源：index.html / intro.html 的 --kn-*，loading.html 的 .cb-app（--lime #88EC30 / --lav #A459FF / --sky #1953FC）。
+ * 角色不变：绿 = GM 数据 / 数据搬运，紫 = Cube · AIC · K/V，蓝 = Vec · AIV，琥珀 = 告警 / Acc；框架结构用中性冷灰。
+ * 饱和的蓝紫用作文字时对比度不够，另给一档浅色 *-ink（取自首页的 --kn-blue / --kn-purple）。 */
+:root {
+  --lime: #88EC30; --ok: #88EC30; --lav: #A459FF; --sky: #1953FC; --amber: #fbc568;
+  --lime-ink: #b4f27a; --lav-ink: #c79bff; --sky-ink: #849bff;
+  --lime-tint: rgb(136 236 48 / 13%); --lav-tint: rgb(164 89 255 / 16%); --sky-tint: rgb(25 83 252 / 20%);
+  --lime-mute: #5c9a24; --lav-mute: #7b4bd0; --sky-mute: #2d55c8;   /* 大面积格子 / 硅片缓冲用的降一档 */
+  --text: #f5f5f5; --muted: #b8b8b8; --dim: #858585;
+  --fw: #92939a;                                                    /* PTO 框架结构：首页 --kn-dim */
+  --demo-focus: #88EC30;
+}
+/* 源码行内标签：底色与文字跟着角色色重新取。标签浮在代码行上面，底色必须不透明，否则下面的代码会透出来 */
+.cl-tag.t-mat { --tag-bg: color-mix(in srgb, var(--lav) 18%, var(--canvas)); --tag-bg-hot: color-mix(in srgb, var(--lav) 28%, var(--canvas)); --tag-fg: #d4c3f7; }
+.cl-tag.t-vec { --tag-bg: color-mix(in srgb, var(--sky) 24%, var(--canvas)); --tag-bg-hot: color-mix(in srgb, var(--sky) 36%, var(--canvas)); --tag-fg: #b9cbff; }
+.cl-tag.t-gm  { --tag-bg: color-mix(in srgb, var(--lime) 14%, var(--canvas)); --tag-bg-hot: color-mix(in srgb, var(--lime) 22%, var(--canvas)); --tag-fg: #c5f39c; }
+.cl-tag.t-fw  { --tag-bg: #232326; --tag-bg-hot: #2c2c30; --tag-fg: #c6c7cb; }
+.cl.is-scope .cl-tag.t-fw { border-left-color: #c6c7cb; }
+/* Assignment / Pipeline 格子与图例 */
+.lane-sw.k-win, .lane-cell.k-win { background: var(--lime-mute); fill: var(--lime-mute); }
+.lane-sw.k-cmp, .lane-sw.k-r0, .lane-cell.k-cmp, .lane-cell.k-r0 { background: var(--lav-mute); fill: var(--lav-mute); }
+.lane-sw.k-r1, .lane-cell.k-r1 { background: var(--sky-mute); fill: var(--sky-mute); }
+/* 硅片落点画布：AIC 紫、AIV 蓝、Q 绿，热链路琥珀 */
+.sv-fill-lav, .sv-l1.k-kv, .lg-tl.u-aic, .vg-b.u-aic { fill: var(--lav-mute); background: var(--lav-mute); }
+.sv-fill-lime, .sv-l1.k-q { fill: var(--lime-mute); }
+.sv-buf.k-work, .lg-tl.u-aiv, .vg-b.u-aiv { fill: var(--sky-mute); background: var(--sky-mute); }
+.hp-svg .sv-buf.k-slot, .sv-buf.k-bf16 { fill: var(--sky); }
+.hp-svg .sv-buf.k-tmp, .hp-svg .sv-buf.k-work, .sv-buf.k-fp32 { fill: #4f7bff; }
+.hp-svg .sv-buf.k-bias, .hp-svg .sv-buf.k-row { fill: var(--sky-ink); }
+.vk-seg.k-slot, .vk-sw.k-slot { background: var(--sky); }
+.vk-seg.k-tmp, .vk-sw.k-tmp, .vk-seg.k-work { background: #4f7bff; }
+.vk-seg.k-bias, .vk-seg.k-row { background: var(--sky-ink); }
+.sv-region.is-hot .path-data-link, body.is-focusing .path-internal-route.is-hot, body.is-focusing .sv-region.is-hot .path-data-link { stroke: var(--amber); }
+/* 饱和蓝 / 紫上的文字改白；蓝紫作文字时用 *-ink */
+.vf-cell.on, .vs-seg.on, .vp-core.k-aiv, .vp-core.k-aic { color: #fff; }
+.vs-seg.on.is-proj { color: var(--sky-ink); }
+.cmp .ev.e-est { color: var(--sky-ink); }
+.cmp .ev.e-board { color: var(--lav-ink); }
+.hp-story .sec-sum, .hp-story .cmp .ev, .hp-story .viz-checks .ev { background: #c6c7cb; }
+.hp-story .sec-sum.is-warn, .hp-story .cmp .ev.e-build, .hp-story .viz-checks .ev.e-build { background: var(--amber); }
+.hp-story .cmp .ev.e-est, .hp-story .viz-checks .ev.e-est { background: var(--sky-ink); color: #111; }
+.hp-story .cmp .ev.e-board, .hp-story .viz-checks .ev.e-board { background: var(--lav-ink); color: #111; }
+/* 小色块、标签、提示里的浅色调 */
+.lens-chip.is-real, .oc-opt.is-on, .oc-lim-c { background: var(--lime-tint); color: #c5f39c; }
+.lens-chip.is-syn { background: var(--sky-tint); color: #b9cbff; }
+.lens-preview b, .lg-ctx-badge text { color: #b9cbff; fill: #b9cbff; }
+.lg-ctx-badge rect { fill: #1b2547; }
+.mx-t, .mx-op { color: #d6d7db; }
+.callout.is-ok { background: rgb(136 236 48 / 8%); }
+.cval.is-changed { background: rgb(251 197 104 / 16%); }
+.split-on { background: rgb(251 197 104 / 14%); }
+.split-del:hover, .split-del:focus-visible { background: rgb(251 197 104 / 20%); }
+
+/* ── 1 栏标题：同一种字，不再一处等宽大写加字距、一处中文粗体 ── */
+.hp-pane-head .hp-pane-title { font: 600 13px/1.4 var(--sans); letter-spacing: 0; text-transform: none; color: var(--text); }
+.lens-l2-title { font: 600 12.5px var(--sans); }
+/* 顶栏路径是这一页的主语：当前层级用正文字、亮色；品牌名沿用五个下钻页共用的 header.css，不在单页改 */
+.hp-top .lens-crumb { font: 14px var(--sans); }
+.hp-top .lens-crumb button { padding: 2px 6px; border-radius: var(--demo-radius-control); }
+.hp-top .lens-crumb button[aria-current="true"] { color: var(--text); font-weight: 600; }
+.hp-top .lens-crumb i { margin: 0 2px; }
+/* 窄一些的宽度下路径先省略，不压到右侧的层级切换 */
+.hp-top .hp-top-left { flex: 1 1 auto; min-width: 0; }
+.hp-top .hp-top-right { flex: none; }
+.hp-top .lens-crumb { overflow: hidden; }
+.hp-top .lens-crumb button:last-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 2 页内控件：容器一层浅底，选中项浅色胶囊；高度统一 30px（顶栏 36px） ── */
+.lens-seg, .lens-tabs { gap: 2px; padding: 2px; border: 0; border-radius: var(--demo-radius-control); background: var(--demo-raised); overflow: visible; }
+.lens-seg button, .lens-tabs button { height: 26px; padding: 0 12px; border: 0; border-radius: var(--demo-radius-control); background: transparent; color: var(--muted); }
+.lens-seg button:hover, .lens-tabs button:hover { background: rgb(255 255 255 / 7%); color: var(--text); }
+.lens-seg button[aria-pressed="true"], .lens-tabs button[aria-selected="true"] { background: #eee; color: #111; font-weight: 600; }
+.lens-seg button:focus-visible, .lens-tabs button:focus-visible, .lens-ic:focus-visible, .lens-field select:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 1px; }
+.lens-ic { width: 30px; height: 30px; border: 0; border-radius: var(--demo-radius-control); background: var(--demo-raised); }
+.lens-ic:hover { background: #2a2a2a; }
+.lens-field select { height: 30px; padding: 0 8px 0 12px; border: 0; border-radius: var(--demo-radius-control); background: var(--demo-raised); }
+.lens-bottom-head > span:first-child { font-size: 12px; color: var(--dim); }
+
+/* ── 3 强调色收口 ── */
+.hp-top .hp-dot { background: #92939a; }                       /* 配置状态点：中性，不和主按钮抢 */
+.tag-real { border-color: #4a4a4a; color: #c6c7cb; }            /* “真实”是数据来源，不是硬件语义 */
+.lens-src .cl.is-phase { background: rgb(255 255 255 / 4.5%); }  /* L1 当前阶段的源码行：中性高亮 */
+.lens-src .cl.is-phase .cl-mark { box-shadow: inset 2px 0 0 #c6c7cb; }
+.lens-src .cl.is-phase .cl-no { color: var(--text); }
+
+/* ── 4 L2 画布分配 ── */
+/* 页签和资源读数保持同一行，切换时标题栏高度不变。 */
+#viewKernel.is-chip .lens-l2-graph { flex-basis: var(--l2-graph-height, 41%); }
+.lens-bottom-head { min-height: 48px; box-sizing: border-box; flex-wrap: nowrap; }
+.lens-bottom-head .wb-chip-extra { display: none; }
+/* 空间不足时横向滚动资源读数，避免换行撑高标题栏。 */
+#viewKernel.is-chip .lens-bottom-head .wb-chip-extra { display: flex; align-items: center; flex: 1 1 0; gap: 8px; min-width: 0; }
+.wb-chip-extra .chip-stats { flex-wrap: nowrap; overflow-x: auto; margin-left: 4px; gap: 10px; scrollbar-width: thin; }
+.wb-chip-extra .pane-info { flex: none; margin-left: auto; }
+#viewKernel.is-chip #hpLensPane .hp-chip > .hp-pane-head { display: none; }
+#viewKernel > #hpLensPane .hp-svg { padding-top: 6px; }
+
+/* 默认结论条：进硅片落点先说结论，再看图（同 result.html 顶栏下那条的思路） */
+.wb-verdict { flex: none; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 9px 14px; border-bottom: 1px solid var(--divider); background: rgb(242 196 95 / 7%); box-shadow: inset 3px 0 0 var(--amber); font-size: 13px; color: var(--muted); }
+.wb-verdict[hidden] { display: none; }
+.wb-verdict-k { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--amber); white-space: nowrap; }
+.wb-verdict-k svg { width: 15px; height: 15px; }
+.wb-verdict-t { min-width: 0; color: var(--text); }
+.wb-verdict-t code { font: 12px var(--mono); color: var(--text); }
+/* 画布上把出问题的 AIV1 圈出来：琥珀虚线，和结论条、状态栏的告警同色 */
+#hpSvg .sv-region[data-region="aiv1"] > .sv-box { stroke: var(--amber); stroke-width: 1.5; stroke-dasharray: 5 4; }
+/* 结论已上移：底部说明不再占一整行，只在悬停出读数时浮在画布下沿；默认那句与结论条重复，隐藏 */
+#viewKernel > #hpLensPane { position: relative; }
+#viewKernel > #hpLensPane .hp-caption { position: absolute; left: 14px; right: 14px; bottom: 10px; z-index: 2; height: auto; max-height: 64px; padding: 7px 14px; border: 0; border-radius: var(--demo-radius-card); background: rgb(32 32 32 / 94%); box-shadow: var(--demo-shadow-overlay); }
+#viewKernel > #hpLensPane .hp-caption .cap-k { display: inline; margin-right: 10px; }
+#viewKernel > #hpLensPane .hp-caption.wb-rest { display: none; }
+
+/* Kernel 计算图：控制结构按类型画出不同的“形”（装饰由 workbench-polish.js 补在 #hpLogic 的 SVG 上）。
+ * 结构族统一用源码栏 PTO 框架标签的蓝灰 --fw；嵌套由外到内逐级提亮：SPMD → FOR → PIPELINE → 计算阶段卡片 */
+#hpLogic .wb-logic .lg-hit[data-node^="f-"] > .sv-title,
+#hpLogic .wb-logic .wb-branch .wb-kw { fill: #c6c7cb; letter-spacing: .08em; }
+#hpLogic .wb-logic .lg-hit[data-node^="f-"] > .sv-label { fill: #92939a; }
+#hpLogic .wb-logic .wb-ic { fill: var(--fw); }
+#hpLogic .wb-logic .wb-ic-line { fill: none; stroke: var(--fw); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+/* SPMD：实线框 + 两层错位卡片叠 = 同一段代码并行 24 份 */
+#hpLogic .wb-logic .lg-hit[data-node="f-spmd"] > .lg-frame { fill: #151515; stroke: rgb(226 227 233 / 14%); stroke-width: 1; }
+#hpLogic .wb-logic .wb-deck { fill: #141414; stroke: rgb(226 227 233 / 8%); stroke-width: 1; rx: 4px; }
+/* FOR：不画整框，左侧虚线导轨 + 右侧回环箭头 = 顺序一轮一轮地走 */
+#hpLogic .wb-logic .lg-hit[data-node="f-iter"] > .lg-frame { fill: #191919; stroke: none; }
+#hpLogic .wb-logic .wb-rail { fill: none; stroke: var(--fw); stroke-width: 2; stroke-dasharray: 4 3; opacity: .75; }
+#hpLogic .wb-logic .wb-loop { fill: none; stroke: #6b6c73; stroke-width: 1.2; stroke-dasharray: 3 3; }
+#hpLogic .wb-logic .wb-loop-head { fill: #6b6c73; }
+#hpLogic .wb-logic .wb-loop-k { fill: #92939a; font-size: 9px; }
+/* PIPELINE：实线框 + 表头色带 = 一个有“级”的结构，右上的在飞格沿用原色 */
+#hpLogic .wb-logic .lg-hit[data-node="f-pipe"] > .lg-frame { fill: #1d1d1e; stroke: rgb(226 227 233 / 14%); stroke-width: 1; }
+#hpLogic .wb-logic .wb-band { fill: #232325; }
+/* IF 分支：虚线框，和 ① 拼 KV 块同高并列 */
+#hpLogic .wb-logic .wb-branch-box { fill: none; stroke: #6b6c73; stroke-width: 1; stroke-dasharray: 4 3; }
+/* 计算阶段：实心卡片 + 正文字标题，不再和结构关键字同一种等宽大写 */
+#hpLogic .wb-logic .lg-phase { fill: #262628; }
+#hpLogic .wb-logic .lg-hit[data-node^="p-"] > .sv-title { font: 600 11px var(--sans); letter-spacing: 0; fill: #f5f5f7; }
+/* 悬停 / 联动高亮：覆盖上面更具体的选择器后补回原有效果 */
+#hpLogic .wb-logic .lg-hit:hover > .lg-frame, #hpLogic .wb-logic .lg-hit:hover > .lg-phase { stroke: #92939a; stroke-width: 1; }
+#hpLogic .wb-logic .lg-hit.is-hot > .lg-frame, #hpLogic .wb-logic .lg-hit.is-hot > .lg-phase { stroke: var(--text); stroke-width: 1.5; stroke-dasharray: none; }
+#hpLogic .wb-logic .lg-hit.is-hot > .sv-title { fill: var(--text); }
+
+/* Assignment：24 个 Lane 小方阵的标注放大一档 */
+.asg-label { font-size: 12px; }
+.lane-label, .lane-axis, .lane-sub { font-size: 11px; }
+
+/* ── 5 详情窗 ── */
+/* 停靠：画布让出右侧，不再压住整层图的主干列；拖动后变回自由浮窗（workbench-polish.js 切换） */
+@media (min-width: 1101px) {
+  body.wb-detail-docked .hp-main { padding-right: 412px; }
+  body.wb-detail-docked .lens-side { left: auto !important; right: 20px !important; top: 76px !important; height: calc(100dvh - 76px - 40px); }
+}
+/* 公式：窄栏里允许在项与项之间换行，不再横向截断 */
+.lens-side .mx { white-space: normal; font-size: 14px; overflow-x: visible; }
+.lens-side .mx-sp { width: .9em; }
+
+/* ── 7 L2 下方按“问题”分组：工作怎么分（4 步）/ 放在哪 ── */
+#kernelTabs button { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; }
+#kernelTabs button[hidden] { display: none; }
+#kernelTabs button small { font-size: 11px; font-weight: 400; color: var(--dim); }
+#kernelTabs button[aria-selected="true"] small { color: #555; }
+/* Lane 轮次是“工作怎么分”的第 4 步：此时这个页签也算选中 */
+#kernelTabs:has([data-tab="pipeline"][aria-selected="true"]) [data-tab="assignment"] { background: #eee; color: #111; font-weight: 600; }
+#kernelTabs:has([data-tab="pipeline"][aria-selected="true"]) [data-tab="assignment"] small { color: #555; }
+/* 步骤条：①–④ 编号，读得出先后 */
+.wb-steps { counter-reset: wbstep; }
+.wb-steps button { counter-increment: wbstep; display: inline-flex; align-items: center; }
+.wb-steps button::before { content: counter(wbstep); display: inline-grid; place-items: center; width: 15px; height: 15px; margin-right: 6px; border-radius: 50%; background: rgb(255 255 255 / 10%); color: var(--muted); font: 600 9.5px/1 var(--mono); }
+.wb-steps button[aria-pressed="true"]::before { background: #111; color: #eee; }
+/* 画布顶部不再二选一：Kernel 链挪到顶栏路径旁（按钮留在 DOM 里，供“在画布上看完整依赖链”调用） */
+#l2TopSwitch { display: none !important; }
+
+/* ── 8 计算图标出“下方展开的是哪几层” ── */
+.wb-map-note { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: var(--demo-radius-control); background: var(--demo-raised); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.wb-map-note[hidden] { display: none; }
+.wb-map-note i { font-style: normal; color: var(--text); }
+.wb-map-note b { color: var(--text); font-weight: 600; margin-right: 2px; }
+#hpLogic .wb-logic .lg-hit, #hpLogic .wb-logic .lg-edge, #hpLogic .wb-logic .wb-branch,
+#hpLogic .wb-logic .lg-hit > text, #hpLogic .wb-logic .lg-hit > .wb-ic, #hpLogic .wb-logic .wb-rail, #hpLogic .wb-logic .wb-loop { transition: opacity .2s; }
+/* 工作怎么分：亮外两层（SPMD 框 + FOR 导轨与关键字），里层压暗；选中 Work Item 时交给 lens.js 的路径高亮 */
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-spmd"] > .lg-frame { stroke: rgb(226 227 233 / 42%); }
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-rail { stroke: #c6c7cb; opacity: 1; }
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-loop { stroke: #92939a; }
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > .sv-title { fill: #f5f5f7; }
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit:not([data-node="f-spmd"]):not([data-node="f-iter"]),
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-edge,
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-branch { opacity: .45; }
+/* 放在哪：外两层的标注退后，里层阶段卡片描一圈 */
+#viewKernel.is-chip #hpLogic .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > :is(text, .wb-ic, .wb-rail, .wb-loop) { opacity: .4; }
+#viewKernel.is-chip #hpLogic:not(.has-ctx) .wb-logic .lg-phase { stroke: rgb(226 227 233 / 28%); stroke-width: 1; }
+
+/* ── 9 顶栏路径旁的 Kernel 链 ── */
+.wb-chain-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 12px; border: 0; border-radius: var(--demo-radius-control); background: rgb(255 255 255 / 6%); color: var(--muted); font: 12.5px var(--sans); cursor: pointer; white-space: nowrap; }
+.wb-chain-btn[hidden] { display: none; }
+.wb-chain-btn b { color: var(--text); font-weight: 600; }
+.wb-chain-btn i { font-style: normal; font-size: 11px; line-height: 1; }
+.wb-chain-btn:hover, .wb-chain-btn[aria-expanded="true"] { background: rgb(255 255 255 / 11%); color: var(--text); }
+.wb-chain-btn:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 2px; }
+.wb-chain-pop { position: fixed; z-index: 60; width: max-content; min-width: 360px; max-width: min(900px, calc(100vw - 24px)); padding: 14px 16px; border: 1px solid rgb(226 227 233 / 12%); border-radius: var(--demo-radius-card); background: #1b1b1b; box-shadow: var(--demo-shadow-overlay); }
+.wb-chain-pop[hidden] { display: none; }
+.wb-chain-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 12px; font-size: 12.5px; color: var(--muted); }
+.wb-chain-head b { color: var(--text); font-weight: 600; }
+.wb-chain-head span { margin-left: auto; font-size: 11.5px; color: var(--dim); }
+.wb-chain-row { display: flex; align-items: center; overflow-x: auto; padding-bottom: 4px; }
+.wb-chain-k { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 12px; border: 1px solid rgb(226 227 233 / 12%); border-radius: 10px; background: #232325; color: var(--text); text-align: left; cursor: pointer; }
+.wb-chain-k b { font: 600 12.5px var(--mono); }
+.wb-chain-k small { font: 10.5px var(--mono); color: var(--dim); }
+.wb-chain-k:hover { border-color: rgb(226 227 233 / 32%); }
+.wb-chain-k:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 2px; }
+.wb-chain-k[aria-current="true"] { border-color: #eee; background: #eee; color: #111; }
+.wb-chain-k[aria-current="true"] small { color: #555; }
+.wb-chain-gap { flex: none; width: 12px; }
+.wb-chain-dep { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font: 10.5px var(--mono); color: var(--muted); }
+.wb-chain-dep i { font-style: normal; font-size: 13px; color: var(--text); }
+.wb-chain-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; font-size: 12px; color: var(--dim); }
+.wb-chain-toggle { height: 28px; padding: 0 12px; border: 0; border-radius: var(--demo-radius-control); background: var(--demo-raised); color: var(--text); font: 12px var(--sans); cursor: pointer; }
+.wb-chain-toggle:hover { background: #2a2a2a; }
+.wb-chain-toggle:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 2px; }
+.wb-chain-key { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.wb-chain-key i { display: inline-block; width: 16px; border-top: 1.5px solid var(--muted); }
+
+/* ── 10 「工作怎么分」叙事视图（workbench-story.js，只接 qk_pv） ── */
+#kernelLanes.wb-story-on { display: flex; flex-direction: column; overflow: hidden; padding: 0; background-image: none; }
+#kernelLanes.wb-story-on > :not(.wb-story) { display: none !important; }   /* lens.js 原图隐藏着照常工作，状态从它抄 */
+#kernelWork.wb-story-on #kernelLegend { display: none; }                   /* 图例改写进叙事视图底部 */
+.wb-story { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.wb-story-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 16px 4px; }
+/* 流程条：5 个图标节点，一个图形 + 一个数字 + 两三个字；点节点切换 */
+.wb-flow { display: flex; align-items: center; gap: 4px; min-width: 0; flex-wrap: wrap; }
+.wb-flow-n { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 6px 12px 6px 8px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; text-align: left; opacity: .62; transition: opacity .2s, background .2s; }
+.wb-flow-n:hover { opacity: .9; background: rgb(255 255 255 / 4%); }
+.wb-flow-n.is-on { opacity: 1; background: var(--demo-raised); border-color: rgb(226 227 233 / 16%); }
+.wb-flow-n:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 2px; }
+.wb-flow-g { grid-row: 1 / 3; display: block; width: 40px; height: 28px; }
+.wb-flow-g svg { display: block; width: 40px; height: 28px; }
+.wb-flow-v { font: 600 15px/1.1 var(--mono); color: var(--text); white-space: nowrap; }
+.wb-flow-v i { font-style: normal; color: var(--dim); margin: 0 2px; }
+.wb-flow-v .is-dim { color: var(--dim); }
+.wb-flow-v .is-good { color: var(--lime); } .wb-flow-v .is-ok { color: var(--amber); } .wb-flow-v .is-bad { color: #ff8a6b; }
+.wb-flow-k { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.wb-flow-arrow { flex: none; width: 14px; height: 2px; background: rgb(226 227 233 / 22%); position: relative; }
+.wb-flow-arrow::after { content: ''; position: absolute; right: -1px; top: -3px; border: 4px solid transparent; border-left-color: rgb(226 227 233 / 32%); border-right: 0; }
+.wb-flow .g-win { fill: var(--lime-mute); } .wb-flow .g-cmp { fill: var(--lav-mute); } .wb-flow .g-idle { fill: url(#wbIdle); fill: #3a3a3a; }
+.wb-flow .g-line { fill: none; stroke: #92939a; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.wb-flow .g-cut { stroke: #f5f5f5; stroke-width: 1.4; }
+.wb-flow .g-wait { fill: rgb(251 197 104 / 55%); }
+.wb-flow .g-finish { stroke: #f5f5f5; stroke-width: 1.4; stroke-dasharray: 2 2; }
+/* 评估开关：工作量口径 / 排法对照 */
+.wb-eval-tools { margin-left: auto; display: inline-flex; gap: 8px; flex: none; }
+.wb-eval-tools[hidden] { display: none; }
+.wb-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--demo-radius-control); background: var(--demo-raised); }
+.wb-seg button { height: 26px; padding: 0 12px; border: 0; border-radius: var(--demo-radius-control); background: transparent; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+.wb-seg button:hover { background: rgb(255 255 255 / 7%); color: var(--text); }
+.wb-seg button[aria-pressed="true"] { background: #eee; color: #111; font-weight: 600; }
+.wb-seg button:focus-visible { outline: 2px solid var(--demo-focus); outline-offset: 1px; }
+/* 流程条已代替步骤条：工具条里只留播放与筛选 */
+#kernelWork.wb-story-on #kernelBar .wb-steps { display: none; }
+.wb-story-canvas { flex: 1 1 auto; min-height: 120px; position: relative; margin: 0 16px; }
+.wb-story-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.wb-story-key { flex: none; display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 6px 16px 9px; font-size: 12px; color: var(--muted); }
+.wb-story-key span { display: inline-flex; align-items: center; gap: 6px; }
+.wb-story-key i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
+.wb-story-key .k-unit { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
+.wb-story-key .k-win { background: var(--lime-mute); }
+.wb-story-key .k-cmp { background: var(--lav-mute); }
+.wb-story-key .k-idle { background: repeating-linear-gradient(45deg, #1d1d1d 0 3px, #5a5a5a 3px 4.2px); }
+/* 方块：同一批 1280 格在四种排法之间移动；③ 按队序依次飞向各核（transition-delay 由脚本按队序给） */
+.wb-story-svg .wb-cell { transition: transform .75s cubic-bezier(.4, 0, .2, 1), opacity .2s; }
+.wb-story-svg.is-still .wb-cell { transition: none; }
+.wb-story-svg .wb-cell.k-win { fill: var(--lime-mute); }
+.wb-story-svg .wb-cell.k-cmp { fill: var(--lav-mute); }
+.wb-story-svg .wb-cell.wb-k-idle { fill: url(#wbIdle); }
+@media (prefers-reduced-motion: reduce) { .wb-story-svg .wb-cell { transition: none; } }
+/* 标注：方块落定后淡入 */
+.wb-ann { pointer-events: none; }
+.wb-ann.is-on { animation: wb-ann-in .3s ease-out; }
+@keyframes wb-ann-in { from { opacity: .2; } }
+.wb-ann .lane-label { pointer-events: auto; cursor: pointer; }
+.wb-ann-k { fill: var(--muted); font: 11px var(--sans); }
+.wb-ann-k.is-strong { fill: var(--text); font-weight: 600; font-size: 12px; }
+.wb-ann-k.is-muted { fill: var(--dim); font-size: 12px; }
+.wb-lane-k { fill: var(--dim); font: 10.5px var(--mono); }
+.wb-lane-k:hover, .wb-lane-k.is-sel { fill: var(--text); }
+.wb-ann-axis { fill: var(--dim); font: 10px var(--mono); }
+.wb-ann-col { fill: none; stroke: var(--text); stroke-width: 1.2; }
+.wb-ann-zone { fill: rgb(255 255 255 / 4%); stroke: rgb(226 227 233 / 14%); stroke-dasharray: 3 3; }
+.wb-ann-cut { stroke: var(--text); stroke-width: 1.5; }
+/* 步骤条：大白话在前，术语缩小在后 */
+.wb-steps button small { margin-left: 5px; font: 10px var(--mono); color: var(--dim); }
+.wb-steps button[aria-pressed="true"] small { color: #555; }
+/* 工具条放不下两行：只有当前步骤带术语小字 */
+.wb-steps button:not([aria-pressed="true"]) small { display: none; }
+/* 叙事视图需要更多高度：上方计算图默认 41% → 34%（拖动分隔条后仍以拖动为准）；Synthetic 标记挪进底部图例，工具条保持一行 */
+#viewKernel:not(.is-chip):not(.is-rules-only):has(#kernelWork.wb-story-on) { --l2-graph-height: 34%; }
+#kernelWork.wb-story-on #kernelBar .lens-chip.is-syn { display: none; }
+.wb-story-key .k-syn { margin-left: auto; font: 11px var(--mono); color: #b9cbff; }
+
+/* ⑤ 分得好不好 */
+.wb-story-svg .wb-cell.wb-hide { visibility: hidden; }
+.wb-wait { fill: url(#wbWait); }
+.wb-ann-finish { stroke: #f5f5f5; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.wb-ann-avg { stroke: rgb(226 227 233 / 35%); stroke-width: 1; }
+.wb-ann-k.is-slow { fill: #ffb08f; font-weight: 600; }
+.wb-lane-k.is-mark { fill: #ffb08f; font-weight: 600; }
+.wb-verdict-g text { fill: var(--muted); font: 12px var(--sans); }
+.wb-verdict-g .v-big { font: 600 16px var(--mono); fill: var(--text); }
+.wb-verdict-g.is-good .v-big { fill: var(--lime); } .wb-verdict-g.is-ok .v-big { fill: var(--amber); } .wb-verdict-g.is-bad .v-big { fill: #ff8a6b; }
+.wb-ann-axis-l { stroke: #c6c7cb; stroke-width: 1.2; fill: none; }
+.wb-story-key .k-wait { background: repeating-linear-gradient(45deg, rgb(251 197 104 / 12%) 0 3px, rgb(251 197 104 / 60%) 3px 4.4px); }
+.wb-story-key .k-finish { width: 0; height: 12px; border-radius: 0; border-left: 1.5px dashed #f5f5f5; }
+.wb-story-key .k-note { color: var(--dim); }

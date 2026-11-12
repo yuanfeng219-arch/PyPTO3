@@ -1,0 +1,41 @@
+/* 下钻页共用的视觉基线：底色、圆角、阴影、返回键。
+ * 各下钻页的内容分别来自 ../csa-operator-lens/、../device-perf-lane/、../csa-pass-field/，
+ * 这里只统一它们外层能看见的那层外壳，不进各自的内部组件。
+ * 取值沿用 hardware-native 的 path.css（--page / --canvas / --surface / --raised），不另起一套色板。 */
+:root {
+  --demo-page: #111111;        /* 页面底色：包裹页 body、工作台顶栏 */
+  --demo-canvas: #131313;      /* 工作区画布 */
+  --demo-surface: #171717;     /* 面板 */
+  --demo-raised: #202020;      /* 面板里浮起一层 */
+  --demo-radius-control: 999px;/* 按钮、分段控件、胶囊 */
+  --demo-radius-card: 12px;    /* 卡片、日志框、磁贴 */
+  --demo-shadow-float: 0 7px 20px rgb(0 0 0 / 8%);    /* 浮在画布上的控件 */
+  --demo-shadow-overlay: 0 16px 48px rgb(0 0 0 / 42%);/* 抽屉、浮层 */
+  --demo-focus: #b1ef6b;
+}
+
+/* ── 返回首页：五个下钻页同一个键 ── */
+.demo-home {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; flex: none;
+  border: 0; border-radius: var(--demo-radius-control);
+  background: rgb(255 255 255 / 5%); color: #c8d2ce; text-decoration: none;
+}
+.demo-home svg { width: 18px; height: 18px; }
+.demo-home:hover, .demo-home:focus-visible { color: #fff; background: #292f2b; outline: 2px solid transparent; outline-offset: 2px; }
+.demo-home:focus-visible { outline-color: var(--demo-focus); }
+
+/* 整页都是 iframe 的包裹页（可视化编译、全部 Pass）：返回键浮在画布上，不另起一条顶栏。
+ * 位置与工作台 64px 顶栏里的返回键对齐：距左 20px、距顶 14px，页间不会跳。 */
+.demo-shell-home {
+  position: absolute; z-index: 100; top: 14px; left: 20px;
+  height: 36px; padding: 0; border: 0; background: transparent;
+  box-shadow: var(--demo-shadow-float);
+  border-radius: var(--demo-radius-control);
+}
+/* 内容顶到页面最上沿的包裹页：留出同样的 64px 带，返回键不压住内容 */
+.demo-shell-inset { padding-top: 64px; }
+
+/* ── 控件圆角：顶栏按钮与页内动作键 ── */
+.hp-topbtn { border-radius: var(--demo-radius-control); }
+.hp-top .hp-topbtn { height: 36px; }

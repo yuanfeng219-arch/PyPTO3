@@ -1,0 +1,29 @@
+/* 核内流水沿用外层泳道的低对比画布、灰色控件和语义红色。 */
+#lane .qk-inline-pipeline .qk-panel-surface{fill:var(--demo-canvas,#131313)}
+#lane .qk-inline-pipeline>.qk-engine-row{fill:var(--demo-canvas,#131313)}
+#lane .qk-inline-pipeline>line{stroke:#303030}
+#lane .qk-inline-pipeline>.qk-round-control{fill:#202020;stroke:#353535;stroke-width:1}
+#lane .qk-inline-pipeline .qk-inline-control>rect{fill:#242424;stroke:#383838;stroke-width:1}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-nav]>rect{fill:transparent;stroke:none}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-inline-pass]>rect{fill:#303030;stroke:#474747}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-inline-pass]>text{fill:#eee}
+#lane .qk-inline-pipeline .qk-inline-control:hover>rect{fill:#3a3a3a;stroke:#555}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-nav]:hover>rect{fill:#353535;stroke:none}
+#lane .qk-inline-pipeline .qk-inline-control[aria-pressed="true"]>rect{fill:#e8e8e8;stroke:#e8e8e8}
+#lane .qk-inline-pipeline .qk-inline-control[aria-pressed="true"]>text{fill:#111}
+#lane .qk-inline-pipeline .qk-inline-control[aria-disabled="true"]>rect{fill:transparent;stroke:none}
+#lane .qk-inline-pipeline .qk-inline-control:focus-visible>rect{stroke:#bca0f3;stroke-width:1.5}
+#lane .qk-inline-pipeline .qk-repeat-summary>rect{fill:#241b1b;stroke:#51312e;stroke-width:1;rx:6}
+#lane .qk-inline-pipeline .qk-repeat-summary:hover>rect,#lane .qk-inline-pipeline .qk-repeat-summary:focus-visible>rect{fill:#30201e;stroke:#fd7668}
+#lane .qk-inline-pipeline .qk-pipe-event>rect:first-child{rx:2}
+#lane .qk-inline-pipeline .qk-pipe-event:focus-visible>rect:first-child{stroke:#f0f0f0;stroke-width:1.5}
+
+/* 右侧操作区留出顶部间距；轮次与收起仅在交互时显底色。 */
+#lane .qk-inline-pipeline :is([data-qk-inline-pass],[data-qk-nav],[data-qk-collapse],.qk-round-label){transform:translateY(6px)}
+#lane .qk-inline-pipeline>.qk-round-control{fill:transparent;stroke:none}
+#lane .qk-inline-pipeline>.qk-round-divider{display:none}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-collapse]>rect{fill:transparent;stroke:none}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-collapse]:hover>rect{fill:#303030;stroke:none}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-inline-pass]>rect{fill:#303030;stroke:#555}
+#lane .qk-inline-pipeline .qk-inline-control[data-qk-inline-pass]:hover>rect{fill:#444;stroke:#777}
+#lane .qk-inline-pipeline .qk-inline-control:focus-visible>rect{stroke:#bca0f3;stroke-width:1.5}

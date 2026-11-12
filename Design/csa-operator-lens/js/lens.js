@@ -67,6 +67,20 @@
   const fileLines = {};
   function linesOf(file) { return fileLines[file] || (fileLines[file] = SRC.files[file].text.split('\n')); }
   let shownSrc = { file: null, a: 0, b: 0 };
+  // 阶段高亮独立于悬停/选中，避免鼠标移开后丢失。
+  let phaseFocus = null;
+  const PHASE_SOURCE = {
+    qk_pv: { generation: [140, 167], ordering: [182, 196], assignment: [208, 218] },
+    cache_writeback: { generation: [325, 327], assignment: [323, 327] },
+    merge_publish: { generation: [395, 396], assignment: [397, 405] }
+  };
+  function focusPhase() {
+    const ranges = PHASE_SOURCE[state.kernel];
+    const range = ranges && ranges[state.phase];
+    phaseFocus = range ? { file: D.KERNELS[state.kernel].file, range: range } : null;
+    applyFocus();
+    if (phaseFocus && shownSrc.file === phaseFocus.file) revealLines(range[0], range[1]);
+  }
   function renderSource(file, a, b) {
     if (shownSrc.file === file && shownSrc.a === a && shownSrc.b === b) return;
     shownSrc = { file: file, a: a, b: b };
@@ -467,7 +481,7 @@
     const step = function () {
       if (!playing || state.tab !== 'assignment' || state.level !== 2) { stopPlay(); renderKernelBar(); return; }
       state.phase = M.phases[i];
-      renderKernelBar(); renderAssignment();
+      renderKernelBar(); renderAssignment(); focusPhase(); renderStatus();
       i += 1;
       if (i < M.phases.length) playTimer = setTimeout(step, 1600);
       else { playing = false; playTimer = setTimeout(renderKernelBar, 900); }
@@ -775,6 +789,7 @@
       const no = Number(el.dataset.line);
       el.classList.toggle('is-hot', hotLines.indexOf(no) >= 0);
       el.classList.toggle('is-sel', no === sel);
+      el.classList.toggle('is-phase', !!phaseFocus && phaseFocus.file === file && inRange(no, phaseFocus.range));
     });
     if (h && h.type !== 'line' && hotLines.length) revealLines(Math.min.apply(null, hotLines), Math.max.apply(null, hotLines));
   }
@@ -830,7 +845,7 @@
     if (drillTimer !== null) { window.clearTimeout(drillTimer); drillTimer = null; }
     $('viewLayer').classList.remove('is-drilling-out');
     $('viewKernel').classList.remove('is-drilling-in');
-    stopPlay();
+    stopPlay(); phaseFocus = null;
     if (n === 2 && !chainOf(state.module)) state.module = 'attention';
     if (n === 2 && (!D.KERNELS[state.kernel] || D.KERNELS[state.kernel].module !== state.module)) state.kernel = entryKernel(state.module);
     if (n === 2 && state.tab === 'chip' && state.kernel !== 'qk_pv') state.tab = 'assignment';
@@ -855,7 +870,7 @@
   // L2 下方视图切换：Assignment / Pipeline / 硅片落点（只有 qk_pv 有硅片落点）
   function setTab(tab) {
     if (tab === 'chip' && state.kernel !== 'qk_pv') return;
-    stopPlay();
+    stopPlay(); phaseFocus = null;
     state.tab = tab; state.hover = null;
     if (tab === 'chip') state.l2top = 'logic'; // 硅片落点与上方计算图联动
     applyView();
@@ -869,7 +884,7 @@
       : K.file + ' · ' + (K.fnName ? K.fnName + '() ' : '') + K.fn[0] + '–' + K.fn[1];
   }
   function selectKernel(id) {
-    stopPlay();
+    stopPlay(); phaseFocus = null;
     state.kernel = id; state.sel = null; state.line = null;
     if (state.tab === 'chip' && id !== 'qk_pv') { state.tab = 'assignment'; applyView(); }
     showKernelSource(D.KERNELS[id]); renderL2Top(); refreshL2(); renderCrumb();
@@ -916,7 +931,7 @@
     if (tab && !tab.disabled) { if (tab.dataset.tab !== state.tab) setTab(tab.dataset.tab); return; }
     const l2 = e.target.closest('[data-l2]');
     if (l2 && l2.dataset.l2 === 'play') { play(); return; }
-    if (l2 && l2.dataset.l2 === 'phase') { stopPlay(); state.phase = l2.dataset.v; renderKernelBar(); renderAssignment(); renderStatus(); return; }
+    if (l2 && l2.dataset.l2 === 'phase') { stopPlay(); state.phase = l2.dataset.v; renderKernelBar(); renderAssignment(); focusPhase(); renderStatus(); return; }
     // 双击上方计算图节点：切到硅片落点，看这一步落在哪
     const lnode = e.target.closest('#hpLogic .lg-hit');
     if (lnode && e.detail >= 2 && state.tab !== 'chip' && state.kernel === 'qk_pv') { setTab('chip'); return; }
@@ -942,7 +957,7 @@
         const id = graphNodeForLine(shownSrc.file, no);
         if (id) { state.gnode = id; if (MOD[id]) state.module = id; else { const m = moduleForLine(shownSrc.file, no); if (m) state.module = m.id; } const g = graphApi(); if (g) g.select(id); }
       }
-      if (state.level === 2) { const k = kernelForLine(shownSrc.file, no); if (k && k.id !== state.kernel) { state.kernel = k.id; state.sel = null; renderKernelBody(); renderCrumb(); } }
+      if (state.level === 2) { const k = kernelForLine(shownSrc.file, no); if (k && k.id !== state.kernel) { phaseFocus = null; state.kernel = k.id; state.sel = null; renderKernelBody(); renderCrumb(); } }
       renderInspector(); renderStatus(); applyFocus();
     }
   });
