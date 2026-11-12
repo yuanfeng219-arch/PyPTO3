@@ -134,7 +134,95 @@
       svgEl('text', { x: 570, y: 76, class: 'sv-label' }, br).textContent = '块无效 · 只写初值';
       lone.remove();
     }
+    addFlowContext(svg);
   }
+
+  // ── 4b Kernel 计算图带上模块内的上下游 ──
+  // 取 L1 整层图里同一个模块的子图（csa-graph-model.js 的 LENS_CSA_GRAPH，与 L1 展开后看到的是同一份）：
+  // 本 Kernel 之前的节点竖排在左、之后的竖排在右，中间就是原来的 qk_pv 循环体（SPMD 框）。
+  // 只往 viewBox 两侧加列，不动原图几何；左右列的 Kernel 单击走 lens.js 的 data-lens-go 进入该 Kernel 的 L2。
+  const FLOW_KERNEL = 'qk_pv';
+  const FLOW_ICON = { synchronization: 'cache', planning: 'topk', position: 'rope', matmul: 'matmul', attention: 'attention', reduction: 'reduce', communication: 'exchange' };
+  const FLOW = { colW: 150, gapL: 84, gapR: 108, nodeH: 28, dataH: 30, step: 42, frameL: 12, frameR: 708, mid: 169, top: 8, h: 338 };
+  function flowContext() {
+    const G = window.LENS_CSA_GRAPH;
+    if (!G) return null;
+    const owner = G.nodes.filter(function (n) { return n.composite && n.composite.subgraph.nodes.some(function (x) { return x.id === FLOW_KERNEL; }); })[0];
+    if (!owner) return null;
+    const sub = owner.composite.subgraph, at = sub.nodes.map(function (n) { return n.id; }).indexOf(FLOW_KERNEL);
+    return { owner: owner, edges: sub.edges, up: sub.nodes.slice(0, at), down: sub.nodes.slice(at + 1) };
+  }
+  function flowNode(n, x, y) {
+    const K = window.LensData && window.LensData.KERNELS[n.id];
+    const tip = esc(n.name + '：' + (n.description || '')) + (K ? esc('（单击进入这个 Kernel）') : '');
+    let body;
+    if (n.type === 'data') {
+      const d = n.data || {}, shape = d.shape && d.shape.allocated ? '[' + d.shape.allocated.join(', ') + ']' : '';
+      body = window.PathGridGlyphs.tensor(n.id, n.name, [shape, d.dtype].filter(Boolean).join(' · '), x, y, FLOW.colW, FLOW.dataH, '#80b7f7');
+    } else {
+      const icon = (window.PtoOpIcons || []).filter(function (i) { return i.id === FLOW_ICON[(n.operation || {}).category]; })[0];
+      body = window.VisualSystem.node('op', n.id, n.name, x, y, { width: FLOW.colW, height: FLOW.nodeH, icon: icon && icon.path, fontSize: 10.5 });
+    }
+    const go = K ? ' data-lens-go="2" data-kernel="' + esc(n.id) + '" tabindex="0" role="link" aria-label="' + esc('进入 ' + n.name) + '"' : '';
+    return '<g class="wb-flow-node" data-flow="' + esc(n.id) + '"' + go + '><title>' + tip + '</title>' + body + '</g>';
+  }
+  // 一列：节点竖排、整列垂直居中；相邻节点之间按子图里的边画竖线（虚线 = TaskId / WAR 依赖）
+  function flowColumn(list, x, edges) {
+    const hOf = function (n) { return n.type === 'data' ? FLOW.dataH : FLOW.nodeH; };
+    const total = list.reduce(function (s, n) { return s + hOf(n); }, 0) + FLOW.step * (list.length - 1);
+    let y = FLOW.mid - total / 2, out = '';
+    const box = {};
+    list.forEach(function (n) { box[n.id] = { y: y, h: hOf(n) }; out += flowNode(n, x, y); y += hOf(n) + FLOW.step; });
+    const cx = x + FLOW.colW / 2;
+    for (let i = 1; i < list.length; i++) {
+      const a = list[i - 1], b = list[i], e = edgeOf(edges, a.id, b.id);
+      const y1 = box[a.id].y + box[a.id].h, y2 = box[b.id].y;
+      out = flowEdge('M' + cx + ' ' + (y1 + 2) + ' V ' + (y2 - 2), e) + flowLabel(e, a, b, cx + 7, (y1 + y2) / 2 + 3, 'start') + out;
+    }
+    return { svg: out, box: box };
+  }
+  function edgeOf(edges, s, t) { return edges.filter(function (e) { return e.s === s && e.t === t; })[0] || null; }
+  function flowEdge(d, e) {
+    return '<path d="' + d + '" class="wb-flow-edge' + (e && e.type === 'control' ? ' is-control' : '') + '" marker-end="url(#wbFlowArrow)"/>';
+  }
+  // 边名与两端节点同名（如 qk_plan → qk_order 的“qk_order”）就不重复写
+  function flowLabel(e, a, b, x, y, anchor) {
+    if (!e || !e.label || e.label === a.name || e.label === b.name) return '';
+    return '<text x="' + x + '" y="' + y + '" class="wb-flow-k"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + esc(e.label.replace(/^返回\s*/, '')) + '</text>';
+  }
+  function addFlowContext(svg) {
+    const c = flowContext();
+    if (!c || (!c.up.length && !c.down.length)) return;
+    const self = { id: FLOW_KERNEL, name: FLOW_KERNEL };
+    const leftX = FLOW.frameL - FLOW.gapL - FLOW.colW, rightX = FLOW.frameR + FLOW.gapR;
+    let s = '<marker id="wbFlowArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="wb-flow-head"/></marker>';
+    const defs = svg.querySelector('defs');
+    if (defs) { defs.insertAdjacentHTML('beforeend', s); s = ''; }
+    s += '<g class="wb-flow" aria-label="' + esc(c.owner.name + ' 内的上下游') + '">';
+    let minX = 0, maxX = 720;
+    if (c.up.length) {
+      const col = flowColumn(c.up, leftX, c.edges), last = c.up[c.up.length - 1], b = col.box[last.id], y = b.y + b.h / 2, e = edgeOf(c.edges, last.id, FLOW_KERNEL);
+      s += '<text x="' + leftX + '" y="25" class="wb-flow-cap">上游 · ' + esc(c.owner.name) + '</text>' + col.svg
+        + flowEdge('M' + (leftX + FLOW.colW + 2) + ' ' + y + ' H ' + (FLOW.frameL - 2), e)
+        + flowLabel(e, last, self, (leftX + FLOW.colW + FLOW.frameL) / 2, y - 6, 'middle');
+      minX = leftX - 10;
+    }
+    if (c.down.length) {
+      const col = flowColumn(c.down, rightX, c.edges), first = c.down[0], b = col.box[first.id], y = b.y + b.h / 2, e = edgeOf(c.edges, FLOW_KERNEL, first.id);
+      s += '<text x="' + rightX + '" y="25" class="wb-flow-cap">下游 · ' + esc(c.owner.name) + '</text>' + col.svg
+        + flowEdge('M' + (FLOW.frameR + 2) + ' ' + y + ' H ' + (rightX - 2), e)
+        + flowLabel(e, self, first, (FLOW.frameR + rightX) / 2, y - 6, 'middle');
+      maxX = rightX + FLOW.colW + 10;
+    }
+    svg.insertAdjacentHTML('beforeend', s + '</g>');
+    svg.setAttribute('viewBox', minX + ' 0 ' + (maxX - minX) + ' ' + FLOW.h);
+    svg.setAttribute('aria-label', (svg.getAttribute('aria-label') || '') + '，含 ' + c.owner.name + ' 内的上下游');
+  }
+  // 上下游 Kernel 可用键盘进入：Enter / 空格等同单击
+  document.addEventListener('keydown', function (e) {
+    const t = e.target.closest && e.target.closest('#hpLogic .wb-flow-node[data-lens-go]');
+    if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })); }
+  });
   const logic = $('hpLogic');
   if (logic) { new MutationObserver(decorateLogic).observe(logic, { childList: true }); decorateLogic(); }
 

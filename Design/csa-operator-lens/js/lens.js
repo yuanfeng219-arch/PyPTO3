@@ -1001,7 +1001,7 @@
   // 详情窗保持在视口内；拖动标题栏，内容区域仍可滚动和交互。
   const detail = $('lensDetail'), detailToggle = $('lensDetailToggle');
   function setDetailVisible(visible) { detail.hidden = !visible; detailToggle.setAttribute('aria-expanded', String(visible)); if (visible) clampDetail(); }
-  function showDetail() { setDetailVisible(true); }
+  function showDetail() { if (document.body.dataset.manualDetail !== 'true') setDetailVisible(true); }
   function clampDetail(left, top) {
     if (detail.hidden) return;
     const rect = detail.getBoundingClientRect();

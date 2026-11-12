@@ -27,12 +27,16 @@
   let view = { camera: null, expanded: [], nodeId: null, inspectorOpen: false, overlays: {} };
   let silent = false, ctl = null, hot = [];
   let focusId = null, userMoved = false; // L1 取景焦点；用户动过镜头后不再自动取景（见 frameFocus）
+  let selectTimer = null;
 
   function onView(patch) {
     view = Object.assign({}, view, patch, { inspectorOpen: false }); // 详情放在外层右栏，不用图内抽屉
     if (Object.prototype.hasOwnProperty.call(patch, 'nodeId') && patch.nodeId && !silent) {
       if (MODE === 'l1') focusId = patch.nodeId; // 画布随后变宽变窄（如详情窗停靠）时，按用户点的节点重新取景
-      send('select', patch.nodeId);
+      // 留出双击间隔，避免第一次单击先触发外层布局变化，使第二次点击落空。
+      clearTimeout(selectTimer);
+      const selectedId = patch.nodeId;
+      selectTimer = setTimeout(function () { selectTimer = null; send('select', selectedId); }, 400);
     }
     ctl.update(null, view, { active: true });
     paintHot();
@@ -193,13 +197,26 @@
   });
   host.addEventListener('pointerleave', function () { hoverId = null; send('hover', null); });
   // 双击节点直接进 L2：模块、展开后的子节点，或数据 / 状态节点（去产生它的模块）；能否下钻由外层判断
+  let lastNodePress = null;
+  host.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    const t = e.target.closest('[data-pypa-node], [data-viz2-graph-label]');
+    if (t && !e.target.closest('[data-pypa-expand-toggle]')) {
+      lastNodePress = { id: t.dataset.pypaNode || t.dataset.viz2GraphLabel, x: e.clientX, y: e.clientY, time: performance.now() };
+    }
+  }, true);
   host.addEventListener('dblclick', function (e) {
     const t = e.target.closest('[data-pypa-node], [data-viz2-graph-label]');
-    if (!t) return;
-    const id = t.dataset.pypaNode || t.dataset.viz2GraphLabel;
-    const node = nodeEl(id) || t, rect = node.getBoundingClientRect();
+    // 节点在单击后可能重绘，浏览器会把双击事件发给画布；此时仍使用原节点。
+    const recent = lastNodePress && performance.now() - lastNodePress.time < 700 && Math.hypot(e.clientX - lastNodePress.x, e.clientY - lastNodePress.y) < 8;
+    const id = t ? (t.dataset.pypaNode || t.dataset.viz2GraphLabel) : recent && lastNodePress.id;
+    if (!id || e.target.closest('[data-pypa-expand-toggle]')) return;
+    clearTimeout(selectTimer); selectTimer = null;
+    e.preventDefault(); e.stopPropagation();
+    const node = nodeEl(id) || t, rect = node ? node.getBoundingClientRect() : { left: e.clientX, top: e.clientY, width: 0, height: 0 };
     send('drill', id, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-  });
+    lastNodePress = null;
+  }, true);
   window.addEventListener('message', function (e) {
     const m = e.data;
     if (e.source !== window.parent || !m || m.lens !== 'graph') return;

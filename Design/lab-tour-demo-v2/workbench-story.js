@@ -40,9 +40,16 @@
   // 两种排法：now = 现在（真活在前、空活在后，再按队序轮流发）；flat = 对照（不排队，按产生顺序直接轮流发）
   // 两种工作量口径：count = 每份真活算 1（Cube 按整块算，份数决定算力）；rows = 每份真活算它要搬的有效 KV 行数（估算）
   const costOf = function (it, w) { return !it.valid ? 0 : w === 'count' ? 1 : it.kv; };
+  // snake = 建议：真活按要搬的 KV 行数从多到少排队，每轮发牌换一次方向（偶数轮 0→23，奇数轮 23→0），空活仍在队尾。
+  //   只改 qk_plan 的排队顺序，qk_pv 的发牌规则（第 q 份给核 q mod 24）不变。
+  function snakeOrder(sc) {
+    const v = sc.items.filter(function (i) { return i.valid; }).sort(function (a, b) { return b.kv - a.kv || a.id - b.id; }), out = [];
+    for (let k = 0; k < v.length; k += N) { const ch = v.slice(k, k + N); if ((k / N) % 2) ch.reverse(); out.push.apply(out, ch); }
+    return out.concat(sc.items.filter(function (i) { return !i.valid; }));
+  }
   function assign(sc, p) {
     const lanes = []; for (let l = 0; l < N; l++) lanes.push([]);
-    (p === 'now' ? sc.queue : sc.items).forEach(function (it, i) { lanes[i % N].push(it); });
+    (p === 'now' ? sc.queue : p === 'snake' ? snakeOrder(sc) : sc.items).forEach(function (it, i) { lanes[i % N].push(it); });
     return lanes;
   }
   function measure(lanes, w) {
@@ -53,8 +60,8 @@
   function computeFacts(sc) {
     const total = sc.items.length, valid = sc.validCount, per = sc.lanes.map(function (l) { return l.items.length; });
     const fullReal = Math.floor(valid / N), mixed = valid % N ? 1 : 0;
-    const A = { now: assign(sc, 'now'), flat: assign(sc, 'flat') }, M = {};
-    ['now', 'flat'].forEach(function (p) { M[p] = { count: measure(A[p], 'count'), rows: measure(A[p], 'rows') }; });
+    const A = { now: assign(sc, 'now'), flat: assign(sc, 'flat'), snake: assign(sc, 'snake') }, M = {};
+    ['now', 'flat', 'snake'].forEach(function (p) { M[p] = { count: measure(A[p], 'count'), rows: measure(A[p], 'rows') }; });
     return { total: total, valid: valid, empty: total - valid, rounds: sc.iters, tokens: total / SB, reqs: total / SB / PER_REQ,
       per: per, fullReal: fullReal, mixed: mixed, emptyRounds: sc.iters - fullReal - mixed, A: A, M: M };
   }
@@ -87,7 +94,7 @@
     tools.hidden = step !== 'eval';
     if (step === 'eval') {
       const seg = function (name, opts, cur) { return '<span class="wb-seg" role="group" aria-label="' + name + '">' + opts.map(function (o) { return '<button type="button" data-wb-' + name + '="' + o[0] + '" aria-pressed="' + (o[0] === cur) + '">' + o[1] + '</button>'; }).join('') + '</span>'; };
-      tools.innerHTML = seg('weight', [['rows', 'KV 行数'], ['count', '份数']], weight) + seg('plan', [['now', '现在'], ['flat', '不排队']], plan);
+      tools.innerHTML = seg('weight', [['rows', 'KV 行数'], ['count', '份数']], weight) + seg('plan', [['now', '现在'], ['flat', '不排队'], ['snake', '建议']], plan);
     }
   }
 
@@ -96,7 +103,8 @@
     root = document.createElement('div');
     root.className = 'wb-story';
     root.innerHTML = '<div class="wb-story-head"><nav class="wb-flow" aria-label="工作怎么分：五步"></nav><span class="wb-eval-tools" hidden></span></div>'
-      + '<div class="wb-story-canvas"></div>'
+      + '<div class="wb-advice-strip" hidden></div>'
+      + '<div class="wb-story-canvas"><aside class="wb-advice" hidden></aside></div>'
       + '<div class="wb-story-key"></div>';
     svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'wb-story-svg');
@@ -224,7 +232,7 @@
   // ⑤ 分得好不好：每个核一条长条，长度 = 工作量；终点线 = 最慢的核；琥珀斜纹 = 其他核在空等
   function layoutEval() {
     const lanes = facts.A[plan], m0 = facts.M[plan][weight];
-    const m = matrix(96), x0 = m.cx, span = (W - m.lw - 96 - m.x0) - 8, k = span / m0.max, bottom = m.top + N * m.th;
+    const m = matrix(96 + adviceW()), x0 = m.cx, span = (W - m.lw - 96 - adviceW() - m.x0) - 8, k = span / m0.max, bottom = m.top + N * m.th;
     const pos = new Array(S.items.length), byId = {};
     S.items.forEach(function (it, i) { byId[it.id] = i; });
     lanes.forEach(function (ls, l) {
@@ -257,6 +265,24 @@
     if (H - bottom >= 26) ann += '<g class="wb-verdict-g ' + verdict(m0.ratio) + '"><text x="' + bx + '" y="' + (by + 12) + '"><tspan class="v-big">' + m0.ratio.toFixed(2) + '×</tspan><tspan dx="6">最慢 / 平均</tspan><tspan dx="16" class="v-big">' + Math.round(m0.wait * 100) + '%</tspan><tspan dx="6">算力在空等</tspan></text></g>';
     return { pos: pos, ann: ann, under: under, used: bottom + (H - bottom >= 26 ? 26 : 0), order: function (it) { return it.lane; }, spread: 500 };
   }
+  // ── ⑤ 的改进建议卡：现在 → 建议 的前后对比 + 怎么改 + 代价；宽度不够时收起，只留“建议”开关 ──
+  const adviceW = function () { return step === 'eval' && W >= 860 ? 250 : 0; };
+  function paintAdvice() {
+    const card = root.querySelector('.wb-advice'), strip = root.querySelector('.wb-advice-strip'), on = adviceW() > 0;
+    const a = facts.M.now[weight], b = facts.M.snake[weight], other = weight === 'rows' ? 'count' : 'rows';
+    card.hidden = !on;
+    // 画布窄时收成一条：结论 + 一句怎么改 + 按钮
+    strip.hidden = step !== 'eval' || on;
+    if (!strip.hidden) strip.innerHTML = '<b>改进建议</b><span class="wb-adv-ba is-sm"><span class="' + verdict(a.ratio) + '">' + a.ratio.toFixed(2) + '×</span><i>→</i><span class="' + verdict(b.ratio) + '">' + b.ratio.toFixed(2) + '×</span></span><span>qk_plan 按 KV 行数从多到少排队，发牌每轮换方向（蛇形）</span><button type="button" class="wb-adv-go" data-wb-plan="' + (plan === 'snake' ? 'now' : 'snake') + '">' + (plan === 'snake' ? '回到现在' : '看效果') + '</button>';
+    if (!on) return;
+    const a2 = facts.M.now[other], b2 = facts.M.snake[other];
+    card.innerHTML = '<b class="wb-adv-k">改进建议</b>'
+      + '<div class="wb-adv-ba"><span class="' + verdict(a.ratio) + '">' + a.ratio.toFixed(2) + '×</span><i aria-hidden="true">→</i><span class="' + verdict(b.ratio) + '">' + b.ratio.toFixed(2) + '×</span></div>'
+      + '<div class="wb-adv-sub">最慢 / 平均 · 空等 ' + Math.round(a.wait * 100) + '% → ' + Math.round(b.wait * 100) + '%</div>'
+      + '<ol class="wb-adv-how"><li><b>qk_plan</b> 把真活按要搬的 KV 行数<b>从多到少</b>排队</li><li>每轮发牌<b>换一次方向</b>（蛇形），重活轻活搭配着发</li><li>空活仍在队尾；qk_pv 的发牌规则不用改</li></ol>'
+      + '<div class="wb-adv-cost">' + (other === 'count' ? '按份数' : '按 KV 行数') + '：' + a2.ratio.toFixed(2) + '× → ' + b2.ratio.toFixed(2) + '×<br>代价：qk_plan 多一次排序；同一 token 的活不再相邻。估算值，需上板确认。</div>'
+      + '<button type="button" class="wb-adv-go" data-wb-plan="' + (plan === 'snake' ? 'now' : 'snake') + '">' + (plan === 'snake' ? '回到现在的排法' : '看建议排法的效果') + '</button>';
+  }
   const LAYOUT = { generation: layoutGeneration, ordering: layoutOrdering, assignment: layoutAssignment, rounds: layoutRounds, eval: layoutEval };
 
   // ── 画 ──
@@ -267,6 +293,7 @@
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     paintFlow(); paintKey();
     const L = LAYOUT[step]();
+    paintAdvice();
     const dy = Math.max(0, Math.floor((H - (L.used || H)) / 2));
     const key = step + ':' + weight + ':' + plan;
     const animate = !resized && lastKey && lastKey !== key && !svg.classList.contains('is-still');
