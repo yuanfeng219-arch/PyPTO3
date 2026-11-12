@@ -1,6 +1,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body {
+
+body.ai-extracted {
   display: grid;
   place-items: center;
   min-height: 100dvh;
@@ -10,6 +11,7 @@ body {
   font-family: var(--font-sans);
 }
 #screen {
+  position: relative;
   width: min(100vw, 100dvh * 16 / 9);
   aspect-ratio: 16 / 9;
   border-radius: 0;
@@ -20,114 +22,63 @@ body {
   position: absolute;
   width: 1600px;
   height: 900px;
-  padding: 28px 60px 23px;
+  padding: 26px 60px 22px;
   display: grid;
-  grid-template-rows: 26px 80px 576px 101px 66px;
+  grid-template-rows: 24px 68px 54px minmax(0, 1fr) 70px;
   transform-origin: top left;
   transform: scale(var(--story-scale, 1));
-  --identity: var(--primary);
 }
-.mast, footer, footer nav, .transport {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.mast { color: var(--foreground-secondary); font: 14px var(--font-mono); }
+#story > h1 { margin: 8px 0 0; font-size: 46px; line-height: 1.2; letter-spacing: -.035em; }
+.views, .transport { display: flex; align-items: center; gap: 8px; }
+.views { justify-content: center; }
+.views .btn { width: 138px; min-height: 38px; color: var(--foreground-muted); font-size: 16px; }
+.views [data-view="graph"] { --view-color: var(--highlight-copy-blue-300); }
+.views [data-view="assignment"] { --view-color: var(--highlight-ub-green-300); }
+.views [data-view="pipeline"] { --view-color: var(--highlight-mte-amber-300); }
+.views .btn[aria-pressed="true"] {
+  color: var(--view-color);
+  box-shadow: inset 0 -2px color-mix(in srgb, var(--view-color) 65%, transparent);
 }
-.mast, footer { justify-content: space-between; }
-.mast, #step { color: var(--foreground-secondary); font: 14px var(--font-mono); }
-.mast b { margin: 0 6px; color: var(--foreground-muted); }
-h1 { margin: 10px 0 0; font-size: 48px; line-height: 1.2; letter-spacing: -.035em; }
 #stage {
   position: relative;
+  display: grid;
+  grid-template-rows: 66px minmax(0, 1fr);
+  min-height: 0;
   isolation: isolate;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: var(--ide-frame-pane-fill, var(--surface-1));
+  background: var(--ss-bg);
 }
-#assignment { position: absolute; inset: 42px 108px 9px; background: transparent; transform-origin: 50% 48%; }
-#assignment .assignment-focus-title { display: none; }
-#assignment > [data-focus-fragment="matrix"] { inset: 0; width: 100%; height: 100%; }
-#assignment [data-pa-task] { cursor: default; }
-#assignment [data-pa-task="48"] { cursor: pointer; }
-#assignment .viz2-am-task.is-selected .kf-pa-map__cell { stroke: var(--identity) !important; }
-#assignment [data-focus-fragment="matrix"] * { transition: none; }
-#identity { position: absolute; inset: 0; width: 1480px; height: 576px; pointer-events: none; }
-#identity rect { stroke: var(--identity); stroke-width: 1.5; }
-#ghosts rect { fill: none; }
-#anchor rect { fill: var(--surface-2); stroke-width: 2; }
-#anchor text { fill: var(--foreground); font: 700 19px var(--font-mono); }
-#view, #legend {
+.task-identity {
+  display: flex;
+  align-items: baseline;
+  align-self: center;
+  gap: 18px;
+  padding-inline: 26px;
+}
+.task-identity strong { font: 600 26px var(--font-mono); }
+.task-identity span { color: var(--foreground-secondary); font: 14px var(--font-mono); }
+body.ai-extracted #camera { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.shot { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
+.crop { position: absolute; overflow: hidden; transform-origin: top left; }
+.native-frame {
   position: absolute;
-  pointer-events: none;
-  color: var(--foreground-secondary);
-  font: 15px var(--font-mono);
+  width: 1600px;
+  height: 900px;
+  top: var(--native-top, -110px);
+  left: var(--native-left, 0px);
 }
-#view { left: 28px; top: 31px; }
-#stage[data-view="graph"] #view { left: 211px; }
-#stage[data-view="pipeline"] #view { left: auto; right: 211px; }
-#legend { bottom: 19px; left: 28px; right: 28px; text-align: center; }
-#graph { left: 20px; top: 51px; }
-#graph .kf-pypa-graph__node { cursor: default; transition: none; }
-#graph .viz2-graph-compact-title { display: grid; place-items: center; width: 100%; height: 100%; padding: 0 7px; }
-#graph .viz2-graph-compact-title b { font-size: 16px; line-height: 1.15; white-space: normal; text-align: center; }
-#graph [data-pypa-edge-label] { display: none; }
-#graph .has-execution-badge { overflow: visible; }
-#graph .kf-pypa-graph__execution-count { top: -12px; right: -5px; font-size: 13px; }
-#graph .kf-pypa-graph__execution-layer { pointer-events: none; }
-#pipeline { position: absolute; inset: 64px 26px 43px; }
-#pipeline .viz2-intra-svg { width: 100%; height: 100%; overflow: visible; }
-#pipeline .viz2-intra-frame { fill: transparent; stroke: none; }
-#pipeline .viz2-intra-svg text { font-size: 17px; }
-#pipeline .viz2-intra-svg .viz2-intra-node-slot,
-#pipeline .viz2-intra-svg .viz2-intra-small { font-size: 15px; }
-#pipeline .viz2-intra-svg [data-intra-kind] { cursor: default; }
-#graph, #pipeline { pointer-events: none; }
-.reading { display: flex; flex-direction: column; justify-content: center; gap: 7px; }
-.reading h2, .reading p { margin: 0; }
-.reading h2 { font-size: 25px; letter-spacing: -.015em; }
-.reading p { font-size: 17px; color: var(--foreground-secondary); }
-footer { border-top: 1px solid var(--border-subtle); }
-footer .btn { font-size: 15px; min-height: 38px; }
-footer [aria-pressed="true"] { border-color: var(--primary); color: var(--primary); }
-#step { margin-right: 10px; }
-#error { position: absolute; inset: 42px 28px auto; }
-
-#block-detail {
-  position: absolute;
-  inset: 79px 103px 57px;
-  pointer-events: none;
+.shot:not([data-shot="assignment"]) { --native-left: -300px; }
+/* The camera crops the native diagram region. Identity, parameters and
+   navigation belong to the presentation shell. */
+.native-frame :is(.compute-identity, [data-compute-toolbar], [data-anatomy-back], [data-intra-back], .ai-detail-back, .ai-control-bar) {
+  visibility: hidden;
 }
-#local-task {
-  display: grid;
-  place-items: center;
-  width: 150px;
-  height: 40px;
-  border: 2px solid var(--identity);
-  border-radius: 6px;
-  color: var(--foreground);
-  background: var(--surface-2);
-  font: 700 19px var(--font-mono);
-}
-#block-render.viz2-anatomy {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  align-items: center;
-  gap: 75px;
-  margin: 14px 0 0 26px;
-}
-#block-render > section > svg {
-  width: min(100%, 885px);
-  height: auto;
-}
-#block-render .viz2-anatomy-query { margin: 0; }
-#block-render h3 { margin: 0 0 7px; color: var(--foreground); font: var(--type-title-3); }
-#block-render .viz2-anatomy-stack-boundary { fill: var(--surface-3); }
-#block-render .viz2-anatomy-valid { fill: color-mix(in srgb, var(--primary) 60%, var(--surface-3)); }
-#object-morphs rect { fill: color-mix(in srgb, var(--identity) 8%, transparent); }
-#graph .ai-role-tensor .data-tile { opacity: .23; }
-#graph .ai-role-tensor text { fill: var(--foreground); stroke-width: 0 !important; }
-#pipeline .ai-operation-glyph text { font-size: 15px; }
-#pipeline .ai-operation-glyph .ai-operation-slot { font-size: 13px; }
-#pipeline [data-intra-reuse] { stroke-width: 1.5; }
-#legend span + span { margin-left: 26px; }
-#relation-key i { display: inline-block; margin: 0 4px 2px 12px; vertical-align: middle; }
+.native-frame .viz2-canvas { width: 100%; height: 100%; }
+.story-controls { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.story-controls p { margin: 0; color: var(--foreground-secondary); font-size: 17px; }
+.transport { flex: none; }
+.transport .btn { min-height: 38px; font-size: 15px; }
+#error { position: absolute; inset: 70px 26px auto; }

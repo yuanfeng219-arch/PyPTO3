@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/compute-shared.css">
 <link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/compute-map.css">
 <link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/visualization2-anatomy.css">
 <link rel="stylesheet" href="presentation.css">
 <script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-pypto-source.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-semantic-graph.js"></script>
@@ -22,7 +23,9 @@
 <script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-graph.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-execution.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-task-encoding.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/compute-detail-controls.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-anatomy.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/compute-scenario.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-graph-intra.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/js/photo-narrative.js"></script>
 <script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/visual-system.js"></script>
@@ -42,30 +45,32 @@
         <p><b id="task-context"></b><span> / </span> P06</p>
       </header>
       <h1>循环执行规模直观可见</h1>
-      <div class="stage" aria-label="Stack 到 Graph 的计算演示">
+      <div class="stage" aria-label="Task 的数据分块与计算规模">
         <header class="scene-heading">
-          <h2 id="scene-title"></h2>
-          <p id="scene-caption" aria-live="polite"></p>
+          <h2>数据分块决定重复计算规模</h2>
+          <p>Stack 决定模块重复几次，Page 决定 QK Matmul 重复几次。</p>
         </header>
-        <div id="process" aria-label="逐 Page 计算与跨 Stack 累加"></div>
-        <div id="overview" hidden>
-          <div id="stack-strip" aria-label="Task 的 Stack 与 Page"></div>
-          <div class="viz2 graph-surface">
-            <div id="graph" class="kf-pypa-graph__scene" aria-label="Task 48 完整 Graph"></div>
+        <div id="overview">
+          <div class="scale-summary" aria-label="重复规模">
+            <section><h3>Attention 计算模块</h3><strong id="module-count"></strong><p>每个 Stack 处理一组 Pages，汇出一份 Partial Context。</p></section>
+            <section><h3>QK Matmul</h3><strong id="qk-count"></strong><p>每个 Page 产生一份 Scores。次数按每 AIC、每 Task 计算。</p></section>
           </div>
+          <section class="assignment viz2" aria-labelledby="assignment-title">
+            <h3 id="assignment-title">Assignment · Block 内</h3>
+            <p id="assignment-context"></p>
+            <div class="assignment-data">
+              <section><h4>KV Cache</h4><div id="assignment-stacks"></div></section>
+              <section id="assignment-query" aria-label="Q Tile"></section>
+            </div>
+          </section>
+          <section class="viz2 graph-view" aria-label="Task 完整 Graph">
+            <h3>Graph</h3>
+            <div class="graph-surface"><div id="graph" class="kf-pypa-graph__scene"></div></div>
+          </section>
         </div>
         <p id="story-note"></p>
-        <p id="error" role="alert" hidden>计算图未能加载。请保留本页与 Compute Explorer 的目录关系后重新打开。</p>
+        <p id="error" role="alert" hidden>Task 视图未能加载。请保留本页与 Compute Explorer 的目录关系后重新打开。</p>
       </div>
-      <footer class="story-footer">
-        <nav id="scenes" aria-label="故事关键帧"></nav>
-        <div class="actions">
-          <button class="btn btn-ghost" id="previous" type="button">上一步</button>
-          <button class="btn btn-ghost" id="reset" type="button">重置</button>
-          <button class="btn btn-ghost" id="play" type="button">完整慢放</button>
-          <button class="btn" id="next" type="button">下一步</button>
-        </div>
-      </footer>
     </article>
   </div>
 </main>
