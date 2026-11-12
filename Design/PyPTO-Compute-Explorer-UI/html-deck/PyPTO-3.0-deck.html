@@ -7429,10 +7429,121 @@ body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 aut
 }
 
 .design-slide { position:absolute; left:50%; top:50%; overflow:hidden; padding:var(--deck-padding); background:#101010; }
+
+/* Parameter rules and their source excerpt share the same slide. */
+[data-p14="derive"] { background:#191919; }
+.p12-rules-body {
+  display:grid; grid-template-columns:minmax(0, .89fr) minmax(0, 1.11fr);
+  gap:36px; height:490px; margin:10px 18px 0;
+}
+.p12-rule-board { display:grid; grid-template-rows:1fr 1fr; min-width:0; }
+.p12-rule-group {
+  display:grid; grid-template-columns:88px minmax(0, 1fr); gap:12px; align-content:center;
+}
+.p12-rule-group + .p12-rule-group { border-top:1px solid #51596b; }
+.p12-rule-group h3 { margin:15px 0 0; font-size:18px; letter-spacing:1px; }
+.p12-definitions,.p12-derivations { display:grid; align-items:start; gap:15px; }
+.p12-definitions { grid-template-columns:1fr .76fr 1.8fr; }
+.p12-derivations { grid-template-columns:1fr 1fr; }
+.p12-formula {
+  display:flex; gap:8px; align-items:center; white-space:nowrap;
+  font:500 29px/1.15 var(--deck-mono); color:#f5f5f5;
+}
+.p12-formula mark { padding:9px 8px; color:#191919; }
+.p12-page { background:#d8fa52; }
+.p12-stack-pages { background:#7bd5ec; }
+.p12-stack { background:#e481ce; }
+.p12-seq { color:#ff5469; }
+.p12-rule-group p { margin:17px 0 5px; white-space:nowrap; font-size:16px; color:#f2f2f2; }
+.p12-rule-group small { color:#aaa; font:15px/1.4 var(--deck-mono); }
+.p12-editor {
+  display:grid; grid-template-rows:auto minmax(0, 1fr) auto; min-width:0;
+  margin:0; overflow:hidden; border:1px solid #424b59; border-radius:16px; background:#282a36;
+}
+.p12-editor figcaption,.p12-editor-status {
+  display:flex; align-items:center; gap:14px; padding:16px 22px; background:#21222c;
+}
+.p12-editor figcaption { border-bottom:1px solid #44475a; }
+.p12-file-icon {
+  display:grid; place-items:center; width:34px; height:34px; border-radius:8px;
+  color:#a9c0ff; background:#26344c; border:1px solid #364764;
+}
+.p12-file-icon svg { width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.5; }
+.p12-file { display:grid; gap:4px; font-family:var(--deck-mono); }
+.p12-file strong { font-size:20px; color:#f8f8f2; }
+.p12-file small { font-size:13px; color:#a0a9b9; }
+.p12-language {
+  margin-left:auto; padding:6px 10px; border:1px solid #3d4e6b; border-radius:6px;
+  background:#1e2939; color:#b5c9eb; font:13px var(--deck-mono);
+}
+.p12-code { display:flex; flex-direction:column; justify-content:center; padding:14px 0; }
+.p12-code-line {
+  display:grid; grid-template-columns:49px minmax(0, 1fr);
+  font:16px/1.65 var(--deck-mono); color:#f8f8f2;
+}
+.p12-ln {
+  padding:6px 11px 6px 0; text-align:right; border-right:1px solid #44475a; color:#98a6cb; user-select:none;
+}
+.p12-code-line code { padding:6px 16px; font:inherit; white-space:pre-wrap; overflow-wrap:break-word; }
+.p12-code-gap .p12-ln { padding-block:10px; }
+.p12-py-comment { color:#9aaad0; }
+.p12-py-number,.p12-py-constant { color:#bd93f9; }
+.p12-py-operator { color:#ff79c6; }
+.p12-py-call { color:#8be9fd; }
+.p12-editor-status {
+  justify-content:space-between; border-top:1px solid #44475a; padding-block:11px;
+  color:#a9c0ff; font:13px var(--deck-mono);
+}
+.p12-editor-status span + span { color:#a0a9b9; }
+.p12-takeaway {
+  display:flex; justify-content:center; align-items:center; gap:12px; min-height:93px;
+  margin:34px 18px 0; padding:14px 24px; border:1px solid #515e77; border-radius:12px;
+  background:linear-gradient(105deg,#20232d,#191919); color:#f4f4f4; font-size:22px;
+}
+.p12-takeaway span { font-size:28px; }
+
 /* Object accents belong to headings; diagram colors retain local meanings. */
 [data-compute-axis="graph"] {color:#819efe}
 [data-compute-axis="assignment"] {color:#6ad9a2}
 [data-compute-axis="pipeline"] {color:#efb864}
+.compute-layers {
+  width:1180px; margin:22px auto 0; display:grid; justify-items:center;
+  text-align:center; color:#f1f1f1;
+}
+.compute-layers h2,.compute-layers p {margin:0}
+.compute-layers h2 {font-size:31px; line-height:1.25}
+.compute-layers p {font-size:21px; line-height:1.5; color:#b6b6b6}
+.compute-layers__source {
+  display:grid; gap:10px; width:440px; padding:19px 24px;
+  background:#171717; border:1px solid #363636; border-radius:10px;
+}
+.compute-layers__junction {
+  width:100%; height:62px; position:relative;
+  background:linear-gradient(#555,#555) center / 1px 100% no-repeat;
+}
+.compute-layers__junction::before {
+  content:""; position:absolute; inset:50% 16.6667% 0;
+  border:1px solid #555; border-bottom:0; border-radius:8px 8px 0 0;
+}
+.compute-layers__junction--merge {transform:rotate(180deg)}
+.compute-layers__views {
+  display:grid; grid-template-columns:repeat(3,1fr); width:100%;
+}
+.compute-layers__views > div {
+  display:grid; gap:10px; margin:0 12px; padding:25px 12px;
+  border:1px solid #363636; border-radius:10px; background:#171717;
+}
+.compute-layers__hardware {
+  display:grid; gap:13px; width:100%; padding:23px 28px 27px;
+  border:1px solid #363636; border-radius:10px; background:#171717;
+}
+.compute-layers__bottlenecks {
+  display:flex; justify-content:center; gap:12px; margin:0; padding:0; list-style:none;
+}
+.compute-layers__bottlenecks li {
+  min-width:132px; padding:7px 20px; border:1px solid #444; border-radius:24px;
+  font-size:23px;
+}
 [data-p08] .p08-surface {position:relative;flex:0 0 644px}
 [data-p08] > .p08-caption {
   flex:0 0 24px; min-height:24px; margin:0 0 8px; align-items:center;
@@ -7506,7 +7617,8 @@ body.is-presenting .p08-footer nav,:fullscreen .p08-footer nav {visibility:hidde
   display:flex; align-items:baseline; gap:12px; margin:0;
   color:#eee; font:600 24px/1.3 var(--deck-sans);
 }
-.strategy-subtitle span { color:#b6caff; font:500 15px var(--deck-mono); }
+.strategy-subtitle > span[aria-hidden="true"] { color:#b6caff; font:500 15px var(--deck-mono); }
+.strategy-subtitle > [data-compute-axis] { font:600 17px var(--deck-sans); white-space:nowrap; }
 .strategy-description {
   margin:4px 0 0; color:#bcbcbc; font:400 16px/1.4 var(--deck-sans);
 }
@@ -7538,200 +7650,192 @@ body.is-presenting .p08-footer nav,:fullscreen .p08-footer nav {visibility:hidde
 &lt;meta name=&quot;color-scheme&quot; content=&quot;dark&quot; /&gt;
 &lt;title&gt;PyPTO 3.0｜可解释性计算探索 · Ascend C 与 PyPTO 3.0 架构对比&lt;/title&gt;
 &lt;style&gt;
-:root{--background:#101010;--surface-1:#161616;--surface-2:#1c1c1c;--surface-3:#262626;--surface-4:#313131;--border:rgba(255,255,255,.09);--border-strong:rgba(255,255,255,.16);--text:rgba(255,255,255,.91);--secondary:rgba(255,255,255,.60);--muted:rgba(255,255,255,.39);--blue:#7195ff;--green:#04d793;--orange:#ffaa3b;--violet:#ac8aff;--red:#ff668e;--mono:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;--sans:Inter,-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;--serif:'Songti SC','STSong','Noto Serif CJK SC','Source Han Serif SC',Georgia,serif}
-*{box-sizing:border-box}html{min-height:100%;background:var(--background)}body{margin:0;color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;min-height:100vh;background:radial-gradient(circle,rgba(255,255,255,.06) 0 .7px,transparent .85px) 0 0/20px 20px,var(--background)}
-.page{width:min(1780px,calc(100% - 88px));margin:0 auto;padding:34px 0 27px;min-height:100vh;display:flex;flex-direction:column}
-.mast{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:20px}
-.eyebrow,.issue-mark{font:600 11px/1.3 var(--mono);letter-spacing:.12em;color:var(--muted)}.eyebrow span{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--blue);margin-right:9px}.issue-mark{font-weight:500;letter-spacing:.055em}
-.title{font:400 clamp(27px,2.62vw,46px)/1.25 var(--serif);letter-spacing:-.036em;margin:0;max-width:1580px;color:#f1f1f1}.title strong{font-weight:500;color:#c3d0ff}.title .line{display:block}.subhead{color:var(--secondary);margin-top:15px;display:flex;align-items:center;gap:13px;font-size:12px;line-height:1.5}.subhead .dash{height:1px;width:29px;background:var(--blue)}
-.comparison{display:grid;grid-template-columns:minmax(285px,.86fr) 26px minmax(660px,1.88fr);gap:18px;align-items:stretch;margin-top:30px;flex:1;min-height:595px}.panel{min-width:0;border:1px solid var(--border);border-radius:14px;background:rgba(22,22,22,.96);padding:20px 20px 18px;display:flex;flex-direction:column;position:relative;overflow:hidden}.panel.pypto{background:#171717;border-color:rgba(255,255,255,.14)}.panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px}.panel-index{color:var(--muted);font:500 11px/1 var(--mono);margin-bottom:9px}.panel-heading h2{font-size:28px;line-height:1.18;letter-spacing:-.025em;margin:0 0 7px;font-weight:630}.panel-heading p{margin:0;color:var(--secondary);font-size:12px;line-height:1.5}.panel-pill{border:1px solid var(--border);color:var(--muted);font:500 10px/1.4 var(--mono);padding:6px 8px;border-radius:999px;white-space:nowrap}.pypto .panel-heading h2{color:#e8edff}
-.section-label{display:flex;align-items:center;gap:8px;color:#b8b8b8;font:500 11px/1.3 var(--sans);margin:0 0 13px;letter-spacing:.025em}.section-label .tinybar{height:9px;width:2px;background:var(--blue);border-radius:2px}.section-label .en{color:var(--muted);font:500 10px/1 var(--mono);letter-spacing:.04em;margin-left:auto}
-.left-operations{padding:17px 14px 15px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px}.op-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.op-card{height:91px;border:1px solid var(--border);border-radius:8px;background:#202020;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;padding:13px 13px 11px;transition:background .2s,border-color .2s}.op-card:hover{background:#282828;border-color:var(--border-strong)}.op-glyph{font:500 23px/1 var(--sans);letter-spacing:-.06em}.op-card strong{font:550 14px/1.1 var(--mono);letter-spacing:-.02em;color:#e5e5e5}.op-1 .op-glyph{color:var(--blue)}.op-2 .op-glyph{color:var(--green)}.op-3 .op-glyph{color:var(--orange)}.op-4 .op-glyph{color:var(--red)}.op-5 .op-glyph{color:var(--violet)}.op-6 .op-glyph{color:#98a9c8}
-.left-decor{flex:1;min-height:36px;position:relative;display:flex;justify-content:center;align-items:center}.left-decor::before{content:&quot;&quot;;position:absolute;top:0;bottom:calc(50% + 3px);width:1px;background:linear-gradient(var(--border-strong),var(--muted))}.left-decor::after{content:&quot;&quot;;height:6px;width:6px;border-right:1px solid #777;border-bottom:1px solid #777;transform:rotate(45deg);margin-top:8px}
-.runtime-left{border:1px solid var(--border);background:#1c1c1c;border-radius:10px;padding:15px 15px 14px}.scope-head{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:13px}.scope-head span:first-child{font-size:12px;font-weight:600}.small-en{font:500 10px/1 var(--mono);color:var(--muted);white-space:nowrap}.kernel-core{display:grid;grid-template-columns:auto 20px minmax(0,1fr);align-items:center;gap:8px}.kernel-chip{padding:12px 14px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface-3);min-width:0;text-align:center;font:550 11px/1.2 var(--mono);color:#ddd}.thin-arrow{display:flex;justify-content:center;align-items:center;color:#858585;font-size:20px;font-weight:300}.core-box{border:1px solid rgba(113,149,255,.28);background:#1a1f27;border-radius:7px;padding:9px 10px 10px}.core-name{font:500 10px/1.2 var(--mono);color:#9aafdf;margin-bottom:8px;letter-spacing:.06em}.core-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.core-unit{font:600 10px/1.3 var(--mono);border-radius:4px;padding:8px 4px;text-align:center;color:#bababa;background:#2a2c32}.core-unit.aic{border-bottom:2px solid var(--blue)}.core-unit.aiv{border-bottom:2px solid var(--green)}.left-caption{margin-top:12px;font-size:11px;color:var(--secondary);line-height:1.55}
-.bridge{display:flex;align-items:center;justify-content:center;position:relative}.bridge .shaft{width:1px;background:linear-gradient(transparent,rgba(255,255,255,.19),transparent);height:55%}.bridge .arrow{position:absolute;top:48%;left:2px;width:21px;height:21px;border-right:2px solid #9caac7;border-top:2px solid #9caac7;transform:translateY(-50%) rotate(45deg);opacity:.85}
-.top-work{display:grid;grid-template-columns:minmax(0,1fr) 183px;gap:12px;flex:1;min-height:390px}.pa-outer{border:1px solid rgba(113,149,255,.32);border-radius:10px;padding:13px;background:#1b1d21;min-width:0;display:flex;flex-direction:column}.pa-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 1px 12px}.pa-name{display:flex;align-items:center;gap:9px;min-width:0}.level-pill{font:600 10px/1.1 var(--mono);color:#92aefa;border:1px solid rgba(113,149,255,.28);padding:4px 6px;border-radius:4px;white-space:nowrap;background:#252b3a}.pa-name strong{font-size:17px;font-weight:600;letter-spacing:-.01em}.pa-meta{font:500 9px/1.2 var(--mono);color:#7f91b5;white-space:nowrap}.pa-body{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}.fusion-section{border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:10px 10px 11px;background:#202020;flex:1;min-height:0}.fusion-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;white-space:nowrap}.lvl{font:600 9px/1.35 var(--mono);color:var(--muted);letter-spacing:.02em}.fusion-header .fusion-title{font-size:12px;font-weight:600;color:#d8d8d8}.kind-tag{margin-left:auto;font:500 9px/1 var(--mono);color:var(--muted);letter-spacing:.03em}
-.module-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.module{min-width:0;border:1px solid rgba(255,255,255,.1);background:#262626;border-radius:6px;padding:10px 9px 9px;min-height:102px;transition:background .2s,border-color .2s}.module:hover{background:#2e2e2e;border-color:rgba(255,255,255,.2)}.module-head{display:flex;align-items:center;gap:6px;margin-bottom:10px;min-width:0}.module-dot{width:5px;height:5px;border-radius:50%;background:var(--blue);flex:none}.module[data-tone=&quot;green&quot;] .module-dot{background:var(--green)}.module[data-tone=&quot;orange&quot;] .module-dot{background:var(--orange)}.module[data-tone=&quot;violet&quot;] .module-dot{background:var(--violet)}.module-title{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.module-level{margin-left:auto;white-space:nowrap;font:500 9px/1 var(--mono);color:#666}.api-chips{display:flex;flex-wrap:wrap;gap:5px}.api-chip{font:500 10px/1.2 var(--mono);color:#c6c6c6;padding:5px 7px;border:1px solid #414141;border-radius:4px;background:#202020}.api-chip.low{color:#777;border-style:dashed}.pa-note{font:400 10px/1.4 var(--sans);color:var(--muted);margin:9px 2px 0}
-.other-operators{display:flex;flex-direction:column;gap:9px;min-width:0}.other-head{display:flex;align-items:center;gap:6px;margin:1px 0 2px;font-size:11px;color:var(--secondary);white-space:nowrap}.other-head .micro{font:500 9px/1.4 var(--mono);color:var(--muted);margin-left:auto}.other-card{flex:1;min-height:77px;background:#202020;border:1px solid var(--border);border-radius:8px;padding:15px 12px;display:flex;flex-direction:column;justify-content:space-between;gap:13px}.other-card .glyph{font:500 12px/1 var(--mono);color:var(--blue)}.other-card:nth-child(3) .glyph{color:var(--green)}.other-card:nth-child(4) .glyph{color:var(--orange)}.other-card strong{font:550 12px/1.4 var(--sans);letter-spacing:0}.other-foot{margin-top:0;color:var(--muted);font:500 11px/1.3 var(--mono);text-align:center}
-.hw{margin-top:13px;border:1px solid var(--border);border-radius:10px;background:#1d1d1d;padding:14px 15px 15px}.hw-header{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:12px}.hw-title{font-size:12px;font-weight:600}.hw-header .small-en{font-size:9px}.topology{display:grid;grid-template-columns:1.22fr 14px .86fr 14px .86fr 14px 1fr;align-items:stretch;gap:5px}.topo-entity{background:#252525;border:1px solid var(--border);border-radius:7px;padding:10px 10px 9px;min-width:0}.topo-label{font:600 10px/1.2 var(--mono);color:#d0d0d0;display:flex;justify-content:space-between;gap:5px;align-items:center}.topo-label .index{color:#757575;font-size:9px}.topo-desc{font-size:10px;color:var(--secondary);margin-top:7px;line-height:1.35}.topo-arrow{display:flex;align-items:center;justify-content:center;font:400 17px/1 var(--sans);color:#7c7c7c}.ranks{display:flex;gap:5px;margin-top:12px}.ranks span{height:23px;display:grid;place-items:center;flex:1;min-width:0;background:#303030;border:1px solid #3f3f3f;border-radius:3px;color:#aab5c5;font:500 9px var(--mono)}.chip-drawing{display:flex;gap:7px;align-items:center;margin-top:10px}.chip-icon{height:23px;width:23px;border:1px solid rgba(113,149,255,.55);border-radius:4px;display:grid;place-items:center;color:var(--blue);font:700 10px var(--mono);background:#242a37}.chip-icon.small{width:12px;height:12px;opacity:.5}.dies{display:grid;grid-template-columns:repeat(3,19px);gap:5px;margin-top:10px}.dies b{height:19px;background:#303030;border:1px solid #525252;border-radius:3px}.dies b:first-child{border-color:rgba(4,215,147,.5);background:#253930}.acores{display:flex;gap:5px;margin-top:10px}.acores span{display:grid;place-items:center;border-radius:3px;background:#303030;padding:5px 4px;flex:1;font:600 10px/1.2 var(--mono);border-bottom:2px solid var(--blue)}.acores span:last-child{border-color:var(--green)}
-.tail{margin-top:19px;padding-top:15px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:20px}.core-takeaway{font-size:15px;font-weight:550;color:#dedede;letter-spacing:-.015em}.core-takeaway em{font-style:normal;color:#a8baf3}.fine-print{font:400 10px/1.5 var(--sans);color:var(--muted);max-width:690px;text-align:right}
-@media(max-width:1450px){.page{width:min(100% - 54px,1780px);padding-top:27px}.comparison{grid-template-columns:minmax(260px,.78fr) 20px minmax(625px,1.82fr);gap:12px;margin-top:24px}.panel{padding:17px 15px}.top-work{grid-template-columns:minmax(0,1fr) 148px}.other-card{padding:12px 10px}.module{padding:9px 6px}.api-chip{padding:4px 5px}.topology{grid-template-columns:1.15fr 12px .85fr 12px .85fr 12px 1fr;gap:3px}.topo-entity{padding:9px 7px}.other-head .micro{display:none}}
-@media(max-width:1110px){.page{width:min(100% - 36px,1400px)}.comparison{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}.bridge{display:none}.panel.ascend{min-height:0}.panel.pypto{min-height:0}.left-decor{min-height:24px}.op-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.op-card{height:82px}.panel.ascend{display:block}.left-decor{display:none}.runtime-left{margin-top:14px}.kernel-core{max-width:550px}.top-work{min-height:390px}.topology{grid-template-columns:1.2fr 14px 1fr 14px 1fr 14px 1.1fr;gap:8px}}
-@media(max-width:690px){.page{width:calc(100% - 24px);padding:20px 0}.mast{margin-bottom:20px}.issue-mark{display:none}.title{font-size:28px;line-height:1.28}.title .line{display:inline}.comparison{margin-top:21px}.op-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.op-card{height:83px}.top-work{display:block}.other-operators{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px}.other-head{grid-column:1/-1}.other-card{min-height:78px}.module-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.module{min-height:108px}.module-title{font-size:10px}.hw{padding:11px}.hw-header{align-items:flex-start}.topology{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.topo-arrow{display:none}.topo-entity{min-height:96px}.tail{align-items:flex-start;flex-direction:column}.fine-print{text-align:left}.panel-heading h2{font-size:25px}}
-@media(max-width:390px){.module-grid{grid-template-columns:1fr}.module{min-height:85px}.fusion-section{padding:8px}.op-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.other-operators{grid-template-columns:1fr}.other-card{min-height:72px}}
-@media print{html,body{background:#101010!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.page{min-height:0;width:97%;padding:18px 0}.comparison{min-height:560px}.panel,.module,.op-card,.topo-entity{break-inside:avoid}.tail{margin-top:12px}@page{size:landscape;margin:6mm}}
-
-/* V2 · AI Infra 执行拓扑：Rank 进程与设备物理层级分开表达 */
-.hw-v2{margin-top:13px;padding:13px 14px 11px;background:#191919;border-color:rgba(255,255,255,.11)}
-.hw-v2 .hw-header{margin-bottom:13px}.hw-header-main{display:flex;align-items:baseline;gap:14px;min-width:0}.hw-secondary{font:400 10px/1.3 var(--sans);color:#737373}.hw-v2 .hw-header .small-en{letter-spacing:.06em}
-.hardware-layout{display:grid;grid-template-columns:minmax(0,.98fr) 29px minmax(0,1.10fr);gap:10px;align-items:stretch}
-.mapping-space,.device-space{min-width:0}.hardware-label{display:flex;align-items:center;gap:8px;color:#cacaca;font:550 11px/1.3 var(--sans);margin:1px 0 10px}.hardware-label .small-en{margin-left:auto;font-size:9px}.step-mark{font:600 9px/1.1 var(--mono);background:#292929;color:#8d8d8d;padding:4px 5px;border:1px solid #393939;border-radius:3px}
-.rank-boards,.device-boards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.rank-board{height:62px;border:1px solid #525252;border-radius:9px;background:linear-gradient(180deg,#343434 0%,#303030 100%);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
-.rank-board strong{font:600 12px/1.15 var(--mono);color:#efefef}.rank-board&gt;span{font:500 8px/1 var(--mono);letter-spacing:.055em;color:#a5a5a5}
-.rank-board .pin{position:absolute;width:5px;height:5px;border-radius:50%;background:#1c1c1c;border:1px solid #595959}.rank-board .pin.tl{top:8px;left:9px}.rank-board .pin.tr{top:8px;right:9px}.rank-board .pin.bl{bottom:8px;left:9px}.rank-board .pin.br{bottom:8px;right:9px}
-.rank-board.selected{border-color:#a0a0a0;background:linear-gradient(180deg,#414141,#303030)}.rank-board.muted-rank{opacity:.55}
-.bind-lines{height:33px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;position:relative}.bind-lines .bind-col{position:relative;display:flex;justify-content:center;height:100%}.bind-col i{width:1px;height:100%;border-left:1px dashed #747474;opacity:.6}.bind-col b{position:absolute;bottom:1px;width:5px;height:5px;border-right:1px solid #888;border-bottom:1px solid #888;transform:rotate(45deg)}.bind-lines span{position:absolute;top:11px;left:50%;transform:translateX(-50%);padding:3px 6px;background:#191919;color:#7e7e7e;white-space:nowrap;font:500 8px/1 var(--mono);letter-spacing:.08em;pointer-events:none}
-.device-board{height:46px;min-width:0;border:1px solid #494949;border-radius:5px;background:#252525;display:grid;grid-template-columns:19px minmax(0,1fr);grid-template-rows:auto auto;column-gap:7px;align-content:center;padding:5px 8px;align-items:center}
-.device-board.selected{border-color:rgba(113,149,255,.6);background:#26292f}.device-board.muted-device{opacity:.55}.device-board strong{font:600 10px/1.25 var(--mono);white-space:nowrap;color:#dedede}.device-board&gt;span:last-child{grid-column:2;font:450 7px/1.2 var(--mono);color:#828282;white-space:nowrap}.device-icon{grid-row:1/3;grid-column:1;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);gap:2px;padding:3px;width:19px;height:19px;border:1px solid #6b7d9d;border-radius:3px}.device-icon i{background:#788eaf;border-radius:1px}.map-annotation{font-size:9px;color:#9a9a9a;line-height:1.35;margin:9px 0 0;display:flex;align-items:center;gap:7px}.annotation-dot{flex:none;width:5px;height:5px;border-radius:50%;background:var(--blue)}
-.structure-connector{display:flex;align-items:center;justify-content:center;gap:4px;position:relative;color:#828282;flex-direction:column}.structure-connector&gt;div{width:1px;height:33px;background:linear-gradient(transparent,#555)}.structure-connector span{font:500 9px/1.1 var(--sans);white-space:nowrap}.structure-connector i{width:13px;height:13px;border-right:1.5px solid #8a9dbf;border-top:1.5px solid #8a9dbf;transform:rotate(45deg);margin-right:7px}
-.device-frame{background:#202020;border:1px solid #3b3b3b;border-radius:9px;padding:8px 9px 9px;min-width:0}.frame-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;gap:6px}.frame-title{font:650 11px/1 var(--mono);display:flex;align-items:center;gap:7px;color:#e8e8e8}.frame-device-symbol{width:18px;height:18px;display:grid;place-items:center;background:#2c3443;border:1px solid #5d7194;border-radius:3px;color:#9eb7eb;font-size:13px}.frame-header&gt;span:last-child{font:500 8px/1 var(--mono);color:#797979;white-space:nowrap}
-.chip-frame{border:1px solid #515151;background:#242424;padding:7px 9px 9px;border-radius:7px;position:relative}.chip-frame-header{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}.chip-name{display:flex;align-items:center;gap:7px;color:#e0e0e0;font:600 11px/1.2 var(--mono)}.chip-footnote{font:500 9px/1 var(--sans);color:#858585}.muted-code{font:400 9px/1 var(--mono);color:#747474}.chip-outline-icon{width:18px;height:18px;display:grid;grid-template-columns:repeat(2,1fr);gap:2px;border:1px solid #6a6a6a;border-radius:3px;padding:4px}.chip-outline-icon i{background:#898989;border-radius:1px}
-.die-frames{display:grid;grid-template-columns:1fr 1fr;gap:8px}.die-frame{min-width:0;border-radius:5px;background:#1c1c1c;border:1px solid #393939;padding:7px}.die-frame.die-active{border-color:rgba(113,149,255,.36)}.die-header{display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:7px}.die-header span:first-child{font:600 10px/1 var(--mono);color:#c9c9c9}.die-header span:last-child{font:500 7px/1 var(--mono);color:#696969;white-space:nowrap}
-.core-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.core-tile{display:flex;min-width:0;align-items:center;gap:6px;padding:6px;background:#262626;border:1px solid #373737;border-radius:3px;border-bottom:2px solid #797979}.core-tile.cube{border-bottom-color:#7799fa}.core-tile.vector{border-bottom-color:#04d793}.core-tile strong{font:600 9px/1.2 var(--mono);color:#cfcfcf}.core-tile.faint{opacity:.5}.core-mark{display:grid;grid-template-columns:repeat(2,4px);grid-template-rows:repeat(2,4px);gap:2px;flex:none}.core-mark i{background:#7799fa;border-radius:.6px}.core-tile.vector .core-mark i{background:#04d793}
-.hw-legend{display:flex;align-items:center;gap:17px;margin-top:11px;padding-top:10px;border-top:1px solid #2c2c2c;color:#8e8e8e;font:400 9px/1.3 var(--sans)}.hw-legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}.hw-legend i{display:inline-block;width:9px;height:9px}.leg-rank{border:1px solid #777;border-radius:2px;background:#343434}.leg-cube{border-bottom:2px solid #7799fa;background:#303030}.leg-vector{border-bottom:2px solid #04d793;background:#303030}.hw-legend .hw-disclaimer{margin-left:auto;color:#6e6e6e}
-@media(max-width:1480px){.hardware-layout{grid-template-columns:minmax(0,1fr) 16px minmax(0,1.08fr);gap:5px}.rank-boards,.device-boards{gap:5px}.rank-board{height:57px}.hw-v2{padding:12px 11px 10px}.hw-secondary{display:none}.hw-legend{gap:10px}.hw-legend .hw-disclaimer{font-size:8px}.core-tile{gap:3px;padding:5px 4px}.die-frame{padding:5px}.die-frames{gap:5px}.chip-frame{padding:5px}.device-frame{padding:6px}.die-header span:last-child{display:none}}
-@media(max-width:1230px) and (min-width:1111px){.hardware-layout{display:flex;flex-direction:column;gap:10px}.structure-connector{display:none}.mapping-space{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px;align-items:center}.mapping-space .hardware-label,.mapping-space .map-annotation{grid-column:1/-1}.rank-board{height:42px}.bind-lines{display:none}.device-board{height:42px}.device-space{margin-top:2px}.die-frame{padding:8px}.core-tile{padding:6px}}
-@media(max-width:1110px){.hardware-layout{grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);gap:12px}.rank-board{height:62px}.device-frame{padding:9px}.die-frame{padding:9px}.hw-secondary{display:inline}}
-@media(max-width:720px){.hardware-layout{grid-template-columns:1fr;gap:12px}.structure-connector{display:none}.hw-legend{flex-wrap:wrap}.hw-legend .hw-disclaimer{margin-left:0;white-space:normal}.mapping-space{max-width:none}.rank-board{height:60px}.die-header span:last-child{display:block}.hardware-label .small-en{font-size:8px}}
-@media(max-width:400px){.device-board{padding:4px}.device-board strong{font-size:9px}.rank-board strong{font-size:10px}.frame-header&gt;span:last-child{font-size:7px}}
-
-&lt;/style&gt;
-
-&lt;style&gt;
-html,body { overflow:hidden; }
-h1.deck-heading {
-  font: 650 48px/1.25 -apple-system,BlinkMacSystemFont,&quot;PingFang SC&quot;,&quot;Microsoft YaHei&quot;,sans-serif;
-  letter-spacing:-1px;
-  color:#f3f3f3;
-  margin:0;
+:root {
+  --sans:-apple-system,BlinkMacSystemFont,&quot;PingFang SC&quot;,sans-serif;
+  --mono:ui-monospace,Menlo,monospace;
+  --bg:#191919; --panel:#171717; --card:#202020; --nested:#262626;
+  --line:#363636; --text:#eaeaea; --secondary:#a8a8a8; --muted:#929292;
+  --blue:#819efe; --green:#04d793; --orange:#ffaa3b; --violet:#ac8aff;
 }
-.slide &gt; h1.deck-heading { margin:27px 0 9px; }
-.page { min-height:900px; }
-&lt;/style&gt;
-&lt;style&gt;
-
-
-/* Fit the original comparison diagram between the shared header and footer. */
-.page .comparison { min-height:0; grid-template-columns:minmax(0,.82fr) 22px minmax(0,1.9fr); gap:14px; }
-.page .panel { padding:14px; }
-.page .panel-heading { margin-bottom:10px; }
-.page .panel-heading h2 { font-size:24px; }
-.page .top-work { zoom:.90; min-height:0; grid-template-columns:minmax(0,1fr) 146px; }
-.page .pa-outer { padding:9px; }
-.page .pa-header, .page .fusion-header, .page .module-head { margin-bottom:6px; }
-.page .fusion-section { padding:7px; }
-.page .module { min-height:62px; padding:7px; }
-.page .module-title { overflow:visible; white-space:normal; }
-.page .api-chip { padding:3px 5px; }
-.page .other-card { min-height:54px; padding:8px 10px; gap:7px; }
-.page .hw { zoom:.95; margin-top:9px; padding:9px 11px; }
-.page .hw-v2 .hw-header { margin-bottom:7px; }
-.page .hw-legend { margin-top:7px; padding-top:6px; }
-.page .tail { margin-top:12px; padding-top:9px; }
-.page .op-card { height:70px; min-height:0; }
-.page .left-decor { min-height:20px; }
-.page .module { min-height:54px; }
-.page .pa-body { gap:7px; }
-.page .rank-board { height:48px; }
-.page .bind-lines { height:26px; }
-.page .device-board { height:40px; }
+* { box-sizing:border-box; }
+html,body { margin:0; overflow:hidden; background:var(--bg); color:var(--text); font:14px/1.35 var(--sans); }
+body &gt; main.page {
+  width:1600px; height:900px; padding:22px 42px 25px; background:var(--bg);
+  display:flex; flex-direction:column;
+}
+.page &gt; .deck-header { height:134px; flex:none; }
+.page &gt; .deck-header h1 { font-size:40px; line-height:1.27; margin:2px 0 0; letter-spacing:0; }
+.page &gt; .deck-header + .comparison { margin-top:17px; }
+.comparison { display:grid; grid-template-columns:475px minmax(0,1fr); gap:33px; flex:1; min-height:0; }
+.panel {
+  min-width:0; min-height:0; display:flex; flex-direction:column; padding:17px;
+  border:1px solid #303030; border-radius:12px; background:var(--panel);
+}
+.panel.pypto { border-color:#393939; }
+.panel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; height:96px; flex:none; }
+.panel-heading h2 { margin:3px 0 3px; font-size:30px; line-height:1.25; }
+.pypto .panel-heading h2 { color:#e5eaff; }
+.panel-heading p { margin:5px 0 0; color:var(--secondary); font-size:15px; }
+.panel-pill { border:1px solid #343434; border-radius:20px; padding:5px 7px; font-size:9px; color:var(--muted); white-space:nowrap; }
+.op-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; }
+.op-card,.pa-outer,.other-card,.other-foot,.runtime-left,.hw {
+  background:var(--card); border:1px solid var(--line); border-radius:7px;
+}
+.op-card { height:102px; padding:13px 16px 15px; display:flex; flex-direction:column; justify-content:space-between; }
+.op-card strong,.other-card strong,.pa-name { font-size:19px; }
+.op-glyph { font:500 25px/1 var(--mono); color:var(--tone,var(--blue)); }
+.op-2 { --tone:var(--green); } .op-3 { --tone:var(--orange); }
+.op-4 { --tone:#ff668e; } .op-5 { --tone:var(--violet); } .op-6 { --tone:#a9badc; }
+.runtime-left,.hw { background:#1c1c1c; padding:12px; }
+.runtime-left { margin-top:auto; }
+.scope-head,.hw-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; font-size:15px; }
+.small-en,.pa-meta,.kind-tag { color:var(--muted); font:500 8px/1 var(--mono); letter-spacing:.04em; }
+.kernel-core { display:grid; grid-template-columns:auto 18px minmax(0,1fr); align-items:center; gap:8px; }
+.kernel-chip { border:1px solid #484848; border-radius:6px; background:var(--nested); padding:8px 13px; font-size:10px; font-weight:650; }
+.thin-arrow { color:#888; text-align:center; font-size:17px; }
+.core-box { border:1px solid var(--line); border-radius:6px; background:var(--card); display:grid; grid-template-columns:110px 1fr; align-items:center; padding:7px; }
+.core-name,.core-unit { text-align:center; font:650 9px/1 var(--mono); }
+.core-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+.core-unit { background:#292b30; border-radius:3px; padding:8px 4px; border-bottom:2px solid var(--green); }
+.core-unit.aic { grid-column:1/-1; border-color:var(--blue); }
+.left-caption { margin-top:10px; color:var(--secondary); font-size:10px; }
+.top-work { display:grid; grid-template-columns:minmax(0,1fr) 203px; gap:10px; flex:1; min-height:0; }
+.pa-outer { display:flex; flex-direction:column; min-height:0; padding:16px; }
+.pa-header,.fusion-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.pa-header { margin-bottom:12px; }
+.pa-name,.other-card strong { display:flex; align-items:center; gap:7px; }
+.pa-name::before,.other-card strong::before { content:&quot;&quot;; width:2px; height:8px; background:var(--tone,var(--blue)); border-radius:1px; }
+.pa-body { display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:12px; flex:1; min-height:0; }
+.fusion-section { padding:13px; border:1px solid var(--line); border-radius:7px; display:flex; flex-direction:column; min-height:0; }
+.fusion-header { margin-bottom:12px; }
+.fusion-title,.module-title { font-size:12px; font-weight:650; }
+.module-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; flex:1; min-height:0; }
+.module { display:flex; flex-direction:column; justify-content:space-between; border:1px solid #3e3e3e; border-radius:5px; background:var(--nested); padding:13px; min-width:0; }
+.module-head,.api-chips { display:flex; align-items:center; gap:5px; }
+.module-dot { flex:none; width:4px; height:4px; border-radius:50%; background:var(--tone,var(--blue)); }
+[data-tone=&quot;green&quot;],.other-card:nth-of-type(2) { --tone:var(--green); }
+[data-tone=&quot;violet&quot;] { --tone:var(--violet); }
+[data-tone=&quot;orange&quot;],.other-card:nth-of-type(3) { --tone:var(--orange); }
+.api-chip { padding:4px 8px; border:1px solid #454545; background:#202020; border-radius:4px; font-size:13px; color:#d4d4d4; white-space:nowrap; }
+.api-chip.ellipsis { color:var(--muted); border-style:dashed; }
+.other-operators { display:flex; flex-direction:column; gap:6px; }
+.other-card { display:flex; flex:1; flex-direction:column; justify-content:space-between; padding:12px 10px; }
+.other-card .glyph { color:var(--tone,var(--blue)); font:500 10px/1 var(--mono); }
+.other-foot { padding:4px 10px; font-weight:700; }
+.hw { margin-top:27px; }
+.hardware-layout { display:grid; grid-template-columns:minmax(0,2.85fr) minmax(0,1fr); gap:9px; }
+.device-frame,.chip-frame,.die-frame { min-width:0; border:1px solid #535353; border-radius:7px; }
+.device-frame {
+  --corner-pin:radial-gradient(circle, #222 1px, #666 1.4px 2px, transparent 2.4px);
+  display:grid; grid-template-columns:90px minmax(0,1fr); align-items:stretch; padding:10px;
+  background:
+    var(--corner-pin) left 7px top 7px / 5px 5px no-repeat,
+    var(--corner-pin) right 7px top 7px / 5px 5px no-repeat,
+    var(--corner-pin) left 7px bottom 7px / 5px 5px no-repeat,
+    var(--corner-pin) right 7px bottom 7px / 5px 5px no-repeat #303030;
+}
+.chip-frame { display:grid; grid-template-columns:88px repeat(2,minmax(0,1fr)); gap:6px; background:#242424; padding:7px; border-radius:5px; }
+.hw-entity { display:grid; place-content:center; gap:2px; text-align:center; font-size:10px; }
+.hw-entity small { font-size:8px; color:var(--secondary); }
+.die-frame { padding:5px; background:#1d1d1d; border-color:#435475; border-radius:4px; }
+.die-label { display:block; font-size:9px; margin-bottom:4px; }
+.core-tiles { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:3px; }
+.core-tile { display:grid; place-content:center; height:20px; border:1px solid #3a3a3a; border-radius:2px; background:#282828; }
+.core-tile::before,.core-tile::after { content:&quot;&quot;; display:block; width:9px; height:2px; }
+.core-tile::before { background:var(--blue); margin-bottom:2px; }
+.core-tile::after { background:linear-gradient(90deg,var(--green) 43%,transparent 43% 57%,var(--green) 57%); }
+.hw-counts { margin:0; display:grid; gap:7px; }
+.hw-count { display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--nested); border-radius:7px; padding:4px 12px; }
+.hw-count dt { color:var(--secondary); font-size:12px; }
+.hw-count dd { margin:0; color:var(--tone,var(--text)); font-size:18px; font-weight:700; }
+.hw-count:nth-child(2) { --tone:var(--blue); }
+.hw-count:nth-child(3) { --tone:var(--green); }
 &lt;/style&gt;&lt;/head&gt;
 &lt;body&gt;
 &lt;main class=&quot;page&quot;&gt;
-  &lt;header data-deck-title=&quot;从单个 Kernel 到多层级执行&quot;&gt;&lt;/header&gt;
+  &lt;header data-deck-title=&quot;PyPTO 3.0 面向更复杂的融合计算与多层级执行编排场景，算子的计算结构和执行关系进一步深化。&quot;&gt;&lt;/header&gt;
   &lt;section class=&quot;comparison&quot; aria-label=&quot;Ascend C 与 PyPTO 3.0 的算子结构对比&quot;&gt;
     &lt;article class=&quot;panel ascend&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;&lt;div&gt;&lt;div class=&quot;panel-index&quot;&gt;01 / BASELINE&lt;/div&gt;&lt;h2&gt;Ascend C&lt;/h2&gt;&lt;p&gt;以独立 Kernel 为典型开发视角&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;panel-pill&quot;&gt;Kernel-centric&lt;/span&gt;&lt;/div&gt;
-      &lt;section class=&quot;left-operations&quot;&gt;&lt;div class=&quot;section-label&quot;&gt;&lt;span class=&quot;tinybar&quot;&gt;&lt;/span&gt;基础计算 API &lt;span class=&quot;en&quot;&gt;OPERATOR EXAMPLES&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;panel-heading&quot;&gt;&lt;div&gt;&lt;h2&gt;Ascend C&lt;/h2&gt;&lt;p&gt;基础计算 API，以独立 Kernel 为典型开发视角&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;panel-pill&quot;&gt;Kernel-centric&lt;/span&gt;&lt;/div&gt;
+      &lt;section aria-label=&quot;基础计算 API 示例&quot;&gt;
         &lt;div class=&quot;op-grid&quot;&gt;
           &lt;div class=&quot;op-card op-1&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;⇄&lt;/span&gt;&lt;strong&gt;cast&lt;/strong&gt;&lt;/div&gt;
           &lt;div class=&quot;op-card op-2&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;▦&lt;/span&gt;&lt;strong&gt;matmul&lt;/strong&gt;&lt;/div&gt;
-          &lt;div class=&quot;op-card op-3&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;Σ&lt;/span&gt;&lt;strong&gt;reduce&lt;/strong&gt;&lt;/div&gt;
-          &lt;div class=&quot;op-card op-4&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;|x|&lt;/span&gt;&lt;strong&gt;abs&lt;/strong&gt;&lt;/div&gt;
-          &lt;div class=&quot;op-card op-5&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;⌁&lt;/span&gt;&lt;strong&gt;relu&lt;/strong&gt;&lt;/div&gt;
           &lt;div class=&quot;op-card op-6&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;√&lt;/span&gt;&lt;strong&gt;sqrt&lt;/strong&gt;&lt;/div&gt;
+          &lt;div class=&quot;op-card op-5&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;⌁&lt;/span&gt;&lt;strong&gt;relu&lt;/strong&gt;&lt;/div&gt;
+          &lt;div class=&quot;op-card op-4&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;|x|&lt;/span&gt;&lt;strong&gt;abs&lt;/strong&gt;&lt;/div&gt;
+          &lt;div class=&quot;op-card op-3&quot;&gt;&lt;span class=&quot;op-glyph&quot;&gt;Σ&lt;/span&gt;&lt;strong&gt;reduce&lt;/strong&gt;&lt;/div&gt;
         &lt;/div&gt;
       &lt;/section&gt;
-      &lt;div class=&quot;left-decor&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;
-      &lt;section class=&quot;runtime-left&quot;&gt;&lt;div class=&quot;scope-head&quot;&gt;&lt;span&gt;典型执行视角&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;EXECUTION SCOPE&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;kernel-core&quot;&gt;&lt;div class=&quot;kernel-chip&quot;&gt;Kernel&lt;/div&gt;&lt;div class=&quot;thin-arrow&quot;&gt;→&lt;/div&gt;&lt;div class=&quot;core-box&quot;&gt;&lt;div class=&quot;core-name&quot;&gt;AI CORE&lt;/div&gt;&lt;div class=&quot;core-grid&quot;&gt;&lt;div class=&quot;core-unit aic&quot;&gt;AIC&lt;/div&gt;&lt;div class=&quot;core-unit aiv&quot;&gt;AIV&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;section class=&quot;runtime-left&quot;&gt;&lt;div class=&quot;scope-head&quot;&gt;&lt;span&gt;执行层级&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;EXECUTION SCOPE&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;kernel-core&quot;&gt;&lt;div class=&quot;kernel-chip&quot;&gt;Kernel&lt;/div&gt;&lt;div class=&quot;thin-arrow&quot;&gt;→&lt;/div&gt;&lt;div class=&quot;core-box&quot;&gt;&lt;div class=&quot;core-name&quot;&gt;AI CORE&lt;/div&gt;&lt;div class=&quot;core-grid&quot;&gt;&lt;div class=&quot;core-unit aic&quot;&gt;AIC&lt;/div&gt;&lt;div class=&quot;core-unit aiv&quot;&gt;AIV&lt;/div&gt;&lt;div class=&quot;core-unit aiv&quot;&gt;AIV&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
         &lt;div class=&quot;left-caption&quot;&gt;重点关注 Kernel 内计算、数据搬运及 AI Core 执行行为。&lt;/div&gt;
       &lt;/section&gt;
     &lt;/article&gt;
-    &lt;div class=&quot;bridge&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;shaft&quot;&gt;&lt;/div&gt;&lt;div class=&quot;arrow&quot;&gt;&lt;/div&gt;&lt;/div&gt;
     &lt;article class=&quot;panel pypto&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;&lt;div&gt;&lt;div class=&quot;panel-index&quot;&gt;02 / EXPANDED ABSTRACTION&lt;/div&gt;&lt;h2&gt;PyPTO 3.0&lt;/h2&gt;&lt;p&gt;复杂融合计算 · 多层级嵌套 · 执行编排&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;panel-pill&quot;&gt;Tensor → Tile → Task&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;panel-heading&quot;&gt;&lt;div&gt;&lt;h2&gt;PyPTO 3.0&lt;/h2&gt;&lt;p&gt;融合算子，复杂融合计算 · 多层级嵌套 · 执行编排&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;panel-pill&quot;&gt;Tensor · Tile · Task&lt;/span&gt;&lt;/div&gt;
       &lt;div class=&quot;top-work&quot;&gt;
         &lt;section class=&quot;pa-outer&quot; aria-label=&quot;Paged Attention 层级结构示意&quot;&gt;
-          &lt;div class=&quot;pa-header&quot;&gt;&lt;div class=&quot;pa-name&quot;&gt;&lt;span class=&quot;level-pill&quot;&gt;L1&lt;/span&gt;&lt;strong&gt;Paged Attention&lt;/strong&gt;&lt;/div&gt;&lt;span class=&quot;pa-meta&quot;&gt;FUSED COMPUTATION&lt;/span&gt;&lt;/div&gt;
+          &lt;div class=&quot;pa-header&quot;&gt;&lt;div class=&quot;pa-name&quot;&gt;&lt;strong&gt;Paged Attention&lt;/strong&gt;&lt;/div&gt;&lt;span class=&quot;pa-meta&quot;&gt;融合算子示意&lt;/span&gt;&lt;/div&gt;
           &lt;div class=&quot;pa-body&quot;&gt;
-            &lt;div class=&quot;fusion-section&quot;&gt;&lt;div class=&quot;fusion-header&quot;&gt;&lt;span class=&quot;lvl&quot;&gt;L2 / 01&lt;/span&gt;&lt;span class=&quot;fusion-title&quot;&gt;Q/K Preparation &amp;amp; Cache&lt;/span&gt;&lt;span class=&quot;kind-tag&quot;&gt;TRANSFORM&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;fusion-section&quot;&gt;&lt;div class=&quot;fusion-header&quot;&gt;&lt;span class=&quot;fusion-title&quot;&gt;Q/K Preparation &amp;amp; Cache&lt;/span&gt;&lt;span class=&quot;kind-tag&quot;&gt;TRANSFORM&lt;/span&gt;&lt;/div&gt;
               &lt;div class=&quot;module-grid&quot;&gt;
-                &lt;div class=&quot;module&quot; data-tone=&quot;green&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;Q/K Norm&lt;/span&gt;&lt;span class=&quot;module-level&quot;&gt;L3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;reduce&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;mul&lt;/span&gt;&lt;span class=&quot;api-chip low&quot;&gt;...&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-                &lt;div class=&quot;module&quot; data-tone=&quot;violet&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;RoPE&lt;/span&gt;&lt;span class=&quot;module-level&quot;&gt;L3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;mul&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;add&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-                &lt;div class=&quot;module&quot; data-tone=&quot;orange&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;KV Cache Update&lt;/span&gt;&lt;span class=&quot;module-level&quot;&gt;L3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;cast&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;store&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;module&quot; data-tone=&quot;green&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;Q/K Norm&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;reduce&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;mul&lt;/span&gt;&lt;span class=&quot;api-chip low&quot;&gt;...&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;module&quot; data-tone=&quot;violet&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;RoPE&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;mul&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;add&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;module&quot; data-tone=&quot;orange&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;KV Cache Update&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;cast&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;store&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
               &lt;/div&gt;
             &lt;/div&gt;
-            &lt;div class=&quot;fusion-section&quot;&gt;&lt;div class=&quot;fusion-header&quot;&gt;&lt;span class=&quot;lvl&quot;&gt;L2 / 02&lt;/span&gt;&lt;span class=&quot;fusion-title&quot;&gt;Attention Computation&lt;/span&gt;&lt;span class=&quot;kind-tag&quot;&gt;AIC / AIV&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;fusion-section&quot;&gt;&lt;div class=&quot;fusion-header&quot;&gt;&lt;span class=&quot;fusion-title&quot;&gt;Attention Computation&lt;/span&gt;&lt;span class=&quot;kind-tag&quot;&gt;AIC / AIV&lt;/span&gt;&lt;/div&gt;
               &lt;div class=&quot;module-grid&quot;&gt;
-                &lt;div class=&quot;module&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;Q × Kᵀ&lt;/span&gt;&lt;span class=&quot;module-level&quot;&gt;L3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;matmul&lt;/span&gt;&lt;span class=&quot;api-chip low&quot;&gt;...&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-                &lt;div class=&quot;module&quot; data-tone=&quot;green&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;Online Softmax&lt;/span&gt;&lt;span class=&quot;module-level&quot;&gt;L3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;reduce&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;exp&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;mul&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-                &lt;div class=&quot;module&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;P × V + Output&lt;/span&gt;&lt;span class=&quot;module-level&quot;&gt;L3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;matmul&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;add&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;store&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;module&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;Q × Kᵀ&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;matmul&lt;/span&gt;&lt;span class=&quot;api-chip low&quot;&gt;...&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;module&quot; data-tone=&quot;green&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;Online Softmax&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;reduce&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;exp&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;mul&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;module&quot;&gt;&lt;div class=&quot;module-head&quot;&gt;&lt;span class=&quot;module-dot&quot;&gt;&lt;/span&gt;&lt;span class=&quot;module-title&quot;&gt;P × V + Output&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;api-chips&quot;&gt;&lt;span class=&quot;api-chip&quot;&gt;matmul&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;add&lt;/span&gt;&lt;span class=&quot;api-chip&quot;&gt;store&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
               &lt;/div&gt;
             &lt;/div&gt;
           &lt;/div&gt;
-          &lt;p class=&quot;pa-note&quot;&gt;L1 融合算子 → L2 计算阶段 → L3 子计算 → L4 基础 API（示意）&lt;/p&gt;
         &lt;/section&gt;
-        &lt;aside class=&quot;other-operators&quot; aria-label=&quot;其他复杂算子示例&quot;&gt;&lt;div class=&quot;other-head&quot;&gt;其他复杂算子 &lt;span class=&quot;micro&quot;&gt;EXAMPLES&lt;/span&gt;&lt;/div&gt;
-          &lt;div class=&quot;other-card&quot;&gt;&lt;span class=&quot;glyph&quot;&gt;◇ / 01&lt;/span&gt;&lt;strong&gt;Prefill CSA&lt;/strong&gt;&lt;/div&gt;
-          &lt;div class=&quot;other-card&quot;&gt;&lt;span class=&quot;glyph&quot;&gt;◇ / 02&lt;/span&gt;&lt;strong&gt;Decode CSA&lt;/strong&gt;&lt;/div&gt;
-          &lt;div class=&quot;other-card&quot;&gt;&lt;span class=&quot;glyph&quot;&gt;◇ / 03&lt;/span&gt;&lt;strong&gt;Decode Indexer&lt;/strong&gt;&lt;/div&gt;
-          &lt;div class=&quot;other-foot&quot;&gt;···&lt;/div&gt;
+        &lt;aside class=&quot;other-operators&quot; aria-label=&quot;其他复杂算子示例&quot;&gt;
+          &lt;div class=&quot;other-card&quot;&gt;&lt;span class=&quot;glyph&quot;&gt;◇ / 1&lt;/span&gt;&lt;strong&gt;Prefill CSA&lt;/strong&gt;&lt;/div&gt;
+          &lt;div class=&quot;other-card&quot;&gt;&lt;span class=&quot;glyph&quot;&gt;◇ / 2&lt;/span&gt;&lt;strong&gt;Decode CSA&lt;/strong&gt;&lt;/div&gt;
+          &lt;div class=&quot;other-card&quot;&gt;&lt;span class=&quot;glyph&quot;&gt;◇ / 3&lt;/span&gt;&lt;strong&gt;Decode Indexer&lt;/strong&gt;&lt;/div&gt;
+          &lt;div class=&quot;other-foot&quot;&gt;…&lt;/div&gt;
         &lt;/aside&gt;
       &lt;/div&gt;
-      &lt;section class=&quot;hw hw-v2&quot; aria-label=&quot;PyPTO 分布式 Rank 映射与设备硬件层级&quot;&gt;
-        &lt;div class=&quot;hw-header&quot;&gt;
-          &lt;div class=&quot;hw-header-main&quot;&gt;&lt;span class=&quot;hw-title&quot;&gt;多层级执行与资源协同&lt;/span&gt;&lt;span class=&quot;hw-secondary&quot;&gt;逻辑调度与物理执行的跨层映射&lt;/span&gt;&lt;/div&gt;
-          &lt;span class=&quot;small-en&quot;&gt;EXECUTION / RESOURCE TOPOLOGY&lt;/span&gt;
-        &lt;/div&gt;
+      &lt;section class=&quot;hw&quot; aria-label=&quot;Device、Chip、Die 与 AI Core Group 执行层级&quot;&gt;
+        &lt;div class=&quot;hw-header&quot;&gt;&lt;span&gt;执行层级&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;ASCEND 950PR_9599 · 示例配置&lt;/span&gt;&lt;/div&gt;
         &lt;div class=&quot;hardware-layout&quot;&gt;
-          &lt;!-- 左：Rank 具有稳定的进程身份。此处采用 AI Infra Rank Board（平面、四角圆点）视觉语法。 --&gt;
-          &lt;div class=&quot;mapping-space&quot;&gt;
-            &lt;div class=&quot;hardware-label&quot;&gt;&lt;span class=&quot;step-mark&quot;&gt;01&lt;/span&gt;&lt;span&gt;逻辑 Rank&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;PROCESS IDENTITY&lt;/span&gt;&lt;/div&gt;
-            &lt;div class=&quot;rank-boards&quot; aria-label=&quot;Rank 逻辑进程示意&quot;&gt;
-              &lt;div class=&quot;rank-board selected&quot; title=&quot;Rank 0：进程身份，示例绑定 Device 0&quot;&gt;&lt;i class=&quot;pin tl&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin tr&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin bl&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin br&quot;&gt;&lt;/i&gt;&lt;strong&gt;Rank 0&lt;/strong&gt;&lt;span&gt;PROCESS&lt;/span&gt;&lt;/div&gt;
-              &lt;div class=&quot;rank-board&quot; title=&quot;Rank 1：进程身份，示例绑定 Device 1&quot;&gt;&lt;i class=&quot;pin tl&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin tr&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin bl&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin br&quot;&gt;&lt;/i&gt;&lt;strong&gt;Rank 1&lt;/strong&gt;&lt;span&gt;PROCESS&lt;/span&gt;&lt;/div&gt;
-              &lt;div class=&quot;rank-board muted-rank&quot; title=&quot;更多 Rank，省略展示&quot;&gt;&lt;i class=&quot;pin tl&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin tr&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin bl&quot;&gt;&lt;/i&gt;&lt;i class=&quot;pin br&quot;&gt;&lt;/i&gt;&lt;strong&gt;Rank N&lt;/strong&gt;&lt;span&gt;···&lt;/span&gt;&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;bind-lines&quot; aria-label=&quot;Rank 到设备绑定映射&quot;&gt;&lt;div class=&quot;bind-col&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;b&gt;&lt;/b&gt;&lt;/div&gt;&lt;div class=&quot;bind-col&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;b&gt;&lt;/b&gt;&lt;/div&gt;&lt;div class=&quot;bind-col&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;b&gt;&lt;/b&gt;&lt;/div&gt;&lt;span&gt;RANK → DEVICE MAPPING&lt;/span&gt;&lt;/div&gt;
-            &lt;div class=&quot;device-boards&quot; aria-label=&quot;物理设备示意&quot;&gt;
-              &lt;div class=&quot;device-board selected&quot;&gt;&lt;span class=&quot;device-icon&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;Device 0&lt;/strong&gt;&lt;span&gt;ASCEND NPU&lt;/span&gt;&lt;/div&gt;
-              &lt;div class=&quot;device-board&quot;&gt;&lt;span class=&quot;device-icon&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;Device 1&lt;/strong&gt;&lt;span&gt;ASCEND NPU&lt;/span&gt;&lt;/div&gt;
-              &lt;div class=&quot;device-board muted-device&quot;&gt;&lt;span class=&quot;device-icon&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;Device N&lt;/strong&gt;&lt;span&gt;···&lt;/span&gt;&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;p class=&quot;map-annotation&quot;&gt;&lt;span class=&quot;annotation-dot&quot;&gt;&lt;/span&gt;示例为一 Rank 绑定一设备；真实映射取决于部署。&lt;/p&gt;
-          &lt;/div&gt;
-          &lt;div class=&quot;structure-connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;div&gt;&lt;/div&gt;&lt;span&gt;展开&lt;/span&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
-          &lt;!-- 右：Device / Chip / Die / AI Core 为物理资源结构。层数及单元数量均为概念示意。 --&gt;
-          &lt;div class=&quot;device-space&quot;&gt;
-            &lt;div class=&quot;hardware-label&quot;&gt;&lt;span class=&quot;step-mark&quot;&gt;02&lt;/span&gt;&lt;span&gt;设备内硬件资源&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;PHYSICAL HIERARCHY&lt;/span&gt;&lt;/div&gt;
-            &lt;div class=&quot;device-frame&quot; title=&quot;这里仅表达典型逻辑层级，非实际设备剖面或核数&quot;&gt;
-              &lt;div class=&quot;frame-header&quot;&gt;&lt;span class=&quot;frame-title&quot;&gt;&lt;span class=&quot;frame-device-symbol&quot;&gt;▤&lt;/span&gt;Device 0&lt;/span&gt;&lt;span&gt;ONE SELECTED NPU&lt;/span&gt;&lt;/div&gt;
-              &lt;div class=&quot;chip-frame&quot;&gt;
-                &lt;div class=&quot;chip-frame-header&quot;&gt;&lt;div class=&quot;chip-name&quot;&gt;&lt;span class=&quot;chip-outline-icon&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;Chip &lt;span class=&quot;muted-code&quot;&gt;/ conceptual&lt;/span&gt;&lt;/div&gt;&lt;span class=&quot;chip-footnote&quot;&gt;计算资源布局&lt;/span&gt;&lt;/div&gt;
-                &lt;div class=&quot;die-frames&quot;&gt;
-                  &lt;div class=&quot;die-frame die-active&quot;&gt;&lt;div class=&quot;die-header&quot;&gt;&lt;span&gt;Die 0&lt;/span&gt;&lt;span&gt;COMPUTE REGION&lt;/span&gt;&lt;/div&gt;
-                    &lt;div class=&quot;core-tiles&quot;&gt;&lt;div class=&quot;core-tile cube&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIC&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;core-tile vector&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIV&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;core-tile cube faint&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIC&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;core-tile vector faint&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIV&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
-                  &lt;/div&gt;
-                  &lt;div class=&quot;die-frame&quot;&gt;&lt;div class=&quot;die-header&quot;&gt;&lt;span&gt;Die 1&lt;/span&gt;&lt;span&gt;EXAMPLE&lt;/span&gt;&lt;/div&gt;
-                    &lt;div class=&quot;core-tiles&quot;&gt;&lt;div class=&quot;core-tile cube&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIC&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;core-tile vector&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIV&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;core-tile cube faint&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIC&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;core-tile vector faint&quot;&gt;&lt;span class=&quot;core-mark&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;strong&gt;AIV&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
-                  &lt;/div&gt;
+          &lt;div class=&quot;device-frame&quot;&gt;
+            &lt;div class=&quot;hw-entity&quot;&gt;&lt;strong&gt;Device&lt;/strong&gt;&lt;/div&gt;
+            &lt;div class=&quot;chip-frame&quot;&gt;
+              &lt;div class=&quot;hw-entity&quot;&gt;&lt;strong&gt;Chip&lt;/strong&gt;&lt;small&gt;2 Dies&lt;/small&gt;&lt;/div&gt;
+              &lt;div class=&quot;die-frame&quot;&gt;&lt;strong class=&quot;die-label&quot;&gt;Die 0&lt;/strong&gt;
+                &lt;div class=&quot;core-tiles&quot; role=&quot;img&quot; aria-label=&quot;18 组 AI Core，每组包含 1 个 AIC 和 2 个 AIV&quot;&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;die-frame&quot;&gt;&lt;strong class=&quot;die-label&quot;&gt;Die 1&lt;/strong&gt;
+                &lt;div class=&quot;core-tiles&quot; role=&quot;img&quot; aria-label=&quot;18 组 AI Core，每组包含 1 个 AIC 和 2 个 AIV&quot;&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
                 &lt;/div&gt;
               &lt;/div&gt;
             &lt;/div&gt;
           &lt;/div&gt;
+          &lt;dl class=&quot;hw-counts&quot;&gt;
+            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AI Core Groups&lt;/dt&gt;&lt;dd&gt;36&lt;/dd&gt;&lt;/div&gt;
+            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AIC / Cube&lt;/dt&gt;&lt;dd&gt;36&lt;/dd&gt;&lt;/div&gt;
+            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AIV / Vector&lt;/dt&gt;&lt;dd&gt;72&lt;/dd&gt;&lt;/div&gt;
+          &lt;/dl&gt;
         &lt;/div&gt;
-        &lt;div class=&quot;hw-legend&quot;&gt;&lt;span&gt;&lt;i class=&quot;leg-rank&quot;&gt;&lt;/i&gt;Rank 进程 / 调度身份&lt;/span&gt;&lt;span&gt;&lt;i class=&quot;leg-cube&quot;&gt;&lt;/i&gt;AIC · 矩阵计算&lt;/span&gt;&lt;span&gt;&lt;i class=&quot;leg-vector&quot;&gt;&lt;/i&gt;AIV · 向量计算&lt;/span&gt;&lt;span class=&quot;hw-disclaimer&quot;&gt;示意层级，非实际核数及 Die 配置&lt;/span&gt;&lt;/div&gt;
       &lt;/section&gt;
     &lt;/article&gt;
   &lt;/section&gt;
-  &lt;footer class=&quot;tail&quot;&gt;&lt;div class=&quot;core-takeaway&quot;&gt;从&lt;span&gt;基础 API&lt;/span&gt; 到 &lt;em&gt;融合计算嵌套&lt;/em&gt;，从 Kernel 内部到 &lt;em&gt;多层级执行协同&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;fine-print&quot;&gt;概念性对比，突出典型开发与诊断视角，并非能力边界：Ascend C 也支持复杂融合及多核协同；Paged Attention 层次和 API 为示意，非具体实现的函数调用树。跨 Rank 协同与 Chip/Die 层级取决于程序、设备规格及部署映射；Rank 不直接等于物理芯片。&lt;/div&gt;&lt;/footer&gt;
 &lt;/main&gt;
 &lt;/body&gt;
 &lt;/html&gt;
 " hidden=""></iframe>
-<iframe data-slide-label="从代码到计算" data-note-index="0" title="2 · 从代码到计算" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
+<iframe data-slide-label="从代码到计算" data-note-index="0" title="4 · 从代码到计算" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;&gt;
@@ -8755,11 +8859,45 @@ h1.deck-heading {
   &lt;/main&gt;
   &lt;footer class=&quot;bottom&quot;&gt;&lt;div class=&quot;bottom-left&quot;&gt;&lt;div class=&quot;bottom-mark&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot;&gt;&lt;path d=&quot;M4 7h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6zM10 10l4-3M10 13l4 4&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;&lt;div class=&quot;bottom-copy&quot;&gt;&lt;strong&gt;设计切入点：建立从代码结构到计算执行的统一解释路径&lt;/strong&gt;&lt;p&gt;把离散的实现细节，组织成可探索、可追踪、可验证的计算关系&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;bottom-triad&quot;&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;01&lt;/i&gt;计算分配&lt;/span&gt;&lt;span class=&quot;sep&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;02&lt;/i&gt;执行组织&lt;/span&gt;&lt;span class=&quot;sep&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;p-tag&quot;&gt;&lt;i&gt;03&lt;/i&gt;对象关联&lt;/span&gt;&lt;/div&gt;&lt;/footer&gt;
 &lt;/div&gt;&lt;/body&gt;&lt;/html&gt;" hidden=""></iframe>
+<section class="design-slide" data-compute-layers data-slide-label="从代码到硬件资源" data-note-index="compute-layers" data-width="1600" aria-label="从代码到硬件资源" hidden>
+  <header data-deck-title="从代码到硬件资源"></header>
+  <div class="compute-layers">
+    <div class="compute-layers__source">
+      <h2>代码</h2>
+      <p>算子定义、循环与数据访问</p>
+    </div>
+    <div class="compute-layers__junction" aria-hidden="true"></div>
+    <div class="compute-layers__views">
+      <div>
+        <h2 data-compute-axis="graph">计算规则 / Graph</h2>
+        <p>执行哪些计算</p>
+      </div>
+      <div>
+        <h2 data-compute-axis="assignment">数据切分 / Assignment</h2>
+        <p>数据如何分块与分配</p>
+      </div>
+      <div>
+        <h2 data-compute-axis="pipeline">时间顺序 / Pipeline</h2>
+        <p>操作如何排序与衔接</p>
+      </div>
+    </div>
+    <div class="compute-layers__junction compute-layers__junction--merge" aria-hidden="true"></div>
+    <div class="compute-layers__hardware">
+      <h2>硬件资源</h2>
+      <p>可能的瓶颈</p>
+      <ul class="compute-layers__bottlenecks">
+        <li>存储</li>
+        <li>通信</li>
+        <li>同步</li>
+      </ul>
+    </div>
+  </div>
+</section>
 <iframe data-slide-label="三个观察维度" data-next-scene-label="代码给出了计算规则，但理解计算仍需要人工还原" title="三个观察维度与工具断点" data-compute-scenes sandbox="allow-same-origin allow-scripts" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
 &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
-&lt;title&gt;PyPTO 3.0 · Compute Explorer · P4–P5&lt;/title&gt;
+&lt;title&gt;PyPTO 3.0 · 三个观察维度与工具断点&lt;/title&gt;
 &lt;style&gt;
 :root{color-scheme:dark;--bg:#101010;--line:#303033;--muted:#aaa;--mono:ui-monospace,Menlo,monospace;--rail:154px;--row:215px;--grid:var(--rail) repeat(3,minmax(0,1fr))}
 *{box-sizing:border-box}body{margin:0;overflow:hidden;background:#0a0a0a;color:#f3f3f3;font:17px -apple-system,BlinkMacSystemFont,&quot;PingFang SC&quot;,&quot;Microsoft YaHei&quot;,sans-serif}
@@ -8791,6 +8929,7 @@ main[data-tool-evidence=&quot;true&quot;] .row :is(.rail,.cell){
 .has-reference h2{margin:4px 0 5px}
 .has-reference p{margin:4px 0 0;line-height:1.35}
 .tool-reference{display:block;width:auto;max-width:100%;height:96px;object-fit:contain;object-position:left center;border:1px solid var(--line);border-radius:4px}
+.cell[data-row=&quot;0&quot;][data-col=&quot;2&quot;] .tool-reference{height:156px}
 .trace-references{display:flex;gap:8px;width:100%;min-width:0}
 .has-trace .tool-reference{height:76px;max-width:calc((100% - 8px)/2)}
 .has-trace .trace{margin-top:5px;padding:5px 12px}
@@ -8838,6 +8977,30 @@ main:is([data-reveal=&quot;3&quot;],[data-reveal=&quot;4&quot;]) .reveal-body {b
 [data-reveal-part][inert],.design-reveal[inert] * {transition-delay:0ms;}
 
 main[data-evidence-summary=&quot;true&quot;] .row{height:100%}
+main[data-evidence-summary=&quot;true&quot;] {
+ --grid:var(--rail) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.65fr);
+}
+main[data-evidence-summary=&quot;true&quot;] .row :is(.rail,.cell) {
+ justify-content:flex-start;
+ padding-top:18px;
+}
+main[data-evidence-summary=&quot;true&quot;] .cell {
+ gap:10px;
+}
+main[data-evidence-summary=&quot;true&quot;] .cell h2 {
+ margin:0;
+ font-size:21px;
+ line-height:28px;
+}
+main[data-evidence-summary=&quot;true&quot;] .cell p {margin:0}
+main[data-evidence-summary=&quot;true&quot;] .cell[data-col=&quot;0&quot;] svg {
+ height:auto;
+ padding:12px 0;
+ border-block:1px solid var(--line);
+}
+main[data-evidence-summary=&quot;true&quot;] .cell[data-col=&quot;1&quot;] .tool-reference {height:168px}
+main[data-evidence-summary=&quot;true&quot;] .cell[data-col=&quot;1&quot;] .tiling-reference {width:100%;height:auto}
+main[data-evidence-summary=&quot;true&quot;] .cell[data-col=&quot;2&quot;] .tool-reference {height:336px}
 main[data-evidence-summary=&quot;true&quot;] .takeaway{font-size:23px;color:#c6d6ff}
 main[data-evidence-summary=&quot;true&quot;] #label{display:none}
 main[data-evidence-summary=&quot;true&quot;] footer{position:absolute;inset:auto 54px 28px}
@@ -8884,7 +9047,7 @@ main[data-tool-evidence=&quot;true&quot;] * {animation:none;transition:none;}
   &lt;/div&gt;
  &lt;/div&gt;
 &lt;/section&gt;
-&lt;footer&gt;&lt;nav aria-label=&quot;页面&quot;&gt;&lt;button data-go=&quot;1&quot;&gt;P3 · 三个维度&lt;/button&gt;&lt;button data-go=&quot;5&quot;&gt;P4 · 工具断点&lt;/button&gt;&lt;/nav&gt;&lt;nav aria-label=&quot;关键帧&quot;&gt;&lt;button id=&quot;previous&quot;&gt;Previous&lt;/button&gt;&lt;output id=&quot;frame&quot; hidden&gt;&lt;/output&gt;&lt;button id=&quot;next&quot;&gt;Next&lt;/button&gt;&lt;button id=&quot;reset&quot;&gt;Reset&lt;/button&gt;&lt;/nav&gt;&lt;/footer&gt;
+&lt;footer&gt;&lt;nav aria-label=&quot;页面&quot;&gt;&lt;button data-go=&quot;1&quot;&gt;P3 · 三个维度&lt;/button&gt;&lt;button data-go=&quot;5&quot;&gt;P5 · 工具断点&lt;/button&gt;&lt;/nav&gt;&lt;nav aria-label=&quot;关键帧&quot;&gt;&lt;button id=&quot;previous&quot;&gt;Previous&lt;/button&gt;&lt;output id=&quot;frame&quot; hidden&gt;&lt;/output&gt;&lt;button id=&quot;next&quot;&gt;Next&lt;/button&gt;&lt;button id=&quot;reset&quot;&gt;Reset&lt;/button&gt;&lt;/nav&gt;&lt;/footer&gt;
 &lt;/main&gt;
 &lt;script&gt;
 const $ = selector =&gt; document.querySelector(selector);
@@ -8915,7 +9078,7 @@ const tools = [
 ];
 const toolReferences = {
  1: [&#x27;triton-viz.png&#x27;,&#x27;Triton-Viz 的三维张量视图，青色标出当前 Load 访问的区域&#x27;],
- 2: [&#x27;manual-pipeline.png&#x27;,&#x27;三批任务在时间轴上依次错开，每批经过三个阶段&#x27;],
+ 2: [&#x27;manual-pipeline-scheduling.png&#x27;,&#x27;手工任务调度图，包含任务创建、任务执行与流水排布&#x27;],
  3: [&#x27;compute-ir.png&#x27;,&#x27;计算图 IR 的编译前后对比与操作差异列表&#x27;],
  5: [&#x27;swimlane.png&#x27;,&#x27;运行时泳道图沿时间轴展示各执行单元上的任务与事件&#x27;]
 };
@@ -8988,7 +9151,7 @@ function updateReveal() {
  revealParts.forEach(part =&gt; { part.inert = reveal &lt; Number(part.dataset.revealPart); });
  evidence.forEach(part =&gt; { part.inert = reveal &gt;= 2; });
  $(&#x27;#frame&#x27;).textContent = `S${step} / S${lastStep}`;
- $(&#x27;#next&#x27;).disabled = step === lastStep;
+ $(&#x27;#next&#x27;).disabled = step === lastStep || step === evidenceStart - 1;
  dispatchEvent(new CustomEvent(&#x27;compute-step-change&#x27;, {detail:step}));
 }
 window.computeStory = {get step(){return step;}, lastStep};
@@ -9013,6 +9176,22 @@ window.clearComputeHighlight = () =&gt; highlight();
 let activeScene;
 const evidenceQuestion = &#x27;如果将输入 Sequence Length 从 1024 调整到 2048，会影响多少数据块、任务和逻辑执行轮次？&#x27;;
 
+function summaryEvidence(column, reference) {
+ if (column === 0) {
+  return `&lt;h2&gt;手工整理计算图&lt;/h2&gt;${graph(false)}
+   &lt;p&gt;从源码梳理操作、输入和数据依赖。&lt;/p&gt;`;
+ }
+ const image = `&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;`;
+ if (column === 1) {
+  return `&lt;h2&gt;手工 Tiling / Triton-Viz&lt;/h2&gt;
+   &lt;img class=&quot;tool-reference tiling-reference&quot; src=&quot;assets/tool-references/excel-tiling.svg&quot; alt=&quot;用表格记录各数据块的索引范围和负责的执行单元&quot;&gt;
+   ${image}
+   &lt;p&gt;推算数据块范围，核对各次访问覆盖的区域。&lt;/p&gt;`;
+ }
+ return `&lt;h2&gt;手排流水图&lt;/h2&gt;${image}
+  &lt;p&gt;任务创建 → 任务执行 → 流水排布&lt;/p&gt;`;
+}
+
 function makeScene(matrix, summary) {
  const el = document.createElement(&#x27;div&#x27;);
  el.className=&#x27;scene&#x27;;
@@ -9023,6 +9202,9 @@ function makeScene(matrix, summary) {
    const [name,copy]=tools[i];
    const diagram=[graph,assignment,pipeline][c];
    const reference = matrix &amp;&amp; toolReferences[i];
+   if (summary) {
+    return `&lt;div class=&quot;cell&quot; data-col=&quot;${c}&quot; data-row=&quot;${r}&quot;&gt;${summaryEvidence(c, reference)}&lt;/div&gt;`;
+   }
    const cellClass = reference ? (i === 5 ? &#x27;cell has-reference has-trace&#x27; : &#x27;cell has-reference&#x27;) : &#x27;cell&#x27;;
    return `&lt;div class=&quot;${cellClass}&quot; data-col=&quot;${c}&quot; data-row=&quot;${r}&quot;&gt;${matrix?
     `${name?`&lt;h2&gt;${name}&lt;/h2&gt;`:&#x27;&#x27;}${i===5?`&lt;div class=&quot;trace-references&quot;&gt;&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/swimlane-task-detail.png&quot; alt=&quot;选中 matmul 任务后的泳道图、任务参数与依赖关系&quot;&gt;&lt;/div&gt;`:reference?`&lt;img class=&quot;tool-reference&quot; src=&quot;assets/tool-references/${reference[0]}&quot; alt=&quot;${reference[1]}&quot;&gt;`:&#x27;&#x27;}${copy?`&lt;p&gt;${copy}&lt;/p&gt;`:&#x27;&#x27;}${i===5?&#x27;&lt;button class=&quot;trace&quot; aria-pressed=&quot;false&quot;&gt;&lt;strong&gt;Runtime Task&lt;/strong&gt;&lt;/button&gt;&#x27;:&#x27;&#x27;}`:
@@ -9062,18 +9244,19 @@ function go(value) {
  $(&#x27;#subtitle&#x27;).textContent=summary ? &#x27;&#x27; : subtitles[Number(matrix)];
  $(&#x27;#label&#x27;).textContent=beats[Math.min(step,evidenceEnd)][0];
  $(&#x27;#takeaway&#x27;).textContent=summary ? evidenceQuestion : beats[Math.min(step,evidenceEnd)][1];
- $(&#x27;#previous&#x27;).disabled=step===firstStep;
+ $(&#x27;#previous&#x27;).disabled=step===firstStep||step===evidenceStart;
  dispatchEvent(new CustomEvent(&#x27;compute-scene-change&#x27;,{detail:Number(matrix)}));
  document.querySelectorAll(&#x27;[data-go]&#x27;).forEach(button=&gt;button.setAttribute(&#x27;aria-pressed&#x27;,String(Number(button.dataset.go)===(matrix?5:firstStep))));
  updateReveal();
 }
 document.querySelectorAll(&#x27;[data-go]&#x27;).forEach(button=&gt;button.onclick=()=&gt;go(Number(button.dataset.go)));
-$(&#x27;#previous&#x27;).onclick=()=&gt;go(step-1);
-$(&#x27;#next&#x27;).onclick=()=&gt;go(step+1);
+$(&#x27;#previous&#x27;).onclick=()=&gt;advanceComputeFrame(-1);
+$(&#x27;#next&#x27;).onclick=()=&gt;advanceComputeFrame(1);
 $(&#x27;#reset&#x27;).onclick=()=&gt;go(step&lt;5?firstStep:5);
 function advanceComputeFrame(delta){
  const target=step+delta;
  if(target&lt;firstStep||target&gt;lastStep) return false;
+ if((target &gt;= evidenceStart) !== (step &gt;= evidenceStart)) return false;
  go(target);
  return true;
 }
@@ -9087,7 +9270,7 @@ go(firstStep);
 " hidden></iframe>
 <section data-slide-label="多级并行调度的空间化映射" class="design-slide" data-strategy="assignment-story" data-p05-assignment data-strategy-chapter="native" data-note-index="9" data-width="1600" aria-label="多级并行调度的空间化映射" hidden>
   <header data-deck-title>
-    <h2 class="strategy-subtitle"><span aria-hidden="true">01</span>多级并行调度的空间化映射</h2>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">01</span><span data-compute-axis="assignment">数据 / Assignment</span>多级并行调度的空间化映射</h2>
   </header>
   <div class="design-demo" data-p05-story>
     <div data-p05-matrix aria-label="Assignment 任务矩阵"></div>
@@ -9108,7 +9291,7 @@ go(firstStep);
 </section>
 <section data-slide-label="循环执行规模直观可见" class="design-slide" data-strategy="scale" data-strategy-chapter="native" data-note-index="11" data-width="1600" aria-label="循环执行规模直观可见" hidden>
   <header data-deck-title>
-    <h2 class="strategy-subtitle"><span aria-hidden="true">02</span>循环执行规模直观可见</h2>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">02</span><span data-compute-axis="graph">计算 / Graph</span>循环执行规模直观可见</h2>
     <p class="strategy-description">将计算节点的静态执行次数转化为多层重叠的视觉表达，让代码中的循环结构和重复计算规模显性化。</p>
   </header>
   <div class="strategy-line"><span>Stack / Page / Token · 从数据分块看计算规模</span><span class="strategy-context"></span></div>
@@ -9131,7 +9314,7 @@ go(firstStep);
 </section>
 <section data-slide-label="执行流水的动态演绎" class="design-slide" data-strategy="pipeline-story" data-p07-pipeline data-strategy-chapter="native" data-note-index="10" data-width="1600" aria-label="执行流水的动态演绎" hidden>
   <header data-deck-title>
-    <h2 class="strategy-subtitle"><span aria-hidden="true">03</span>执行流水的动态演绎</h2>
+    <h2 class="strategy-subtitle"><span aria-hidden="true">03</span><span data-compute-axis="pipeline">时间 / Pipeline</span>执行流水的动态演绎</h2>
   </header>
   <div class="design-demo strategy-demo p07-story-frame">
     <article data-p07-story class="viz2" aria-label="Pipeline 讲述"></article>
@@ -9264,40 +9447,46 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
 .rail strong{font-size:29px;line-height:1.1;font-weight:620}
 .rail span{grid-column:2;font-size:18px;color:#b6c0cc;margin-top:6px}
 .rail em{grid-column:2;font:12px var(--mono);font-style:normal;color:#b5cff2;margin-top:5px;opacity:var(--weight,0)}
-.footer{bottom:31px;height:57px;border-top:1px solid var(--line)}
+.footer{bottom:13px;height:43px;border-top:1px solid var(--line)}
 .controls{display:flex;gap:7px;align-items:center;letter-spacing:0}
 .controls button{padding:9px 13px;font:15px var(--mono)}
 .controls button[aria-pressed=&quot;true&quot;]{color:#fff;border-color:#53657a;background:#202a37}
 .debug{position:absolute;left:74px;bottom:100px;display:flex;align-items:center;gap:13px;font:15px var(--mono);color:#bfcbdc}
 .debug input{width:310px;accent-color:#a9c1e3}
 [hidden]{display:none!important}
-.view-label{text-anchor:middle;pointer-events:none}
-.view-label .name{font:600 21px var(--mono);letter-spacing:.08em}
-.view-label .role{font:620 27px var(--sans);fill:#f0f2f5}
-.object-label{font:650 25px var(--sans);text-anchor:middle;fill:#eef2f8;pointer-events:none}
-.object-label tspan{font:600 10px var(--mono);letter-spacing:.08em;fill:#b8c9df}
+#focus-labels,.diagram .venn-labels{pointer-events:none}
+.view-label .name{font:650 36px var(--sans);fill:#fff}
+.view-label .role{font:16px var(--sans);fill:#aaa}
+.view-label .question{font:780 49px var(--sans);fill:#34363a;text-anchor:middle}
+.object-label{font:650 24px var(--sans);fill:#fff;text-anchor:middle}
+.pair-label text{font:650 20px var(--sans);fill:#fff;text-anchor:middle}
+.view-icon{fill:none;stroke:#fff;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
 [data-region]{cursor:pointer}
 .view-controls{display:flex;gap:3px;margin-top:20px}
 .view-controls button,.debug button,.debug select{font:14px var(--mono);padding:8px 10px;border:1px solid #303943;background:#171d25;color:#c2cbd7}
 .view-controls button[aria-pressed=&quot;true&quot;],.debug button[aria-pressed=&quot;true&quot;]{border-color:#728ba8;color:#fff;background:#263448}
 .controls button:hover,.pairs button:hover,.rail button:hover{border-color:#596d86}
-.pair-id{font:600 15px var(--mono);text-anchor:middle;pointer-events:none}
 &lt;/style&gt;
 &lt;/head&gt;
 &lt;body&gt;
 &lt;main aria-label=&quot;从代码阅读到计算探索&quot;&gt;
 &lt;div class=&quot;mast&quot;&gt;&lt;b&gt;PyPTO 3.0 / COMPUTE EXPLORER&lt;/b&gt;&lt;span&gt;UX 设计 / 计算认知模型&lt;/span&gt;&lt;/div&gt;
 &lt;header&gt;&lt;h1&gt;从代码阅读到计算探索&lt;/h1&gt;&lt;p&gt;建立三位一体的计算认知体系&lt;/p&gt;&lt;/header&gt;
-&lt;svg class=&quot;diagram&quot; viewBox=&quot;0 0 1920 1080&quot; aria-label=&quot;计算、数据、时间三圆及其执行层级&quot;&gt;
+&lt;svg class=&quot;diagram&quot; viewBox=&quot;0 0 1920 1080&quot; aria-label=&quot;Paged Attention 的计算、数据与时间三视角及其执行层级&quot;&gt;
   &lt;defs&gt;
-    &lt;circle id=&quot;g&quot; cx=&quot;-155&quot; cy=&quot;-89.5&quot; r=&quot;214&quot;/&gt;
-    &lt;circle id=&quot;a&quot; cx=&quot;155&quot; cy=&quot;-89.5&quot; r=&quot;214&quot;/&gt;
-    &lt;circle id=&quot;p&quot; cx=&quot;0&quot; cy=&quot;179&quot; r=&quot;214&quot;/&gt;
+    &lt;circle id=&quot;g&quot; cx=&quot;0&quot; cy=&quot;-194&quot; r=&quot;251&quot;/&gt;
+    &lt;circle id=&quot;a&quot; cx=&quot;-168&quot; cy=&quot;97&quot; r=&quot;251&quot;/&gt;
+    &lt;circle id=&quot;p&quot; cx=&quot;168&quot; cy=&quot;97&quot; r=&quot;251&quot;/&gt;
     &lt;clipPath id=&quot;cg&quot;&gt;&lt;use href=&quot;#g&quot;/&gt;&lt;/clipPath&gt;
     &lt;clipPath id=&quot;ca&quot;&gt;&lt;use href=&quot;#a&quot;/&gt;&lt;/clipPath&gt;
     &lt;clipPath id=&quot;cp&quot;&gt;&lt;use href=&quot;#p&quot;/&gt;&lt;/clipPath&gt;
-    &lt;g id=&quot;wire&quot; fill=&quot;none&quot; stroke-width=&quot;1.65&quot;&gt;
-      &lt;use href=&quot;#g&quot; stroke=&quot;#728ba8&quot;/&gt;&lt;use href=&quot;#a&quot; stroke=&quot;#688e88&quot;/&gt;&lt;use href=&quot;#p&quot; stroke=&quot;#9d7c66&quot;/&gt;
+    &lt;g id=&quot;wire&quot; fill=&quot;none&quot; stroke=&quot;#606064&quot; stroke-width=&quot;2&quot;&gt;
+      &lt;use href=&quot;#g&quot;/&gt;&lt;use href=&quot;#a&quot;/&gt;&lt;use href=&quot;#p&quot;/&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;intersection-edges&quot; fill=&quot;none&quot; stroke=&quot;#f6f7f8&quot; stroke-width=&quot;2.2&quot;&gt;
+      &lt;use href=&quot;#g&quot; clip-path=&quot;url(#ca)&quot;/&gt;&lt;use href=&quot;#g&quot; clip-path=&quot;url(#cp)&quot;/&gt;
+      &lt;use href=&quot;#a&quot; clip-path=&quot;url(#cg)&quot;/&gt;&lt;use href=&quot;#a&quot; clip-path=&quot;url(#cp)&quot;/&gt;
+      &lt;use href=&quot;#p&quot; clip-path=&quot;url(#cg)&quot;/&gt;&lt;use href=&quot;#p&quot; clip-path=&quot;url(#ca)&quot;/&gt;
     &lt;/g&gt;
   &lt;/defs&gt;
   &lt;g id=&quot;leaders&quot; fill=&quot;none&quot; stroke-width=&quot;1.4&quot; aria-hidden=&quot;true&quot;&gt;&lt;/g&gt;
@@ -9309,17 +9498,45 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
     &lt;use href=&quot;#g&quot; clip-path=&quot;url(#ca)&quot; fill=&quot;#366373&quot; data-region=&quot;3&quot; role=&quot;button&quot; tabindex=&quot;0&quot; aria-label=&quot;计算与数据&quot;/&gt;
     &lt;use href=&quot;#g&quot; clip-path=&quot;url(#cp)&quot; fill=&quot;#55516b&quot; data-region=&quot;4&quot; role=&quot;button&quot; tabindex=&quot;0&quot; aria-label=&quot;计算与时间&quot;/&gt;
     &lt;use href=&quot;#a&quot; clip-path=&quot;url(#cp)&quot; fill=&quot;#5c6247&quot; data-region=&quot;5&quot; role=&quot;button&quot; tabindex=&quot;0&quot; aria-label=&quot;数据与时间&quot;/&gt;
+    &lt;g clip-path=&quot;url(#cp)&quot;&gt;&lt;use href=&quot;#g&quot; clip-path=&quot;url(#ca)&quot; data-region=&quot;6&quot; role=&quot;button&quot; tabindex=&quot;0&quot; aria-label=&quot;Paged Attention 三视角交集&quot; fill=&quot;#3b444d&quot;/&gt;&lt;/g&gt;
     &lt;use href=&quot;#wire&quot; pointer-events=&quot;none&quot;/&gt;
-    &lt;g clip-path=&quot;url(#cp)&quot;&gt;&lt;use href=&quot;#g&quot; clip-path=&quot;url(#ca)&quot; data-region=&quot;6&quot; role=&quot;button&quot; tabindex=&quot;0&quot; aria-label=&quot;算子交集&quot; fill=&quot;#273242&quot; stroke=&quot;#a9bdd8&quot; stroke-width=&quot;3&quot;/&gt;&lt;/g&gt;
+    &lt;use href=&quot;#intersection-edges&quot; pointer-events=&quot;none&quot;/&gt;
   &lt;/g&gt;
-  &lt;g id=&quot;focus-labels&quot;&gt;
-    &lt;text class=&quot;view-label&quot; data-x=&quot;-236&quot; data-y=&quot;-126&quot;&gt;&lt;tspan class=&quot;name&quot; fill=&quot;#bed5f5&quot;&gt;GRAPH&lt;/tspan&gt;&lt;tspan class=&quot;role&quot; x=&quot;0&quot; dy=&quot;35&quot;&gt;计算&lt;/tspan&gt;&lt;/text&gt;
-    &lt;text class=&quot;view-label&quot; data-x=&quot;236&quot; data-y=&quot;-126&quot;&gt;&lt;tspan class=&quot;name&quot; fill=&quot;#b6e3d9&quot;&gt;ASSIGNMENT&lt;/tspan&gt;&lt;tspan class=&quot;role&quot; x=&quot;0&quot; dy=&quot;35&quot;&gt;数据&lt;/tspan&gt;&lt;/text&gt;
-    &lt;text class=&quot;view-label&quot; data-x=&quot;0&quot; data-y=&quot;251&quot;&gt;&lt;tspan class=&quot;name&quot; fill=&quot;#f0c3a4&quot;&gt;PIPELINE&lt;/tspan&gt;&lt;tspan class=&quot;role&quot; x=&quot;0&quot; dy=&quot;35&quot;&gt;时间&lt;/tspan&gt;&lt;/text&gt;
-    &lt;text class=&quot;object-label&quot; data-x=&quot;0&quot; data-y=&quot;-7&quot;&gt;算子&lt;tspan x=&quot;0&quot; dy=&quot;16&quot;&gt;OPERATOR&lt;/tspan&gt;&lt;/text&gt;
-    &lt;text class=&quot;pair-id&quot; fill=&quot;#e6eff6&quot; data-x=&quot;0&quot; data-y=&quot;-94&quot;&gt;01&lt;/text&gt;
-    &lt;text class=&quot;pair-id&quot; fill=&quot;#e6eff6&quot; data-x=&quot;-84&quot; data-y=&quot;55&quot;&gt;02&lt;/text&gt;
-    &lt;text class=&quot;pair-id&quot; fill=&quot;#e6eff6&quot; data-x=&quot;84&quot; data-y=&quot;55&quot;&gt;03&lt;/text&gt;
+  &lt;g id=&quot;focus-labels&quot; class=&quot;venn-labels&quot; aria-hidden=&quot;true&quot;&gt;
+    &lt;g class=&quot;view-label&quot; data-x=&quot;0&quot; data-y=&quot;-300&quot;&gt;
+      &lt;g class=&quot;view-icon&quot; transform=&quot;translate(-103 -24)&quot;&gt;&lt;rect x=&quot;1&quot; y=&quot;1&quot; width=&quot;48&quot; height=&quot;48&quot; rx=&quot;4&quot;/&gt;&lt;path d=&quot;M10 15h10m-5-5v10m13-5h10M11 29l7 7m0-7-7 7m17-3h10m-5-5v.2m0 9.6v.2&quot;/&gt;&lt;/g&gt;
+      &lt;text class=&quot;name&quot; x=&quot;-38&quot;&gt;Graph&lt;/text&gt;
+      &lt;text class=&quot;role&quot; x=&quot;-38&quot; y=&quot;32&quot;&gt;计算依赖关系网络化&lt;/text&gt;
+      &lt;text class=&quot;question&quot; y=&quot;94&quot;&gt;What/Why&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g class=&quot;view-label&quot; data-x=&quot;-244&quot; data-y=&quot;88&quot;&gt;
+      &lt;g class=&quot;view-icon&quot; transform=&quot;translate(-132 -24)&quot;&gt;&lt;rect x=&quot;1&quot; y=&quot;1&quot; width=&quot;28&quot; height=&quot;14&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;35&quot; y=&quot;1&quot; width=&quot;14&quot; height=&quot;14&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;1&quot; y=&quot;21&quot; width=&quot;11&quot; height=&quot;28&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;18&quot; y=&quot;21&quot; width=&quot;11&quot; height=&quot;28&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;35&quot; y=&quot;21&quot; width=&quot;14&quot; height=&quot;11&quot; rx=&quot;2&quot;/&gt;&lt;rect x=&quot;35&quot; y=&quot;38&quot; width=&quot;14&quot; height=&quot;11&quot; rx=&quot;2&quot;/&gt;&lt;/g&gt;
+      &lt;text class=&quot;name&quot; x=&quot;-67&quot;&gt;Assignment&lt;/text&gt;
+      &lt;text class=&quot;role&quot; x=&quot;-67&quot; y=&quot;32&quot;&gt;数据与任务分配空间化&lt;/text&gt;
+      &lt;text class=&quot;question&quot; y=&quot;94&quot;&gt;Who/Where&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g class=&quot;view-label&quot; data-x=&quot;243&quot; data-y=&quot;88&quot;&gt;
+      &lt;g class=&quot;view-icon&quot; transform=&quot;translate(-103 -24)&quot;&gt;&lt;path d=&quot;M3 5h9m10 0h16a10 10 0 0 1 0 20H10a10 10 0 0 0 0 20h16m10 0h9&quot;/&gt;&lt;circle cx=&quot;17&quot; cy=&quot;5&quot; r=&quot;5&quot;/&gt;&lt;circle cx=&quot;31&quot; cy=&quot;45&quot; r=&quot;5&quot;/&gt;&lt;/g&gt;
+      &lt;text class=&quot;name&quot; x=&quot;-38&quot;&gt;Pipeline&lt;/text&gt;
+      &lt;text class=&quot;role&quot; x=&quot;-38&quot; y=&quot;32&quot;&gt;计算组织过程可视化&lt;/text&gt;
+      &lt;text class=&quot;question&quot; y=&quot;94&quot;&gt;How/When&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;text class=&quot;object-label&quot; data-x=&quot;0&quot; data-y=&quot;-8&quot;&gt;Paged&lt;tspan x=&quot;0&quot; dy=&quot;32&quot;&gt;Attention&lt;/tspan&gt;&lt;/text&gt;
+    &lt;g class=&quot;pair-label&quot; data-x=&quot;-131&quot; data-y=&quot;-83&quot;&gt;
+      &lt;rect x=&quot;-65&quot; y=&quot;-18&quot; width=&quot;52&quot; height=&quot;36&quot; rx=&quot;9&quot; fill=&quot;#951db7&quot;/&gt;
+      &lt;rect x=&quot;14&quot; y=&quot;-18&quot; width=&quot;52&quot; height=&quot;36&quot; rx=&quot;9&quot; fill=&quot;#10a800&quot;/&gt;
+      &lt;text y=&quot;8&quot;&gt;&lt;tspan x=&quot;-39&quot;&gt;计算&lt;/tspan&gt;&lt;tspan x=&quot;0&quot;&gt;×&lt;/tspan&gt;&lt;tspan x=&quot;40&quot;&gt;数据&lt;/tspan&gt;&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g class=&quot;pair-label&quot; data-x=&quot;131&quot; data-y=&quot;-83&quot;&gt;
+      &lt;rect x=&quot;-65&quot; y=&quot;-18&quot; width=&quot;52&quot; height=&quot;36&quot; rx=&quot;9&quot; fill=&quot;#951db7&quot;/&gt;
+      &lt;rect x=&quot;14&quot; y=&quot;-18&quot; width=&quot;52&quot; height=&quot;36&quot; rx=&quot;9&quot; fill=&quot;#0095ef&quot;/&gt;
+      &lt;text y=&quot;8&quot;&gt;&lt;tspan x=&quot;-39&quot;&gt;计算&lt;/tspan&gt;&lt;tspan x=&quot;0&quot;&gt;×&lt;/tspan&gt;&lt;tspan x=&quot;40&quot;&gt;时间&lt;/tspan&gt;&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g class=&quot;pair-label&quot; data-x=&quot;0&quot; data-y=&quot;140&quot;&gt;
+      &lt;rect x=&quot;-65&quot; y=&quot;-18&quot; width=&quot;52&quot; height=&quot;36&quot; rx=&quot;9&quot; fill=&quot;#10a800&quot;/&gt;
+      &lt;rect x=&quot;14&quot; y=&quot;-18&quot; width=&quot;52&quot; height=&quot;36&quot; rx=&quot;9&quot; fill=&quot;#0095ef&quot;/&gt;
+      &lt;text y=&quot;8&quot;&gt;&lt;tspan x=&quot;-39&quot;&gt;数据&lt;/tspan&gt;&lt;tspan x=&quot;0&quot;&gt;×&lt;/tspan&gt;&lt;tspan x=&quot;40&quot;&gt;时间&lt;/tspan&gt;&lt;/text&gt;
+    &lt;/g&gt;
   &lt;/g&gt;
 &lt;/svg&gt;
 
@@ -9352,7 +9569,7 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
   &lt;output id=&quot;progress-value&quot; for=&quot;progress&quot;&gt;0%&lt;/output&gt;
   &lt;button id=&quot;playback&quot; type=&quot;button&quot;&gt;暂停&lt;/button&gt;
   &lt;label for=&quot;speed&quot;&gt;速度&lt;/label&gt;
-  &lt;select id=&quot;speed&quot;&gt;&lt;option value=&quot;.5&quot;&gt;0.5×&lt;/option&gt;&lt;option value=&quot;1&quot; selected&gt;1×&lt;/option&gt;&lt;/select&gt;
+  &lt;select id=&quot;speed&quot;&gt;&lt;option value=&quot;.5&quot;&gt;0.5×&lt;/option&gt;&lt;option value=&quot;1&quot;&gt;1×&lt;/option&gt;&lt;option value=&quot;1.5&quot; selected&gt;1.5×&lt;/option&gt;&lt;/select&gt;
   &lt;button type=&quot;button&quot; data-step=&quot;0&quot;&gt;S0&lt;/button&gt;
   &lt;button type=&quot;button&quot; data-step=&quot;1&quot;&gt;S1&lt;/button&gt;
   &lt;button type=&quot;button&quot; data-step=&quot;2&quot;&gt;S2&lt;/button&gt;
@@ -9379,7 +9596,7 @@ const tiltEnd = relationEnd + MOTION.tilt;
 const spreadEnd = tiltEnd + MOTION.spread;
 const total = spreadEnd;
 const steps = [relationStart,relationEnd,tiltEnd,spreadEnd];
-const HIGHLIGHT = Object.freeze({hold:1800,fade:360});
+const HIGHLIGHT = Object.freeze({hold:1200,fade:240});
 const LAYER_GEOMETRY = Object.freeze({x:1115,firstY:336,gap:235,scale:.86,vertical:.31});
 const scene = document.querySelector(&#x27;main&#x27;);
 const svg = document.querySelector(&#x27;.diagram&#x27;);
@@ -9390,6 +9607,7 @@ const viewButtons = [...document.querySelectorAll(&#x27;[data-view]&#x27;)];
 const stepButtons = [...document.querySelectorAll(&#x27;[data-step]&#x27;)];
 const slider = document.querySelector(&#x27;#progress&#x27;);
 const playback = document.querySelector(&#x27;#playback&#x27;);
+const speedControl = document.querySelector(&#x27;#speed&#x27;);
 const reducedMotion = matchMedia(&#x27;(prefers-reduced-motion: reduce)&#x27;);
 const levels = [
   {id:&#x27;device&#x27;,name:&#x27;Device&#x27;,copy:&#x27;在设备范围内观察计算结构、数据分配与执行组织。&#x27;},
@@ -9405,15 +9623,14 @@ const viewCopy = [
   [&#x27;计算 × 数据&#x27;,&#x27;计算任务如何划分，以及任务需要哪些数据。&#x27;],
   [&#x27;计算 × 时间&#x27;,&#x27;计算步骤如何依赖、排序并组织成流水。&#x27;],
   [&#x27;数据 × 时间&#x27;,&#x27;数据在各阶段如何流转，何时可以复用。&#x27;],
-  [&#x27;算子 / Operator&#x27;,&#x27;三种视角共同描述同一个算子的计算上下文。&#x27;],
+  [&#x27;Paged Attention&#x27;,&#x27;结合三个视角观察 Paged Attention 的计算依赖、数据分配与执行时序。&#x27;],
 ];
-const regionColors = [&#x27;#243e5d&#x27;,&#x27;#204b48&#x27;,&#x27;#573b2c&#x27;,&#x27;#366373&#x27;,&#x27;#55516b&#x27;,&#x27;#5c6247&#x27;,&#x27;#273242&#x27;];
-const regionBright = [&#x27;#315783&#x27;,&#x27;#2c685f&#x27;,&#x27;#79513a&#x27;,&#x27;#517f91&#x27;,&#x27;#756985&#x27;,&#x27;#727c55&#x27;,&#x27;#435a74&#x27;];
-const regionDim = [&#x27;#192634&#x27;,&#x27;#172d2c&#x27;,&#x27;#30251f&#x27;,&#x27;#233740&#x27;,&#x27;#302e3b&#x27;,&#x27;#343727&#x27;,&#x27;#212a37&#x27;];
+const regionColors = [&#x27;#111419&#x27;,&#x27;#111419&#x27;,&#x27;#111419&#x27;,&#x27;#18231d&#x27;,&#x27;#191f27&#x27;,&#x27;#211a27&#x27;,&#x27;#3b444d&#x27;];
+const regionBright = [&#x27;#42264f&#x27;,&#x27;#224333&#x27;,&#x27;#1f3b54&#x27;,&#x27;#284b36&#x27;,&#x27;#264666&#x27;,&#x27;#443254&#x27;,&#x27;#536372&#x27;];
+const regionDim = [&#x27;#111419&#x27;,&#x27;#111419&#x27;,&#x27;#111419&#x27;,&#x27;#151c18&#x27;,&#x27;#151923&#x27;,&#x27;#1a1620&#x27;,&#x27;#293138&#x27;];
 const regionSets = [[],[0],[1],[2],[3],[4],[5],[6]];
-const labelOffsets = [[-236,-126],[236,-126],[0,251]];
-const circlePositions = [[-155,-89.5],[155,-89.5],[0,179]];
-const circleStarts = [[-89,-31],[89,-31],[0,71]];
+const circlePositions = [[0,-194],[-168,97],[168,97]];
+const circleStarts = [[0,-102],[-91,52],[91,52]];
 const circles = [&#x27;g&#x27;,&#x27;a&#x27;,&#x27;p&#x27;].map(id =&gt; document.getElementById(id));
 const clamp = n =&gt; Math.max(0,Math.min(1,n));
 const lerp = (a,b,t) =&gt; a+(b-a)*t;
@@ -9458,7 +9675,7 @@ const planes = levels.map(({id},i) =&gt; {
 });
 
 const state = {
-  time:0, requestedStep:0, speed:1, clock:null, frame:0,
+  time:0, requestedStep:0, speed:Number(speedControl.value), clock:null, frame:0,
   viewFocus:null, viewTween:null,
   highlight:null, exitWeights:null, deckActive:true, onScreen:true, pageActive:true,
 };
@@ -9543,9 +9760,9 @@ function paint(now=performance.now()) {
     const [x,y] = mix(circleStarts[i],circlePositions[i],entry[i]);
     circle.setAttribute(&#x27;cx&#x27;,x);
     circle.setAttribute(&#x27;cy&#x27;,y);
-    circle.setAttribute(&#x27;r&#x27;,lerp(163,214,entry[i]));
+    circle.setAttribute(&#x27;r&#x27;,lerp(183,251,entry[i]));
   });
-  const origin = projectPlane(tilt,LAYER_GEOMETRY.x,545);
+  const origin = projectPlane(tilt,lerp(960,LAYER_GEOMETRY.x,tilt),lerp(665,545,tilt));
   const palette = regionColors.map((_,i) =&gt; blendRegion(i,viewWeights));
   planes.forEach((plane,i) =&gt; {
     const reveal = i===0 ? spread : segment(t,tiltEnd+i*85,spreadEnd);
@@ -9571,24 +9788,20 @@ function paint(now=performance.now()) {
       let x=Number(label.dataset.x), y=Number(label.dataset.y);
       if (j&lt;3) {
         const delta = mix(circleStarts[j],circlePositions[j],entry[j]);
-        x = labelOffsets[j][0]+delta[0]-circlePositions[j][0];
-        y = labelOffsets[j][1]+delta[1]-circlePositions[j][1];
+        x += delta[0]-circlePositions[j][0];
+        y += delta[1]-circlePositions[j][1];
       }
       const [px,py] = point(pose,x,y);
-      label.setAttribute(&#x27;transform&#x27;,`translate(${px} ${py})`);
+      const compact = Math.max(tilt * .7,reveal);
+      label.setAttribute(&#x27;transform&#x27;,`translate(${px} ${py}) scale(${lerp(1,.42,compact)})`);
       const region = j&lt;3 ? j : j===3 ? 6 : j-1;
       const emphasis = viewWeights.reduce((sum,value,view) =&gt;
         sum+value*(view===0 || regionSets[view].includes(region) ? 1 : .64),0);
-      if (j&lt;3) {
-        label.querySelector(&#x27;.name&#x27;).style.fontSize=lerp(21,17,spread)+&#x27;px&#x27;;
-        const role=label.querySelector(&#x27;.role&#x27;);
-        role.style.fontSize=lerp(27,21,spread)+&#x27;px&#x27;;
-        role.setAttribute(&#x27;dy&#x27;,lerp(35,25,spread));
-      }
+      if (j&lt;3) label.querySelector(&#x27;.question&#x27;).style.opacity=1-tilt;
       const geometryVisibility = j===3 ? 1-spread : 1;
       label.style.opacity = (j&lt;3 ? entry[j] : segment(t,610,MOTION.entrance))*emphasis*geometryVisibility;
     });
-    const anchor = point(pose,367,-88);
+    const anchor = point(pose,419,97);
     const labelY = plane.y;
     plane.line.setAttribute(&#x27;d&#x27;,`M${anchor.join(&#x27; &#x27;)} H1537 L1567 ${labelY}`);
     plane.line.setAttribute(&#x27;stroke&#x27;,color(mix(rgb(&#x27;#465463&#x27;),rgb(&#x27;#a8c1e3&#x27;),weight)));
@@ -9732,7 +9945,7 @@ playback.onclick=() =&gt; {
   if (state.clock) { state.clock=null; paint(); }
   else play(state.time===state.resumeTo ? (state.time===total ? 0 : total) : state.resumeTo);
 };
-document.querySelector(&#x27;#speed&#x27;).onchange=event =&gt; {
+speedControl.onchange=event =&gt; {
   if (state.clock) state.clock={from:state.time,to:state.clock.to,start:performance.now()};
   state.speed=Number(event.target.value);
 };
@@ -9785,18 +9998,43 @@ if (Object.hasOwn(captures,capture)) {
 "></iframe>
 <section data-slide-label="建立计算现场" class="design-slide" data-strategy="what-if" data-p14="derive" data-note-index="12" data-width="1600" aria-label="P14-A · 建立计算现场" hidden>
   <header data-deck-title="让抽象的计算规则，变成可带入、可操控、可推演的计算体验"><div class="design-topics"><span>UX 设计</span><span>参数驱动的计算推演</span><span aria-current="true">P14-A · 建立计算现场</span></div></header>
-  <div class="strategy-line"><span><span data-compute-axis="graph">计算规则</span> → <span data-compute-axis="assignment">数据分块</span> · 从源码常量与输入推导 Page / Stack</span></div>
-  <div class="design-demo p14-surface p14-derive">
-    <div class="p14-source"><h2>paged_attention_pypto.py</h2><div data-p14-source></div></div>
-    <div data-p14-derivation aria-label="当前 Task 的规模推导"></div>
-  </div>
-  <div class="strategy-footer">
-    <p class="strategy-caption" aria-live="polite"></p>
-    <div class="strategy-controls p14-controls" role="group" aria-label="演示关键帧">
-      <button type="button" data-p14-pause>暂停过渡</button>
-      <button type="button" data-p14-reset>重置</button>
+  <div class="p12-rules-body">
+    <div class="p12-rule-board" aria-label="Page 与 Stack 的计算规则">
+      <div class="p12-rule-group">
+        <h3>参数定义</h3>
+        <div class="p12-definitions">
+          <div><div class="p12-formula"><mark class="p12-page">128</mark></div><p>一页有 128 token</p><small>Page</small></div>
+          <div><div class="p12-formula"><mark class="p12-stack-pages">4</mark></div><p>一堆有 4 页</p><small>Stack</small></div>
+          <div><div class="p12-formula"><mark class="p12-page">128</mark> × <mark class="p12-stack-pages">4</mark> = <mark class="p12-stack">512</mark></div><p>一堆有 512 token</p><small>Stack</small></div>
+        </div>
+      </div>
+      <div class="p12-rule-group">
+        <h3>计算推导</h3>
+        <div class="p12-derivations">
+          <div><div class="p12-formula"><span class="p12-seq">Seq_len</span> ÷ <mark class="p12-page">128</mark></div><p>一次计算任务有多少页？</p><small>Task · 向上取整</small></div>
+          <div><div class="p12-formula"><span class="p12-seq">Seq_len</span> ÷ <mark class="p12-stack">512</mark></div><p>一次计算任务有多少堆？</p><small>Task · 向上取整</small></div>
+        </div>
+      </div>
     </div>
+    <figure class="p12-editor" aria-label="paged_attention_pypto.py 源码节选">
+      <figcaption>
+        <span class="p12-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 12h5M10 16h5"/></svg></span>
+        <span class="p12-file"><strong>paged_attention_pypto.py</strong><small>PyPTO3/Data</small></span>
+        <span class="p12-language">PyPTO DSL</span>
+      </figcaption>
+      <div class="p12-code">
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">022</span><code><span class="p12-py-constant">BLOCK_SIZE</span> <span class="p12-py-operator">=</span> <span class="p12-py-number">128</span>  <span class="p12-py-comment"># paged KV page size</span></code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">023</span><code><span class="p12-py-constant">STACK_PAGES</span> <span class="p12-py-operator">=</span> <span class="p12-py-number">4</span>  <span class="p12-py-comment"># physical pages combined into one attention compute tile</span></code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">024</span><code><span class="p12-py-constant">STACK_TOKENS</span> <span class="p12-py-operator">=</span> <span class="p12-py-constant">STACK_PAGES</span> <span class="p12-py-operator">*</span> <span class="p12-py-constant">BLOCK_SIZE</span>  <span class="p12-py-comment"># 512-token QK/softmax/PV granularity</span></code></div>
+        <div class="p12-code-line p12-code-gap" aria-hidden="true"><span class="p12-ln">⋯</span><span></span></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">264</span><code>seq_len <span class="p12-py-operator">=</span> pl.<span class="p12-py-call">read</span>(seq_lens, [batch])</code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">265</span><code>page_count <span class="p12-py-operator">=</span> (seq_len <span class="p12-py-operator">+</span> <span class="p12-py-constant">BLOCK_SIZE</span> <span class="p12-py-operator">-</span> <span class="p12-py-number">1</span>) <span class="p12-py-operator">//</span> <span class="p12-py-constant">BLOCK_SIZE</span></code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">266</span><code>stack_count <span class="p12-py-operator">=</span> (seq_len <span class="p12-py-operator">+</span> <span class="p12-py-constant">STACK_TOKENS</span> <span class="p12-py-operator">-</span> <span class="p12-py-number">1</span>) <span class="p12-py-operator">//</span> <span class="p12-py-constant">STACK_TOKENS</span></code></div>
+      </div>
+      <div class="p12-editor-status"><span>6 行 · 源码节选</span><span>Python</span></div>
+    </figure>
   </div>
+  <p class="p12-takeaway"><span aria-hidden="true">😨</span> 没有输入，缺少“计算现场”，难以带入结果</p>
 </section>
 <section data-slide-label="主动计算推演" class="design-slide" data-strategy="what-if" data-p14="explore" data-note-index="13" data-width="1600" aria-label="P14-B · 主动计算推演" hidden>
   <header data-deck-title="让抽象的计算规则，变成可带入、可操控、可推演的计算体验"><div class="design-topics"><span>UX 设计</span><span>参数驱动的计算推演</span><span aria-current="true">P14-B · 主动计算推演</span></div></header>
@@ -19225,12 +19463,14 @@ const computeRepeat = stage.querySelector('[data-compute-repeat]');
 const slideEntries = slideElements.flatMap(element => {
   const entry = { element, label: element.dataset.slideLabel, chapter:chapterLabel(element) };
   return element === computeFrame
-    ? [entry, { ...entry, label:element.dataset.nextSceneLabel }]
+    ? [{ ...entry, computeScene:0 }, { ...entry, computeScene:1, label:element.dataset.nextSceneLabel }]
     : [entry];
 });
+// Show the resource map, the first compute scene, then the code example.
+[slideEntries[1],slideEntries[2],slideEntries[3]] = [slideEntries[2],slideEntries[3],slideEntries[1]];
 // Header narrative follows the global page registry, including the two shared iframe scenes.
 const narrativeByPage = [
-  {phase:'业务背景'}, {phase:'用户挑战'}, {phase:'用户挑战'}, {phase:'体验洞察'},
+  {phase:'业务背景'}, {phase:'用户挑战'}, {phase:'用户挑战'}, {phase:'用户挑战'}, {phase:'体验洞察'},
   {strategy:'native'}, {strategy:'native'}, {strategy:'native'},
   {strategy:'exploration'}, {strategy:'exploration'}, {strategy:'exploration'},
   {strategy:'model'}, {strategy:'what-if'}, {strategy:'what-if'},
@@ -19526,12 +19766,12 @@ function mountStrategySlide(slide) {
   if (slide.hasAttribute('data-p14')) return window.PtoDeckWhatIf.mount(slide,{graph:p7Graph,model:p7Model,taskId:p7Task.id,onChange});
   return strategy.mount(slide);
 }
-const strategySlides = new Map([...stage.querySelectorAll('[data-strategy]')].map(slide => [slide,mountStrategySlide(slide)]));
+const strategySlides = new Map([...stage.querySelectorAll('[data-strategy]:not([data-p14="derive"])')].map(slide => [slide,mountStrategySlide(slide)]));
 const stagedSlides = new Set([p11Slide,p8Slide,p10Slide,computeRepeat,...strategySlides.keys()]);
-const computeStart = slides.indexOf(computeFrame);
+const computePages = [0,1].map(scene => slideEntries.findIndex(entry => entry.computeScene === scene));
 let computeScene = 0;
 let requestedComputeStep;
-const atToolEvidence = () => current === computeStart + 1;
+const atToolEvidence = () => current === computePages[1];
 function syncComputeScene() {
   if (slides[current] === computeRepeat) {
     const win = computeRepeat.contentWindow;
@@ -19541,7 +19781,7 @@ function syncComputeScene() {
     return;
   }
   if (slides[current] !== computeFrame) return;
-  const scene = current - computeStart;
+  const scene = slideEntries[current].computeScene;
   const win = computeFrame.contentWindow;
   if (typeof win.go === 'function') {
     const step = requestedComputeStep;
@@ -19663,7 +19903,7 @@ function show(index, step, context) {
     requestedComputeStep = step ?? (before !== computeRepeat ? 5 : undefined);
   } else if (slides[current] === computeFrame) {
     if (Number.isInteger(step)) requestedComputeStep = step;
-    else if (before !== computeFrame && current === computeStart) requestedComputeStep = 1;
+    else if (before !== computeFrame && current === computePages[0]) requestedComputeStep = 1;
   }
   if (slides[current] === p11Slide && (before !== p11Slide || Number.isInteger(step))) {
     pendingP11Step = step ?? 0;
@@ -19703,7 +19943,7 @@ function show(index, step, context) {
   document.querySelector('#deck-page-count').textContent = pageCountText(current);
   activateLocalControls();
   animateStrategyHeader(before,slides[current]);
-  if (slides[current].matches('.design-slide:not([data-p08],[data-strategy],[data-strategy-summary])') && !window.PtoVisualization2.getState().open) {
+  if (slides[current].matches('.design-slide:not([data-compute-layers],[data-p08],[data-strategy],[data-strategy-summary])') && !window.PtoVisualization2.getState().open) {
     window.PtoVisualization2.open();
   }
   updatePresenter();
@@ -19753,7 +19993,7 @@ function navigate(direction) {
   const target = current + direction;
   const targetStory = strategySlides.get(slides[target]);
   if (targetStory && direction < 0) { show(target,targetStory.last); return; }
-  show(target, direction < 0 && target === computeStart + 1 ? computeFrame.contentWindow.computeStory?.lastStep : direction < 0 && target === computeStart ? 4 : direction < 0 && slides[target] === p11Slide ? 3 : direction < 0 && slides[target] === p8Slide ? 5 : direction < 0 && slides[target] === p10Slide ? (p10Story()?.last ?? 5) : undefined);
+  show(target, direction < 0 && target === computePages[1] ? computeFrame.contentWindow.computeStory?.lastStep : direction < 0 && target === computePages[0] ? 4 : direction < 0 && slides[target] === p11Slide ? 3 : direction < 0 && slides[target] === p8Slide ? 5 : direction < 0 && slides[target] === p10Slide ? (p10Story()?.last ?? 5) : undefined);
 }
 
 function onKey(event) {
@@ -20048,7 +20288,7 @@ function updatePresenter() {
     if (preview.hasAttribute('src')) send(preview.contentWindow,'goto',nextIndex);
     else preview.src=roleUrl('preview',nextIndex);
   }
-  const noteIndex = slides[current] === computeRepeat ? (computeRepeat.contentWindow.computeStory?.step >= 10 ? '6' : '5') : slides[current] === computeFrame ? String(atToolEvidence() && computeFrame.contentWindow.computeStory?.step >= 10 ? 6 : 4 + current - computeStart) : slides[current].dataset.noteIndex ?? String(current);
+  const noteIndex = slides[current] === computeRepeat ? (computeRepeat.contentWindow.computeStory?.step >= 10 ? '6' : '5') : slides[current] === computeFrame ? String(atToolEvidence() && computeFrame.contentWindow.computeStory?.step >= 10 ? 6 : 4 + slideEntries[current].computeScene) : slides[current].dataset.noteIndex ?? String(current);
   if (notes.dataset.page!==noteIndex) {
     notes.dataset.page=noteIndex;
     notes.value=typeof drafts[noteIndex]==='string' ? drafts[noteIndex] : strategyNotes[noteIndex] ?? (noteIndex === '8' ? "上一页改变的是观察角度，从空间组织转到执行时间。这一页改变的是观察粒度。先看设备范围内的准备工作、同步和各 Block 的任务分配，再沿选中的 Task 聚焦到它所属的逻辑执行块。这里的 Block 有源码分配规则，不能拿来推断物理 AI Core 的实际落位。\n\n进一步选择一次 Logical Tick，可以同时看到这一轮生产的 Stack 和消费的 Stack，以及对应的阶段。Tick 表示循环进度，不是硬件耗时。回到设备总览时，仍可沿同一个 Block 和 Task 找回刚才的局部。\n\n横向切换决定从什么角度看，纵向下钻决定要看到多细。实际遇到问题时，也可以从最相关的入口开始探索。" : noteIndex === '6' ? p6DefaultNotes : noteIndex === '7' ? 'Graph 看计算结构，Assignment 看数据分配，Pipeline 看执行组织。三个视角围绕同一个算子，交集帮助我们理解它们怎样相互关联。\n\n接下来把这三个视角放进同一个空间，沿 Device、AI Core 到 Iteration 逐层深入。层级变了，仍然可以从计算、数据和时间观察同一个对象。' : '');
@@ -20208,7 +20448,7 @@ slideElements.forEach(slide => {
       if (slide === computeFrame) computeScene = Number(win.computeStory?.step >= 5);
       if (slide === computeFrame) win.addEventListener('compute-scene-change', event => {
         computeScene = event.detail;
-        const index = computeStart + computeScene;
+        const index = computePages[computeScene];
         if (slides[current] === slide && current !== index) show(index);
       });
       win.addEventListener('compute-step-change', () => {
@@ -20316,7 +20556,7 @@ function showPageStart(index) {
     show(index,strategySlides.get(p05AssignmentSlide).start);
     return;
   }
-  show(index, slides[index] === computeFrame ? (index === computeStart ? 1 : 5) : slides[index] === computeRepeat ? 5 : undefined);
+  show(index, slides[index] === computeFrame ? (index === computePages[0] ? 1 : 5) : slides[index] === computeRepeat ? 5 : undefined);
 }
 const lightTable = deckRole === 'deck' ? createDeckLightTable({
   entries:slideEntries, page:() => current, formatPage, suspend:suspendSlide,

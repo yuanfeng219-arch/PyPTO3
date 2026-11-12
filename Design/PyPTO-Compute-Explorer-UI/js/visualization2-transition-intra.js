@@ -7,7 +7,6 @@
   const panes={assignment:'#viz2-anatomy',pipeline:'#viz2-pipeline-intra',graph:'#viz2-graph-intra'};
   const clamp=n=>Math.max(0,Math.min(1,n));
   const ease=n=>n<.5?4*n*n*n:1-Math.pow(-2*n+2,3)/2;
-  const rect=element=>{const r=element.getBoundingClientRect();return {x:r.left,y:r.top,width:r.width,height:r.height};};
   const mix=(a,b,t)=>a+(b-a)*t;
   const visible=(item,clip)=>item&&item.box.width>0&&item.box.height>0&&item.box.x<clip.x+clip.width&&item.box.x+item.box.width>clip.x&&item.box.y<clip.y+clip.height&&item.box.y+item.box.height>clip.y;
   const svg=(name,attributes,parent)=>{const element=document.createElementNS(NS,name);for(const [key,value] of Object.entries(attributes))element.setAttribute(key,value);parent.append(element);return element;};
@@ -45,14 +44,28 @@
     }
     return null;
   }
-  function create({root,getTask}){
+  function create({root,getTask,getClip}){
     let job=null,serial=0;
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     const pane=tab=>root.querySelector(panes[tab]);
     // Assignment's workspace includes both the scrolling KV region and fixed Q Tile.
     const canvasSelector=tab=>tab==='assignment'?'.viz2-anatomy-workspace':tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport';
     const canvas=host=>host.querySelector(canvasSelector(host.id==='viz2-anatomy'?'assignment':host.id==='viz2-graph-intra'?'graph':'pipeline'));
-    const origin=()=>{const r=root.getBoundingClientRect();return {x:r.left+root.clientLeft,y:r.top+root.clientTop,width:root.clientWidth,height:root.clientHeight};};
+    const origin=()=>({x:0,y:0,width:root.clientWidth,height:root.clientHeight});
+    // Convert measurements to overlay coordinates when a presentation scales the host.
+    const rootScale=()=>root.getBoundingClientRect().width/(root.offsetWidth||1)||1;
+    const rect=element=>{
+      const r=element.getBoundingClientRect(),base=root.getBoundingClientRect(),scale=rootScale();
+      return {x:(r.left-base.left)/scale-root.clientLeft,y:(r.top-base.top)/scale-root.clientTop,
+        width:r.width/scale,height:r.height/scale};
+    };
+    function clipToView(tab,box){
+      const crop=getClip?.(tab);
+      if(!crop)return box;
+      const b=rect(crop),x=Math.max(box.x,b.x),y=Math.max(box.y,b.y);
+      return {x,y,width:Math.max(0,Math.min(box.x+box.width,b.x+b.width)-x),
+        height:Math.max(0,Math.min(box.y+box.height,b.y+b.height)-y)};
+    }
     function snapshot(tab,task,precise=false){
       const host=pane(tab),viewport=host?.querySelector(tab==='graph'?'.viz2-graph-viewport':'.viz2-anatomy-viewport');
       if(!host||!viewport)return null;
@@ -61,9 +74,9 @@
         const box=rect(precise||tab==='pipeline'?paint:element),style=getComputedStyle(paint),vector=paint instanceof SVGElement,item={id,element,box,
           fill:vector?(style.fill&&style.fill!=='none'?style.fill:'transparent'):style.backgroundColor,
           stroke:vector?(style.stroke&&style.stroke!=='none'?style.stroke:'transparent'):style.borderColor,
-          radius:(parseFloat(style.rx)||parseFloat(style.borderRadius)||5)*(vector?(paint.getScreenCTM()?.a||1):(element.offsetWidth?box.width/element.offsetWidth:1))};
+          radius:(parseFloat(style.rx)||parseFloat(style.borderRadius)||5)*(vector?(paint.getScreenCTM()?.a||1)/rootScale():(element.offsetWidth?box.width/element.offsetWidth:1))};
         if(precise){item.radius=Math.min(item.radius,box.width/2,box.height/2);
-        const scale=vector?Math.abs(paint.getScreenCTM()?.a||1):(paint.offsetWidth?box.width/paint.offsetWidth:1);
+        const scale=vector?Math.abs(paint.getScreenCTM()?.a||1)/rootScale():(paint.offsetWidth?box.width/paint.offsetWidth:1);
         item.strokeWidth=(parseFloat(vector?style.strokeWidth:style.borderTopWidth)||0)*scale;
         // CSS borders paint inside the box; SVG strokes are centered.
         if(!vector){const inset=item.strokeWidth/2;item.box={x:box.x+inset,y:box.y+inset,width:box.width-2*inset,height:box.height-2*inset};item.radius=Math.max(0,item.radius-inset);}
@@ -96,7 +109,7 @@
           objects.set('region:stack-loop',{id:'region:stack-loop',element:operations[0].element,elements:operations.map(item=>item.element),box:{x:left,y:top,width:right-left,height:bottom-top},fill:'transparent',stroke:operations[0].stroke,radius:8});
         }
       }
-      return {tab,task,host,clip:rect(viewport),objects};
+      return {tab,task,host,clip:clipToView(tab,rect(viewport)),objects};
     }
     function pairs(source,target,focus,task){
       const result=[],add=(a,b,kind,label,priority=0)=>{
@@ -230,7 +243,11 @@
       const paint=copy(viewport),o=origin(),bounds=rect(viewport),hold=document.createElement('div');
       hold.dataset.intraCanvasSnapshot=String(id);hold.setAttribute('aria-hidden','true');hold.inert=true;
       Object.assign(hold.style,{position:'absolute',left:`${bounds.x-o.x}px`,top:`${bounds.y-o.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`,overflow:'hidden',zIndex:11,pointerEvents:'none'});
-      Object.assign(paint.style,{position:'absolute',left:'0px',top:'0px',right:'auto',bottom:'auto',width:`${bounds.width}px`,height:`${bounds.height}px`,margin:'0px'});
+      const width=viewport.offsetWidth,height=viewport.offsetHeight;
+      const scale=bounds.width/(width||1),clip=clipToView(source.tab,bounds);
+      Object.assign(paint.style,{position:'absolute',left:'0px',top:'0px',right:'auto',bottom:'auto',
+        width:`${width}px`,height:`${height}px`,margin:'0px',transformOrigin:'top left',transform:`scale(${scale})`});
+      hold.style.clipPath=`inset(${clip.y-bounds.y}px ${bounds.x+bounds.width-clip.x-clip.width}px ${bounds.y+bounds.height-clip.y-clip.height}px ${clip.x-bounds.x}px)`;
       // Local SVG references must resolve to this snapshot, never a live renderer.
       for(const element of [paint,...paint.querySelectorAll('*')])for(const attr of [...element.attributes]){
         let value=attr.value.replace(/url\((['"]?)[^)]*#([^)'" ]+)\1\)/g,(all,quote,key)=>ids.has(key)?`url(#${ids.get(key)})`:all);
@@ -251,7 +268,7 @@
       const {hold,cloneMap}=canvasHold(source,serial+1);
       const current={id:++serial,from,to,task,source,gathered,focus:state.selection.subobject,hold,cloneMap,frame:0,phase:'preparing',masked:[],animations:[]};
       const pendingStyle=document.createElement('style');
-      window.PtoPhotoNarrative.text(pendingStyle,`#visualization2 ${panes[to]} ${canvasSelector(to)}{visibility:hidden}`);
+      window.PtoPhotoNarrative.text(pendingStyle,`#${CSS.escape(root.id)} ${panes[to]} ${canvasSelector(to)}{visibility:hidden;opacity:0}`);
       root.append(pendingStyle);current.pendingStyle=pendingStyle;
       job=current;
       return current;
