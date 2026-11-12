@@ -87,25 +87,10 @@ button:disabled{opacity:.38;cursor:default}
 .route-overview figcaption{font-family:var(--font-mono);color:#c6d3e2;border-bottom:1px solid #5d7289;padding:.5em 0}
 .route-overview .fragment{min-height:0}
 
-/* C · Keep the entire Assignment scene in place. Light follows the selection. */
-.concept-c{background:#151515;color:#f4f2ec}
-.concept-c>.matrix{position:absolute;left:2%;top:8%;width:96%;height:82%}
-.concept-c>.matrix .viz2-am-task,.concept-c>.matrix .viz2-am-block,.concept-c>.matrix [data-am-generation],.concept-c>.matrix [data-am-columns]{transition:opacity .24s}
-.concept-c[data-focus="task"]>.matrix .viz2-am-task:not(.is-selected){opacity:.28}
-.concept-c[data-focus="block"]>.matrix :is(.viz2-am-block:not(.is-selected),.viz2-am-task:not(.is-assigned)){opacity:.26}
-.concept-c>.matrix .viz2-am-task.is-selected .kf-pa-map__cell{stroke:#9ef04b!important;stroke-width:1.6!important}
-.concept-c>.matrix .viz2-am-task:hover{opacity:1!important}
-.focus-title{position:absolute;left:4%;top:3.7%;pointer-events:none}
-.focus-title h1{font-size:2.5cqw}
-.focus-title h1 br{display:none}
-.focus-title p{margin:.5em 0 0;font:1.03cqw var(--font-mono);color:#b0b8ac}
-.focus-lens{position:absolute;right:5%;top:18%;width:30%;height:21%;padding:1.05cqw 1.3cqw;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:.37cqw;background:#232624;box-shadow:0 .85cqw 2.2cqw #0007;z-index:3;animation:focus-in .36s ease-out}
-@keyframes focus-in{from{transform:translateY(.55cqw);opacity:.35}to{transform:none;opacity:1}}
-.focus-lens figcaption{font:700 1.8cqw var(--font-mono)!important;color:#ddf3cd}
-.focus-lens .fragment{min-height:0}
-.focus-lens p{margin:0;font:.95cqw var(--font-mono);color:#d2d9cd}
-.concept-c[data-focus="block"] .focus-lens{height:58%;width:20%;top:16%}
-.concept-c[data-lens-side="left"] .focus-lens{left:6%;right:auto}
+.concept-c>[data-review-focus]{position:absolute;inset:0}
+.concept-c [data-focus-fragment="matrix"]{top:12%;height:77%}
+.concept-c [data-focus="block"] .assignment-focus-lens{width:22%}
+.concept-c [data-focus="block"] .assignment-focus-lens figcaption{font-size:1.45cqw!important}
 .focus-controls{left:4%;bottom:4.3%;color:#d9e8ce}
 .focus-status{position:absolute;right:4%;bottom:5.3%;max-width:52%;font:1cqw var(--font-mono);color:#d2d9cd;text-align:right}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}

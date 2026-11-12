@@ -84,7 +84,6 @@ body.csa-visual .csa-explorer{padding-top:0!important}
 @media(max-width:800px){.csa-visual .csa-toolbar{top:110px}.csa-visual .csa-qk-scenario,.csa-visual .csa-qp-context{top:142px}.csa-visual .csa-qp-item-top{top:150px}.csa-visual .csa-qp-unit-nav{max-width:calc(100% - 48px);bottom:76px}.csa-visual .csa-qp-unit-nav>[data-qp-back]{top:108px}.csa-visual .csa-explorer:has(.csa-qk-pipeline-host[data-level="item"]) .csa-toolbar{left:170px}}
 
 .viz2-intra .viz2-anatomy-taskbar{position:fixed!important;top:60px!important;left:24px!important;padding:0!important;min-height:36px!important}
-.viz2-intra .viz2-intra-tick-hit{stroke:#303030!important;stroke-width:1!important}
 .csa-visual .csa-qp-svg .ai-operation-glyph [data-kind="op"]>rect{fill:color-mix(in srgb,var(--slot-color,#80b7f7) 15%,#333)!important}
 .csa-visual .csa-qp-svg .csa-qp-node:is(.is-selected,.is-related) .ai-operation-glyph [data-kind="op"]>rect{fill:var(--slot-color,#80b7f7)!important}
 
@@ -196,7 +195,6 @@ body.ai-extracted svg :is([tabindex],[role="button"],[role="checkbox"]):focus{ou
 :is(.viz2,.csa-explorer) .legend-data .ai-role-tensor text{fill:#080b0b!important;stroke:none!important}
 
 /* Pipeline color identifies the carried slot, shared by edges and consumers. */
-.viz2 .viz2-intra{--intra-slot-0:#ef8844;--intra-slot-1:#32bdd4;--intra-slot-2:#a267de}
 .csa-visual .csa-qp-svg .csa-qp-node{--slot-color:#ef8844}
 .csa-visual .csa-qp-svg .csa-qp-node[data-qp-batch="1"],
 .csa-visual .csa-qp-svg [data-qp-link-batch="1"]{--slot-color:#32bdd4}
@@ -222,50 +220,3 @@ body.ai-extracted svg :is([tabindex],[role="button"],[role="checkbox"]):focus{ou
 .viz2 .kf-pypa-graph__execution-layer{border:0!important;box-shadow:none!important;background:var(--execution-layer-fill,#383838)!important}
 .viz2 .viz2-am-task .ai-q-dot{fill:#ccc!important;fill-opacity:1!important}
 .viz2 .viz2-graph-scene .kf-pypa-graph__edge-label:is([data-edge-type="state"],[data-edge-type="feedback"]){opacity:.8}
-
-/* Keep pipeline ownership visible and distinguish data flow from slot reuse. */
-.viz2 .viz2-intra-svg [data-intra-kind="stage"] .ai-operation-glyph [data-kind="op"]>rect { fill:color-mix(in srgb,var(--slot-color) 22%,#242424)!important; stroke:none!important; }
-.viz2 .viz2-intra-svg [data-intra-kind="stage"]:is(.is-selected,.is-related,.is-upstream,:hover,:focus-visible) .ai-operation-glyph [data-kind="op"]>rect { fill:var(--slot-color)!important; stroke:none!important; }
-.viz2-intra-svg .viz2-intra-flow { stroke-width:1.5; opacity:.95; }
-.viz2-intra-svg .viz2-intra-reuse { stroke-width:2; opacity:.55; }
-
-.viz2-intra-svg .viz2-intra-reuse.is-highlighted { opacity:1; stroke-width:2.5; }
-.viz2-intra-svg [data-intra-kind="tick"].is-related > rect { fill:var(--surface-3); fill-opacity:.6; }
-
-/* Slot metadata sits outside the colored operation body. */
-.viz2 .viz2-intra-svg [data-intra-kind="stage"] .ai-operation-glyph > .ai-operation-slot { fill:#bcbcbc!important; fill-opacity:1!important; opacity:1!important; }
-.viz2 .viz2-intra-svg [data-intra-kind="stage"]:is(:hover,:focus-visible,.is-selected,.is-related) .ai-operation-glyph > .ai-operation-slot { fill:#eee!important; }
-
-/* READY events retain their slot ring when the whole Stack is highlighted. */
-.viz2 .viz2-intra-svg [data-intra-kind="event"] > .viz2-intra-event {
-  fill:var(--surface-2)!important;
-  stroke:var(--slot-color)!important;
-  stroke-width:1.5;
-  stroke-opacity:1;
-}
-.viz2 .viz2-intra-svg [data-intra-kind="event"]:is(:hover,:focus-visible,.is-selected,.is-related) > .viz2-intra-event {
-  stroke-width:2;
-}
-
-/* Cross-tick transfers brighten only for the active Stack or READY event. */
-.viz2 .viz2-intra-svg [data-intra-dependency$=":probability_transfer"] {
-  opacity:.32;
-  stroke-width:1;
-}
-.viz2 .viz2-intra-svg [data-intra-stack-path].is-related [data-intra-dependency$=":probability_transfer"],
-.viz2 .viz2-intra-svg [data-intra-dependency$=":probability_transfer"].is-related {
-  opacity:1;
-  stroke-width:1.8!important;
-}
-
-/* One visual intensity scale for every pipeline connection. */
-.viz2 .viz2-intra-svg :is(.viz2-intra-flow,.viz2-intra-reuse,.viz2-intra-output-link) {
-  opacity:.45!important;
-  stroke-width:1.5!important;
-}
-.viz2 .viz2-intra-svg [data-intra-stack-path].is-related .viz2-intra-flow,
-.viz2 .viz2-intra-svg .viz2-intra-flow.is-related,
-.viz2 .viz2-intra-svg .viz2-intra-reuse:is(.is-highlighted,.is-related,.is-selected,:hover,:focus-visible) {
-  opacity:1!important;
-  stroke-width:2!important;
-}

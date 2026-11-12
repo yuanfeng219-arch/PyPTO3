@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P06 · 计算循环结构的层次化表达</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/assets/ai-infra/design-tokens.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/compute-shared.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/compute-map.css">
+<link rel="stylesheet" href="../PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css">
+<link rel="stylesheet" href="presentation.css">
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-pypto-source.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-semantic-graph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-model.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-presentation.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-layout.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/semantic-computation-graph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/paged-attention-execution.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-task-encoding.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-anatomy.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/visualization2-graph-intra.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/photo-narrative.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/visual-system.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/op-icons.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/tensor-role-glyph.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/assets/ai-infra/graph-legend-skin.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/ai-infra-ui.js"></script>
+<script defer src="../PyPTO-Compute-Explorer-UI/js/compute-graph-scene.js"></script>
+<script defer src="presentation.js"></script>
+</head>
+<body>
+<main class="pto-ide-frame story-shell" data-host="standalone">
+  <div class="pto-ide-frame__workarea" id="ideWorkarea">
+    <article id="slide" aria-label="循环执行规模直观可见">
+      <header class="mast">
+        <p>PyPTO 3.0 <span> / </span> UX 设计 · 算法可感知</p>
+        <p><b id="task-context"></b><span> / </span> P06</p>
+      </header>
+      <h1>循环执行规模直观可见</h1>
+      <div class="stage" aria-label="Stack 到 Graph 的计算演示">
+        <header class="scene-heading">
+          <h2 id="scene-title"></h2>
+          <p id="scene-caption" aria-live="polite"></p>
+        </header>
+        <div id="process" aria-label="逐 Page 计算与跨 Stack 累加"></div>
+        <div id="overview" hidden>
+          <div id="stack-strip" aria-label="Task 的 Stack 与 Page"></div>
+          <div class="viz2 graph-surface">
+            <div id="graph" class="kf-pypa-graph__scene" aria-label="Task 48 完整 Graph"></div>
+          </div>
+        </div>
+        <p id="story-note"></p>
+        <p id="error" role="alert" hidden>计算图未能加载。请保留本页与 Compute Explorer 的目录关系后重新打开。</p>
+      </div>
+      <footer class="story-footer">
+        <nav id="scenes" aria-label="故事关键帧"></nav>
+        <div class="actions">
+          <button class="btn btn-ghost" id="previous" type="button">上一步</button>
+          <button class="btn btn-ghost" id="reset" type="button">重置</button>
+          <button class="btn btn-ghost" id="play" type="button">完整慢放</button>
+          <button class="btn" id="next" type="button">下一步</button>
+        </div>
+      </footer>
+    </article>
+  </div>
+</main>
+</body>
+</html>

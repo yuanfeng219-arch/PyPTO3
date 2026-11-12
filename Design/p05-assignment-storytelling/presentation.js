@@ -43,9 +43,7 @@
       title: '焦点式讲述',
       prompt: '从完整 Assignment 矩阵中点选 Task，或用 Task 48 开始。切到 Block 时观察原组件重排。',
       markup: `
-        ${fragment('matrix')}
-        <div class="focus-title"><h1>从整个矩阵<br>定位一个 Task</h1><p data-overview></p></div>
-        <figure class="focus-lens" hidden><figcaption data-task-title></figcaption>${fragment('lens')}<p data-source></p></figure>
+        <div data-review-focus></div>
         <div class="focus-controls" role="group" aria-label="焦点关键帧">
           ${button('Task 48','reference')}${button('查看归属','focus-block')}${button('返回整体','overview')}
         </div>
@@ -68,10 +66,56 @@
   });
 
   try {
-    mountStory();
+    if (concept === 'c') mountFocusReview();
+    else mountStory();
   } catch (error) {
     document.querySelector('#error').hidden = false;
     console.error(error);
+  }
+
+  function mountFocusReview() {
+    const model = window.PtoPagedAttentionIntro.model;
+    const status = slide.querySelector('[data-status]');
+    const blockButton = slide.querySelector('[data-action="focus-block"]');
+    let selection = null;
+    let focus = 'overall';
+    const scene = window.PtoAssignmentFocus.mount(slide.querySelector('[data-review-focus]'),{
+      model,keyboardTasks:true,onSelect(next) {
+        selection = next;
+        if (focus !== 'block') focus = 'detail';
+        render();
+      }
+    });
+    function render(animate = false) {
+      scene.update({selection,focus,animate});
+      blockButton.disabled = !selection;
+      blockButton.textContent = focus === 'block' ? '返回输入' : '查看归属';
+      const task = selection?.task == null ? null : model.taskInfo(selection.task);
+      status.textContent = task
+        ? `Task ${task.id} · Batch ${task.batch} / KV Head ${task.kv} → Block ${task.block}`
+        : selection ? `Block ${selection.block} · ${model.tasksForBlock(selection.block).length} Tasks`
+        : '点选任意 Task，定位来源与归属。';
+    }
+    slide.querySelector('.focus-controls').addEventListener('click',event => {
+      switch(event.target.dataset.action) {
+        case 'reference':
+          selection = {kind:'task',task:48,block:model.taskInfo(48).block};
+          focus = 'detail';
+          break;
+        case 'focus-block':
+          if (!selection) return;
+          if (focus === 'block' && selection.task == null) {
+            const task = model.tasksForBlock(selection.block)[0];
+            selection = {kind:'task',task,block:selection.block};
+          }
+          focus = focus === 'block' ? 'detail' : 'block';
+          break;
+        case 'overview': selection = null; focus = 'overall'; break;
+        default: return;
+      }
+      render(true);
+    });
+    render();
   }
 
   function mountStory() {
@@ -82,11 +126,10 @@
     const config = {batch: seqLens.length, kvHeads, blocks, qPerKv};
     const layout = morph.createLayout(config);
     const reference = 48;
-    let selection = concept === 'c' ? null : selectionForTask(reference);
+    let selection = selectionForTask(reference);
     let routeStep = 0;
-    let overview = concept === 'c';
+    let overview = false;
     let destinationWide = false;
-    let focusBlock = false;
 
     const views = Object.fromEntries([...slide.querySelectorAll('[data-fragment]')].map(host => {
       const view = morph.mount(host, {config, seqLens});
@@ -143,7 +186,7 @@
       slide.querySelectorAll(selector).forEach(node => {node.textContent = text;});
     }
 
-    function render({animate = false} = {}) {
+    function render() {
       const block = selection?.block ?? model.taskInfo(reference).block;
       const id = selection?.task ?? model.tasksForBlock(block)[0];
       const task = model.taskInfo(id);
@@ -151,9 +194,8 @@
       const hasTask = selection?.kind === 'task';
       slide.dataset.step = String(routeStep);
       slide.dataset.overview = String(overview);
-      slide.dataset.focus = focusBlock || selection?.kind === 'block' ? 'block' : hasTask ? 'task' : 'overall';
+      slide.dataset.focus = selection?.kind === 'block' ? 'block' : hasTask ? 'task' : 'overall';
       slide.dataset.wide = String(destinationWide);
-      slide.dataset.lensSide = task.kv >= Math.ceil(kvHeads / 2) ? 'left' : 'right';
 
       write('[data-overview]', `${config.batch} Batch × ${kvHeads} KV Head · ${config.batch * kvHeads} Task`);
       write('[data-task-title]', hasTask ? `Task ${task.id}` : `Block ${block}`);
@@ -205,18 +247,7 @@
         if (overview) write('[data-status]', `${blocks} 个逻辑 Block · 点选 Task 开始追踪`);
       }
 
-      if (concept === 'c') {
-        const phase = focusBlock ? 1 : 0;
-        if (animate) views.matrix.api.manual(phase);
-        views.lens.api.settle(phase);
-        if (focusBlock) {
-          cropBlock(views.lens,block);
-          limitBlockStops(views.lens);
-        } else if (hasTask) cropTask(views.lens,task);
-        slide.querySelector('.focus-lens').hidden = overview;
-        slide.querySelector('[data-action="focus-block"]').disabled = !selection;
-        if (focusBlock) write('[data-task-title]', `Block ${String(block).padStart(2,'0')} · ${count} Tasks`);
-      }
+
     }
 
     function pick(id, view) {
@@ -251,24 +282,12 @@
           routeStep = Number(control.dataset.value);
           if (selection?.kind !== 'task') selection = selectionForTask(selection ? model.tasksForBlock(selection.block)[0] : reference);
           break;
-        case 'reference':
-          selection = selectionForTask(reference);
-          overview = false;
-          focusBlock = false;
-          break;
-        case 'focus-block':
-          focusBlock = !focusBlock;
-          control.textContent = focusBlock ? '返回输入' : '查看归属';
-          break;
         case 'overview':
           overview = true;
-          focusBlock = false;
           selection = null;
-          if (concept === 'c') slide.querySelector('[data-action="focus-block"]').textContent = '查看归属';
           break;
       }
-      if (control.dataset.action === 'reference') slide.querySelector('[data-action="focus-block"]').textContent = '查看归属';
-      render({animate:concept === 'c'});
+      render();
     });
 
     slide.addEventListener('keydown', event => {
