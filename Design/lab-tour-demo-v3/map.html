@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目与产品支撑地图 · 昇腾计算</title>
+<style>
+/* 开场第 1 页：昇腾计算领域的项目 / 产品支撑地图。
+ * 视觉沿用 intro.html / index.html：同一套 --kn-* 变量、Ascend 标、顶栏胶囊键、玻璃面板；PyPTO 一栏用首页 01 的绿。
+ * 分层与产品取自 Insight/Ascend-ecosystem2.md（昇腾 AI 计算栈）与 Insight/hw-native-sys-仓库功能洞察报告.md（PyPTO 开放栈）。 */
+:root{
+  color-scheme:dark;
+  --kn-sans:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --kn-mono:ui-monospace,"SF Mono",Consolas,monospace;
+  --kn-void:#060607;
+  --kn-text:#f5f5f7;
+  --kn-soft:#c6c7cb;
+  --kn-dim:#92939a;
+  --kn-faint:#6b6c73;
+  --kn-line:rgba(226,227,233,.1);
+  --kn-green:#88EC30;
+  --kn-purple:#b76bff;
+  --kn-blue:#849bff;
+  --kn-ease:cubic-bezier(.22,.78,.3,1);
+  font-family:var(--kn-sans);
+  background:var(--kn-void);
+  color:var(--kn-text);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kn-void);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+
+.deck{position:relative;min-height:100svh;display:flex;flex-direction:column;isolation:isolate;
+  background:radial-gradient(ellipse 40% 60% at 70% 52%,rgba(92,140,70,.08),transparent 72%),
+    radial-gradient(ellipse 46% 50% at 22% 50%,rgba(80,96,130,.08),transparent 72%),
+    radial-gradient(118% 68% at 50% -8%,rgba(40,41,46,.44),transparent 58%),var(--kn-void)}
+.deck::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(128% 80% at 50% 46%,transparent 40%,rgba(0,0,0,.5) 80%,rgba(0,0,0,.85) 100%)}
+
+/* ---------------- 顶栏：同 intro.html ---------------- */
+.rail{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  width:100%;max-width:1800px;margin:0 auto;padding:24px clamp(22px,3.4vw,60px) 0}
+.rail-left{display:flex;align-items:center;gap:14px;min-width:0}
+.brand-home{display:inline-flex;align-items:center;flex:none;border-radius:8px;text-decoration:none;transition:opacity .25s var(--kn-ease)}
+.brand-home:hover,.brand-home:focus-visible{opacity:.78;outline:none}
+.brand-home:focus-visible{outline:1px solid rgba(226,227,233,.45);outline-offset:6px}
+.ascend-brand{display:block;width:105px;height:40px;object-fit:contain}
+.eyebrow{margin:0;color:#a7a8af;font:600 10px/1.3 var(--kn-mono);letter-spacing:.24em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail-right{display:flex;align-items:center;gap:18px}
+.steps{display:flex;align-items:center;gap:6px;margin:0;padding:0;list-style:none;font:600 10px/1 var(--kn-mono);letter-spacing:.16em;color:var(--kn-faint)}
+.steps li{display:flex;align-items:center;gap:6px}
+.steps li+li::before{content:"";width:14px;height:1px;background:rgba(226,227,233,.18)}
+.steps a{text-decoration:none;transition:color .25s var(--kn-ease)}
+.steps a:hover,.steps a:focus-visible{color:var(--kn-soft);outline:none}
+.steps [aria-current]{color:var(--kn-text)}
+.next{display:inline-flex;align-items:center;gap:14px;height:40px;padding:0 18px;border-radius:999px;
+  border:1px solid rgba(226,227,233,.25);background:rgba(255,255,255,.045);color:#f1f2f5;text-decoration:none;
+  font:500 13px/1 var(--kn-sans);letter-spacing:.04em;white-space:nowrap;
+  transition:border-color .3s var(--kn-ease),box-shadow .3s var(--kn-ease)}
+.next span{transition:transform .3s var(--kn-ease)}
+.next:hover,.next:focus-visible{border-color:rgba(226,227,233,.5);box-shadow:0 0 22px rgba(226,232,244,.14);outline:none}
+.next:hover span,.next:focus-visible span{transform:translateX(4px)}
+
+/* ---------------- 标题区 ---------------- */
+.body{flex:1;width:100%;max-width:1640px;margin:0 auto;display:flex;flex-direction:column;justify-content:center;
+  gap:22px;padding:clamp(20px,3.4vh,48px) clamp(22px,3.4vw,60px) clamp(18px,2.8vh,36px)}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px 40px;flex-wrap:wrap}
+.k{display:flex;align-items:center;gap:10px;margin:0 0 12px;color:#999aa3;font:600 10px/1.3 var(--kn-mono);letter-spacing:.22em}
+.k::after{content:"";width:28px;height:1px;background:linear-gradient(90deg,rgba(167,168,175,.6),transparent)}
+h1{margin:0;font-size:clamp(30px,2.7vw,46px);font-weight:600;line-height:1.12;letter-spacing:-.035em;
+  color:#f7faf9;background:linear-gradient(168deg,#fff 10%,#dcdde2 58%,#aeafb6);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{margin:10px 0 0;max-width:84ch;color:#a8a9b1;font-size:14px;line-height:1.7}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0;padding:0;list-style:none;color:var(--kn-dim);font-size:12px}
+.legend li{display:inline-flex;align-items:center;gap:8px}
+
+/* 状态标记：★ 本次演示 · ● 已有体验原型 · ○ 栈内相关 */
+.mk{display:inline-block;flex:none;width:8px;height:8px;border-radius:50%;border:1px solid rgba(226,227,233,.4)}
+.mk-proto{border:0;background:var(--kn-soft)}
+.mk-demo{width:10px;height:10px;border:0;border-radius:2px;transform:rotate(45deg);background:var(--kn-green);box-shadow:0 0 10px rgba(136,236,48,.55)}
+
+/* ---------------- 地图：行 = 栈的层，列 = 三条路径 + 横跨全栈的工具链 ---------------- */
+.map{display:grid;grid-template-columns:minmax(150px,.82fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.3fr) minmax(220px,.95fr);
+  column-gap:10px;align-items:stretch}
+.col-h{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;padding:0 14px 10px;color:var(--kn-soft);font-size:13px;font-weight:600}
+.col-h small{color:var(--kn-faint);font:500 10px/1.4 var(--kn-mono);letter-spacing:.12em}
+.col-h.is-pypto{color:#e9fbd8}
+.col-h.is-pypto small{color:rgba(136,236,48,.7)}
+
+.layer{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:8px 14px 8px 0;border-top:1px solid var(--kn-line)}
+.layer b{color:#eceef2;font-size:14px;font-weight:600}
+.layer span{color:var(--kn-faint);font-size:12px;line-height:1.5}
+.cell{display:flex;flex-wrap:wrap;align-content:center;gap:6px;min-height:58px;padding:8px 12px;border-top:1px solid var(--kn-line)}
+.cell.is-span{grid-column:2 / span 3}
+.cell.is-empty::before{content:"经由昇腾原生栈接入";color:#4f5056;font-size:11.5px}
+/* PyPTO 一栏：整列一块绿色微光底，上下贯通 */
+.cell.is-pypto{background:linear-gradient(90deg,rgba(136,236,48,.055),rgba(136,236,48,.025));border-left:1px solid rgba(136,236,48,.18);border-right:1px solid rgba(136,236,48,.18)}
+.cell.is-pypto.is-first{border-top-left-radius:10px;border-top-right-radius:10px}
+.cell.is-pypto.is-last{border-bottom:1px solid rgba(136,236,48,.18);border-bottom-left-radius:10px;border-bottom-right-radius:10px}
+.map>.layer.is-bottom,.map>.cell.is-bottom{border-bottom:1px solid var(--kn-line)}
+
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:6px 11px 6px 10px;border-radius:9px;
+  background:linear-gradient(145deg,rgba(28,29,33,.92),rgba(14,14,16,.96));border:1px solid rgba(226,227,233,.1);
+  transition:border-color .25s var(--kn-ease),transform .25s var(--kn-ease)}
+.chip:hover{border-color:rgba(226,227,233,.28);transform:translateY(-1px)}
+.chip-t{display:flex;flex-direction:column;min-width:0}
+.chip-t b{color:#eceef2;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap}
+.chip-t small{color:var(--kn-dim);font-size:11px;line-height:1.35}
+.chip.is-demo{border-color:rgba(136,236,48,.45);background:linear-gradient(145deg,rgba(40,58,26,.9),rgba(14,18,12,.96));
+  box-shadow:0 0 22px rgba(136,236,48,.12)}
+.chip.is-demo .chip-t b{color:#f2ffe6}
+.chip.is-demo .chip-t small{color:#b9dc9b}
+
+/* 工具链：横跨全栈的一根竖条 */
+.tools{grid-column:5;grid-row:2 / span 6;display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(132,155,255,.07),rgba(132,155,255,.025));border:1px solid rgba(132,155,255,.18)}
+.tools-h{display:flex;flex-direction:column;gap:3px;margin-bottom:4px;color:#dfe4ff;font-size:13px;font-weight:600}
+.tools-h small{color:rgba(160,176,255,.7);font:500 10px/1.4 var(--kn-mono);letter-spacing:.12em}
+.tools .chip{width:100%;align-items:flex-start}
+.tools .chip .mk{margin-top:5px}
+.tools .chip-t b{white-space:normal}
+.tools-note{margin-top:auto;color:var(--kn-faint);font-size:11.5px;line-height:1.6}
+
+/* 结论一句：PyPTO 站在人做决策的中间层 */
+.ask{position:relative;margin:0;padding:0 0 0 17px;color:#eef0f4;font-size:clamp(14px,1vw,17px);line-height:1.7;font-weight:500}
+.ask::before{content:"";position:absolute;left:0;top:.4em;bottom:.4em;width:2px;border-radius:2px;
+  background:linear-gradient(var(--kn-green),var(--kn-purple),var(--kn-blue));box-shadow:0 0 12px rgba(143,214,210,.25)}
+.ask em{font-style:normal;color:#dff8c8}
+
+/* ---------------- 页脚：同 intro.html ---------------- */
+.footer{display:flex;justify-content:space-between;gap:16px;width:calc(100% - 2 * clamp(22px,3.4vw,60px));max-width:1680px;margin:0 auto;padding:13px 0 14px;
+  border-top:1px solid rgba(226,227,233,.08);color:var(--kn-faint);font:10px/1.65 var(--kn-mono);letter-spacing:.12em}
+.footer a{color:var(--kn-dim);text-decoration:none;border-bottom:1px solid rgba(146,147,154,.35)}
+.footer a:hover,.footer a:focus-visible{color:var(--kn-soft);outline:none}
+.footer .sources{letter-spacing:.04em;font-family:var(--kn-sans);font-size:11px}
+
+/* ---------------- 入场 ---------------- */
+@keyframes kn-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.deck:not(.is-ready) .head,.deck:not(.is-ready) .map>*,.deck:not(.is-ready) .ask{opacity:0}
+.is-ready .head{animation:kn-rise .8s var(--kn-ease) both}
+.is-ready .map>*{animation:kn-rise .8s var(--kn-ease) both;animation-delay:calc(.12s + var(--r,0) * .07s)}
+.is-ready .ask{animation:kn-rise .8s var(--kn-ease) .7s both}
+
+/* ---------------- 窄屏：每层一块，列名写在格子里 ---------------- */
+@media(max-width:1080px){
+  .map{grid-template-columns:minmax(0,1fr);row-gap:0}
+  .col-h{display:none}
+  .layer{padding:16px 0 6px}
+  .cell,.cell.is-span{grid-column:auto;min-height:0;border-top:0;padding:6px 0 6px 0}
+  .cell[data-col]::before{content:attr(data-col);flex-basis:100%;color:var(--kn-faint);font:600 10px/1.6 var(--kn-mono);letter-spacing:.14em}
+  .cell.is-empty{display:none}
+  .cell.is-pypto{padding:8px 10px;border:1px solid rgba(136,236,48,.18);border-radius:10px}
+  .tools{grid-column:auto;grid-row:auto;margin-top:18px}
+}
+@media(max-width:620px){
+  .rail{padding:16px 16px 0}
+  .rail .eyebrow,.steps{display:none}
+  .ascend-brand{width:84px;height:32px}
+  .body{padding:28px 16px 32px}
+  .chip-t b{white-space:normal}
+  .footer{flex-direction:column;width:calc(100% - 32px)}
+}
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  .deck .head,.deck .map>*,.deck .ask{opacity:1!important}
+}
+</style>
+</head>
+<body data-next="intro.html">
+<main class="deck">
+  <header class="rail">
+    <div class="rail-left">
+      <a class="brand-home" href="map.html" aria-label="回到开头" title="回到开头"><img class="ascend-brand" src="assets/ascend-logo.svg" width="105" height="40" alt="Ascend 昇腾" /></a>
+      <p class="eyebrow">ASCEND COMPUTING / SUPPORT MAP</p>
+    </div>
+    <div class="rail-right">
+      <ol class="steps" aria-label="开场三页">
+        <li><a href="map.html" aria-current="page">01 地图</a></li>
+        <li><a href="intro.html">02 PyPTO</a></li>
+        <li><a href="index.html">03 演示</a></li>
+      </ol>
+      <a class="next" href="intro.html">PyPTO 背景 <span aria-hidden="true">→</span></a>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="head">
+      <div>
+        <p class="k">PROJECT &amp; PRODUCT MAP · 项目与产品支撑地图</p>
+        <h1>昇腾计算 · 项目与产品支撑地图</h1>
+        <p class="sub">昇腾不是一颗芯片，而是一套 AI 计算栈：从硬件、运行时、编译到框架与服务，一层层把芯片算力变成可用的 AI 算力。主流生态、昇腾原生栈与 PyPTO 开放栈三条路径并行，开发与观测工具横跨全栈。</p>
+      </div>
+      <ul class="legend" aria-label="图例">
+        <li><i class="mk mk-demo" aria-hidden="true"></i>本次演示涉及</li>
+        <li><i class="mk mk-proto" aria-hidden="true"></i>已有体验原型</li>
+        <li><i class="mk" aria-hidden="true"></i>栈内相关</li>
+      </ul>
+    </div>
+
+    <div class="map" role="table" aria-label="昇腾计算栈：按层列出主流生态、昇腾原生栈、PyPTO 开放栈与横跨全栈的工具链">
+      <!-- 列头 -->
+      <div class="col-h" role="columnheader" style="--r:0"><small>LAYER</small>层</div>
+      <div class="col-h" role="columnheader" style="--r:0"><small>ECOSYSTEM</small>主流生态接入</div>
+      <div class="col-h" role="columnheader" style="--r:0"><small>CANN / MIND</small>昇腾原生栈</div>
+      <div class="col-h is-pypto" role="columnheader" style="--r:0"><small>HW-NATIVE-SYS</small>PyPTO 开放栈</div>
+      <div class="col-h" role="columnheader" style="--r:0"><small>ACROSS THE STACK</small>开发 · 调优 · 观测（横跨全栈）</div>
+
+      <!-- 1 模型与场景 -->
+      <div class="layer" role="rowheader" style="--r:1"><b>模型与场景</b><span>跑什么</span></div>
+      <div class="cell is-span" role="cell" data-col="模型" style="--r:1">
+        <span class="chip is-demo" title="本次演示的案例：DeepSeek-V4 Decode 层的 CSA（压缩稀疏注意力）"><i class="mk mk-demo" aria-hidden="true"></i><span class="chip-t"><b>DeepSeek-V4</b><small>本次案例 · Decode CSA</small></span></span>
+        <span class="chip" title="体验原型：PyPTO Model Inference Studio、Qwen3 × LingQu 性能观测"><i class="mk mk-proto" aria-hidden="true"></i><span class="chip-t"><b>Qwen3</b><small>Dense / MoE 推理</small></span></span>
+      </div>
+
+      <!-- 2 服务与加速 -->
+      <div class="layer" role="rowheader" style="--r:2"><b>服务与加速</b><span>怎么跑起来、跑得快</span></div>
+      <div class="cell" role="cell" data-col="主流生态接入" style="--r:2">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>vLLM-Ascend</b><small>推理服务</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>Megatron</b><small>大模型训练</small></span></span>
+      </div>
+      <div class="cell" role="cell" data-col="昇腾原生栈" style="--r:2">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>MindIE</b><small>推理加速 · Serving</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>MindSpeed</b><small>大模型训练加速</small></span></span>
+      </div>
+      <div class="cell is-pypto is-first" role="cell" data-col="PyPTO 开放栈" style="--r:2">
+        <span class="chip" title="体验原型：Serving · Host · Device"><i class="mk mk-proto" aria-hidden="true"></i><span class="chip-t"><b>pypto-serving</b><small>LLM 推理服务</small></span></span>
+      </div>
+
+      <!-- 3 框架与库 -->
+      <div class="layer" role="rowheader" style="--r:3"><b>框架与库</b><span>怎么表达模型</span></div>
+      <div class="cell" role="cell" data-col="主流生态接入" style="--r:3">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>PyTorch</b><small>TorchNPU / TorchAir</small></span></span>
+      </div>
+      <div class="cell" role="cell" data-col="昇腾原生栈" style="--r:3">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>MindSpore</b><small>昇腾原生 AI 框架</small></span></span>
+      </div>
+      <div class="cell is-pypto" role="cell" data-col="PyPTO 开放栈" style="--r:3">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>pypto-lib</b><small>算子与模型库</small></span></span>
+      </div>
+
+      <!-- 4 算子与编译 -->
+      <div class="layer" role="rowheader" style="--r:4"><b>算子与编译</b><span>怎么写成芯片能跑的代码</span></div>
+      <div class="cell is-empty" role="cell" data-col="主流生态接入" style="--r:4"></div>
+      <div class="cell" role="cell" data-col="昇腾原生栈" style="--r:4">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>Ascend C</b><small>算子编程</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>AOL · GE</b><small>算子库 · 图引擎</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>毕昇编译器</b><small>设备代码生成</small></span></span>
+      </div>
+      <div class="cell is-pypto" role="cell" data-col="PyPTO 开放栈" style="--r:4">
+        <span class="chip is-demo" title="本次演示：开发即可见、过程可回看、让数据开口都围绕 pypto 写出的 qk_pv 算子"><i class="mk mk-demo" aria-hidden="true"></i><span class="chip-t"><b>pypto</b><small>Tile 编程框架 · 多级 IR</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>PTOAS</b><small>PTO 汇编与优化</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>pto-isa</b><small>Tile 虚拟指令集</small></span></span>
+      </div>
+
+      <!-- 5 运行时与通信 -->
+      <div class="layer" role="rowheader" style="--r:5"><b>运行时与通信</b><span>怎么调度执行</span></div>
+      <div class="cell is-empty" role="cell" data-col="主流生态接入" style="--r:5"></div>
+      <div class="cell" role="cell" data-col="昇腾原生栈" style="--r:5">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>CANN Runtime</b><small>任务下发与执行</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>HCCL</b><small>集合通信</small></span></span>
+      </div>
+      <div class="cell is-pypto is-last" role="cell" data-col="PyPTO 开放栈" style="--r:5">
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>simpler</b><small>任务图运行时 · Host / AICPU / AICore</small></span></span>
+      </div>
+
+      <!-- 6 硬件与互联 -->
+      <div class="layer is-bottom" role="rowheader" style="--r:6"><b>硬件与互联</b><span>在哪跑</span></div>
+      <div class="cell is-span is-bottom" role="cell" data-col="硬件" style="--r:6">
+        <span class="chip is-demo" title="本次演示的芯片：24 AIC + 48 AIV"><i class="mk mk-demo" aria-hidden="true"></i><span class="chip-t"><b>昇腾 NPU</b><small>A2 / A3 / A5 · 本次 24 AIC + 48 AIV</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>Server / Cluster</b><small>多卡 · 多机</small></span></span>
+        <span class="chip" title="体验原型：Qwen3 × LingQu 性能观测"><i class="mk mk-proto" aria-hidden="true"></i><span class="chip-t"><b>灵衢互联</b><small>超节点互联</small></span></span>
+      </div>
+
+      <!-- 工具链：横跨全栈 -->
+      <aside class="tools" aria-label="横跨全栈的开发、调优与观测工具" style="--r:3">
+        <span class="chip is-demo" title="本次演示的三个体验设计：开发即可见、过程可回看、让数据开口"><i class="mk mk-demo" aria-hidden="true"></i><span class="chip-t"><b>PyPTO Toolkit</b><small>开发即可见 · 过程可回看 · 让数据开口</small></span></span>
+        <span class="chip" title="体验原型：Toolkit Studio、Memory Optimizer、Distributed Run"><i class="mk mk-proto" aria-hidden="true"></i><span class="chip-t"><b>PyPTO Studio</b><small>子图到 Kernel · 内存 · 分布式运行</small></span></span>
+        <span class="chip"><i class="mk" aria-hidden="true"></i><span class="chip-t"><b>MindStudio</b><small>迁移 · 精度 · Profiling · 调优</small></span></span>
+        <p class="tools-note">工具链不属于某一层：同一次运行，从源码、编译产物到设备数据，都要能一路追到底。</p>
+      </aside>
+    </div>
+
+    <p class="ask">上面是模型想要什么，下面是硬件实际怎么跑。<em>PyPTO 站在中间：开发者在这里决定切多大、交给谁、搬运和计算怎么衔接。</em></p>
+  </div>
+
+  <footer class="footer">
+    <span class="sources">来源：<a href="../../Insight/Ascend-ecosystem2.md">昇腾 Mind 系列的体系价值</a>（AI 计算栈分层）· <a href="../../Insight/hw-native-sys-仓库功能洞察报告.md">hw-native-sys 仓库功能洞察报告</a>（PyPTO 开放栈）· <a href="../../Product_Planning/PyPTO3.0_体验设计项目材料包/PyPTO3.0_产品定位与体验方向_汇报大纲.md">PyPTO3.0 产品定位</a>。● 依据 Design/ 下已有的体验原型。</span>
+    <span>NEXT / PyPTO 背景</span>
+  </footer>
+</main>
+<script src="./deck-nav.js"></script>
+<script>
+setTimeout(function () { document.querySelector('.deck').classList.add('is-ready'); }, 30);
+</script>
+</body>
+</html>

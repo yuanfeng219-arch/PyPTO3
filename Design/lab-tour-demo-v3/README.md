@@ -4,6 +4,17 @@
 
 ## v3 相对 v2
 
+- **开场改为三页**（入口 `map.html`，launch.html 的 v3 卡片也指向它），页间用顶栏右侧的「01 地图 · 02 PyPTO · 03 演示」、下一页按钮或键盘 ← / →（PageUp / PageDown）翻页（`deck-nav.js`，读 `<body data-prev data-next>`）：
+  1. `map.html` 新增：**昇腾计算 · 项目与产品支撑地图**。行是计算栈的层（模型与场景 / 服务与加速 / 框架与库 / 算子与编译 / 运行时与通信 / 硬件与互联），列是三条路径（主流生态接入 / 昇腾原生栈 CANN · Mind 系列 / PyPTO 开放栈 hw-native-sys），右侧一栏是横跨全栈的开发 · 调优 · 观测工具。标记：◆ 本次演示涉及（DeepSeek-V4、pypto、昇腾 NPU、PyPTO Toolkit）、● 已有体验原型（依据 `Design/` 下已有原型：Qwen3、pypto-serving、灵衢互联、PyPTO Studio）、○ 栈内相关。分层与产品取自 `Insight/Ascend-ecosystem2.md`、`Insight/hw-native-sys-仓库功能洞察报告.md`，结论句取自 PyPTO3.0 产品定位汇报大纲 P04。**这是按仓库资料起草的版本，团队实际支撑的项目 / 产品清单需要确认后替换。**
+  2. `intro.html` 改为 **PyPTO 背景与用户问题与挑战**：左栏写 PyPTO 是什么（Tile 编程框架，切多大、交给谁、搬运和计算怎么衔接决定性能），保留 Tensor → Tile → 芯片三层图；右栏两类挑战各列三个具体难处——「写代码时 · 写得出来，看不见落点」→ 01 开发即可见，「上板之后 · 数据都在，结论得自己找」→ 03 让数据开口（痛点拆分取自 v2 目录的 11-13 领导版演示稿）。
+  3. `index.html` 作为结尾页：右上角改为「← PyPTO 背景」，三个演示入口不变。
+- **「开发即可见」前加一页 Agent 生成算子**（`agent.html`）：intro.html 卡片上的「01 开发即可见」与首页第 01 张卡都先进这一页，再进工作台。
+  - 不带顶栏，主体占满一屏；样式直接引用工作台的样式表（`../csa-operator-lens/vendor/path.css`、`source-tags.css`、`styles/lens.css`，本目录 `header.css`、`demo-shell.css`、`workbench-polish.css`），28px 状态栏、源码行 `.cl` 与 `.tk-*` 着色都与工作台源码栏相同（着色规则抄自 `lens.js` 的 `hl`）。返回首页是最左图标栏的第一个图标；打开 Lens 走对话里的 `/lens qk_pv`（建议按钮或输入命令）。
+  - 布局参考 Codex 桌面端的默认态：最左图标栏；会话侧栏（「Operator Agent」标题、新聊天、项目 deepseek_v4_flash_dspark 下的 qk_plan / kv_touch 历史线程、展开显示）；中间空白处居中一句「想在 deepseek_v4_flash_dspark 里写什么算子？」；底部输入框上方一条环境托盘（项目 · a2a3 本机模拟 · ···），输入框下排「+ / @decode_csa.py」与「Operator Agent 高 / 语音 / 发送」。发送后：项目下新增并选中「qk_pv · 稀疏注意力」线程（生成中转圈、完成变绿点），中间变成对话流（用户消息右侧气泡，Agent 正文 + 一行一个动作：读取 → 规划 → 编辑 +116 → 编译 → 对比 golden，进行中文字流光）；开始编辑时右侧「改动」面板展开（Codex 的审阅面板），显示 `decode_sparse_attn_csa.py` 新增行（+116，左侧绿条）与三项检查，可用对话栏右上角按钮收起 / 展开。1280px 以下改动展开时收起会话侧栏，1000px 以下去掉图标栏与侧栏，860px 以下上下排。
+  - 输入框预填 qk_pv 的需求，点发送或 Enter 后回放约 10 秒；代码是 `decode_sparse_attn_csa.py` 198–313 行原文（`agent-source.js` 由 `../csa-operator-lens/js/source-snapshot.js` 抽出，与工作台 L2 源码栏同一段）。
+  - 生成完成后，「改动」面板右上角的绿色「Operator Lens」按钮可用（生成前置灰），点它直接进下一页；对话里点 `/lens qk_pv` 建议或输入 `/lens qk_pv` 也会进下一页（先出 Lens 卡片再跳转）。
+- **Operator Lens 标签页**（`lens.html`，Agent 页的下一页）：布局参考 Codex 内置浏览器的标签页——最左图标栏（同 Agent 页，第一个图标回首页），顶部标签条「Operator Lens · qk_pv」（× 关闭回到 `agent.html#done`），导航栏（后退回 Agent、前进置灰、刷新）+ 居中地址栏「operator-lens / deepseek_v4_flash_dspark / qk_pv · pass 36」，下面整块内嵌 `workbench.html#L2`。工作台里的离页链接（返回首页、编译并上板等）整页打开，不留在标签页里，所以「编译并上板」仍按原流程进 loading。
+  - `agent.html#done` 跳过回放，直接停在“已生成”（讲解用）。生成过程是预置回放，状态栏注明。
 - 「编译并上板」的 loading（`loading.html`）走完后**不再自动跳转**到 `result.html`，而是停在一页设备执行泳道：
   - 每行一个核（上 24 个 AIC、下 48 个 AIV），横轴为时间（每 0.5 ms 一格，末端标总时长 4.82 ms），色块是 kernel 的 block；**一种颜色一个 kernel**（64 个 kernel，按首次出现先后用黄金角在 OKLCH 色相环上错开，时间上相邻的 kernel 不撞色）。
   - 进入时从左往右约 1.4 s 画出（减少动态效果时直接画完）；悬停色块显示 kernel 名、核号、起止时间与耗时，并压暗其他 kernel。

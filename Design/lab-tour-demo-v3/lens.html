@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Operator Lens · qk_pv</title>
+<link rel="stylesheet" href="../csa-operator-lens/vendor/path.css" />
+<link rel="stylesheet" href="./demo-shell.css?v=1" />
+<link rel="stylesheet" href="./workbench-polish.css?v=2" />
+<style>
+/* 「开发即可见」第二步：从 Agent 页右上角「Operator Lens」或 /lens 进入。
+ * 布局参考 Codex 内置浏览器的标签页：最左图标栏（同 agent.html）、顶部标签条、导航栏 + 地址栏，下面整块是 Operator Lens（workbench.html#L2）。
+ * 颜色沿用 Agent 页 / 工作台的深色。工作台里的离页链接（返回首页、编译并上板等）在整页打开，不留在标签页里。 */
+:root { --sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+html,body { height:100%; margin:0; }
+body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
+.lb-app { display:grid; grid-template-columns:52px minmax(0,1fr); height:100vh; }
+
+/* 图标栏：与 agent.html 相同 */
+.ag-rail { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 0 12px; background:var(--page); }
+.ag-rail > * { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; color:#7c7c7c; }
+.ag-rail > .is-on { background:#232323; color:var(--text); position:relative; text-decoration:none; }
+.ag-rail > a:hover,.ag-rail > a:focus-visible { background:#2a2a2a; outline:none; }
+.ag-rail > a:focus-visible { box-shadow:0 0 0 2px var(--demo-focus); }
+.ag-rail > .is-on::after { content:""; position:absolute; top:6px; right:6px; width:6px; height:6px; border-radius:50%; background:var(--lime); }
+.ag-rail svg { width:18px; height:18px; }
+.ag-rail > .sp { flex:1; }
+
+.lb-main { display:grid; grid-template-rows:48px 52px minmax(0,1fr); min-width:0; min-height:0; background:var(--surface); border-left:1px solid var(--divider,#222); }
+
+/* 标签条 */
+.lb-tabs { display:flex; align-items:center; gap:8px; padding:0 12px; min-width:0; background:var(--page); }
+.lb-dot { width:14px; height:14px; flex:none; border:1.5px solid #5f5f63; border-radius:50%; margin:0 6px 0 4px; }
+.lb-tab { display:flex; align-items:center; gap:8px; height:34px; min-width:0; max-width:300px; padding:0 8px 0 12px; border-radius:10px; background:var(--surface); color:var(--text); font:500 13px var(--sans); }
+.lb-tab > svg { width:15px; height:15px; flex:none; color:var(--lime); }
+.lb-tab b { flex:1; min-width:0; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lb-x,.lb-plus,.lb-nav button,.lb-tools span { display:grid; place-items:center; flex:none; border:0; background:transparent; color:var(--dim); border-radius:8px; text-decoration:none; }
+.lb-x { width:24px; height:24px; }
+.lb-plus { width:30px; height:30px; }
+.lb-x svg,.lb-plus svg { width:13px; height:13px; }
+.lb-x:hover,.lb-x:focus-visible,.lb-nav button:hover:not([disabled]),.lb-nav button:focus-visible { background:#2a2a2a; color:var(--text); outline:none; }
+
+/* 导航栏 + 地址栏 */
+.lb-bar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:16px; padding:0 12px; background:var(--surface); border-bottom:1px solid var(--divider,#222); }
+.lb-nav { display:flex; align-items:center; gap:2px; padding:3px; border-radius:var(--demo-radius-control); background:rgb(255 255 255 / 4%); }
+.lb-nav button { width:30px; height:30px; border-radius:50%; cursor:pointer; }
+.lb-nav button[disabled] { opacity:.35; cursor:default; }
+.lb-nav svg { width:15px; height:15px; }
+.lb-addr { justify-self:center; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; max-width:900px; height:34px; padding:0 16px;
+  border-radius:var(--demo-radius-control); background:#1d1d1d; color:var(--muted); font:12.5px var(--mono); white-space:nowrap; overflow:hidden; }
+.lb-addr svg { width:13px; height:13px; flex:none; color:var(--lime); }
+.lb-addr span { overflow:hidden; text-overflow:ellipsis; }
+.lb-addr b { color:var(--text); font-weight:500; }
+.lb-tools { display:flex; gap:6px; }
+.lb-tools span { width:32px; height:32px; border-radius:50%; background:rgb(255 255 255 / 4%); }
+.lb-tools svg { width:15px; height:15px; }
+
+.lb-view { position:relative; min-height:0; background:var(--page); }
+.lb-view iframe { display:block; width:100%; height:100%; border:0; background:var(--page); }
+.lb-load { position:absolute; left:0; top:0; height:2px; width:0; background:var(--lime); transition:width .8s ease, opacity .3s ease .2s; }
+.lb-load.is-done { width:100%; opacity:0; }
+
+@media(max-width:860px){
+  .lb-app { grid-template-columns:minmax(0,1fr); }
+  .ag-rail { display:none; }
+  .lb-tools { display:none; }
+  .lb-bar { grid-template-columns:auto minmax(0,1fr); gap:10px; }
+}
+@media(prefers-reduced-motion:reduce){ *{ transition:none!important; animation:none!important; } }
+</style>
+</head>
+<body>
+<div class="lb-app">
+  <div class="ag-rail">
+    <a class="is-on" href="index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9 10 3.5 16.5 9v7.5h-13z"/></svg></a>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M7 3.5h6v4h4v6h-4v3H7v-3H3v-6h4z"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M10 6.5V10l2.5 1.5"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3.5 4h3.5v12H3.5zM8.5 4H12v12H8.5zM13.5 4.5l3 .8-2.8 10.5-3-.8"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="5" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/><circle cx="15" cy="10" r="1.3"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="5" r="1.8"/><circle cx="6" cy="15" r="1.8"/><circle cx="14" cy="9" r="1.8"/><path d="M6 7v6M14 11c0 3-3 2.5-6.5 3.5"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z"/></svg></span>
+    <span aria-hidden="true" class="sp"></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2.5"/><path d="M10 2.8v2.4M10 14.8v2.4M2.8 10h2.4M14.8 10h2.4M4.9 4.9l1.7 1.7M13.4 13.4l1.7 1.7M4.9 15.1l1.7-1.7M13.4 6.6l1.7-1.7"/></svg></span>
+  </div>
+  <div class="lb-main">
+    <div class="lb-tabs" role="tablist" aria-label="标签页">
+      <span class="lb-dot" aria-hidden="true"></span>
+      <div class="lb-tab" role="tab" aria-selected="true">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></svg>
+        <b>Operator Lens · qk_pv</b>
+        <a class="lb-x" href="agent.html#done" aria-label="关闭标签页，回到 Agent" title="关闭标签页，回到 Agent"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3.5 3.5 7 7M10.5 3.5l-7 7"/></svg></a>
+      </div>
+      <span class="lb-plus" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 2.5v9M2.5 7h9"/></svg></span>
+    </div>
+
+    <div class="lb-bar">
+      <div class="lb-nav">
+        <button type="button" id="back" aria-label="后退：回到 Agent" title="后退：回到 Agent"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8H3.5M7 4 3 8l4 4"/></svg></button>
+        <button type="button" disabled aria-label="前进"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4l4 4-4 4"/></svg></button>
+        <button type="button" id="reload" aria-label="刷新" title="刷新"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></svg></button>
+      </div>
+      <div class="lb-addr" title="Operator Lens 打开的是 Agent 刚生成的 qk_pv（decode_sparse_attn_csa.py 208–313 行）的编译产物">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></svg>
+        <span>operator-lens / deepseek_v4_flash_dspark / <b>qk_pv</b> · pass 36</span>
+      </div>
+      <div class="lb-tools" aria-hidden="true">
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 3.5h10v7H7.5L4.5 13v-2.5H3z"/></svg></span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12" cy="8" r="1.1"/></svg></span>
+      </div>
+    </div>
+
+    <div class="lb-view">
+      <iframe id="view" title="Operator Lens · qk_pv" src="workbench.html#L2"></iframe>
+      <i class="lb-load" id="load" aria-hidden="true"></i>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const view = document.getElementById('view'), load = document.getElementById('load');
+  setTimeout(() => { load.style.width = '70%'; }, 30);
+  document.getElementById('back').addEventListener('click', () => { location.href = 'agent.html#done'; });
+  document.getElementById('reload').addEventListener('click', () => {
+    load.classList.remove('is-done'); load.style.width = '0';
+    setTimeout(() => { load.style.width = '70%'; }, 30);
+    view.contentWindow.location.reload();
+  });
+  view.addEventListener('load', () => {
+    load.classList.add('is-done');
+    // 工作台里的离页链接（返回首页、编译并上板……）整页打开，不留在这个标签页里
+    let doc = null;
+    try { doc = view.contentDocument; } catch (e) { doc = null; }
+    if (!doc) return;
+    doc.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('a[href]');
+      if (!a || a.target === '_blank') return;
+      const h = a.getAttribute('href') || '';
+      if (!h || h.charAt(0) === '#') return;
+      e.preventDefault();
+      e.stopPropagation();
+      location.href = a.href;
+    }, true);
+  });
+})();
+</script>
+</body>
+</html>
