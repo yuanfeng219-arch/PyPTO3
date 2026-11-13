@@ -15,40 +15,61 @@
 [data-p14] [data-p14-derivation] small {display:block;color:#b5c8ff;font-size:14px}
 [data-p14] [data-p14-derivation] strong {display:block;font-size:24px;margin-top:3px}
 [data-p14] [data-p14-derivation] p {margin:3px 0;color:#c8c8c8;font-size:14px}
-[data-p14] .p14-workspace {display:grid;grid-template-columns:1fr 1.04fr;height:100%}
-[data-p14] .p14-pane {position:relative;min-width:0;min-height:0;overflow:hidden}
-[data-p14] .p14-pane + .p14-pane {border-left:1px solid #383838}
-[data-p14] .p14-pane > h2 {margin:0;padding:10px 14px;font-size:16px;border-bottom:1px solid #383838}
-[data-p14] .p14-pane > .viz2-phase-surface {position:absolute;inset:40px 0 0}
-[data-p14] .compute-identity {display:flex;align-items:center;gap:10px;min-height:45px;padding:6px 13px}
-[data-p14] .compute-identity :is(h1,h2,p) {font-size:14px;margin:0}
-[data-p14] .compute-identity select {min-width:88px}
-[data-p14] [data-p14-assignment] > .viz2-anatomy-body {position:absolute;inset:56px 0 0 247px}
-[data-p14] :is(.viz2-anatomy-query,[data-anatomy-back],[data-intra-back],[data-intra-operation-source],[data-intra-sync-source],[data-intra-graph-ready]) {display:none!important}
-[data-p14] [data-p14-pipeline] > [data-compute-toolbar] {display:none!important}
-[data-p14] .kf-pa-map__tools output {position:static}
-[data-p14] [data-p14-assignment] > [data-compute-toolbar] {
-  /* Original Detail shell: primary input, slider, derived readouts, status. */
-  position:absolute;bottom:105px;left:16px;width:218px;display:grid!important;
-  grid-template-rows:60px 32px 56px;row-gap:10px;padding:0;margin:0;
-  min-height:0;max-height:none;overflow:visible;z-index:6;background:transparent;
+[data-p14="explore"] .p14-workspace { position:relative; height:100%; }
+[data-p14="explore"] [data-p14-assignment] { position:absolute; inset:0; display:block; }
+[data-p14="explore"] .compute-identity {
+  position:absolute; top:34px; left:24px; display:grid; gap:6px;
 }
-[data-p14] [data-compute-context] {display:none}
-[data-p14] .compute-page-readouts {display:flex;align-items:start;margin:0;gap:10px}
-[data-p14] .compute-parameter-field {display:grid;gap:3px;color:#c2c2c2;font-size:13px}
-[data-p14] .compute-parameter-field.is-derived {opacity:.78}
-[data-p14] .compute-derived-readouts > .compute-parameter-field:last-child {margin-left:auto;text-align:right}
-[data-p14] .compute-page-readouts [data-compute-pages],
-[data-p14] .compute-parameter-field output {position:static;font:22px/1.2 ui-monospace,monospace;color:#eee}
-[data-p14] .compute-page-readouts [data-compute-pages] {width:150px}
-[data-p14] .compute-parameter-field output {display:flex;align-items:center;gap:5px}
-[data-p14] .compute-page-stepper {display:flex;align-items:center;gap:6px}
-[data-p14] .compute-page-stepper input {min-width:0;flex:1}
-[data-p14] .compute-page-stepper > button {width:32px;height:32px;padding:0;flex:none}
-[data-p14] .compute-parameter-status {position:absolute;top:100%;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px;align-items:baseline;padding-top:4px;font-size:12px}
-[data-p14] [data-page-error] {grid-column:1/-1;color:#f2a8a8}
-[data-p14][data-beat="1"] [data-p14-assignment] > [data-compute-toolbar] {outline:1px solid #91adf5;outline-offset:8px}
-[data-p14][data-beat="1"] [data-p14-pipeline] {opacity:.5}
+[data-p14="explore"] .compute-identity :is(h1,h2,p) { margin:0; font-size:15px; line-height:1.45; }
+[data-p14="explore"] .compute-identity select { min-width:100px; font-size:17px; }
+[data-p14="explore"] [data-anatomy-back] { display:none!important; }
+[data-p14="explore"] [data-p14-assignment] > [data-compute-toolbar] {
+  position:absolute; left:24px; bottom:73px; width:208px; display:grid!important;
+  gap:12px; padding:0; margin:0; min-height:0; max-height:none; overflow:visible; background:transparent;
+}
+[data-p14="explore"] [data-compute-context] { display:none; }
+[data-p14="explore"] .compute-page-readouts { display:flex; gap:12px; margin:0; align-items:start; }
+[data-p14="explore"] .compute-parameter-field { display:grid; gap:4px; color:var(--foreground-secondary); font-size:14px; }
+[data-p14="explore"] .compute-derived-readouts { justify-content:space-between; }
+[data-p14="explore"] .compute-page-readouts [data-compute-pages],
+[data-p14="explore"] .compute-parameter-field output {
+  position:static; color:var(--foreground); font:22px/1.2 var(--font-mono);
+}
+[data-p14="explore"] .compute-page-readouts [data-compute-pages] { width:145px; background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px 7px; }
+[data-p14="explore"] .compute-parameter-field output { display:flex; align-items:center; gap:5px; }
+[data-p14="explore"] .compute-page-stepper { display:flex; align-items:center; gap:6px; }
+[data-p14="explore"] .compute-page-stepper input { min-width:0; flex:1; }
+[data-p14="explore"] .compute-page-stepper button { width:32px; height:32px; padding:0; flex:none; }
+[data-p14="explore"] .compute-parameter-status {
+  position:absolute; top:100%; left:0; right:0; display:grid; grid-template-columns:minmax(0,1fr) auto;
+  gap:3px; padding-top:6px; align-items:baseline; font-size:12px;
+}
+[data-p14="explore"] [data-page-error] { grid-column:1/-1; color:#f2a8a8; }
+[data-p14="explore"] [data-p14-assignment] > .viz2-anatomy-body { position:absolute; inset:14px 18px 10px 250px; }
+[data-p14="explore"] .viz2-anatomy-workspace {
+  justify-content:center; align-items:stretch; gap:48px; padding:0 12px;
+}
+[data-p14="explore"] .viz2-anatomy-viewport { flex:0 1 430px; mask-image:none; cursor:default; }
+[data-p14="explore"] .viz2-anatomy-track { inset:0; }
+[data-p14="explore"] .viz2-anatomy-card { width:100%; max-width:none; padding:0; background:transparent; }
+[data-p14="explore"] .viz2-anatomy-cache-scroll {
+  display:flex; flex-direction:column; padding:0; scrollbar-gutter:stable both-edges;
+}
+[data-p14="explore"] .viz2-anatomy-cache-scroll svg { margin:auto; max-width:none; }
+[data-p14="explore"] .viz2-anatomy-query {
+  position:static; display:block!important; flex:0 0 190px; width:190px; transform:none; align-self:center;
+}
+[data-p14="explore"] .viz2-anatomy-query h3 { margin:0 0 8px; font-size:17px; }
+[data-p14="explore"] .viz2-anatomy-query p { margin:4px 0; font-size:13px; }
+[data-p14="explore"] .viz2-anatomy-query b { margin-top:8px; }
+[data-p14="explore"] .viz2-anatomy-footer { padding:4px 10px; min-height:38px; font-size:13px; }
+[data-p14="explore"] .kf-pa-map__tools output { position:static; }
+[data-p14="explore"] [data-p14-assignment] .viz2-anatomy-inspector {
+  position:static; flex:0 0 245px; width:245px; margin:0 0 38px 8px; overflow:hidden;
+}
+[data-p14="explore"] .viz2-anatomy-inspector .pto-ide-frame__pane-body { min-height:0; overflow:auto; }
+[data-p14="explore"] [data-p14-assignment] .viz2-anatomy-key.is-capacity { background:var(--surface-4); }
+[data-p14="explore"] [data-p14-assignment] .viz2-anatomy-svg [data-anatomy-kind="page"] text { font-size:12px; }
 [data-p14] .p14-compare {display:flex;gap:7px;flex-wrap:wrap;min-height:34px;padding-top:5px}
 [data-p14] .p14-compare button {font-size:12px}
 [data-p14] .strategy-context {font-size:12px}

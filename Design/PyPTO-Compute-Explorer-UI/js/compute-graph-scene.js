@@ -23,7 +23,10 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       stack.dataset.pypaExecutionStack = node.id;
       stack.setAttribute('role','button');stack.setAttribute('tabindex','0');
       window.PtoPhotoNarrative.attr(stack,'aria-label',`${node.title}，${entry.count} 个静态逻辑实例`);
-      stack.style.cssText = `left:${element.offsetLeft}px;top:${element.offsetTop}px;width:${element.offsetWidth}px;height:${element.offsetHeight}px`;
+      // An embedded slide can build its graph while hidden, when offsets are zero.
+      stack.style.cssText = element.offsetWidth
+        ? `left:${element.offsetLeft}px;top:${element.offsetTop}px;width:${element.offsetWidth}px;height:${element.offsetHeight}px`
+        : `left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px`;
       // Read the rendered node so composite and primitive silhouettes stay identical.
       const nodeShape = getComputedStyle(element);
       for (let instance = entry.count; instance >= 2; instance--) {

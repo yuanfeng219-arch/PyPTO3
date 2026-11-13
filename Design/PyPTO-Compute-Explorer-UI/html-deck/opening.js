@@ -22,14 +22,14 @@
       stages:['Add','Multiply'],
     },
     {
-      title:'接手真实算子 · 在不同证据中定位同一次计算',
-      labels:['找到运算和依赖','推导数据范围和归属','区分推导与实测'],
+      title:'接手真实算子 · 在运行前还原一次计算',
+      labels:['通过阅读分析源码还原计算过程','推导数据范围和归属','手工推演执行过程'],
       evidence:[
-        [['源码','定位运算及其输入输出'],['IR / 计算图','追踪运算之间的依赖']],
-        [['循环与索引','核对每次迭代的数据范围'],['Tiling 与任务映射','推导分块及逻辑任务归属']],
-        [['运行前 · 依赖与同步规则','推导可行顺序和流水条件'],['运行后 · Timeline / Trace','核对本次运行的实际时序']],
+        null,
+        ['Triton-Viz/Excel手工Tiling','观察局部 Tile 访问区域，辅助理解分块','triton-viz.png','Triton-Viz 张量视图中高亮的数据访问区域'],
+        ['手排流水','推演执行顺序及哪些步骤可以重叠','manual-pipeline-scheduling.png','手排流水图，包含任务创建、任务执行和流水排布'],
       ],
-      caption:'信息可以分别获取，同一次计算的对象、执行组织及参数变化仍可能需要人工串联。',
+      caption:'这些信息可以分别获取，但开发者仍需要手工还原并串联，才能理解同一次计算。',
     },
   ];
   const judgments = [
@@ -91,9 +91,13 @@
     const scene = scenes[index];
     const figures = scene.stages
       ? [graph(scene.stages), tiles(index === 0), timeline(scene.stages)]
-      : scene.evidence.map(items => `<ul class="opening-evidence">${items.map(([name,detail]) => `<li>${name}<small>${detail}</small></li>`).join('')}</ul>`);
+      : scene.evidence.map(item => {
+        if (!item) return '';
+        const [name,detail,asset,alt] = item;
+        return `<div class="opening-evidence" data-reveal><strong>${name}</strong><small>${detail}</small><img src="assets/tool-references/${asset}" alt="${alt}" draggable="false"></div>`;
+      });
     stage.innerHTML = `<h2 data-reveal>${scene.title}</h2><div class="opening-columns">${figures.map((figure,i) =>
-      `<div data-axis="${i}"><h3 data-reveal>${scene.labels[i]}</h3><div class="opening-figure" data-reveal>${figure}</div>${scene.details ? `<p>${scene.details[i]}</p>` : ''}</div>`
+      `<div data-axis="${i}"><h3 data-reveal>${scene.labels[i]}</h3>${scene.evidence ? figure : `<div class="opening-figure" data-reveal>${figure}</div>`}${scene.details ? `<p>${scene.details[i]}</p>` : ''}</div>`
     ).join('')}</div>`;
     return scene.caption;
   }
@@ -236,8 +240,8 @@
 
   const notes = {
     'opening-context':'从 Ascend C 的单个 Kernel 观察范围，走到 PyPTO 3.0 的融合算子。右上用 Paged Attention 说明计算结构复杂化：前后阶段、循环和数据组织要一起理解。右下沿用硬件结构示意，强调开发者要跟踪的执行范围和约束扩大了。\n\n随着融合程度和执行组织复杂度提高，开发者需要理解整个计算如何组织、分配并执行。这对接手一份代码的人意味着什么？',
-    'opening-code':'开发者常常从已有代码开始。代码可以来自 AI、同事、示例库或历史资产。接手后，需要在脑中建立一遍这份代码可能怎样执行。先问它要做什么、依赖什么，再问工作作用于哪些数据、怎样切分，最后问各步何时推进、怎样协同。把这些规则放到有限的计算、存储和搬运资源里，才能理解执行如何组织。\n\n下一页用一份冲印订单，把这三个问题讲具体。',
-    'opening-scenes':'先讲 128 张照片。工序有固定先后，分批后工作位能同时处理不同批次。观察同色批次如何沿着工序移动。切到逐元素算子，沿用相同形状表达 4 组 Tile 和可能的交错。逻辑推进图说明依赖允许的顺序。\n\n回到真实工具：源码、IR、计算图、Tiling 分析和 Trace 各能提供证据。运行前从依赖和同步规则做静态推导，运行后的 Trace 提供该次运行的执行记录。设计机会在于让开发者围绕同一次计算连续地还原、关联、推演。',
+    'opening-code':'开发者常常从已有代码开始。代码可以来自 AI、已有算子资产、历史模板、开源仓库或示例。接手后，需要在脑中建立一遍这份代码可能怎样执行。先问它要做什么、依赖什么，再问工作作用于哪些数据、怎样切分，最后问各步何时推进、怎样协同。把这些规则放到有限的计算、存储和搬运资源里，才能理解执行如何组织。\n\n下一页用一份冲印订单，把这三个问题讲具体。',
+    'opening-scenes':'先讲 128 张照片。工序有固定先后，分批后工作位能同时处理不同批次。观察同色批次如何沿着工序移动。切到逐元素算子，沿用相同形状表达 4 组 Tile 和可能的交错。逻辑推进图说明依赖允许的顺序。\n\n回到真实算子的运行前理解：通过阅读分析源码还原计算过程，用 Excel 推导数据范围和归属，借 Triton-Viz 的局部访问可视化理解类似的分块问题。再依据依赖和同步规则手排流水，判断等待与重叠。开发者需要把这些局部线索串联到同一次计算。',
     'opening-judgment':'先讲开发者承担的三项工作，再按同一位置对应三项目标，最后用后续演示落地。空间分配、计算图与动态流水展示算法机制。跨视角切换和逐层深入展示怎样追踪同一个 Task。参数演示展示如何带入输入，观察工作组织和逻辑轮次变化。\n\n三个视角按问题降低局部理解成本。共享对象与输入配置支持视角之间的定位和追踪，是连续探索的基础。下一页先看 Assignment 怎样让任务组织与归属可观察。',
   };
 
