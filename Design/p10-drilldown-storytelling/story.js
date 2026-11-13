@@ -11,7 +11,6 @@
   const captions = [
     '从 Device 看执行全貌，在 AI Core 中定位 {block}。',
     '聚焦 {block}，在块内定位 Task {task}。',
-    '展开 Task {task} 的 Stack。',
     '在 Task {task} 内沿逻辑轮次查看生产、消费与阶段交接。',
   ];
   const blockName = id => 'Block ' + String(id).padStart(2, '0');
@@ -25,7 +24,6 @@
   let primedTask;
   let drawing = false;
   let blockMotion;
-  let tickTimer;
   let replay = 0;
   let outer, inner, execution, pipeline, anatomy;
 
@@ -101,17 +99,13 @@
   }
 
   function render() {
-    const level = beat === 3 ? 2 : Math.min(beat, 1);
+    const level = beat;
     const current = task();
     const name = blockName(current.block);
     const lane = execution.lanes[current.block];
     const operation = focus?.kind === 'stage'
       ? inner.getOperationDescriptor(taskId, focus.index, focus.stage) : null;
     const tick = current.ticks[operation?.tick ?? (focus?.kind === 'tick' ? focus.index : -1)];
-    const context = tick ? 'Logical Tick ' + tick.index
-      : focus?.kind === 'event' ? focus.event
-      : focus?.kind === 'slot' ? 'Slot ' + focus.index
-      : focus?.kind === 'stack' ? 'Stack ' + focus.index : '';
     const target = insideTask() ? innerHost : outerHost;
     if (view.firstChild !== target) {
       if (insideTask()) outer.update(null, outerCamera, {active:false});
@@ -123,18 +117,9 @@
     stage.dataset.beat = beat;
     axes.forEach((button, index) => {
       button.setAttribute('aria-pressed', String(index === level));
-      button.disabled = index === 2 && beat < 2;
       button.toggleAttribute('data-ancestor', index < level);
     });
 
-    $('#block').textContent = name;
-    $('#task').textContent = 'Task ' + taskId;
-    $('#task').hidden = level === 0;
-    $('#tick').textContent = context;
-    $('#tick').hidden = beat !== 3 || !context;
-    $('#device').setAttribute('aria-current', level === 0 ? 'location' : 'false');
-    $('#block').setAttribute('aria-current', beat === 1 ? 'location' : 'false');
-    $('#task').setAttribute('aria-current', insideTask() ? 'location' : 'false');
     $('#device-context').textContent = execution.blocks + ' Blocks';
     $('#block-context').textContent = name;
     $('#iteration-context').textContent = level === 2
@@ -186,7 +171,7 @@
       getTransitionSnapshot() {
         const snapshot = inner.getTransitionSnapshot();
         if (!snapshot) return null;
-        const title = $('#task').getBoundingClientRect();
+        const title = innerHost.querySelector('.viz2-intra-card.is-current .viz2-intra-axis').getBoundingClientRect();
         return {...snapshot, title:{x:title.x,y:title.y,width:title.width,height:title.height}};
       },
       setTransitionMasked:value => inner.setTransitionMasked(value),
@@ -196,8 +181,6 @@
   function stopMotion() {
     blockMotion?.cancel();
     blockMotion = undefined;
-    clearTimeout(tickTimer);
-    tickTimer = undefined;
     zoom.cancel();
   }
 
@@ -215,18 +198,6 @@
     };
   }
 
-  function playIteration() {
-    const ticks = task().ticks;
-    const overlap = ticks.find(tick => tick.produce !== null && tick.consume !== null) ?? ticks[0];
-    const sequence = [...new Set([ticks[0], overlap, ticks.at(-1)])];
-    const advance = () => {
-      focus = {kind:'tick', index:sequence.shift().index};
-      render();
-      tickTimer = sequence.length ? setTimeout(advance, 680) : undefined;
-    };
-    advance();
-  }
-
   function change(next, id = taskId, withMotion = true, context) {
     if (!captions[next] || !pipeline.tasks[id]) return false;
     const oldBeat = beat;
@@ -235,7 +206,7 @@
     select(id);
     beat = next;
     const animate = withMotion && !reducedMotion.matches;
-    focus = context?.focus ?? (next === 3 ? {kind:'tick', index:task().ticks.at(-1).index} : null);
+    focus = context?.focus ?? null;
     if (next === 1 && animate && oldBeat <= 1) {
       beat = 0;
       render();
@@ -248,14 +219,11 @@
       beat = next;
       render();
       zoom.play(transition);
-    } else if (next === 3 && animate) {
-      playIteration();
     } else {
       render();
     }
     if (fromView && oldBeat !== next) {
-      const pathButton = next === 0 ? '#device' : next === 1 ? '#block' : '#task';
-      $(pathButton).focus({preventScroll:true});
+      axes[next].focus({preventScroll:true});
     }
     if (!context) window.dispatchEvent(new Event('p10-change'));
     return true;
@@ -269,7 +237,7 @@
   }
 
   function advance(direction) {
-    if (direction > 0 && (blockMotion || zoom.pending || tickTimer !== undefined)) return true;
+    if (direction > 0 && (blockMotion || zoom.pending)) return true;
     return change(beat + direction, taskId, direction > 0);
   }
 
@@ -325,16 +293,8 @@
     });
 
     axes.forEach((button, index) => button.onclick = () => {
-      const destination = [0, 1, 3][index];
-      if (destination === beat + 1) advance(1);
-      else if (destination < beat) change(destination, taskId, false);
+      if (index !== beat) change(index, taskId, index > beat);
     });
-    $('#device').onclick = () => change(0, taskId, false);
-    $('#block').onclick = () => change(1, taskId, beat === 0);
-    $('#task').onclick = () => {
-      if (beat < 3) advance(1);
-      else innerHost.querySelector('.viz2-anatomy-viewport').focus();
-    };
     $('#prev').onclick = () => advance(-1);
     $('#next').onclick = () => advance(1);
     $('#replay').onclick = () => {

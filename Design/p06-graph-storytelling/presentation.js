@@ -6,14 +6,10 @@
   slide.innerHTML = `
 <header class="mast">
   <p>PyPTO 3.0 <span> / </span> UX 设计 · 算法可感知</p>
-  <p><b id="task-context"></b><span> / </span> P06</p>
+  <p>P06</p>
 </header>
 <h1>循环执行规模直观可见</h1>
-<div class="stage" aria-label="Task 的数据分块与计算规模">
-  <header class="scene-heading">
-    <h2>数据分块决定重复计算规模</h2>
-    <p>Stack 决定模块重复几次，Page 决定 QK Matmul 重复几次。</p>
-  </header>
+<div class="stage" aria-label="KV Cache 分块与计算规模">
   <div id="overview">
     <section class="viz2 graph-view" aria-label="Task Graph 特写">
       <div class="graph-heading">
@@ -26,25 +22,18 @@
       <div class="graph-surface"><div class="graph-crop"><div id="graph" class="kf-pypa-graph__scene"></div></div></div>
     </section>
     <section class="assignment viz2" aria-labelledby="assignment-title">
-      <h3 id="assignment-title">Assignment · Block 内</h3>
-      <div class="task-controls">
-        <div id="task-list" role="group" aria-label="选择 Task"></div>
-        <div class="playback" role="group" aria-label="Task 轮播控制">
-          <button class="btn btn-ghost" id="previous-task" type="button">上一个</button>
-          <button class="btn btn-ghost" id="next-task" type="button">下一个</button>
-          <button class="btn btn-ghost" id="toggle-play" type="button">暂停轮播</button>
-          <button class="btn btn-ghost" id="reset-task" type="button">重置</button>
-        </div>
+      <div class="cache-heading">
+        <h3 id="assignment-title">KV Cache · Stack / Page</h3>
+        <fieldset class="stack-controls">
+          <legend class="stack-control-label">Stack Count</legend>
+          <div id="stack-options"></div>
+        </fieldset>
+        <p id="cache-tokens" aria-live="polite"></p>
       </div>
-      <p id="assignment-context" aria-live="polite"></p>
-      <div class="assignment-data">
-        <section><h4>KV Cache</h4><div id="assignment-stacks"></div></section>
-        <section id="assignment-query" aria-label="Q Tile"></section>
-      </div>
+      <div id="assignment-stacks"></div>
     </section>
   </div>
-  <p id="story-note"></p>
-  <p id="error" role="alert" hidden>Task 视图未能加载。请保留本页与 Compute Explorer 的目录关系后重新打开。</p>
+  <p id="error" role="alert" hidden>计算视图未能加载。请保留本页与 Compute Explorer 的目录关系后重新打开。</p>
 </div>
 `;
   const graphHost = $('#graph');
@@ -56,7 +45,6 @@
     header.setAttribute('data-deck-title', '');
     header.append(slide.querySelector('h1'));
     header.querySelector('h1').id = 'title';
-    $('#assignment-title').append($('#task-context'));
   }
   const resize = new ResizeObserver(([entry]) => {
     slide.style.setProperty('--slide-scale', entry.contentRect.width / 1600);
@@ -97,12 +85,13 @@
       preLaunch: constant('PRE_LAUNCH'),
     });
     const executionAPI = window.PtoPagedAttentionExecution;
-    const derive = task => executionAPI.derive(task.graph, model, {task: task.id, seqLen: task.seqLen});
-    // Keep the existing Task 48 geometry and prepare the deepest selected stack once.
+    // Task 48 supplies the existing node coordinates. The control varies
+    // sequence length while keeping the Task and its compute topology fixed.
     const task = tasks[48];
-    const execution = derive(task);
-    const candidates = [24, 65, 18, 43].map(id => ({task: tasks[id], execution: derive(tasks[id])}));
-    const largest = candidates.reduce((max, entry) => entry.task.pageCount > max.task.pageCount ? entry : max);
+    const derive = seqLen => executionAPI.derive(task.graph, model, {task: task.id, seqLen});
+    const execution = derive(task.seqLen);
+    const candidates = [128, 769, 1536, 2048].map(derive);
+    const largest = candidates.at(-1);
     const graphLayout = window.PTO_SEMANTIC_COMPUTATION_GRAPH;
     const options = {flowLayout: true, overviewLayout: false, compactGlyphs: true, rootLayerGap: 64, childLayerGap: 56};
     const baseGraph = graphLayout.materialize(task.graph, new Set(), options);
@@ -116,14 +105,15 @@
       view: 'compute', allowExpand: false, synchronizations: true,
       markerPrefix: 'p06-story', cardHtml: node => renderer.cardHtml(node, task.graph, {}),
     });
-    renderer.applyExecution(graphHost, rendered.placedNodes, nativeGraph, largest.execution);
+    renderer.applyExecution(graphHost, rendered.placedNodes, nativeGraph, largest);
     const attentionRegion = graphHost.querySelector('[data-pypa-region="task-compute"]');
-    attentionRegion.classList.add('attention-region');
-    attentionRegion.querySelector('span').textContent = '';
-    const attentionLayers = largest.task.stacks.slice(1).reverse().map(({index}) => {
+    const attentionBadge = attentionRegion.querySelector('span');
+    attentionBadge.className = 'attention-count';
+    attentionBadge.setAttribute('aria-hidden', 'true');
+    const attentionLayers = largest.stacksDetail.slice(1).reverse().map(({id: index}) => {
       const layer = attentionRegion.cloneNode(false);
       layer.removeAttribute('data-pypa-region');
-      layer.classList.replace('attention-region', 'attention-layer');
+      layer.classList.add('attention-layer');
       layer.style.transform = `translate(${index * 10}px, ${index * 8}px)`;
       layer.setAttribute('aria-hidden', 'true');
       attentionRegion.before(layer);
@@ -150,7 +140,7 @@
     const graphCrop = graphHost.parentElement;
     const surface = graphCrop.parentElement;
     // Measure the native layout before transforming, including the largest
-    // possible QK silhouette and badge. Reserve that same camera for every Task.
+    // possible QK silhouette and badge. Use the same camera for every Stack Count.
     const origin = graphHost.getBoundingClientRect();
     const unit = slide.getBoundingClientRect().width / slide.offsetWidth;
     const cropNodeIds = ['qk', 'scores', 'scale-mask', 'softmax', 'probability', 'm', 'l', 'rescale', 'pv'];
@@ -170,66 +160,73 @@
     graphCrop.style.height = `${Math.min((bottom - top) * scale, surface.clientHeight)}px`;
     graphHost.style.transform = `translate(${-left * scale}px, ${-top * scale}px) scale(${scale})`;
 
-    const motion = matchMedia('(prefers-reduced-motion: reduce)');
-    const assignmentData = $('.assignment-data');
-    let current = 0;
-    let playing = true;
-    let slideActive = !embedded;
-    let inView = true;
-    let pageActive = true;
-    let timer;
-    let transition;
+    const stackHost = $('#assignment-stacks');
+    const tokenFormat = new Intl.NumberFormat('zh-CN');
+    stackHost.style.setProperty('--pages-per-stack', largest.pagesPerStack);
+    const stackRows = largest.stacksDetail.map(({id, pages}) => {
+      const row = document.createElement('div');
+      row.className = 'cache-stack-row';
+      row.innerHTML = `
+        <div class="cache-stack-clip">
+          <section class="cache-stack" aria-label="Stack ${id}">
+            <header><strong>Stack ${id}</strong><span></span></header>
+            <div class="cache-pages">${pages.map(page => `
+              <div class="cache-page"><strong>Page ${page.id}</strong><span></span></div>
+            `).join('')}</div>
+          </section>
+        </div>`;
+      stackHost.append(row);
+      return {
+        row,
+        tokens: row.querySelector('header span'),
+        pages: [...row.querySelectorAll('.cache-page')],
+      };
+    });
 
-    // Render each native Block 内 data surface from the same task used for QK.
-    // Product chrome and its event handlers stay on the detached controller.
-    candidates.forEach(entry => {
-      const assignmentTask = anatomy.tasks[entry.task.id];
-      const scenario = window.PtoComputeScenario.create(assignmentTask);
-      const source = document.createElement('div');
-      const controller = window.PtoVisualization2Anatomy.mount(source, {
-        model: anatomy,
-        scenario: {get: () => scenario, task: () => assignmentTask},
+    const buttons = candidates.map(({stacks}) => {
+      const label = document.createElement('label');
+      label.innerHTML = `
+        <input type="radio" name="stack-count" value="${stacks}">
+        <span>${stacks} ${stacks === 1 ? 'Stack' : 'Stacks'}</span>`;
+      const input = label.querySelector('input');
+      input.addEventListener('change', () => {
+        render(stacks);
+        if (embedded) window.dispatchEvent(new Event('p06-stack-change'));
       });
-      controller.update(entry.task.id, null, null, {active: true});
-      entry.stacks = source.querySelector('[data-anatomy-track] svg');
-      entry.query = [...source.querySelector('[data-anatomy-query]').children];
-      entry.stacks.remove();
-      entry.query.forEach(node => node.remove());
-      controller.destroy();
-      [entry.stacks, ...entry.query].forEach(root => {
-        root.querySelectorAll('[data-anatomy-kind]').forEach(object => {
-          object.removeAttribute('tabindex');
-          object.removeAttribute('aria-pressed');
-          object.setAttribute('role', 'img');
+      $('#stack-options').append(label);
+      return input;
+    });
+
+    let current;
+    function render(stackCount) {
+      const counts = candidates.find(candidate => candidate.stacks === stackCount);
+      if (!counts || current === stackCount) return;
+      current = stackCount;
+      $('#cache-tokens').textContent = `${tokenFormat.format(counts.seqLen)} 有效 tokens`;
+      stackRows.forEach(({row, tokens, pages}, index) => {
+        const stack = counts.stacksDetail[index];
+        row.classList.toggle('is-active', Boolean(stack));
+        row.inert = !stack;
+        if (!stack) return;
+
+        const validTokens = stack.tokenEnd - stack.tokenStart + 1;
+        tokens.textContent = `${validTokens} / ${counts.pageTokens * counts.pagesPerStack} tokens`;
+        pages.forEach((cell, offset) => {
+          const page = stack.pages[offset];
+          cell.classList.toggle('is-empty', !page);
+          cell.inert = !page;
+          if (!page) return;
+          const ratio = page.validTokens / counts.pageTokens;
+          cell.style.setProperty('--valid-page', `${ratio * 100}%`);
+          cell.lastElementChild.textContent = page.validTokens === counts.pageTokens
+            ? `${page.validTokens} tokens`
+            : `${page.validTokens} / ${counts.pageTokens} tokens`;
         });
       });
-    });
-
-    const buttons = candidates.map(({task: item}, index) => {
-      const button = document.createElement('button');
-      button.className = 'btn btn-ghost';
-      button.type = 'button';
-      button.textContent = `Task ${item.id}`;
-      button.onclick = () => select(index);
-      $('#task-list').append(button);
-      return button;
-    });
-
-    $('#story-note').textContent = '源码推导的逻辑重复 · QK Matmul 按每 AIC、每 Task 计数';
-
-    function render(index) {
-      current = index;
-      const {task: item, execution: counts, stacks, query} = candidates[index];
-      $('#task-context').textContent = `Task ${item.id} · Batch ${item.batch} · KV Head ${item.kvHead}`;
-      const stackLabel = item.stackCount === 1 ? 'Stack' : 'Stacks';
-      const pageLabel = item.pageCount === 1 ? 'Page' : 'Pages';
-      $('#assignment-context').textContent = `Block ${String(item.block).padStart(2, '0')} · ${item.seqLen.toLocaleString('zh-CN')} tokens · ${item.stackCount} ${stackLabel} · ${item.pageCount} ${pageLabel}`;
-      $('#assignment-stacks').replaceChildren(stacks);
-      $('#assignment-query').replaceChildren(...query);
       const qkCount = counts.nodes.qk.count;
-      $('#module-count').textContent = `×${item.stackCount}`;
+      $('#module-count').textContent = attentionBadge.textContent = `×${stackCount}`;
       $('#qk-count').textContent = qkBadge.textContent = `×${qkCount}`;
-      attentionLayers.forEach(({layer, index}) => layer.classList.toggle('is-inactive', index >= item.stackCount));
+      attentionLayers.forEach(({layer, index}) => layer.classList.toggle('is-inactive', index >= stackCount));
       qkLayers.forEach(layer => layer.classList.toggle('is-inactive', Number(layer.dataset.pypaExecutionInstance) > qkCount));
       edgePaths.forEach(path => {
         const entries = edgeEntries(path.dataset.pypaEdge, counts);
@@ -239,72 +236,14 @@
         const entries = edgeEntries(label.parentElement.dataset.pypaEdgeLabel, counts);
         label.textContent = [...new Set(entries.map(entry => entry.label))].join(' → ');
       });
-      buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
-      if (embedded) window.dispatchEvent(new Event('p06-task-change'));
+      buttons.forEach(button => { button.checked = Number(button.value) === stackCount; });
     }
 
-    function cancel() {
-      clearTimeout(timer);
-      timer = undefined;
-      transition?.cancel();
-      transition = undefined;
-    }
-
-    function schedule() {
-      cancel();
-      $('#toggle-play').textContent = playing ? '暂停轮播' : '继续轮播';
-      if (playing && slideActive && pageActive && inView && !document.hidden) timer = setTimeout(advance, 4600);
-    }
-
-    async function advance() {
-      timer = undefined;
-      if (!motion.matches) {
-        const exit = assignmentData.animate([{opacity: 1}, {opacity: .2}], {duration: 150, fill: 'forwards'});
-        transition = exit;
-        try { await exit.finished; } catch { return; }
-        if (transition !== exit) return;
-      }
-      render((current + 1) % candidates.length);
-      schedule();
-      if (!motion.matches) transition = assignmentData.animate([{opacity: .2}, {opacity: 1}], {duration: 250});
-    }
-
-    function select(index) {
-      playing = false;
-      cancel();
-      render((index + candidates.length) % candidates.length);
-      schedule();
-    }
-
-    $('#previous-task').onclick = () => select(current - 1);
-    $('#next-task').onclick = () => select(current + 1);
-    $('#reset-task').onclick = () => select(0);
-    $('#toggle-play').onclick = () => {
-      playing = !playing;
-      schedule();
-    };
-    document.addEventListener('visibilitychange', schedule);
-    window.addEventListener('pagehide', () => { pageActive = false; schedule(); });
-    window.addEventListener('pageshow', () => { pageActive = true; schedule(); });
-    new IntersectionObserver(([entry]) => {
-      if (inView === entry.isIntersecting) return;
-      inView = entry.isIntersecting;
-      schedule();
-    }).observe(slide);
-
-    render(0);
+    render(candidates[0].stacks);
+    slide.classList.add('is-ready');
     if (embedded) window.p06GraphStory = {
-      get taskId() { return candidates[current].task.id; },
-      setTask(id) {
-        const index = candidates.findIndex(({task}) => task.id === id);
-        if (index !== -1 && index !== current) render(index);
-      },
-      setActive(active) {
-        if (slideActive === active) return;
-        slideActive = active;
-        schedule();
-      },
+      get stackCount() { return current; },
+      setStackCount: render,
     };
-    schedule();
   }
 })();

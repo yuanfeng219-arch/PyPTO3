@@ -9,12 +9,6 @@ document.body.insertAdjacentHTML('afterbegin', `
   </header>
   <div class="workspace">
     <section class="pipeline" aria-label="Pipeline">
-      <nav class="path" aria-label="当前执行路径">
-        <button type="button" class="btn btn-ghost" id="device">Device</button>
-        <button type="button" class="btn btn-ghost" id="block"></button>
-        <button type="button" class="btn btn-ghost" id="task" hidden></button>
-        <span id="tick" hidden></span>
-      </nav>
       <div class="viz2 canvas" id="canvas">
         <div id="view"></div>
         <div id="block-detail" hidden>
