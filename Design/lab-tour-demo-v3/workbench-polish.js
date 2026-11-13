@@ -339,13 +339,15 @@
   if (topBar) topBar.appendChild(mapNote);
   function paintMap() {
     const chip = kernelView.classList.contains('is-chip'), shown = logic && !logic.hidden;
-    mapNote.hidden = !shown;
+    mapNote.hidden = !shown || kernelView.classList.contains('wb-bottom-closed');   // 下方收起时不提“下方展开”
     mapNote.innerHTML = chip ? '<i aria-hidden="true">↓</i>下方展开<b>里层</b>：阶段 ①–④ 的数据落在哪'
       : '<i aria-hidden="true">↓</i>下方展开<b>外两层</b>：SPMD × 24 · FOR qk_it';
   }
   if (kernelView) new MutationObserver(paintMap).observe(kernelView, { attributes: true, attributeFilter: ['class'] });
   if (logic) new MutationObserver(paintMap).observe(logic, { attributes: true, attributeFilter: ['hidden'] });
   if (kernelView) paintMap();
+
+  // （6b 下方面板默认收起已由 workbench-canvas.js 的无限画布取代：进入 L2 时只看计算图，卡片在画布上由入口按钮打开）
 
   // ── 7 模块 Kernel 链：从画布顶部的二选一切换，挪到顶栏路径旁（L1 模块与 L2 Kernel 之间） ──
   // 弹出一条迷你链：按源码顺序列出本模块派发的 Kernel，实线箭头是源码写出的 TaskId 依赖；

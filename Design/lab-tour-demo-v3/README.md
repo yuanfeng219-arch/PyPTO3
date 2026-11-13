@@ -13,7 +13,15 @@
   - 布局参考 Codex 桌面端的默认态：最左图标栏；会话侧栏（「Operator Agent」标题、新聊天、项目 deepseek_v4_flash_dspark 下的 qk_plan / kv_touch 历史线程、展开显示）；中间空白处居中一句「想在 deepseek_v4_flash_dspark 里写什么算子？」；底部输入框上方一条环境托盘（项目 · a2a3 本机模拟 · ···），输入框下排「+ / @decode_csa.py」与「Operator Agent 高 / 语音 / 发送」。发送后：项目下新增并选中「qk_pv · 稀疏注意力」线程（生成中转圈、完成变绿点），中间变成对话流（用户消息右侧气泡，Agent 正文 + 一行一个动作：读取 → 规划 → 编辑 +116 → 编译 → 对比 golden，进行中文字流光）；开始编辑时右侧「改动」面板展开（Codex 的审阅面板），显示 `decode_sparse_attn_csa.py` 新增行（+116，左侧绿条）与三项检查，可用对话栏右上角按钮收起 / 展开。1280px 以下改动展开时收起会话侧栏，1000px 以下去掉图标栏与侧栏，860px 以下上下排。
   - 输入框预填 qk_pv 的需求，点发送或 Enter 后回放约 10 秒；代码是 `decode_sparse_attn_csa.py` 198–313 行原文（`agent-source.js` 由 `../csa-operator-lens/js/source-snapshot.js` 抽出，与工作台 L2 源码栏同一段）。
   - 生成完成后，「改动」面板右上角的绿色「Operator Lens」按钮可用（生成前置灰），点它直接进下一页；对话里点 `/lens qk_pv` 建议或输入 `/lens qk_pv` 也会进下一页（先出 Lens 卡片再跳转）。
-- **Operator Lens 标签页**（`lens.html`，Agent 页的下一页）：布局参考 Codex 内置浏览器的标签页——最左图标栏（同 Agent 页，第一个图标回首页），顶部标签条「Operator Lens · qk_pv」（× 关闭回到 `agent.html#done`），导航栏（后退回 Agent、前进置灰、刷新）+ 居中地址栏「operator-lens / deepseek_v4_flash_dspark / qk_pv · pass 36」，下面整块内嵌 `workbench.html#L2`。工作台里的离页链接（返回首页、编译并上板等）整页打开，不留在标签页里，所以「编译并上板」仍按原流程进 loading。
+- **无限画布：L1 → L2 是同一块画布上的相机缩放**（`workbench-canvas.js` + `workbench-polish.css` 第 16 节；取代上一版“L2 下方面板默认收起”）。右侧可视化区变成一块带点阵底的画布：
+  - 世界坐标里，L1 整层图占一屏；L2 的 Kernel 平面按 1/10 大小嵌在 L1 被双击的节点位置上。双击 Kernel 下钻时，相机从双击点开始放大约 10 倍（绕不动点做对数缩放，约 1s），L1 淡出、L2 淡入，停下时 L2 平面恰好 1:1；切回 L1（外层标签页的 L1 键）反向缩回。lens.js 自带的下钻动画与 View Transition 关掉，层级、页签、源码联动仍由 lens.js 管。
+  - L2 平面上有三个对象：计算图卡片（Kernel 工作区，默认占满画面）；**「工作怎么分」卡片**——由计算图上的 **SPMD × 24 / FOR qk_it 外框**关联出来；**「放在哪」卡片**——由 **PIPELINE 里的阶段 ①–④** 关联出来（只 qk_pv 有）。两张卡片在计算图下方左右排开，各自从对象引一条虚线到计算图下沿的绿色入口按钮，再连到卡片。
+  - 点入口按钮或底部导航条「计算图 / 工作怎么分 / 放在哪 / 全览」，相机平移（中途略拉远）到对应对象；聚焦卡片时同步切 lens.js 页签，源码栏随之换成整文件或 qk_pv 带标签摘录；没聚焦的卡片压暗，点它即聚焦。页签被别处切换（深链、“这一行在各层”跳到硅片落点）时相机跟过去。
+  - L2 里滚轮缩放（以光标为中心）、拖动空白处或按住空格拖动平移；缩到很小自动回到 L1。深链直接落位：`#L2` 计算图、`#L2:assignment` / `#L2:eval` 等工作怎么分、`#L2:chip` 放在哪。
+  - 只看计算图时撤掉“下方展开外两层 / 里层”的提示与高亮；动画用 rAF 推进，页面在后台时用 34ms 定时器兜底。
+- **Agent → Lens 转场**：点「Operator Lens」（或 `/lens qk_pv` 走完后），改动面板复制一份从原位放大到整块标签页区域（0.46s，cubic-bezier(.2,.75,.15,1)），面板内容淡出、顶部 48px 显出标签条底色；会话栏、对话、状态栏同时淡出，图标栏不动。放大结束的画面与 `lens.html` 的第一帧一致，换页后标签条、导航栏的内容依次落下，工作台加载完成后淡入并轻微上浮（`lens.html#from-agent` 触发入场，进页后去掉这个标记）。减少动态效果时直接换页。
+- **Operator Lens 标签页**（`lens.html`，Agent 页的下一页）：布局参考 Codex 内置浏览器的标签页——最左图标栏（同 Agent 页，第一个图标回首页），顶部标签条「Operator Lens · qk_pv」（× 关闭回到 `agent.html#done`），导航栏（后退回 Agent、前进置灰、刷新）+ 居中地址栏（随层级显示 `decode_csa · L1 整层` / `qk_pv · L2 Kernel`）+ 右侧「L1 整层 / L2 Kernel」分段控件、「详情」开关与绿色「编译并上板 →」，下面整块内嵌 `workbench.html?embed=lens`，**默认打开 L1**。
+  - 嵌入模式（`workbench-embed.js`，只在 `?embed=lens` 下生效，单独打开工作台不变）：隐藏工作台自己的顶栏（返回键、品牌、路径、L1 / L2、详情、配置点、编译并上板），主体顶到 iframe 上沿；层级用 postMessage 与外层同步（外层发 `lens:go` 切层，工作台在层级 / 路径变化时回 `lens:level`），双击 Kernel 下钻或在外层点 L1 都会互相更新，file:// 下也可用；工作台里的离页链接在整页打开（`target=_top`），所以「编译并上板」按原流程进 loading。工作台的详情面板只能用「详情」键打开，所以这个键也挪到了外层导航栏（`lens:detail`），开关状态随工作台回报。
   - `agent.html#done` 跳过回放，直接停在“已生成”（讲解用）。生成过程是预置回放，状态栏注明。
 - 「编译并上板」的 loading（`loading.html`）走完后**不再自动跳转**到 `result.html`，而是停在一页设备执行泳道：
   - 每行一个核（上 24 个 AIC、下 48 个 AIV），横轴为时间（每 0.5 ms 一格，末端标总时长 4.82 ms），色块是 kernel 的 block；**一种颜色一个 kernel**（64 个 kernel，按首次出现先后用黄金角在 OKLCH 色相环上错开，时间上相邻的 kernel 不撞色）。

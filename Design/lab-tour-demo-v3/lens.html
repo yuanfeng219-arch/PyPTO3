@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="./workbench-polish.css?v=2" />
 <style>
 /* 「开发即可见」第二步：从 Agent 页右上角「Operator Lens」或 /lens 进入。
- * 布局参考 Codex 内置浏览器的标签页：最左图标栏（同 agent.html）、顶部标签条、导航栏 + 地址栏，下面整块是 Operator Lens（workbench.html#L2）。
+ * 布局参考 Codex 内置浏览器的标签页：最左图标栏（同 agent.html）、顶部标签条、导航栏 + 地址栏，下面整块是 Operator Lens（workbench.html?embed=lens，默认 L1）。工作台自己的顶栏在嵌入时隐藏，L1 / L2 与「编译并上板」放在导航栏右侧。
  * 颜色沿用 Agent 页 / 工作台的深色。工作台里的离页链接（返回首页、编译并上板等）在整页打开，不留在标签页里。 */
 :root { --sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
 html,body { height:100%; margin:0; }
@@ -51,22 +51,49 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
 .lb-addr svg { width:13px; height:13px; flex:none; color:var(--lime); }
 .lb-addr span { overflow:hidden; text-overflow:ellipsis; }
 .lb-addr b { color:var(--text); font-weight:500; }
-.lb-tools { display:flex; gap:6px; }
-.lb-tools span { width:32px; height:32px; border-radius:50%; background:rgb(255 255 255 / 4%); }
-.lb-tools svg { width:15px; height:15px; }
+/* 右侧：工作台原顶栏里的 L1 / L2 与「编译并上板」挪到这里（工作台在标签页里不显示自己的顶栏） */
+.lb-ctl { display:flex; align-items:center; gap:8px; }
+.lb-seg { display:flex; height:32px; border-radius:var(--demo-radius-control); overflow:hidden; background:rgb(255 255 255 / 5%); }
+.lb-seg button { display:inline-flex; align-items:center; gap:6px; padding:0 13px; border:0; background:transparent; color:var(--muted); font:500 12.5px var(--sans); cursor:pointer; white-space:nowrap; }
+.lb-seg button b { font:600 10.5px var(--mono); color:var(--dim); }
+.lb-seg button:hover,.lb-seg button:focus-visible { color:var(--text); background:rgb(255 255 255 / 6%); outline:none; }
+.lb-seg button[aria-selected="true"] { background:#eee; color:#111; }
+.lb-seg button[aria-selected="true"] b { color:#555; }
+.lb-seg button[disabled] { opacity:.4; cursor:default; }
+.lb-det { height:32px; padding:0 13px; border:0; border-radius:var(--demo-radius-control); background:rgb(255 255 255 / 5%); color:var(--muted); font:500 12.5px var(--sans); cursor:pointer; }
+.lb-det:hover,.lb-det:focus-visible { color:var(--text); background:rgb(255 255 255 / 9%); outline:none; }
+.lb-det[aria-pressed="true"] { background:#eee; color:#111; }
+.lb-det[disabled] { opacity:.4; cursor:default; }
+.lb-run { display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 14px; border-radius:var(--demo-radius-control); background:var(--lime); color:#0d1a00;
+  font:700 12.5px var(--sans); text-decoration:none; white-space:nowrap; }
+.lb-run:hover,.lb-run:focus-visible { background:#a3f25c; outline:none; }
+.lb-run:focus-visible { box-shadow:0 0 0 2px var(--demo-focus); }
 
 .lb-view { position:relative; min-height:0; background:var(--page); }
 .lb-view iframe { display:block; width:100%; height:100%; border:0; background:var(--page); }
+/* 入场：从 Agent 页过来（#from-agent）时，第一帧与 Agent 页转场的结束帧相同（标签条底色 + 面板底色），
+ * 随后标签条、导航栏的内容依次落下；工作台加载完成后淡入、轻微上浮。直接打开本页时只有工作台淡入。 */
+.lb-view iframe { opacity:0; transform:translateY(10px) scale(.996); transform-origin:50% 0; transition:opacity .42s ease, transform .55s cubic-bezier(.2,.75,.15,1); }
+.lb-view.is-ready iframe { opacity:1; transform:none; }
+@keyframes lb-drop { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+.lb-enter .lb-tabs > *,.lb-enter .lb-bar > * { animation:lb-drop .44s cubic-bezier(.2,.75,.15,1) both; }
+.lb-enter .lb-tabs > :nth-child(2) { animation-delay:.05s; }
+.lb-enter .lb-tabs > :nth-child(3) { animation-delay:.1s; }
+.lb-enter .lb-bar > :nth-child(1) { animation-delay:.08s; }
+.lb-enter .lb-bar > :nth-child(2) { animation-delay:.13s; }
+.lb-enter .lb-bar > :nth-child(3) { animation-delay:.18s; }
+.lb-enter .ag-rail > .is-on { animation:none; }
 .lb-load { position:absolute; left:0; top:0; height:2px; width:0; background:var(--lime); transition:width .8s ease, opacity .3s ease .2s; }
 .lb-load.is-done { width:100%; opacity:0; }
 
 @media(max-width:860px){
   .lb-app { grid-template-columns:minmax(0,1fr); }
   .ag-rail { display:none; }
-  .lb-tools { display:none; }
-  .lb-bar { grid-template-columns:auto minmax(0,1fr); gap:10px; }
+  .lb-bar { grid-template-columns:auto minmax(0,1fr) auto; gap:8px; }
+  .lb-addr { display:none; }
+  .lb-seg button { padding:0 10px; }
 }
-@media(prefers-reduced-motion:reduce){ *{ transition:none!important; animation:none!important; } }
+@media(prefers-reduced-motion:reduce){ *{ transition:none!important; animation:none!important; } .lb-view iframe { transform:none; } }
 </style>
 </head>
 <body>
@@ -101,16 +128,20 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
       </div>
       <div class="lb-addr" title="Operator Lens 打开的是 Agent 刚生成的 qk_pv（decode_sparse_attn_csa.py 208–313 行）的编译产物">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></svg>
-        <span>operator-lens / deepseek_v4_flash_dspark / <b>qk_pv</b> · pass 36</span>
+        <span id="addr">operator-lens / deepseek_v4_flash_dspark / <b>decode_csa</b> · L1 整层</span>
       </div>
-      <div class="lb-tools" aria-hidden="true">
-        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 3.5h10v7H7.5L4.5 13v-2.5H3z"/></svg></span>
-        <span><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12" cy="8" r="1.1"/></svg></span>
+      <div class="lb-ctl">
+        <div class="lb-seg" role="tablist" aria-label="阅读层级">
+          <button type="button" role="tab" data-level="1" aria-selected="true" disabled><b>L1</b>整层</button>
+          <button type="button" role="tab" data-level="2" aria-selected="false" disabled><b>L2</b>Kernel</button>
+        </div>
+        <button class="lb-det" id="detail" type="button" aria-pressed="false" disabled>详情</button>
+        <a class="lb-run" href="loading.html">编译并上板 <span aria-hidden="true">→</span></a>
       </div>
     </div>
 
     <div class="lb-view">
-      <iframe id="view" title="Operator Lens · qk_pv" src="workbench.html#L2"></iframe>
+      <iframe id="view" title="Operator Lens · qk_pv" src="workbench.html?embed=lens"></iframe>
       <i class="lb-load" id="load" aria-hidden="true"></i>
     </div>
   </div>
@@ -118,16 +149,45 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
 <script>
 (function () {
   'use strict';
-  const view = document.getElementById('view'), load = document.getElementById('load');
+  const view = document.getElementById('view'), load = document.getElementById('load'), stage = view.parentNode;
+  if (location.hash === '#from-agent') {                    // 从 Agent 页转场过来：播入场，并把地址里的标记去掉
+    document.querySelector('.lb-app').classList.add('lb-enter');
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* file:// 下可能不允许，忽略 */ }
+  }
+  const reveal = () => stage.classList.add('is-ready');
+  setTimeout(reveal, 2500);                                   // 兜底：加载太慢也不让画面一直空着
   setTimeout(() => { load.style.width = '70%'; }, 30);
   document.getElementById('back').addEventListener('click', () => { location.href = 'agent.html#done'; });
   document.getElementById('reload').addEventListener('click', () => {
-    load.classList.remove('is-done'); load.style.width = '0';
+    load.classList.remove('is-done'); load.style.width = '0'; stage.classList.remove('is-ready');
     setTimeout(() => { load.style.width = '70%'; }, 30);
     view.contentWindow.location.reload();
   });
+  /* 层级：工作台回报当前层级 → 更新分段控件与地址栏；点分段控件 → 让工作台切层（postMessage，file:// 下也可用） */
+  const seg = [...document.querySelectorAll('.lb-seg button')], addr = document.getElementById('addr'), detBtn = document.getElementById('detail');
+  detBtn.addEventListener('click', () => view.contentWindow.postMessage({ type: 'lens:detail' }, '*'));
+  const AREA = 'operator-lens / deepseek_v4_flash_dspark / ';
+  window.addEventListener('message', e => {
+    if (e.source !== view.contentWindow) return;
+    const d = e.data || {};
+    if (d.type !== 'lens:level') return;
+    seg.forEach(b => { b.disabled = false; b.setAttribute('aria-selected', String(Number(b.dataset.level) === d.level)); });
+    detBtn.disabled = false; detBtn.setAttribute('aria-pressed', String(!!d.detail));
+    const kernel = (d.crumb || '').split('/').pop().trim();
+    addr.innerHTML = '';
+    addr.append(AREA);
+    const b = document.createElement('b');
+    b.textContent = d.level === 2 && kernel ? kernel : 'decode_csa';
+    addr.append(b, d.level === 2 ? ' · L2 Kernel' : ' · L1 整层');
+  });
+  seg.forEach(b => b.addEventListener('click', () => {
+    if (b.getAttribute('aria-selected') === 'true') return;
+    view.contentWindow.postMessage({ type: 'lens:go', level: Number(b.dataset.level) }, '*');
+  }));
   view.addEventListener('load', () => {
+    view.contentWindow.postMessage({ type: 'lens:hello' }, '*');
     load.classList.add('is-done');
+    setTimeout(reveal, 60);
     // 工作台里的离页链接（返回首页、编译并上板……）整页打开，不留在这个标签页里
     let doc = null;
     try { doc = view.contentDocument; } catch (e) { doc = null; }

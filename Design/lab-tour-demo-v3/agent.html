@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="./demo-shell.css?v=1" />
 <link rel="stylesheet" href="./workbench-polish.css?v=2" />
 <style>
-/* 「开发即可见」第一步：开发者在 Agent 里提需求 → Agent 生成 qk_pv → /lens 打开可视化（workbench.html#L2）。
+/* 「开发即可见」第一步：开发者在 Agent 里提需求 → Agent 生成 qk_pv → /lens 打开可视化（lens.html，内嵌工作台）。
  * 外壳：不要顶栏，主体占满一屏；28px 状态栏、源码行与着色和工作台一致。返回首页放在最左图标栏的第一个（Codex 的首页键）。
  * 布局：参考 Codex 桌面端的默认态 —— 最左图标栏、会话侧栏（新聊天 / 项目 / 线程）、中间空白处一句提问 + 底部输入框；
  *       开始生成后中间变成对话流，右侧「改动」面板展开（Codex 的审阅面板），可用对话栏右上角按钮收起。
@@ -157,6 +157,17 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
 .ag-lens-btn:hover,.ag-lens-btn:focus-visible { background:#a3f25c; outline:none; }
 .ag-lens-btn:focus-visible { box-shadow:0 0 0 2px var(--demo-focus); }
 .ag-lens-btn[aria-disabled="true"] { background:#262626; color:#6c6c6c; pointer-events:none; }
+/* 进入 Operator Lens 的转场：改动面板（复制一份）从原位放大成整块标签页区域，同时其余内容淡出；图标栏不动。
+ * 结束帧与 lens.html 的第一帧一致（顶部 48px 标签条底色 + 面板底色），换页时看不出接缝。 */
+.ag-leaving .ag-side,.ag-leaving .ag-chat-pane,.ag-leaving .ag-diff,.ag-leaving .hp-status { opacity:0; transition:opacity .26s ease; }
+.ag-leaving .ag-chat-pane { transform:translateX(-12px); transition:opacity .26s ease, transform .4s cubic-bezier(.2,.7,.2,1); }
+.ag-fly { position:fixed; z-index:60; overflow:hidden; margin:0; background:var(--surface); border-radius:0; box-shadow:var(--demo-shadow-overlay);
+  transition:left .46s cubic-bezier(.2,.75,.15,1), top .46s cubic-bezier(.2,.75,.15,1), width .46s cubic-bezier(.2,.75,.15,1), height .46s cubic-bezier(.2,.75,.15,1), box-shadow .46s ease; }
+.ag-fly > .ag-fly-copy { position:absolute; inset:0; display:flex; flex-direction:column; transition:opacity .2s ease; }
+.ag-fly::before { content:""; position:absolute; z-index:1; left:0; right:0; top:0; height:48px; background:var(--page); opacity:0; transition:opacity .25s ease .2s; }
+.ag-fly.is-full { box-shadow:none; }
+.ag-fly.is-full > .ag-fly-copy { opacity:0; }
+.ag-fly.is-full::before { opacity:1; }
 .ag-file { display:flex; align-items:center; gap:8px; padding:0 14px 10px; color:var(--muted); font:12px var(--mono); }
 .ag-file svg { width:14px; height:14px; color:var(--dim); flex:none; }
 .ag-file .add { margin-left:auto; color:#a5e780; }
@@ -212,7 +223,7 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
 
     <!-- 会话侧栏 -->
     <nav class="ag-side" aria-label="会话">
-      <div class="ag-side-h"><b>Operator Agent</b><svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg>
+      <div class="ag-side-h"><b>Agent</b><svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg>
         <span class="tools" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3"/></svg><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.3"/><path d="m10.2 10.2 3.3 3.3"/></svg></span></div>
       <button class="ag-row is-on" id="newChat" type="button" aria-current="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 2.5h-5v10h10v-5"/><path d="M12 2l2 2-6 6H6V8z"/></svg>新聊天</button>
       <p class="ag-sec">项目</p>
@@ -241,7 +252,7 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
       <div class="ag-dock">
         <div class="ag-tray" aria-label="运行环境">
           <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg>deepseek_v4_flash_dspark</span>
-          <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="7.5" rx="1.2"/><path d="M1.5 13h13"/></svg>a2a3 · 本机模拟</span>
+          <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="7.5" rx="1.2"/><path d="M1.5 13h13"/></svg>a5 · 本机模拟</span>
           <span class="more" aria-hidden="true">···</span>
         </div>
         <form class="ag-composer" id="composer">
@@ -282,7 +293,7 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
 (function () {
   'use strict';
   const SRC = window.QKPV_SOURCE || [];
-  const LENS_URL = 'lens.html';                // 下一页：Codex 内置浏览器式的标签页，里面打开 Operator Lens（workbench.html#L2）
+  const LENS_URL = 'lens.html';                // 下一页：Codex 内置浏览器式的标签页，里面打开 Operator Lens（workbench.html?embed=lens，默认 L1）
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
   const main = $('main'), chat = $('chat'), scroll = $('scroll'), prompt = $('prompt'), send = $('send'), code = $('code'),
@@ -425,6 +436,30 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     chip.focus({ preventScroll: true });
   }
 
+  /* 打开 Operator Lens：改动面板放大成标签页后再换页（lens.html#from-agent 接着播入场） */
+  let leaving = false;
+  function goLens() {
+    if (leaving) return; leaving = true;
+    const target = LENS_URL + '#from-agent';
+    const panel = main.querySelector('.ag-diff');
+    const src = panel && panel.offsetParent ? panel : $('lensBtn');
+    if (still || !src) { location.href = target; return; }
+    const r = src.getBoundingClientRect(), rail = main.querySelector('.ag-rail');
+    const rr = rail && rail.offsetParent && getComputedStyle(rail).flexDirection === 'column' ? rail.getBoundingClientRect().right : 0;
+    const fly = el('div', 'ag-fly');
+    if (src === panel) { const copy = panel.cloneNode(true); copy.removeAttribute('id'); copy.className = 'ag-fly-copy'; copy.querySelectorAll('[id]').forEach(n => n.removeAttribute('id')); fly.appendChild(copy); }
+    Object.assign(fly.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    if (src === panel) { const code0 = panel.querySelector('.ag-code'), code1 = fly.querySelector('.ag-code'); if (code0 && code1) code1.scrollTop = code0.scrollTop; }
+    document.body.appendChild(fly);
+    document.body.classList.add('ag-leaving');
+    void fly.offsetWidth;                                   // 先落定起点，再过渡到终点
+    fly.classList.add('is-full');
+    Object.assign(fly.style, { left: rr + 'px', top: '0px', width: (innerWidth - rr) + 'px', height: innerHeight + 'px' });
+    setTimeout(() => { location.href = target; }, 480);
+  }
+  $('lensBtn').addEventListener('click', e => { if ($('lensBtn').getAttribute('aria-disabled')) return; e.preventDefault(); goLens(); });
+  window.addEventListener('pageshow', e => { if (e.persisted) { leaving = false; document.body.classList.remove('ag-leaving'); document.querySelectorAll('.ag-fly').forEach(n => n.remove()); } });
+
   async function openLens() {
     if (phase !== 'done') return;
     phase = 'lens';
@@ -446,7 +481,7 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     m.appendChild(el('p', '', '正在打开。没有自动跳转的话，<a href="' + LENS_URL + '">点这里进入 Lens</a>。'));
     toBottom();
     await wait(300);
-    location.href = LENS_URL;
+    goLens();
   }
 
   $('composer').addEventListener('submit', e => {

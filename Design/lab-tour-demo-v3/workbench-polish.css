@@ -215,15 +215,18 @@ body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
 #hpLogic .wb-logic .lg-hit, #hpLogic .wb-logic .lg-edge, #hpLogic .wb-logic .wb-branch,
 #hpLogic .wb-logic .lg-hit > text, #hpLogic .wb-logic .lg-hit > .wb-ic { transition: opacity .2s; }
 /* 工作怎么分：亮外两层（SPMD 框 + FOR 框与关键字），里层压暗；选中 Work Item 时交给 lens.js 的路径高亮 */
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-spmd"] > .lg-frame { stroke: rgb(226 227 233 / 42%); }
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-iter"] > .lg-frame { stroke: #92939a; }
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > .sv-title { fill: #f5f5f7; }
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit:not([data-node="f-spmd"]):not([data-node="f-iter"]),
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-edge,
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-branch { opacity: .45; }
+#viewKernel:not(.is-chip):not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-spmd"] > .lg-frame { stroke: rgb(226 227 233 / 42%); }
+#viewKernel:not(.is-chip):not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-iter"] > .lg-frame { stroke: #92939a; }
+#viewKernel:not(.is-chip):not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > .sv-title { fill: #f5f5f7; }
+#viewKernel:not(.is-chip):not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic .lg-hit:not([data-node="f-spmd"]):not([data-node="f-iter"]),
+#viewKernel:not(.is-chip):not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic .lg-edge,
+#viewKernel:not(.is-chip):not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic .wb-branch { opacity: .45; }
 /* 放在哪：外两层的标注退后，里层阶段卡片描一圈 */
-#viewKernel.is-chip #hpLogic .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > :is(text, .wb-ic) { opacity: .4; }
-#viewKernel.is-chip #hpLogic:not(.has-ctx) .wb-logic .lg-phase { stroke: rgb(226 227 233 / 28%); stroke-width: 1; }
+#viewKernel.is-chip:not(.wb-bottom-closed) #hpLogic .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > :is(text, .wb-ic) { opacity: .4; }
+#viewKernel.is-chip:not(.wb-bottom-closed) #hpLogic:not(.has-ctx) .wb-logic .lg-phase { stroke: rgb(226 227 233 / 28%); stroke-width: 1; }
+
+/* ── 8b 只看计算图时（画布聚焦在计算图，workbench-canvas.js 给 #viewKernel 加 .wb-bottom-closed）：撤掉“下方展开哪几层”的高亮与提示 ── */
+#viewKernel.wb-bottom-closed #l2TopNote { display: none; }
 
 /* ── 9 顶栏路径旁的 Kernel 链 ── */
 .wb-chain-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 12px; border: 0; border-radius: var(--demo-radius-control); background: rgb(255 255 255 / 6%); color: var(--muted); font: 12.5px var(--sans); cursor: pointer; white-space: nowrap; }
@@ -479,3 +482,63 @@ body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region[data-region="a
 /* 悬停联动 / 钉住时的白色高亮边：盖过上面的“无描边 / 蓝描边” */
 body.is-focusing #hpSvg .sv-region.is-hot > .sv-box, body.is-focusing #hpSvg .sv-region.is-hot .sv-mem,
 #hpSvg .sv-region.wb-pinned > .sv-box, #hpSvg .sv-region.wb-pinned .sv-mem { stroke: var(--text); stroke-width: 1.5; }
+
+/* ── 16 无限画布（workbench-canvas.js）：L1 → L2 是同一块画布上的相机缩放，「工作怎么分」「放在哪」是计算图对象关联出来的卡片 ── */
+#lensMid.wb-canvas { position: relative; display: block; overflow: hidden; touch-action: none; background-color: #0e0e0f;
+  background-image: radial-gradient(circle, rgb(255 255 255 / 7%) 1px, transparent 1.3px); }
+#lensMid.wb-canvas.is-l2 { cursor: grab; }
+#lensMid.wb-canvas.is-panning { cursor: grabbing; }
+#lensMid.wb-canvas > .lens-view { position: absolute; left: 0; top: 0; flex: none; transform-origin: 0 0; will-change: transform, opacity; }
+#lensMid.wb-canvas > #viewLayer, #lensMid.wb-canvas > #viewLayer[hidden] { display: flex !important; background: var(--canvas); }
+#lensMid.wb-canvas > #viewKernel, #lensMid.wb-canvas > #viewKernel[hidden] { display: block !important; overflow: visible; background: transparent; }
+#lensMid.wb-canvas:not(.is-l2) > #viewKernel, #lensMid.wb-canvas.is-l2 > #viewLayer { pointer-events: none; }
+#lensMid.wb-canvas .lens-view.is-drilling-out .lens-frame, #lensMid.wb-canvas .lens-view.is-drilling-in { animation: none !important; }
+#lensMid.wb-canvas.is-moving .lens-view { pointer-events: none; }
+
+/* L2 平面里的对象由脚本给位置与尺寸 */
+#viewKernel.wb-plane > * { position: absolute; box-sizing: border-box; cursor: auto; }
+#viewKernel.wb-plane > #l2Split, #viewKernel.wb-plane > .lens-bottom-head { display: none !important; }
+#viewKernel.wb-plane > .hp-pane-head { background: var(--surface); border-radius: 12px 12px 0 0; z-index: 2; }
+#viewKernel.wb-plane > #l2GraphPane { flex: none; display: flex; border-top: 0; background: var(--canvas); border-radius: 0 0 12px 12px;
+  box-shadow: 0 0 0 1px rgb(226 227 233 / 7%); }
+#viewKernel.wb-plane > #kernelWork, #viewKernel.wb-plane > #kernelWork[hidden],
+#viewKernel.wb-plane > #hpLensPane, #viewKernel.wb-plane > #hpLensPane[hidden] { display: flex !important; flex-direction: column; overflow: hidden;
+  background: var(--canvas); border-radius: 0 0 12px 12px; box-shadow: 0 0 0 1px rgb(226 227 233 / 8%), 0 22px 60px rgb(0 0 0 / 40%); }
+#viewKernel.wb-plane.wb-no-chip > #hpLensPane, #viewKernel.wb-plane.wb-no-chip > #hpLensPane[hidden] { display: none !important; }
+.wb-card-h { display: flex; align-items: center; gap: 10px; padding: 0 18px; background: var(--surface); border-radius: 12px 12px 0 0;
+  box-shadow: 0 0 0 1px rgb(226 227 233 / 8%); z-index: 1; }
+.wb-card-h[hidden] { display: none !important; }
+.wb-card-h b { font: 600 14px/1 var(--sans); color: var(--text); white-space: nowrap; }
+.wb-card-h small { font: 12px/1.3 var(--sans); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wb-card-h .wb-chip-extra { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
+.wb-card-h.is-work::before, .wb-card-h.is-chip::before { content: ; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--lime); }
+.wb-card-dim { opacity: .42; transition: opacity .3s ease; }
+.wb-card-dim:hover { opacity: .7; cursor: pointer; }
+
+/* 计算图对象 → 卡片：入口按钮 + 引线 */
+.wb-cv-handle { z-index: 5; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 13px; border: 0;
+  border-radius: var(--demo-radius-control); background: var(--lime); color: #0d1a00; font: 600 12px/1 var(--sans); white-space: nowrap; cursor: pointer !important;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%); }
+.wb-cv-handle[hidden] { display: none; }
+.wb-cv-handle i { font-style: normal; font-size: 11px; }
+.wb-cv-handle:hover, .wb-cv-handle:focus-visible { background: #a3f25c; outline: none; }
+.wb-cv-handle:focus-visible { box-shadow: 0 0 0 2px var(--demo-focus); }
+#viewKernel[data-focus=work] .wb-cv-handle.is-chip, #viewKernel[data-focus=chip] .wb-cv-handle.is-work { background: var(--demo-raised); color: var(--muted); }
+.wb-cv-links { top: 0; overflow: visible; pointer-events: none; z-index: 4; }
+.wb-cv-links path { fill: none; }
+.wb-cv-links .lead { stroke: rgb(136 236 48 / 55%); stroke-width: 1.2; stroke-dasharray: 3 4; }
+.wb-cv-links .dot { fill: var(--lime); }
+.wb-cv-links .link { stroke: rgb(136 236 48 / 45%); stroke-width: 1.6; }
+#viewKernel[data-focus=work] .wb-cv-links .link.is-chip, #viewKernel[data-focus=chip] .wb-cv-links .link.is-work { stroke: rgb(226 227 233 / 18%); }
+
+/* 画布底部：视角导航 */
+.wb-cv-nav { position: absolute; left: 50%; bottom: 16px; z-index: 20; transform: translateX(-50%); display: none; align-items: center; gap: 2px; padding: 4px;
+  border-radius: var(--demo-radius-control); background: rgb(28 28 30 / 92%); box-shadow: 0 10px 30px rgb(0 0 0 / 45%), 0 0 0 1px rgb(226 227 233 / 8%);
+  backdrop-filter: blur(8px); cursor: auto; }
+#lensMid.wb-canvas.is-l2 .wb-cv-nav { display: flex; }
+.wb-cv-nav button { height: 30px; padding: 0 14px; border: 0; border-radius: var(--demo-radius-control); background: transparent; color: var(--muted); font: 500 12.5px var(--sans); cursor: pointer; white-space: nowrap; }
+.wb-cv-nav button[hidden] { display: none; }
+.wb-cv-nav button:hover, .wb-cv-nav button:focus-visible { color: var(--text); background: rgb(255 255 255 / 7%); outline: none; }
+.wb-cv-nav button[aria-pressed=true] { background: #eee; color: #111; }
+.wb-cv-nav i { width: 1px; height: 16px; margin: 0 4px; background: rgb(226 227 233 / 14%); }
+@media (prefers-reduced-motion: reduce) { .wb-card-dim { transition: none; } }
