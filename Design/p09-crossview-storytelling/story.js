@@ -13,6 +13,42 @@
     $('.mast').textContent = 'PyPTO Compute Explorer / P9';
     story.setAttribute('aria-label', 'P9 跨视角对象定位 · 16:9');
   }
+  function mountDeckHeader({strategy, tabs, title, subtitle, page, interactive, css}) {
+    if (story.classList.contains('deck-embedded')) return;
+    const element = (tag, className, text) => {
+      const node = document.createElement(tag);
+      node.className = className;
+      node.textContent = text;
+      return node;
+    };
+    document.head.append(element('style', '', css));
+    const mast = element('div', 'deck-mast', '');
+    const navigation = element('span', 'deck-strategies', '');
+    for (const tab of tabs) {
+      const button = Boolean(interactive && tab.strategy);
+      const label = element(button ? 'button' : 'span', tab.prefix ? 'deck-strategies-prefix' : '', tab.text);
+      if (tab.strategy) label.dataset.narrativeStrategy = tab.strategy;
+      else if (!tab.prefix) label.setAttribute('aria-hidden', 'true');
+      if (tab.strategy === strategy) label.setAttribute('aria-current', 'step');
+      if (button) {
+        label.type = 'button';
+        label.onclick = () => sendToDeck('strategy', {strategy: tab.strategy});
+      }
+      navigation.append(label);
+    }
+    const phase = element('span', 'deck-narrative-phase', '');
+    phase.hidden = true;
+    mast.append(phase, navigation, element('span', 'deck-page-number', page));
+    const heading = element('header', 'deck-header', '');
+    const point = element('h2', 'strategy-subtitle', '');
+    const ordinal = element('span', '', '01');
+    ordinal.setAttribute('aria-hidden', 'true');
+    point.append(ordinal, subtitle);
+    heading.append(mast, element('h1', '', title), point);
+    story.querySelector(':scope > h1').hidden = true;
+    story.querySelector(':scope > .mast').replaceWith(heading);
+    story.classList.add('deck-embedded');
+  }
   const views = [...story.querySelectorAll('[data-view]')];
   const shots = [...camera.querySelectorAll('[data-shot]')];
   const nativeMorph = window.PtoVisualization2IntraMorph;
@@ -310,6 +346,7 @@
         const message = event.data;
         if (event.source !== parent || (deckOrigin !== '*' && event.origin !== deckOrigin) ||
             message?.pyptoCrossview !== 1) return;
+        if (message.type === 'deck-header') mountDeckHeader(message);
         if (message.type === 'reset') reset();
         if (message.type === 'pause') { stopPlayback(); describe(); }
         if (message.type === 'state') {
@@ -407,18 +444,31 @@
       renderAssignment();
       renderGraph();
       renderPipeline();
-      $('#viz2-graph-intra [data-viz2-graph-fit]').click();
-      const graphCamera = graphView.intraCamera;
-      if (graphCamera) {
-        const viewport = $('#viz2-graph-intra .viz2-graph-viewport');
-        const x = viewport.clientWidth / 2;
-        const y = viewport.clientHeight / 2;
+      if (embedded) {
+        const qk = $('#viz2-graph-intra [data-pypa-node="qk"]');
+        const inputs = $('#viz2-graph-intra [data-pypa-region="task-inputs"]');
+        // Frame the Task Inputs and upper attention flow for the slide crop.
+        const scale = 0.64;
         graphView.intraCamera = {
-          scale: graphCamera.scale * 1.5,
-          x: x + (graphCamera.x - x) * 1.5,
-          y: y + (graphCamera.y - y) * 1.5,
+          scale,
+          x: 624 - (parseFloat(qk.style.left) + parseFloat(qk.style.width) / 2) * scale,
+          y: 100 - parseFloat(inputs.style.top) * scale,
         };
         renderGraph();
+      } else {
+        $('#viz2-graph-intra [data-viz2-graph-fit]').click();
+        const graphCamera = graphView.intraCamera;
+        if (graphCamera) {
+          const viewport = $('#viz2-graph-intra .viz2-graph-viewport');
+          const x = viewport.clientWidth / 2;
+          const y = viewport.clientHeight / 2;
+          graphView.intraCamera = {
+            scale: graphCamera.scale * 1.5,
+            x: x + (graphCamera.x - x) * 1.5,
+            y: y + (graphCamera.y - y) * 1.5,
+          };
+          renderGraph();
+        }
       }
       $('#viz2-pipeline-intra [data-intra-fit]').click();
       $('#viz2-anatomy .viz2-anatomy-cache-scroll').scrollTop = 0;

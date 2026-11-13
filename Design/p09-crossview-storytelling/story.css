@@ -28,6 +28,11 @@ body.ai-extracted {
   transform-origin: top left;
   transform: scale(var(--story-scale, 1));
 }
+/* Embedded Deck header replaces the standalone mast and headline rows. */
+#story.deck-embedded {
+  padding:var(--deck-padding);
+  grid-template-rows:var(--deck-header-height) 54px minmax(0, 1fr) 70px;
+}
 .mast { color: var(--foreground-secondary); font: 14px var(--font-mono); }
 #story > h1 { margin: 8px 0 0; font-size: 46px; line-height: 1.2; letter-spacing: -.035em; }
 .views, .transport { display: flex; align-items: center; gap: 8px; }
@@ -71,6 +76,10 @@ body.ai-extracted #camera { position: relative; width: 100%; height: 100%; overf
   left: var(--native-left, 0px);
 }
 .shot:not([data-shot="assignment"]) { --native-left: -300px; }
+/* Keep the Matmul instances distinct where their silhouettes overlap. */
+#story .viz2 :is([data-pypa-execution-stack="qk"], [data-pypa-execution-stack="pv"]) .kf-pypa-graph__execution-layer {
+  border: 1.5px solid var(--foreground-muted) !important;
+}
 /* The camera crops the native diagram region. Identity, parameters and
    navigation belong to the presentation shell. */
 .native-frame :is(.compute-identity, [data-compute-toolbar], [data-anatomy-back], [data-intra-back], .ai-detail-back, .ai-control-bar) {
