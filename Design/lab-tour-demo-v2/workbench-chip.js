@@ -24,8 +24,12 @@
   const textOf = function (svg, re) { return [].filter.call(svg.children, function (c) { return c.tagName === 'text' && re.test(c.textContent.trim()); })[0]; };
 
   // ── 画布与各块位置（全图坐标）：最左一列 GM；右边三行 —— AIV0 横条 / AIC / AIV1 横条（两个 AIV 夹着 AIC） ──
-  //   外边距 12；GM 列与 BLOCK 框上下沿对齐；三行左右边对齐、行间距 14、内边距 24；
-  //   AIC 一行从左往右：L1 / L0 / CUBE / L0C / 管道，列间距 40、共用一条水平中线
+  //   外边距 12；GM 列与 BLOCK 框上下沿对齐；三行左右边对齐、行间距 14、内边距 24。
+  //   连线优先“直连”：每个对象摆在它上下游的正对面，连线尽量是一条直线 ——
+  //     GM 卡片与目标同高（qk_order → Vec 横条、q → L1 Q 段、ori / cmp → L1 KV 段、写回卡片 = 写回横道）；
+  //     L1 低地址在上：v2c 槽在顶端，正对 AIV0 UB 的 softmax 工作区（V2C 一条竖线）；
+  //     L0B / L0A 与 L1 的 KV / Q 段同高，CUBE 同时盖住两条输入线，L0C 与 CUBE 同中线；
+  //     L0C 与 AIV0 / AIV1 的 Vector 列上下对齐：C2V 一条竖线向上，AIV1 的握手虚线一条竖线向下。
   const VB_W = 1100, VB_H = 440;
   const FRAME = { x: 190, y: 36, w: 898, h: 384 };
   const GM = { x: 12, y: FRAME.y, w: 158, h: FRAME.h, cardX: 23, cardW: 136, cardH: 30 };   // 张量图元高 30（同计算图张量的比例）
@@ -33,20 +37,26 @@
   const AIV_H = 78, GAP = 14;
   const AIV_Y = [FRAME.y + 12, FRAME.y + 12 + AIV_H + GAP + 178 + GAP]; // AIV0 在上、AIV1 在下
   const AIC = { x: ROWX, y: AIV_Y[0] + AIV_H + GAP, w: ROWW, h: 178 };
-  const ROW = AIC.y + AIC.h / 2;                                        // AIC 行的水平中线
-  const L1 = { x: AIC.x + 24, y: AIC.y + 34, w: 56, h: 130 };          // 竖条：高地址在上（标题与 L1 标签在其上方两行）
-  const COL = { l0: 322, cube: 512, l0c: 752, pipe: 992 };              // 各列左沿（列间距 40）
+  const BAR = { dx: 16, dy: 30, w: 440, h: 30 };                        // Vec 横条（相对 AIV 横条框）
+  const BAR_X = ROWX + 24, BAR_MID = AIV_Y[0] + BAR.dy + BAR.h / 2;    // Vec 横条左沿、AIV0 横条中线
+  const VEC_X = BAR_X + BAR.w + 36;                                     // Vector 计算块左沿（宽 90）
+  const V2C_X = BAR_X + 164;                                            // UB softmax 工作区中线（V2C 竖线）
+  const L1 = { x: V2C_X - 28, y: AIC.y + 26, w: 56, h: 130 };          // 竖条：低地址在上，v2c 槽正对 V2C 竖线
+  const Y_KV = AIC.y + 89, Y_Q = AIC.y + 145;                          // L1 KV 段 / Q 段里的两条水平线
+  const COL = { l0: L1.x + L1.w + 40, cube: 618, l0c: 738 };            // 各列左沿
   const BOX = {                                                          // 目标位置与尺寸 [x, y, w, h]
-    l0a: [COL.l0, ROW - 62, 150, 56], l0b: [COL.l0, ROW + 6, 150, 56],
-    cube: [COL.cube + 40, ROW - 35, 120, 70], l0c: [COL.l0c, ROW - 35, 200, 70]
+    l0b: [COL.l0, Y_KV - 24, 130, 48], l0a: [COL.l0, Y_Q - 24, 130, 48],
+    cube: [COL.cube, Y_KV - 18, 90, Y_Q - Y_KV + 36], l0c: [COL.l0c, (Y_KV + Y_Q) / 2 - 35, 210, 70]
   };
+  const ROW = (Y_KV + Y_Q) / 2;                                         // CUBE → L0C 的水平中线
   const ORIG = { l0a: [36, 218], l0b: [128, 218], cube: [36, 284], l0c: [36, 356] };    // lens-tile.js 原坐标
   const LANE_OUT = AIV_Y[0] + AIV_H + GAP / 2;                          // AIV0 与 AIC 之间的写回横道
-  const BAR = { dx: 16, dy: 30, w: 440, h: 30 };                        // Vec 横条（相对 AIV 横条框）
-  const PIPE_D = [COL.pipe + 5 - 296, ROW - 318];                       // 管道组平移：AIC 行最右一列
+  const C2V_X = VEC_X + 83, OI_X = COL.l0c + 16;                        // C2V / 握手竖线（Vector 列内）、oi 写回竖线
+  const PIPE_D = [C2V_X - 321, AIC.y + 36 - 302];                       // 管道组平移：两个槽骑在 C2V 竖线上
   const CORES_D = [FRAME.x + FRAME.w - 708, 8 - 86];                    // SPMD 条：右端对齐分组框，放在框上方
-  // GM 卡片顺序与目标同序（自上而下：AIV0、写回横道、L1 的 Q / KV / KV），连线互不交叉
-  const GM_ORDER = ['gm-plan', 'gm-out', 'gm-q', 'gm-ori', 'gm-cmp'];
+  // GM 卡片与目标同高（自上而下：AIV0 横条、写回横道、L1 KV 段 ×2、L1 Q 段），全部水平直连
+  const GM_ORDER = ['gm-plan', 'gm-out', 'gm-ori', 'gm-cmp', 'gm-q'];
+  const GM_Y = { 'gm-plan': BAR_MID, 'gm-out': LANE_OUT, 'gm-ori': Y_KV - 24, 'gm-cmp': Y_KV + 16, 'gm-q': Y_Q };
   const VBAR = { top: 186, bottom: 440 };                               // lens-tile.js 竖条的 y 范围
   const S = BAR.w / (VBAR.bottom - VBAR.top);
   const MAPX = function (x0, yy) { return x0 + (VBAR.bottom - yy) * S; };   // 竖条 y（地址）→ 横条 x
@@ -60,7 +70,7 @@
     const defs = svg.querySelector('defs') || el('defs', {}, svg, svg.firstChild);
     [['wbChipVecBoth', 'var(--sky-ink)'], ['wbChipQ', 'var(--lime)'], ['wbChipKv', 'var(--lav-ink)'], ['wbChipVec', 'var(--sky-ink)'], ['wbChipAcc', 'var(--amber)'], ['wbChipDim', '#92939a'], ['wbChipOut', '#c6c7cb']].forEach(function (m) {
       const mk = el('marker', { id: m[0], viewBox: '0 0 8 8', refX: '7', refY: '4', markerWidth: '6', markerHeight: '6', orient: m[0] === 'wbChipVecBoth' ? 'auto-start-reverse' : 'auto' }, defs);
-      el('path', { d: 'M0 0 L8 4 L0 8 z', style: 'fill:' + m[1] }, mk);
+      el('path', { d: 'M0 0 L8 4 L0 8 z', style: 'fill:context-stroke' }, mk);
     });
 
     // ── 先认出 AIV 的散落元素（参考线、刻度、说明文字），按原坐标归属 AIV0 / AIV1 ──
@@ -77,7 +87,7 @@
     const gmTitle = textOf(svg, /^GM · HBM/);
     if (gmBg) set(gmBg, { x: GM.x, y: GM.y, width: GM.w, height: GM.h, rx: 12 });
     if (gmTitle) set(gmTitle, { x: GM.x + 12, y: GM.y + 18 });
-    const card = {}, top0 = GM.y + 30, step = (GM.h - 30 - 12 - GM.cardH) / (GM_ORDER.length - 1);
+    const card = {};
     // GM 里的五份数据都是张量：换成和上方计算图 / Kernel 链完全相同的张量图元（PathGridGlyphs.tensor），
     // 颜色同上方图（Q 绿、KV 紫、其余张量用 Kernel 链里的张量蓝），名字与形状常驻
     const GM_META = {
@@ -90,7 +100,7 @@
     GM_ORDER.forEach(function (id, i) {
       const g = [].filter.call(svg.querySelectorAll('.sv-region[data-region="' + id + '"]'), function (r) { return r.querySelector('svg'); })[0];
       if (!g) return;
-      const inner = g.querySelector(':scope > g'), y = top0 + i * step, m = GM_META[id];
+      const inner = g.querySelector(':scope > g'), y = GM_Y[id] - GM.cardH / 2, m = GM_META[id];
       if (window.PathGridGlyphs && m) inner.innerHTML = window.PathGridGlyphs.tensor(id, m[0], m[1], 0, 0, GM.cardW, GM.cardH, m[2]);
       inner.setAttribute('transform', 'translate(' + GM.cardX + ' ' + y + ')');
       card[id] = { r: GM.cardX + GM.cardW, m: y + GM.cardH / 2 };
@@ -113,12 +123,12 @@
       const t = aicG.querySelector('text'); if (t) set(t, { x: AIC.x + 24, y: AIC.y + 16 });
     }
     const l1Label = textOf(svg, /^L1 · MAT/);
-    if (l1Label) set(l1Label, { x: AIC.x + 24, y: L1.y - 6 });
+    if (l1Label) set(l1Label, { x: L1.x - 8, y: L1.y + 14, 'text-anchor': 'end' });   // 放在 L1 左侧，让出顶端给 V2C 竖线
     ['l1-slot', 'l1-kv', 'l1-q'].forEach(function (id) {
       const g = region(svg, id), r = g && g.querySelector('.sv-l1'); if (!r) return;
       const lo = (num(r, 'x') - 36) / 246, hi = (num(r, 'x') + num(r, 'width') - 36) / 246;
-      const y = L1.y + (1 - hi) * L1.h, h = (hi - lo) * L1.h;
-      set(r, { x: L1.x, y: y, width: L1.w, height: h });
+      const y = L1.y + lo * L1.h, h = (hi - lo) * L1.h;                // 低地址在上
+      set(r, { x: L1.x, y: y, width: L1.w, height: h, rx: 4 });
       const t = g.querySelector('text'); if (t) set(t, { x: L1.x + 6, y: y + Math.min(h / 2 + 4, 14) });
     });
     Object.keys(BOX).forEach(function (id) {
@@ -128,10 +138,23 @@
       [].filter.call(g.querySelectorAll('rect'), function (r) { return num(r, 'x') === o[0] && num(r, 'y') === o[1]; }).forEach(function (r) { set(r, { width: b[2], height: b[3] }); });
       g.querySelectorAll('text[text-anchor="end"]').forEach(function (t) { t.setAttribute('x', o[0] + b[2] - 8); });
       if (id === 'l0c') g.querySelectorAll('.sv-fill-amber').forEach(function (r) { r.setAttribute('width', b[2] - 16); });
-      if (id === 'l0a') { const half = (b[2] - 16 - 4) / 2; g.querySelectorAll('.sv-fill-lime').forEach(function (r, i) { set(r, { x: o[0] + 8 + i * (half + 4), width: half }); }); }
+      if (id === 'l0a' || id === 'l0b') { const half = (b[2] - 16 - 4) / 2; g.querySelectorAll(id === 'l0a' ? '.sv-fill-lime' : '.sv-fill-lav').forEach(function (r, i) { set(r, { x: o[0] + 8 + i * (half + 4), width: half }); }); }
     });
     const pipeG = region(svg, 'pipe');
-    if (pipeG) pipeG.setAttribute('transform', 'translate(' + PIPE_D[0] + ' ' + PIPE_D[1] + ')');
+    if (pipeG) {
+      pipeG.setAttribute('transform', 'translate(' + PIPE_D[0] + ' ' + PIPE_D[1] + ')');
+      pipeG.querySelectorAll('.sv-arrow').forEach(function (arrow) { arrow.style.display = 'none'; });
+      // V2C 的接收槽就在 L1 中，不再在画布右侧重复画一组槽。
+      pipeG.querySelectorAll('text').forEach(function (t) { if (/^(C2V|V2C)$/.test(t.textContent.trim())) t.style.display = 'none'; });
+      pipeG.querySelectorAll('.sv-slot').forEach(function (r) { r.style.display = 'none'; });
+      // C2V 竖线从两个槽中间穿过；名字与槽数放在槽右侧
+      pipeG.querySelectorAll('text').forEach(function (t) {
+        const txt = t.textContent.trim();
+        if (txt === 'C2V') set(t, { x: 345, y: 306, 'text-anchor': 'start' });
+        else if (/槽|×/.test(txt)) set(t, { x: 373, y: 306, 'text-anchor': 'start' });
+      });
+      const hit = pipeG.querySelector('.sv-hit'); if (hit) set(hit, { x: 299, y: 290, width: 96, height: 32 });
+    }
 
     // ── AIV0 / AIV1：细长横条，标题在左上、Vec 横条居左、说明两列在右（每条说明前加同色色块对应分段） ──
     const proj = svg.querySelector('.sv-proj-frame');
@@ -156,7 +179,7 @@
       });
       // Vector 计算块（参考 hardware-architecture-viewport：UB ↔ Vector），放在 Vec 横条右侧；AIV1 空转时压暗
       const vx = x0 + BAR.w + 36, vy = Y + 14;
-      el('path', { d: 'M' + (x0 + BAR.w + 4) + ' ' + (by + BAR.h / 2) + ' H ' + (vx - 4), class: 'wb-vec-link', 'marker-start': 'url(#wbChipVecBoth)', 'marker-end': 'url(#wbChipVecBoth)' }, g);
+      el('path', { d: 'M' + (x0 + BAR.w + 4) + ' ' + (by + BAR.h / 2) + ' H ' + (vx - 4), class: 'wb-vec-link', 'data-owners': id + ' ' + ub, 'marker-start': 'url(#wbChipVecBoth)', 'marker-end': 'url(#wbChipVecBoth)' }, g);
       el('rect', { x: vx, y: vy, width: 90, height: 50, rx: 12, class: 'wb-vector' + (id === 'aiv1' ? ' is-idle' : '') }, g);
       el('text', { x: vx + 45, y: vy + 29, 'text-anchor': 'middle', class: 'wb-compute-k' }, g).textContent = 'Vector';
       const colX = x0 + BAR.w + 154;                                     // 右侧说明区（两列）
@@ -195,58 +218,57 @@
 
     // ── 连线（全图坐标）：线色跟数据角色，交叉处留缝 ──
     const links = el('g', { class: 'wb-links' }, svg);
-    const line = function (d, cls, mk, label) {
+    const line = function (d, cls, mk, label, owners) {
+      d = window.roundWorkbenchConnector(d);
       el('path', { d: d, class: 'wb-link-gap' }, links);
-      el('path', { d: d, class: 'wb-link ' + cls, 'marker-end': mk ? 'url(#' + mk + ')' : '' }, links);
+      el('path', { d: d, class: 'wb-link ' + cls, 'data-owners': owners || '', 'marker-end': mk ? 'url(#' + mk + ')' : '' }, links);
       if (label) el('text', { x: label[0], y: label[1], class: 'wb-link-k ' + cls, 'text-anchor': label[2] || 'start' }, links).textContent = label[3];
     };
-    const seg = function (id) { const r = region(svg, id) && region(svg, id).querySelector('.sv-l1'); return r ? { y: num(r, 'y'), h: num(r, 'height') } : null; };
-    const q = seg('l1-q'), kv = seg('l1-kv');
-    const gapL = GM.x + GM.w, lane = function (i) { return gapL + 4 + i * 5; };   // GM 列与分组框之间的竖道
-    const qY = q ? q.y + q.h / 2 : ROW - 55, kvA = kv ? kv.y + kv.h * .35 : ROW, kvB = kv ? kv.y + kv.h * .8 : ROW + 30;
-    // qk_order / bias → AIV0：卡片正对 AIV0 横条，直连
-    if (card['gm-plan']) line('M' + card['gm-plan'].r + ' ' + card['gm-plan'].m + ' H ' + (ROWX - 2), 'is-vec', 'wbChipVec', [gapL + 2, card['gm-plan'].m + 14, 'start', 'bias']);
-    // GM → L1：q / ori / cmp 各走一条竖道（从左到右依次排开），从左边进 L1
-    if (card['gm-q']) line('M' + card['gm-q'].r + ' ' + card['gm-q'].m + ' H ' + lane(1) + ' V ' + qY + ' H ' + (L1.x - 2), 'is-q', 'wbChipQ');
-    if (card['gm-ori']) line('M' + card['gm-ori'].r + ' ' + card['gm-ori'].m + ' H ' + lane(2) + ' V ' + kvA + ' H ' + (L1.x - 2), 'is-kv', 'wbChipKv');
-    if (card['gm-cmp']) line('M' + card['gm-cmp'].r + ' ' + card['gm-cmp'].m + ' H ' + lane(3) + ' V ' + kvB + ' H ' + (L1.x - 2), 'is-kv', 'wbChipKv');
-    // AIC 内部：L1(Q) → L0A → CUBE、L1(KV) → L0B → CUBE、CUBE → L0C（拐点在间隙中线）
-    const g1 = (L1.x + L1.w + COL.l0) / 2, g2 = (COL.l0 + 150 + BOX.cube[0]) / 2, cubeL = BOX.cube[0], cubeR = cubeL + BOX.cube[2];
-    const midA = BOX.l0a[1] + 28, midB = BOX.l0b[1] + 28;
-    line('M' + (L1.x + L1.w) + ' ' + qY + ' H ' + g1 + ' V ' + midA + ' H ' + (COL.l0 - 2), 'is-q', 'wbChipQ');
-    line('M' + (L1.x + L1.w) + ' ' + midB + ' H ' + (COL.l0 - 2), 'is-kv', 'wbChipKv');
-    line('M' + (COL.l0 + 150) + ' ' + midA + ' H ' + g2 + ' V ' + (ROW - 14) + ' H ' + (cubeL - 2), 'is-q', 'wbChipQ');
-    line('M' + (COL.l0 + 150) + ' ' + midB + ' H ' + g2 + ' V ' + (ROW + 14) + ' H ' + (cubeL - 2), 'is-kv', 'wbChipKv');
-    line('M' + cubeR + ' ' + ROW + ' H ' + (COL.l0c - 2), 'is-acc', 'wbChipAcc');
-    // L0C → 管道（C2V）→ 上方 AIV0；AIV0 → 管道（V2C）
-    const pL = 296 + PIPE_D[0], pR = 346 + PIPE_D[0], pc = 321 + PIPE_D[0], c2vY = 290 + PIPE_D[1], v2cY = 342 + PIPE_D[1];
-    const g3 = (COL.l0c + 200 + pL) / 2, upX = AIC.x + AIC.w - 16, dnX = AIC.x + AIC.w - 8, a0b = AIV_Y[0] + AIV_H;
-    line('M' + (COL.l0c + 200) + ' ' + ROW + ' H ' + g3 + ' V ' + c2vY + ' H ' + (pL - 2), 'is-pipe', '');
-    line('M' + pR + ' ' + c2vY + ' H ' + upX + ' V ' + (a0b + 2), 'is-vec', 'wbChipVec');
-    line('M' + dnX + ' ' + (a0b) + ' V ' + v2cY + ' H ' + (pR + 2), 'is-vec', 'wbChipVec');
-    // AIC ↔ AIV1：管道正下方，虚线 = 只握手、无有效数据
-    line('M' + pc + ' ' + (368 + PIPE_D[1]) + ' V ' + (AIV_Y[1] - 2), 'is-dim', 'wbChipDim', [pc - 6, AIV_Y[1] - 4, 'end', 'AIV1 ↔ AIC 只握手（tpop / tfree），无有效数据']);
-    // 写回横道：L0C（oi）与 AIV0（mi / li）汇入 AIV0 与 AIC 之间的横道，回到 GM 的 mi / li / oi
+    // 每条关系一根线：能直连就直连（0 折），跨行的写回只拐一次
+    const gmR = GM.cardX + GM.cardW;                                    // GM 卡片右沿
+    const aiv0Bot = AIV_Y[0] + AIV_H, barBot = AIV_Y[0] + BAR.dy + BAR.h;
+    const l0R = COL.l0 + BOX.l0a[2], cubeR = BOX.cube[0] + BOX.cube[2];
+    const l0cTop = BOX.l0c[1], l0cBot = BOX.l0c[1] + BOX.l0c[3];
+    const rowBuf = svg.querySelector('.sv-ub[data-ub="ub0"] .sv-buf.k-row');
+    const MI_X = rowBuf ? num(rowBuf, 'x') + 1 : BAR_X + 110;          // UB 里 mi / li 两行的位置
+    // GM → AIV0 / L1：卡片与目标同高，水平直连
+    if (card['gm-plan']) line('M' + gmR + ' ' + BAR_MID + ' H ' + (BAR_X - 2), 'is-vec', 'wbChipVec', null, 'gm-plan aiv0 ub0');
+    if (card['gm-ori']) line('M' + gmR + ' ' + GM_Y['gm-ori'] + ' H ' + (L1.x - 2), 'is-kv', 'wbChipKv', null, 'gm-ori l1-kv');
+    if (card['gm-cmp']) line('M' + gmR + ' ' + GM_Y['gm-cmp'] + ' H ' + (L1.x - 2), 'is-kv', 'wbChipKv', null, 'gm-cmp l1-kv');
+    if (card['gm-q']) line('M' + gmR + ' ' + Y_Q + ' H ' + (L1.x - 2), 'is-q', 'wbChipQ', null, 'gm-q l1-q');
+    // AIC 内部：L1 KV → L0B → CUBE、L1 Q → L0A → CUBE、CUBE → L0C，全是水平直线
+    line('M' + (L1.x + L1.w) + ' ' + Y_KV + ' H ' + (COL.l0 - 2), 'is-kv', 'wbChipKv', null, 'l1-kv l0b');
+    line('M' + (L1.x + L1.w) + ' ' + Y_Q + ' H ' + (COL.l0 - 2), 'is-q', 'wbChipQ', null, 'l1-q l0a');
+    line('M' + l0R + ' ' + Y_KV + ' H ' + (BOX.cube[0] - 2), 'is-kv', 'wbChipKv', null, 'l0b cube');
+    line('M' + l0R + ' ' + Y_Q + ' H ' + (BOX.cube[0] - 2), 'is-q', 'wbChipQ', null, 'l0a cube');
+    line('M' + cubeR + ' ' + ROW + ' H ' + (COL.l0c - 2), 'is-acc', 'wbChipAcc', null, 'cube l0c');
+    // 核间管道：C2V 从 L0C 竖直向上进 AIV0；V2C 从 UB 工作区竖直向下进 L1 顶端的 v2c 槽；
+    //   AIV1 与 C2V 同一条竖线向下，虚线 = 只握手、无有效数据
+    line('M' + C2V_X + ' ' + l0cTop + ' V ' + (aiv0Bot + 2), 'is-vec', 'wbChipVec', null, 'l0c pipe ub0 aiv0');
+    line('M' + V2C_X + ' ' + barBot + ' V ' + (L1.y - 2), 'is-vec', 'wbChipVec', null, 'ub0 aiv0 l1-slot');
+    el('text', { x: V2C_X + 6, y: AIC.y + 16, class: 'wb-link-k is-vec' }, links).textContent = 'V2C';
+    line('M' + C2V_X + ' ' + l0cBot + ' V ' + (AIV_Y[1] - 2), 'is-dim', 'wbChipDim', [C2V_X - 6, AIV_Y[1] - 4, 'end', 'AIV1 ↔ AIC 只握手（tpop / tfree），无有效数据'], 'pipe aiv1 ub1');
+    // 写回：oi 从 L0C 竖直上到写回横道、左拐进 GM（只拐一次）；mi / li 从 UB 竖直落到横道汇入
     if (card['gm-out']) {
-      const lx = COL.l0c + 100, mx = ROWX + 24 + BAR.w + 36 + 45;      // mi / li 从 AIV0 的 Vector 块写回
-      line('M' + lx + ' ' + (ROW - 35) + ' V ' + LANE_OUT + ' H ' + lane(0) + ' V ' + card['gm-out'].m + ' H ' + (card['gm-out'].r + 2), 'is-out', 'wbChipOut', [(ROWX + lx) / 2, LANE_OUT + 11, 'middle', '写回 mi / li / oi']);
-      line('M' + mx + ' ' + (AIV_Y[0] + 64) + ' V ' + LANE_OUT, 'is-out', '');
-      el('text', { x: lx + 6, y: LANE_OUT + 11, class: 'wb-link-k is-out' }, links).textContent = 'oi ← AIC L0C';
-      el('text', { x: mx + 6, y: LANE_OUT + 11, class: 'wb-link-k is-out' }, links).textContent = 'mi / li ← AIV0';
+      line('M' + OI_X + ' ' + l0cTop + ' V ' + LANE_OUT + ' H ' + (gmR + 2), 'is-out', 'wbChipOut', null, 'l0c gm-out');
+      line('M' + MI_X + ' ' + barBot + ' V ' + LANE_OUT, 'is-out', '', null, 'ub0 aiv0 gm-out');
     }
-    // 搬运单元：黄色胶囊标在对应连线上（参考 hardware-architecture-viewport 的 MTE / FixPipe）
+    // 搬运单元：胶囊标在对应连线上（参考 hardware-architecture-viewport 的 MTE / FixPipe），同类上下对齐
     const pillG = el('g', { class: 'wb-pills', 'pointer-events': 'none' }, svg);
     const pill = function (cx, cy, t) {
       const w = t.length * 5.4 + 10;
       el('rect', { x: cx - w / 2, y: cy - 6, width: w, height: 12, rx: 6, class: 'wb-pill' }, pillG);
       el('text', { x: cx, y: cy + 3, 'text-anchor': 'middle', class: 'wb-pill-k' }, pillG).textContent = t;
     };
-    if (card['gm-plan']) pill((card['gm-plan'].r + ROWX) / 2, card['gm-plan'].m, 'MTE2');          // GM → AIV0
-    pill((lane(1) + L1.x) / 2, qY, 'MTE2');                                                        // GM → L1
-    pill(g1, (qY + midA) / 2, 'MTE1');                                                             // L1 → L0A
-    pill(g1, midB, 'MTE1');                                                                        // L1 → L0B
-    pill(COL.l0c + 100, (ROW - 35 + LANE_OUT) / 2, 'FixPipe');                                     // L0C → GM
-    pill(ROWX + 24 + BAR.w + 36 + 45 - 70, LANE_OUT, 'MTE3');                                     // UB → GM
+    const mte2X = (AIC.x + L1.x) / 2 + 18;
+    if (card['gm-plan']) pill((FRAME.x + BAR_X) / 2, BAR_MID, 'MTE2');                               // GM → UB
+    ['gm-ori', 'gm-cmp', 'gm-q'].forEach(function (id) { if (card[id]) pill(mte2X, GM_Y[id], 'MTE2'); }); // GM → L1
+    pill((L1.x + L1.w + COL.l0) / 2, Y_KV, 'MTE1');                                                // L1 → L0B
+    pill((L1.x + L1.w + COL.l0) / 2, Y_Q, 'MTE1');                                                 // L1 → L0A
+    if (card['gm-out']) {
+      pill(OI_X, l0cTop - 22, 'FixPipe');                                                          // L0C → GM
+      pill(MI_X, (barBot + LANE_OUT) / 2, 'MTE3');                                                 // UB → GM
+    }
     // 放大锥：SPMD 第 1 格 → 分组框上沿；SPMD 条垫底并置顶
     if (core0 && frame) {
       const cx = num(core0, 'x') + CORES_D[0], cy = num(core0, 'y') + num(core0, 'height') + CORES_D[1];
@@ -285,7 +307,7 @@
         const txt = t.textContent.trim();
         if (txt === 'CUBE') { set(t, { x: cx, y: o[1] + b[3] / 2 + 5, 'text-anchor': 'middle' }); t.setAttribute('class', 'wb-compute-k'); return; }
         const k = /^QK/.test(txt) ? 0 : /^PV/.test(txt) ? 1 : /^K=/.test(txt) ? 2 : -1;
-        if (k >= 0) set(t, { x: cx, y: o[1] + b[3] + 14 + k * 12, 'text-anchor': 'middle' });
+        if (k >= 0) set(t, { x: cx, y: o[1] - 41 + k * 13, 'text-anchor': 'middle' });   // 放在 CUBE 上方空白处，不压下方的握手虚线说明
       });
     }
   }
@@ -301,7 +323,7 @@
     ['l1-q', 'l1-kv'].forEach(function (id) {
       const g = region(svg, id), r = g && g.querySelector('.sv-l1'); if (!r) return;
       g.classList.add('wb-tensor');
-      el('rect', { x: r.getAttribute('x'), y: r.getAttribute('y'), width: r.getAttribute('width'), height: r.getAttribute('height'), fill: 'url(#wbTensorGrid)', 'pointer-events': 'none' }, g, r.nextSibling);
+      el('rect', { x: r.getAttribute('x'), y: r.getAttribute('y'), width: r.getAttribute('width'), height: r.getAttribute('height'), rx: 4, fill: 'url(#wbTensorGrid)', 'pointer-events': 'none' }, g, r.nextSibling);
       const t = g.querySelector('text');
       if (t && id === 'l1-kv') {
         t.textContent = 'KV';
@@ -373,6 +395,13 @@
     if (!svg) return;
     svg.classList.toggle('wb-all', showAll);
     const on = hoverSet.concat(pinSet);
+    if (document.body.classList.contains('is-focusing') || !document.getElementById('lensDetail').hidden) {
+      svg.querySelectorAll('.sv-region.is-hot').forEach(function (r) { on.push(r.dataset.region); });
+    }
+    svg.querySelectorAll('[data-owners]').forEach(function (link) {
+      const active = link.dataset.owners.split(' ').some(function (id) { return on.indexOf(id) >= 0; });
+      link.classList.toggle('is-active', active);
+    });
     svg.querySelectorAll('.wb-sec').forEach(function (n) { n.classList.toggle('is-peek', on.indexOf(n.dataset.owner) >= 0); });
     svg.querySelectorAll('.sv-region').forEach(function (r) { r.classList.toggle('wb-pinned', pinSet.indexOf(r.dataset.region) >= 0); });
   }
@@ -408,6 +437,11 @@
   const stats = document.getElementById('hpChipStats');
   if (stats) new MutationObserver(tagStats).observe(stats, { childList: true });
   new MutationObserver(decorate).observe(host, { childList: true });
+  new MutationObserver(function (changes) {
+    if (changes.some(function (change) { return change.target === document.body || change.target.classList.contains('sv-region'); })) paintPeek();
+  }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
+  const detail = document.getElementById('lensDetail');
+  if (detail) new MutationObserver(function () { paintPeek(); }).observe(detail, { attributes: true, attributeFilter: ['hidden'] });
   decorate(); tagStats();
   setTimeout(toolbar, 0);
 })();

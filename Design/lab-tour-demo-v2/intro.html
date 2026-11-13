@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>项目背景 · 昇腾算子开发可解释/可观测设计</title>
 <style>
-/* 项目背景页：首页（index.html）之前的一页。左边“算子开发”与三层叠放的平面，右边三位开发者的原声气泡。
- * 变量、字体与三幕的颜色沿用 index.html：01 绿、02 紫、03 蓝 */
+/* 项目背景页：首页（index.html）之前的一页。左边是三层叠放的平面，右边是开发与调优的问题。
+ * 变量、字体与首页对应入口的颜色沿用 index.html：01 绿、03 蓝 */
 :root{
   color-scheme:dark;
   --kn-sans:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
@@ -73,10 +73,6 @@ h1{margin:0;font-size:clamp(44px,4.4vw,72px);font-weight:600;line-height:1.1;let
   color:#f7faf9;background:linear-gradient(168deg,#fff 10%,#dcdde2 58%,#aeafb6);
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
   filter:drop-shadow(0 2px 20px rgba(0,0,0,.9))}
-.lead{max-width:66ch;margin:14px 0 0;color:var(--kn-soft);font-size:clamp(15px,1.02vw,17px);line-height:1.85}
-.lead b{color:#f1f2f5;font-weight:600}
-/* 右栏的第二块（用户问题）与上面的 PyPTO 说明之间划一道 */
-.k-sep{margin-top:30px;padding-top:25px;border-top:1px solid var(--kn-line)}
 
 .stack{display:block;width:100%;max-width:720px;height:auto;margin:36px auto 0;overflow:visible;
   filter:drop-shadow(0 18px 34px rgba(0,0,0,.65))}
@@ -112,13 +108,12 @@ h1{margin:0;font-size:clamp(44px,4.4vw,72px);font-weight:600;line-height:1.1;let
 /* ---------------- voices ---------------- */
 h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1.2;letter-spacing:-.02em;color:#f3f4f7}
 .voices-sub{margin:0 0 22px;color:#a8a9b1;font-size:13px;line-height:1.7}
-/* 三条断点就是开发 → 编译 → 调优 一条链：头像之间串一条由绿到蓝的细线 */
+/* 开发与调优两个问题之间串一条由绿到蓝的细线 */
 .voices{position:relative;display:grid;gap:14px;margin:0;padding:0;list-style:none}
 .voices::before{content:"";position:absolute;left:31.5px;top:34px;bottom:34px;width:1px;opacity:.34;
-  background:linear-gradient(180deg,var(--kn-green),var(--kn-purple) 50%,var(--kn-blue))}
+  background:linear-gradient(180deg,var(--kn-green),var(--kn-blue))}
 .voice{--accent:var(--kn-green);--tint:rgba(66,150,105,.13);display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;align-items:start}
-.voice:nth-child(2){--accent:var(--kn-purple);--tint:rgba(128,98,186,.13)}
-.voice:nth-child(3){--accent:var(--kn-blue);--tint:rgba(62,130,170,.13)}
+.voice:nth-child(2){--accent:var(--kn-blue);--tint:rgba(62,130,170,.13)}
 .who{display:flex;flex-direction:column;align-items:center;gap:7px;padding-top:6px}
 .ava{position:relative;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;
   border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
@@ -178,7 +173,6 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
 .is-ready .voices-col>*{animation:kn-fade .9s var(--kn-ease) .35s both}
 .is-ready .voice:nth-child(1){animation:kn-rise 1s var(--kn-ease) .5s both}
 .is-ready .voice:nth-child(2){animation:kn-rise 1s var(--kn-ease) .64s both}
-.is-ready .voice:nth-child(3){animation:kn-rise 1s var(--kn-ease) .78s both}
 .is-ready .drop{animation:kn-dash 2.4s linear 1.2s infinite}
 @keyframes kn-dash{to{stroke-dashoffset:-28}}
 
@@ -309,13 +303,11 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
 
     </section>
 
-    <!-- 右：先说 PyPTO 解决什么，再落到三个断点，各对应首页的一幕 -->
+    <!-- 右：开发与调优的两个断点，对应首页入口 -->
     <section class="voices-col" aria-labelledby="vTitle">
-      <p class="lead">算子开发要解决的，是把数学计算放到有限的硬件资源上：数据按正确的精度和顺序流动，计算单元尽量不停下来，存储、通信和同步都不成为瓶颈。PyPTO 是一个面向 AI 加速器的编程框架，帮助开发者编写和优化高性能算子，并将其编译为芯片上运行的代码。</p>
-
-      <p class="k k-sep">USER PROBLEMS · 用户问题</p>
-      <h2 id="vTitle">三个断点</h2>
-      <p class="voices-sub">同一段算子的信息分散在源码、编译产物和性能数据里，开发、编译、调优各有一处看不清的地方。</p>
+      <p class="k">USER PROBLEMS · 用户问题</p>
+      <h2 id="vTitle">两个断点</h2>
+      <p class="voices-sub">从算子开发到性能调优，开发者需要看清代码在硬件上的落点，以及性能瓶颈所在。</p>
       <ol class="voices" role="list">
         <li class="voice">
           <div class="who" aria-hidden="true">
@@ -328,20 +320,6 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
             <div class="b-f">
               <span class="src">qk_pv · valid_shape=[0, 0]，一半 AIV 空转</span>
               <a class="act" href="workbench.html"><b>01</b>算子开发<i aria-hidden="true">↗</i></a>
-            </div>
-          </div>
-        </li>
-        <li class="voice">
-          <div class="who" aria-hidden="true">
-            <span class="ava"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/><path d="M17 3.5h4M19 1.5v4"/></svg></span>
-            <span class="role">排查问题的开发者</span>
-          </div>
-          <div class="bubble">
-            <p class="b-h">决定都在编译里做完，源码上没有痕迹</p>
-            <p class="b-p">结果不对时只能从最终产物倒推：输出 7% 的值是错的<b>却没有报错</b>，翻开生成的 C++ 才看到漏了一条 WAR 边。</p>
-            <div class="b-f">
-              <span class="src">pypto-lib #481</span>
-              <a class="act" href="compile.html"><b>02</b>可视化编译<i aria-hidden="true">↗</i></a>
             </div>
           </div>
         </li>
@@ -364,8 +342,8 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
   </div>
 
   <footer class="footer">
-    <span class="sources">来源：<a href="../../Product_Planning/Hardware-Native_开发全流程体验问题地图_20261104.md">Hardware-Native 开发全流程体验问题地图</a> · <a href="../../Insight/PyPTO开发者体验洞察报告0818.md">PyPTO 开发者体验洞察报告</a> · <a href="../../Product_Planning/Agent强参与下的算子开发_流程开发者与UX变化.md">Agent 强参与下的算子开发</a> · PyPTO 定义取自 <a href="../../repo/pto/README.zh-CN.md">repo/pto/README</a>。断点 01 为规划判断，02 / 03 取自真实 Issue。</span>
-    <span>NEXT / 开发 → 编译 → 调优</span>
+    <span class="sources">来源：<a href="../../Product_Planning/Hardware-Native_开发全流程体验问题地图_20261104.md">Hardware-Native 开发全流程体验问题地图</a> · <a href="../../Insight/PyPTO开发者体验洞察报告0818.md">PyPTO 开发者体验洞察报告</a> · <a href="../../Product_Planning/Agent强参与下的算子开发_流程开发者与UX变化.md">Agent 强参与下的算子开发</a>。断点 01 为规划判断，03 参考真实 Issue。</span>
+    <span>NEXT / 开发 → 调优</span>
   </footer>
 </main>
 <script>

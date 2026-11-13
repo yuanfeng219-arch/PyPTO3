@@ -1,0 +1,14 @@
+/* Shared top-bar typography and spacing for the fused workbench and performance views. */
+.hp-app { grid-template-rows:64px minmax(0,1fr) 28px; }
+.hp-top,.run-header .top { box-sizing:border-box; min-height:64px; padding:0 20px; gap:16px; background:#111; }
+.hp-top-left,.hp-top-right { gap:12px; }
+.hp-top .hp-brand,.run-header .top h1 { font:600 18px/1.2 Inter,"Noto Sans SC","PingFang SC","Microsoft YaHei",Arial,sans-serif; letter-spacing:0; color:#e2e2e2; white-space:nowrap; }
+.hp-top .hp-crumb,.hp-top .hp-target,.hp-top .hp-topbtn,.run-header .top #rank,.run-header .top .run-window { font-size:13px; }
+.hp-top .hp-topbtn { height:36px; }
+.hp-top .story-toggle { width:36px; }
+.hp-top .demo-home,.run-header .top .demo-home { width:36px; height:36px; }
+.run-header .top { height:64px; }
+.run-header .top .run-window b { font-size:18px; }
+@media(max-width:1280px) and (min-width:861px) { .hp-app { grid-template-rows:64px auto 28px; } }
+@media(max-width:860px) { .hp-app { grid-template-rows:auto auto auto; } .hp-top { min-height:64px; height:auto; padding:8px 16px; } }
+@media(max-width:680px) { .hp-top .hp-brand,.run-header .top h1 { font-size:16px; } .run-header .top { padding:0 16px; gap:10px; } }

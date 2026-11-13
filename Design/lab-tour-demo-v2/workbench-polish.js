@@ -84,10 +84,14 @@
     if (!svg || svg.dataset.wb) return;
     svg.dataset.wb = '1';
     svg.classList.add('wb-logic');
+    svg.querySelectorAll('.lg-edge').forEach(function (edge) {
+      edge.setAttribute('d', window.roundWorkbenchConnector(edge.getAttribute('d')));
+    });
     const defs = svg.querySelector('defs') || svgEl('defs', {}, svg, svg.firstChild);
-    const mk = svgEl('marker', { id: 'wbLoopArrow', viewBox: '0 0 8 8', refX: '4', refY: '4', markerWidth: '7', markerHeight: '7', orient: 'auto' }, defs);
-    svgEl('path', { d: 'M0 0 L8 4 L0 8 z', class: 'wb-loop-head' }, mk);
     const group = function (id) { return svg.querySelector('.lg-hit[data-node="' + id + '"]'); };
+    // 节点宽度由相邻布局和连线决定，约束长标签以免压到右侧连线。
+    const scaleLabel = group('scale') && group('scale').querySelector('[data-object="scale"] text');
+    if (scaleLabel) { scaleLabel.setAttribute('textLength', '64'); scaleLabel.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
     // Q / KV 张量格写死了透镜原版的粉彩色（薄荷绿、淡紫），换成 Demo 色板的角色色：Q 来自 GM = 绿，KV 在 L1 喂 Cube = 紫
     const RECOLOR = { '#72d7af': 'var(--lime)', '#bca0f3': 'var(--lav)' };
     svg.querySelectorAll('[data-tensor] [fill]').forEach(function (e) {
@@ -107,9 +111,7 @@
     }
     const iter = group('f-iter');
     if (iter) {
-      svgEl('path', { d: 'M25.5 41 V 317', class: 'wb-rail' }, iter);
-      svgEl('path', { d: 'M691 314 V 48 Q 691 42 685 42 H 676', class: 'wb-loop', 'marker-end': 'url(#wbLoopArrow)' }, iter);
-      svgEl('text', { x: 684, y: 55, 'text-anchor': 'end', class: 'sv-label wb-loop-k' }, iter).textContent = '逐个取下一项';
+      svgEl('text', { x: 684, y: 53, 'text-anchor': 'end', class: 'sv-label wb-loop-k' }, iter).textContent = '每次处理一项';
       shiftTexts(iter, 53, 16);
       const ic = svgEl('g', { class: 'wb-ic', transform: 'translate(36 44)' }, iter);
       svgEl('path', { d: 'M9 5 A4 4 0 1 1 7.6 1.9', class: 'wb-ic-line' }, ic);

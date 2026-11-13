@@ -126,7 +126,7 @@ body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
 #viewKernel > #hpLensPane .hp-svg { padding-top: 6px; }
 
 /* 默认结论条：进硅片落点先说结论，再看图（同 result.html 顶栏下那条的思路） */
-.wb-verdict { flex: none; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 9px 14px; border-bottom: 1px solid var(--divider); background: rgb(242 196 95 / 7%); box-shadow: inset 3px 0 0 var(--amber); font-size: 13px; color: var(--muted); }
+.wb-verdict { flex: none; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; margin: 0 14px; padding: 9px 14px; border-bottom: 1px solid var(--divider); background: rgb(242 196 95 / 7%); box-shadow: inset 3px 0 0 var(--amber); font-size: 13px; color: var(--muted); }
 .wb-verdict[hidden] { display: none; }
 .wb-verdict-k { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--amber); white-space: nowrap; }
 .wb-verdict-k svg { width: 15px; height: 15px; }
@@ -150,11 +150,8 @@ body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
 /* SPMD：实线框 + 两层错位卡片叠 = 同一段代码并行 24 份 */
 #hpLogic .wb-logic .lg-hit[data-node="f-spmd"] > .lg-frame { fill: #151515; stroke: rgb(226 227 233 / 14%); stroke-width: 1; }
 #hpLogic .wb-logic .wb-deck { fill: #141414; stroke: rgb(226 227 233 / 8%); stroke-width: 1; rx: 4px; }
-/* FOR：不画整框，左侧虚线导轨 + 右侧回环箭头 = 顺序一轮一轮地走 */
-#hpLogic .wb-logic .lg-hit[data-node="f-iter"] > .lg-frame { fill: #191919; stroke: none; }
-#hpLogic .wb-logic .wb-rail { fill: none; stroke: var(--fw); stroke-width: 2; stroke-dasharray: 4 3; opacity: .75; }
-#hpLogic .wb-logic .wb-loop { fill: none; stroke: #6b6c73; stroke-width: 1.2; stroke-dasharray: 3 3; }
-#hpLogic .wb-logic .wb-loop-head { fill: #6b6c73; }
+/* FOR：完整虚线边框标明循环体的范围，标题说明每次迭代的内容。 */
+#hpLogic .wb-logic .lg-hit[data-node="f-iter"] > .lg-frame { fill: #191919; stroke: #6b6c73; stroke-width: 1; stroke-dasharray: 4 3; rx: 6px; }
 #hpLogic .wb-logic .wb-loop-k { fill: #92939a; font-size: 9px; }
 /* PIPELINE：实线框 + 表头色带 = 一个有“级”的结构，右上的在飞格沿用原色 */
 #hpLogic .wb-logic .lg-hit[data-node="f-pipe"] > .lg-frame { fill: #1d1d1e; stroke: rgb(226 227 233 / 14%); stroke-width: 1; }
@@ -216,17 +213,16 @@ body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
 .wb-map-note i { font-style: normal; color: var(--text); }
 .wb-map-note b { color: var(--text); font-weight: 600; margin-right: 2px; }
 #hpLogic .wb-logic .lg-hit, #hpLogic .wb-logic .lg-edge, #hpLogic .wb-logic .wb-branch,
-#hpLogic .wb-logic .lg-hit > text, #hpLogic .wb-logic .lg-hit > .wb-ic, #hpLogic .wb-logic .wb-rail, #hpLogic .wb-logic .wb-loop { transition: opacity .2s; }
-/* 工作怎么分：亮外两层（SPMD 框 + FOR 导轨与关键字），里层压暗；选中 Work Item 时交给 lens.js 的路径高亮 */
+#hpLogic .wb-logic .lg-hit > text, #hpLogic .wb-logic .lg-hit > .wb-ic { transition: opacity .2s; }
+/* 工作怎么分：亮外两层（SPMD 框 + FOR 框与关键字），里层压暗；选中 Work Item 时交给 lens.js 的路径高亮 */
 #viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-spmd"] > .lg-frame { stroke: rgb(226 227 233 / 42%); }
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-rail { stroke: #c6c7cb; opacity: 1; }
-#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-loop { stroke: #92939a; }
+#viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit[data-node="f-iter"] > .lg-frame { stroke: #92939a; }
 #viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > .sv-title { fill: #f5f5f7; }
 #viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-hit:not([data-node="f-spmd"]):not([data-node="f-iter"]),
 #viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .lg-edge,
 #viewKernel:not(.is-chip) #hpLogic:not(.has-ctx) .wb-logic .wb-branch { opacity: .45; }
 /* 放在哪：外两层的标注退后，里层阶段卡片描一圈 */
-#viewKernel.is-chip #hpLogic .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > :is(text, .wb-ic, .wb-rail, .wb-loop) { opacity: .4; }
+#viewKernel.is-chip #hpLogic .wb-logic :is(.lg-hit[data-node="f-spmd"], .lg-hit[data-node="f-iter"]) > :is(text, .wb-ic) { opacity: .4; }
 #viewKernel.is-chip #hpLogic:not(.has-ctx) .wb-logic .lg-phase { stroke: rgb(226 227 233 / 28%); stroke-width: 1; }
 
 /* ── 9 顶栏路径旁的 Kernel 链 ── */
@@ -391,7 +387,7 @@ body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region[data-region="a
 /* P1-5 数据流：线色跟数据角色；底色描边让交叉处留缝 */
 #hpSvg .wb-links { pointer-events: none; }
 #hpSvg .wb-link-gap { fill: none; stroke: #191919; stroke-width: 4; }
-#hpSvg .wb-link { fill: none; stroke-width: 1.4; stroke-linejoin: round; }
+#hpSvg .wb-link { fill: none; stroke-width: 1.1; stroke-linejoin: round; opacity: .6; }
 #hpSvg .wb-link.is-q { stroke: var(--lime); }
 #hpSvg .wb-link.is-kv { stroke: var(--lav-ink); }
 #hpSvg .wb-link.is-vec { stroke: var(--sky-ink); }
@@ -467,10 +463,19 @@ body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region[data-region="a
 #hpSvg .wb-vector { fill: var(--sky-mute); }
 #hpSvg .wb-vector.is-idle { opacity: .3; }
 #hpSvg .wb-compute-k { fill: #fff !important; font: 600 11.5px var(--sans); pointer-events: none; }
-#hpSvg .wb-vec-link { fill: none; stroke: var(--sky-ink); stroke-width: 1.4; pointer-events: none; }
+#hpSvg .wb-vec-link { fill: none; stroke: var(--sky-ink); stroke-width: 1.1; opacity: .6; pointer-events: none; }
 /* 搬运单元：胶囊，同源码栏“GM → L1 · DMA”标签（深底 + 绿字 + 等宽字） */
-#hpSvg .wb-pill { fill: color-mix(in srgb, var(--lime) 14%, var(--canvas)); stroke: rgb(136 236 48 / 40%); stroke-width: .8; }
-#hpSvg .wb-pill-k { fill: #c5f39c; font: 600 8.5px var(--mono); }
+#hpSvg .wb-pill { fill: #292b28; stroke: rgb(190 200 185 / 25%); stroke-width: .8; }
+#hpSvg .wb-pill-k { fill: #aeb7ab; font: 600 8.5px var(--mono); }
+/* 默认收起数据角色色；悬停、钉住或源码联动时只点亮相关连线。 */
+#hpSvg .wb-link:is(.is-q, .is-kv, .is-vec, .is-dim, .is-out, .is-pipe, .is-acc),
+#hpSvg .wb-vec-link { stroke: #92939a; opacity: .55; }
+#hpSvg .wb-link.is-active, #hpSvg .wb-vec-link.is-active { opacity: 1; stroke-width: 1.4; }
+#hpSvg .wb-link.is-q.is-active { stroke: var(--lime); }
+#hpSvg .wb-link.is-kv.is-active { stroke: var(--lav-ink); }
+#hpSvg .wb-link.is-vec.is-active, #hpSvg .wb-vec-link.is-active { stroke: var(--sky-ink); }
+#hpSvg .wb-link.is-acc.is-active { stroke: var(--amber); }
+#hpSvg .wb-link:is(.is-pipe, .is-out, .is-dim).is-active { stroke: #e2e3e9; }
 /* 悬停联动 / 钉住时的白色高亮边：盖过上面的“无描边 / 蓝描边” */
 body.is-focusing #hpSvg .sv-region.is-hot > .sv-box, body.is-focusing #hpSvg .sv-region.is-hot .sv-mem,
 #hpSvg .sv-region.wb-pinned > .sv-box, #hpSvg .sv-region.wb-pinned .sv-mem { stroke: var(--text); stroke-width: 1.5; }

@@ -1,0 +1,151 @@
+/* Lab Tour result menus: one left-aligned row contract, independent of toolbar pills. */
+:root #run-header .lane-toolbar .menu-panel .ctl{
+ display:flex;justify-content:flex-start;align-items:center;text-align:left;
+ width:100%;height:auto;min-height:38px;padding:8px 12px;gap:10px;
+ border-radius:8px;font:13px/1.45 var(--font);white-space:normal;
+}
+:root #run-header .lane-toolbar .menu-panel .ctl::before{width:16px;min-width:16px;flex:0 0 16px;text-align:center}
+:root #run-header .lane-toolbar .menu-panel .choice-item{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:10px}
+:root #run-header .lane-toolbar .menu-panel .choice-item > span{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;text-align:left}
+:root #run-header .lane-toolbar .menu-panel .semantic-icon{margin:0;flex:0 0 24px}
+:root #run-header .lane-toolbar .menu-panel .result-item{
+ display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:5px;min-height:58px;
+}
+:root #run-header .lane-toolbar .menu-panel .result-item::before{display:none}
+:root #run-header .lane-toolbar .menu-panel .result-name{display:flex;align-items:center;gap:10px;min-width:0;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+:root #run-header .lane-toolbar .menu-panel .result-name > i{flex:none;margin:0}
+:root #run-header .lane-toolbar .menu-panel .result-item small{display:block;margin:0;padding-left:30px;color:#aaa;font:12px/1.5 var(--font);white-space:normal;overflow-wrap:anywhere}
+:root #run-header .lane-toolbar .menu-panel .result-item[aria-pressed=true]{background:#ffffff12!important;color:#eee!important}
+:root #run-header .lane-toolbar .menu-panel > details{width:100%}
+:root #run-header .lane-toolbar .menu-panel > details > summary.ctl::before{display:none}
+:root #run-header .lane-toolbar .menu-panel > details > summary.ctl::after{margin-left:auto;flex:none}
+:root #run-header .lane-toolbar .menu-panel > details > .result-item{padding-left:20px}
+:root #run-header .lane-toolbar .menu-panel strong{display:block;padding:6px 12px 10px;line-height:1.4}
+:root #run-header .lane-toolbar .menu-panel .menu-divider{flex:none;margin:8px 0}
+#lane [data-result-tag]:focus-visible .result-tag-rim{stroke:#fff;stroke-opacity:1;stroke-width:1.2}
+
+/* Continuous dependency inspector: filled groups and reusable neutral capsule tags. */
+#single-panel{border:0;box-shadow:none}
+#single-panel table{border:0;border-collapse:separate;border-spacing:0 8px}
+#single-panel thead th{border:0;padding:4px 8px 8px;font-size:12px}
+#single-panel tbody td,#single-panel tbody td:first-child,#single-panel tbody td:last-child{
+ border:0;box-shadow:none;background:#202020;
+}
+#single-panel tbody td{padding-top:14px;padding-bottom:14px}
+#single-panel tbody td:first-child{border-radius:10px 0 0 10px}
+#single-panel tbody td:last-child{border-radius:0 10px 10px 0;padding:8px 10px 8px 0}
+#single-panel tbody tr:hover td{background:#262626}
+#single-panel tbody tr.single-selected td{background:#24332c}
+#single-panel .single-path{border:0;border-radius:8px;padding:4px 6px}
+#single-panel .single-count,#single-panel .single-path-id{
+ display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;
+ background:#bca0f3;color:#17121f;
+ box-shadow:none;font-variant-numeric:tabular-nums;
+}
+#single-panel .single-count{min-width:28px;height:24px;padding:0 8px;font:500 12px/1 var(--mono)}
+#single-panel .single-path-id{background:#b9cbff;color:#131d36;padding:3px 8px;margin-top:1px;font:500 12px/1.5 var(--mono)}
+#single-panel .single-path-step{padding-top:6px;padding-bottom:6px;gap:10px}
+#single-panel .single-path-name{color:#eee;font:13px/1.6 var(--mono)}
+#single-panel .single-path-number{top:8px;border:0;background:#3b3b3b;color:#eee}
+#single-panel .single-path-step:not(:last-child)::before{border:0;left:7px;width:1px;background:#ffffff22;top:23px;bottom:-5px}
+#single-panel .single-selected .single-count{background:#88ec30;color:#152009}
+#single-panel .single-path[aria-pressed=true] .single-path-number{border:0;background:#63e6b3;color:#102219}
+#single-panel .single-phase-legend{border:0;background:#ffffff06;border-radius:10px}
+.single-panel-grip{border:0}
+
+/* Keep supporting text readable against the flat group surfaces. */
+#single-panel thead th{color:#b8b8b8}
+#single-panel tbody td:first-child{color:#aaa}
+
+/* 默认结论条：顶栏与泳道之间的一行，进页面就指出最值得先看的一处。
+ * 左边是谁，右边三项读数，两项带按同一份数字画出来的图形；
+ * 「它在路径哪儿」不再另画一条，直接点亮下面那条真实的关键路径（见 #cp .cp-lead）。
+ * 圆角与底色用下钻页共用的 demo-shell.css，强调色取页面自己给该特征的语义色。 */
+.lead-finding{
+ flex:none;display:flex;align-items:center;gap:18px;overflow:hidden;
+ margin:6px 24px 0;padding:0 18px 0 15px;min-height:50px;
+ border:1px solid #2d2d2d;border-left:3px solid var(--lead-color,#bca0f3);
+ border-radius:var(--demo-radius-card,12px);
+ background:linear-gradient(90deg,
+   color-mix(in srgb,var(--lead-color,#bca0f3) 9%,var(--demo-surface,#171717)) 0,
+   var(--demo-surface,#171717) 340px);
+}
+.lead-finding[role="button"]{cursor:pointer}
+.lead-finding[role="button"]:hover,.lead-finding[aria-pressed="true"]{border-color:var(--lead-color,#bca0f3)}
+.lead-finding[role="button"]:focus-visible{outline:2px solid var(--lead-color,#bca0f3);outline-offset:2px}
+.lead-id{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.lead-id b{font:500 14px/1.5 var(--mono);color:#f4f4f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lead-place{flex:none;color:#9a9a9a;font:12px/1.5 var(--font);white-space:nowrap}
+.lead-place::before{content:"·";margin-right:10px;color:#4e4e4e}
+.lead-tag{
+ flex:none;padding:2px 9px;border-radius:999px;font:normal 11px/1.6 var(--font);white-space:nowrap;
+ background:color-mix(in srgb,var(--lead-color,#bca0f3) 18%,transparent);color:var(--lead-color,#bca0f3);
+}
+.lead-icon{
+ flex:none;display:inline-flex;align-items:center;justify-content:center;
+ width:22px;height:22px;border-radius:7px;background:var(--lead-color,#bca0f3);color:#111;
+}
+.lead-icon svg{width:14px;height:14px}
+/* 右侧读数：标题、数值、图形、补注 */
+.lead-metrics{flex:none;display:flex;align-items:center}
+.lead-metric{display:flex;align-items:center;gap:9px;padding:5px 20px;border-left:1px solid #272727;white-space:nowrap}
+.lead-metric:last-child{padding-right:0}
+.lead-metric>span{color:#8e8e8e;font:12px/1.5 var(--font)}
+.lead-metric>b{color:#f4f4f4;font:500 16px/1.4 var(--mono)}
+.lead-metric>em{color:#8e8e8e;font:normal 11px/1.5 var(--font)}
+/* 块差距：平均块与最慢块按同一标尺对比；占比类画成一条填充条 */
+.lead-pair{display:flex;flex-direction:column;gap:4px;width:86px}
+.lead-pair i,.lead-fill i{display:block;height:7px;border-radius:2px;background:#585858}
+.lead-pair i.is-lead,.lead-fill i.is-lead{background:var(--lead-color,#bca0f3)}
+.lead-fill{width:86px;height:7px;border-radius:2px;background:#2b2b2b;overflow:hidden}
+/* 下面真实的关键路径条上，把结论指到的那一步点亮 */
+#cp .cp-lead rect{fill:color-mix(in srgb,var(--lead-color,#bca0f3) 58%,#141414)!important;opacity:1!important}
+@media(max-width:1240px){
+ .lead-finding{flex-wrap:wrap;padding:8px 18px 10px 15px;gap:4px 18px}
+ .lead-id{flex-basis:100%}
+ .lead-metrics{flex:1;justify-content:space-between}
+ .lead-metric:first-child{padding-left:0;border-left:0}
+}
+@media(max-width:680px){
+ .lead-finding{margin:6px 12px 0;padding:8px 12px;gap:8px}
+ .lead-id{flex-wrap:wrap;gap:6px 8px}
+ .lead-id b{flex:1 1 0;min-width:0}
+ .lead-place{flex:0 1 auto;white-space:normal}
+ .lead-metrics{flex-wrap:wrap;justify-content:flex-start;gap:4px 12px;min-width:0}
+ .lead-metric{padding:3px 0;border-left:0;flex-wrap:wrap;white-space:normal}
+}
+
+/* 统计面板收起时，它的关闭键不该还浮在顶栏下方（会被当成结论条的关闭键）。 */
+#run-header:not(.stats-initial):not(.stats-pinned):not(.stats-open) #stats-close{display:none}
+
+/* 开屏 5 秒的全局指标面板是浮层，正好压在结论条上：面板在时让出位置，不叠字。 */
+#run-header:is(.stats-initial,.stats-pinned,.stats-open)+.lead-finding{visibility:hidden}
+
+/* 常驻图例：页面自己那份图例内容原本藏在关闭的菜单里，这里铺成页底一行。 */
+.lead-legend{
+ flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:5px 16px;
+ margin:0 24px;padding:6px 0 8px;border-top:1px solid #242424;
+ font:11px/1.6 var(--font);color:#8e8e8e;
+}
+.lead-legend span{display:inline-flex;align-items:center;gap:7px}
+.lead-legend .lead-ramp{
+ width:30px;height:9px;border-radius:2px;
+ background:linear-gradient(90deg,#4e4e4e 0 33%,#5e5e5e 33% 66%,#747474 66%);
+}
+@media(max-width:680px){.lead-legend{margin:0 16px}}
+
+/* 「分析」是这一组控件的标题，不是一颗禁用的按钮：缩小、加字距、用分隔线划出组边界。 */
+:root .lane-toolbar .analysis-group-label{
+ margin:0 10px 0 14px;padding-left:14px;
+ border-left:1px solid #2f2f2f;
+ color:#707070;font-size:11px;letter-spacing:.08em;
+}
+:root #lane-zoom #lane-rows[aria-pressed="true"]{
+  background:rgb(255 255 255 / 14%)!important;
+  color:#f0f0f0!important;
+  border-radius:10px;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / 12%)!important;
+}
+:root #run-header .single-menu .single-menu-item small{padding-left:0;color:#aaa;line-height:1.5}
+:root #run-header .single-menu .single-menu-item .result-name{font-weight:500}
+:root #run-header .single-menu .single-menu-empty{margin:0;padding:8px 12px;color:#aaa;font-size:12px;line-height:1.5}
