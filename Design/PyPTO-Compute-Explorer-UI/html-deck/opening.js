@@ -4,7 +4,7 @@
   const axes = [
     ['计算','Graph','做什么、依赖什么'],
     ['数据','Assignment','处理哪些数据、如何划分与分配'],
-    ['时间','Pipeline','什么时候做、如何协同'],
+    ['执行时间','Pipeline','什么时候做、如何协同'],
   ];
   const scenes = [
     {
@@ -23,25 +23,38 @@
     },
     {
       title:'接手真实算子 · 在运行前还原一次计算',
-      labels:['通过阅读分析源码还原计算过程','推导数据范围和归属','手工推演执行过程'],
-      evidence:[
-        null,
-        ['Triton-Viz/Excel手工Tiling','观察局部 Tile 访问区域，辅助理解分块','triton-viz.png','Triton-Viz 张量视图中高亮的数据访问区域'],
-        ['手排流水','推演执行顺序及哪些步骤可以重叠','manual-pipeline-scheduling.png','手排流水图，包含任务创建、任务执行和流水排布'],
-      ],
+      labels:['运算与依赖','分块范围与归属','执行顺序与重叠'],
+      evidenceDetails:['对照源码、IR 和计算图，梳理运算依赖','用 Excel 推导分块范围，用 Triton-Viz 查看局部 Tile 访问','依据依赖和同步规则，手工推演等待与重叠'],
       caption:'这些信息可以分别获取，但开发者仍需要手工还原并串联，才能理解同一次计算。',
     },
   ];
-  const judgmentChains = [
-    ['需要人工还原','一眼看懂','机制可视化'],
-    ['对象难以关联','连续追踪','共享上下文'],
-    ['变化难以推演','主动探索','交互式推演'],
+  const toolEvidence = [
+    [['源码 / IR / 计算图','compute-ir.png','源码、IR 与计算图中的运算及其依赖']],
+    [
+      ['Excel 手工 Tiling','excel-tiling.svg','表格中的数据范围和任务分组'],
+      ['Triton-Viz','triton-viz.png','Triton-Viz 张量视图中高亮的数据访问区域'],
+    ],
+    [['手排流水','manual-pipeline-scheduling.png','手排流水图，包含任务创建、任务执行和流水排布']],
+  ];
+  const judgmentStrategies = [
+    {
+      pain:'需要人工还原', expectation:'容易理解', title:'机制可感知',
+      detail:'让抽象计算规则变得直观，降低人工还原成本。',
+    },
+    {
+      pain:'对象难以关联', expectation:'连续追踪', title:'共享上下文',
+      detail:'让同一计算对象跨视角连续可追踪。',
+    },
+    {
+      pain:'变化难以推演', expectation:'主动探索', title:'交互式推演',
+      detail:'让开发者主动观察输入和参数变化对计算组织的影响。',
+    },
   ];
   const batchColors = ['#83a5ee','#6ad9a2','#d8a767','#b6a1e8'];
   const steps = {
-    code:['硬件执行','代码来源','理解任务','三个问题','结论'],
-    scenes:['01 冲印店','02 数学计算','03 工具现状'],
-    judgment:['证据承接','认知痛点','用户期望','设计策略'],
+    code:['已有代码','执行目标','认知缺口'],
+    scenes:['01 冲印店','02 数学计算','03 运行前证据'],
+    judgment:['设计判断','策略展开'],
   };
 
   function graph(stages) {
@@ -72,40 +85,24 @@
     ).join('')}<div class="opening-time">逻辑顺序 →</div></div>`;
   }
 
-  function evidenceImage(asset,alt) {
-    return `<img src="assets/tool-references/${asset}" alt="${alt}" draggable="false">`;
-  }
-
-  function renderJudgment(stage) {
-    const [,triton,pipeline] = scenes[2].evidence;
-    const evidence = [
-      [['源码 / IR / 计算图','compute-ir.png','IR 中的运算节点及其连接']],
-      [['Excel 手工 Tiling','excel-tiling.svg','表格中的数据范围和任务分组'],['Triton-Viz',triton[2],triton[3]]],
-      [['手排流水',pipeline[2],pipeline[3]]],
-    ];
-    stage.innerHTML = `<div class="opening-columns opening-judgment-columns">${evidence.map((items,i) => `
-      <div data-axis="${i}">
-        <div class="opening-judgment-evidence">${items.map(([label,asset,alt]) => `
-          <figure><figcaption>${label}</figcaption>${evidenceImage(asset,alt)}</figure>`
-        ).join('')}</div>
-        <ol class="opening-judgment-chain" aria-label="${axes[i][0]} · 认知痛点、用户期望、设计策略">
-          ${judgmentChains[i].map((name,index) => `<li data-judgment-step="${index+1}" hidden>${name}</li>`).join('')}
-        </ol>
-      </div>`
-    ).join('')}</div>`;
+  function evidenceFigures(items) {
+    return items.map(([label,asset,alt]) =>
+      `<figure><figcaption>${label}</figcaption><img src="assets/tool-references/${asset}" alt="${alt}" draggable="false"></figure>`
+    ).join('');
   }
 
   function renderScene(stage, index) {
     const scene = scenes[index];
     const figures = scene.stages
-      ? [graph(scene.stages), tiles(index === 0), timeline(scene.stages)]
-      : scene.evidence.map(item => {
-        if (!item) return '';
-        const [name,detail,asset,alt] = item;
-        return `<div class="opening-evidence" data-reveal><strong>${name}</strong><small>${detail}</small>${evidenceImage(asset,alt)}</div>`;
-      });
+      ? [graph(scene.stages), tiles(index === 0), timeline(scene.stages)].map(figure =>
+        `<div class="opening-figure" data-reveal>${figure}</div>`)
+      : toolEvidence.map((items,i) => `
+        <div class="opening-evidence" data-reveal>
+          <small>${scene.evidenceDetails[i]}</small>
+          <div class="opening-evidence-figures">${evidenceFigures(items)}</div>
+        </div>`);
     stage.innerHTML = `<h2 data-reveal>${scene.title}</h2><div class="opening-columns">${figures.map((figure,i) =>
-      `<div data-axis="${i}"><h3 data-reveal>${scene.labels[i]}</h3>${scene.evidence ? figure : `<div class="opening-figure" data-reveal>${figure}</div>`}${scene.details ? `<p>${scene.details[i]}</p>` : ''}</div>`
+      `<div data-axis="${i}"><h3 data-reveal>${scene.labels[i]}</h3>${figure}${scene.details ? `<p>${scene.details[i]}</p>` : ''}</div>`
     ).join('')}</div>`;
     return scene.caption;
   }
@@ -122,11 +119,19 @@
     let paused = false;
     let animations = [];
 
-    if (mode === 'judgment') renderJudgment(stage);
-    const judgmentNodes = [...slide.querySelectorAll('[data-judgment-step]')];
+    const strategies = slide.querySelector('.opening-judgment-strategies');
+    const challenges = slide.querySelector('.opening-judgment-challenges');
+    if (strategies) {
+      challenges.textContent = judgmentStrategies.map(({pain}) => pain).join('、');
+      strategies.innerHTML = judgmentStrategies.map(({title,detail},index) => `
+        <li data-delay="${index*125}">
+          <span aria-hidden="true">0${index+1} /</span><h3>${title}</h3><p>${detail}</p>
+        </li>
+      `).join('');
+    }
 
     if (axesRow) axesRow.innerHTML = axes.map(([name,view,question],i) =>
-      `<div data-axis="${i}"><b>${name}</b><small>/ ${view}</small><p>${question}</p></div>`
+      `<div data-axis="${i}"><b data-opening-axis-title>${name}</b><small>/ ${view}</small><p>${question}</p></div>`
     ).join('');
 
     function button(label, action) {
@@ -174,24 +179,24 @@
       }
       if (mode === 'scenes') {
         caption.textContent = renderScene(stage,beat);
-        return [...stage.querySelectorAll('[data-reveal]')];
+        return [...stage.querySelectorAll('[data-reveal]'), ...(beat === last ? [caption] : [])];
       }
-      judgmentNodes.forEach(node => { node.hidden = Number(node.dataset.judgmentStep) > beat; });
-      return judgmentNodes.filter(node => Number(node.dataset.judgmentStep) === beat);
+      strategies.hidden = beat === 0;
+      return beat === 0 ? [] : [...strategies.children];
     }
 
-    function render(animate, entering = false) {
+    function render(animate) {
       cancel();
       const elements = paint();
       if (animate && document.body.dataset.deckRole !== 'preview' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         animations = elements.map((element,index) => element.animate(
-          [{opacity:.08,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],
+          [{opacity:.08,translate:'0 8px'},{opacity:1,translate:'0 0'}],
           {duration:270,delay:Number(element.dataset.delay ?? Math.min(index,5)*38),easing:'ease-out',fill:'backwards'}
         ));
-        if (entering && mode === 'judgment') {
-          animations.push(stage.animate(
-            [{transform:'translateY(28px) scale(1.025)'},{transform:'none'}],
-            {duration:320,easing:'ease-out'}
+        if (challenges && beat === 0) {
+          animations.push(challenges.animate(
+            [{opacity:0},{opacity:1,offset:.15},{opacity:1,offset:.65},{opacity:0}],
+            {duration:1000,easing:'ease-in-out'}
           ));
         }
         Promise.allSettled(animations.map(animation => animation.finished)).then(updateControls);
@@ -208,27 +213,76 @@
       return true;
     }
 
+    function advance(direction) { return set(beat+direction); }
+
     return {
       get beat() { return beat; },
       last,
       enter(index) {
         beat = index;
-        render(true,true);
+        render(true);
       },
       set,
-      advance(direction) { return set(beat+direction); },
+      advance,
       pause() { cancel(); updateControls(); },
       leave() { cancel(); },
     };
   }
 
+  let axisFlights = [];
+
+  function prepareAxisTransition(from,to) {
+    axisFlights.forEach(animation => animation.cancel());
+    axisFlights = [];
+    if (from.dataset.opening !== 'code' || from.dataset.beat !== '2' ||
+        to.dataset.opening !== 'scenes' || document.body.dataset.deckRole === 'preview' ||
+        matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const sourceLabels = [...from.querySelectorAll('[data-opening-axis-title]')].map(label => ({
+      text:label.textContent,
+      rect:label.getBoundingClientRect(),
+      color:getComputedStyle(label).color,
+    }));
+    return () => {
+      to.querySelectorAll('[data-opening-axis-title]').forEach((label,index) => {
+        const source = sourceLabels[index];
+        const target = label.getBoundingClientRect();
+        if (!source.rect.width || !target.width) return;
+        const floating = document.createElement('b');
+        floating.className = 'opening-axis-in-flight';
+        floating.textContent = source.text;
+        floating.setAttribute('aria-hidden','true');
+        Object.assign(floating.style,{
+          left:target.left+'px',top:target.top+'px',color:source.color,
+          fontFamily:getComputedStyle(label).fontFamily,fontSize:target.height+'px',
+          lineHeight:'1',fontWeight:getComputedStyle(label).fontWeight,
+        });
+        document.body.append(floating);
+        const size = floating.getBoundingClientRect();
+        const duration = 520;
+        const flight = floating.animate([
+          {transform:`translate(${source.rect.left-target.left}px,${source.rect.top-target.top}px) scale(${source.rect.width/size.width})`},
+          {transform:`scale(${target.width/size.width})`},
+        ],{duration,easing:'cubic-bezier(.2,.75,.25,1)'});
+        const reveal = label.animate([{opacity:0},{opacity:0}],{duration});
+        axisFlights.push(flight,reveal);
+        const remove = () => floating.remove();
+        flight.finished.then(remove,remove);
+      });
+    };
+  }
+
   const notes = {
     'opening-context':'从 Ascend C 的单个 Kernel 观察范围，走到 PyPTO 3.0 的融合算子。右上用 Paged Attention 说明计算结构复杂化：前后阶段、循环和数据组织要一起理解。右下沿用硬件结构示意，强调开发者要跟踪的执行范围和约束扩大了。\n\n随着融合程度和执行组织复杂度提高，开发者需要理解整个计算如何组织、分配并执行。这对接手一份代码的人意味着什么？',
-    'opening-code':'算子写出来，最终要放到硬件上跑。执行时需要考虑哪些计算单元能承担工作、中间结果放在哪里、数据怎么搬、各单元怎么通信和同步。\n\n今天接手的代码可能由 AI 生成，也可能来自同事维护的算子资产、示例或其他框架。要理解这份代码怎样落到硬件上，需要先理清它做了哪些运算、工作怎样随数据拆分、各步骤怎样推进。下一页用一份冲印订单，把这三个问题讲具体。',
+    'opening-code':'开发者可能从 AI、示例、团队资产或框架迁移中拿到一份已有代码。先让观众认出输入，再揭示执行目标。右侧参考昇腾 910 的计算芯粒、I/O、HBM 与片上互连关系，按演示需要简化。单元数量与局部状态用于说明资源约束。\n\n执行如何组织仍需要开发者还原：计算做了什么，工作如何拆分与映射，各项工作何时推进、如何协同。下一页用冲印店和逐元素运算讲清这三个问题。',
     'opening-scenes':'先讲 128 张照片。工序有固定先后，分批后工作位能同时处理不同批次。观察同色批次如何沿着工序移动。切到逐元素算子，沿用相同形状表达 4 组 Tile 和可能的交错。逻辑推进图说明依赖允许的顺序。\n\n回到真实算子的运行前理解：通过阅读分析源码还原计算过程，用 Excel 推导数据范围和归属，借 Triton-Viz 的局部访问可视化理解类似的分块问题。再依据依赖和同步规则手排流水，判断等待与重叠。开发者需要把这些局部线索串联到同一次计算。',
-    'opening-judgment':'先让观众认出上页的线索。源码和 IR 要人工读，Excel 和 Triton-Viz 分别帮助推导范围和观察局部访问，手排流水依赖开发者自行推演。\n\n依次出现痛点、期望和策略。把执行机制直接呈现出来，可以少做人工还原。通过共享 Task 和输入配置，可以在不同视角连续追踪。让开发者修改输入并查看变化，可以主动检验对执行过程的判断。每列从证据引出一个主要问题，三个策略可以跨视角一起发挥作用。下一页先看任务分配怎样呈现算法机制。',
+    'opening-judgment':[
+      '上页展示了理解同一次计算时需要人工串联的信息。这里提出一套连续的计算探索体验，让开发者能看懂规则、追踪对象，并观察条件变化带来的影响。',
+      judgmentStrategies.map(({pain,expectation,title}) => `${pain} → ${expectation} → ${title}`).join('\n'),
+      '这三个策略可以在不同视角配合使用。下一页从任务分配入手，看开发者如何直接观察任务的生成与归属。',
+    ].join('\n\n'),
 
   };
 
-  global.PtoDeckOpening = {mount,notes};
+  global.PtoDeckOpening = {mount,notes,prepareAxisTransition};
 })(window);
