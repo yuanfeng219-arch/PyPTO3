@@ -58,17 +58,17 @@ body {
   font:var(--type-mono);
 }
 .path .btn, #tick { font:inherit; }
-.path .btn[aria-current="location"], #tick, .shared-task {
+.path .btn[aria-current="location"], #tick {
   color:var(--foreground);
   background:var(--surface-selected, var(--surface-4));
 }
 #tick { padding:7px 12px; border-radius:var(--radius-sm); }
 .path > :not(:first-child):not([hidden]) { margin-left:10px; }
 .canvas, #view { position:relative; min-height:0; overflow:hidden; }
-#view, #motion, .renderer, #block-detail { position:absolute; inset:0; }
-#motion, #block-detail { pointer-events:none; }
-#motion { z-index:3; overflow:hidden; }
-#block-detail button { pointer-events:auto; }
+#view, .renderer, #block-detail { position:absolute; inset:0; }
+#block-detail { pointer-events:none; }
+#story #viz2-pipeline-inter { margin-left:0; }
+.pipeline:has(#legend[hidden]) { grid-template-rows:48px minmax(0,1fr); }
 #story :is(.viz2-pipeline-footer,.viz2-pipeline-inspector,.viz2-anatomy-footer,.compute-identity,
 [data-compute-toolbar],[data-intra-back],.viz2-intra-heading,.viz2-anatomy-inspector) { display:none !important; }
 #story .viz2-pipeline-target[aria-pressed="true"] { box-shadow:inset 0 0 0 1px var(--primary); }
@@ -86,7 +86,6 @@ body {
 }
 .block-reading { position:absolute; left:30px; right:30px; top:144px; }
 .block-reading p { margin:0 0 18px; color:var(--foreground-secondary); font:var(--type-mono); }
-.block-reading h2 { margin:36px 0 10px; font-size:38px; font-weight:600; letter-spacing:-.03em; }
 .pipeline-legend {
   display:flex;
   align-items:center;
@@ -130,49 +129,11 @@ body {
 .story-controls p { margin:0; font-size:18px; color:var(--foreground-secondary); }
 .story-controls nav { display:flex; flex:none; align-items:center; gap:8px; }
 .btn:disabled { opacity:.38; cursor:default; }
-.shared-task, .shared-stack {
-  position:absolute;
-  display:grid;
-  place-items:center;
-  white-space:nowrap;
-  overflow:hidden;
-  border-radius:var(--radius-sm);
-  font:var(--type-mono);
-  color:var(--foreground);
-  background:var(--surface-selected, var(--surface-4));
-  border:1px solid var(--primary);
-}
-.shared-stack { background:var(--ai-data-fill, var(--primary)); border:0; }
 body .btn:focus-visible, #story .p09-axis button:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
 .pipeline { position:relative; }
 #story .viz2-intra .viz2-anatomy-viewport { overflow:hidden; }
 
-#stacks {
-  display:flex;
-  gap:8px;
-  margin:28px 0 20px;
-  max-height:150px;
-  flex-wrap:wrap;
-  overflow:hidden;
-}
-#stacks .btn {
-  pointer-events:auto;
-  display:grid;
-  gap:5px;
-  align-content:center;
-  justify-items:start;
-  flex:1 1 105px;
-  max-width:154px;
-  min-height:64px;
-  border-radius:var(--radius-md);
-  padding:9px 13px;
-  text-align:left;
-  font:var(--type-mono);
-  background:var(--surface-3);
-}
-#stacks .btn:hover { background:var(--surface-4); }
-#stacks small { color:var(--foreground-secondary); font:inherit; }
-#story .story-controls .btn, #open-task { font-size:16px; }
+#story .story-controls .btn { font-size:16px; }
 .pipeline-legend i { flex:none; width:18px; }
 .pipeline-legend .viz2-intra-flow-key { border-top:2px solid var(--primary); }
 .pipeline-legend .viz2-intra-event-key { border-top:2px dashed var(--accent); }
