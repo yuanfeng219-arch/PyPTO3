@@ -7434,23 +7434,23 @@ body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 aut
 /* Parameter rules and their source excerpt share the same slide. */
 [data-p14="derive"] { background:#191919; }
 .p12-rules-body {
-  display:grid; grid-template-columns:minmax(0, .89fr) minmax(0, 1.11fr);
-  gap:36px; height:490px; margin:10px 18px 0;
+  display:grid; grid-template-columns:minmax(0, 1fr) 426px;
+  gap:42px; height:490px; margin:0 58px;
 }
 .p12-rule-board { display:grid; grid-template-rows:1fr 1fr; min-width:0; }
 .p12-rule-group {
-  display:grid; grid-template-columns:88px minmax(0, 1fr); gap:12px; align-content:center;
+  display:grid; grid-template-columns:128px minmax(0, 1fr); gap:20px; align-content:center; padding-inline:24px 12px;
 }
 .p12-rule-group + .p12-rule-group { border-top:1px solid #51596b; }
 .p12-rule-group h3 { margin:15px 0 0; font-size:18px; letter-spacing:1px; }
-.p12-definitions,.p12-derivations { display:grid; align-items:start; gap:15px; }
-.p12-definitions { grid-template-columns:1fr .76fr 1.8fr; }
+.p12-definitions,.p12-derivations { display:grid; align-items:start; gap:24px; }
+.p12-definitions { grid-template-columns:1fr .8fr 1.8fr; }
 .p12-derivations { grid-template-columns:1fr 1fr; }
 .p12-formula {
-  display:flex; gap:8px; align-items:center; white-space:nowrap;
-  font:500 29px/1.15 var(--deck-mono); color:#f5f5f5;
+  display:flex; gap:10px; align-items:center; white-space:nowrap;
+  font:500 32px/1.15 var(--deck-mono); color:#f5f5f5;
 }
-.p12-formula mark { padding:9px 8px; color:#191919; }
+.p12-formula mark { padding:9px 9px; color:#191919; }
 .p12-page { background:#d8fa52; }
 .p12-stack-pages { background:#7bd5ec; }
 .p12-stack { background:#e481ce; }
@@ -7458,47 +7458,29 @@ body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 aut
 .p12-rule-group p { margin:17px 0 5px; white-space:nowrap; font-size:16px; color:#f2f2f2; }
 .p12-rule-group small { color:#aaa; font:15px/1.4 var(--deck-mono); }
 .p12-editor {
-  display:grid; grid-template-rows:auto minmax(0, 1fr) auto; min-width:0;
-  margin:0; overflow:hidden; border:1px solid #424b59; border-radius:16px; background:#282a36;
+  display:grid; grid-template-rows:auto auto; align-self:center; min-width:0;
+  margin:0; overflow:hidden; border:1px solid #424b59; border-radius:10px; background:#202127;
 }
-.p12-editor figcaption,.p12-editor-status {
-  display:flex; align-items:center; gap:14px; padding:16px 22px; background:#21222c;
+.p12-editor figcaption {
+  padding:12px 14px; border-bottom:1px solid #424b59;
+  color:#e5e8ef; font:600 13px/1.4 var(--deck-mono);
 }
-.p12-editor figcaption { border-bottom:1px solid #44475a; }
-.p12-file-icon {
-  display:grid; place-items:center; width:34px; height:34px; border-radius:8px;
-  color:#a9c0ff; background:#26344c; border:1px solid #364764;
-}
-.p12-file-icon svg { width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.5; }
-.p12-file { display:grid; gap:4px; font-family:var(--deck-mono); }
-.p12-file strong { font-size:20px; color:#f8f8f2; }
-.p12-file small { font-size:13px; color:#a0a9b9; }
-.p12-language {
-  margin-left:auto; padding:6px 10px; border:1px solid #3d4e6b; border-radius:6px;
-  background:#1e2939; color:#b5c9eb; font:13px var(--deck-mono);
-}
-.p12-code { display:flex; flex-direction:column; justify-content:center; padding:14px 0; }
+.p12-code { display:flex; flex-direction:column; justify-content:center; padding:12px 0 14px; }
 .p12-code-line {
-  display:grid; grid-template-columns:49px minmax(0, 1fr);
-  font:16px/1.65 var(--deck-mono); color:#f8f8f2;
+  display:grid; grid-template-columns:38px minmax(0, 1fr);
+  font:12px/1.55 var(--deck-mono); color:#f8f8f2;
 }
 .p12-ln {
-  padding:6px 11px 6px 0; text-align:right; border-right:1px solid #44475a; color:#98a6cb; user-select:none;
+  padding:5px 7px 5px 0; text-align:right; border-right:1px solid #44475a; color:#98a6cb; user-select:none;
 }
-.p12-code-line code { padding:6px 16px; font:inherit; white-space:pre-wrap; overflow-wrap:break-word; }
-.p12-code-gap .p12-ln { padding-block:10px; }
-.p12-py-comment { color:#9aaad0; }
+.p12-code-line code { padding:5px 9px; font:inherit; white-space:pre-wrap; overflow-wrap:anywhere; }
+.p12-code-gap .p12-ln { padding-block:7px; }
 .p12-py-number,.p12-py-constant { color:#bd93f9; }
 .p12-py-operator { color:#ff79c6; }
 .p12-py-call { color:#8be9fd; }
-.p12-editor-status {
-  justify-content:space-between; border-top:1px solid #44475a; padding-block:11px;
-  color:#a9c0ff; font:13px var(--deck-mono);
-}
-.p12-editor-status span + span { color:#a0a9b9; }
 .p12-takeaway {
-  display:flex; justify-content:center; align-items:center; gap:12px; min-height:93px;
-  margin:34px 18px 0; padding:14px 24px; border:1px solid #515e77; border-radius:12px;
+  display:flex; justify-content:center; align-items:center; gap:12px; min-height:114px;
+  margin:18px 58px 0; padding:14px 24px; border:1px solid #515e77; border-radius:12px;
   background:linear-gradient(105deg,#20232d,#191919); color:#f4f4f4; font-size:22px;
 }
 .p12-takeaway span { font-size:28px; }
@@ -7537,6 +7519,15 @@ body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 aut
 .design-demo #ideWorkarea { flex:1; }
 .design-demo .viz2-header { display:none; }
 .design-demo .viz2-tabs { justify-content:center; }
+.compute-explorer-preview { position:relative; display:block; flex:1; color:#f2f2f2; }
+.compute-explorer-preview img { display:block; width:100%; height:100%; object-fit:contain; }
+.compute-explorer-preview > span {
+  position:absolute; right:20px; bottom:20px; padding:11px 16px;
+  background:#222; border:1px solid #666; border-radius:8px; font-size:17px; font-weight:600;
+}
+.compute-explorer-preview:hover > span { background:#303b51; border-color:#91adf5; }
+.compute-explorer-preview:focus-visible { outline:2px solid #91adf5; outline-offset:3px; }
+
 
 
 /* The three strategy chapters share the same title and canvas rhythm. */
@@ -7793,57 +7784,39 @@ body &gt; main.page {
 &lt;/html&gt;
 " hidden=""></iframe>
 <section class="design-slide" data-narrative-phase="用户任务" data-opening="code" data-slide-label="从代码规则到实际执行" data-note-index="opening-code" data-width="1600" aria-label="从代码规则到实际执行" hidden>
-  <header data-deck-title="接手已有代码后，开发者还要理解它怎样执行"></header>
+  <header data-deck-title="算子代码最终要在有限的硬件资源上执行"></header>
   <div class="opening-flow">
-    <div class="opening-flow-stage" data-flow-step="0">
-      <div class="opening-flow-heading">
-        <span>01 / INPUT SOURCES</span>
-        <h2>算子从哪里来？</h2>
-        <p>多渠道代码输入，质量、背景与上下文不一致</p>
-      </div>
-      <ul class="opening-code-origins" aria-label="代码来源">
-        <li class="opening-origin-ai"><i aria-hidden="true">✦</i><div><strong>AI 生成</strong><p>自然语言生成的实现候选，需要理解与验证</p></div><small>01</small></li>
-        <li><i aria-hidden="true">▤</i><div><strong>已有算子资产</strong><p>算子库、团队工程实现与可复用代码</p></div><small>02</small></li>
-        <li><i aria-hidden="true">▧</i><div><strong>历史模板</strong><p>过往算子开发沉淀的结构与实现模式</p></div><small>03</small></li>
-        <li><i aria-hidden="true">⌘</i><div><strong>开源仓库 / 示例</strong><p>社区与文档中的参考代码及变体</p></div><small>04</small></li>
+    <div class="opening-flow-stage opening-flow-source">
+      <h2 data-flow-step="0">算子代码</h2>
+      <ul class="opening-code-origins" data-flow-step="1" aria-label="算子代码来源">
+        <li class="opening-origin-ai"><strong>AI 生成</strong><span>根据需求生成的实现候选</span></li>
+        <li><strong>示例代码</strong><span>从文档或开源示例改写</span></li>
+        <li><strong>已有算子资产</strong><span>复用团队或算子库的实现</span></li>
+        <li><strong>框架迁移算子</strong><span>从其他框架移植的实现</span></li>
       </ul>
     </div>
-    <div class="opening-flow-arrow" data-flow-step="1" aria-hidden="true"></div>
-    <div class="opening-flow-stage opening-flow-bridge" data-flow-step="1">
-      <div class="opening-flow-heading">
-        <span>02 / CODE TO EXECUTION MODEL</span>
-        <h2>开发者需要在脑中还原</h2>
-      </div>
-      <figure class="opening-flow-file">
-        <figcaption><span><i aria-hidden="true">&lt;/&gt;</i> paged_attention_pypto.py</span><small>PyPTO DSL</small></figcaption>
-        <pre aria-label="源码节选"><code><span>022</span>  BLOCK_SIZE = 128
-<span>023</span>  STACK_PAGES = 4
-<span>024</span>  STACK_TOKENS = STACK_PAGES * BLOCK_SIZE</code></pre>
-      </figure>
-      <ul class="opening-flow-rules" aria-label="三类执行规则">
-        <li data-axis="0" data-flow-step="2"><small>计算关系</small><strong>究竟做了什么？</strong><span>做什么、依赖谁</span></li>
-        <li data-axis="1" data-flow-step="2" data-delay="150"><small>数据组织</small><strong>工作如何拆分、分配？</strong><span>处理哪些数据，如何切分与分配</span></li>
-        <li data-axis="2" data-flow-step="2" data-delay="300"><small>执行时序</small><strong>这些工作如何协同执行？</strong><span>何时推进，如何协同</span></li>
+    <div class="opening-flow-arrow" data-flow-step="0" aria-hidden="true"></div>
+    <div class="opening-flow-stage opening-flow-bridge" data-flow-step="2">
+      <h2>接手已有代码，先弄清它怎样执行</h2>
+      <ul class="opening-flow-rules" aria-label="三个执行问题">
+        <li data-axis="0" data-flow-step="3"><small>计算关系</small><strong>究竟做了什么？</strong><span>识别运算及其依赖</span></li>
+        <li data-axis="1" data-flow-step="3" data-delay="150"><small>数据切分</small><strong>工作如何拆分、分配？</strong><span>推导数据范围和任务归属</span></li>
+        <li data-axis="2" data-flow-step="3" data-delay="300"><small>执行时序</small><strong>这些工作怎样协同？</strong><span>推演先后顺序、等待与重叠</span></li>
       </ul>
     </div>
-    <div class="opening-flow-arrow" data-flow-step="3" aria-hidden="true"></div>
-    <div class="opening-flow-stage" data-flow-step="3" data-delay="120">
-      <div class="opening-flow-heading">
-        <span>03 / EXECUTION TARGET</span>
-        <h2>有限的硬件资源</h2>
-        <p>执行规则需要映射到有限资源</p>
-      </div>
+    <div class="opening-flow-stage opening-flow-target" data-flow-step="0">
+      <h2>有限的硬件资源</h2>
       <ul class="opening-flow-hardware" aria-label="硬件资源与执行约束">
-        <li><i aria-hidden="true">▦</i>计算单元</li>
-        <li><i aria-hidden="true">▤</i>存储空间</li>
-        <li><i aria-hidden="true">⇄</i>数据搬运</li>
-        <li><i aria-hidden="true">⋈</i>通信 / 同步</li>
+        <li><strong>计算单元</strong><span>由哪些单元执行</span></li>
+        <li><strong>存储空间</strong><span>中间结果放在哪里</span></li>
+        <li><strong>数据搬运</strong><span>数据怎样在存储和计算间流转</span></li>
+        <li><strong>通信与同步</strong><span>执行单元怎样交接和协同</span></li>
       </ul>
     </div>
   </div>
   <div class="opening-flow-summary" data-flow-step="4">
-    <div><strong>设计切入点：建立从代码结构到计算执行的统一解释路径</strong><p>把离散的实现细节，组织成可探索、可追踪、可验证的计算关系</p></div>
-    <ul aria-label="三个理解维度"><li data-axis="0">01 计算关系</li><li data-axis="1">02 数据组织</li><li data-axis="2">03 执行时序</li></ul>
+    <strong>设计切入点：建立从代码结构到计算执行的统一解释路径</strong>
+    <p>把离散的实现细节，组织成可探索、可追踪、可验证的计算关系</p>
   </div>
   <nav data-opening-controls aria-label="从代码到执行的讲述段落"></nav>
 </section>
@@ -7855,15 +7828,9 @@ body &gt; main.page {
   <nav data-opening-controls aria-label="场景进度"></nav>
 </section>
 <section class="design-slide" data-narrative-phase="设计判断" data-opening="judgment" data-slide-label="从局部信息可见，到连续的计算探索体验" data-note-index="opening-judgment" data-width="1600" aria-label="从局部信息可见，到连续的计算探索体验" hidden>
-  <header data-deck-title="从局部信息可见，到连续的计算探索体验"></header>
+  <header data-deck-title="从证据到设计"></header>
   <div class="opening-axes" data-opening-axes></div>
   <div data-opening-stage></div>
-  <p class="opening-caption"></p>
-  <div class="opening-overlay" role="region" aria-label="设计判断">
-    <p class="opening-stage-label"></p>
-    <div class="opening-judgment-grid"></div>
-    <p class="opening-judgment-foot"></p>
-  </div>
   <nav data-opening-controls aria-label="设计判断进度"></nav>
 </section>
 <section data-slide-label="多级并行调度的空间化映射" class="design-slide" data-strategy="assignment-story" data-p05-assignment data-strategy-chapter="native" data-note-index="9" data-width="1600" aria-label="多级并行调度的空间化映射" hidden>
@@ -8024,6 +7991,7 @@ body &gt; main.page {
 &lt;script defer src=&quot;../js/ai-infra-ui.js&quot;&gt;&lt;/script&gt;
 &lt;script defer src=&quot;../js/visualization2-pipeline.js&quot;&gt;&lt;/script&gt;
 &lt;script defer src=&quot;../js/visualization2-pipeline-intra.js&quot;&gt;&lt;/script&gt;
+&lt;script defer src=&quot;../js/visualization2-pipeline-zoom.js&quot;&gt;&lt;/script&gt;
 &lt;script defer src=&quot;../../p10-drilldown-storytelling/story.js&quot;&gt;&lt;/script&gt;
 &lt;/head&gt;
 &lt;body data-p10-deck&gt;&lt;/body&gt;
@@ -8190,7 +8158,6 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
   &lt;button type=&quot;button&quot; data-step=&quot;0&quot;&gt;S0&lt;/button&gt;
   &lt;button type=&quot;button&quot; data-step=&quot;1&quot;&gt;S1&lt;/button&gt;
   &lt;button type=&quot;button&quot; data-step=&quot;2&quot;&gt;S2&lt;/button&gt;
-  &lt;button type=&quot;button&quot; data-step=&quot;3&quot;&gt;S3&lt;/button&gt;
 &lt;/div&gt;
 &lt;div class=&quot;footer&quot;&gt;
   &lt;span id=&quot;scene-step&quot;&gt;S0 / 三位一体&lt;/span&gt;
@@ -8204,15 +8171,14 @@ button:focus-visible,[data-region]:focus-visible{outline:2px solid #adc7ef;outli
 &lt;script&gt;
 /* Timing in milliseconds. Story beats and the scrubber share this clock. */
 const MOTION = Object.freeze({
-  entrance:1000, relation:400, hold:260, tilt:820, spread:920, view:340,
+  entrance:1000, relation:400, hold:260, spread:920, view:340,
 });
 const relationStart = MOTION.entrance;
 const relationSpan = MOTION.relation + MOTION.hold;
 const relationEnd = relationStart + 4 * relationSpan;
-const tiltEnd = relationEnd + MOTION.tilt;
-const spreadEnd = tiltEnd + MOTION.spread;
+const spreadEnd = relationEnd + MOTION.spread;
 const total = spreadEnd;
-const steps = [relationStart,relationEnd,tiltEnd,spreadEnd];
+const steps = [relationStart,relationEnd,spreadEnd];
 const HIGHLIGHT = Object.freeze({hold:1200,fade:240});
 const LAYER_GEOMETRY = Object.freeze({x:1115,firstY:336,gap:235,scale:.86,vertical:.31});
 const scene = document.querySelector(&#x27;main&#x27;);
@@ -8248,6 +8214,8 @@ const regionDim = [&#x27;#111419&#x27;,&#x27;#111419&#x27;,&#x27;#111419&#x27;,&
 const regionSets = [[],[0],[1],[2],[3],[4],[5],[6]];
 const circlePositions = [[0,-194],[-168,97],[168,97]];
 const circleStarts = [[0,-102],[-91,52],[91,52]];
+const [pipelineX,pipelineY] = circlePositions[2];
+const leaderX = pipelineX + Math.sqrt(251**2-pipelineY**2);
 const circles = [&#x27;g&#x27;,&#x27;a&#x27;,&#x27;p&#x27;].map(id =&gt; document.getElementById(id));
 const clamp = n =&gt; Math.max(0,Math.min(1,n));
 const lerp = (a,b,t) =&gt; a+(b-a)*t;
@@ -8339,7 +8307,7 @@ function syncHighlight(now) {
   if (!expanded()) {
     if (state.highlight) state.exitWeights=highlightWeights();
     state.highlight=null;
-    if (state.time&lt;=tiltEnd) state.exitWeights=null;
+    if (state.time&lt;=relationEnd) state.exitWeights=null;
     return;
   }
   if (!state.highlight) {
@@ -8355,17 +8323,9 @@ function syncHighlight(now) {
   loop.last=now;
 }
 
-/* All circle centers, clips, and strokes share the same animated geometry.
-   The plane is an orthographic projection of a single X-axis tilt. */
-function projectPlane(tilt,x,y,scale=1,vertical=Math.cos(Math.sin(tilt*Math.PI/2)*0.84)) {
-  const roll = -tilt*.065;
-  return [scale*Math.cos(roll),scale*Math.sin(roll),
-    -scale*vertical*Math.sin(roll),scale*vertical*Math.cos(roll),x,y];
-}
 function paint(now=performance.now()) {
   const t = state.time;
-  const tilt = segment(t,relationEnd,tiltEnd);
-  const spread = segment(t,tiltEnd,spreadEnd);
+  const spread = segment(t,relationEnd,spreadEnd);
   syncHighlight(now);
   const viewWeights = viewWeightsAt(t,now);
   const layerWeights = state.highlight ? highlightWeights() :
@@ -8379,11 +8339,12 @@ function paint(now=performance.now()) {
     circle.setAttribute(&#x27;cy&#x27;,y);
     circle.setAttribute(&#x27;r&#x27;,lerp(183,251,entry[i]));
   });
-  const origin = projectPlane(tilt,lerp(960,LAYER_GEOMETRY.x,tilt),lerp(665,545,tilt));
+  const origin = [1,0,0,1,960,665];
   const palette = regionColors.map((_,i) =&gt; blendRegion(i,viewWeights));
   planes.forEach((plane,i) =&gt; {
-    const reveal = i===0 ? spread : segment(t,tiltEnd+i*85,spreadEnd);
-    const resting = projectPlane(1,plane.x,plane.y,LAYER_GEOMETRY.scale,LAYER_GEOMETRY.vertical);
+    const reveal = i===0 ? spread : segment(t,relationEnd+i*85,spreadEnd);
+    const {scale,vertical} = LAYER_GEOMETRY;
+    const resting = [scale,0,0,scale*vertical,plane.x,plane.y];
     // Expansion alone controls pose. Every highlight uses the same fixed matrix.
     const pose = mix(origin,resting,reveal);
     const weight = layerWeights[i];
@@ -8409,18 +8370,17 @@ function paint(now=performance.now()) {
         y += delta[1]-circlePositions[j][1];
       }
       const [px,py] = point(pose,x,y);
-      const compact = Math.max(tilt * .7,reveal);
-      label.setAttribute(&#x27;transform&#x27;,`translate(${px} ${py}) scale(${lerp(1,.42,compact)})`);
+      label.setAttribute(&#x27;transform&#x27;,`translate(${px} ${py}) scale(${lerp(1,.42,reveal)})`);
       const region = j&lt;3 ? j : j===3 ? 6 : j-1;
       const emphasis = viewWeights.reduce((sum,value,view) =&gt;
         sum+value*(view===0 || regionSets[view].includes(region) ? 1 : .64),0);
-      if (j&lt;3) label.querySelector(&#x27;.question&#x27;).style.opacity=1-tilt;
+      if (j&lt;3) label.querySelector(&#x27;.question&#x27;).style.opacity=1-reveal;
       const geometryVisibility = j===3 ? 1-spread : 1;
       label.style.opacity = (j&lt;3 ? entry[j] : segment(t,610,MOTION.entrance))*emphasis*geometryVisibility;
     });
-    const anchor = point(pose,419,97);
+    const anchor = point(pose,leaderX,0);
     const labelY = plane.y;
-    plane.line.setAttribute(&#x27;d&#x27;,`M${anchor.join(&#x27; &#x27;)} H1537 L1567 ${labelY}`);
+    plane.line.setAttribute(&#x27;d&#x27;,`M${anchor.join(&#x27; &#x27;)} H1567`);
     plane.line.setAttribute(&#x27;stroke&#x27;,color(mix(rgb(&#x27;#465463&#x27;),rgb(&#x27;#a8c1e3&#x27;),weight)));
     plane.line.style.opacity = segment(reveal,.72,1) * (.65+weight*.35);
     const button = levelButtons[i];
@@ -8434,7 +8394,7 @@ function paint(now=performance.now()) {
   pairButtons.forEach((button,i) =&gt; button.setAttribute(&#x27;aria-pressed&#x27;,String(activeView===i+4)));
   viewButtons.forEach((button,i) =&gt; button.setAttribute(&#x27;aria-pressed&#x27;,String(activeView===i)));
   const step = steps.findIndex(end =&gt; t&lt;=end+.001);
-  document.querySelector(&#x27;#scene-step&#x27;).textContent = &#x27;S&#x27;+step+&#x27; / &#x27;+[&#x27;三位一体&#x27;,&#x27;建立关联&#x27;,&#x27;空间倾斜&#x27;,&#x27;层级展开&#x27;][step];
+ document.querySelector(&#x27;#scene-step&#x27;).textContent = &#x27;S&#x27;+step+&#x27; / &#x27;+[&#x27;三位一体&#x27;,&#x27;建立关联&#x27;,&#x27;层级展开&#x27;][step];
   stepButtons.forEach((button,i) =&gt; button.setAttribute(&#x27;aria-pressed&#x27;,String(step===i)));
   slider.value = 100*t/total;
   document.querySelector(&#x27;#progress-value&#x27;).value = Math.round(100*t/total)+&#x27;%&#x27;;
@@ -8596,9 +8556,9 @@ reducedMotion.addEventListener(&#x27;change&#x27;,() =&gt; {
 });
 const params = new URLSearchParams(location.search);
 document.querySelector(&#x27;.debug&#x27;).hidden=!params.has(&#x27;debug&#x27;);
-const captures = {s0:steps[0],s1:relationStart+MOTION.relation,s2:relationEnd+MOTION.tilt/2,s3:steps[3]};
+const captures = {s0:steps[0],s1:relationStart+MOTION.relation,s2:spreadEnd,s3:spreadEnd};
 const capture=params.get(&#x27;frame&#x27;);
-addEventListener(&#x27;resize&#x27;,fit);
+new ResizeObserver(fit).observe(document.documentElement);
 fit();
 if (Object.hasOwn(captures,capture)) {
   seek(captures[capture]);
@@ -8634,44 +8594,26 @@ if (Object.hasOwn(captures,capture)) {
       </div>
     </div>
     <figure class="p12-editor" aria-label="paged_attention_pypto.py 源码节选">
-      <figcaption>
-        <span class="p12-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 12h5M10 16h5"/></svg></span>
-        <span class="p12-file"><strong>paged_attention_pypto.py</strong><small>PyPTO3/Data</small></span>
-        <span class="p12-language">PyPTO DSL</span>
-      </figcaption>
+      <figcaption>paged_attention_pypto.py</figcaption>
       <div class="p12-code">
-        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">022</span><code><span class="p12-py-constant">BLOCK_SIZE</span> <span class="p12-py-operator">=</span> <span class="p12-py-number">128</span>  <span class="p12-py-comment"># paged KV page size</span></code></div>
-        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">023</span><code><span class="p12-py-constant">STACK_PAGES</span> <span class="p12-py-operator">=</span> <span class="p12-py-number">4</span>  <span class="p12-py-comment"># physical pages combined into one attention compute tile</span></code></div>
-        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">024</span><code><span class="p12-py-constant">STACK_TOKENS</span> <span class="p12-py-operator">=</span> <span class="p12-py-constant">STACK_PAGES</span> <span class="p12-py-operator">*</span> <span class="p12-py-constant">BLOCK_SIZE</span>  <span class="p12-py-comment"># 512-token QK/softmax/PV granularity</span></code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">022</span><code><span class="p12-py-constant">BLOCK_SIZE</span> <span class="p12-py-operator">=</span> <span class="p12-py-number">128</span></code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">023</span><code><span class="p12-py-constant">STACK_PAGES</span> <span class="p12-py-operator">=</span> <span class="p12-py-number">4</span></code></div>
+        <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">024</span><code><span class="p12-py-constant">STACK_TOKENS</span> <span class="p12-py-operator">=</span> <span class="p12-py-constant">STACK_PAGES</span> <span class="p12-py-operator">*</span> <span class="p12-py-constant">BLOCK_SIZE</span></code></div>
         <div class="p12-code-line p12-code-gap" aria-hidden="true"><span class="p12-ln">⋯</span><span></span></div>
         <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">264</span><code>seq_len <span class="p12-py-operator">=</span> pl.<span class="p12-py-call">read</span>(seq_lens, [batch])</code></div>
         <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">265</span><code>page_count <span class="p12-py-operator">=</span> (seq_len <span class="p12-py-operator">+</span> <span class="p12-py-constant">BLOCK_SIZE</span> <span class="p12-py-operator">-</span> <span class="p12-py-number">1</span>) <span class="p12-py-operator">//</span> <span class="p12-py-constant">BLOCK_SIZE</span></code></div>
         <div class="p12-code-line"><span class="p12-ln" aria-hidden="true">266</span><code>stack_count <span class="p12-py-operator">=</span> (seq_len <span class="p12-py-operator">+</span> <span class="p12-py-constant">STACK_TOKENS</span> <span class="p12-py-operator">-</span> <span class="p12-py-number">1</span>) <span class="p12-py-operator">//</span> <span class="p12-py-constant">STACK_TOKENS</span></code></div>
       </div>
-      <div class="p12-editor-status"><span>6 行 · 源码节选</span><span>Python</span></div>
     </figure>
   </div>
   <p class="p12-takeaway"><span aria-hidden="true">😨</span> 没有输入，缺少“计算现场”，难以带入结果</p>
 </section>
-<section data-slide-label="主动计算推演" class="design-slide" data-strategy="what-if" data-p14="explore" data-strategy-chapter="what-if" data-note-index="13" data-width="1600" aria-label="主动计算推演" hidden>
+<section data-slide-label="主动计算推演" class="design-slide" data-strategy="what-if" data-p13-demo data-strategy-chapter="what-if" data-note-index="13" data-width="1600" aria-label="主动计算推演" hidden>
   <header data-deck-title><h2 class="strategy-subtitle">主动计算推演</h2></header>
-  <div class="strategy-line"><span>沿用计算规则 · 比较不同 Sequence Length 的 Page / Stack 工作划分</span><span class="strategy-context" data-p14-current></span></div>
-  <div class="design-demo p14-surface">
-    <div class="pto-ide-frame"><div class="pto-ide-frame__workarea">
-      <div class="viz2 p14-workspace">
-        <div id="p14-assignment" data-p14-assignment class="viz2-phase-surface" aria-label="Assignment · Block 内"></div>
-      </div>
-    </div></div>
-  </div>
-  <div class="p14-compare" role="group" aria-label="输入配置比较">
-    <button type="button" data-p14-before></button><button type="button" data-p14-after></button>
-  </div>
-  <div class="strategy-footer">
-    <p class="strategy-caption" aria-live="polite"></p>
-    <div class="strategy-controls p14-controls" role="group" aria-label="演示关键帧">
-      <button type="button" data-p14-reset>重置</button>
-    </div>
-  </div>
+  <a class="design-demo compute-explorer-preview" href="https://yuanfeng219-arch.github.io/PyPTO3/Design/PyPTO-Compute-Explorer-UI/index.html" target="_blank" rel="noopener">
+    <img src="assets/compute-explorer-preview.png" alt="" width="2622" height="1258">
+    <span>打开 Compute Explorer <span aria-hidden="true">↗</span></span>
+  </a>
 </section>
 <iframe data-slide-label="可追溯的计算解释" data-note-index="2" title="6 · 可追溯的计算解释" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
@@ -18556,10 +18498,9 @@ function mountStrategySlide(slide) {
     return window.PtoPipelineStory.mount(slide.querySelector('[data-p07-story]'),
       slide.querySelector('[data-p07-controls]'),{onChange:()=>onChange(slide)});
   }
-  if (slide.hasAttribute('data-p14')) return window.PtoDeckWhatIf.mount(slide,{graph:p7Graph,model:p7Model,taskId:p7Task.id,onChange});
   return strategy.mount(slide);
 }
-const strategySlides = new Map([...stage.querySelectorAll('[data-strategy]:not([data-p14="derive"])')].map(slide => [slide,mountStrategySlide(slide)]));
+const strategySlides = new Map([...stage.querySelectorAll('[data-strategy]:not([data-p14="derive"],[data-p13-demo])')].map(slide => [slide,mountStrategySlide(slide)]));
 for (const slide of stage.querySelectorAll('[data-opening]')) {
   strategySlides.set(slide, window.PtoDeckOpening.mount(slide, {
     onChange() {
@@ -18775,7 +18716,10 @@ function navigate(direction, skipP9 = false) {
     sendP9('advance',{direction});
     return;
   }
-  if (slides[current] === p10Slide && p10Story()?.advance(direction)) return;
+  if (frame === p10Slide) {
+    p10Story()?.advance(direction);
+    return;
+  }
   const story = strategySlides.get(slides[current]);
   if (frame.hasAttribute('data-opening') ? story.advance(direction) : story?.set(story.beat + direction)) return;
   const target = current + direction;
@@ -18783,7 +18727,7 @@ function navigate(direction, skipP9 = false) {
   if (targetStory && direction < 0) { show(target,targetStory.last); return; }
   const targetSlide = slides[target];
   const lastStep = targetSlide === p9Slide ? 4 : targetSlide === p11Slide ? 3
-    : targetSlide === p10Slide ? (p10Story()?.last ?? 5) : undefined;
+    : targetSlide === p10Slide ? (p10Story()?.last ?? 3) : undefined;
   show(target,direction < 0 ? lastStep : undefined);
 }
 
@@ -18798,19 +18742,12 @@ function onKey(event) {
   }
   if (event.code==='KeyP' && !event.repeat) { event.preventDefault(); togglePresenter(); return; }
   if (event.code === 'Space' && event.target.closest?.('button')) return;
-  if (slides[current] === p11Slide && /^Digit[0-3]$/.test(event.code)) {
+  if (slides[current] === p11Slide && /^Digit[0-2]$/.test(event.code)) {
     event.preventDefault();
     p11Story()?.goToStep(Number(event.code.slice(-1)));
     return;
   }
   const story = strategySlides.get(slides[current]);
-  if (event.code === 'Escape' && slides[current].matches('[data-opening="judgment"]') && story.close()) {
-    event.preventDefault();
-    queueMicrotask(() => {
-      [...localActions.children].find(button => button.textContent === '打开判断')?.focus({preventScroll:true});
-    });
-    return;
-  }
   if (story && /^Digit[0-6]$/.test(event.code)) {
     if (story.set(Number(event.code.slice(-1)))) event.preventDefault();
     return;
@@ -19375,7 +19312,7 @@ slideElements.forEach(slide => {
   }
   if (!slide.matches('iframe')) {
     renderDeckHeader(slide, index);
-    registerLocalControls(slide,slide,'[data-opening-controls],.strategy-controls,.p13-tools,.p14-compare,[data-p05-actions],[data-p07-controls]');
+    registerLocalControls(slide,slide,'[data-opening-controls],.strategy-controls,.p13-tools,[data-p05-actions],[data-p07-controls]');
     return;
   }
   slide.addEventListener('load', () => {
@@ -19405,6 +19342,7 @@ function suspendSlide(slide, stopAutoplay = true) {
   if (slide === p06Slide) p06Story()?.setActive(false);
   if (stopAutoplay) {
     if (slide === p9Slide) sendP9('pause');
+    if (slide === p10Slide) p10Story()?.cancel();
     strategySlides.get(slide)?.pause?.();
   }
   const animations = [...slide.getAnimations({subtree:true}),

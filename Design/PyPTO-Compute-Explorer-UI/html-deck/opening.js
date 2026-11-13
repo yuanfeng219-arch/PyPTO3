@@ -32,31 +32,16 @@
       caption:'这些信息可以分别获取，但开发者仍需要手工还原并串联，才能理解同一次计算。',
     },
   ];
-  const judgments = [
-    {
-      label:'开发者承担的认知工作',
-      names:['还原','关联','推演'],
-      details:['从代码中提取并解释计算规则。','在三个视角中找到同一次计算的对应对象。','输入与参数变化后，重新推导计算组织。'],
-      foot:'每次换证据、换视角或换输入，都可能需要重新建立这些关系。',
-    },
-    {
-      label:'希望开发者能够做到',
-      names:['降低理解门槛','建立认知连续性','支持主动推演'],
-      details:['直接观察计算结构和执行过程。','沿着同一对象切换视角或深入细节。','带入输入、比较不同参数下的计算组织。'],
-      foot:'按问题拆开理解，再借助同一对象把三种观察接起来。',
-    },
-    {
-      label:'Compute Explorer 的设计策略',
-      names:['算法机制可感知','共享计算上下文与关联交互','主动计算推演'],
-      details:['把规则呈现为空间分配、计算结构和动态流水。','切换视角或下钻时，沿用同一 Task 与输入配置。','更改输入参数，比较分块、逻辑轮次和流水怎样变化。'],
-      foot:'接下来从任务分配开始，依次看算法表达、跨视角追踪和参数推演。',
-    },
+  const judgmentChains = [
+    ['需要人工还原','一眼看懂','机制可视化'],
+    ['对象难以关联','连续追踪','共享上下文'],
+    ['变化难以推演','主动探索','交互式推演'],
   ];
   const batchColors = ['#83a5ee','#6ad9a2','#d8a767','#b6a1e8'];
   const steps = {
-    code:['代码来源','认知还原','执行规则','硬件资源','结论'],
+    code:['硬件执行','代码来源','理解任务','三个问题','结论'],
     scenes:['01 冲印店','02 数学计算','03 工具现状'],
-    judgment:['认知负担','设计目标','设计策略'],
+    judgment:['证据承接','认知痛点','用户期望','设计策略'],
   };
 
   function graph(stages) {
@@ -87,6 +72,29 @@
     ).join('')}<div class="opening-time">逻辑顺序 →</div></div>`;
   }
 
+  function evidenceImage(asset,alt) {
+    return `<img src="assets/tool-references/${asset}" alt="${alt}" draggable="false">`;
+  }
+
+  function renderJudgment(stage) {
+    const [,triton,pipeline] = scenes[2].evidence;
+    const evidence = [
+      [['源码 / IR / 计算图','compute-ir.png','IR 中的运算节点及其连接']],
+      [['Excel 手工 Tiling','excel-tiling.svg','表格中的数据范围和任务分组'],['Triton-Viz',triton[2],triton[3]]],
+      [['手排流水',pipeline[2],pipeline[3]]],
+    ];
+    stage.innerHTML = `<div class="opening-columns opening-judgment-columns">${evidence.map((items,i) => `
+      <div data-axis="${i}">
+        <div class="opening-judgment-evidence">${items.map(([label,asset,alt]) => `
+          <figure><figcaption>${label}</figcaption>${evidenceImage(asset,alt)}</figure>`
+        ).join('')}</div>
+        <ol class="opening-judgment-chain" aria-label="${axes[i][0]} · 认知痛点、用户期望、设计策略">
+          ${judgmentChains[i].map((name,index) => `<li data-judgment-step="${index+1}" hidden>${name}</li>`).join('')}
+        </ol>
+      </div>`
+    ).join('')}</div>`;
+  }
+
   function renderScene(stage, index) {
     const scene = scenes[index];
     const figures = scene.stages
@@ -94,7 +102,7 @@
       : scene.evidence.map(item => {
         if (!item) return '';
         const [name,detail,asset,alt] = item;
-        return `<div class="opening-evidence" data-reveal><strong>${name}</strong><small>${detail}</small><img src="assets/tool-references/${asset}" alt="${alt}" draggable="false"></div>`;
+        return `<div class="opening-evidence" data-reveal><strong>${name}</strong><small>${detail}</small>${evidenceImage(asset,alt)}</div>`;
       });
     stage.innerHTML = `<h2 data-reveal>${scene.title}</h2><div class="opening-columns">${figures.map((figure,i) =>
       `<div data-axis="${i}"><h3 data-reveal>${scene.labels[i]}</h3>${scene.evidence ? figure : `<div class="opening-figure" data-reveal>${figure}</div>`}${scene.details ? `<p>${scene.details[i]}</p>` : ''}</div>`
@@ -109,12 +117,13 @@
     const flowElements = [...slide.querySelectorAll('[data-flow-step]')];
     const stage = slide.querySelector('[data-opening-stage]');
     const caption = slide.querySelector('.opening-caption');
-    const overlay = slide.querySelector('.opening-overlay');
     const controls = slide.querySelector('[data-opening-controls]');
     let beat = 0;
-    let closed = false;
     let paused = false;
     let animations = [];
+
+    if (mode === 'judgment') renderJudgment(stage);
+    const judgmentNodes = [...slide.querySelectorAll('[data-judgment-step]')];
 
     if (axesRow) axesRow.innerHTML = axes.map(([name,view,question],i) =>
       `<div data-axis="${i}"><b>${name}</b><small>/ ${view}</small><p>${question}</p></div>`
@@ -137,23 +146,16 @@
       paused = !paused;
       updateControls();
     });
-    const replay = button('重放', () => set(beat,{replay:true}));
-    const toggleOverlay = overlay && button('关闭判断', () => {
-      if (closed) set(beat);
-      else close();
-    });
-
+    button('重放', () => set(beat,{replay:true}));
     function updateControls() {
       tabs.forEach((tab,index) => {
-        if (!closed && index === beat) tab.setAttribute('aria-current','step');
+        if (index === beat) tab.setAttribute('aria-current','step');
         else tab.removeAttribute('aria-current');
       });
-      previous.disabled = closed || beat === 0;
-      next.disabled = !closed && beat === last;
-      pauseButton.disabled = closed || !animations.some(animation => ['running','paused'].includes(animation.playState));
+      previous.disabled = beat === 0;
+      next.disabled = beat === last;
+      pauseButton.disabled = !animations.some(animation => ['running','paused'].includes(animation.playState));
       if (pauseButton.textContent !== (paused ? '继续动画' : '暂停动画')) pauseButton.textContent = paused ? '继续动画' : '暂停动画';
-      replay.disabled = closed;
-      if (toggleOverlay) toggleOverlay.textContent = closed ? '打开判断' : '关闭判断';
     }
 
     function cancel() {
@@ -174,19 +176,11 @@
         caption.textContent = renderScene(stage,beat);
         return [...stage.querySelectorAll('[data-reveal]')];
       }
-      if (!stage.childElementCount) caption.textContent = renderScene(stage,2);
-      slide.dataset.overlay = closed ? 'closed' : 'open';
-      overlay.hidden = closed;
-      if (closed) return [];
-      const judgment = judgments[beat];
-      overlay.querySelector('.opening-stage-label').textContent = judgment.label;
-      const grid = overlay.querySelector('.opening-judgment-grid');
-      grid.innerHTML = judgment.names.map((name,i) => `<div data-axis="${i}"><small>${beat === 0 ? '' : judgments[0].names[i]}</small><h2>${name}</h2><p>${judgment.details[i]}</p></div>`).join('');
-      overlay.querySelector('.opening-judgment-foot').textContent = judgment.foot;
-      return [overlay.querySelector('.opening-stage-label'),...grid.children,overlay.querySelector('.opening-judgment-foot')];
+      judgmentNodes.forEach(node => { node.hidden = Number(node.dataset.judgmentStep) > beat; });
+      return judgmentNodes.filter(node => Number(node.dataset.judgmentStep) === beat);
     }
 
-    function render(animate) {
+    function render(animate, entering = false) {
       cancel();
       const elements = paint();
       if (animate && document.body.dataset.deckRole !== 'preview' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -194,45 +188,35 @@
           [{opacity:.08,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],
           {duration:270,delay:Number(element.dataset.delay ?? Math.min(index,5)*38),easing:'ease-out',fill:'backwards'}
         ));
+        if (entering && mode === 'judgment') {
+          animations.push(stage.animate(
+            [{transform:'translateY(28px) scale(1.025)'},{transform:'none'}],
+            {duration:320,easing:'ease-out'}
+          ));
+        }
         Promise.allSettled(animations.map(animation => animation.finished)).then(updateControls);
       }
       updateControls();
     }
 
-    function set(index,{context,quiet=false,animate=true,replay=false} = {}) {
+    function set(index,{quiet=false,animate=true,replay=false} = {}) {
       if (!Number.isInteger(index) || index < 0 || index > last) return false;
-      const nextClosed = !!overlay && !!context?.closed;
-      if (index === beat && closed === nextClosed && !replay) return true;
+      if (index === beat && !replay) return true;
       beat = index;
-      closed = nextClosed;
       render(animate);
       if (!quiet) onChange();
       return true;
     }
 
-    function advance(direction) {
-      return closed ? direction > 0 && set(beat) : set(beat+direction);
-    }
-
-    function close() {
-      return !!overlay && !closed && set(beat,{context:{closed:true}});
-    }
-
     return {
-      get beat() { return closed ? -1 : beat; },
-      get context() { return overlay ? {closed,resumeBeat:beat} : null; },
+      get beat() { return beat; },
       last,
-      enter(index,context) {
-        beat = context?.closed ? context.resumeBeat : index;
-        closed = !!overlay && !!context?.closed;
-        render(true);
+      enter(index) {
+        beat = index;
+        render(true,true);
       },
-      set(index,options) {
-        if (overlay && index === -1 && options?.context?.closed) return set(options.context.resumeBeat,options);
-        return set(index,options);
-      },
-      advance,
-      close,
+      set,
+      advance(direction) { return set(beat+direction); },
       pause() { cancel(); updateControls(); },
       leave() { cancel(); },
     };
@@ -240,9 +224,10 @@
 
   const notes = {
     'opening-context':'从 Ascend C 的单个 Kernel 观察范围，走到 PyPTO 3.0 的融合算子。右上用 Paged Attention 说明计算结构复杂化：前后阶段、循环和数据组织要一起理解。右下沿用硬件结构示意，强调开发者要跟踪的执行范围和约束扩大了。\n\n随着融合程度和执行组织复杂度提高，开发者需要理解整个计算如何组织、分配并执行。这对接手一份代码的人意味着什么？',
-    'opening-code':'开发者常常从已有代码开始。代码可以来自 AI、已有算子资产、历史模板、开源仓库或示例。接手后，需要在脑中建立一遍这份代码可能怎样执行。先问它要做什么、依赖什么，再问工作作用于哪些数据、怎样切分，最后问各步何时推进、怎样协同。把这些规则放到有限的计算、存储和搬运资源里，才能理解执行如何组织。\n\n下一页用一份冲印订单，把这三个问题讲具体。',
+    'opening-code':'算子写出来，最终要放到硬件上跑。执行时需要考虑哪些计算单元能承担工作、中间结果放在哪里、数据怎么搬、各单元怎么通信和同步。\n\n今天接手的代码可能由 AI 生成，也可能来自同事维护的算子资产、示例或其他框架。要理解这份代码怎样落到硬件上，需要先理清它做了哪些运算、工作怎样随数据拆分、各步骤怎样推进。下一页用一份冲印订单，把这三个问题讲具体。',
     'opening-scenes':'先讲 128 张照片。工序有固定先后，分批后工作位能同时处理不同批次。观察同色批次如何沿着工序移动。切到逐元素算子，沿用相同形状表达 4 组 Tile 和可能的交错。逻辑推进图说明依赖允许的顺序。\n\n回到真实算子的运行前理解：通过阅读分析源码还原计算过程，用 Excel 推导数据范围和归属，借 Triton-Viz 的局部访问可视化理解类似的分块问题。再依据依赖和同步规则手排流水，判断等待与重叠。开发者需要把这些局部线索串联到同一次计算。',
-    'opening-judgment':'先讲开发者承担的三项工作，再按同一位置对应三项目标，最后用后续演示落地。空间分配、计算图与动态流水展示算法机制。跨视角切换和逐层深入展示怎样追踪同一个 Task。参数演示展示如何带入输入，观察工作组织和逻辑轮次变化。\n\n三个视角按问题降低局部理解成本。共享对象与输入配置支持视角之间的定位和追踪，是连续探索的基础。下一页先看 Assignment 怎样让任务组织与归属可观察。',
+    'opening-judgment':'先让观众认出上页的线索。源码和 IR 要人工读，Excel 和 Triton-Viz 分别帮助推导范围和观察局部访问，手排流水依赖开发者自行推演。\n\n依次出现痛点、期望和策略。把执行机制直接呈现出来，可以少做人工还原。通过共享 Task 和输入配置，可以在不同视角连续追踪。让开发者修改输入并查看变化，可以主动检验对执行过程的判断。每列从证据引出一个主要问题，三个策略可以跨视角一起发挥作用。下一页先看任务分配怎样呈现算法机制。',
+
   };
 
   global.PtoDeckOpening = {mount,notes};

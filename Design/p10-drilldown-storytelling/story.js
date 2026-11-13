@@ -4,56 +4,50 @@
   const $ = selector => document.querySelector(selector);
   const stage = $('#story');
   const view = $('#view');
-  const motion = $('#motion');
+  const canvas = $('#canvas');
   const inDeck = document.body.hasAttribute('data-p10-deck');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const axes = [...document.querySelectorAll('[data-p09-level]')];
-  const beats = [
-    {depth:0, caption:'从设备范围看准备、同步、注意力任务和写回。'},
-    {depth:0, caption:'选中 Task {task}，沿它所在的执行块深入。'},
-    {depth:1, caption:'聚焦 {block}，Task {task} 仍位于原来的注意力任务序列中。'},
-    {depth:2, caption:'展开 Task {task}，查看逻辑轮次里的生产、消费与阶段交接。'},
-    {depth:1, caption:'返回 {block}，Task {task} 回到所属执行块。'},
-    {depth:0, caption:'恢复设备全貌，仍能沿 {block} 找到 Task {task}。'},
+  const captions = [
+    '从 Device 看执行全貌，在 AI Core 中定位 {block}。',
+    '聚焦 {block}，在块内定位 Task {task}。',
+    '展开 Task {task} 的 Stack。',
+    '在 Task {task} 内沿逻辑轮次查看生产、消费与阶段交接。',
   ];
   const blockName = id => 'Block ' + String(id).padStart(2, '0');
   const baseCamera = {scale:1, x:0};
-  let scale = 1;
   let beat = 0;
   let taskId = 48;
   let focus = null;
   let outerCamera = baseCamera;
   let innerCamera;
   let scenarioState;
-  let renderedStacks;
   let primedTask;
   let drawing = false;
-  let playing = [];
-  let shared = [];
+  let blockMotion;
+  let tickTimer;
+  let replay = 0;
   let outer, inner, execution, pipeline, anatomy;
 
   const outerHost = document.createElement('div');
   const innerHost = document.createElement('div');
-  outerHost.id = 'execution-map';
-  innerHost.id = 'task-pipeline';
+  outerHost.id = 'viz2-pipeline-inter';
+  innerHost.id = 'viz2-pipeline-intra';
   outerHost.className = innerHost.className = 'renderer';
-  const depth = () => beats[beat].depth;
+  const insideTask = () => beat >= 2;
   const task = () => pipeline.tasks[taskId];
-  const selected = () => beat !== 0;
   const row = id => outerHost.querySelector(`[data-bem-block="${id}"]`);
-  const bar = id => outerHost.querySelector(`[data-bem-task="${id}"]`);
   const surface = () => outerHost.querySelector('.viz2-pipeline-surface');
 
   function fitStage() {
-    scale = $('#frame').clientWidth / stage.offsetWidth;
+    const scale = $('#frame').clientWidth / stage.offsetWidth;
     stage.style.transform = `scale(${scale})`;
   }
 
   function select(id) {
     if (id === taskId && scenarioState) return;
     taskId = id;
-    const tick = task().ticks.find(item => item.produce !== null && item.consume !== null) ?? task().ticks[0];
-    focus = {kind:'tick', index:tick.index};
+    focus = null;
     scenarioState = PtoComputeScenario.create(anatomy.tasks[id]);
     innerCamera = undefined;
     outerCamera = baseCamera;
@@ -62,8 +56,8 @@
   function positionBlock() {
     const source = row(task().block);
     const map = surface();
-    if (!source || depth() === 2) return;
-    const onlyRow = depth() === 1;
+    if (!source || insideTask()) return;
+    const onlyRow = beat === 1;
     const y = source.offsetTop;
     const height = source.offsetHeight;
     map.style.transform = onlyRow ? `translateY(${68 - y}px)` : 'none';
@@ -77,10 +71,10 @@
   }
 
   function updateOuter() {
-    const selection = selected() ? {kind:'task', block:task().block, task:taskId} : null;
+    const selection = beat === 1 ? {kind:'task', block:task().block, task:taskId} : {kind:'block', block:task().block};
     drawing = true;
     try {
-      outer.update(selection, outerCamera, {active:depth() !== 2});
+      outer.update(selection, outerCamera, {active:!insideTask()});
       positionBlock();
     } finally {
       drawing = false;
@@ -107,7 +101,7 @@
   }
 
   function render() {
-    const level = depth();
+    const level = beat === 3 ? 2 : Math.min(beat, 1);
     const current = task();
     const name = blockName(current.block);
     const lane = execution.lanes[current.block];
@@ -118,9 +112,9 @@
       : focus?.kind === 'event' ? focus.event
       : focus?.kind === 'slot' ? 'Slot ' + focus.index
       : focus?.kind === 'stack' ? 'Stack ' + focus.index : '';
-    const target = level === 2 ? innerHost : outerHost;
+    const target = insideTask() ? innerHost : outerHost;
     if (view.firstChild !== target) {
-      if (level === 2) outer.update(null, outerCamera, {active:false});
+      if (insideTask()) outer.update(null, outerCamera, {active:false});
       else inner.update(taskId, null, null, {active:false});
       view.replaceChildren(target);
     }
@@ -129,162 +123,158 @@
     stage.dataset.beat = beat;
     axes.forEach((button, index) => {
       button.setAttribute('aria-pressed', String(index === level));
+      button.disabled = index === 2 && beat < 2;
       button.toggleAttribute('data-ancestor', index < level);
     });
 
     $('#block').textContent = name;
-    $('#block').hidden = !selected();
     $('#task').textContent = 'Task ' + taskId;
-    $('#task').hidden = !selected();
+    $('#task').hidden = level === 0;
     $('#tick').textContent = context;
-    $('#tick').hidden = level !== 2 || !context;
+    $('#tick').hidden = beat !== 3 || !context;
     $('#device').setAttribute('aria-current', level === 0 ? 'location' : 'false');
-    $('#block').setAttribute('aria-current', level === 1 ? 'location' : 'false');
-    $('#task').setAttribute('aria-current', level === 2 ? 'location' : 'false');
+    $('#block').setAttribute('aria-current', beat === 1 ? 'location' : 'false');
+    $('#task').setAttribute('aria-current', insideTask() ? 'location' : 'false');
     $('#device-context').textContent = execution.blocks + ' Blocks';
-    $('#block-context').textContent = selected() ? name : '执行块';
+    $('#block-context').textContent = name;
     $('#iteration-context').textContent = level === 2
       ? tick ? 'Tick ' + tick.index : 'Task ' + taskId
-      : selected() ? 'Task ' + taskId : '逻辑轮次';
-    $('#block-detail').hidden = level !== 1;
+      : level ? 'Task ' + taskId : '逻辑轮次';
+    $('#block-detail').hidden = beat !== 1;
     $('#block-facts').textContent = `${lane.phase0Groups} 组预处理 · SYNCALL · ${lane.tasks.length} Tasks`;
-    $('#task-heading').textContent = 'Task ' + taskId;
-    $('#task-facts').textContent = `Batch ${current.batch} · KV Head ${current.kvHead} · ${current.seqLen} tokens · ${current.stacks.length} Stacks`;
-    if (level === 1 && renderedStacks !== current) {
-      $('#stacks').innerHTML = current.stacks.map(stack =>
-        `<button type="button" class="btn btn-ghost" data-tick="${stack.produceTick}">Stack ${stack.index}<small>Slot ${stack.slot} · ${stack.tokens} tokens</small></button>`
-      ).join('');
-      renderedStacks = current;
-    }
-    const caption = beats[beat].caption.replaceAll('{task}', taskId).replaceAll('{block}', name);
+    const caption = captions[beat].replaceAll('{task}', taskId).replaceAll('{block}', name);
     const work = level === 2 && tick && [
       tick.produce === null ? '' : `生产 Stack ${tick.produce}（QK / Softmax）`,
       tick.consume === null ? '' : `消费 Stack ${tick.consume}（PV / Accumulate）`,
     ].filter(Boolean).join('，');
     $('#caption').textContent = work ? `Tick ${tick.index} · ${work}` : caption;
     $('#prev').disabled = beat === 0;
-    $('#next').disabled = beat === beats.length - 1;
+    $('#next').disabled = beat === captions.length - 1;
     $('#up').disabled = level === 0;
     $('#legend').innerHTML = level === 2
       ? '<i class="viz2-intra-flow-key"></i>数据依赖 <i class="viz2-intra-event-key"></i>READY 事件 <i class="viz2-intra-reuse-key"></i>Slot 复用 <span>· Logical Tick 表示源码循环进度</span>'
-      : 'Attention 宽度对应 Stack 数 · N↓ 表示 Normalize 与 BF16 写回';
+      : '';
+    $('#legend').hidden = level !== 2;
 
-    if (level === 2) updateInner();
+    if (insideTask()) updateInner();
     else updateOuter();
   }
 
+  // The native outer controller reports layout pixels relative to its canvas.
+  // The Deck scales the whole slide, while the native inner snapshot uses screen pixels.
+  const zoom = PtoVisualization2PipelineZoom.create({
+    root:canvas,
+    coordinateScale:() => canvas.getBoundingClientRect().width / canvas.offsetWidth,
+    getOuter:() => ({
+      getTransitionSnapshot() {
+        const snapshot = outer.getTransitionSnapshot();
+        if (!snapshot) return null;
+        const ratio = canvas.getBoundingClientRect().width / canvas.offsetWidth;
+        const origin = outerHost.querySelector('canvas').getBoundingClientRect();
+        const project = rect => ({
+          x:origin.left + (rect.x - origin.left) * ratio,
+          y:origin.top + (rect.y - origin.top) * ratio,
+          width:rect.width * ratio, height:rect.height * ratio,
+        });
+        return {tasks:snapshot.tasks.map(entry => ({
+          ...entry, rect:project(entry.rect), output:project(entry.output),
+        }))};
+      },
+      setSemanticTaskMask:id => outer.setSemanticTaskMask(id),
+    }),
+    getInner:() => ({
+      getTransitionSnapshot() {
+        const snapshot = inner.getTransitionSnapshot();
+        if (!snapshot) return null;
+        const title = $('#task').getBoundingClientRect();
+        return {...snapshot, title:{x:title.x,y:title.y,width:title.width,height:title.height}};
+      },
+      setTransitionMasked:value => inner.setTransitionMasked(value),
+    }),
+  });
+
   function stopMotion() {
-    playing.forEach(animation => animation.cancel());
-    shared.forEach(element => element.remove());
-    playing = [];
-    shared = [];
+    blockMotion?.cancel();
+    blockMotion = undefined;
+    clearTimeout(tickTimer);
+    tickTimer = undefined;
+    zoom.cancel();
   }
 
-  function animate(element, frames, duration) {
-    const animation = element.animate(frames, {duration, easing:'cubic-bezier(.22,.78,.22,1)'});
-    playing.push(animation);
-    return animation;
-  }
-
-  function geometry(rect) {
-    const root = motion.getBoundingClientRect();
-    return {
-      left:`${(rect.x - root.x) / scale}px`, top:`${(rect.y - root.y) / scale}px`,
-      width:`${rect.width / scale}px`, height:`${rect.height / scale}px`,
+  function playBlockEntry() {
+    const map = surface();
+    const before = {transform:map.style.transform, clipPath:map.style.clipPath};
+    render();
+    const animation = map.animate([before, {transform:map.style.transform, clipPath:map.style.clipPath}], {
+      duration:520, easing:'cubic-bezier(.22,.78,.22,1)',
+    });
+    blockMotion = animation;
+    animation.onfinish = () => {
+      if (blockMotion !== animation) return;
+      blockMotion = undefined;
     };
   }
 
-  function morph(from, to, label) {
-    if (!from?.width || !to?.width) return;
-    const element = document.createElement('div');
-    element.className = label ? 'shared-task' : 'shared-stack';
-    element.textContent = label;
-    motion.append(element);
-    shared.push(element);
-    const animation = animate(element, [
-      {...geometry(from), opacity:1}, {...geometry(to), opacity:1, offset:.87},
-      {...geometry(to), opacity:0},
-    ], 620);
-    animation.onfinish = () => element.remove();
-  }
-
-  function mapRect(id) {
-    const entry = outer.getTransitionSnapshot()?.tasks.find(item => item.id === id);
-    const button = bar(id)?.getBoundingClientRect();
-    if (!entry || !button?.width) return null;
-    const canvasLeft = outerHost.querySelector('canvas').getBoundingClientRect().left;
-    const nativeLeft = canvasLeft + Number(bar(id).dataset.attentionX) * scale;
-    const left = Math.max(nativeLeft, button.left);
-    const right = Math.min(nativeLeft + entry.rect.width * scale, button.right);
-    return {x:left, y:button.y, width:Math.max(0, right - left), height:button.height};
+  function playIteration() {
+    const ticks = task().ticks;
+    const overlap = ticks.find(tick => tick.produce !== null && tick.consume !== null) ?? ticks[0];
+    const sequence = [...new Set([ticks[0], overlap, ticks.at(-1)])];
+    const advance = () => {
+      focus = {kind:'tick', index:sequence.shift().index};
+      render();
+      tickTimer = sequence.length ? setTimeout(advance, 680) : undefined;
+    };
+    advance();
   }
 
   function change(next, id = taskId, withMotion = true, context) {
-    if (!beats[next] || !pipeline.tasks[id]) return false;
+    if (!captions[next] || !pipeline.tasks[id]) return false;
+    const oldBeat = beat;
+    const fromView = view.contains(document.activeElement);
     stopMotion();
-    const oldLevel = depth();
-    const nextLevel = beats[next].depth;
-    const sameTask = id === taskId;
-    const mapBefore = nextLevel === 2 && oldLevel !== 2 ? mapRect(id) : null;
-    const detailBefore = oldLevel === 2 && nextLevel !== 2 ? inner.getTransitionSnapshot() : null;
-    const chipBefore = $('#task').getBoundingClientRect();
-    const mapStyle = oldLevel === 2 ? null : {
-      transform:surface().style.transform, clipPath:surface().style.clipPath,
-    };
-    const restoreFocus = view.contains(document.activeElement);
-
     select(id);
-    if (context) focus = context.focus ?? null;
     beat = next;
-    render();
+    const animate = withMotion && !reducedMotion.matches;
+    focus = context?.focus ?? (next === 3 ? {kind:'tick', index:task().ticks.at(-1).index} : null);
+    if (next === 1 && animate && oldBeat <= 1) {
+      beat = 0;
+      render();
+      beat = 1;
+      playBlockEntry();
+    } else if (next === 2 && animate) {
+      beat = 1;
+      render();
+      const transition = zoom.prepare('in', taskId);
+      beat = next;
+      render();
+      zoom.play(transition);
+    } else if (next === 3 && animate) {
+      playIteration();
+    } else {
+      render();
+    }
+    if (fromView && oldBeat !== next) {
+      const pathButton = next === 0 ? '#device' : next === 1 ? '#block' : '#task';
+      $(pathButton).focus({preventScroll:true});
+    }
     if (!context) window.dispatchEvent(new Event('p10-change'));
-    if (restoreFocus && oldLevel !== nextLevel) {
-      (selected() ? $('#task') : $('#device')).focus({preventScroll:true});
-    }
-    if (!withMotion || reducedMotion.matches || oldLevel === nextLevel) return true;
-
-    if (oldLevel !== 2 && nextLevel !== 2) {
-      const map = surface();
-      animate(map, [mapStyle, {transform:map.style.transform, clipPath:map.style.clipPath}], 520);
-      if (nextLevel === 1) {
-        animate($('#block-detail'), [{opacity:0, offset:0}, {opacity:0, offset:.42}, {opacity:1}], 550);
-      }
-      return true;
-    }
-
-    const entering = nextLevel === 2;
-    const map = entering ? mapBefore : mapRect(id);
-    const detail = entering ? inner.getTransitionSnapshot() : detailBefore;
-    const chip = entering ? $('#task').getBoundingClientRect() : chipBefore;
-    if (!map || !detail || !sameTask) return true;
-
-    morph(entering ? map : chip, entering ? chip : map, 'Task ' + id);
-    // Each segment follows its Stack index to the QK operation in the native timeline.
-    detail.stacks.forEach(stack => {
-      const width = map.width / detail.stacks.length;
-      const segment = {...map, x:map.x + stack.index * width, width};
-      morph(entering ? segment : stack.rect, entering ? stack.rect : segment, '');
-    });
-    const bounds = view.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, (map.x + map.width / 2 - bounds.x) / bounds.width * 100));
-    const y = Math.max(0, Math.min(100, (map.y + map.height / 2 - bounds.y) / bounds.height * 100));
-    animate(view.firstChild, [
-      {clipPath:`inset(${y}% ${100 - x}% ${100 - y}% ${x}% round 4px)`},
-      {clipPath:'inset(0% 0% 0% 0% round 0px)'},
-    ], 520);
     return true;
   }
 
   function reset(silent = false) {
     scenarioState = null;
     select(48);
-    change(0, 48, false, silent ? {focus} : undefined);
+    change(0, 48, false, silent ? {} : undefined);
     outerHost.querySelector('.viz2-pipeline-viewport').scrollTop = 0;
   }
 
+  function advance(direction) {
+    if (direction > 0 && (blockMotion || zoom.pending || tickTimer !== undefined)) return true;
+    return change(beat + direction, taskId, direction > 0);
+  }
+
   function goUp() {
-    if (depth() === 2) change(4);
-    else if (depth() === 1) change(beat === 4 ? 5 : 1);
+    if (beat > 0) advance(-1);
   }
 
   function init() {
@@ -310,51 +300,57 @@
       model:execution,
       onSelect(selection) {
         if (!selection) return goUp();
+        if (blockMotion) return;
         const id = selection.task ?? (task().block === selection.block
           ? taskId : execution.lanes[selection.block]?.tasks[0]?.id);
         if (id == null) return;
-        change(selection.kind === 'block' || depth() === 1 ? 2 : 1, id);
+        change(beat === 0 || selection.kind === 'block' ? 1 : 2, id);
       },
-      onEnter(id) { change(3, id); },
+      onEnter(id) { if (beat <= 1 && !blockMotion) change(beat + 1, id); },
       onCamera(camera) { outerCamera = camera; if (!drawing) updateOuter(); },
     });
     inner = PtoVisualization2PipelineIntra.mount(innerHost, {
       model:pipeline,
       scenario:{get:() => scenarioState, limits:() => PtoComputeScenario.limits(scenarioState), task:() => null},
-      onTask(id) { change(3, id); },
+      onTask(id) { change(beat, id, false); },
       onFocus(nextFocus) {
+        stopMotion();
         focus = nextFocus;
         render();
         window.dispatchEvent(new Event('p10-change'));
       },
-      onCamera(id, camera) { innerCamera = camera; if (!drawing && depth() === 2) updateInner(); },
+      onCamera(id, camera) { innerCamera = camera; if (!drawing && insideTask()) updateInner(); },
       onInspector() {},
       onExit:goUp,
     });
 
-    axes.forEach((button, index) => button.onclick = () => change([selected() ? 5 : 0, 2, 3][index]));
-    $('#device').onclick = () => change(selected() ? 5 : 0);
-    $('#block').onclick = () => change(depth() === 2 ? 4 : 2);
-    $('#task').onclick = () => { if (depth() !== 2) change(3); else $('#task-pipeline .viz2-anatomy-viewport').focus(); };
-    $('#open-task').onclick = () => change(3);
-    $('#stacks').onclick = event => {
-      const stack = event.target.closest('[data-tick]');
-      if (!stack) return;
-      focus = {kind:'tick', index:Number(stack.dataset.tick)};
-      change(3);
+    axes.forEach((button, index) => button.onclick = () => {
+      const destination = [0, 1, 3][index];
+      if (destination === beat + 1) advance(1);
+      else if (destination < beat) change(destination, taskId, false);
+    });
+    $('#device').onclick = () => change(0, taskId, false);
+    $('#block').onclick = () => change(1, taskId, beat === 0);
+    $('#task').onclick = () => {
+      if (beat < 3) advance(1);
+      else innerHost.querySelector('.viz2-anatomy-viewport').focus();
     };
-    $('#prev').onclick = () => change(beat - 1);
-    $('#next').onclick = () => change(beat + 1);
+    $('#prev').onclick = () => advance(-1);
+    $('#next').onclick = () => advance(1);
+    $('#replay').onclick = () => {
+      replay++;
+      change(beat, taskId, true);
+    };
     $('#up').onclick = goUp;
     $('#reset').onclick = () => reset();
     document.addEventListener('keydown', event => {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if (event.key === 'Escape' && depth()) { event.preventDefault(); goUp(); }
+      if (event.key === 'Escape' && beat) { event.preventDefault(); goUp(); }
       if (inDeck) return;
       if (event.target instanceof Element && event.target.closest('#view') && !['PageDown','PageUp'].includes(event.key)) return;
       if (['ArrowRight','PageDown','ArrowLeft','PageUp'].includes(event.key)) {
         event.preventDefault();
-        change(beat + (['ArrowRight','PageDown'].includes(event.key) ? 1 : -1));
+        advance(['ArrowRight','PageDown'].includes(event.key) ? 1 : -1);
       }
     });
 
@@ -362,24 +358,30 @@
     reset(true);
     window.ptoDrilldownStory = {
       get beat() { return beat; },
-      get last() { return beats.length - 1; },
-      get context() { return {task:taskId, focus}; },
+      get last() { return captions.length - 1; },
+      get context() { return {task:taskId, focus, replay}; },
       set(next, {context, animate = false} = {}) {
         if (!next && !context) { reset(true); return true; }
         const id = context?.task ?? 48;
-        const snapshot = context ?? {focus:taskId === id ? focus : undefined};
-        if (!context && taskId !== id && pipeline.tasks[id]) {
-          select(id);
-          snapshot.focus = focus;
-        }
-        if (next === beat && id === taskId && JSON.stringify(snapshot.focus) === JSON.stringify(focus)) return true;
-        return change(next, id, animate, snapshot);
+        const sameStage = next === beat && id === taskId;
+        const isReplay = context?.replay !== undefined && context.replay !== replay;
+        if (sameStage && !isReplay && JSON.stringify(context?.focus ?? null) === JSON.stringify(focus)) return true;
+        replay = context?.replay ?? 0;
+        return change(next, id, animate && (!sameStage || isReplay) && next >= beat, context ?? {});
       },
-      advance: direction => change(beat + direction),
-      cancel: stopMotion,
+      advance,
+      cancel() {
+        stopMotion();
+        if (stage.getBoundingClientRect().width) {
+          render();
+        } else {
+          inner.update(taskId, null, null, {active:false});
+          outer.update(null, outerCamera, {active:false});
+        }
+      },
     };
-    new ResizeObserver(() => { stopMotion(); fitStage(); }).observe($('#frame'));
-    reducedMotion.addEventListener('change', stopMotion);
+    new ResizeObserver(fitStage).observe($('#frame'));
+    reducedMotion.addEventListener('change', () => { stopMotion(); render(); });
   }
 
   try {

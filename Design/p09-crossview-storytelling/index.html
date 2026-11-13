@@ -60,23 +60,32 @@
       <header class="mast">PyPTO Compute Explorer / P10</header>
       <h1>让计算关系在视角切换中连续可感知</h1>
       <nav class="views local-navigation" aria-label="跨视角导航">
-        <button type="button" class="btn btn-ghost" data-view="graph" aria-pressed="false">Graph</button>
+        <button type="button" class="btn btn-ghost" data-view="graph" aria-pressed="false">
+          <svg class="view-icon" viewBox="-2 -2 54 54" aria-hidden="true"><rect x="1" y="1" width="48" height="48" rx="4"/><path d="M10 15h10m-5-5v10m13-5h10M11 29l7 7m0-7-7 7m17-3h10m-5-5v.2m0 9.6v.2"/></svg>
+          Graph
+        </button>
         <div class="morph-path" data-path="graph">
-          <span>计算 × 数据</span>
+          <span class="morph-pair"><b>计算</b> × <b>数据</b></span>
           <div class="morph-track" role="slider" tabindex="0" aria-label="计算 × 数据，左端 Graph，右端 Assignment"
             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Assignment">
             <i class="morph-thumb" aria-hidden="true"><span class="morph-value"></span></i>
           </div>
         </div>
-        <button type="button" class="btn btn-ghost" data-view="assignment" aria-pressed="true">Assignment</button>
+        <button type="button" class="btn btn-ghost" data-view="assignment" aria-pressed="true">
+          <svg class="view-icon" viewBox="-2 -2 54 54" aria-hidden="true"><rect x="1" y="1" width="28" height="14" rx="2"/><rect x="35" y="1" width="14" height="14" rx="2"/><rect x="1" y="21" width="11" height="28" rx="2"/><rect x="18" y="21" width="11" height="28" rx="2"/><rect x="35" y="21" width="14" height="11" rx="2"/><rect x="35" y="38" width="14" height="11" rx="2"/></svg>
+          Assignment
+        </button>
         <div class="morph-path" data-path="pipeline">
-          <span>数据 × 时间</span>
+          <span class="morph-pair"><b>数据</b> × <b>时间</b></span>
           <div class="morph-track" role="slider" tabindex="0" aria-label="数据 × 时间，左端 Assignment，右端 Pipeline"
             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Assignment">
             <i class="morph-thumb" aria-hidden="true"><span class="morph-value"></span></i>
           </div>
         </div>
-        <button type="button" class="btn btn-ghost" data-view="pipeline" aria-pressed="false">Pipeline</button>
+        <button type="button" class="btn btn-ghost" data-view="pipeline" aria-pressed="false">
+          <svg class="view-icon" viewBox="-2 -2 54 54" aria-hidden="true"><path d="M3 5h9m10 0h16a10 10 0 0 1 0 20H10a10 10 0 0 0 0 20h16m10 0h9"/><circle cx="17" cy="5" r="5"/><circle cx="31" cy="45" r="5"/></svg>
+          Pipeline
+        </button>
       </nav>
       <section id="stage" aria-label="Task 48 的三个视角">
         <header class="task-identity"><strong>Task 48</strong><span id="context"></span></header>

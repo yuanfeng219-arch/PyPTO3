@@ -11,7 +11,7 @@ document.body.insertAdjacentHTML('afterbegin', `
     <section class="pipeline" aria-label="Pipeline">
       <nav class="path" aria-label="当前执行路径">
         <button type="button" class="btn btn-ghost" id="device">Device</button>
-        <button type="button" class="btn btn-ghost" id="block" hidden></button>
+        <button type="button" class="btn btn-ghost" id="block"></button>
         <button type="button" class="btn btn-ghost" id="task" hidden></button>
         <span id="tick" hidden></span>
       </nav>
@@ -21,16 +21,11 @@ document.body.insertAdjacentHTML('afterbegin', `
           <div class="phases"><span>执行块</span><span>准备阶段</span><span>同步</span><span>注意力任务与输出</span></div>
           <div class="block-reading">
             <p id="block-facts"></p>
-            <h2 id="task-heading"></h2>
-            <p id="task-facts"></p>
-            <div id="stacks" aria-label="当前 Task 的 Stack 与 Slot"></div>
-            <button type="button" class="btn btn-ghost" id="open-task">展开逻辑流水线</button>
           </div>
         </div>
         <p id="error" role="alert" hidden>执行视图加载失败，请重新打开此页面。</p>
       </div>
       <p id="legend" class="pipeline-legend"></p>
-      <div id="motion" aria-hidden="true"></div>
     </section>
     <aside class="hierarchy" aria-label="执行层级">
       <h2>执行层级</h2>
@@ -50,6 +45,7 @@ document.body.insertAdjacentHTML('afterbegin', `
       <button type="button" class="btn btn-ghost" id="up">返回上级</button>
       <button type="button" class="btn btn-ghost" id="prev">上一步</button>
       <button type="button" class="btn btn-solid" id="next">下一步</button>
+      <button type="button" class="btn btn-ghost" id="replay">重播</button>
       <button type="button" class="btn btn-ghost" id="reset">重置</button>
     </nav>
   </footer>
