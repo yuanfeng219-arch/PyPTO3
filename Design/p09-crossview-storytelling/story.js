@@ -342,11 +342,13 @@
     });
 
     if (embedded) {
+      const copyEditor = DeckLocalEditor.mountSurface(story,edit => sendToDeck('copy-edit',{edit}));
       addEventListener('message', event => {
         const message = event.data;
         if (event.source !== parent || (deckOrigin !== '*' && event.origin !== deckOrigin) ||
             message?.pyptoCrossview !== 1) return;
         if (message.type === 'deck-header') mountDeckHeader(message);
+        if (message.type === 'copy-state') copyEditor.sync(message.enabled,message.edits);
         if (message.type === 'reset') reset();
         if (message.type === 'pause') { stopPlayback(); describe(); }
         if (message.type === 'state') {

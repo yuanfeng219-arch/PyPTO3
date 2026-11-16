@@ -28,11 +28,13 @@ title:现有工具链难以支撑连续的计算理解
 - 交互感知层 - 跨视角对象定位  \ 算法直观可感 
 - 体验创新层 - 参数驱动的计算推演
 
-# page5:
+# P11（物理第 11 页）
 
-title: 从代码阅读到计算探索，建立三位一体的计算认知体系
+标题：从代码阅读到计算探索，建立三位一体的计算认知体系
 
-三个圆圈视图
+- S0：通过「全部 / Graph / Assignment / Pipeline」切换聚焦，三视角围绕 Paged Attention。
+- S1–S3：展开三层三圆轮廓，依次聚焦 Device、AI Core、Iteration。
+
 
 # page:
 
@@ -71,3 +73,12 @@ highlight:
 
 - 带入真实参数，让抽象规则落到具体计算实例
 - 参数可调可推演，让理解从被动阅读变成主动探索
+
+# 计算认知模型备份（物理第 16 页）
+
+标题：建立三位一体的计算认知模型
+
+副标题：同一次计算 · 三种观察视角 · 跨粒度连续理解
+
+- 第一幕（S0）：单组三圆围绕 Paged Attention。Graph、Assignment、Pipeline 分别沿用 P3 的蓝、绿、橙，背景依次对应 What / Why、Who / Where、How / When。入页后按 Graph → Assignment → Pipeline 自动聚焦，各停留约 1.2 秒，再回到三圆整体并停住。讲述三个视角如何观察同一计算上下文，以及交叉区如何表达关联。
+- 第二幕（S1–S3）：Next 从 Device 开始，继续进入 AI Core、Iteration。同组三圆等比缩放，中心仍是 Paged Attention，深入后增加层级标注。右侧同步高亮当前层级，页底保留路径。Previous 或右侧 Device 可返回设备范围，Reset 回到 S0 并重播。讲述观察粒度变化时，如何保留上下文与来路。

@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P11 · 三位一体的计算认知模型</title>
+<style>
+:root{color-scheme:dark;--paper:#111419;--ink:#eff1f4;--muted:#a3afbd;--line:#303943;--graph:#819efe;--assignment:#6ad9a2;--pipeline:#efb864;--mono:"SFMono-Regular",Consolas,monospace;--sans:"PingFang SC","Microsoft YaHei",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0b0d10;color:var(--ink);font:22px/1.5 var(--deck-sans);overflow:hidden}main{position:absolute;left:50%;top:50%;width:1600px;height:900px;overflow:hidden;transform:translate(-50%,-50%) scale(var(--fit,1));background:var(--paper);isolation:isolate}
+/* The attached P11 header, normalized to its 1600 × 900 audience canvas. */
+:root {
+  --deck-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --deck-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --deck-padding:36px 54px 28px;
+  --footer-bottom:10.83px;
+  --footer-height:35.83px;
+}
+.deck-header { position:absolute; inset:36px 54px auto; z-index:1; height:24px; pointer-events:none; }
+.deck-mast {
+  display:flex; align-items:center; justify-content:space-between; gap:16px; height:24px;
+  color:#989898; font:500 12px/1 var(--deck-mono); letter-spacing:1px; white-space:nowrap;
+}
+.deck-narrative-phase, .deck-strategies {
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--deck-sans); letter-spacing:.25px;
+}
+.deck-mast [hidden] { display:none; }
+.deck-narrative-phase::before {
+  content:""; flex:none; width:8px; height:8px; border-radius:2px; background:#819efe;
+}
+.deck-strategies { color:#626262; }
+.deck-strategies-prefix { color:#989898; }
+.deck-strategies button[data-narrative-strategy] {
+  all:unset; cursor:pointer; white-space:inherit;
+}
+.deck-strategies :is(span,button)[data-narrative-strategy] { color:#797979; }
+.deck-strategies :is(span,button)[aria-current="step"] { color:#819efe; }
+.deck-strategies button[data-narrative-strategy]:not([aria-current]):hover { color:#b6b6b6; }
+.deck-strategies button[data-narrative-strategy]:focus-visible {
+  outline:1px solid #819efe; outline-offset:3px;
+}
+.deck-page-number { flex:none; }
+.left-column {
+  position:absolute; left:54px; top:72px; bottom:calc(var(--footer-bottom) + var(--footer-height)); width:600px;
+  display:grid; grid-template-rows:auto 1fr;
+}
+.left-column h1 {
+  margin:0; color:#f3f3f3;
+  font:650 46px/1.2 var(--deck-sans); letter-spacing:-.7px; white-space:normal;
+}
+.left-column h1 span { display:block; white-space:nowrap; }
+.left-column .strategy-subtitle {
+  display:grid; gap:8px; margin:0; align-self:center;
+  color:#eee; font:600 24px/1.3 var(--deck-sans);
+}
+figure { position:absolute; inset:0; margin:0; }
+svg { display:block; width:100%; height:100%; font-family:var(--deck-sans); overflow:visible; }
+.section-name { font-size:17px; font-weight:620; paint-order:stroke; stroke:#171e28; stroke-width:3px; }
+.footer { position:absolute; bottom:var(--footer-bottom); left:61.67px; right:61.67px; height:var(--footer-height); display:flex; align-items:center; border-top:1px solid var(--line); color:var(--muted); font:12.5px var(--deck-mono); letter-spacing:.08em; pointer-events:none; }
+[role=button]:focus-visible{outline:2px solid #b9ccff;outline-offset:4px}
+.ideal{fill:#d8e5fb}.note{fill:#b0bfd3}.lensname{font-size:27px;font-weight:610}.question{font:14px var(--mono);letter-spacing:.045em}.anchor-text{paint-order:stroke;stroke:#151b24;stroke-width:5px;stroke-linejoin:round;fill:#fff;font-size:22px;font-weight:650}.fine{vector-effect:non-scaling-stroke}
+</style>
+</head>
+<body>
+<main id="stage" aria-label="P11 三位一体的计算认知模型">
+<figure>
+<svg id="diagram" viewBox="0 0 1600 900" aria-label="Paged Attention 的三视角由独立走向关联，再展开为三个执行截面">
+<defs id="defs">
+  <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 6L6 0" stroke="#e3edff" stroke-width=".7" opacity=".28"/></pattern>
+  <linearGradient id="axisLight" gradientUnits="userSpaceOnUse" x1="1036" y1="258" x2="1036" y2="672"><stop stop-color="#9bb8ed" stop-opacity=".4"/><stop offset="1" stop-color="#e2edff"/></linearGradient>
+  <g id="deck-icon-0" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="48" height="48" rx="4"/><path d="M10 15h10m-5-5v10m13-5h10M11 29l7 7m0-7-7 7m17-3h10m-5-5v.2m0 9.6v.2"/></g>
+  <g id="deck-icon-1" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="28" height="14" rx="2"/><rect x="35" y="1" width="14" height="14" rx="2"/><rect x="1" y="21" width="11" height="28" rx="2"/><rect x="18" y="21" width="11" height="28" rx="2"/><rect x="35" y="21" width="14" height="11" rx="2"/><rect x="35" y="38" width="14" height="11" rx="2"/></g>
+  <g id="deck-icon-2" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h9m10 0h16a10 10 0 0 1 0 20H10a10 10 0 0 0 0 20h16m10 0h9"/><circle cx="17" cy="5" r="5"/><circle cx="31" cy="45" r="5"/></g>
+</defs>
+<g id="scales"></g><g id="bridge"></g><g id="slices"></g><g id="front"></g><g id="annotations"></g>
+</svg>
+</figure>
+<header class="deck-header">
+  <div class="deck-mast">
+    <span class="deck-narrative-phase" hidden></span>
+    <span class="deck-strategies">
+      <span class="deck-strategies-prefix">UX 设计</span>
+      <span aria-hidden="true">|</span>
+      <span data-narrative-strategy="native">算法可感知</span>
+      <span aria-hidden="true">·</span>
+      <span data-narrative-strategy="exploration">跨视角对象定位</span>
+      <span aria-hidden="true">·</span>
+      <span data-narrative-strategy="model" aria-current="step">计算认知模型</span>
+      <span aria-hidden="true">·</span>
+      <span data-narrative-strategy="what-if">参数驱动计算推演</span>
+    </span>
+    <span class="deck-page-number">11 / 16</span>
+  </div>
+</header>
+<section class="left-column">
+  <h1 data-p11-copy="heading"><span>从代码阅读到计算探索，</span><span>建立三位一体的计算认知体系</span></h1>
+  <h2 class="strategy-subtitle" data-p11-copy="subtitle"><span>同一次计算</span><span>三种观察视角</span><span>跨粒度连续理解</span></h2>
+</section>
+<div class="footer">
+  <span id="scene-status" aria-live="polite" aria-label="使用左右方向键换幕"></span>
+</div>
+<noscript>启用 JavaScript 后可播放计算认知模型。</noscript>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+function el(parent, tag, attrs = {}, label) {
+  const n = document.createElementNS(NS, tag);
+  Object.entries(attrs).forEach(([key, value]) => n.setAttribute(key, value));
+  if (label !== undefined) n.textContent = label;
+  parent.append(n); return n;
+}
+const set = (n,a) => Object.entries(a).forEach(([k,v]) => n.setAttribute(k,v));
+const group=(p,a)=>el(p,'g',a);
+const path=(p,d,a={})=>el(p,'path',{d,fill:'none',...a});
+const ellipse=(p,a)=>el(p,'ellipse',a);
+const txt=(p,x,y,value,a={})=>el(p,'text',{x,y,...a},value);
+const circle=(p,cx,cy,r,a={})=>el(p,'circle',{cx,cy,r,...a});
+const move=(n,x,y)=>n.setAttribute('transform',`translate(${x} ${y})`);
+const opacity=(n,value)=>n.setAttribute('opacity',value);
+const clamp=v=>Math.min(1,Math.max(0,v));
+const mix=(a,b,p)=>a+(b-a)*p;
+const smooth=p=>p*p*(3-2*p);
+const cue=(t,a,b)=>smooth(clamp((t-a)/(b-a)));
+const diamond=(p,r,attrs)=>path(p,`M0 ${-r}L${r} 0 0 ${r} ${-r} 0Z`,attrs);
+const axes=[
+ {name:'Graph',question:'What',color:'var(--graph)',out:[0,-166],inside:[0,-90],label:[0,-34],hit:[0,-59]},
+ {name:'Assignment',question:'Where',color:'var(--assignment)',out:[-181,96],inside:[-91,53],label:[-55,36],hit:[-62,31]},
+ {name:'Pipeline',question:'When',color:'var(--pipeline)',out:[181,96],inside:[91,53],label:[55,36],hit:[62,31]},
+];
+const levels=[
+ {name:'Device',desc:'设备范围',y:258,r:177,depth:48},
+ {name:'AI Core',desc:'核内执行',y:465,r:147,depth:40},
+ {name:'Iteration',desc:'单次迭代',y:672,r:118,depth:33},
+];
+const origin={x:1036,y:465};
+const FRONT_SCALE=1;
+const params=new URLSearchParams(location.search);
+// Review alternatives share geometry and timing; the default is the only presentation treatment.
+const studies={
+ arrow:{connection:'arrow',overlap:'texture',motion:'diagonal'},
+ ray:{connection:'ray',overlap:'edge',motion:'arc'},
+ origin:{connection:'origin',overlap:'fill',motion:'arc'},
+};
+const studyName=params.get('study');
+const study=Object.hasOwn(studies,studyName)?studies[studyName]:studies.origin;
+const defs=$('defs'), slices=$('slices'), annotations=$('annotations');
+const blend=['#76bbbe','#b2accd','#bed18d'];
+function createSlice(i){
+ const l=levels[i],root=group(slices,{'data-slice':l.name});
+ const lenses=axes.map((a,j)=>{
+   const id=`lens-${i}-${j}`;
+   const mask=ellipse(el(defs,'clipPath',{id}));
+   const fill=ellipse(root,{'data-perspective':a.name,fill:a.color,stroke:a.color,'stroke-width':1.65});
+   const detail=group(root,{fill:a.color,stroke:a.color});
+   for(let k=0;k<[9,7,5][i];k++){
+     const x=mix(-.69,.69,k/([8,6,4][i]));
+     const y=k%2?.2:-.18;
+     path(detail,`M${x} -.27V.27`,{class:'fine','stroke-width':.8,opacity:.43});
+     if(j===0)circle(detail,x,y,.035,{stroke:'none'});
+     if(j===1)el(detail,'rect',{x:x-.035,y:y-.084,width:.07,height:.168,stroke:'none'});
+     if(j===2)path(detail,`M${x-.041} ${y}h.082`,{class:'fine','stroke-width':1.8});
+   }
+   const label=txt(root,0,0,a.name,{class:'section-name',fill:a.color,'text-anchor':'middle'});
+   return {mask,fill,detail,label,id};
+ });
+ const intersections=group(root);
+ const pairs=[[0,1],[0,2],[1,2]].map(([a,b],j)=>{
+   const clip=group(intersections,{'clip-path':`url(#${lenses[a].id})`});
+   const layer=group(clip,{'clip-path':`url(#${lenses[b].id})`});
+   ellipse(layer,{cx:0,cy:0,rx:269,ry:224,fill:study.overlap==='texture'?'url(#hatch)':blend[j],'fill-opacity':study.overlap==='edge'?.08:study.overlap==='fill'?.15:.62});
+   if(study.overlap==='edge')path(layer,'',{stroke:blend[j],'stroke-width':1.3,'stroke-opacity':.66});
+   return {layer,a};
+ });
+ const core=group(root);
+ circle(core,0,0,11,{fill:'#151d28',stroke:'#dce9ff','stroke-opacity':.63});
+ diamond(core,4.8,{fill:'#dce9ff'});
+ lenses.forEach(({label})=>root.append(label));
+ return {root,lenses,intersections,pairs,core};
+}
+// Draw the original (AI Core after reformation) above its two derivatives.
+const models=[];[2,0,1].forEach(i=>{models[i]=createSlice(i)});
+const axis=group($('scales'));
+path(axis,`M${origin.x} 175V760`,{stroke:'#8297b8','stroke-opacity':.46,'stroke-dasharray':'3 7'});
+const focusLine=path(axis,'',{stroke:'url(#axisLight)','stroke-width':1.65});
+const guide=path($('bridge'),'',{stroke:'#a0b7df','stroke-width':1.15,'stroke-dasharray':'3 7'});
+const orbit=group($('front'));
+const observation=group(orbit);
+const sightings=axes.map((a,i)=>{
+ const g=group(observation,{'aria-hidden':'true'});
+ const attrs={stroke:a.color,'stroke-width':1.2};
+ const line=path(g,'',attrs);
+ if(study.connection==='ray')line.setAttribute('stroke-dasharray','4 5');
+ const end=path(g,'',attrs);
+ const start=circle(g,0,0,2.7,{fill:'#151d26',stroke:a.color,'stroke-width':1.3});
+ return {g,line,end,start};
+});
+const lensLabels=axes.map((a,i)=>{
+ const g=group(orbit,{'text-anchor':'middle'});
+ el(g,'use',{href:`#deck-icon-${i}`,color:a.color,transform:'translate(-13 -54) scale(.52)'});
+ txt(g,0,0,a.name,{class:'lensname',fill:a.color});
+ txt(g,0,25,a.question,{class:'question',fill:'#c2cee2'});
+ return g;
+});
+const proof=group(orbit);
+const trace=axes.map(a=>path(proof,'',{stroke:a.color,'stroke-width':1.5}));
+const marks=axes.map(a=>circle(proof,...a.hit,3.6,{fill:a.color,stroke:'#17202d','stroke-width':1.35}));
+const pairLabels=[
+ [-97,-33,'计算 × 数据',-1],[97,-33,'计算 × 时间',1],[0,111,'数据 × 时间',0],
+].map(([x,y,label,side])=>{
+ const g=group(orbit);
+ path(g,side?`M0 0h${30*side}l${14*side} -11h${16*side}`:'M0 0v13',{stroke:'#b8cbe9','stroke-opacity':.62});
+ circle(g,0,0,2.3,{fill:'#cadef8'});
+ txt(g,side?69*side:0,side?-5:35,label,{'text-anchor':side<0?'end':side?'start':'middle',class:'note','font-size':16,'paint-order':'stroke',stroke:'#151b24','stroke-width':4});
+ move(g,x,y);return g;
+});
+const identity=group(orbit,{'text-anchor':'middle'});
+txt(identity,0,-20,'Paged Attention',{class:'anchor-text'});
+const target=group(orbit,{role:'button',tabindex:-1,'aria-label':'追踪共享算子 Paged Attention','aria-pressed':'false'});
+circle(target,0,0,16,{fill:'transparent'});
+const halo=circle(target,0,0,12,{fill:'none',stroke:'#e5eeff','stroke-width':1.3});
+const callouts=levels.map((l,i)=>{
+ const g=group(annotations,{role:'button','aria-label':'聚焦 '+l.name});
+ const leader=path(g,'',{stroke:'#adc0df','stroke-width':1});
+ circle(g,1348,l.y+12,2.7,{fill:'#c6dafc'});
+ const label=group(g);
+ txt(label,1365,l.y-5,`0${i+1}`,{class:'mono note','font-size':13});
+ txt(label,1394,l.y-4,l.name,{class:'ideal','font-size':27,'font-weight':620});
+ txt(label,1394,l.y+23,l.desc,{class:'note','font-size':17});
+ el(g,'rect',{x:1360,y:l.y-33,width:173,height:66,fill:'transparent'});
+ return {g,leader,label};
+});
+
+const scenes=[
+ {time:0,label:'独立观测'}, {time:7,label:'建立交集'},
+ {time:14.35,label:'空间重组'}, {time:18.6,label:'侧视层级'},
+];
+const DURATION=24;
+const LAST_SCENE=scenes.length-1;
+let time=0,sceneIndex=0,raf=0,selected=false;
+const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+function enable(node,on){
+ node.style.pointerEvents=on?'auto':'none';
+ node.style.cursor=on?'pointer':'default';
+ node.setAttribute('tabindex',on?'0':'-1');
+ if(on)node.removeAttribute('aria-hidden');
+ else {
+   if(document.activeElement===node)node.blur();
+   node.setAttribute('aria-hidden','true');
+ }
+}
+function bind(node,action){
+ node.addEventListener('click',action);
+ node.addEventListener('keydown',e=>{
+   if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();action();}
+ });
+}
+callouts.forEach(({g},i)=>bind(g,()=>moveTo([18.6,21,24][i],LAST_SCENE)));
+bind(target,()=>{
+ if(target.getAttribute('tabindex')!=='0')return;
+ selected=!selected;render(time);
+});
+
+function render(t){
+ const joined=cue(t,2.1,5.25);
+ const front=1-cue(t,9.12,10.4);
+ const evidence=cue(t,5.3,6.4)*front;
+ const active=selected?1:cue(t,6.38,6.94)*(1-cue(t,7.65,8.63));
+ const frontPulse=evidence*active;
+ const fan=[cue(t,9.25,12.05),1,cue(t,9.9,12.6)];
+ const spread=cue(t,9.25,12.6);
+ const opening=cue(t,16.95,17.92);
+ const focus=cue(t,19.2,20.7)+cue(t,21.35,22.78);
+ const pose=models.map((m,i)=>{
+   const l=levels[i], sign=i-1, f=fan[i];
+   const turn=cue(t,i===2?12.9:12.55,17.48);
+   const squash=cue(t,13.65,17.5);
+   const xProgress=study.motion==='arc'?turn*turn:turn;
+   const yProgress=study.motion==='arc'?1-(1-turn)**1.8:turn;
+   const x=origin.x+sign*292*f*(1-xProgress);
+   const y=mix(origin.y,l.y,yProgress);
+   const s=i===1?mix(FRONT_SCALE,.67,spread):mix(.82,.49,f);
+   const weight=1-Math.min(1,Math.abs(focus-i));
+   move(m.root,x,y);opacity(m.root,f*(1-.28*opening*(1-weight)));
+   m.lenses.forEach((lens,j)=>{
+     const a=axes[j], side=[0,-1,1][j];
+     // Compress the frontal triangle without rotating or reordering its viewpoints.
+     const sectionX=side*l.r*.59;
+     const sectionY=l.depth*(j===0?-.58:.46);
+     const ox=mix(mix(a.out[0],a.inside[0],joined)*s,sectionX,squash);
+     const oy=mix(mix(a.out[1],a.inside[1],joined)*s,sectionY,squash);
+     const r=mix(119*s,l.r,squash),ry=mix(119*s,l.depth,squash);
+     const geom={cx:ox,cy:oy,rx:r,ry};
+     set(lens.fill,geom);set(lens.mask,geom);
+     lens.fill.setAttribute('fill-opacity',mix(.098+.027*joined,.165,squash));
+     lens.fill.setAttribute('stroke-opacity',mix(i===1?.88:.71,.7+.27*weight,squash));
+     if(study.overlap==='edge')m.pairs.filter(p=>p.a===j).forEach(p=>p.layer.lastChild.setAttribute('d',`M${ox-r} ${oy}a${r} ${ry} 0 1 0 ${2*r} 0a${r} ${ry} 0 1 0 ${-2*r} 0`));
+     lens.detail.setAttribute('transform',`translate(${ox} ${oy}) scale(${r} ${ry})`);
+     opacity(lens.detail,opening*(.17+.22*weight));
+     set(lens.label,{x:ox+side*l.r*.47,y:oy+(j===0?-.38:.42)*l.depth+5});
+     opacity(lens.label,opening);
+   });
+   opacity(m.intersections,joined*(1-squash)*(i===1?1:.58));
+   move(m.core,0,0);opacity(m.core,1-.35*opening);
+   return {x,y};
+ });
+ orbit.setAttribute('transform',`translate(${origin.x} ${origin.y}) scale(${FRONT_SCALE})`);
+ opacity(identity,front);
+ opacity(observation,(1-cue(t,2,4.75))*front);
+ axes.forEach((a,i)=>{
+   const v=sightings[i],cx=mix(a.out[0],a.inside[0],joined),cy=mix(a.out[1],a.inside[1],joined);
+   const len=Math.hypot(cx,cy),ux=cx/len,uy=cy/len;
+   const sx=ux*Math.max(17,len-112),sy=uy*Math.max(17,len-112),ex=ux*15,ey=uy*15;
+   set(v.start,{cx:sx,cy:sy});
+   v.line.setAttribute('d',`M${sx} ${sy}L${ex} ${ey}`);
+   const px=-uy,py=ux;
+   v.end.setAttribute('d',study.connection==='arrow'
+     ?`M${ex+ux*8+px*4} ${ey+uy*8+py*4}L${ex} ${ey}L${ex+ux*8-px*4} ${ey+uy*8-py*4}`
+     :study.connection==='ray'
+     ?`M${ex-px*6} ${ey-py*6}L${ex+px*6} ${ey+py*6}M${sx-ux*4} ${sy-uy*4}L${sx+ux*4} ${sy+uy*4}`
+     :`M${ex-px*3} ${ey-py*3}L${ex+px*3} ${ey+py*3}`);
+   move(lensLabels[i],cx+a.label[0]*mix(.15,.76,joined),cy+a.label[1]);opacity(lensLabels[i],front);
+   const [hx,hy]=a.hit;
+   trace[i].setAttribute('d',`M0 0L${hx} ${hy}`);
+   opacity(trace[i],frontPulse*.69);
+   opacity(marks[i],evidence*(.57+.43*active));
+   marks[i].setAttribute('r',2.6+1.3*active);
+ });
+ pairLabels.forEach(n=>opacity(n,evidence));
+ opacity(halo,frontPulse*.8);
+ const targetOn=t>=5.65&&t<9.15;
+ target.style.visibility=targetOn?'visible':'hidden';enable(target,targetOn);
+ target.setAttribute('aria-pressed',String(selected));
+ const [up,center,down]=pose;
+ guide.setAttribute('d',`M${up.x} ${up.y}Q${mix(up.x,center.x,.5)} ${center.y} ${center.x} ${center.y}Q${mix(down.x,center.x,.5)} ${center.y} ${down.x} ${down.y}`);
+ opacity(guide,spread*(1-opening)*.77);
+ opacity(axis,opening);
+ const fy=focus<=1?mix(levels[0].y,levels[1].y,focus):mix(levels[1].y,levels[2].y,focus-1);
+ focusLine.setAttribute('d',`M${origin.x} ${levels[0].y}V${fy}`);
+ callouts.forEach(({g,leader,label},i)=>{
+   const l=levels[i],weight=1-Math.min(1,Math.abs(focus-i));
+   leader.setAttribute('d',`M${origin.x+l.r*1.59+8} ${l.y+l.depth*.46}h9l10 ${12-l.depth*.46}H1348`);
+   opacity(g,opening);opacity(leader,.44+.4*weight);opacity(label,.76+.24*weight);
+   enable(g,opening>.96);
+   g.setAttribute('aria-pressed',String(Math.round(focus)===i));
+ });
+}
+function announce(){
+ $('scene-status').textContent=`S${sceneIndex} / ${scenes[sceneIndex].label}`;
+}
+function moveTo(next,index){
+ cancelAnimationFrame(raf);
+ sceneIndex=index;selected=false;announce();
+ const from=time,span=Math.abs(next-from);
+ if(!span||reduced.matches){time=next;render(time);return}
+ const duration=Math.min(2180,420+span*225);
+ let start;
+ function tick(now){
+   start??=now;
+   const progress=clamp((now-start)/duration);
+   time=mix(from,next,progress);render(time);
+   if(progress<1)raf=requestAnimationFrame(tick);
+ }
+ raf=requestAnimationFrame(tick);
+}
+document.addEventListener('keydown',e=>{
+ if(e.defaultPrevented||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
+ if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+ e.preventDefault();
+ if(e.repeat)return;
+ const next=Math.min(LAST_SCENE,Math.max(0,sceneIndex+(e.key==='ArrowLeft'?-1:1)));
+ if(next!==sceneIndex)moveTo(scenes[next].time,next);
+});
+const stage=$('stage');
+function fit(){stage.style.setProperty('--fit',Math.min(innerWidth/1600,innerHeight/900))}
+addEventListener('resize',fit);fit();
+const startAt=params.get('t');
+if(startAt!==null&&Number.isFinite(Number(startAt))){
+ time=Math.max(0,Math.min(DURATION,Number(startAt)));
+ sceneIndex=scenes.reduce((nearest,s,i)=>Math.abs(s.time-time)<Math.abs(scenes[nearest].time-time)?i:nearest,0);
+}
+render(time);announce();
+</script>
+</body>
+</html>

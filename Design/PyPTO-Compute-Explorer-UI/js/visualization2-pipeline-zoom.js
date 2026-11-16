@@ -2,7 +2,7 @@
 (function(global){
   'use strict';
   const NS='http://www.w3.org/2000/svg';
-  function create({root,getOuter,getInner,coordinateScale=()=>1}){
+  function create({root,getOuter,getInner,coordinateScale=()=>1,duration=780}){
     let job=null;const media=matchMedia('(prefers-reduced-motion: reduce)');
     function cancel(){if(!job)return;cancelAnimationFrame(job.frame);job.animations.forEach(a=>a.cancel());job.overlay?.remove();job.hold.remove();getOuter()?.setSemanticTaskMask(null);getInner()?.setTransitionMasked(false);job=null;}
     const outer=id=>getOuter()?.getTransitionSnapshot()?.tasks.find(t=>t.id===id);
@@ -40,11 +40,11 @@
       }
       current.phase='animating';
       const destination=root.querySelector(entering?'#viz2-pipeline-intra':'#viz2-pipeline-inter');
-      current.animations.push(current.hold.animate([{opacity:1},{opacity:0}],{duration:420,easing:'ease-in-out',fill:'both'}));
-      current.animations.push(destination.animate([{opacity:0},{opacity:0,offset:.15},{opacity:1}],{duration:720,easing:'ease-in-out',fill:'both'}));
+      current.animations.push(current.hold.animate([{opacity:1},{opacity:0}],{duration:duration*420/780,easing:'ease-in-out',fill:'both'}));
+      current.animations.push(destination.animate([{opacity:0},{opacity:0,offset:.15},{opacity:1}],{duration:duration*720/780,easing:'ease-in-out',fill:'both'}));
       const mix=(x,y,t)=>x+(y-x)*t,lerp=(x,y,t)=>Object.fromEntries(['x','y','width','height'].map(k=>[k,mix(x[k],y[k],t)]));
       const set=(el,r)=>Object.entries({x:(r.x-o.left)/ratio-root.clientLeft,y:(r.y-o.top)/ratio-root.clientTop,width:r.width/ratio,height:r.height/ratio}).forEach(([k,v])=>el.setAttribute(k,v));
-      const start=performance.now();function tick(now){if(job!==current)return;const raw=Math.min(1,(now-start)/780),e=raw<.5?4*raw**3:1-(-2*raw+2)**3/2,p=entering?e:1-e;
+      const start=performance.now();function tick(now){if(job!==current)return;const raw=Math.min(1,(now-start)/duration),e=raw<.5?4*raw**3:1-(-2*raw+2)**3/2,p=entering?e:1-e;
         const bounds=lerp(a.rect,b.frame,p);set(frame,bounds);frame.style.opacity=String(1-p*.7);set(output,lerp(a.output,b.output,p));set(outputFill,lerp(a.output,b.output,p));outputFill.style.opacity=String(1-p);frame.setAttribute('stroke-opacity',1-p);
         label.setAttribute('text-anchor',p>.95?'start':'middle');
         label.setAttribute('x',(mix(a.rect.x+a.rect.width/2,b.title.x,p)-o.left)/ratio-root.clientLeft);label.setAttribute('y',(mix(a.rect.y+a.rect.height/2,b.title.y+b.title.height/2,p)-o.top)/ratio-root.clientTop);label.setAttribute('font-size',mix(12,b.title.height*.7/ratio,p));
