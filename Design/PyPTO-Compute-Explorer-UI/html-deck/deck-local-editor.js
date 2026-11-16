@@ -149,7 +149,7 @@ const DeckLocalEditor = (() => {
     return {sync};
   }
 
-  function mountDeck({slides,role,page,bindingStore,sendP9}) {
+  function mountDeck({slides,role,page,bindingStore,sendP9,isPresenting = () => false}) {
     const source = document.querySelector('#deck-copy-edits');
     const edits = JSON.parse(source.textContent);
     const saved = new Map();
@@ -169,7 +169,7 @@ const DeckLocalEditor = (() => {
     function syncPage(index) {
       const slide = slides[index];
       if (index === p9Index) {
-        sendP9('copy-state',{enabled:enabled && index === page(),edits:edits[index] ?? {}});
+        sendP9('copy-state',{enabled:enabled && !isPresenting() && index === page(),edits:edits[index] ?? {}});
         return;
       }
       const embedded = slide.matches('iframe');
@@ -179,7 +179,7 @@ const DeckLocalEditor = (() => {
       if (surfaces.get(index)?.root !== root) {
         surfaces.set(index,{root,editor:mountSurface(root,edit => stage(index,edit))});
       }
-      surfaces.get(index).editor.sync(enabled && index === page(),edits[index] ?? {});
+      surfaces.get(index).editor.sync(enabled && !isPresenting() && index === page(),edits[index] ?? {});
     }
 
     function refresh() {
@@ -313,7 +313,7 @@ const DeckLocalEditor = (() => {
     return {
       refresh,
       editP9(edit) {
-        if (role !== 'deck' || !Array.isArray(edit?.path) ||
+        if (role !== 'deck' || isPresenting() || !Array.isArray(edit?.path) ||
             !edit.path.every(step => Array.isArray(step) && typeof step[0] === 'string' && Number.isInteger(step[1])) ||
             !Number.isInteger(edit.part) || typeof edit.original !== 'string' || typeof edit.value !== 'string') return;
         stage(p9Index,edit);

@@ -189,13 +189,15 @@
         <input type="radio" name="stack-count" value="${stacks}">
         <span>${stacks} ${stacks === 1 ? 'Stack' : 'Stacks'}</span>`;
       const input = label.querySelector('input');
-      input.addEventListener('change', () => {
-        render(stacks);
-        if (embedded) window.dispatchEvent(new Event('p06-stack-change'));
-      });
+      input.addEventListener('change', () => select(stacks));
       $('#stack-options').append(label);
       return input;
     });
+
+    function select(stacks) {
+      render(stacks);
+      if (embedded) window.dispatchEvent(new Event('p06-stack-change'));
+    }
 
     let current;
     function render(stackCount) {
@@ -244,6 +246,13 @@
     if (embedded) window.p06GraphStory = {
       get stackCount() { return current; },
       setStackCount: render,
+      advance(direction) {
+        const index = candidates.findIndex(candidate => candidate.stacks === current);
+        const next = candidates[index + direction];
+        if (!next) return false;
+        select(next.stacks);
+        return true;
+      },
     };
   }
 })();

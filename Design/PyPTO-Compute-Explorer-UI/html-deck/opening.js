@@ -190,7 +190,7 @@
       const elements = paint();
       if (animate && document.body.dataset.deckRole !== 'preview' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         animations = elements.map((element,index) => element.animate(
-          [{opacity:.08,translate:'0 8px'},{opacity:1,translate:'0 0'}],
+          [{opacity:mode === 'code' && element === caption ? 0 : .08,translate:'0 8px'},{opacity:1,translate:'0 0'}],
           {duration:270,delay:Number(element.dataset.delay ?? Math.min(index,5)*38),easing:'ease-out',fill:'backwards'}
         ));
         Promise.allSettled(animations.map(animation => animation.finished)).then(updateControls);
