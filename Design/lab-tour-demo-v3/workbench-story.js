@@ -79,11 +79,11 @@
   function flowNode(k) {
     const f = facts, m = f.M[plan][weight];
     const v = {
-      generation: ['<b>' + f.total + '</b>', '份活'],
-      ordering: ['<b>' + f.valid + '</b><i>｜</i><b class="is-dim">' + f.empty + '</b>', '真活在前'],
-      assignment: ['<b>' + N + '</b>', '个核轮流领'],
-      rounds: ['<b>' + f.rounds + '</b>', '轮'],
-      eval: ['<b class="' + verdict(m.ratio) + '">' + m.ratio.toFixed(2) + '×</b>', '好不好 · 空等 ' + Math.round(m.wait * 100) + '%']
+      generation: ['<b>' + f.total + '</b>', 'Work Item'],
+      ordering: ['<b>' + f.valid + '</b><i>｜</i><b class="is-dim">' + f.empty + '</b>', '有效 | 空块'],
+      assignment: ['<b>' + N + '</b>', '核 · 轮询'],
+      rounds: ['<b>' + f.rounds + '</b>', '轮次'],
+      eval: ['<b class="' + verdict(m.ratio) + '">' + m.ratio.toFixed(2) + '×</b>', '不均衡度 · 等待 ' + Math.round(m.wait * 100) + '%']
     }[k];
     return '<button type="button" class="wb-flow-n' + (k === step ? ' is-on' : '') + '" data-wb-flow="' + k + '" aria-pressed="' + (k === step) + '">'
       + '<span class="wb-flow-g">' + G[k] + '</span><span class="wb-flow-v">' + v[0] + '</span><span class="wb-flow-k">' + v[1] + '</span></button>';
@@ -94,7 +94,7 @@
     tools.hidden = step !== 'eval';
     if (step === 'eval') {
       const seg = function (name, opts, cur) { return '<span class="wb-seg" role="group" aria-label="' + name + '">' + opts.map(function (o) { return '<button type="button" data-wb-' + name + '="' + o[0] + '" aria-pressed="' + (o[0] === cur) + '">' + o[1] + '</button>'; }).join('') + '</span>'; };
-      tools.innerHTML = seg('weight', [['rows', 'KV 行数'], ['count', '份数']], weight) + seg('plan', [['now', '现在'], ['flat', '不排队'], ['snake', '建议']], plan);
+      tools.innerHTML = seg('weight', [['rows', 'KV 行数'], ['count', 'Item 数']], weight) + seg('plan', [['now', '当前'], ['flat', '无排序'], ['snake', '建议']], plan);
     }
   }
 
@@ -102,7 +102,7 @@
   function build() {
     root = document.createElement('div');
     root.className = 'wb-story';
-    root.innerHTML = '<div class="wb-story-head"><nav class="wb-flow" aria-label="工作怎么分：五步"></nav><span class="wb-eval-tools" hidden></span></div>'
+    root.innerHTML = '<div class="wb-story-head"><nav class="wb-flow" aria-label="任务分配流程"></nav><span class="wb-eval-tools" hidden></span></div>'
       + '<div class="wb-advice-strip" hidden></div>'
       + '<div class="wb-story-canvas"><aside class="wb-advice" hidden></aside></div>'
       + '<div class="wb-story-key"></div>';
@@ -127,7 +127,7 @@
       r.setAttribute('class', 'lane-cell wb-cell ' + (!it.valid ? 'wb-k-idle' : it.sb === 0 ? 'k-win' : 'k-cmp'));
       r.dataset.key = it.id; r.dataset.lane = it.lane;
       const t = document.createElementNS(NS, 'title');
-      t.textContent = 'Token ' + it.token + ' · KV 块 ' + it.sb + (it.valid ? ' · 有效 KV ' + it.kv + ' 行' : ' · 空活（' + it.reason + '）') + ' · 队列第 ' + it.q + ' 位 · 核 ' + it.lane + ' 第 ' + (it.iter + 1) + ' 轮';
+      t.textContent = 'Token ' + it.token + ' · KV 块 ' + it.sb + (it.valid ? ' · 有效 KV ' + it.kv + ' 行' : ' · 空块（' + it.reason + '）') + ' · 队列第 ' + it.q + ' 位 · 核 ' + it.lane + ' 第 ' + (it.iter + 1) + ' 轮';
       r.appendChild(t);
       cellLayer.appendChild(r);
       return r;
@@ -137,10 +137,10 @@
 
   // ── 图例：只放色块与两三个字 ──
   function paintKey() {
-    const base = '<span><i class="k-win"></i>滑窗块</span><span><i class="k-cmp"></i>压缩块</span><span><i class="k-idle"></i>空活</span>';
+    const base = '<span><i class="k-win"></i>滑窗块</span><span><i class="k-cmp"></i>压缩块</span><span><i class="k-idle"></i>空块</span>';
     const extra = step === 'eval'
-      ? '<span><i class="k-wait"></i>空等最慢的核</span><span><i class="k-finish"></i>全部做完</span><span class="k-note">' + (weight === 'rows' ? '长度 = 要搬的有效 KV 行数（估算）' : '长度 = 真活份数') + '</span>'
-      : '<span class="k-note">一格 = 一份活</span>';
+      ? '<span><i class="k-wait"></i>等待（最慢核未完成）</span><span><i class="k-finish"></i>全部完成</span><span class="k-note">' + (weight === 'rows' ? '长度 = 有效 KV 行数（估算）' : '长度 = 有效 Work Item 数') + '</span>'
+      : '<span class="k-note">一格 = 一个 Work Item</span>';
     root.querySelector('.wb-story-key').innerHTML = base + extra + '<span class="k-syn" title="有效 / 空块来自 Synthetic 输入；分配规则取自源码；未上板">Synthetic · 未上板</span>';
   }
 
@@ -184,8 +184,8 @@
       const k = it.q - facts.valid;
       return { x: x0 + (k % c) * t, y: emptyTop + Math.floor(k / c) * t, w: t - 1, h: t - 1 };
     });
-    const ann = '<text class="wb-ann-k is-strong" x="' + x0 + '" y="' + (lh - 5) + '">▶ 队头 · 真活 ' + facts.valid + '</text>'
-      + '<text class="wb-ann-k is-strong" x="' + x0 + '" y="' + (emptyTop - 7) + '">队尾 · 空活 ' + facts.empty + '</text>';
+    const ann = '<text class="wb-ann-k is-strong" x="' + x0 + '" y="' + (lh - 5) + '">▶ 队首 · 有效 ' + facts.valid + '</text>'
+      + '<text class="wb-ann-k is-strong" x="' + x0 + '" y="' + (emptyTop - 7) + '">队尾 · 空块 ' + facts.empty + '</text>';
     return { pos: pos, ann: ann, used: emptyTop + Math.ceil(facts.empty / c) * t, order: function (it) { return it.q; } };
   }
   function matrix(rightW) {
@@ -219,8 +219,8 @@
     const bx = m.cx + facts.fullReal * m.tw, ex = m.cx + (facts.fullReal + facts.mixed) * m.tw, endX = m.cx + facts.rounds * m.tw, bottom = m.top + N * m.th;
     let ann = '<rect class="wb-ann-zone" x="' + (ex - 1) + '" y="' + (m.top - 3) + '" width="' + (endX - ex + 2) + '" height="' + (N * m.th + 4) + '" rx="3"/>'
       + '<line class="wb-ann-cut" x1="' + (bx - .75) + '" y1="' + (m.top - 16) + '" x2="' + (bx - .75) + '" y2="' + (bottom + 2) + '"/>'
-      + '<text class="wb-ann-k is-strong" x="' + (bx - 6) + '" y="' + (m.top - 8) + '" text-anchor="end">← 真活 ' + facts.fullReal + ' 轮</text>'
-      + '<text class="wb-ann-k is-muted" x="' + (ex + 4) + '" y="' + (m.top - 8) + '">空活 ' + facts.emptyRounds + ' 轮 →</text>';
+      + '<text class="wb-ann-k is-strong" x="' + (bx - 6) + '" y="' + (m.top - 8) + '" text-anchor="end">← 有效 ' + facts.fullReal + ' 轮</text>'
+      + '<text class="wb-ann-k is-muted" x="' + (ex + 4) + '" y="' + (m.top - 8) + '">空块 ' + facts.emptyRounds + ' 轮 →</text>';
     ann += laneLabels(m);
     const every = m.th >= 9 ? 1 : m.th >= 5 ? 2 : 4;
     for (let l = 0; l < N; l += every) ann += '<text class="wb-ann-k" x="' + (endX + 8) + '" y="' + (m.top + l * m.th + m.th / 2 + 3.5) + '">' + facts.per[l] + '</text>';
@@ -252,17 +252,17 @@
     let ann = laneLabels(m, m0.slow)
       + '<line class="wb-ann-finish" x1="' + fx + '" y1="' + (m.top - 14) + '" x2="' + fx + '" y2="' + (bottom + 2) + '"/>'
       + '<line class="wb-ann-avg" x1="' + ax + '" y1="' + (m.top - 4) + '" x2="' + ax + '" y2="' + (bottom + 2) + '"/>'
-      + '<text class="wb-ann-k is-strong" x="' + (fx + 4) + '" y="' + (m.top - 6) + '">全部做完</text>'
+      + '<text class="wb-ann-k is-strong" x="' + (fx + 4) + '" y="' + (m.top - 6) + '">全部完成</text>'
       + '<text class="wb-ann-k is-muted" x="' + (ax - 4) + '" y="' + (m.top - 6) + '" text-anchor="end">平均</text>';
     // 右侧：每个核的工作量；最慢的核标出来
-    const every = m.th >= 9 ? 1 : m.th >= 5 ? 2 : 4, unit = weight === 'rows' ? ' 行' : ' 份';
+    const every = m.th >= 9 ? 1 : m.th >= 5 ? 2 : 4, unit = weight === 'rows' ? ' 行' : ' 个';
     m0.load.forEach(function (v, l) {
       if (l % every && l !== m0.slow) return;
       ann += '<text class="wb-ann-k' + (l === m0.slow ? ' is-slow' : '') + '" x="' + (fx + 8) + '" y="' + (m.top + l * m.th + m.th / 2 + 3.5) + '">' + (l === m0.slow ? '最慢 ' : '') + fmt(v) + unit + '</text>';
     });
     // 结论徽标：最慢 / 平均、空等占比
     const bx = x0 + 6, by = bottom + 8;
-    if (H - bottom >= 26) ann += '<g class="wb-verdict-g ' + verdict(m0.ratio) + '"><text x="' + bx + '" y="' + (by + 12) + '"><tspan class="v-big">' + m0.ratio.toFixed(2) + '×</tspan><tspan dx="6">最慢 / 平均</tspan><tspan dx="16" class="v-big">' + Math.round(m0.wait * 100) + '%</tspan><tspan dx="6">算力在空等</tspan></text></g>';
+    if (H - bottom >= 26) ann += '<g class="wb-verdict-g ' + verdict(m0.ratio) + '"><text x="' + bx + '" y="' + (by + 12) + '"><tspan class="v-big">' + m0.ratio.toFixed(2) + '×</tspan><tspan dx="6">最慢 / 平均</tspan><tspan dx="16" class="v-big">' + Math.round(m0.wait * 100) + '%</tspan><tspan dx="6">算力等待</tspan></text></g>';
     return { pos: pos, ann: ann, under: under, used: bottom + (H - bottom >= 26 ? 26 : 0), order: function (it) { return it.lane; }, spread: 500 };
   }
   // ── ⑤ 的改进建议卡：现在 → 建议 的前后对比 + 怎么改 + 代价；宽度不够时收起，只留“建议”开关 ──
@@ -273,15 +273,15 @@
     card.hidden = !on;
     // 画布窄时收成一条：结论 + 一句怎么改 + 按钮
     strip.hidden = step !== 'eval' || on;
-    if (!strip.hidden) strip.innerHTML = '<b>改进建议</b><span class="wb-adv-ba is-sm"><span class="' + verdict(a.ratio) + '">' + a.ratio.toFixed(2) + '×</span><i>→</i><span class="' + verdict(b.ratio) + '">' + b.ratio.toFixed(2) + '×</span></span><span>qk_plan 按 KV 行数从多到少排队，发牌每轮换方向（蛇形）</span><button type="button" class="wb-adv-go" data-wb-plan="' + (plan === 'snake' ? 'now' : 'snake') + '">' + (plan === 'snake' ? '回到现在' : '看效果') + '</button>';
+    if (!strip.hidden) strip.innerHTML = '<b>优化建议</b><span class="wb-adv-ba is-sm"><span class="' + verdict(a.ratio) + '">' + a.ratio.toFixed(2) + '×</span><i>→</i><span class="' + verdict(b.ratio) + '">' + b.ratio.toFixed(2) + '×</span></span><span>qk_plan 按 KV 行数降序排序，每轮反向分配（蛇形）</span><button type="button" class="wb-adv-go" data-wb-plan="' + (plan === 'snake' ? 'now' : 'snake') + '">' + (plan === 'snake' ? '回到现在' : '看效果') + '</button>';
     if (!on) return;
     const a2 = facts.M.now[other], b2 = facts.M.snake[other];
-    card.innerHTML = '<b class="wb-adv-k">改进建议</b>'
+    card.innerHTML = '<b class="wb-adv-k">优化建议</b>'
       + '<div class="wb-adv-ba"><span class="' + verdict(a.ratio) + '">' + a.ratio.toFixed(2) + '×</span><i aria-hidden="true">→</i><span class="' + verdict(b.ratio) + '">' + b.ratio.toFixed(2) + '×</span></div>'
-      + '<div class="wb-adv-sub">最慢 / 平均 · 空等 ' + Math.round(a.wait * 100) + '% → ' + Math.round(b.wait * 100) + '%</div>'
-      + '<ol class="wb-adv-how"><li><b>qk_plan</b> 把真活按要搬的 KV 行数<b>从多到少</b>排队</li><li>每轮发牌<b>换一次方向</b>（蛇形），重活轻活搭配着发</li><li>空活仍在队尾；qk_pv 的发牌规则不用改</li></ol>'
-      + '<div class="wb-adv-cost">' + (other === 'count' ? '按份数' : '按 KV 行数') + '：' + a2.ratio.toFixed(2) + '× → ' + b2.ratio.toFixed(2) + '×<br>代价：qk_plan 多一次排序；同一 token 的活不再相邻。估算值，需上板确认。</div>'
-      + '<button type="button" class="wb-adv-go" data-wb-plan="' + (plan === 'snake' ? 'now' : 'snake') + '">' + (plan === 'snake' ? '回到现在的排法' : '看建议排法的效果') + '</button>';
+      + '<div class="wb-adv-sub">最慢 / 平均 · 等待 ' + Math.round(a.wait * 100) + '% → ' + Math.round(b.wait * 100) + '%</div>'
+      + '<ol class="wb-adv-how"><li><b>qk_plan</b> 将有效 Work Item 按 KV 行数<b>降序</b>排序</li><li>每轮<b>反向分配</b>（蛇形），平衡各核负载</li><li>空块仍排在队尾；qk_pv 的分配规则无需修改</li></ol>'
+      + '<div class="wb-adv-cost">' + (other === 'count' ? '按 Work Item 数' : '按 KV 行数') + '：' + a2.ratio.toFixed(2) + '× → ' + b2.ratio.toFixed(2) + '×<br>代价：qk_plan 增加一次排序；同一 token 的 Work Item 不再相邻。估算值，需上板验证。</div>'
+      + '<button type="button" class="wb-adv-go" data-wb-plan="' + (plan === 'snake' ? 'now' : 'snake') + '">' + (plan === 'snake' ? '恢复当前排序' : '预览建议排序') + '</button>';
   }
   const LAYOUT = { generation: layoutGeneration, ordering: layoutOrdering, assignment: layoutAssignment, rounds: layoutRounds, eval: layoutEval };
 
@@ -312,7 +312,7 @@
     annLayer.classList.remove('is-on');
     setTimeout(function () { annLayer.classList.add('is-on'); }, 20);
     lastStep = step; lastKey = key;
-    svg.setAttribute('aria-label', { generation: '一共 ' + facts.total + ' 份活', ordering: '真活在前，空活在后', assignment: '轮流发给 ' + N + ' 个核', rounds: facts.rounds + ' 轮', eval: '最慢核是平均的 ' + facts.M[plan][weight].ratio.toFixed(2) + ' 倍' }[step]);
+    svg.setAttribute('aria-label', { generation: '共 ' + facts.total + ' 个 Work Item', ordering: '有效块在前，空块在后', assignment: '轮询分配给 ' + N + ' 个核', rounds: facts.rounds + ' 轮', eval: '最慢核为平均的 ' + facts.M[plan][weight].ratio.toFixed(2) + ' 倍' }[step]);
     syncState();
     if (!animate) setTimeout(function () { svg.classList.remove('is-still'); }, 40);
   }

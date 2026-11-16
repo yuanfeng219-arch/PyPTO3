@@ -263,10 +263,10 @@
   const tabs = $('kernelTabs'), bar = $('kernelBar');
   const tabBtn = function (t) { return tabs && tabs.querySelector('[data-tab="' + t + '"]'); };
   const onTab = function (t) { const b = tabBtn(t); return !!b && b.getAttribute('aria-selected') === 'true'; };
-  let phaseCache = [['generation', 'Generation', '源码先产生哪些工作'], ['ordering', 'Ordering', 'qk_plan 怎样排队'], ['assignment', 'Assignment', 'SPMD Lane 怎样领取']];
-  const ROUNDS_TIP = '每条 Lane 一轮轮领到哪些 Work Item；列是领取顺序，不是时间';
+  let phaseCache = [['generation', 'Generation', '源码生成的 Work Item'], ['ordering', 'Ordering', 'qk_plan 的排序规则'], ['assignment', 'Assignment', 'SPMD Lane 的分配规则']];
+  const ROUNDS_TIP = '各 Lane 每一轮分到的 Work Item；列为分配顺序，不代表时间';
   // 步骤名换成大白话，原术语缩小跟在后面（给懂行的人对照源码）
-  const PLAIN = { generation: '列出所有活', ordering: '排队', assignment: '分给各个核', rounds: '按轮干活' };
+  const PLAIN = { generation: '生成', ordering: '排序', assignment: '分配', rounds: '轮次' };
   const TERM = { generation: 'Generation', ordering: 'Ordering', assignment: 'Assignment', rounds: 'Lane 轮次' };
   function label(b, k) { if (PLAIN[k] && !b.querySelector('small')) b.innerHTML = esc(PLAIN[k]) + '<small>' + esc(TERM[k]) + '</small>'; }
   function roundsBtn(pressed) {
@@ -283,7 +283,7 @@
       // 记下这个 Kernel 实际有哪几个阶段，Lane 轮次里画代理步骤时照抄
       phaseCache = [].map.call(seg.querySelectorAll('[data-l2="phase"]'), function (b) { return [b.dataset.v, TERM[b.dataset.v] || b.textContent, b.title]; });
       if (!seg.querySelector('[data-wb-step]')) {
-        seg.classList.add('wb-steps'); seg.setAttribute('aria-label', '工作怎么分 · 步骤');
+        seg.classList.add('wb-steps'); seg.setAttribute('aria-label', '任务分配 · 步骤');
         seg.querySelectorAll('[data-l2="phase"]').forEach(function (b) { label(b, b.dataset.v); });
         seg.appendChild(roundsBtn(false));
       }
@@ -291,7 +291,7 @@
     }
     if (onTab('pipeline') && bar.firstChild && !bar.querySelector('.wb-steps')) {
       const proxy = document.createElement('div');
-      proxy.className = 'lens-seg wb-steps'; proxy.setAttribute('role', 'group'); proxy.setAttribute('aria-label', '工作怎么分 · 步骤');
+      proxy.className = 'lens-seg wb-steps'; proxy.setAttribute('role', 'group'); proxy.setAttribute('aria-label', '任务分配 · 步骤');
       phaseCache.forEach(function (p) {
         const b = document.createElement('button');
         b.type = 'button'; b.dataset.wbPhase = p[0]; b.title = p[2]; b.textContent = p[1]; b.setAttribute('aria-pressed', 'false');
@@ -340,8 +340,8 @@
   function paintMap() {
     const chip = kernelView.classList.contains('is-chip'), shown = logic && !logic.hidden;
     mapNote.hidden = !shown || kernelView.classList.contains('wb-bottom-closed');   // 下方收起时不提“下方展开”
-    mapNote.innerHTML = chip ? '<i aria-hidden="true">↓</i>下方展开<b>里层</b>：阶段 ①–④ 的数据落在哪'
-      : '<i aria-hidden="true">↓</i>下方展开<b>外两层</b>：SPMD × 24 · FOR qk_it';
+    mapNote.innerHTML = chip ? '<i aria-hidden="true">↓</i>关联<b>存储落点</b>：阶段 ①–④'
+      : '<i aria-hidden="true">↓</i>关联<b>任务分配</b>：SPMD × 24 · FOR qk_it';
   }
   if (kernelView) new MutationObserver(paintMap).observe(kernelView, { attributes: true, attributeFilter: ['class'] });
   if (logic) new MutationObserver(paintMap).observe(logic, { attributes: true, attributeFilter: ['hidden'] });

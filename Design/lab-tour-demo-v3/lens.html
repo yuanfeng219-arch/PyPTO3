@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../csa-operator-lens/vendor/path.css" />
 <link rel="stylesheet" href="./demo-shell.css?v=1" />
 <link rel="stylesheet" href="./workbench-polish.css?v=2" />
+<link rel="stylesheet" href="./agent-browser-shell.css" />
 <style>
 /* 「开发即可见」第二步：从 Agent 页右上角「Operator Lens」或 /lens 进入。
  * 布局参考 Codex 内置浏览器的标签页：最左图标栏（同 agent.html）、顶部标签条、导航栏 + 地址栏，下面整块是 Operator Lens（workbench.html?embed=lens，默认 L1）。工作台自己的顶栏在嵌入时隐藏，L1 / L2 与「编译并上板」放在导航栏右侧。
@@ -14,43 +15,6 @@
 :root { --sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
 html,body { height:100%; margin:0; }
 body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
-.lb-app { display:grid; grid-template-columns:52px minmax(0,1fr); height:100vh; }
-
-/* 图标栏：与 agent.html 相同 */
-.ag-rail { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 0 12px; background:var(--page); }
-.ag-rail > * { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; color:#7c7c7c; }
-.ag-rail > .is-on { background:#232323; color:var(--text); position:relative; text-decoration:none; }
-.ag-rail > a:hover,.ag-rail > a:focus-visible { background:#2a2a2a; outline:none; }
-.ag-rail > a:focus-visible { box-shadow:0 0 0 2px var(--demo-focus); }
-.ag-rail > .is-on::after { content:""; position:absolute; top:6px; right:6px; width:6px; height:6px; border-radius:50%; background:var(--lime); }
-.ag-rail svg { width:18px; height:18px; }
-.ag-rail > .sp { flex:1; }
-
-.lb-main { display:grid; grid-template-rows:48px 52px minmax(0,1fr); min-width:0; min-height:0; background:var(--surface); border-left:1px solid var(--divider,#222); }
-
-/* 标签条 */
-.lb-tabs { display:flex; align-items:center; gap:8px; padding:0 12px; min-width:0; background:var(--page); }
-.lb-dot { width:14px; height:14px; flex:none; border:1.5px solid #5f5f63; border-radius:50%; margin:0 6px 0 4px; }
-.lb-tab { display:flex; align-items:center; gap:8px; height:34px; min-width:0; max-width:300px; padding:0 8px 0 12px; border-radius:10px; background:var(--surface); color:var(--text); font:500 13px var(--sans); }
-.lb-tab > svg { width:15px; height:15px; flex:none; color:var(--lime); }
-.lb-tab b { flex:1; min-width:0; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.lb-x,.lb-plus,.lb-nav button,.lb-tools span { display:grid; place-items:center; flex:none; border:0; background:transparent; color:var(--dim); border-radius:8px; text-decoration:none; }
-.lb-x { width:24px; height:24px; }
-.lb-plus { width:30px; height:30px; }
-.lb-x svg,.lb-plus svg { width:13px; height:13px; }
-.lb-x:hover,.lb-x:focus-visible,.lb-nav button:hover:not([disabled]),.lb-nav button:focus-visible { background:#2a2a2a; color:var(--text); outline:none; }
-
-/* 导航栏 + 地址栏 */
-.lb-bar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:16px; padding:0 12px; background:var(--surface); border-bottom:1px solid var(--divider,#222); }
-.lb-nav { display:flex; align-items:center; gap:2px; padding:3px; border-radius:var(--demo-radius-control); background:rgb(255 255 255 / 4%); }
-.lb-nav button { width:30px; height:30px; border-radius:50%; cursor:pointer; }
-.lb-nav button[disabled] { opacity:.35; cursor:default; }
-.lb-nav svg { width:15px; height:15px; }
-.lb-addr { justify-self:center; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; max-width:900px; height:34px; padding:0 16px;
-  border-radius:var(--demo-radius-control); background:#1d1d1d; color:var(--muted); font:12.5px var(--mono); white-space:nowrap; overflow:hidden; }
-.lb-addr svg { width:13px; height:13px; flex:none; color:var(--lime); }
-.lb-addr span { overflow:hidden; text-overflow:ellipsis; }
-.lb-addr b { color:var(--text); font-weight:500; }
 /* 右侧：工作台原顶栏里的 L1 / L2 与「编译并上板」挪到这里（工作台在标签页里不显示自己的顶栏） */
 .lb-ctl { display:flex; align-items:center; gap:8px; }
 .lb-seg { display:flex; height:32px; border-radius:var(--demo-radius-control); overflow:hidden; background:rgb(255 255 255 / 5%); }
@@ -69,8 +33,6 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
 .lb-run:hover,.lb-run:focus-visible { background:#a3f25c; outline:none; }
 .lb-run:focus-visible { box-shadow:0 0 0 2px var(--demo-focus); }
 
-.lb-view { position:relative; min-height:0; background:var(--page); }
-.lb-view iframe { display:block; width:100%; height:100%; border:0; background:var(--page); }
 /* 入场：从 Agent 页过来（#from-agent）时，第一帧与 Agent 页转场的结束帧相同（标签条底色 + 面板底色），
  * 随后标签条、导航栏的内容依次落下；工作台加载完成后淡入、轻微上浮。直接打开本页时只有工作台淡入。 */
 .lb-view iframe { opacity:0; transform:translateY(10px) scale(.996); transform-origin:50% 0; transition:opacity .42s ease, transform .55s cubic-bezier(.2,.75,.15,1); }
@@ -86,13 +48,7 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
 .lb-load { position:absolute; left:0; top:0; height:2px; width:0; background:var(--lime); transition:width .8s ease, opacity .3s ease .2s; }
 .lb-load.is-done { width:100%; opacity:0; }
 
-@media(max-width:860px){
-  .lb-app { grid-template-columns:minmax(0,1fr); }
-  .ag-rail { display:none; }
-  .lb-bar { grid-template-columns:auto minmax(0,1fr) auto; gap:8px; }
-  .lb-addr { display:none; }
-  .lb-seg button { padding:0 10px; }
-}
+@media(max-width:860px){ .lb-seg button { padding:0 10px; } }
 @media(prefers-reduced-motion:reduce){ *{ transition:none!important; animation:none!important; } .lb-view iframe { transform:none; } }
 </style>
 </head>
@@ -204,5 +160,6 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
   });
 })();
 </script>
+<script src="./demo-highlights.js"></script>
 </body>
 </html>

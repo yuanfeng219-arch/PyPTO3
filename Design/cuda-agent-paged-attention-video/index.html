@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUDA Agent PagedAttention 演示</title>
+<style>
+  :root {
+    --code-font: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    --ui-font: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+    --vs-bg: #1e1e1e; --vs-side: #252526; --vs-act: #333333; --vs-title: #3c3c3c;
+    --vs-border: #2b2b2b; --vs-fg: #cccccc; --vs-dim: #8b8b8b; --vs-status: #007acc;
+    --remote: #16825d; --accent: #3794ff; --ok: #73c991; --warn: #e2c08d; --err: #f14c4c;
+  }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #viewport { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; font-family: var(--ui-font);
+    color: var(--vs-fg); transform-origin: center center; flex: none; background: #0b1a33; }
+  * { box-sizing: border-box; }
+
+  /* ---------- desktop ---------- */
+  #desktop { position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 70% at 62% 58%, rgba(64,140,255,.55), transparent 60%),
+      radial-gradient(40% 50% at 40% 40%, rgba(120,90,255,.35), transparent 65%),
+      linear-gradient(160deg, #0a1630 0%, #10285a 50%, #0a1a3d 100%); }
+  #taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: rgba(28,30,36,.92);
+    border-top: 1px solid rgba(255,255,255,.06); display: flex; align-items: center; justify-content: center; z-index: 40; }
+  .tb-icons { display: flex; gap: 4px; }
+  .tb-icon { width: 44px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .tb-icon.active::after { content: ""; position: absolute; bottom: 2px; width: 16px; height: 3px; border-radius: 2px; background: #6cb6ff; }
+  .tb-icon.open::after { content: ""; position: absolute; bottom: 2px; width: 6px; height: 3px; border-radius: 2px; background: #9aa; }
+  .tb-clock { position: absolute; right: 16px; top: 6px; text-align: right; font-size: 12px; line-height: 18px; color: #eee; }
+  .tb-tray { position: absolute; right: 110px; top: 14px; font-size: 12px; color: #ddd; display: flex; gap: 14px; }
+
+  /* ---------- windows terminal ---------- */
+  #wt { position: absolute; left: 230px; top: 90px; width: 1460px; height: 840px; background: #0c0c0c; border-radius: 8px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6); border: 1px solid #3a3a3a; overflow: hidden; z-index: 10; }
+  .wt-tabs { height: 40px; background: #202020; display: flex; align-items: flex-end; padding-left: 8px; }
+  .wt-tab { height: 32px; background: #0c0c0c; border-radius: 8px 8px 0 0; padding: 0 14px; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: #fff; min-width: 260px; }
+  .wt-tab .x { margin-left: auto; color: #999; }
+  .wt-plus { color: #aaa; padding: 0 12px 8px; font-size: 16px; }
+  .win-ctl { position: absolute; top: 0; right: 0; display: flex; }
+  .win-ctl span { width: 46px; height: 32px; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 12px; }
+  #wt-body { position: absolute; top: 40px; left: 0; right: 0; bottom: 0; padding: 10px 14px; font: 15px/21px var(--code-font);
+    color: #cccccc; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
+
+  /* ---------- vscode ---------- */
+  #vs { position: absolute; left: 0; top: 0; width: 1920px; height: 1032px; background: var(--vs-bg); z-index: 20;
+    transform-origin: 1032px 1056px; }
+  .vs-title { position: absolute; left: 0; right: 0; top: 0; height: 35px; background: #1f1f1f; border-bottom: 1px solid var(--vs-border);
+    display: flex; align-items: center; font-size: 13px; color: #cccccc; }
+  .vs-logo { width: 48px; display: flex; justify-content: center; }
+  .vs-menu span { padding: 0 8px; }
+  .vs-cmd { position: absolute; left: 50%; transform: translateX(-50%); width: 520px; height: 24px; border: 1px solid #3c3c3c; background: #2a2a2a;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #bbb; }
+  .vs-act { position: absolute; left: 0; top: 35px; width: 48px; bottom: 22px; background: #181818; border-right: 1px solid var(--vs-border); }
+  .act-i { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; position: relative; opacity: .55; }
+  .act-i.on { opacity: 1; }
+  .act-i.on::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #0078d4; }
+  .side-badge { margin-left: auto; margin-right: 10px; background: #0078d4; color: #fff; font-size: 9px; border-radius: 8px; padding: 0 5px; line-height: 14px; font-weight: 400; }
+  .act-badge { position: absolute; right: 7px; bottom: 9px; background: #0078d4; color: #fff; font-size: 9px; border-radius: 8px; padding: 0 4px; line-height: 14px; }
+  .vs-side { position: absolute; left: 48px; top: 35px; width: 260px; bottom: 22px; background: #181818; border-right: 1px solid var(--vs-border); overflow: hidden; }
+  .side-title { height: 35px; display: flex; align-items: center; padding: 0 20px; font-size: 11px; letter-spacing: .4px; color: #bbb; }
+  .side-sec { height: 22px; display: flex; align-items: center; padding: 0 6px; font-size: 11px; font-weight: 700; color: #ccc; }
+  .tree-row { height: 22px; display: flex; align-items: center; font-size: 13px; color: #ccc; white-space: nowrap; padding-right: 12px; }
+  .tree-row.sel { background: #04395e; outline: 1px solid #0078d4; outline-offset: -1px; }
+  .tree-row .tw { width: 16px; text-align: center; color: #c5c5c5; font-size: 10px; }
+  .tree-row .fi { width: 18px; margin-right: 5px; font: 700 9px/14px var(--ui-font); text-align: center; border-radius: 2px; }
+  .tree-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .tree-row .st { font-size: 12px; width: 14px; text-align: center; }
+  .tree-row.U .nm, .tree-row.U .st { color: var(--ok); }
+  .tree-row.M .nm, .tree-row.M .st { color: var(--warn); }
+  .tree-row.D .nm { color: #c74e39; text-decoration: line-through; }
+  .tree-row.D .st { color: #c74e39; }
+  .tree-row.ign .nm { color: #6e6e6e; }
+  .scm-box { margin: 4px 12px 8px 20px; height: 26px; border: 1px solid #3c3c3c; background: #2a2a2a; border-radius: 2px; font-size: 12px;
+    color: #888; display: flex; align-items: center; padding: 0 6px; }
+  .scm-btn { margin: 0 12px 8px 20px; height: 26px; background: #0078d4; color: #fff; border-radius: 2px; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .connecting { padding: 18px 20px; font-size: 12px; color: #aaa; line-height: 20px; }
+
+  .vs-editor { position: absolute; left: 308px; top: 35px; width: 1092px; height: 675px; background: var(--vs-bg); overflow: hidden; }
+  .tabs { height: 35px; background: #181818; display: flex; border-bottom: 1px solid var(--vs-border); }
+  .tab { height: 35px; padding: 0 12px 0 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #9d9d9d; background: #181818;
+    border-right: 1px solid var(--vs-border); white-space: nowrap; }
+  .tab.on { background: var(--vs-bg); color: #fff; border-top: 1px solid #0078d4; }
+  .tab .x { color: #888; margin-left: 6px; font-size: 11px; }
+  .tab.U .tn { color: var(--ok); } .tab.M .tn { color: var(--warn); }
+  .crumbs { height: 22px; display: flex; align-items: center; padding-left: 16px; font-size: 12px; color: #a9a9a9; gap: 4px; }
+  .code { position: absolute; top: 57px; left: 0; right: 0; bottom: 0; font: 14px/19px var(--code-font); }
+  .ln { height: 19px; display: flex; white-space: pre; position: relative; }
+  .ln .no { width: 58px; text-align: right; padding-right: 22px; color: #6e7681; flex: none; }
+  .ln.cur .no { color: #cccccc; }
+  .ln .tx { padding-left: 8px; }
+  .ln .gut { position: absolute; left: 60px; top: 0; width: 3px; height: 19px; }
+  .ln.add { background: rgba(155,185,85,.16); } .ln.add .gut { background: #487e02; }
+  .ln.del { background: rgba(255,60,60,.16); } .ln.del .gut { background: #a1260d; }
+  .ln.del .tx { text-decoration: line-through; text-decoration-color: rgba(255,120,120,.5); }
+  .ln.sel .tx { background: #264f78; }
+  .ln.hl { background: rgba(255,255,255,.05); }
+  .caret { display: inline-block; width: 2px; height: 17px; background: #aeafad; vertical-align: -3px; }
+  .empty-ed { position: absolute; inset: 57px 0 0 0; display: flex; align-items: center; justify-content: center; color: #555; font-size: 13px; flex-direction: column; gap: 10px; }
+  .minimap { position: absolute; right: 14px; top: 57px; width: 70px; bottom: 0; opacity: .35; overflow: hidden; }
+  .minimap div { height: 2px; margin: 1px 0; background: #8a8a8a; border-radius: 1px; }
+
+  .vs-panel { position: absolute; left: 308px; top: 710px; width: 1092px; height: 300px; background: var(--vs-bg); border-top: 1px solid var(--vs-border); }
+  .panel-tabs { height: 35px; display: flex; align-items: center; gap: 22px; padding-left: 20px; font-size: 11px; color: #8b8b8b; letter-spacing: .3px; }
+  .panel-tabs .on { color: #e7e7e7; border-bottom: 1px solid #0078d4; padding-bottom: 5px; margin-top: 6px; }
+  .panel-tabs .term-name { margin-left: auto; margin-right: 18px; color: #ccc; font-size: 12px; letter-spacing: 0; display: flex; gap: 6px; align-items: center; }
+  #term-body { position: absolute; top: 35px; left: 0; right: 0; bottom: 0; padding: 2px 20px 52px; font: 13px/18px var(--code-font);
+    white-space: pre-wrap; word-break: break-all; overflow: hidden; color: #cccccc; }
+
+  .vs-agent { position: absolute; left: 1400px; top: 35px; width: 520px; bottom: 22px; background: #181818; border-left: 1px solid var(--vs-border); }
+  .ag-head { height: 35px; display: flex; align-items: center; padding: 0 14px; font-size: 11px; letter-spacing: .4px; color: #bbb; gap: 8px; }
+  .ag-head .meta { margin-left: auto; letter-spacing: 0; font-size: 11px; color: #9a9a9a; display: flex; gap: 10px; align-items: center; font-family: var(--code-font); }
+  .ag-sub { height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-bottom: 1px solid var(--vs-border); font-size: 11px; color: #9a9a9a; }
+  .chip { border: 1px solid #3c3c3c; border-radius: 10px; padding: 0 8px; line-height: 18px; background: #222; }
+  #ag-msgs { position: absolute; top: 63px; left: 0; right: 0; bottom: 118px; overflow: hidden; padding: 12px 14px 4px; font-size: 13px; line-height: 19px; }
+  .m-user { background: #2b2d31; border: 1px solid #3a3d41; border-radius: 8px; padding: 9px 11px; margin: 4px 0 14px 34px; color: #e6e6e6; }
+  .m-user .who, .m-ag .who { font-size: 11px; color: #9a9a9a; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+  .m-ag { margin: 0 0 10px; color: #d6d6d6; }
+  .m-ag p { margin: 0 0 6px; }
+  .m-ag code, .m-user code { font-family: var(--code-font); font-size: 12px; background: #2d2d2d; border-radius: 3px; padding: 0 4px; color: #e8b48a; }
+  .m-ag b { color: #fff; }
+  .m-ag ol { margin: 0 0 6px; padding-left: 20px; }
+  .m-ag table { border-collapse: collapse; margin: 4px 0 8px; font-size: 12px; width: 100%; }
+  .m-ag td { border: 1px solid #3a3a3a; padding: 3px 8px; font-family: var(--code-font); }
+  .m-ag tr:first-child td { color: #9a9a9a; background: #222; }
+  .tool { border: 1px solid #333; background: #1f1f1f; border-radius: 6px; margin: 0 0 8px; overflow: hidden; }
+  .tool-h { display: flex; align-items: center; gap: 8px; padding: 5px 9px; font-size: 12px; }
+  .tool-h .tn { color: #9cdcfe; font-family: var(--code-font); font-size: 11px; background: #262f3a; border-radius: 3px; padding: 0 5px; flex: none; }
+  .tool-h .arg { font-family: var(--code-font); font-size: 12px; color: #ddd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .tool-h .stt { flex: none; font-size: 11px; color: #9a9a9a; display: flex; align-items: center; gap: 5px; }
+  .tool-h .ok { color: var(--ok); } .tool-h .err { color: var(--err); }
+  .tool-o { border-top: 1px solid #2c2c2c; padding: 5px 9px; font: 11px/16px var(--code-font); color: #a8a8a8; white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; background: #1a1a1a; }
+  .tool-d { font: 11px/16px var(--code-font); color: #9a9a9a; }
+  .tool-d .a { color: var(--ok); } .tool-d .r { color: var(--err); }
+  .spin { width: 11px; height: 11px; border: 2px solid #555; border-top-color: #3794ff; border-radius: 50%; display: inline-block; }
+  .thinking { color: #9a9a9a; font-size: 12px; display: flex; gap: 8px; align-items: center; margin: 2px 0 10px; }
+  .shimmer { background: linear-gradient(90deg, #777 0%, #ddd 50%, #777 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ag-input { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 100px; border: 1px solid #3c3c3c; background: #1f1f1f; border-radius: 8px; padding: 9px 11px;
+    font-size: 13px; line-height: 19px; color: #e6e6e6; }
+  .ag-input.focus { border-color: #0078d4; }
+  .ag-input .ph { color: #777; }
+  .ag-input .bar { position: absolute; left: 10px; right: 10px; bottom: 8px; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #8a8a8a; }
+  .ag-input .send { margin-left: auto; width: 26px; height: 22px; border-radius: 4px; background: #0078d4; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .ag-input .send.stop { background: #444; }
+  .av { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; }
+
+  .vs-status { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: #181818; border-top: 1px solid var(--vs-border);
+    display: flex; align-items: center; font-size: 12px; color: #ccc; }
+  .vs-status .remote { background: var(--remote); color: #fff; height: 22px; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+  .vs-status span { padding: 0 8px; }
+  .vs-status .r { margin-left: auto; display: flex; }
+
+  /* syntax (Dark+) */
+  .k { color: #569cd6; } .kc { color: #c586c0; } .ty { color: #4ec9b0; } .fn { color: #dcdcaa; } .s { color: #ce9178; }
+  .n { color: #b5cea8; } .c { color: #6a9955; } .v { color: #9cdcfe; } .cn { color: #4fc1ff; } .pp { color: #c586c0; } .h1 { color: #569cd6; font-weight: 700; }
+
+  /* terminal colours */
+  .tg { color: #16c60c; } .tgb { color: #16c60c; font-weight: 700; } .tb { color: #3b78ff; font-weight: 700; } .tr { color: #e74856; } .ty2 { color: #f9f1a5; }
+  .td { color: #8a8a8a; } .tw2 { color: #f2f2f2; font-weight: 700; } .tc { color: #61d6d6; } .tm { color: #b4009e; }
+  .tcaret { display: inline-block; width: 9px; height: 18px; background: #cccccc; vertical-align: -4px; }
+
+  /* overlays */
+  #cursor { position: absolute; left: 0; top: 0; width: 22px; height: 30px; z-index: 90; pointer-events: none; }
+  #ripple { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); z-index: 89; pointer-events: none; }
+  #caption { position: absolute; z-index: 80; bottom: 70px; left: 854px; transform: translateX(-50%); max-width: 1040px; display: flex; align-items: center; gap: 12px;
+    background: rgba(10,12,16,.88); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 10px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    font-size: 21px; line-height: 30px; color: #fff; white-space: nowrap; }
+  #caption .stp { font-size: 13px; color: #8cc4ff; border: 1px solid rgba(140,196,255,.45); border-radius: 6px; padding: 1px 8px; letter-spacing: .5px; font-weight: 600; }
+  #ff { position: absolute; z-index: 80; right: 540px; top: 50px; background: rgba(0,0,0,.72); border: 1px solid rgba(255,255,255,.15); border-radius: 6px;
+    padding: 4px 10px; font: 600 13px/18px var(--ui-font); color: #ffd479; }
+  #watermark { position: absolute; z-index: 85; right: 170px; top: 9px; font-size: 12px; color: rgba(255,255,255,.45); display: none; }
+
+  #intro, #outro { position: absolute; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+  #intro { background: radial-gradient(70% 70% at 50% 40%, #13243f 0%, #06080d 70%); flex-direction: column; text-align: center; }
+  #intro .eyebrow { font-size: 18px; color: #8cc4ff; letter-spacing: 3px; }
+  #intro h1 { margin: 18px 0 14px; font-size: 64px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+  #intro .sub { font-size: 24px; color: #c9d3e0; }
+  #intro .flow { margin-top: 44px; display: flex; gap: 12px; align-items: center; font-size: 20px; color: #e8eef6; }
+  #intro .flow span.b { border: 1px solid rgba(140,196,255,.4); background: rgba(55,148,255,.12); border-radius: 8px; padding: 8px 16px; }
+  #intro .flow span.a { color: #6f8fb5; }
+  #intro .note { position: absolute; bottom: 60px; font-size: 16px; color: #7f8a99; }
+  #outro { background: rgba(5,7,11,.82); }
+  .card { width: 1380px; background: #12161d; border: 1px solid #2a3240; border-radius: 16px; padding: 44px 56px 36px; box-shadow: 0 40px 120px rgba(0,0,0,.6); }
+  .card h2 { margin: 0; font-size: 36px; color: #fff; }
+  .card .lead { margin-top: 8px; color: #9fb0c6; font-size: 18px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 30px 0 28px; }
+  .kpi { background: #171c25; border: 1px solid #263042; border-radius: 12px; padding: 16px 18px; }
+  .kpi .l { font-size: 15px; color: #8ea0b8; } .kpi .v { font-size: 38px; font-weight: 700; color: #fff; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .v small { font-size: 18px; color: #9fb0c6; font-weight: 500; margin-left: 4px; }
+  .bars { display: grid; grid-template-columns: 200px 1fr 120px; gap: 10px 16px; align-items: center; font-size: 17px; }
+  .bars .lab { color: #c9d3e0; } .bars .val { text-align: right; color: #c9d3e0; font-variant-numeric: tabular-nums; font-family: var(--code-font); font-size: 15px; }
+  .bars .track { height: 22px; background: #1b212c; border-radius: 4px; overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 4px; }
+  .path { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 15px; color: #c9d3e0; }
+  .path .p { background: #1b212c; border: 1px solid #2a3344; border-radius: 6px; padding: 4px 10px; }
+  .path .p.bad { border-color: rgba(241,76,76,.5); color: #ff9b9b; } .path .p.good { border-color: rgba(115,201,145,.55); color: #9be3b3; }
+  .path .ar { color: #5d6b80; }
+  .src { margin-top: 26px; font-size: 13px; color: #6f7c8f; }
+
+  #hud { position: fixed; left: 0; right: 0; bottom: 0; height: 26px; background: rgba(0,0,0,.6); color: #aaa; font: 12px/26px var(--ui-font); padding: 0 12px; display: flex; gap: 12px; z-index: 999; }
+  #hud .bar { flex: 1; height: 4px; background: #333; margin-top: 11px; cursor: pointer; } #hud .bar i { display: block; height: 4px; background: #3794ff; }
+  body.capture #hud { display: none; }
+</style>
+</head>
+<body>
+<div id="viewport">
+<div id="stage">
+  <div id="desktop"></div>
+
+  <!-- Windows Terminal -->
+  <div id="wt">
+    <div class="wt-tabs">
+      <div class="wt-tab"><svg width="14" height="14" viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="12" rx="2" fill="#2d6cdf"/><path d="M4 6l2 2-2 2M7.5 10.5H11" stroke="#fff" stroke-width="1.3" fill="none"/></svg><span id="wt-title">Windows PowerShell</span><span class="x">✕</span></div>
+      <div class="wt-plus">＋ ⌄</div>
+    </div>
+    <div class="win-ctl"><span>—</span><span>☐</span><span>✕</span></div>
+    <div id="wt-body"></div>
+  </div>
+
+  <!-- VS Code -->
+  <div id="vs">
+    <div class="vs-title">
+      <div class="vs-logo"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="#2489ca"/><path d="M9 8l-4 4 4 4M15 8l4 4-4 4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+      <div class="vs-menu"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+      <div class="vs-cmd"><span>⌕</span><span id="vs-cmd-text">agent_workdir [SSH: gpu-h100-01]</span></div>
+      <div class="win-ctl"><span>—</span><span>☐</span><span>✕</span></div>
+    </div>
+    <div class="vs-act" id="vs-act"></div>
+    <div class="vs-side" id="vs-side"></div>
+    <div class="vs-editor">
+      <div class="tabs" id="vs-tabs"></div>
+      <div class="crumbs" id="vs-crumbs"></div>
+      <div class="code" id="vs-code"></div>
+      <div class="minimap" id="vs-mini"></div>
+    </div>
+    <div class="vs-panel">
+      <div class="panel-tabs"><span>PROBLEMS</span><span>OUTPUT</span><span>DEBUG CONSOLE</span><span class="on">TERMINAL</span><span>PORTS</span>
+        <span class="term-name" id="term-name">⌨ bash</span></div>
+      <div id="term-body"></div>
+    </div>
+    <div class="vs-agent">
+      <div class="ag-head"><span>CUDA AGENT</span><span class="meta" id="ag-meta"></span></div>
+      <div class="ag-sub"><span class="chip">CUDA-Agent · ReAct</span><span class="chip">SKILL.md</span><span class="chip">cwd: agent_workdir</span><span class="chip">tools: bash · read · write · edit</span></div>
+      <div id="ag-msgs"></div>
+      <div class="ag-input" id="ag-input"></div>
+    </div>
+    <div class="vs-status" id="vs-status"></div>
+  </div>
+
+  <div id="taskbar">
+    <div class="tb-icons" id="tb-icons"></div>
+    <div class="tb-tray"><span>ENG</span><span>📶</span><span>🔊</span></div>
+    <div class="tb-clock" id="tb-clock">14:32<br>2026/11/14</div>
+  </div>
+
+  <div id="ff"></div>
+  <div id="caption"></div>
+  <div id="watermark">还原演示 · 非真实运行录屏</div>
+  <div id="ripple"></div>
+  <svg id="cursor" viewBox="0 0 22 30"><path d="M2 2 L2 24 L7.5 18.8 L11.2 27.2 L14.6 25.7 L11 17.6 L18.5 17.6 Z" fill="#fff" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>
+
+  <div id="intro">
+    <div class="eyebrow">CUDA-AGENT · 开发者视角全流程还原</div>
+    <h1>用 CUDA Agent 生成 PagedAttention 算子</h1>
+    <div class="sub">基于 BytedTsinghua-SIA/CUDA-Agent 的 agent_workdir 工作流 · H100 · fp16 · GQA 32/8</div>
+    <div class="flow"><span class="b">定义任务 model.py</span><span class="a">→</span><span class="b">实现 kernels/*.cu</span><span class="a">→</span><span class="b">compile.sh</span><span class="a">→</span><span class="b">verification</span><span class="a">→</span><span class="b">profiling</span><span class="a">→</span><span class="b">迭代优化</span></div>
+    <div class="note">示意视频：工作目录结构、命令与日志格式取自仓库；算子代码为示意实现，性能数据为示意值，非真实运行录屏</div>
+  </div>
+  <div id="outro"></div>
+</div>
+</div>
+<div id="hud"><span id="hud-t">0.0s</span><div class="bar" id="hud-bar"><i id="hud-fill"></i></div><span>空格 播放/暂停 · ←/→ 跳转</span></div>
+
+<script src="sources.js"></script>
+<script src="engine.js"></script>
+<script src="timeline.js"></script>
+<script>
+  ENGINE.boot();
+</script>
+</body>
+</html>

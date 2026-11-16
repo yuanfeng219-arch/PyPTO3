@@ -159,7 +159,9 @@
   watch(document.getElementById('lane-ovl'));
   watch(document.getElementById('cp'));
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0));
+ // Keep the finding's height present on the first frame of the result handoff.
+ if(document.documentElement.classList.contains('from-lane'))mount();
+ else if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0));
  else setTimeout(mount,0);
 })();
 
@@ -230,6 +232,8 @@
   watch(document.getElementById('lane'));      // 泳道重画后重新分级
   watch(document.getElementById('lane-ovl'));  // 图例内容跟着工具栏重建
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0));
+ // The footer sets the lower edge of the lane viewport.
+ if(document.documentElement.classList.contains('from-lane'))mount();
+ else if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0));
  else setTimeout(mount,0);
 })();

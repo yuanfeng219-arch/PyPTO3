@@ -1,7 +1,23 @@
 <!doctype html>
 <html data-pass-ui="integrated" lang="zh-CN" data-theme="glass">
 <head>
-  <base href="../device-perf-lane/">
+<script>
+  if (window.parent !== window) {
+    const hostOrigin = location.protocol === 'file:' ? 'null' : location.origin;
+    window.addEventListener('message', event => {
+      if (event.source !== window.parent || event.origin !== hostOrigin || event.data?.type !== 'lane-analysis:reload') return;
+      location.replace(location.pathname + location.search + '#from-lane');
+      location.reload();
+    });
+  }
+  if (window.parent !== window && location.hash === '#lane-preview') {
+    document.documentElement.classList.add('from-lane', 'lane-preview');
+  } else if (location.hash === '#from-lane') {
+    document.documentElement.classList.add('from-lane');
+    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+  }
+</script>
+  <base href="../device-perf-lane/" target="_top">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Device Perf Lane · 聚焦版</title>
@@ -645,14 +661,16 @@ body.cpi-host .lane-toolbar-group .lane-toolbar{position:static;transform:none;t
 /* The task inspector heading does not need a divider. */
 #task-drawer > .drawer-head{border-bottom:0;box-shadow:none}
 </style>
-<link rel="stylesheet" href="../lab-tour-demo-v3/result-polish.css?v=16">
+<link rel="stylesheet" href="../lab-tour-demo-v3/result-polish.css?v=20">
 <link rel="stylesheet" href="../lab-tour-demo-v3/inline-lane-style.css">
+<script src="../lab-tour-demo-v3/lane-transition.js"></script>
 </head>
 <body>
   <main>
     <div class="main-column">
   <div class="run-header compact stats-initial" id="run-header"><header class="top"><div class="result-identity">
     <a class="demo-home" data-liquid-glass="icon" href="../lab-tour-demo-v3/index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5v10.5h13V9.5M9.5 20v-6h5v6"/></svg></a>
+    <script>if (window.parent !== window) document.currentScript.previousElementSibling.remove();</script>
     <h1>Device Perf Lane</h1>
     <span class="run" id="run">—</span>
     <span class="sp"></span>
@@ -766,6 +784,7 @@ let laneExpanded = false, laneComposition = false, laneRowCenters = [];
 let laneZoomRaf = 0;
 let singleChains = [], singleSelected = null, singlePanelOpen = false, singlePreviousRange = null, singlePreviousScroll = 0;
 const ovl = { ribbon: false, bands: true, marks: true };
+const lanePreview = document.documentElement.classList.contains('lane-preview') && window.LaneTransition;
 function laneLeft() { return qkInline && laneView === "core" ? 188 : 76; }
 
 const LENS = {
@@ -833,8 +852,10 @@ function criticalPath() {
     const isWait = p.blockNum === 1 || !p.onCore;
     const isSel = me && p.ids.includes(me);
     const g = el("g", { class: "cp-seg", "data-t": p.taskId, role:"button", tabindex:0, "aria-label":p.name, style: "cursor:pointer" });
-    g.append(el("rect", { x, y: TOP, width: w, height: BAR,
-      fill: isSel ? C.sel : isWait ? C.accent : C.AIC, opacity: isWait || isSel ? 1 : .55 }));
+    const bar = el("rect", { x, y: TOP, width: w, height: BAR,
+      fill: isSel ? C.sel : isWait ? C.accent : C.AIC, opacity: isWait || isSel ? 1 : .55 });
+    if (lanePreview) bar.dataset.lanePath = '';
+    g.append(bar);
     if(w>38){
       const color=isSel||isWait?'#111111':'#ffffff';
       const duration=`${ms(p.spanUs)} ms`,durationWidth=duration.length*6+10;
@@ -1483,6 +1504,10 @@ function renderLane() {
   const keep = (id) => laneAll || cand.has(id) || id === me || taskAnalysis.hits.has(id) || landmarkIds.has(id);
   svg.textContent = ""; svg.append(resultTagDefs()); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const xOf = (us) => LEFT + ((us - viewStart) / viewWin) * innerW;
+  if (lanePreview) {
+    svg.dataset.laneAxisX = xOf(0);
+    svg.dataset.laneAxisScale = innerW / viewWin;
+  }
   const r1 = (v) => Math.round(v * 10) / 10;
   const txt = (o, s, parent = svg) => { const t = el("text", o); t.textContent = s; parent.append(t); return t; };
   const hit = (id, aria) => el("g", { class: "task-event", "data-id": id, tabindex: "0", role: "button",
@@ -1827,6 +1852,10 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
           opacity: isSel || isCand || laneColor !== "none" ? 1 : .85 }));
       }
       if(isLongQk) g.append(el('rect',{x,y,width:w,height:barH,rx:laneExpanded?2:1,fill:C.accent,'pointer-events':'none'}));
+      if (lanePreview) {
+        const bar = isLongQk ? g.lastElementChild : g.firstElementChild;
+        bar.dataset.laneBlock = b.laneTransitionKey;
+      }
       g.append(el("rect", { x: x - (hitW - w) / 2, y: rowY, width: hitW, height: coreHeight(row), fill: "transparent" }));
       if (!isLongQk && isSel && !recommendedFocus && w > 64 && b === show.find(item => item.launch.id === me)) {
         const labelFontSize = showComposition ? 13 : 12;
@@ -2423,7 +2452,17 @@ function loadRank(name) {
 
 try {
   D = JSON.parse($("lane-data").textContent);
-  D.ranks=D.ranks.map(rank=>window.QK_RESIDENCY.withLongBlock(rank));
+  D.ranks = D.ranks.map(rank => {
+    const display = window.QK_RESIDENCY.withLongBlock(rank);
+    // The demo extends a qk_pv block and shifts later times. Match by the original trace.
+    if (lanePreview) rank.launches.forEach((launch, i) => {
+      launch.blocks.items.forEach((b, j) => {
+        display.launches[i].blocks.items[j].laneTransitionKey =
+          LaneTransition.blockKey(launch.tag, b.core, b.startUs, b.endUs);
+      });
+    });
+    return display;
+  });
 } catch (e) {
   document.querySelector("main").innerHTML =
     `<section class="sec"><p>数据未内联或已损坏：${esc(e.message)}。<br/>重建：<code>node Design/device-perf-lane/scripts/build_perf_lane.mjs</code></p></section>`;
@@ -2626,6 +2665,7 @@ if (D) {
     if (button) focusRecommendation(button.dataset.recommendation);
   });
   const statsHeader=$("run-header"), statsToggle=$("stats-toggle");
+  if (document.documentElement.classList.contains('from-lane')) statsHeader.classList.remove('stats-initial');
   let statsDismissed=false;
   const statsVisible=()=>['stats-initial','stats-pinned','stats-open'].some(c=>statsHeader.classList.contains(c));
   const syncStatsToggle=()=>{const open=statsVisible();statsToggle.setAttribute('aria-expanded',String(open));statsToggle.setAttribute('aria-label',open?'收起性能统计':'展开性能统计');};
@@ -2846,6 +2886,8 @@ if (D) {
 <script src="pass-ablation.js?v=integrated-1"></script>
 <script src="compile-linked/dist/compile-linked.js"></script>
 <script src="../lab-tour-demo-v3/inline-pass-transform.js"></script>
-<script src="../lab-tour-demo-v3/result-polish.js?v=13"></script>
+<script src="../lab-tour-demo-v3/result-polish.js?v=14"></script>
+<script>if (document.documentElement.classList.contains('lane-preview')) window.LaneTransition?.preview();</script>
+<script src="../lab-tour-demo-v3/demo-highlights.js"></script>
 </body>
 </html>

@@ -149,3 +149,16 @@
 :root #run-header .single-menu .single-menu-item small{padding-left:0;color:#aaa;line-height:1.5}
 :root #run-header .single-menu .single-menu-item .result-name{font-weight:500}
 :root #run-header .single-menu .single-menu-empty{margin:0;padding:8px 12px;color:#aaa;font-size:12px;line-height:1.5}
+
+/* 转场画布绘制对应的图元，保留 SVG 布局以测量落点。 */
+.lane-preview #lane [data-lane-block],.lane-preview #lane .qk-long-block>rect,
+.lane-preview #cp [data-lane-path]{fill-opacity:0}
+.lane-preview :is(#run-header,.lead-finding,#lead-legend,#path-analysis-lane .sec-h,#cp .cp-seg>text,
+  #lane-zoom,#lane [data-lane-labels],#lane [data-feature-outlines],#lane [data-result-region]){opacity:0}
+.lane-preview.lane-moving :is(#run-header,.lead-finding,#lead-legend,#path-analysis-lane .sec-h,#lane-zoom){
+  animation:lane-chrome-in 340ms ease-out 465ms both;
+}
+.lane-preview.lane-moving :is(#lane [data-lane-labels],#lane [data-feature-outlines],#lane [data-result-region]){
+  animation:lane-chrome-in 300ms ease-out 990ms both;
+}
+@keyframes lane-chrome-in{to{opacity:1}}

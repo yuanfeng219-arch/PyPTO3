@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="../lab-tour-demo-v3/header.css" />
   <link rel="stylesheet" href="../lab-tour-demo-v3/vendor/liquid-glass-controls/liquid-glass.css?v=final-v2" />
   <link rel="stylesheet" href="../lab-tour-demo-v3/demo-shell.css?v=1" />
-  <link rel="stylesheet" href="../lab-tour-demo-v3/workbench-polish.css?v=4" />
+  <link rel="stylesheet" href="../lab-tour-demo-v3/workbench-polish.css?v=5" />
   <style>
     /* 顶栏：返回键、按钮圆角与阴影取自 demo-shell.css，这里只补本页的主按钮和分段控件 */
     /* 主按钮用 Demo 首页的品牌绿（--lime 在 workbench-polish.css 里改成 #88EC30） */
@@ -98,8 +98,8 @@
             <span class="hp-pane-meta" id="kernelMeta">—</span>
             <details class="pane-info"><summary aria-label="Kernel 派发说明">ⓘ</summary><div class="pane-info-body">
               <p>读法：<b>结构 → 分工 → 轮次 → 落点</b>。上方计算图是一个 Work Item 进来后做什么（本体，不随下方切换）；下方是这个本体往两个方向的展开，上图会点亮被展开的那几层。</p>
-              <p><b>工作怎么分</b>（展开上图外两层 SPMD × 24 · FOR qk_it）：同一批 Work Item 依次经过 ① Generation（源码产生哪些工作）→ ② Ordering（qk_plan 排队）→ ③ Assignment（SPMD Lane 领取）→ ④ Lane 轮次（每条 Lane 一轮轮领到什么；列是领取顺序，不是时间）。单击一个 Work Item，上方图只亮它会走的路径。</p>
-              <p><b>放在哪</b>（展开上图里层阶段 ①–④）：AIC / AIV 的存储落点（pass 36 真实分配）。悬停源码行、上方节点或硅片区域，三处一起亮起；右侧详情换成 qk_pv 的问题分析。</p>
+              <p><b>任务分配</b>（对应上图外两层 SPMD × 24 · FOR qk_it）：同一批 Work Item 依次经过 ① Generation（源码产生哪些工作）→ ② Ordering（qk_plan 排队）→ ③ Assignment（SPMD Lane 领取）→ ④ Lane 轮次（每条 Lane 一轮轮领到什么；列是领取顺序，不是时间）。单击一个 Work Item，上方图只亮它会走的路径。</p>
+              <p><b>存储落点</b>（对应上图里层阶段 ①–④）：AIC / AIV 的存储落点（pass 36 真实分配）。悬停源码行、上方节点或硅片区域，三处一起亮起；右侧详情换成 qk_pv 的问题分析。</p>
               <p>注意：「Lane 轮次」不是上图的 <code>PL.PIPELINE × 2</code>——后者是一个 Work Item 内两个头块的软件流水。</p>
               <p>本模块派发的全部 Kernel 在顶栏路径旁的「Kernel 链」里（一次 <code>pl.spmd</code> 或 <code>pl.at</code> 就是一个），可在画布上展开完整依赖链：虚线是源码写出的 TaskId 依赖，实线是按张量读写推出的数据依赖。</p>
               <p>分配规则取自源码；qk_pv 的有效 / 空块来自 Synthetic 输入。</p>
@@ -124,9 +124,9 @@
                Lane 轮次（原 Pipeline）不再单独占页签：按钮留在 DOM 里供 lens.js 切换，由步骤条第 4 步触发（workbench-polish.js） -->
           <div class="lens-bottom-head">
             <div class="lens-tabs" id="kernelTabs" role="tablist" aria-label="下方展开">
-              <button type="button" role="tab" data-tab="assignment" title="Work Item 怎么产生、排队、分给各条 Lane，再按轮展开——对应上图外两层 SPMD · FOR">工作怎么分<small>分工 · 轮次</small></button>
+              <button type="button" role="tab" data-tab="assignment" title="Work Item 的生成、排序、分配与轮次——对应上图外两层 SPMD · FOR">任务分配<small>Assignment</small></button>
               <button type="button" role="tab" data-tab="pipeline" hidden>Lane 轮次</button>
-              <button type="button" role="tab" data-tab="chip" title="阶段 ①–④ 的数据落在 AIC / AIV 哪块存储——对应上图里层">放在哪<small>硅片落点</small></button>
+              <button type="button" role="tab" data-tab="chip" title="阶段 ①–④ 在 AIC / AIV 上的存储分配——对应上图里层">存储落点<small>Placement</small></button>
             </div>
           </div>
           <div class="lens-l2-work" id="kernelWork">
@@ -192,10 +192,11 @@
   <script src="./js/lens-tile.js"></script>
   <script src="./js/lens.js"></script>
   <script src="../lab-tour-demo-v3/rounded-connectors.js"></script>
-  <script src="../lab-tour-demo-v3/workbench-polish.js?v=3"></script>
-  <script src="../lab-tour-demo-v3/workbench-story.js?v=1"></script>
-  <script src="../lab-tour-demo-v3/workbench-chip.js?v=2"></script>
-  <script src="../lab-tour-demo-v3/workbench-canvas.js?v=1"></script>
+  <script src="../lab-tour-demo-v3/workbench-polish.js?v=4"></script>
+  <script src="../lab-tour-demo-v3/workbench-story.js?v=3"></script>
+  <script src="../lab-tour-demo-v3/workbench-chip.js?v=5"></script>
+  <script src="../lab-tour-demo-v3/workbench-canvas.js?v=4"></script>
   <script src="../lab-tour-demo-v3/workbench-embed.js?v=1"></script>
+<script src="../lab-tour-demo-v3/demo-highlights.js"></script>
 </body>
 </html>

@@ -263,9 +263,9 @@ body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
 #kernelLanes.wb-story-on > :not(.wb-story) { display: none !important; }   /* lens.js 原图隐藏着照常工作，状态从它抄 */
 #kernelWork.wb-story-on #kernelLegend { display: none; }                   /* 图例改写进叙事视图底部 */
 .wb-story { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.wb-story-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 16px 4px; }
+.wb-story-head { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 10px 16px 4px; }
 /* 流程条：5 个图标节点，一个图形 + 一个数字 + 两三个字；点节点切换 */
-.wb-flow { display: flex; align-items: center; gap: 4px; min-width: 0; flex-wrap: wrap; }
+.wb-flow { display: flex; align-items: center; gap: 4px; min-width: 0; flex-wrap: nowrap; }   /* 五个节点同一行；空间不够时让右侧切换按钮换到下一行 */
 .wb-flow-n { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 6px 12px 6px 8px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; text-align: left; opacity: .62; transition: opacity .2s, background .2s; }
 .wb-flow-n:hover { opacity: .9; background: rgb(255 255 255 / 4%); }
 .wb-flow-n.is-on { opacity: 1; background: var(--demo-raised); border-color: rgb(226 227 233 / 16%); }
@@ -542,3 +542,14 @@ body.is-focusing #hpSvg .sv-region.is-hot > .sv-box, body.is-focusing #hpSvg .sv
 .wb-cv-nav button[aria-pressed=true] { background: #eee; color: #111; }
 .wb-cv-nav i { width: 1px; height: 16px; margin: 0 4px; background: rgb(226 227 233 / 14%); }
 @media (prefers-reduced-motion: reduce) { .wb-card-dim { transition: none; } }
+
+/* 双视图联动：计算图和存储落点并排，保留既有悬停联动。 */
+#viewKernel.wb-linked > .hp-pane-head, #viewKernel.wb-linked > #kernelWork, #viewKernel.wb-linked > #kernelWork[hidden],
+#viewKernel.wb-linked > .wb-cv-links, #viewKernel.wb-linked > .wb-cv-handle, #viewKernel.wb-linked > .wb-card-h.is-work { display:none !important; }
+#viewKernel.wb-linked > #l2GraphPane { border-radius:12px; overflow:hidden; }
+#viewKernel.wb-linked > #hpLensPane .hp-svg { flex:1 1 0; min-height:0; }
+#viewKernel.wb-linked > #hpLensPane .hp-chip { min-height:0; flex:1; }
+#viewKernel.wb-linked > #hpLensPane .hp-chip > .hp-pane-head { display:none; }
+#viewKernel.wb-linked .wb-card-h small { display:none; }
+#viewKernel.wb-linked .wb-card-h .wb-chip-extra { overflow:hidden; }
+@media(max-width:900px) { .wb-cv-nav button { padding:0 8px; font-size:11px; } }

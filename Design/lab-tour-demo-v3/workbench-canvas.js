@@ -30,17 +30,17 @@
   const NS = 'http://www.w3.org/2000/svg';
   function mk(tag, cls, parent, html) { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; if (parent) parent.appendChild(n); return n; }
   const links = document.createElementNS(NS, 'svg'); links.setAttribute('class', 'wb-cv-links'); links.setAttribute('aria-hidden', 'true'); L2.appendChild(links);
-  const workHead = mk('div', 'wb-card-h is-work', L2, '<b>工作怎么分</b><small>分工 · 轮次 —— 展开 SPMD × 24 · FOR qk_it</small>');
-  const chipHead = mk('div', 'wb-card-h is-chip', L2, '<b>放在哪</b><small>硅片落点 —— 阶段 ①–④ 的数据落在哪</small>');
+  const workHead = mk('div', 'wb-card-h is-work', L2, '<b>任务分配</b><small>Assignment · SPMD × 24 / FOR qk_it 的 Work Item 生成、排序、分配与轮次</small>');
+  const chipHead = mk('div', 'wb-card-h is-chip', L2, '<b>存储落点</b><small>Placement · 阶段 ①–④ 在 AIC / AIV 上的存储分配</small>');
   const extra = document.querySelector('.wb-chip-extra'); if (extra) chipHead.appendChild(extra);
-  const hWork = mk('button', 'wb-cv-handle is-work', L2, '工作怎么分<i aria-hidden="true">↓</i>');
-  const hChip = mk('button', 'wb-cv-handle is-chip', L2, '放在哪<i aria-hidden="true">↓</i>');
+  const hWork = mk('button', 'wb-cv-handle is-work', L2, '任务分配<i aria-hidden="true">↓</i>');
+  const hChip = mk('button', 'wb-cv-handle is-chip', L2, '展开存储落点<i aria-hidden="true">↓</i>');
   hWork.type = hChip.type = 'button';
-  hWork.title = '分工与轮次：这个 SPMD × 24 · FOR qk_it 外框里的 Work Item 怎么产生、排队、分给 24 个核';
-  hChip.title = '硅片落点：PIPELINE 里阶段 ①–④ 的数据落在 AIC / AIV 哪块存储';
+  hWork.title = '任务分配：SPMD × 24 · FOR qk_it 内 Work Item 的生成、排序、分配与轮次';
+  hChip.title = '在计算图下方展开存储落点，并联动高亮对应区域';
   const nav = mk('div', 'wb-cv-nav', stage,
-    '<button type="button" data-f="graph">计算图</button><button type="button" data-f="work">工作怎么分</button>' +
-    '<button type="button" data-f="chip">放在哪</button><i aria-hidden="true"></i><button type="button" data-f="overview" title="看整个 Kernel 平面">全览</button>');
+    '<button type="button" data-f="graph">计算图</button><button type="button" data-f="work">任务分配</button>' +
+    '<button type="button" data-f="chip">存储落点</button><i aria-hidden="true"></i><button type="button" data-f="overview" title="显示整个 Kernel 平面">全览</button>');
   nav.setAttribute('role', 'toolbar'); nav.setAttribute('aria-label', '画布视角');
 
   // ── 状态 ──
@@ -61,17 +61,27 @@
     SW = w; SH = h;
     if (!P) P = { x: SW / 2, y: SH / 2 };
     [L1, L2].forEach(function (p) { p.style.width = SW + 'px'; p.style.height = SH + 'px'; });
-    const HH = 46, gap = Math.round(SH * .3), g = Math.round(SW * .06), qk = isQk();
+    const HH = 46, CB = 64, gap = Math.round(SH * .3), g = Math.round(SW * .06), qk = isQk();   // CB：卡片底部给视角导航条留出的高度
     lay.graphCard = [0, 0, SW, SH];
     lay.work = qk ? [Math.round(-SW / 2 - g / 2), SH + gap, SW, SH] : [0, SH + gap, SW, SH];
     lay.chip = [Math.round(SW / 2 + g / 2), SH + gap, SW, SH];
     const hh = head ? 42 : 0;
+    if (focus === 'linked' && qk) {
+      const gap = 12, top = 12, bottom = 64, width = SW - gap * 2;
+      const available = SH - top - bottom, graphHeight = Math.round((available - gap) * .48);
+      place(graph, [gap, top, width, graphHeight]);
+      place(chipHead, [gap, top + graphHeight + gap, width, 42]);
+      place(tile, [gap, top + graphHeight + gap + 42, width, available - graphHeight - gap - 42]);
+      chipHead.hidden = false; L2.classList.remove('wb-no-chip');
+      nav.querySelector('[data-f="chip"]').hidden = false;
+      return changed;
+    }
     place(head, [0, 0, SW, hh]);
     place(graph, [0, hh, SW, SH - hh]);
     place(workHead, [lay.work[0], lay.work[1], SW, HH]);
-    place(work, [lay.work[0], lay.work[1] + HH, SW, SH - HH]);
+    place(work, [lay.work[0], lay.work[1] + HH, SW, SH - HH - CB]);
     place(chipHead, [lay.chip[0], lay.chip[1], SW, HH]);
-    place(tile, [lay.chip[0], lay.chip[1] + HH, SW, SH - HH]);
+    place(tile, [lay.chip[0], lay.chip[1] + HH, SW, SH - HH - CB]);
     chipHead.hidden = !qk; L2.classList.toggle('wb-no-chip', !qk);
     nav.querySelector('[data-f="chip"]').hidden = !qk;
     return changed;
@@ -146,41 +156,64 @@
   function settle() { drawLinks(); paintNav(); setTimeout(drawLinks, 350); }   // 计算图按新尺寸重排后再画一次引线
 
   // ── 聚焦对象：计算图 / 工作怎么分 / 放在哪 / 全览；卡片与 lens.js 页签同步 ──
-  let tabByUs = false;
+  let tabByUs = false, observedChip = L2.classList.contains('is-chip');
   function setTab(tab) {
     const b = tabs && tabs.querySelector('[data-tab="' + tab + '"]');
     if (!b) return;
     const now = L2.classList.contains('is-chip') ? 'chip' : 'assignment';
     if ((tab === 'chip') === (now === 'chip')) return;
-    tabByUs = true; b.click(); tabByUs = false;
+    tabByUs = true; b.click(); observedChip = L2.classList.contains('is-chip'); tabByUs = false;
   }
   function focusOn(f, opts) {
-    if (f === 'chip' && !isQk()) f = 'work';
+    if ((f === 'chip' || f === 'linked') && !isQk()) f = 'work';
+    const previous = focus;
+    const graphBox = ['left', 'top', 'width', 'height'].reduce(function (box, key) { box[key] = graph.style[key]; return box; }, {});
     focus = f;
+    L2.classList.toggle('wb-linked', f === 'linked');
+    if (f === 'linked') {
+      setTab('chip');
+    }
+    layout();
     if (f === 'work') setTab('assignment');
     if (f === 'chip') setTab('chip');
     L2.classList.toggle('wb-bottom-closed', f === 'graph');      // 只看计算图时，撤掉“下方展开哪几层”的高亮与提示
     L2.dataset.focus = f;
-    if (level === 2) go(f === 'graph' ? 'graph' : f, opts);
+    const expand = previous === 'graph' && f === 'linked';
+    const collapse = previous === 'linked' && f === 'graph';
+    if (!still && (expand || collapse)) {
+      [graph, chipHead, tile].forEach(function (el) { el.getAnimations().forEach(function (a) { a.cancel(); }); });
+      const nextBox = ['left', 'top', 'width', 'height'].reduce(function (box, key) { box[key] = graph.style[key]; return box; }, {});
+      graph.animate([graphBox, nextBox], { duration: 650, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+      if (expand) [chipHead, tile].forEach(function (el) {
+        el.animate([{ opacity: 0, transform: 'translateY(-16px)' }, { opacity: 1, transform: 'translateY(0)' }],
+          { duration: 520, delay: 100, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'backwards' });
+      });
+    }
+    if (level === 2) {
+      if (expand || collapse) { if (anim) { anim.stop = true; anim = null; } cam = camFor('graph'); apply(); settle(); }
+      else go(f === 'linked' ? 'graph' : f, opts);
+    }
     paintNav();
   }
   function paintNav() {
-    nav.querySelectorAll('button[data-f]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.f === focus)); });
+    nav.querySelectorAll('button[data-f]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.f === focus || (focus === 'linked' && b.dataset.f === 'chip'))); });
     [['work', work, workHead], ['chip', tile, chipHead]].forEach(function (x) {
-      const on = focus === x[0] || focus === 'overview' || focus === 'free';
+      const on = focus === x[0] || focus === 'overview' || focus === 'free' || focus === 'linked';
       x[1].classList.toggle('wb-card-dim', !on); x[2].classList.toggle('wb-card-dim', !on);
     });
   }
   nav.addEventListener('click', function (e) { const b = e.target.closest('button[data-f]'); if (b) focusOn(b.dataset.f); });
   hWork.addEventListener('click', function () { focusOn('work'); });
-  hChip.addEventListener('click', function () { focusOn('chip'); });
+  hChip.addEventListener('click', function () { focusOn('linked'); });
   [[work, 'work'], [tile, 'chip'], [workHead, 'work'], [chipHead, 'chip']].forEach(function (x) {
-    x[0].addEventListener('pointerdown', function () { if (level === 2 && focus !== x[1]) focusOn(x[1]); }, true);
+    x[0].addEventListener('pointerdown', function () { if (level === 2 && focus !== 'linked' && focus !== x[1]) focusOn(x[1]); }, true);
   });
   // 页签被别处切换（深链、“这一行在各层”跳到硅片落点……）时，相机跟过去
   new MutationObserver(function () {
-    if (tabByUs || level !== 2 || !inited) return;
     const chip = L2.classList.contains('is-chip');
+    if (chip === observedChip) return;
+    observedChip = chip;
+    if (tabByUs || level !== 2 || !inited || focus === 'linked') return;
     if (chip && focus !== 'chip') focusOn('chip');
     else if (!chip && focus === 'chip') focusOn('work');
   }).observe(L2, { attributes: true, attributeFilter: ['class'] });
@@ -225,6 +258,8 @@
   new MutationObserver(function () {
     if (L1.classList.contains('is-drilling-out') && level === 1) { capturePoint(); focus = 'graph'; go('graph', { dur: 1000 }); }
   }).observe(L1, { attributes: true, attributeFilter: ['class'] });
+  // 深链（#L2:assignment / #L2:eval …）只在页面第一次进入 L2 时生效；lens.js 可能晚于本脚本才切到 L2，所以在这里也认一次
+  let deepPending = /^#L2:(assignment|pipeline|generation|ordering|eval|chip)$/.test(location.hash);
   function onLevel() {
     const lv = Number(document.body.dataset.level) || 1;
     if (lv === level && inited) return;
@@ -233,12 +268,13 @@
     if (lv === 2) {
       layout();
       if (!inited) return;
-      const tgt = L2.classList.contains('is-chip') ? 'chip' : 'graph';
+      const deep = deepPending; deepPending = false;
+      const tgt = L2.classList.contains('is-chip') ? 'chip' : deep ? 'work' : 'graph';
       focus = tgt; L2.classList.toggle('wb-bottom-closed', tgt === 'graph'); L2.dataset.focus = tgt;
-      if (!anim) go(tgt, { dur: 1000 }); else apply();
+      if (deep) go(tgt, { jump: true }); else if (!anim) go(tgt, { dur: 1000 }); else apply();
       setTimeout(function () { window.dispatchEvent(new Event('resize')); settle(); }, 60);
     } else if (prev === 2) {
-      focus = 'graph'; L2.dataset.focus = 'graph'; L2.classList.add('wb-bottom-closed');
+      focus = 'graph'; L2.classList.remove('wb-linked'); L2.dataset.focus = 'graph'; L2.classList.add('wb-bottom-closed');
       go('l1', { dur: 900 });
     } else apply();
   }
@@ -246,7 +282,7 @@
 
   // ── L2 里自由缩放与平移；缩得很小就回到 L1 ──
   stage.addEventListener('wheel', function (e) {
-    if (level !== 2 || anim) return;
+    if (level !== 2 || anim || focus === 'linked') return;
     e.preventDefault();
     const r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
     const f = Math.exp(-(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY) * (e.ctrlKey ? .01 : .0015));
@@ -261,7 +297,7 @@
   window.addEventListener('keydown', function (e) { if (e.code === 'Space' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) space = true; });
   window.addEventListener('keyup', function (e) { if (e.code === 'Space') space = false; });
   stage.addEventListener('pointerdown', function (e) {
-    if (level !== 2 || anim || e.button > 1) return;
+    if (level !== 2 || anim || focus === 'linked' || e.button > 1) return;
     const bg = e.target === stage || e.target === L2 || e.target === links || e.button === 1 || space;
     if (!bg) return;
     e.preventDefault();
@@ -282,7 +318,7 @@
     if (!layout()) return;
     if (anim) return;
     if (level === 1) { cam = camFor('l1'); apply(); return; }
-    if (focus !== 'free') { cam = camFor(focus === 'graph' ? 'graph' : focus); apply(); }
+    if (focus !== 'free') { cam = camFor(focus === 'linked' ? 'graph' : focus); apply(); }
     setTimeout(settle, 60);
   }).observe(stage);
   if (logic) new MutationObserver(function () { if (level === 2 && !anim) { clearTimeout(logic._wbT); logic._wbT = setTimeout(drawLinks, 80); } }).observe(logic, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'viewBox', 'transform'] });
@@ -293,7 +329,7 @@
     level = Number(document.body.dataset.level) || 1;
     if (level === 2) {
       const chip = L2.classList.contains('is-chip'), deepWork = /^#L2:(assignment|pipeline|generation|ordering|eval)$/.test(location.hash);
-      focus = chip ? 'chip' : deepWork ? 'work' : 'graph';
+      focus = chip ? 'chip' : deepWork ? 'work' : 'graph'; deepPending = false;
       L2.classList.toggle('wb-bottom-closed', focus === 'graph'); L2.dataset.focus = focus;
       cam = camFor(focus === 'graph' ? 'graph' : focus);
     } else cam = camFor('l1');

@@ -112,9 +112,9 @@
     if (frame) { frame.classList.add('wb-block'); set(frame, { x: FRAME.x, y: FRAME.y, width: FRAME.w, height: FRAME.h }); }
     const bt = textOf(svg, /^展开 BLOCK 0/);
     if (bt) { set(bt, { x: FRAME.x, y: FRAME.y - 8 }); bt.textContent = 'BLOCK 0'; bt.classList.add('wb-block-k'); }
-    el('text', { x: FRAME.x + 62, y: FRAME.y - 8, class: 'sv-label wb-block-sub' }, svg).textContent = '1 AIC + 2 AIV · 其余 23 个同构';
+    el('text', { x: FRAME.x + 62, y: FRAME.y - 8, class: 'sv-label wb-block-sub' }, svg).textContent = '1 AIC + 2 AIV · 另 23 个 Block 结构相同';
     const foot = textOf(svg, /^数据：pass 36/);
-    if (foot) { set(foot, { x: VB_W - 12, y: VB_H - 6, 'text-anchor': 'end' }); foot.classList.add('wb-chip-foot'); foot.textContent = '数据：pass 36 · AllocateMemoryAddr（真实分配）'; }
+    if (foot) { set(foot, { x: VB_W - 12, y: VB_H - 6, 'text-anchor': 'end' }); foot.classList.add('wb-chip-foot'); foot.textContent = '数据来源：Pass 36 · AllocateMemoryAddr（编译期实际分配）'; }
 
     // ── AIC 行 ──
     const aicG = region(svg, 'aic');
@@ -247,7 +247,7 @@
     line('M' + C2V_X + ' ' + l0cTop + ' V ' + (aiv0Bot + 2), 'is-vec', 'wbChipVec', null, 'l0c pipe ub0 aiv0');
     line('M' + V2C_X + ' ' + barBot + ' V ' + (L1.y - 2), 'is-vec', 'wbChipVec', null, 'ub0 aiv0 l1-slot');
     el('text', { x: V2C_X + 6, y: AIC.y + 16, class: 'wb-link-k is-vec' }, links).textContent = 'V2C';
-    line('M' + C2V_X + ' ' + l0cBot + ' V ' + (AIV_Y[1] - 2), 'is-dim', 'wbChipDim', [C2V_X - 6, AIV_Y[1] - 4, 'end', 'AIV1 ↔ AIC 只握手（tpop / tfree），无有效数据'], 'pipe aiv1 ub1');
+    line('M' + C2V_X + ' ' + l0cBot + ' V ' + (AIV_Y[1] - 2), 'is-dim', 'wbChipDim', [C2V_X - 6, AIV_Y[1] - 4, 'end', 'AIV1 ↔ AIC：仅同步（tpop / tfree），无有效数据'], 'pipe aiv1 ub1');
     // 写回：oi 从 L0C 竖直上到写回横道、左拐进 GM（只拐一次）；mi / li 从 UB 竖直落到横道汇入
     if (card['gm-out']) {
       line('M' + OI_X + ' ' + l0cTop + ' V ' + LANE_OUT + ' H ' + (gmR + 2), 'is-out', 'wbChipOut', null, 'l0c gm-out');
@@ -336,7 +336,7 @@
     });
     svg.querySelectorAll('.sv-region[data-region="pipe"] text').forEach(function (t) {
       const m = /^(\d) × (\d+K)$/.exec(t.textContent.trim());
-      if (m) t.textContent = m[1] + ' 槽 × ' + m[2];
+      if (m) t.textContent = 'C2V 双缓冲 · ' + m[1] + ' × ' + m[2].replace(/K$/, ' KB');
     });
     const coresG = region(svg, 'cores');
     if (coresG) {
@@ -353,7 +353,7 @@
   // ── 信息分层：常驻只留结论与名字；次要说明悬停区块时显示，点击钉住，或用“全部标注”一次展开 ──
   // 每条次要文字（及 AIV0 的引线）标上 data-owner = 它所属的区块；悬停 / 钉住哪块，就点亮哪块的次要信息。
   // 在左侧源码悬停时，lens-tile.js 联动点亮的区块（.sv-region.is-hot）也会显示，见 workbench-polish.css 第 12 节。
-  const KEEP = /^(GM · HBM|PL\.SPMD|BLOCK 0|AIC · CUBE|AIV[01] · SUBBLOCK|L1 · MAT|L0A · LEFT|L0B · RIGHT|CUBE$|L0C · ACC|C2V$|V2C$|高水位|空转$|推算$|数据：pass 36)/;
+  const KEEP = /^(GM · HBM|PL\.SPMD|BLOCK 0|AIC · CUBE|AIV[01] · SUBBLOCK|L1 · MAT|L0A · LEFT|L0B · RIGHT|CUBE$|L0C · ACC|C2V$|V2C$|高水位|空转$|推算$|数据：pass 36|数据来源)/;
   // 区块之间的从属：悬停 AIC 大框时连同它里面的 L0A / L0B / CUBE / L0C 一起显示；Vec 柱与 AIV 框互通
   const ALIAS = { aic: ['l0a', 'l0b', 'cube', 'l0c', 'l1-kv', 'l1-q', 'l1-slot'], aiv0: ['ub0'], ub0: ['aiv0'], aiv1: ['ub1'], ub1: ['aiv1'] };
   function layer(svg) {
@@ -376,7 +376,7 @@
     // 常驻一句提示：细节在哪看
     const hint = document.createElementNS(NS, 'text');
     hint.setAttribute('x', 12); hint.setAttribute('y', VB_H - 6); hint.setAttribute('class', 'wb-peek-hint');
-    hint.textContent = '悬停区块看细节 · 点击钉住';
+    hint.textContent = '悬停查看详情 · 单击固定';
     svg.appendChild(hint);
     paintPeek(svg);
   }
@@ -420,7 +420,7 @@
     if (!extra || extra.querySelector('.wb-peek-all')) return;
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'wb-peek-all'; b.setAttribute('aria-pressed', 'false');
-    b.textContent = '全部标注';
+    b.textContent = '显示全部标注';
     b.title = '一次显示图上所有次要说明（讲解时用）';
     b.addEventListener('click', function () { showAll = !showAll; b.setAttribute('aria-pressed', String(showAll)); paintPeek(); });
     const info = extra.querySelector('.pane-info');
@@ -444,4 +444,94 @@
   if (detail) new MutationObserver(function () { paintPeek(); }).observe(detail, { attributes: true, attributeFilter: ['hidden'] });
   decorate(); tagStats();
   setTimeout(toolbar, 0);
+})();
+
+/* ── 存储落点卡片的文案统一为工具术语 ──
+ *    卡片里大部分文字由 ../csa-operator-lens/js/lens-tile.js 生成（该目录不改），这里在它每次渲染后按表替换文本节点：
+ *    芯片图标注、读数行、结论条、悬停说明与状态栏。只换措辞，不改数字；替换结果不会再次命中，避免循环。 */
+(function () {
+  'use strict';
+  // [匹配, 替换]；正则带 ^$ 的只替换整段文本（如单独的“空转”“真实”“Vec”）
+  const COPY = [
+    [/^空转$/, '空闲'],
+    [/^真实$/, '实际分配'],
+    [/^Vec$/, 'UB 峰值'],
+    [/^\/ 2 每 AIC$/, '/ 2 · 每 AIC 在用'],
+    [/^只 tpop \/ tfree$/, '仅 tpop / tfree'],
+    [/^和 AIC 握手$/, '与 AIC 同步'],
+    [/^没有有效数据$/, '无有效数据'],
+    [/^184 可用$/, '可用上限 184'],
+    [/^top-k 散读$/, 'top-k 离散读取'],
+    [/^L1 · MAT\s+已用 /, 'L1 · MAT · 已用 '],
+    [/^c2v 槽 /, 'C2V 缓冲 '],
+    [/^临时区 /, '归约暂存 '],
+    [/^softmax 原地 /, 'softmax 工作区 '],
+    [/^高水位 /, '峰值占用 '],
+    ['2 × 32 KB = 64 KB 用满', '2 × 32 KB = 64 KB（满载）'],
+    ['qk_raw 16 KB 与 qk_oi 64 KB 同址复用', 'qk_raw 16 KB / qk_oi 64 KB · 地址复用'],
+    // 状态栏与结论条
+    ['AIV1 空转', 'AIV1 空闲'],
+    ['AIV0 Vec ', 'AIV0 UB '],
+    ['真实编译产物：AIV0 的 Vec 用了 ', '编译产物（实际分配）：AIV0 UB 峰值占用 '],
+    ['AIV1 分到了同样的地址，但所有 tile 都是 ', 'AIV1 分配了相同地址，但其所有 Tile 的形状均为 '],
+    // 悬停说明
+    ['：先在 L1 开 128 KB，再把滑窗行按页成段搬进来、压缩行按 top-k 逐行搬进来。全部发生在 AIC 一侧。', '：在 L1 分配 128 KB，滑窗行按页分段搬入，压缩行按 top-k 逐行搬入，均在 AIC 侧完成。'],
+    ['L0B 两块 32 KB 轮换', 'L0B 两块 32 KB 交替使用'],
+    ['：全部在 AIV 的 Vec 里完成，', '：在 AIV 的 Vec 单元完成，'],
+    ['现在全部 32 行都在 AIV0，AIV1 只握手。', '当前 32 行全部由 AIV0 计算，AIV1 仅参与同步。'],
+    ['由 AIC 按 16 行两次写回 GM', '由 AIC 分两次（每次 16 行）写回 GM'],
+    ['只能一行一行查压缩页表再搬', '需逐行查询压缩页表后搬运'],
+    ['块里没有有效位置：不做 matmul，直接把 mi 写 −3e38、li 写 0、oi 写 0。零块 [16,512] FP32 借用 Vec 工作区的 32 KB。', '块内无有效位置：跳过 matmul，mi 置为 −3e38，li、oi 置为 0。零块 [16,512] FP32 复用 Vec 工作区 32 KB。'],
+    ['不重复搬运', '无重复搬运'],
+    ['不需要另外的掩码', '无需额外掩码'],
+    ['借用 16 KB 临时区做规约', '复用 16 KB 暂存区完成归约'],
+    ['同样借用临时区', '同样复用暂存区'],
+    ['：原地写回同一块工作区', '：原地写回同一工作区'],
+    ['与 qk_raw 共用 L0C 的同一地址', '与 qk_raw 复用 L0C 同一地址'],
+    ['297 行的循环本来就按 16 行一半组织', '297 行的循环按每次 16 行组织'],
+    ['，用同一份分配', '，采用同一分配方案'],
+    ['每次取一个 token 的 32 个头', '每次读取一个 token 的 32 个头'],
+    ['；滑窗部分从这里读', '；滑窗部分由此读取'],
+    ['；按 top-k 位置逐行读', '；按 top-k 位置逐行读取'],
+    ['事先算好的取块顺序、加法 bias 和块有效标记', '预先生成的取块顺序、加性 bias 与块有效标记'],
+    ['留给 merge_norm 合并', '供 merge_norm 合并'],
+    ['L1 用了 192 KB', 'L1 占用 192 KB'],
+    ['L0B 用满 64 KB，L0C 用满 64 KB', 'L0B、L0C 各 64 KB（满载）'],
+    ['，正好用满。', '（满载）。'],
+    ['都从地址 0 开始，先后复用', '均从地址 0 起，分时复用'],
+    ['，接收 AIV 送回的 ', '，接收 AIV 回传的 '],
+    ['轮流使用这两个槽交接结果，从而互相重叠', '交替使用两个槽交接结果，实现计算重叠'],
+    ['只有一个槽时 AIC 送出结果后要等 AIV 取走并处理完，二者无法重叠', '单槽时 AIC 须等待 AIV 取走并处理结果，二者无法重叠'],
+    ['，远低于 184 KB', '，低于可用上限 184 KB'],
+    ['：分配和 AIV0 一样，但所有 tile 都是 ', '：分配与 AIV0 相同，但所有 Tile 的形状均为 '],
+    ['，只跟 AIC 握手', '，仅与 AIC 同步'],
+    ['：推算后与 AIV0 各算 16 行', '：推算后与 AIV0 各计算 16 行'],
+    ['QK 时放 [128,128] 的 K 切片，PV 时放 [32,512]', 'QK 阶段存放 [128,128] K 切片，PV 阶段存放 [32,512]'],
+    ['Q 的 K 切片 [32,128] 轮换', 'Q 的 K 切片 [32,128] 交替使用'],
+    ['K=512 自动切成 4 段累加', 'K=512 自动切分为 4 段累加'],
+    ['被编译器自动切成 4 段 × 128', '由编译器自动切分为 4 段 × 128']
+  ];
+  function fixText(s) {
+    let out = s;
+    for (let i = 0; i < COPY.length; i++) {
+      const p = COPY[i][0];
+      if (typeof p === 'string') { if (out.indexOf(p) >= 0) out = out.split(p).join(COPY[i][1]); }
+      else if (p.test(out.trim())) out = out.trim().replace(p, COPY[i][1]);
+    }
+    return out;
+  }
+  function fix(root) {
+    if (!root) return;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) { const v = n.nodeValue; if (!v || !v.trim()) continue; const f = fixText(v); if (f !== v) n.nodeValue = f; }
+  }
+  const roots = ['hpLensPane', 'hpStatus'].map(function (id) { return document.getElementById(id); })
+    .concat([document.querySelector('.wb-card-h.is-chip'), document.querySelector('.wb-chip-extra')]).filter(Boolean);
+  let queued = false;
+  function run() { queued = false; roots.forEach(fix); }
+  function queue() { if (queued) return; queued = true; Promise.resolve().then(run); }
+  roots.forEach(function (r) { new MutationObserver(queue).observe(r, { childList: true, characterData: true, subtree: true }); });
+  run();
+  setTimeout(run, 300);
 })();
