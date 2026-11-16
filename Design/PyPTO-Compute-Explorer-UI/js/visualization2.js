@@ -334,7 +334,8 @@
     root.querySelector('[data-pipeline-back]').hidden=!pipelineInner;
     root.querySelectorAll('[data-pipeline-scope]').forEach(button=>{const selected=(button.dataset.pipelineScope==='intra')===pipelineInner;button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));if(button.dataset.pipelineScope==='intra')button.disabled=!pipelineInner&&state.selection?.kind!=='task';});
     const pf=state.selection?.subobject;
-    window.PtoPhotoNarrative.text(root.querySelector('[data-pipeline-breadcrumb]'),state.selection?.task!=null?`Pipeline / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${pipelineInner&&pf?` / ${pf.event||pf.stage||({stack:'Stack',page:'Page',slot:'Slot',tick:'Tick',output:'Output'}[pf.kind]||pf.kind)} ${pf.index}`:''}`:'Pipeline');
+    const stageLabel=state.storyMode?window.PtoPhotoNarrative.stageNames[pf?.stage]??pf?.stage:pf?.stage;
+    window.PtoPhotoNarrative.text(root.querySelector('[data-pipeline-breadcrumb]'),state.selection?.task!=null?`Pipeline / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${pipelineInner&&pf?` / ${pf.event||stageLabel||({stack:'Stack',page:'Page',slot:'Slot',tick:'Tick',output:'Output'}[pf.kind]||pf.kind)} ${pf.index}`:''}`:'Pipeline');
     pipelineController?.update(state.selection,pipeline.camera,
       {active:state.activeTab==='pipeline'&&!pipelineInner,enter:action.type==='tab'&&state.activeTab==='pipeline'});
     if(state.activeTab==='pipeline'&&pipelineInner&&!pipelineIntraController){

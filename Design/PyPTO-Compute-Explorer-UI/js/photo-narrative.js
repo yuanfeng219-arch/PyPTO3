@@ -6,9 +6,11 @@ let enabled=false,revision=0;
 const bindings=new Set(),byNode=new WeakMap();
 const themes=Object.freeze(['宠物','家人','朋友','旅行','美食','风景','日常','纪念日']);
 const themeName=id=>themes[Number(id)]??`主题 ${id}`;
+const stageNames=Object.freeze({qk:'筛选去重',softmax:'修图',pv:'打印',accumulate:'装帧'});
+const {qk,softmax,pv,accumulate}=stageNames;
 const phrases={
  'Logical Tick':'流水轮次','logical ticks':'流水轮次','Tick':'流水轮次','tick':'流水轮次',
- 'QK / Softmax':'主题匹配 / 筛选去重','PV / Context Accumulate':'打印 / 装帧','QK':'主题匹配','Softmax':'筛选去重','PV':'打印',
+ 'QK / Softmax':`${qk} / ${softmax}`,'PV / Context Accumulate':`${pv} / ${accumulate}`,'QK':qk,'Softmax':softmax,'PV':pv,
  'score_transfer':'分析结果周转资料','probability_transfer':'整理结果周转资料','pv_transfer':'加工结果周转资料',
  'Transfer buffers':'周转资料','Transfer buffer':'周转资料','Normalize / Store':'装帧与保存','Store':'保存',
  'Inputs':'输入资料','Computation':'处理内容','Outputs':'输出资料','Dependencies':'工序交接','Upstream':'上道工序','Downstream':'下道工序','Resource / Synchronization':'周转与交接',
@@ -31,8 +33,8 @@ const phrases={
  '每个 Task 对应':'每张工单对应',
  'Task Generation':'生成工单','Work Generation':'准备工作','Block Assignment':'分配工作小组',
  'QKV Preparation':'订单准备','Paged Attention':'照片加工','Task Inputs':'工单输入','Task Output':'工单成品',
- 'QK Matmul':'主题匹配','Online Softmax':'筛选去重','Scale & Mask':'照片范围筛选','Scale / Mask':'照片范围筛选',
- 'PV Matmul':'打印','Context Accumulate':'装帧','Output Normalize':'装帧','BF16 Output':'冲印成品',
+ 'QK Matmul':qk,'Online Softmax':softmax,'Scale & Mask':'照片范围筛选','Scale / Mask':'照片范围筛选',
+ 'PV Matmul':pv,'Context Accumulate':accumulate,'Output Normalize':accumulate,'BF16 Output':'冲印成品',
  'Partial Context':'本批已打印照片','Probability':'入选权重','Scores':'匹配评分','Q Tile':'匹配条件',
  'K Cache Pages':'待匹配标准照片包','V Cache Pages':'待打印标准照片包','K Cache':'待匹配照片','V Cache':'待打印照片',
  'KV Cache':'顾客照片库','Rescale FIFO':'批次校准交接队列','Delayed Rescale':'延后交接的校准信息',
@@ -54,7 +56,7 @@ const phrases={
  'Shape':'结构','Valid':'有效','Tile':'处理单元','Memory':'存放区域','Dtype':'资料格式',
  'DATA':'资料','STATE':'批次记录','OPERATION':'加工操作','COMPOSITE':'加工阶段','State':'批次记录','Control':'交接控制',
  'Previous':'上一批','Current':'当前批','Updated / Next':'更新后 / 下一批','FIFO':'交接队列',
- 'Matmul Accumulate':'汇总已打印照片','Matmul':'照片匹配','Accumulate':'装帧',
+ 'Matmul Accumulate':'汇总已打印照片','Matmul':'照片匹配','Accumulate':accumulate,
  'Scale':'缩放整理','Mask':'范围筛选','Rescale':'批次校准','Normalize':'装帧',
  'QKV':'订单资料','BF16':'成品格式','FP32':'加工格式','GM':'共享资料区','Mat':'加工台','Vec':'整理台',
  'QK_READY_EVENT':'照片分析就绪','SOFTMAX_READY_EVENT':'照片整理就绪','PV_READY_EVENT':'后段加工就绪',
@@ -129,7 +131,7 @@ function setScope(root,value){
  root.toggleAttribute('data-photo-narrative-scope',!!value);
  for(const b of bindings)if(root.contains(b.node))b.write(translateFor(b.node,b.source));
 }
-const boundary='工作流程是叙事投影：主题匹配 → 筛选去重 → 打印 → 装帧。用于理解组织、分批和交接，不代表源码实现这些照片算法；流水线为逻辑编排，非真实运行记录。';
+const boundary=`照片按${Object.values(stageNames).join(' → ')}的顺序处理。流水线展示各批照片的处理顺序与交接关系。`;
 function taskSummary(task){return `顾客 ${task.batch+1} · ${themeName(task.kvHead??task.kv)} · 工单 ${task.id} · 工作小组 ${task.block} · ${task.seqLen} 张照片 · ${task.pages.length} 个标准照片包 · ${task.stacks.length} 个处理批次 · 周转台位 ${task.stacks.map(s=>s.slot).join(' → ')}`;}
-global.PtoPhotoNarrative=Object.freeze({text,html,attr,translate,setMode,setScope,taskSummary,boundary,themes,themeName,get enabled(){return enabled;},get revision(){return revision;}});
+global.PtoPhotoNarrative=Object.freeze({text,html,attr,translate,setMode,setScope,taskSummary,boundary,stageNames,themes,themeName,get enabled(){return enabled;},get revision(){return revision;}});
 })(window);
