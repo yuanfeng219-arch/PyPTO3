@@ -170,7 +170,6 @@
           const b = Math.floor(id / kvHeads), width = sequenceWidth, height = 7;
           const x = (100-from.x-sequenceX)*(1-progress);
           const localY = 0;
-          seqEncodings[id].style.opacity = String(1 - progress);
           seqEncodings[id].setAttribute('transform', `translate(${x} ${localY})`);
           sequenceSegments(seqLens[b] || 0, width, segments, stackTokens, 1.4).forEach((segment, i) => {
             const { track, fill } = batchSequences[b].parts[i];

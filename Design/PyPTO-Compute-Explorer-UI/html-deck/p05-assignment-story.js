@@ -18,6 +18,7 @@
     const matrix = host.querySelector('[data-p05-matrix]');
     const narrative = global.PtoPhotoNarrative;
     const actions = slide.querySelector('[data-p05-actions]');
+    const modes = [...slide.querySelectorAll('[data-p05-mode]')];
     const caption = slide.querySelector('[data-p05-caption]');
     const details = slide.querySelector('[data-p05-details]');
     const taskCount = model.constants.batch * model.constants.kvHeads;
@@ -32,7 +33,7 @@
       {mode:'assignment',focus:'overall',selection:null}
     ];
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-    let labelTransitions = [];
+    let restartAnimation;
     let view;
     let active = false;
     let beat = START;
@@ -50,16 +51,9 @@
 
     function renderMode() {
       const isPhoto = state.mode === 'photo';
-      const changingMode = isPhoto !== matrix.hasAttribute('data-photo-narrative-scope');
-      const labels = changingMode && !reducedMotion.matches
-        ? [...matrix.querySelectorAll('text,figcaption,[data-focus-overview],[data-focus-source]'),caption,details]
-          .map(label => [label,label.textContent])
-        : [];
       narrative.setScope(matrix,isPhoto);
       matrix.setAttribute('aria-label',isPhoto ? '冲印店订单分配' : 'Assignment 任务矩阵');
-      const toggle = actions.querySelector('[data-p05-action="mode"]');
-      toggle.textContent = isPhoto ? '返回算子' : '冲印店类比';
-      toggle.setAttribute('aria-pressed',String(isPhoto));
+      modes.forEach(button => button.setAttribute('aria-pressed',String(button.dataset.p05Mode === state.mode)));
       actions.querySelector('[data-p05-action="reference"]').textContent = narrative.translate('Task 48',isPhoto);
       const selection = state.selection;
       const task = selection?.task == null ? null : model.taskInfo(selection.task);
@@ -73,17 +67,13 @@
       else caption.textContent = state.focus === presets[beat].focus &&
         state.selection?.task === presets[beat].selection?.task &&
         state.selection?.kind === presets[beat].selection?.kind
-        ? CAPTIONS[beat === 0 ? START : beat]
+        ? CAPTIONS[beat]
         : ({overall:CAPTIONS[START],task:'在整体任务空间中定位选中的 Task。',
             detail:CAPTIONS[3],block:'在逻辑 Block 中查看归属与同组工作项。'})[state.focus];
-      if (changingMode) {
-        labelTransitions.forEach(transition => transition.cancel());
-        labelTransitions = labels.filter(([label,before]) => label.textContent !== before)
-          .map(([label]) => label.animate([{opacity:.2},{opacity:1}],{duration:380,easing:'ease-out'}));
-      }
     }
 
     function render(animate = false) {
+      restartAnimation?.cancel();
       slide.dataset.beat = String(beat);
       view.update({selection:state.selection,focus:state.focus,animate,visible:active});
       const blockButton = actions.querySelector('[data-p05-action="block"]');
@@ -105,37 +95,42 @@
       return {mode:context.mode,selection:restored,focus:restored ? context.focus : 'overall'};
     }
 
+    function restart(mode, animate = true) {
+      beat = START;
+      state = {...presets[START],mode};
+      view.pause();
+      render();
+      if (animate && !reducedMotion.matches) {
+        restartAnimation = matrix.animate([{opacity:0},{opacity:1}],{duration:320,easing:'ease-out'});
+      }
+    }
+
     function set(index,{context,quiet = false,animate = !quiet} = {}) {
-      if (!active || !Number.isInteger(index) || index < 0 || index > LAST) return false;
-      beat = index;
-      const next = context ? readContext(context,presets[index]) : presets[index];
-      const modeOnly = context && state.focus === next.focus &&
-        state.selection?.kind === next.selection?.kind &&
-        state.selection?.task === next.selection?.task &&
-        state.selection?.block === next.selection?.block;
-      state = next;
-      if (modeOnly) {
-        slide.dataset.beat = String(beat);
-        renderMode();
-      } else render(animate);
+      if (!active || !Number.isInteger(index) || index < START || index > LAST) return false;
+      const preset = {...presets[index],mode:state.mode};
+      const next = context ? readContext(context,preset) : preset;
+      if (index === START && next.mode !== state.mode && next.focus === 'overall') {
+        restart(next.mode,animate);
+      } else {
+        beat = index;
+        state = next;
+        render(animate);
+      }
       if (!quiet) onChange(slide);
       return true;
     }
 
+    modes.forEach(button => button.addEventListener('click',() => {
+      if (!active || button.dataset.p05Mode === state.mode) return;
+      restart(button.dataset.p05Mode);
+      onChange(slide);
+    }));
+
     actions.addEventListener('click',event => {
       const action = event.target.closest('[data-p05-action]')?.dataset.p05Action;
       if (!active || !action) return;
-      if (action === 'mode') {
-        const isPhoto = state.mode === 'photo';
-        if (isPhoto && beat === 0) {
-          beat = START;
-          slide.dataset.beat = String(beat);
-        }
-        state = {...state,mode:isPhoto ? 'assignment' : 'photo'};
-        renderMode();
-      } else if (action === 'reset') {
-        set(START);
-        return;
+      if (action === 'reset') {
+        restart(state.mode);
       } else {
         if (action === 'reference') state = {...state,selection:reference,focus:'detail'};
         if (action === 'overall') state = {...state,selection:null,focus:'overall'};
@@ -158,17 +153,14 @@
         ensureViews();
         active = true;
         set(index,{context,quiet:true});
-        // An audience may enter on the same default state as its local copy.
-        render();
       },
       leave() {
         active = false;
-        labelTransitions.forEach(transition => transition.cancel());
-        labelTransitions = [];
+        restartAnimation?.cancel();
         view.pause();
         view.update({visible:false});
       },
-      pause() {view?.pause();}
+      pause() {restartAnimation?.cancel(); view?.pause();}
     };
   }
 

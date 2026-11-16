@@ -139,6 +139,20 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
   }
 
   const phase = () => overview.dataset.phase;
+  function markCurrentPage() {
+    const current = page();
+    tiles.forEach(({tile}, i) => {
+      if (i === current) tile.setAttribute('aria-current', 'page');
+      else tile.removeAttribute('aria-current');
+    });
+  }
+
+  function syncCurrentPage() {
+    if (overview.hidden) return;
+    markCurrentPage();
+    flight?.finish();
+  }
+
   function select(index, focus = true) {
     selected = Math.max(0, Math.min(tiles.length - 1, index));
     tiles.forEach(({tile}, i) => { tile.tabIndex = i === selected ? 0 : -1; });
@@ -178,10 +192,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     restoreInert = presentation.map(element => element.inert);
     resumeAnimations = suspend(entries[origin].element);
     tiles ??= buildTiles();
-    tiles.forEach(({tile}, i) => {
-      if (i === origin) tile.setAttribute('aria-current', 'page');
-      else tile.removeAttribute('aria-current');
-    });
+    markCurrentPage();
     overview.hidden = false;
     overview.dataset.phase = 'opening';
     toggle.setAttribute('aria-expanded', 'true');
@@ -194,13 +205,13 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     overview.dataset.phase = 'open';
     if (pendingClose) {
       pendingClose = false;
-      close(origin);
+      close();
       return;
     }
     pump();
   }
 
-  async function close(index = origin) {
+  async function close(index = page()) {
     if (phase() === 'opening') {
       pendingClose = true;
       flight?.finish();
@@ -209,7 +220,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     if (phase() !== 'open') return;
     overview.dataset.phase = 'closing';
     select(index, false);
-    if (index !== origin) {
+    if (index !== page()) {
       resumeAnimations();
       showPage(index);
       resumeAnimations = suspend(entries[index].element, false);
@@ -223,7 +234,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     toggle.setAttribute('aria-expanded', 'false');
     presentation.forEach((element, i) => { element.inert = restoreInert[i]; });
     resumeAnimations();
-    (index === origin && restoreFocus?.isConnected ? restoreFocus : toggle).focus({preventScroll:true});
+    (page() === origin && restoreFocus?.isConnected ? restoreFocus : toggle).focus({preventScroll:true});
   }
 
   function onKey(event) {
@@ -259,7 +270,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
   closeButton.onclick = () => close();
   addEventListener('resize', () => flight?.finish());
   motion.addEventListener('change', () => flight?.finish());
-  return {onKey, get active() { return !overview.hidden; }};
+  return {onKey, syncCurrentPage, get active() { return !overview.hidden; }};
 };
 
 // A single isolated preview runs the deck's normal rendering pipeline. Its

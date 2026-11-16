@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>PyPTO 3.0 · 问题驱动的诊断与优化闭环</title>
+<style>
+:root {
+  --bg: #101010; --pane: #171717; --pane2:#1c1c1c; --pane3:#242424;
+  --line:#343434; --weak:#292929; --fg:#f2f2f2; --secondary:#b7b7b7; --muted:#7e7e7e;
+  --blue:#78a0ff;
+  --mono: "JetBrains Mono", "SFMono-Regular", "Menlo", "Consolas", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#0b0b0b;color:var(--fg);font-family:var(--sans)}
+.slide{width:1600px;height:900px;flex-shrink:0;position:relative;overflow:hidden;background:var(--bg);padding:31px 52px 24px;}
+.slide::before{content:"";pointer-events:none;position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.16) .7px,transparent .85px);background-size:23px 23px;opacity:.15;mask-image:linear-gradient(to bottom,transparent 9%,black 90%)}
+.slide::after{content:"";pointer-events:none;position:absolute;left:-130px;bottom:-200px;width:470px;height:470px;background:radial-gradient(circle,rgba(93,121,194,.09),transparent 70%)}
+.slide>*{position:relative;z-index:1}
+.slide{--vision-gutter:20px;--vision-columns:repeat(3,minmax(0,1fr));--vision-hub-width:1180px}
+.vision-inputs{
+  display:grid;grid-template-columns:var(--vision-columns);gap:var(--vision-gutter);
+  min-height:158px;border:1px solid #303033;border-radius:14px;
+  background:linear-gradient(180deg,#1a1a1d,#141416);
+}
+.vision-input{padding:19px 24px}
+.vision-input h2,.compile-path h2{margin:0;font-size:22px;font-weight:650}
+.vision-input p{margin:8px 0 0;color:#c7c7c7;font-size:17px;line-height:1.4}
+.vision-status{display:inline-flex;align-items:center;gap:7px;color:#d4b788;font-size:14px;font-weight:600}
+.vision-status::before{content:"";width:7px;height:7px;border:1px solid currentColor;border-radius:50%}
+.vision-status.is-ready{color:#87d9b3}
+.vision-status.is-ready::before{background:currentColor}
+.vision-input .runtime-existing{color:#b4b4b4;font-size:15px}
+.compile-path{
+  margin:0;padding:15px 0 12px;text-align:center;position:relative;
+  background:linear-gradient(180deg,#221d2b,#19161e);
+}
+.compile-path::before,.compile-path::after{
+  content:"";position:absolute;inset-block:12px;width:1px;background:#3d3348;
+}
+.compile-path::before{left:calc(var(--vision-gutter) / -2)}
+.compile-path::after{right:calc(var(--vision-gutter) / -2)}
+.compile-path figcaption{display:flex;justify-content:center;align-items:baseline;gap:12px}
+.compile-path figcaption span{color:#d2bae9;font-size:14px}
+.compile-path svg{display:block;width:100%;height:66px;margin:5px auto 2px}
+.compile-path p{margin:0;color:#bcb2c8;font-size:14px}
+.compile-links{fill:none;stroke:#ad93ce;stroke-width:1.6}
+.compile-nodes{fill:#2b2535;stroke:#c8ace6;stroke-width:1.4}
+.compile-labels{fill:#eee2fa;font:13px var(--sans);text-anchor:middle}
+.bridge{width:100%;height:32px;display:block}
+.bridge path{stroke:#7988a6;stroke-width:1.2;fill:none}
+.bridge .bridge-planned{stroke:#998569;stroke-dasharray:4 4}
+.bridge .bridge-joint{fill:#aabef2}
+.model{
+  width:var(--vision-hub-width);min-height:108px;margin:0 auto;padding:16px 32px;
+  display:grid;place-items:center;text-align:center;
+  border:1px solid #586c9a;border-radius:14px;
+  background:radial-gradient(ellipse at 50% 0%,#2a3450,#191e2a 62%,#171a22);
+}
+.model-head .kicker{font:12px/1.2 var(--mono);color:#a8baf1;letter-spacing:.1em;margin-bottom:7px}
+.model-head strong{font-size:30px;line-height:1.1;letter-spacing:-.5px}
+.model-head p{font-size:15px;color:#c1c9da;margin:7px 0 0}
+.arrow-down{height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.arrow-down::before{content:"";width:1px;height:12px;background:#7988a6}
+.arrow-down strong{font-size:20px;letter-spacing:-.2px;color:#e0e7fb}
+.cards{display:grid;grid-template-columns:var(--vision-columns);gap:var(--vision-gutter)}
+.card{
+  display:grid;grid-template-columns:160px minmax(0,1fr);align-items:center;gap:14px;
+  min-height:150px;padding:14px;position:relative;overflow:hidden;
+  border:1px solid #39393d;border-radius:14px;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 6%,#1a1a1c),#171719 76%);
+}
+.card:before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent 85%);opacity:.85}
+.card-title{margin:0;font-size:18px;font-weight:690;letter-spacing:-.3px;color:var(--accent)}
+.card-visual{
+  min-height:88px;padding:8px;display:grid;align-items:center;
+  background:#121214;border:1px solid color-mix(in srgb,var(--accent) 18%,#29292d);border-radius:8px;
+}
+.card-visual svg{display:block;width:100%;height:auto}
+.card-bottom{margin-top:10px}
+.card-bottom .question{font-size:15px;font-weight:640;letter-spacing:-.2px;color:#efeff1;line-height:1.3}
+.card-bottom .copy{font-size:14px;line-height:1.4;color:#b8b8bd;margin-top:6px}
+.vision-outcome{
+  width:var(--vision-hub-width);min-height:100px;margin:22px auto 0;padding:15px 22px;
+  display:grid;grid-template-columns:320px minmax(0,1fr);align-items:center;gap:16px;
+  border:1px solid #4d5e80;border-radius:12px;background:#1a202e;
+}
+.vision-outcome h2{margin:4px 0 0;color:#f1f4ff;font-size:23px;font-weight:680}
+.vision-outcome .outcome-status{color:#aec3ff;font-size:14px;font-weight:600}
+.outcome-steps{
+  display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+  position:relative;margin:0;padding:0;list-style:none;text-align:center;
+}
+.outcome-steps::before{
+  content:"";position:absolute;inset-inline:calc(100% / 12);top:4px;height:1px;background:#7185b4;
+}
+.outcome-steps li{position:relative;font-size:15px;color:#e2e9ff;white-space:nowrap}
+.outcome-steps li::before{
+  content:"";display:block;width:9px;height:9px;margin:0 auto 10px;
+  border:1px solid #a5b9ee;border-radius:50%;background:#1a202e;
+}
+.outcome-steps li:last-child::before{background:#adc0ff}
+</style>
+
+
+<style>
+/* Fit the 1600 × 900 slide into the browser window. */
+html,body{height:100%;overflow:hidden}
+body{background:#0b0b0b}
+.viewport{height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.slide{
+  padding:36px 54px 28px;zoom:var(--fit,1);
+}
+.page-header{height:184px}
+.page-phase{
+  display:flex;align-items:center;gap:10px;height:24px;margin:0;
+  color:#989898;font-size:12px;font-weight:500;letter-spacing:.25px;
+}
+.page-phase::before{content:"";width:8px;height:8px;border-radius:2px;background:#819efe}
+.page-header h1{margin:10px 0 6px;color:#f3f3f3;font-size:42px;line-height:1.15;letter-spacing:-.7px;font-weight:650}
+.page-header h2{margin:0;color:#eee;font-size:24px;line-height:1.3;font-weight:600}
+</style>
+</head>
+<body>
+<div class="viewport">
+<main class="slide">
+  <header class="page-header">
+    <p class="page-phase">未来愿景</p>
+    <h1>构建统一计算语义模型驱动的算子诊断与优化，<br>让运行问题沿计算语义追溯到源码</h1>
+    <h2 class="strategy-subtitle">连接运行前的计算理解与运行时调优</h2>
+  </header>
+
+  <section class="vision-inputs" aria-label="静态分析、编译优化与动态信息">
+    <section class="vision-input">
+      <h2>静态分析</h2>
+      <p>源码与计算规则<br>计算关系、数据划分与逻辑执行</p>
+      <p><span class="vision-status is-ready">已完成</span></p>
+    </section>
+    <figure class="compile-path">
+      <figcaption><h2>编译优化</h2><span>白盒化愿景 · 示例</span></figcaption>
+      <svg viewBox="0 0 450 64" role="img" aria-label="原始操作 A 和 B 融合为操作 AB，再拆分为 AB₁ 和 AB₂。连线表示各操作之间的来源映射。">
+        <g class="compile-links">
+          <path pathLength="1" d="M62 15C119 15 146 32 204 32"/>
+          <path pathLength="1" d="M62 49C119 49 146 32 204 32"/>
+          <path pathLength="1" d="M246 32C304 32 331 15 388 15"/>
+          <path pathLength="1" d="M246 32C304 32 331 49 388 49"/>
+        </g>
+        <g class="compile-nodes">
+          <rect x="22" y="3" width="40" height="24" rx="12"/><rect x="22" y="37" width="40" height="24" rx="12"/>
+          <rect x="204" y="20" width="42" height="24" rx="12"/>
+          <rect x="388" y="3" width="40" height="24" rx="12"/><rect x="388" y="37" width="40" height="24" rx="12"/>
+        </g>
+        <g class="compile-labels">
+          <text x="42" y="20">A</text><text x="42" y="54">B</text><text x="225" y="37">AB</text>
+          <text x="408" y="20">AB₁</text><text x="408" y="54">AB₂</text>
+          <text x="126" y="54">融合</text><text x="324" y="54">拆分</text>
+        </g>
+      </svg>
+      <p>从执行对象回看优化变换与源码来源</p>
+    </figure>
+    <section class="vision-input">
+      <h2>运行仿真 / 动态信息</h2>
+      <p><span class="vision-status">仿真与实测证据待接入统一模型</span></p>
+      <p class="runtime-existing">已有运行调优能力，持续建设中</p>
+    </section>
+  </section>
+  <svg class="bridge" viewBox="0 0 1492 32" aria-hidden="true">
+    <path d="M242 0Q242 15 264 15H746M746 0V32"/>
+    <path class="bridge-planned" d="M1250 0Q1250 15 1228 15H746"/>
+    <circle class="bridge-joint" cx="746" cy="15" r="3"/>
+  </svg>
+
+  <section class="model" aria-label="统一计算语义模型">
+    <div class="model-head"><div class="kicker">SHARED COMPUTE SEMANTICS</div><strong>统一计算语义模型</strong><p>对象身份、关系映射与证据来源保持一致</p></div>
+  </section>
+
+  <div class="arrow-down">
+    <strong id="vision-views-title">三个核心观察视角 · 动态静态切换溯源问题</strong>
+    <svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M8 1V16M3 11L8 16L13 11" stroke="#7988a6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <section class="cards" aria-labelledby="vision-views-title">
+    <article class="card" style="--accent:#6ad9a2">
+      <div class="card-text">
+        <h3 class="card-title">Assignment / 数据</h3>
+        <div class="card-bottom"><div class="question">计算被分配到哪里？</div><div class="copy">逻辑分配 ⇄ 运行时任务与资源映射</div></div>
+      </div>
+      <div class="card-visual"><svg viewBox="0 0 320 83" aria-hidden="true"><g font-family="monospace" font-size="9" fill="#9a9a9a"><text x="11" y="19">RANK 0</text><text x="11" y="47">RANK 1</text></g><rect x="72" y="8" width="228" height="23" rx="5" fill="#232323" stroke="#454545"/><rect x="72" y="36" width="228" height="23" rx="5" fill="#232323" stroke="#454545"/><rect x="81" y="13" width="45" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 55%, #151515)" stroke="var(--accent)"/><rect x="131" y="13" width="45" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 18%, #151515)"/><rect x="181" y="13" width="45" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 18%, #151515)"/><rect x="81" y="41" width="45" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 18%, #151515)"/><rect x="131" y="41" width="45" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 18%, #151515)"/><rect x="181" y="41" width="45" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 18%, #151515)"/><g fill="color-mix(in srgb, var(--accent) 55%, white)" font-size="9" font-family="monospace"><text x="87" y="23">QK</text></g><path d="M104 26V33L152 38" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="3 3" fill="none"/><text x="228" y="74" font-size="9" font-family="monospace" fill="color-mix(in srgb, var(--accent) 82%, #151515)">TASK → CORE</text></svg></div>
+    </article>
+    <article class="card" style="--accent:#efb864">
+      <div class="card-text">
+        <h3 class="card-title">Pipeline / 时间</h3>
+        <div class="card-bottom"><div class="question">计算何时、如何执行？</div><div class="copy">逻辑执行时序 ⇄ 真实运行中的对应事件</div></div>
+      </div>
+      <div class="card-visual"><svg viewBox="0 0 320 83" aria-hidden="true"><g font-family="monospace" font-size="9" fill="#9a9a9a"><text x="11" y="22">AIC</text><text x="11" y="45">AIV</text><text x="11" y="67">DMA</text></g><g stroke="#383838" stroke-width="1"><path d="M49 17H304M49 40H304M49 63H304"/></g><rect x="52" y="11" width="93" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 50%, #151515)" stroke="var(--accent)"/><rect x="151" y="11" width="39" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 30%, #151515)"/><rect x="78" y="34" width="47" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 42%, #151515)" stroke="var(--accent)"/><rect x="196" y="34" width="80" height="13" rx="3" fill="color-mix(in srgb, var(--accent) 42%, #151515)" stroke="var(--accent)"/><rect x="54" y="57" width="47" height="13" rx="3" fill="#484848"/><rect x="115" y="57" width="55" height="13" rx="3" fill="#484848"/><path d="M145 5V75" stroke="var(--accent)" stroke-dasharray="3 3" stroke-width="1.5"/></svg></div>
+    </article>
+    <article class="card" style="--accent:#819efe">
+      <div class="card-text">
+        <h3 class="card-title">Graph / 计算</h3>
+        <div class="card-bottom"><div class="question">为什么形成这条路径？</div><div class="copy">计算规则与依赖 ⇄ 对应的实际执行证据</div></div>
+      </div>
+      <div class="card-visual"><svg viewBox="0 0 320 83" aria-hidden="true"><g stroke="color-mix(in srgb, var(--accent) 60%, #151515)" fill="none" stroke-width="1.5"><path d="M63 42H109M167 42H209M236 42H273M137 30V12H202V30"/></g><rect x="17" y="28" width="47" height="29" rx="6" fill="color-mix(in srgb, var(--accent) 20%, #151515)" stroke="color-mix(in srgb, var(--accent) 55%, #151515)"/><rect x="109" y="28" width="58" height="29" rx="6" fill="color-mix(in srgb, var(--accent) 45%, #151515)" stroke="var(--accent)"/><rect x="209" y="28" width="49" height="29" rx="6" fill="color-mix(in srgb, var(--accent) 20%, #151515)" stroke="color-mix(in srgb, var(--accent) 55%, #151515)"/><rect x="274" y="28" width="36" height="29" rx="6" fill="color-mix(in srgb, var(--accent) 20%, #151515)" stroke="color-mix(in srgb, var(--accent) 55%, #151515)"/><g fill="color-mix(in srgb, var(--accent) 30%, white)" text-anchor="middle" font-family="monospace" font-size="10"><text x="40" y="46">Load</text><text x="138" y="46">QK</text><text x="234" y="46">Norm</text><text x="292" y="46">PV</text></g><path d="M167 12H202" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="3 4"/></svg></div>
+    </article>
+  </section>
+  <footer class="vision-outcome" aria-labelledby="vision-outcome-title">
+    <div>
+      <span class="outcome-status">未来目标</span>
+      <h2 id="vision-outcome-title">问题驱动的诊断与优化闭环</h2>
+    </div>
+    <ol class="outcome-steps">
+      <li>发现问题</li>
+      <li>定位执行</li>
+      <li>追溯编译优化</li>
+      <li>关联源码</li>
+      <li>针对性优化</li>
+      <li>验证效果</li>
+    </ol>
+  </footer>
+</main>
+</div>
+<script>
+const viewport = document.querySelector('.viewport');
+const slide = viewport.querySelector('.slide');
+
+function fit() {
+  const scale = Math.min(viewport.clientWidth / slide.offsetWidth, viewport.clientHeight / slide.offsetHeight);
+  slide.style.setProperty('--fit', scale);
+}
+
+new ResizeObserver(fit).observe(viewport);
+fit();
+</script>
+</body>
+</html>
