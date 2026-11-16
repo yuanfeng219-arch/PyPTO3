@@ -33,6 +33,7 @@
     @media(min-width:1101px){ .hp-main, .hp-main:has(.hp-story[hidden]) { grid-template-columns:clamp(360px,var(--code-width,34%),max(360px,calc(100% - 560px))) minmax(0,1fr); } }
     /* 各页签共用计算图高度；用户拖动分隔条后仍由行内变量接管。 */
     #viewKernel:not(.is-rules-only) { --l2-graph-height:41%; }
+    body[data-level="1"] #hpStatusDim { display:none; }
   </style>
   <script defer src="../lab-tour-demo-v3/vendor/liquid-glass-controls/liquid-glass.js?v=final-v2"></script>
 </head>

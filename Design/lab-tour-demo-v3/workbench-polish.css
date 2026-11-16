@@ -369,9 +369,11 @@ body.is-workbench-drill #lensMid { view-transition-name: wb-drill-graph; }
 .wb-advice-strip .wb-adv-go { width: auto; height: 26px; padding: 0 12px; margin-left: auto; }
 
 /* ── 11 硅片落点图整理（与 workbench-chip.js 配合） ── */
-/* P0-1 AIV1 “只占了地址、没有数据”：缓冲画成斜纹空心，和 AIV0 的实心蓝并排一比就看出来。
-   （第 0 节给 .hp-svg .sv-buf.k-* 换了蓝色，盖掉了原来的 is-idle 斜纹，这里提高优先级补回） */
-#hpSvg .sv-buf.is-idle { fill: url(#csIdle); stroke: rgb(251 197 104 / 70%); stroke-width: .8; stroke-dasharray: 2 2; }
+/* 空闲状态保留与 AIV0 相同的分段配色，并叠加独立的斜纹。 */
+#hpSvg .sv-buf.is-idle.k-slot { fill: var(--sky); }
+#hpSvg .sv-buf.is-idle:is(.k-tmp, .k-work) { fill: #4f7bff; }
+#hpSvg .sv-buf.is-idle:is(.k-bias, .k-row) { fill: var(--sky-ink); }
+#hpSvg .sv-buf.is-idle { stroke: rgb(251 197 104 / 70%); stroke-width: .8; stroke-dasharray: 2 2; }
 /* P0-2 默认不点亮：联动高亮只在悬停（body.is-focusing）或详情窗打开（有问题分析解释它）时出现，
    否则三个大框都是白粗边，谁都不突出；AIV1 的琥珀虚线成为全图唯一的强调 */
 body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region.is-hot > .sv-box { stroke: var(--wb-box-stroke, #383838); stroke-width: 1; }
@@ -464,7 +466,6 @@ body:not(.is-focusing):has(#lensDetail[hidden]) #hpSvg .sv-region[data-region="a
 #hpSvg .wb-compute { --wb-mem-stroke: transparent; }
 #hpSvg .wb-compute .sv-mem { fill: var(--lav-mute); stroke: transparent; rx: 8px; }
 #hpSvg .wb-vector { fill: var(--sky-mute); }
-#hpSvg .wb-vector.is-idle { opacity: .3; }
 #hpSvg .wb-compute-k { fill: #fff !important; font: 600 11.5px var(--sans); pointer-events: none; }
 #hpSvg .wb-vec-link { fill: none; stroke: var(--sky-ink); stroke-width: 1.1; opacity: .6; pointer-events: none; }
 /* 搬运单元：胶囊，同源码栏“GM → L1 · DMA”标签（深底 + 绿字 + 等宽字） */

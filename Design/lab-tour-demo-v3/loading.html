@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../hardware-native-ide-ui/styles/path.css?v=20261105-focus38" />
   <link rel="stylesheet" href="./demo-shell.css?v=1" />
 <link rel="stylesheet" href="./agent-browser-shell.css" />
+<link rel="stylesheet" href="./demo-highlights.css" data-demo-highlights-style />
 <style>
 @font-face{font-family:'JetBrains Mono';src:url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
 /* 同 workbench.html 的返回键，两页顶栏必须完全对齐 */
@@ -277,14 +278,16 @@ button.ide-row{cursor:pointer}
 .analysis-shell.is-result:not(.is-parked){pointer-events:auto}
 .analysis-shell.is-parked{visibility:hidden}
 .analysis-shell .lb-main{grid-template-rows:44px minmax(0,1fr)}
-.analysis-shell .lb-bar{grid-template-columns:auto minmax(0,max-content) minmax(0,1fr);gap:10px;background:var(--page)}
+.analysis-shell .lb-bar{grid-template-columns:auto minmax(0,max-content) minmax(0,1fr) auto;gap:10px;background:var(--page)}
+.analysis-finish{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 14px;border-radius:999px;background:rgb(255 255 255 / 8%);color:#eee;font:500 12px var(--sans,system-ui,sans-serif);text-decoration:none;white-space:nowrap}
+.analysis-finish:hover,.analysis-finish:focus-visible{background:rgb(255 255 255 / 15%);outline:2px solid var(--lime,#88ec30);outline-offset:2px}
 .analysis-shell .lb-tabs{padding:0}
 .analysis-shell .lb-tab,.analysis-shell .lb-addr{height:30px}
 .analysis-shell .lb-nav{padding:2px}
 .analysis-shell .lb-nav :is(button,a){width:28px;height:28px}
 .analysis-shell .lb-view{overflow:hidden}
 @media(max-width:860px){
-  .analysis-shell .lb-bar{grid-template-columns:auto minmax(0,1fr);padding-right:52px}
+  .analysis-shell .lb-bar{grid-template-columns:auto minmax(0,1fr) auto;padding-right:52px}
   .analysis-shell .ag-rail{position:absolute;z-index:1;top:5px;right:12px;display:block;padding:0}
   .analysis-shell .ag-rail>span{display:none}
 }
@@ -347,7 +350,7 @@ button.ide-row{cursor:pointer}
         </section>
 
         <p class="cb-foot"><span class="d" aria-hidden="true"></span>演示流程 · 此处不会实际编译或连接设备，性能页展示同一次 CSA 运行的预置 trace</p>
-        <a class="hp-topbtn cb-next" id="next" href="result.html" hidden>查看性能分析 <span aria-hidden="true">→</span></a>
+        <a class="hp-topbtn cb-next" id="next" href="result.html" hidden>查看设备泳道图 <span aria-hidden="true">→</span></a>
       </div>
 
       <section class="ln ide" id="laneView" aria-labelledby="lnTitle" hidden>
@@ -432,7 +435,7 @@ button.ide-row{cursor:pointer}
           </div>
           <div class="ln-tip" id="lnTip" hidden></div>
           <div class="lane-analysis-entry">
-            <button type="button" class="sw-go" id="lnGo" title="查看关键路径与任务特征">性能分析<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 11 5M6 5h5v5"/></svg></button>
+            <button type="button" class="sw-go" id="lnGo" title="查看 PyPTO Toolkit 泳道图从 IDE 到 Agent 的迭代">查看 Agent 版泳道图<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 11 5M6 5h5v5"/></svg></button>
           </div>
         </div>
             </div>
@@ -458,9 +461,9 @@ button.ide-row{cursor:pointer}
   </div>
 
   <template id="analysisShell">
-    <section class="lb-app analysis-shell" aria-label="性能分析工作台" inert>
+    <section class="lb-app analysis-shell" aria-label="Agent 工作台中的 PyPTO Toolkit 泳道图" inert>
   <div class="ag-rail">
-    <a class="is-on" href="index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9 10 3.5 16.5 9v7.5h-13z"/></svg></a>
+    <a class="is-on" href="intro.html" aria-label="返回项目背景" title="返回项目背景"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9 10 3.5 16.5 9v7.5h-13z"/></svg></a>
     <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M7 3.5h6v4h4v6h-4v3H7v-3H3v-6h4z"/></svg></span>
     <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M10 6.5V10l2.5 1.5"/></svg></span>
     <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3.5 4h3.5v12H3.5zM8.5 4H12v12H8.5zM13.5 4.5l3 .8-2.8 10.5-3-.8"/></svg></span>
@@ -479,17 +482,19 @@ button.ide-row{cursor:pointer}
       <div class="lb-tabs" role="tablist" aria-label="标签页">
         <div class="lb-tab" role="tab" aria-selected="true">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></svg>
-          <b>Device Perf Lane</b>
+          <b>PyPTO Toolkit 泳道图</b>
           <a class="lb-x" href="loading.html#lane" data-lane-back aria-label="关闭标签页，回到设备泳道" title="关闭标签页，回到设备泳道"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3.5 3.5 7 7M10.5 3.5l-7 7"/></svg></a>
         </div>
       </div>
       <div class="lb-addr"><span><b>decode_csa</b></span></div>
+      <a class="analysis-finish" href="index.html">演示总览 <span aria-hidden="true">→</span></a>
     </div>
     <div class="lb-view"></div>
   </div>
     </section>
   </template>
 
+<script src="./demo-highlights.js"></script>
 <script src="./loading-lane-data.js?v=3"></script>
 <script src="./lane-transition.js"></script>
 <script>
@@ -511,7 +516,7 @@ const STAGES = [
     title: '正在上板执行', detail: '把编译产物加载到 a2a3，采集一次真实执行。',
     status: 'device · a2a3 · launching' },
   { at: 4.15, ms: 1300, node: 3, link: 2, kind: 'var(--sky)',
-    title: '正在准备性能分析', detail: '读取这次执行的 trace，整理到设备泳道上。',
+    title: '正在准备设备泳道图', detail: '读取这次执行的 trace，整理到设备泳道上。',
     status: 'trace · building lanes' }
 ];
 const END = 5.55;
@@ -581,7 +586,7 @@ function runStage(s) {
   }, still ? 0 : s.ms);
 }
 
-/* 编译结束后停在设备泳道，由悬停遮罩上的按钮进入性能分析。 */
+/* 编译结束后停在 IDE 的设备泳道，由悬停按钮打开 Agent 版泳道图。 */
 function finish() {
   title.textContent = '演示流程已完成';
   detail.textContent = '这次运行的 trace 已准备就绪，正在画出设备泳道。';
@@ -915,13 +920,13 @@ let leaving = false;
 let restoreAnalysisFocus = false;
 const analysisButton = document.getElementById('lnGo');
 const analysisHash = '#analysis';
-const analysisTarget = 'result.html#from-lane';
+const analysisPage = 'result.html?embed=agent';
 let resultShell = null;
 function createResult(preview = false) {
   const shell = document.getElementById('analysisShell').content.firstElementChild.cloneNode(true);
   const frame = document.createElement('iframe');
-  frame.title = 'Device Perf Lane · 性能分析';
-  frame.src = preview ? 'result.html#lane-preview' : analysisTarget;
+  frame.title = 'PyPTO Toolkit 泳道图 · Agent 版';
+  frame.src = analysisPage + (preview ? '#lane-preview' : '#from-lane');
   shell.querySelector('.lb-view').append(frame);
   shell.querySelectorAll('[data-lane-back]').forEach(link => link.addEventListener('click', event => {
     if (history.state?.fromDeviceLane) {
@@ -1060,6 +1065,5 @@ if (location.hash === analysisHash) {
   setTimeout(finish, END * 1000);
 }
 </script>
-<script src="./demo-highlights.js"></script>
 </body>
 </html>

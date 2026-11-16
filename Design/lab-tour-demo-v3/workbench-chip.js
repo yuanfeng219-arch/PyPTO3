@@ -138,7 +138,7 @@
       [].filter.call(g.querySelectorAll('rect'), function (r) { return num(r, 'x') === o[0] && num(r, 'y') === o[1]; }).forEach(function (r) { set(r, { width: b[2], height: b[3] }); });
       g.querySelectorAll('text[text-anchor="end"]').forEach(function (t) { t.setAttribute('x', o[0] + b[2] - 8); });
       if (id === 'l0c') g.querySelectorAll('.sv-fill-amber').forEach(function (r) { r.setAttribute('width', b[2] - 16); });
-      if (id === 'l0a' || id === 'l0b') { const half = (b[2] - 16 - 4) / 2; g.querySelectorAll(id === 'l0a' ? '.sv-fill-lime' : '.sv-fill-lav').forEach(function (r, i) { set(r, { x: o[0] + 8 + i * (half + 4), width: half }); }); }
+      if (id === 'l0a' || id === 'l0b') { const half = (b[2] - 16 - 4) / 2; g.querySelectorAll(id === 'l0a' ? '.sv-fill-lime' : '.sv-fill-lav').forEach(function (r, i) { set(r, { x: o[0] + 8 + i * (half + 4), y: o[1] + 17.5, width: half, height: 28 }); }); }
     });
     const pipeG = region(svg, 'pipe');
     if (pipeG) {
@@ -177,7 +177,7 @@
         const y = num(b, 'y'), h = num(b, 'height'), x = MAPX(x0, y + h);
         set(b, { x: x, y: by + 1, width: Math.max(1, h * S), height: BAR.h - 2 });
       });
-      // Vector 计算块（参考 hardware-architecture-viewport：UB ↔ Vector），放在 Vec 横条右侧；AIV1 空转时压暗
+      // Vector 计算块（参考 hardware-architecture-viewport：UB ↔ Vector），两条 AIV 使用同一基础图元。
       const vx = x0 + BAR.w + 36, vy = Y + 14;
       el('path', { d: 'M' + (x0 + BAR.w + 4) + ' ' + (by + BAR.h / 2) + ' H ' + (vx - 4), class: 'wb-vec-link', 'data-owners': id + ' ' + ub, 'marker-start': 'url(#wbChipVecBoth)', 'marker-end': 'url(#wbChipVecBoth)' }, g);
       el('rect', { x: vx, y: vy, width: 90, height: 50, rx: 12, class: 'wb-vector' + (id === 'aiv1' ? ' is-idle' : '') }, g);
@@ -320,6 +320,11 @@
     const defs = svg.querySelector('defs');
     const pat = el('pattern', { id: 'wbTensorGrid', width: '6', height: '6', patternUnits: 'userSpaceOnUse' }, defs);
     el('rect', { x: '.5', y: '.5', width: '5', height: '5', fill: 'none', stroke: 'rgb(0 0 0 / 32%)', 'stroke-width': '.7' }, pat);
+    const idlePattern = el('pattern', { id: 'wbIdleOverlay', width: '6', height: '6', patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, defs);
+    el('line', { x1: 0, y1: 0, x2: 0, y2: 6, stroke: 'rgb(255 230 174 / 75%)', 'stroke-width': '1' }, idlePattern);
+    svg.querySelectorAll('.sv-ub[data-ub="ub1"] .sv-buf.is-idle').forEach(function (r) {
+      el('rect', { x: r.getAttribute('x'), y: r.getAttribute('y'), width: r.getAttribute('width'), height: r.getAttribute('height'), fill: 'url(#wbIdleOverlay)', 'pointer-events': 'none' }, r.parentNode, r.nextSibling);
+    });
     ['l1-q', 'l1-kv'].forEach(function (id) {
       const g = region(svg, id), r = g && g.querySelector('.sv-l1'); if (!r) return;
       g.classList.add('wb-tensor');
@@ -333,6 +338,13 @@
           sec.dataset.owner = 'l1-kv'; sec.textContent = l[0];
         });
       }
+    });
+    // L0A / L0B 的两块切片沿用 Q / KV 的网格纹理，同时保留原有双缓冲布局与悬停命中区域。
+    ['l0a', 'l0b'].forEach(function (id) {
+      const g = region(svg, id); if (!g) return;
+      g.querySelectorAll('.sv-fill-lime, .sv-fill-lav').forEach(function (r) {
+        el('rect', { x: r.getAttribute('x'), y: r.getAttribute('y'), width: r.getAttribute('width'), height: r.getAttribute('height'), fill: 'url(#wbTensorGrid)', 'pointer-events': 'none' }, g, r.nextSibling);
+      });
     });
     svg.querySelectorAll('.sv-region[data-region="pipe"] text').forEach(function (t) {
       const m = /^(\d) × (\d+K)$/.exec(t.textContent.trim());
