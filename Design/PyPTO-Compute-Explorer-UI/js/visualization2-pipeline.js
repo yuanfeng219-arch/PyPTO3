@@ -52,6 +52,7 @@
     const blockTargets=new Map([...targets.querySelectorAll('[data-bem-block]')].map(n=>[Number(n.dataset.bemBlock),n]));
     const taskTargets=new Map([...targets.querySelectorAll('[data-bem-task]')].map(n=>[Number(n.dataset.bemTask),n]));
     let selection = null, camera = null, layout = null, drag = null, suppressClick = false, hover = null, active = false;
+    let blockFocus;
     let selectionKey = '', focusOnNextPaint = false, transitionMasked = false, transitionFocusBlock = null, semanticTaskMask = null, doubleCandidate = null;
     const tooltip = document.createElement('div');
     tooltip.className = 'pto-swimlane-task-tooltip viz2-pipeline-tooltip'; tooltip.setAttribute('role','tooltip');
@@ -130,9 +131,13 @@
       ctx.save();ctx.translate(layout.syncX,layout.header+(layout.height-layout.header)/2);ctx.rotate(-Math.PI/2);ctx.fillStyle=fg;ctx.font=`11px ${mono}`;ctx.textAlign='center';ctx.fillText('SYNCALL · 全部执行块',0,0);ctx.restore();
       model.lanes.forEach(lane => {
         const y=layout.header+lane.block*layout.row, related=lane.block===selection?.block;
+        ctx.globalAlpha=blockFocus == null || related ? 1 : 1 - .72 * blockFocus;
         if(related){ctx.fillStyle='#262626';ctx.fillRect(0,y,layout.width,layout.row);}
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(0,y+layout.row);ctx.lineTo(layout.width,y+layout.row);ctx.stroke();
-        ctx.fillStyle=related?fg:secondary;ctx.font=`12px ${mono}`;if (!transitionMasked) ctx.fillText(String(lane.block).padStart(2,'0'),layout.labelX+8,y+layout.row/2);
+        ctx.fillStyle=related?fg:secondary;ctx.font=`12px ${mono}`;
+        const label=String(lane.block).padStart(2,'0');
+        if (!transitionMasked) ctx.fillText(blockFocus != null && related ? 'Block '+label : label,
+          blockFocus != null && related ? layout.labelX : layout.labelX+8,y+layout.row/2);
         // One square = one Batch × KV Head work item; each row is an AIV Lane.
         lane.phase0Lanes.forEach((aiv,index)=>{
           const laneH=(layout.row-6)/Math.max(1,lane.phase0Lanes.length);
@@ -146,12 +151,16 @@
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(layout.phaseX+layout.phaseW+2,y+layout.row/2);ctx.lineTo(layout.syncX-6,y+layout.row/2);ctx.moveTo(layout.syncX+6,y+layout.row/2);ctx.lineTo(layout.taskX-5,y+layout.row/2);ctx.stroke();
         if(!visualOnly){const button=blockTargets.get(lane.block);place(button,0,y,layout.taskX-14,layout.row);button.setAttribute('aria-pressed',String(related));}
       });
+      ctx.globalAlpha=1;
       ctx.save();ctx.beginPath();ctx.rect(layout.taskX,layout.header,Math.max(0,layout.width-layout.taskX),layout.height-layout.header);ctx.clip();
       positions().forEach(rect=>{
         const task=rect.task, selected=selection?.kind==='task'&&selection.task===task.id, related=selection?.block===task.block;
+        ctx.globalAlpha=blockFocus == null ? 1 : !related ? 1 - .72 * blockFocus
+          : selection.kind==='task' && !selected ? .63 : 1;
         if (!transitionMasked && transitionFocusBlock !== task.block && semanticTaskMask !== task.id) global.PtoVisualization2TaskEncoding.draw(ctx,{task,...rect,
           colors:{track:color('--surface-4'),fill:color('--ai-data-fill'),page:color('--surface-2'),text:fg,label:color('--surface-2')},
-          selected,related,hovered:hover===task.id,fontFamily:mono});
+          selected,related,hovered:hover===task.id,fontFamily:mono,
+          label:blockFocus != null && selected ? 'Task '+task.id : undefined});
         // One Output cap belongs to this Task. No synthesized IN/OUT timing segments.
         if(semanticTaskMask !== task.id) pattern.drawTaskBar(ctx,{task:{label:'N↓'},x:rect.outputX,y:rect.y,width:rect.outputWidth,height:rect.height,baseColor:(selected||related?colors.output:'#505050'),isSelected:selected,isRelated:related,fontFamily:mono});
         if(visualOnly)return;
@@ -173,6 +182,7 @@
     function selectTask(id) {const task=model.tasks[id];if(task)onSelect({kind:'task',task:id,block:task.block,batch:task.batch,kvHead:task.kvHead});}
     function update(nextSelection,nextCamera,options={}) {
       selection=nextSelection;camera=nextCamera;active=!!options.active;
+      blockFocus=options.blockFocus;
       const key=JSON.stringify(selection);
       if(key!==selectionKey){selectionKey=key;updateInspector();focusOnNextPaint=true;}
       if(options.enter){focusOnNextPaint=true;pattern.hideTooltip(tooltip);}
@@ -237,6 +247,7 @@
       return true;
     }
     return {update,getTransitionSnapshot,ensureTransitionBlockVisible,
+      setBlockFocusStrength(strength){blockFocus=strength;paint({visualOnly:true});},
       setTransitionFocusBlock(block){transitionFocusBlock=block;paint();},
       setSemanticTaskMask(id){semanticTaskMask=id;paint();},setTransitionMasked(value){transitionMasked=value;paint();},hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
   }

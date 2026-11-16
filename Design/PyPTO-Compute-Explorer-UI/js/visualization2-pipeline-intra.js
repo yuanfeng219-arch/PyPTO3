@@ -241,7 +241,7 @@
       const positionEvidence=f.kind==='tick'?task.ticks[f.index]?.evidence:operation?.evidence.logicalPosition;
       if(global.PtoPhotoNarrative.enabled){
         const batch=f.kind==='slot'?null:task.stacks[f.index];
-        const actions={qk:'前段处理：按顾客选择的主题匹配本批照片。',softmax:'前段处理：筛选入选照片并去重，整理打印清单。',pv:'后段加工：按清单准备照片并完成打印。',accumulate:'后段加工：待全部批次打印完成后，按工单整理并装帧。'};
+        const actions={qk:'按顾客选定的主题筛选本批照片，去除重复照片后交给修图工序。',softmax:'调整入选照片的亮度和色彩，检查后整理打印清单。',pv:'后段加工：按清单准备照片并完成打印。',accumulate:'后段加工：待全部批次打印完成后，按工单整理并装帧。'};
         const description=f.kind==='stage'?actions[f.stage]:f.kind==='event'?'上道工序发出交接就绪，下道工序等待对应资料后继续。':f.kind==='slot'?`周转台位 ${f.index} 循环服务处理批次 ${task.slots[f.index].stacks.map(i=>i+1).join('、')}；复用表示共用位置，不表示传递同一批照片。`:f.kind==='output'?'全部处理批次完成后，装帧并保存成品。':'沿本批次路径查看前段处理、后段加工与交接关系。';
         window.PtoPhotoNarrative.text(host.querySelector('[data-intra-title]'),f.kind==='slot'?`周转台位 ${f.index}`:f.kind==='tick'?`流水轮次 ${f.index}`:f.kind==='output'?'装帧':`第 ${f.index+1} 批${f.stage?' · '+stages[f.stage]:''}`);
         window.PtoPhotoNarrative.html(host.querySelector('[data-intra-detail]'),`<section><h3>当前工单</h3><p>${global.PtoPhotoNarrative.taskSummary(task)}</p></section><section><h3>处理内容</h3><p>${description}</p>${batch?`<p>第 ${batch.index+1} 批 · ${batch.tokens} / ${task.stackTokens} 张照片 · ${batch.pages.length} 个标准照片包 · 周转台位 ${batch.slot}</p>`:''}</section><section><h3>工序交接</h3>${relation('上道工序',upstream)}${relation('下道工序',downstream)}</section><section><h3>逻辑编排</h3><p>前段先处理并交接资料，后段按逻辑轮次接续。轮次横向间距不表示实际时间；就绪等待不表示实际发生停顿；不据此推断提速或真实并发。</p></section>`);
