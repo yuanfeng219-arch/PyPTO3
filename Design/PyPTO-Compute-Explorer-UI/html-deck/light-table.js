@@ -101,13 +101,16 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
   let origin, selected, restoreFocus, restoreInert, resumeAnimations, flight, pendingClose;
 
   function buildTiles() {
-    document.querySelector('#light-table-count').textContent = entries.length + ' slides';
-    return entries.map(({label, chapter}, index) => {
+    const skippedCount = entries.filter(entry => entry.skipped).length;
+    document.querySelector('#light-table-count').textContent = entries.length + ' 页' +
+      (skippedCount ? ' · ' + skippedCount + ' 页放映时跳过' : '');
+    return entries.map(({label, chapter, skipped}, index) => {
       const card = document.createElement('div');
       card.className = 'light-table-card';
       const tile = document.createElement('button');
       tile.type = 'button';
       tile.className = 'light-table-tile';
+      tile.disabled = skipped;
       const frame = document.createElement('span');
       frame.className = 'light-table-frame';
       const status = document.createElement('span');
@@ -124,10 +127,10 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
         caption.append(text);
       }
       tile.title = chapter ? chapter + ' · ' + label : label;
-      if (chapter) {
+      if (chapter || skipped) {
         const section = document.createElement('small');
         section.className = 'light-table-chapter';
-        section.textContent = chapter;
+        section.textContent = [chapter, skipped && '放映时跳过'].filter(Boolean).join(' · ');
         caption.append(section);
       }
       tile.append(caption);
@@ -159,6 +162,15 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     const tile = tiles[selected].tile;
     tile.scrollIntoView({block:'nearest',inline:'nearest'});
     if (focus) tile.focus({preventScroll:true});
+  }
+
+  function moveSelection(delta) {
+    for (let index = selected + delta; index >= 0 && index < tiles.length; index += delta) {
+      if (!entries[index].skipped) {
+        select(index);
+        return;
+      }
+    }
   }
 
   function fly(index, entering) {
@@ -217,7 +229,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
       flight?.finish();
       return;
     }
-    if (phase() !== 'open') return;
+    if (phase() !== 'open' || entries[index].skipped) return;
     overview.dataset.phase = 'closing';
     select(index, false);
     if (index !== page()) {
@@ -255,12 +267,12 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
       const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
       switch (event.code) {
         case 'Enter': if (!event.repeat) close(selected); break;
-        case 'ArrowLeft': select(selected - 1); break;
-        case 'ArrowRight': select(selected + 1); break;
-        case 'ArrowUp': select(selected - columns); break;
-        case 'ArrowDown': select(selected + columns); break;
-        case 'Home': select(0); break;
-        case 'End': select(tiles.length - 1); break;
+        case 'ArrowLeft': moveSelection(-1); break;
+        case 'ArrowRight': moveSelection(1); break;
+        case 'ArrowUp': moveSelection(-columns); break;
+        case 'ArrowDown': moveSelection(columns); break;
+        case 'Home': select(entries.findIndex(entry => !entry.skipped)); break;
+        case 'End': select(entries.findLastIndex(entry => !entry.skipped)); break;
       }
     }
     return true;
