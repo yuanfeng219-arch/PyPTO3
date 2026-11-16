@@ -1,14 +1,12 @@
 # P06 · 循环执行规模直观可见
 
-打开 [独立演示](index.html) 即可查看 Graph 的 QK Matmul 特写和对应 Task 的 Assignment Block 内视图。默认从短序列开始轮播，每个 Task 停留约 4.6 秒。点击任一 Task、上一个、下一个或重置后会暂停轮播。点击「继续轮播」从当前 Task 继续。重置回 Task 24。
+打开 [独立演示](index.html) 或 Compute Explorer HTML Deck 的 P06。切换 Stack Count 可以同步查看 KV Cache 的有效 Page、Attention 模块叠层和 QK Matmul 叠层。
 
-| Task | Batch | KV Head | Sequence Length | Pages | Stacks |
-| --- | --- | --- | --- | --- | --- | --- |
-| 24 | 3 | 0 | 128 | 1 | 1 |
-| 65 | 8 | 1 | 769 | 7 | 2 |
-| 18 | 2 | 2 | 2048 | 16 | 4 |
-| 43 | 5 | 3 | 3584 | 28 | 7 |
+| Stack Count | 有效 token 数 | 有效 Page 数 | 末尾 Stack 的有效 Page |
+| --- | --- | --- | --- |
+| 1（默认） | 128 | 1 | 1 个完整 Page |
+| 2 | 769 | 7 | 2 个完整 Page，1 个仅有 1 个有效 token 的 Page |
+| 3 | 1536 | 12 | 4 个完整 Page |
+| 4 | 2048 | 16 | 4 个完整 Page |
 
-四组 Task 覆盖单 Page、尾页、完整中等分块和示例中的最大规模。Assignment 使用原 Block 内渲染器绘制 KV Cache 与 Q Tile。页数、Stack 数和 QK 次数来自同一个 Task 模型。
-
-Graph 沿用 P06 的 Task 48 原生节点坐标与 SVG 走线。以 Task Inputs、QK Matmul 至 PV 的节点、次数标签和最深的 QK 叠层测量裁切边界，视窗在 Partial Context 前结束。所有 Task 共用这套镜头，切换时只改变模块轮廓与 QK 节点叠层的可见数量。次数表示源码推导的逻辑重复，QK 按每 AIC、每 Task 计数。
+沿用原 Demo 的分块和执行模型。每个 Page 容纳 128 个 token，每个 Stack 容纳 4 个 Page。每个 Stack 对应一轮 Attention 模块，每个有效逻辑 Page 对应一次 QK Matmul（每 AIC、每 Task）。尾页有有效 token 时计为一次，未用的 Page 槽位不计入。右侧在同一组 Stack 和 Page 元素上更新有效容量，左侧复用 Task 48 的原生节点坐标、依赖和 SVG 走线。

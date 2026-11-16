@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 本 Demo 的图宿主副本：资源仍取自 ../csa-operator-lens/，只替换初始取景（graph-host.js） -->
+  <base href="../csa-operator-lens/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSA 计算图</title>
+  <!-- L1 整层图与 L2 Kernel 链都用 PyPTO-Compute-Explorer-UI Graph 页签的图元渲染（?mode=chain 为 L2）；单独放在 iframe 里，PTO 设计系统样式不会影响外层 Hardware-Native 页面 -->
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/compute-shell.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/compute-map.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/compute-shared.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/visualization2.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/visualization2-graph.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/assets/ai-infra/design-tokens.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/ai-infra-ui.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/explorer-controls.css" />
+  <link rel="stylesheet" href="./vendor/explorer-ui/styles/compute-detail-layout.css" />
+  <style>
+    /* IDE 外壳样式给 html / body 设了 980px 最小宽度；嵌在中栏里要跟随 iframe 宽度 */
+    html, body { height: 100%; width: 100%; min-width: 0 !important; margin: 0; background: #131313; overflow: hidden; }
+    .pto-ide-frame, .pto-ide-frame__body, #ideWorkarea, #visualization2, .viz2-content, #viz2-graph, #viz2-graph-inter { height: 100%; width: 100%; min-height: 0; }
+    .pto-ide-frame, .pto-ide-frame__body, #ideWorkarea, #visualization2, .viz2-content, #viz2-graph { display: flex; flex-direction: column; padding: 0; margin: 0; border: 0; background: #131313; }
+    #viz2-graph-inter { flex: 1; }
+    /* 外层源码 / 详情联动的高亮：沿用图元自身的选中描边，不另起颜色 */
+    .viz2-graph-scene [data-pypa-node].lens-hot { outline: 2px solid #e8e8e8; outline-offset: 2px; }
+    .viz2-graph-scene[data-lens-hot="true"] [data-pypa-node]:not(.lens-hot):not(.lens-near) { opacity: .38; }
+    .viz2-graph-scene[data-lens-hot="true"] [data-pypa-edge]:not(.lens-hot) { opacity: .25; }
+    .viz2-graph-labels[data-lens-hot="true"] .viz2-graph-node-title:not(.lens-hot):not(.lens-near) { opacity: .38; }
+    .lens-dock { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex; align-items: center; gap: 10px; pointer-events: none; font: 12px/1.4 Inter, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .lens-dock__hint { padding: 5px 10px; border-radius: 999px; background: rgba(32,32,32,.86); color: #bdbdbd; }
+    .lens-dock__tools { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(32,32,32,.92); pointer-events: auto; }
+    .lens-dock__tools button { height: 26px; min-width: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: #e8e8e8; font: inherit; cursor: pointer; }
+    .lens-dock__tools button:hover, .lens-dock__tools button:focus-visible { background: #3a3a3a; outline: none; }
+    .lens-dock__tools output { min-width: 44px; text-align: center; color: #bdbdbd; font: 11px "JetBrains Mono", Consolas, monospace; }
+    /* 图元自带的底栏（图层 / 缩放 / Fit to View）由 .lens-dock 代替：只隐藏，不删——缩放与适应仍点它的按钮 */
+    .viz2-graph-footer { display: none !important; }
+    /* 图例：画布上的颜色就近说明，黄色中间结果不再无从查起 */
+    .lens-dock__legend { display: inline-flex; align-items: center; gap: 12px; padding: 5px 12px; border-radius: 999px; background: rgba(32,32,32,.86); color: #bdbdbd; white-space: nowrap; }
+    .lens-dock__legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .lens-dock__legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+    .lens-dock__legend .k-tensor { background: #80b7f7; }
+    .lens-dock__legend .k-state { background: #4c6c90; box-shadow: inset 0 0 0 1px #80b7f7; }
+    .lens-dock__legend .k-mid { background: #ffbc20; }
+    .lens-dock__legend .k-op { width: 16px; border-radius: 999px; background: #606060; }
+    .lens-dock__legend .k-stage { width: 14px; height: 9px; border: 1px dashed #8a8a8a; border-radius: 2px; }
+    .lens-dock__legend[hidden] { display: none; }
+    @media (max-width: 900px) { .lens-dock__legend { display: none; } }
+    @media (max-width: 620px) { .lens-dock__hint { display: none; } }
+  </style>
+</head>
+<body class="ai-extracted">
+  <section class="pto-ide-frame" data-host="standalone">
+    <div class="pto-ide-frame__body">
+      <div class="pto-ide-frame__workarea" id="ideWorkarea">
+        <section class="pto-ide-frame__pane viz2" id="visualization2">
+          <div class="viz2-content">
+            <section class="viz2-canvas" id="viz2-graph">
+              <div class="viz2-phase-surface viz2-graph" id="viz2-graph-inter"></div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+  <div class="lens-dock">
+    <span class="lens-dock__hint">单击看详情 · 双击模块展开 · 双击 Kernel 进入 L2</span>
+    <span class="lens-dock__legend" id="lensLegend" aria-label="图例">
+      <span><i class="k-tensor"></i>Tensor</span><span><i class="k-state"></i>状态 / Cache</span><span><i class="k-mid"></i>块内中间结果</span><span><i class="k-op"></i>计算 / 通信</span><span><i class="k-stage"></i>阶段</span>
+    </span>
+    <span class="lens-dock__tools" role="group" aria-label="缩放">
+      <button type="button" data-lens-zoom="0.8" aria-label="缩小">−</button><output id="lensScale">100%</output><button type="button" data-lens-zoom="1.25" aria-label="放大">＋</button><button type="button" data-lens-fit>适应</button>
+    </span>
+  </div>
+
+  <script>
+    // 渲染链里只用到 Paged Attention 执行装饰的三个入口；CSA 没有这类静态执行计数，置空
+    window.PtoPagedAttentionExecution = { derive: function () { return null; }, decoration: function () { return null; }, deckOffset: function () { return 0; } };
+  </script>
+  <script src="./js/source-snapshot.js"></script>
+  <script src="./js/lens-data.js"></script>
+  <script src="./js/kernel-scan.js"></script>
+  <script src="./js/chain-graph-model.js"></script>
+  <script src="./vendor/explorer-ui/js/photo-narrative.js"></script>
+  <script src="./vendor/explorer-ui/js/semantic-computation-graph.js"></script>
+  <script src="./vendor/explorer-ui/js/semantic-computation-presentation.js"></script>
+  <script src="./vendor/explorer-ui/js/semantic-computation-layout.js"></script>
+  <script src="./vendor/explorer-ui/js/semantic-computation-visibility.js"></script>
+  <script src="./vendor/explorer-ui/js/compute-graph-scene.js"></script>
+  <script src="./vendor/explorer-ui/assets/ai-infra/visual-system.js"></script>
+  <script src="./vendor/explorer-ui/assets/ai-infra/op-icons.js"></script>
+  <script src="./vendor/explorer-ui/assets/ai-infra/tensor-role-glyph.js"></script>
+  <script src="./vendor/explorer-ui/assets/ai-infra/graph-legend-skin.js"></script>
+  <script src="./vendor/explorer-ui/js/ai-infra-presentation.js"></script>
+  <script src="./vendor/explorer-ui/js/visualization2-graph.js"></script>
+  <script src="./js/csa-graph-model.js"></script>
+  <script src="../lab-tour-demo-v3/graph-host.js?v=2"></script>
+</body>
+</html>

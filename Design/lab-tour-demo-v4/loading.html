@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>编译并上板 · CSA</title>
+  <link rel="stylesheet" href="../hardware-native-ide-ui/styles/path.css?v=20261105-focus38" />
+  <link rel="stylesheet" href="./demo-shell.css?v=1" />
+<style>
+@font-face{font-family:'JetBrains Mono';src:url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+/* 同 workbench.html 的返回键，两页顶栏必须完全对齐 */
+.hp-topbtn{text-decoration:none}
+.cb-clock{font:11px var(--mono);color:var(--dim);letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.cb-next{border-color:var(--lime);color:var(--lime)}
+.cb-next:hover,.cb-next:focus-visible{background:rgba(177,239,107,.12);border-color:var(--lime);color:var(--lime)}
+.cb-next[hidden]{display:none}
+
+/* ── 进度梁：贴在顶栏下沿的 1px 线，IDE 自己的说法 ── */
+.cb-main{position:relative;min-height:0;overflow-y:auto;background:var(--canvas);
+  /* the single track must fill, or it shrinks to the rail's max-content width */
+  /* safe center: centred when it fits, top-aligned when it would overflow */
+  display:grid;grid-template-columns:minmax(0,1fr);align-items:safe center}
+/* fixed, not absolute: .cb-main scrolls, and the beam belongs to the top bar */
+.cb-beam{position:fixed;top:44px;left:0;z-index:5;height:1px;width:0;background:var(--lime);
+  transition:width .5s linear}
+
+/* width:100% is required — auto margins alone make a grid item shrink to max-content */
+.cb-col{--lh:22px;width:100%;max-width:880px;margin:0 auto;padding:40px clamp(24px,4vw,40px)}
+.cb-eyebrow{margin:0;font:600 10px/1.4 var(--mono);letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.cb-col h1{margin:14px 0 0;font:500 28px/1.25 var(--sans);letter-spacing:-.022em;color:var(--text)}
+.cb-sub{margin:9px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:60ch}
+
+/* ── 流水线轨：四个节点 + 会被走满的连线 ── */
+.cb-rail{display:grid;grid-template-columns:auto 1fr auto 1fr auto 1fr auto;
+  margin:46px 0 0;padding:0;list-style:none}
+.cb-node{display:flex;flex-direction:column;align-items:center;gap:10px;width:126px;text-align:center}
+.cb-tile{position:relative;width:42px;height:42px;display:grid;place-items:center;flex:none;
+  border:0;border-radius:var(--demo-radius-card);background:var(--demo-raised);color:#777;
+  transition:color .25s ease,background-color .25s ease,transform .25s ease}
+.cb-tile svg{width:19px;height:19px}
+/* Active steps use solid role colour; completed steps retain a quieter tint. */
+.cb-node[data-state="run"] .cb-tile{color:#111;background:var(--c);transform:translateY(-2px)}
+.cb-node[data-state="done"] .cb-tile{color:var(--c);background:color-mix(in srgb,var(--c) 16%,#171717)}
+.cb-name{font:600 10px/1.4 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
+  transition:color .35s ease}
+.cb-node[data-state="run"] .cb-name,.cb-node[data-state="done"] .cb-name{color:var(--text)}
+.cb-meta{min-height:1.4em;font:11px/1.4 var(--mono);color:var(--dim);white-space:nowrap;
+  opacity:0;transition:opacity .45s ease}
+.cb-node[data-state="done"] .cb-meta{opacity:1}
+
+.cb-link{position:relative;height:4px;margin:19px 14px 0;background:radial-gradient(circle,#ffffff80 1.5px,transparent 1.6px) center/12px 4px repeat-x;overflow:hidden}
+.cb-link i{display:none}
+.cb-link i{border-radius:inherit}
+
+/* ── 日志：IDE 里本来就有的那条流 ── */
+.cb-log{margin:44px 0 0;border:0;border-radius:var(--demo-radius-card);background:#191919;overflow:hidden}
+.cb-log-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 16px;border:0;background:#202020}
+.cb-log-head .t{font:600 10px/1.4 var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.cb-log-head .m{font:11px var(--mono);color:var(--dim)}
+/* exactly 8 lines and no vertical padding, so a scroll always lands on a line */
+.cb-log-body{height:calc(var(--lh) * 8);overflow-y:auto;padding:0;font:11.5px var(--mono)}
+.cb-line{display:grid;grid-template-columns:52px 76px 1fr;gap:10px;padding:0 16px;
+  line-height:var(--lh);color:var(--dim);animation:cb-in .32s ease both}
+.cb-line .ts{color:#858585;font-variant-numeric:tabular-nums}
+.cb-line .kind{color:var(--c);letter-spacing:.06em}
+.cb-line .msg{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-line:last-child .msg{color:var(--text)}
+.cb-line:last-child{background:#242424}
+@keyframes cb-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+.cb-foot{display:flex;align-items:center;gap:10px;margin:18px 2px 0;
+  font:11px/1.6 var(--mono);color:var(--dim);letter-spacing:.04em}
+.cb-foot .d{width:4px;height:4px;border-radius:50%;background:var(--lime);flex:none;
+  animation:cb-breathe 2.4s ease-in-out infinite}
+@keyframes cb-breathe{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* the 44px top bar has no room to wrap; drop the optional bits instead */
+@media(max-width:620px){
+  .hp-top{flex-wrap:nowrap}
+  .hp-mode,.cb-clock{display:none}
+}
+@media(max-width:720px){
+  .cb-rail{grid-template-columns:1fr;gap:0}
+  .cb-node{flex-direction:row;width:auto;gap:14px;text-align:left}
+  .cb-node .cb-name{flex:none;width:7em}
+  .cb-link{height:18px;width:4px;margin:0 0 0 19px;background:radial-gradient(circle,#ffffff80 1.5px,transparent 1.6px) center/4px 9px repeat-y}
+  .cb-link i{width:1px;height:0;transition:height linear}
+  .cb-link i::after{top:auto;bottom:-2px;right:50%;margin:0 -2px 0 0}
+  .cb-col h1{font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+
+/* 无顶栏时，主体占满视口，底部状态栏保持可见。 */
+.cb-app { height:100dvh; min-height:0; grid-template-rows:minmax(0,1fr) auto; }
+.cb-next { margin-top:16px; }
+.cb-app{--lime:#88EC30;--lav:#A459FF;--sky:#1953FC;--canvas:#111;--text:#f5f5f5;--muted:#b8b8b8;--dim:#858585}
+.cb-col h1{font-weight:400;letter-spacing:-.035em;color:#fff}
+.cb-name{font:500 11px/1.4 var(--sans);letter-spacing:.04em}
+.cb-meta{color:#999;font-variant-numeric:tabular-nums}
+.cb-line .kind{font-size:10px;line-height:18px;align-self:center;border-radius:5px;text-align:center;background:color-mix(in srgb,var(--c) 16%,transparent);letter-spacing:0}
+.cb-next{border:0;border-radius:999px;background:var(--sky);color:#fff;padding:9px 16px}
+.cb-next:hover,.cb-next:focus-visible{background:#3468ff;color:#fff}
+.cb-next{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:44px;min-height:44px;padding:0 22px;box-sizing:border-box;font:500 13px/1 var(--sans)}
+.cb-node:nth-child(3):is([data-state="run"],[data-state="done"]) .cb-tile,.cb-node:nth-child(7):is([data-state="run"],[data-state="done"]) .cb-tile{color:#fff}
+.cb-log{--mono:'JetBrains Mono',monospace}
+.cb-log-body,.cb-log-head .m{font-family:var(--mono);font-weight:400}
+.cb-line .kind{color:#d9c2ff}
+.cb-line[data-kind="trace"] .kind,.cb-line[data-kind="ready"] .kind{color:#a9c5ff}
+.cb-line:is([data-kind="emit"],[data-kind="launch"],[data-kind="sync"]) .kind{color:#a5e780}
+.cb-line .code-number{color:#eebc86}
+.cb-line .code-symbol{color:#b5a2d9}
+.cb-line .code-name{color:#8fd5ec}
+.cb-line .code-keyword{color:#c5a1f5}
+.hp-status{border:0;background:#181818}
+
+/* ── v3：loading 走完后停在设备泳道（带时间轴，一种颜色一个 kernel），不再自动跳转 ── */
+.cb-app.is-lane .cb-col{display:none}
+.cb-app.is-lane .cb-main{align-items:stretch;overflow:hidden}
+.cb-app.is-lane .cb-beam{display:none}
+.ln{display:flex;flex-direction:column;gap:18px;width:100%;height:100%;min-height:0;box-sizing:border-box;
+  padding:32px clamp(20px,3vw,40px) 20px;animation:ln-in .45s ease both}
+.ln[hidden]{display:none}
+@keyframes ln-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ln-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.ln-head h1{margin:12px 0 0;font:400 26px/1.25 var(--sans);letter-spacing:-.035em;color:#fff}
+.ln-meta{margin:8px 0 0;font:12px/1.6 var(--sans);color:var(--dim);font-variant-numeric:tabular-nums}
+.ln-meta b{font-weight:500;color:var(--muted)}
+.ln-head .cb-next{margin:0;flex:none}
+.ln-chart{position:relative;flex:1;min-height:300px;border-radius:var(--demo-radius-card,12px);background:#171717;overflow:hidden}
+.ln-chart canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+.ln-tip{position:absolute;z-index:2;max-width:320px;padding:9px 11px;border-radius:8px;background:#242424;
+  box-shadow:0 7px 20px rgb(0 0 0/30%);pointer-events:none;font:11.5px/1.55 var(--sans);color:var(--muted)}
+.ln-tip[hidden]{display:none}
+.ln-tip .k{display:flex;align-items:center;gap:7px;color:var(--text);font:500 12px/1.4 'JetBrains Mono',monospace}
+.ln-tip .k i{width:9px;height:9px;border-radius:2px;flex:none}
+.ln-tip .n{font-variant-numeric:tabular-nums}
+/* 窄屏：状态栏长文本不再把整页撑宽 */
+.cb-app{grid-template-columns:minmax(0,1fr)}
+.hp-status{min-width:0;overflow:hidden}
+.hp-status>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:620px){.ln{padding:20px 16px 16px}.ln-head h1{font-size:22px}}
+</style>
+</head>
+<body>
+  <div class="hp-app cb-app">
+
+
+    <main class="cb-main">
+      <div class="cb-col">
+        <p class="cb-eyebrow">Compile · Device · Analyze</p>
+        <h1 id="title">正在编译并上板</h1>
+        <p class="cb-sub" id="detail">把 <code>qk_pv</code> 的源码降到设备可执行的产物，再加载到 a2a3 上取回一次真实执行。</p>
+
+        <ol class="cb-rail" id="rail" aria-label="编译上板流程">
+          <li class="cb-node" data-state="done" style="--c:var(--lime)">
+            <span class="cb-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5 5 12l4.5 5.5M14.5 6.5 19 12l-4.5 5.5"/></svg></span>
+            <span class="cb-name">源码</span>
+            <span class="cb-meta">208–313 行</span>
+          </li>
+          <li class="cb-link" data-state="idle" style="--c:var(--lav)" aria-hidden="true"><i></i></li>
+
+          <li class="cb-node" data-state="idle" style="--c:var(--lav)">
+            <span class="cb-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="2.1"/><circle cx="18" cy="7" r="2.1"/><circle cx="18" cy="17" r="2.1"/><path d="m8 11.2 7.9-3.5M8 12.8l7.9 3.5"/></svg></span>
+            <span class="cb-name">编译产物</span>
+            <span class="cb-meta" data-fill="51 passes"></span>
+          </li>
+          <li class="cb-link" data-state="idle" style="--c:var(--lime)" aria-hidden="true"><i></i></li>
+
+          <li class="cb-node" data-state="idle" style="--c:var(--lime)">
+            <span class="cb-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/><path d="M10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3"/></svg></span>
+            <span class="cb-name">上板执行</span>
+            <span class="cb-meta" data-fill="24 AIC · 48 AIV"></span>
+          </li>
+          <li class="cb-link" data-state="idle" style="--c:var(--sky)" aria-hidden="true"><i></i></li>
+
+          <li class="cb-node" data-state="idle" style="--c:var(--sky)">
+            <span class="cb-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 8h9M4.5 12h14M4.5 16h6"/></svg></span>
+            <span class="cb-name">性能 Trace</span>
+            <span class="cb-meta" data-fill="30 tasks · 4.82 ms"></span>
+          </li>
+        </ol>
+
+        <section class="cb-log" aria-label="编译日志">
+          <header class="cb-log-head">
+            <span class="t">Build log</span>
+            <span class="m" id="logMeta">_jit_l3_decode_csa_20260903_010617</span>
+          </header>
+          <div class="cb-log-body" id="log" role="log" aria-live="polite"></div>
+        </section>
+
+        <p class="cb-foot"><span class="d" aria-hidden="true"></span>演示流程 · 此处不会实际编译或连接设备，性能页展示同一次 CSA 运行的预置 trace</p>
+        <a class="hp-topbtn cb-next" id="next" href="result.html" hidden>查看性能分析 <span aria-hidden="true">→</span></a>
+      </div>
+
+      <section class="ln" id="laneView" aria-labelledby="lnTitle" hidden>
+        <header class="ln-head">
+          <div>
+            <p class="cb-eyebrow" id="lnEyebrow">Device trace</p>
+            <h1 id="lnTitle">设备执行泳道</h1>
+            <p class="ln-meta" id="lnMeta"></p>
+          </div>
+          <a class="hp-topbtn cb-next" id="lnNext" href="result.html">查看性能分析 <span aria-hidden="true">→</span></a>
+        </header>
+        <div class="ln-chart" id="lnChart">
+          <canvas id="lnCanvas" role="img" aria-label="设备执行泳道：横轴为时间，每行一个核，色块为 kernel 的 block，一种颜色一个 kernel"></canvas>
+          <div class="ln-tip" id="lnTip" hidden></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="hp-status">
+      <span class="hp-status-main" id="status" aria-live="polite">—</span>
+      <span class="hp-status-dim">数据：真实编译产物 · 预置 trace · 未实时 profiling</span>
+    </footer>
+  </div>
+
+<script src="./loading-lane-data.js?v=1"></script>
+<script>
+const nodes  =[...document.querySelectorAll('.cb-node')];
+const links  = [...document.querySelectorAll('.cb-link')];
+const log    = document.getElementById('log');
+const next   = document.getElementById('next');
+const title  = document.getElementById('title');
+const detail = document.getElementById('detail');
+const statusLine = document.getElementById("status");
+const still  = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* 三段，各自的时长就是它那条连线被走满的时间 */
+const STAGES = [
+  { at:  .15, ms: 2150, node: 1, link: 0, kind: 'var(--lav)',
+    title: '正在编译算子', detail: '降级、分块、内存复用，最后落到设备地址。',
+    status: 'compile · lowering qk_pv' },
+  { at: 2.40, ms: 1650, node: 2, link: 1, kind: 'var(--lime)',
+    title: '正在上板执行', detail: '把编译产物加载到 a2a3，采集一次真实执行。',
+    status: 'device · a2a3 · launching' },
+  { at: 4.15, ms: 1300, node: 3, link: 2, kind: 'var(--sky)',
+    title: '正在准备性能分析', detail: '读取这次执行的 trace，整理到设备泳道上。',
+    status: 'trace · building lanes' }
+];
+const END = 5.55;
+
+const LINES = [
+  [ .05, 'load',   'decode_sparse_attn_csa.py · 208–313'],
+  [ .30, 'pass',   '01_after_InlineFunctions'],
+  [ .60, 'pass',   '05_after_Simplify'],
+  [ .95, 'pass',   '11_after_ConvertTensorToTileOps'],
+  [1.30, 'pass',   '12_after_OptimizeOrchTensors'],
+  [1.65, 'pass',   '35_after_MemoryReuse'],
+  [1.95, 'pass',   '36_after_AllocateMemoryAddr'],
+  [2.25, 'pass',   '51_after_MaterializeValidShapeSymbols'],
+  [2.50, 'emit',   'kernel qk_pv · 51 passes · 1 op'],
+  [2.85, 'launch', 'grid 24 AIC / 48 AIV · a2a3'],
+  [3.25, 'launch', 'csa_merge · tiling 64 × 128'],
+  [3.70, 'sync',   'device done · 4.82 ms'],
+  [4.25, 'trace',  '30 tasks · critical path 19'],
+  [4.70, 'trace',  'lane focus csa_merge · 0.663 ms'],
+  [5.15, 'ready',  'trace 已就绪']
+];
+
+const stamp = t => t.toFixed(1).padStart(4, '0') + 's';
+
+function line(t, kind, msg) {
+  const el = document.createElement('div');
+  el.className = 'cb-line';
+  el.dataset.kind = kind;
+  el.style.setProperty('--c', colourFor(t));
+  el.innerHTML = '<span class="ts"></span><span class="kind"></span><span class="msg"></span>';
+  el.children[0].textContent = stamp(t);
+  el.children[1].textContent = kind;
+  const tokens=msg.split(/(\b\d+(?:\.\d+)?\b|\b(?:kernel|grid|tiling|lane|critical|path|focus|device|done|tasks|passes|op|trace)\b|\b(?:qk_pv|csa_merge|a2a3|\w+\.py)\b|[·×/–])/g);
+  tokens.forEach(token=>{
+    const span=document.createElement('span');span.textContent=token;
+    span.className=/^\d/.test(token)?'code-number':/^[·×/–]$/.test(token)?'code-symbol':/^(qk_pv|csa_merge|a2a3|\w+\.py)$/.test(token)?'code-name':/^(kernel|grid|tiling|lane|critical|path|focus|device|done|tasks|passes|op|trace)$/.test(token)?'code-keyword':'';
+    el.children[2].append(span);
+  });
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+/* 一行用它所属阶段的角色色，和轨上的节点对上 */
+function colourFor(t) {
+  for (let i = STAGES.length - 1; i >= 0; i--) if (t >= STAGES[i].at) return STAGES[i].kind;
+  return 'var(--muted)';
+}
+
+function runStage(s) {
+  nodes[s.node].dataset.state = 'run';
+  const link = links[s.link];
+  link.dataset.state = 'run';
+  const fill = link.firstElementChild;
+  fill.style.transitionDuration = (still ? 0 : s.ms) + 'ms';
+  requestAnimationFrame(() => {
+    const vertical = matchMedia('(max-width: 720px)').matches;
+    fill.style[vertical ? 'height' : 'width'] = '100%';
+  });
+  title.textContent = s.title;
+  detail.textContent = s.detail;
+  statusLine.textContent = s.status;
+  setTimeout(() => {
+    link.dataset.state = 'done';
+    const node = nodes[s.node];
+    node.dataset.state = 'done';
+    const meta = node.querySelector('.cb-meta');
+    if (meta && meta.dataset.fill) meta.textContent = meta.dataset.fill;
+  }, still ? 0 : s.ms);
+}
+
+/* v3：走完后不再自动跳转，停在设备泳道；去性能分析页由泳道右上角的按钮进入 */
+function finish() {
+  title.textContent = '演示流程已完成';
+  detail.textContent = '这次运行的 trace 已准备就绪，正在画出设备泳道。';
+  statusLine.textContent = 'ready · device lane';
+  setTimeout(showLane, still ? 0 : 700);
+}
+
+/* ── 设备泳道：每行一个核（上 AIC、下 AIV），横轴为时间，色块是 kernel 的 block，一种颜色一个 kernel ── */
+const LANE = window.LOADING_LANE;
+const app = document.querySelector('.cb-app');
+const laneView = document.getElementById('laneView');
+const chart = document.getElementById('lnChart');
+const cvs = document.getElementById('lnCanvas');
+const tip = document.getElementById('lnTip');
+const nAic = LANE.cores.filter(c => c === 'AIC').length, nAiv = LANE.cores.length - nAic;
+/* 颜色：按 kernel 首次出现的先后，用黄金角在色相环上错开，时间上相邻的 kernel 不撞色 */
+const OKLCH = window.CSS && CSS.supports('color', 'oklch(70% 0.1 30)');
+const COLORS = LANE.kernels.map((_, i) => {
+  const h = ((i * 137.508 + 110) % 360).toFixed(1);
+  return OKLCH ? 'oklch(74% 0.13 ' + h + ')' : 'hsl(' + h + ' 62% 62%)';
+});
+const ROWS = LANE.cores.map(() => []);                       // ROWS[core] = [[startUs, endUs, kernel], …]
+for (let i = 0; i < LANE.blocks.length; i += 4) ROWS[LANE.blocks[i]].push([LANE.blocks[i + 1] / 10, LANE.blocks[i + 2] / 10, LANE.blocks[i + 3]]);
+const PAD = { l: 72, r: 24, t: 36, b: 16, gap: 14 };
+let geo = null, reveal = 1, hoverK = -1, laneShown = false;
+
+function layout() {
+  const w = chart.clientWidth, h = chart.clientHeight;
+  const rowH = (h - PAD.t - PAD.b - PAD.gap) / LANE.cores.length;
+  const span = w - PAD.l - PAD.r;
+  geo = {
+    w, h, rowH, span,
+    x: t => PAD.l + t / LANE.windowUs * span,
+    t: x => (x - PAD.l) / span * LANE.windowUs,
+    y: c => PAD.t + c * rowH + (c >= nAic ? PAD.gap : 0)
+  };
+}
+
+function draw() {
+  if (!geo) layout();
+  const { w, h, rowH, span, x, y } = geo, dpr = window.devicePixelRatio || 1;
+  cvs.width = Math.round(w * dpr); cvs.height = Math.round(h * dpr);
+  const g = cvs.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  // 两组泳道底
+  g.fillStyle = '#1d1d1d';
+  g.fillRect(PAD.l, y(0), span, nAic * rowH);
+  g.fillRect(PAD.l, y(nAic), span, nAiv * rowH);
+  // 时间轴：每 0.5 ms 一格，末端标总时长
+  g.font = '10.5px "JetBrains Mono", monospace';
+  g.textBaseline = 'middle';
+  for (let t = 0; t < LANE.windowUs - 150; t += 500) {
+    const xx = Math.round(x(t)) + .5;
+    g.fillStyle = 'rgb(255 255 255 / 7%)';
+    g.fillRect(xx - .5, PAD.t - 6, 1, h - PAD.t - PAD.b + 6);
+    g.fillStyle = '#858585';
+    g.textAlign = t === 0 ? 'left' : 'center';
+    g.fillText(t === 0 ? '0' : (t / 1000).toFixed(1), t === 0 ? xx - .5 : xx, PAD.t - 18);
+  }
+  const xe = Math.round(x(LANE.windowUs)) - .5;
+  g.fillStyle = 'rgb(255 255 255 / 14%)';
+  g.fillRect(xe, PAD.t - 6, 1, h - PAD.t - PAD.b + 6);
+  g.fillStyle = '#b8b8b8';
+  g.textAlign = 'right';
+  g.fillText((LANE.windowUs / 1000).toFixed(2) + ' ms', xe + .5, PAD.t - 18);
+  // 组名
+  g.textAlign = 'right';
+  [['AIC', 0, nAic], ['AIV', nAic, nAiv]].forEach(([name, c0, n]) => {
+    const mid = y(c0) + n * rowH / 2;
+    g.fillStyle = '#b8b8b8'; g.font = '500 11px "JetBrains Mono", monospace';
+    g.fillText(name, PAD.l - 14, mid - 7);
+    g.fillStyle = '#858585'; g.font = '10.5px "JetBrains Mono", monospace';
+    g.fillText('× ' + n, PAD.l - 14, mid + 8);
+  });
+  // block：一种颜色一个 kernel；悬停某个 kernel 时其余压暗
+  const tEnd = reveal * LANE.windowUs, bh = Math.max(1, rowH - (rowH > 4 ? 1.5 : .5));
+  ROWS.forEach((row, c) => {
+    const yy = y(c) + (rowH - bh) / 2;
+    row.forEach(b => {
+      if (b[0] > tEnd) return;
+      const x0 = x(b[0]), x1 = x(Math.min(b[1], tEnd));
+      g.globalAlpha = hoverK < 0 || hoverK === b[2] ? 1 : .16;
+      g.fillStyle = COLORS[b[2]];
+      g.fillRect(x0, yy, Math.max(1, x1 - x0), bh);
+    });
+  });
+  g.globalAlpha = 1;
+  // 画出过程中的“当前时刻”线
+  if (reveal < 1) {
+    g.fillStyle = '#88EC30';
+    g.fillRect(Math.round(x(tEnd)), PAD.t - 6, 1.5, h - PAD.t - PAD.b + 6);
+  }
+}
+
+function hit(ev) {
+  const r = cvs.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  if (!geo || mx < PAD.l || mx > PAD.l + geo.span) return null;
+  let c = -1;
+  for (let i = 0; i < LANE.cores.length; i++) if (my >= geo.y(i) && my < geo.y(i) + geo.rowH) { c = i; break; }
+  if (c < 0) return null;
+  const t = geo.t(mx), tol = 2 / geo.span * LANE.windowUs;   // 2px 容差，窄 block 也能悬停到
+  const b = ROWS[c].find(b => t >= b[0] - tol && t <= b[1] + tol);
+  return b ? { c, b, mx, my } : null;
+}
+
+function onMove(ev) {
+  if (reveal < 1) return;
+  const h = hit(ev);
+  const k = h ? h.b[2] : -1;
+  if (k !== hoverK) { hoverK = k; draw(); }
+  if (!h) { tip.hidden = true; return; }
+  const ct = LANE.cores[h.c], idx = ct === 'AIC' ? h.c : h.c - nAic, dur = h.b[1] - h.b[0];
+  const kName = LANE.kernels[k];
+  tip.innerHTML = '<div class="k"><i></i><span></span></div><div class="n"></div>';
+  tip.querySelector('i').style.background = COLORS[k];
+  tip.querySelector('span').textContent = kName;
+  tip.querySelector('.n').textContent = ct + ' ' + idx + ' · ' + h.b[0].toFixed(1) + '–' + h.b[1].toFixed(1) + ' µs · 耗时 ' + dur.toFixed(1) + ' µs';
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  const left = Math.min(h.mx + 14, geo.w - tw - 8), top = h.my + 16 + th > geo.h ? h.my - th - 12 : h.my + 16;
+  tip.style.left = Math.max(8, left) + 'px';
+  tip.style.top = Math.max(8, top) + 'px';
+}
+
+function showLane() {
+  if (laneShown) return;
+  laneShown = true;
+  next.hidden = true;
+  app.classList.add('is-lane');
+  laneView.hidden = false;
+  document.getElementById('lnEyebrow').textContent = 'Device trace · ' + LANE.rank + ' · ' + LANE.soc;
+  document.getElementById('lnMeta').innerHTML =
+    '<b>' + (LANE.windowUs / 1000).toFixed(2) + ' ms</b> · ' + LANE.cores.length + ' 个核（' + nAic + ' AIC · ' + nAiv + ' AIV）· <b>' +
+    LANE.launches + '</b> 次 launch · <b>' + LANE.kernels.length + '</b> 个 kernel，一种颜色一个 kernel · 悬停色块看是哪个 kernel';
+  statusLine.textContent = 'trace · ' + LANE.rank + ' · ' + (LANE.blocks.length / 4) + ' blocks · ' + LANE.run;
+  layout();
+  const T = still ? 0 : 1400, t0 = performance.now();
+  const step = () => {
+    const p = T ? Math.min(1, (performance.now() - t0) / T) : 1;
+    reveal = 1 - Math.pow(1 - p, 2);                       // 由快到慢地从左往右画出
+    draw();
+    if (p < 1) setTimeout(step, 16);                        // 用 setTimeout，页面在后台时也能画完
+  };
+  step();
+  document.getElementById('lnNext').focus({ preventScroll: true });
+}
+
+cvs.addEventListener('mousemove', onMove);
+cvs.addEventListener('mouseleave', () => { tip.hidden = true; if (hoverK !== -1) { hoverK = -1; draw(); } });
+new ResizeObserver(() => { if (laneShown) { layout(); draw(); } }).observe(chart);
+
+/* #lane 直达泳道（讲解时跳过 loading） */
+if (location.hash === '#lane') {
+  nodes.forEach(n => { n.dataset.state = 'done'; });
+  showLane();
+} else {
+  LINES.forEach(([t, kind, msg]) => setTimeout(() => line(t, kind, msg), t * 1000));
+  STAGES.forEach(s => setTimeout(() => runStage(s), s.at * 1000));
+  setTimeout(finish, END * 1000);
+}
+</script>
+</body>
+</html>
