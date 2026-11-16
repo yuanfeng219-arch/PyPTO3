@@ -9171,7 +9171,7 @@ html, body { color-scheme:dark; background:#111419; }
     <span>打开 Compute Explorer <span aria-hidden="true">↗</span></span>
   </a>
 </section>
-<iframe data-p14-vision data-narrative-phase="未来愿景" data-slide-label="问题驱动的诊断与优化闭环" data-note-index="2" title="14 · 问题驱动的诊断与优化闭环" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
+<iframe data-p14-vision data-skip-presentation data-narrative-phase="未来愿景" data-slide-label="问题驱动的诊断与优化闭环" data-note-index="2" title="14 · 问题驱动的诊断与优化闭环" sandbox="allow-same-origin" data-width="1600" data-source="&lt;!doctype html&gt;
 &lt;html lang=&quot;zh-CN&quot;&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
@@ -19427,15 +19427,21 @@ global.PtoComputeScenario=Object.freeze({create,limits,edit,project});
 </script>
 <script>
 const stage = document.querySelector('main');
-const slideElements = [...stage.querySelectorAll(':scope > iframe, :scope > .design-slide')];
-const slideEntries = slideElements.map(element => ({
+const deckParams = new URLSearchParams(location.search);
+const requestedRole = deckParams.get('deckRole');
+const deckRole = ['presenter','preview'].includes(requestedRole) ? requestedRole : 'deck';
+const isThumbnailRenderer = deckRole === 'preview' && deckParams.has('lightTable');
+const allSlideEntries = [...stage.querySelectorAll(':scope > iframe, :scope > .design-slide')].map(element => ({
   element, label:element.dataset.slideLabel, chapter:chapterLabel(element),
+  skipped:element.hasAttribute('data-skip-presentation'),
 }));
+const slideEntries = isThumbnailRenderer ? allSlideEntries : allSlideEntries.filter(entry => !entry.skipped);
+const slideElements = slideEntries.map(({element}) => element);
 const narrativeByPage = slideElements.map(slide => ({
   phase: slide.dataset.narrativePhase,
   strategy: slide.dataset.strategyChapter,
 }));
-const slides = slideEntries.map(({ element }) => element);
+const slides = slideElements;
 const formatPage = number => String(number).padStart(2, '0');
 const pageCountText = index => `${formatPage(index + 1)} / ${formatPage(slides.length)}`;
 const strategyTitles = {
@@ -19497,9 +19503,6 @@ const strategy = window.PtoDeckStrategy.create({
     publishPageInteraction(slide);
   },
 });
-const deckParams = new URLSearchParams(location.search);
-const requestedRole = deckParams.get('deckRole');
-const deckRole = ['presenter','preview'].includes(requestedRole) ? requestedRole : 'deck';
 const p05AssignmentSlide = stage.querySelector('[data-p05-assignment]');
 const p14VisionSlide = stage.querySelector('[data-p14-vision]');
 function mountVisionStory(slide) {
@@ -20497,6 +20500,7 @@ function suspendSlide(slide, stopAutoplay = true) {
   };
 }
 function showPageStart(index) {
+  if (!slides[index]) return;
   if (slides[index] === p10Slide || p11Slides.has(slides[index])) {
     show(index,0);
     return;
@@ -20508,8 +20512,9 @@ function showPageStart(index) {
   show(index, slides[index].hasAttribute('data-opening') ? 0 : undefined);
 }
 const lightTable = deckRole !== 'preview' ? createDeckLightTable({
-  entries:slideEntries, page:() => current, formatPage, suspend:suspendSlide,
-  showPage:showPageStart, rendererUrl:roleUrl('preview',0), session, targetOrigin,
+  entries:allSlideEntries, page:() => allSlideEntries.indexOf(slideEntries[current]), formatPage, suspend:suspendSlide,
+  showPage:index => showPageStart(slideEntries.indexOf(allSlideEntries[index])),
+  rendererUrl:roleUrl('preview',0), session, targetOrigin,
 }) : null;
 const deckEditor = DeckLocalEditor.mountDeck({
   slides,role:deckRole,page:()=>current,bindingStore,sendP9,
@@ -20554,7 +20559,7 @@ if (deckRole === 'deck') {
     clearDemoReturn();
   });
 }
-if (deckRole === 'preview' && deckParams.has('lightTable')) {
+if (isThumbnailRenderer) {
   serveDeckThumbnails({
     session, targetOrigin, count:slides.length,
     select(index) {
