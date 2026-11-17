@@ -726,12 +726,21 @@ function finishDeviceTasks(svg,compact=false){
 </script>
 <script>
 (() => {
-  const labels = [...document.querySelectorAll('.stage:is([href="compile.html"],[href="result.html"]) .stage-watermark')];
+  const labels = [...document.querySelectorAll('.stage .stage-watermark')];
   function fitLabels() {
     labels.forEach(label => {
+      const stage = label.parentElement;
       const available = label.clientWidth;
       const natural = label.scrollWidth;
-      if (available && natural) label.style.transform = `scale(${Math.min(1, available / natural)})`;
+      if (!available || !natural) return;
+      const scale = stage.matches('[href="compile.html"],[href="result.html"]') ? Math.min(1, available / natural) : 1;
+      label.style.transform = `scale(${scale})`;
+      const number = getComputedStyle(stage, '::after');
+      const numberTop = parseFloat(number.top);
+      const numberHeight = parseFloat(number.lineHeight) || parseFloat(number.fontSize);
+      if (Number.isFinite(numberTop) && Number.isFinite(numberHeight)) {
+        label.style.top = `${numberTop + (numberHeight - label.offsetHeight * scale) / 2}px`;
+      }
     });
   }
   if (window.ResizeObserver) {
