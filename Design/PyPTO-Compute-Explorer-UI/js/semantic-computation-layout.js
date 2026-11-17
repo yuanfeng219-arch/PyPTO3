@@ -154,7 +154,12 @@
         const sides = options.overviewLayout ? split(others) : { left: others, right: [] };
         let leftX = center - spineWidth / 2 - columnGap - rowWidth(sides.left);
         sides.left.forEach((item) => { item.x = leftX; item.y = cursorY; leftX += item.boxW + columnGap; });
-        if (main) { main.x = center - main.boxW / 2; main.y = cursorY; }
+        if (main) {
+          // Keep the front card on the connection axis while reserving space for its layers.
+          const width = options.alignSpineFront && !main.inner ? main.frontW : main.boxW;
+          main.x = center - width / 2;
+          main.y = cursorY;
+        }
         let rightX = center + spineWidth / 2 + columnGap;
         sides.right.forEach((item) => { item.x = rightX; item.y = cursorY; rightX += item.boxW + columnGap; });
         rail.forEach((item, index) => { item.x = stateX + index * (item.boxW + columnGap); item.y = cursorY; });
