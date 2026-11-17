@@ -99,10 +99,23 @@
 /* 下面真实的关键路径条上，把结论指到的那一步点亮 */
 #cp .cp-lead rect{fill:color-mix(in srgb,var(--lead-color,#bca0f3) 58%,#141414)!important;opacity:1!important}
 @media(max-width:1240px){
- .lead-finding{flex-wrap:wrap;padding:8px 18px 10px 15px;gap:4px 18px}
- .lead-id{flex-basis:100%}
- .lead-metrics{flex:1;justify-content:space-between}
+ .lead-finding{gap:10px;padding:0 12px 0 10px}
+ .lead-id{gap:7px}
+ .lead-id b{font-size:13px}
+ .lead-place{font-size:11px}
+ .lead-tag{padding:1px 7px;font-size:10px}
+ .lead-metric{gap:6px;padding:5px 10px}
+ .lead-metric>span{font-size:11px}
+ .lead-metric>b{font-size:14px}
+ .lead-metric>em{font-size:10px}
+ .lead-pair,.lead-fill{width:64px}
  .lead-metric:first-child{padding-left:0;border-left:0}
+}
+@media(max-width:900px){
+ .lead-finding{gap:7px}
+ .lead-place{max-width:140px;overflow:hidden;text-overflow:ellipsis}
+ .lead-metric{padding-left:7px;padding-right:7px}
+ .lead-metric>em{display:none}
 }
 @media(max-width:680px){
  .lead-finding{margin:6px 12px 0;padding:8px 12px;gap:8px}

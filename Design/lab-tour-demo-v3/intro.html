@@ -202,7 +202,14 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
   .intro .bg>*,.intro .voices-col>*,.intro .voice{opacity:1!important}
 }
 </style>
-<link rel="stylesheet" href="../lab-tour-demo-v4/home-pages.css"><link rel="stylesheet" href="../lab-tour-demo-v4/intro-glass.css?v=localblur4"><link rel="stylesheet" href="../lab-tour-demo-v4/opening-titles.css?v=1"><link rel="stylesheet" href="../lab-tour-demo-v4/tour-brand.css?v=1"></head>
+<link rel="stylesheet" href="../lab-tour-demo-v4/home-pages.css"><link rel="stylesheet" href="../lab-tour-demo-v4/intro-glass.css?v=localblur4"><link rel="stylesheet" href="../lab-tour-demo-v4/opening-titles.css?v=1"><link rel="stylesheet" href="../lab-tour-demo-v4/tour-brand.css?v=1">
+<style>
+  /* Keep the opening title visually higher without changing the two-column flow. */
+  .intro-heading{transform:translateY(-16px)}
+  @media(max-width:1080px){.intro-heading{transform:translateY(-10px)}}
+  @media(max-width:620px){.intro-heading{transform:translateY(-6px)}}
+</style>
+</head>
 <body>
 <main class="intro">
   <header class="rail">
@@ -272,7 +279,7 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
             <p class="b-h"><span class="problem-number">02</span><strong>性能数据看得见，发现瓶颈靠经验</strong></p>
             <p class="b-p">读图分析依赖经验，如何结合<b>关键路径与执行证据</b>发现问题？</p>
             <div class="b-f">
-              <a class="act" href="result.html"><b>03</b>性能调优<i aria-hidden="true">↗</i></a>
+              <a class="act" href="loading.html"><b>03</b>性能调优<i aria-hidden="true">↗</i></a>
             </div>
           </div>
         </li>

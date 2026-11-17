@@ -279,6 +279,7 @@ button.ide-row{cursor:pointer}
 .analysis-shell.is-parked{visibility:hidden}
 .analysis-shell{grid-template-columns:52px 0 minmax(0,1fr);transition:grid-template-columns .7s cubic-bezier(.22,1,.36,1)}
 .analysis-shell.is-chat-open{grid-template-columns:52px min(400px,32vw) minmax(0,1fr)}
+@media(min-width:861px){.analysis-shell .ag-rail{box-sizing:border-box;border-right:1px solid #303030}}
 .analysis-chat{min-width:0;overflow:hidden;background:var(--page);border-right:1px solid var(--divider,#222)}
 .analysis-chat-inner{width:min(400px,32vw);height:100%;box-sizing:border-box;display:flex;flex-direction:column;opacity:0;transform:translateX(-16px);transition:opacity .35s ease .15s,transform .6s cubic-bezier(.22,1,.36,1)}
 .is-chat-open .analysis-chat-inner{opacity:1;transform:translateX(0)}
@@ -532,7 +533,7 @@ button.ide-row{cursor:pointer}
         </div>
       </div>
       <div class="lb-addr"><span><b>decode_csa</b></span></div>
-      <a class="analysis-finish" href="index.html">演示总览 <span aria-hidden="true">→</span></a>
+      <a class="analysis-finish" href="index.html">体验设计 <span aria-hidden="true">→</span></a>
     </div>
     <div class="lb-view"></div>
   </div>
