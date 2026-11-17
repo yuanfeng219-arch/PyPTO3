@@ -7619,7 +7619,7 @@ body &gt; main.page {
   width:1600px; height:900px; padding:var(--deck-padding); background:var(--bg);
   display:flex; flex-direction:column;
 }
-.page &gt; .deck-header { flex:none; }
+.page &gt; .deck-header { flex:none; height:auto; }
 .page &gt; .deck-header + .comparison { margin-top:17px; }
 .comparison { display:grid; grid-template-columns:475px minmax(0,1fr); gap:33px; flex:1; min-height:0; }
 .panel {
@@ -8848,7 +8848,7 @@ html, body { color-scheme:dark; background:#111419; }
       }
     }
 
-    function animateToScene(targetSceneIdx, immediate = false, sourceSceneIdx = targetSceneIdx) {
+    function animateToScene(targetSceneIdx, immediate = false, sourceSceneIdx = targetSceneIdx, onComplete) {
       const targetStates = getTargetStates(targetSceneIdx).map(state =&amp;gt; ({
         ...state,
         coreShellAlpha: targetSceneIdx === 1 ? 0 : 1
@@ -8879,6 +8879,7 @@ html, body { color-scheme:dark; background:#111419; }
           applyState(vennInstances[i], targetStates[i]);
         }
         updateAuxLayers(layerTransitions, 1);
+        onComplete?.();
         return;
       }
 
@@ -8897,6 +8898,7 @@ html, body { color-scheme:dark; background:#111419; }
           animFrameId = requestAnimationFrame(tick);
         } else {
           animFrameId = null;
+          onComplete?.();
         }
       }
 
@@ -8920,6 +8922,7 @@ html, body { color-scheme:dark; background:#111419; }
      */
     function goToScene(idx) {
       if (idx &amp;lt; 0 || idx &amp;gt;= SCENES.length) return;
+      if (idx === 2) idx = 3;
       const sourceSceneIdx = currentScene;
       currentScene = idx;
       if (idx !== 3) activeTier = -1;
@@ -8954,8 +8957,12 @@ html, body { color-scheme:dark; background:#111419; }
       // Update Contextual Telemetry Card
       updateTelemetryCard(meta.card);
 
-      // Trigger Vector Choreography
-      animateToScene(idx, false, sourceSceneIdx);
+      // Scene 2 is a transition pose between the two presentation stops.
+      if ((sourceSceneIdx === 1 &amp;amp;&amp;amp; idx === 3) || (sourceSceneIdx === 3 &amp;amp;&amp;amp; idx === 1)) {
+        animateToScene(2, false, sourceSceneIdx, () =&amp;gt; animateToScene(idx, false, 2));
+      } else {
+        animateToScene(idx, false, sourceSceneIdx);
+      }
     }
 
     function updateTelemetryCard(cardData) {
@@ -8977,7 +8984,7 @@ html, body { color-scheme:dark; background:#111419; }
     }
 
     function prevScene() {
-      goToScene((currentScene - 1 + SCENES.length) % SCENES.length);
+      goToScene(currentScene === 3 ? 1 : (currentScene - 1 + SCENES.length) % SCENES.length);
     }
 
     /**
@@ -9102,7 +9109,7 @@ html, body { color-scheme:dark; background:#111419; }
 
   function goToStep(index, {animate = true} = {}) {
     if (!Number.isInteger(index) || index &lt; 0 || index &gt; 3) return false;
-    step = index;
+    step = index === 2 ? 3 : index;
     animateStep = animate;
     renderStep();
     dispatchEvent(new Event(&#x27;p11-step-change&#x27;));
@@ -9121,7 +9128,7 @@ html, body { color-scheme:dark; background:#111419; }
   window.ComputeExplorerStory = Object.freeze({
     goToStep,
     next: () =&gt; goToStep(step + 1),
-    previous: () =&gt; goToStep(step - 1),
+    previous: () =&gt; goToStep(step === 3 ? 1 : step - 1),
     setActive(active) {
       if (!active &amp;&amp; ready) animation.contentWindow.animateToScene(step, true);
     },
