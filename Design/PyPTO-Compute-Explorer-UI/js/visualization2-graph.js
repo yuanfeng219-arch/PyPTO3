@@ -38,7 +38,7 @@
     scene.dataset.overlayControl='false';
     const inspector = host.querySelector('aside'), tooltip = host.querySelector('[role="tooltip"]');
     function staticExecutionData(g){
-      if(global.PtoPhotoNarrative.enabled)return null;
+      if(global.PtoPhotoNarrative.enabled)return global.PtoPhotoNarrativeGraph.executionData(adapter?.narrativeTask?.());
       if(adapter?.executionData)return adapter.executionData(g);
       const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario;
       return global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario);
@@ -50,12 +50,13 @@
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,...adapter?.layoutOptions});
       // Reserve the same visual footprint in Structure and Weight so switching
       // decoration never moves nodes. Front card dimensions remain unchanged.
-      const counts=adapter?.layoutExecutionData?.(graph) ?? staticExecutionData(graph);
+      const counts=(!global.PtoPhotoNarrative.enabled?adapter?.layoutExecutionData?.(graph):null) ?? staticExecutionData(graph);
       const executionFootprints=Object.fromEntries(graph.nodes.flatMap(node=>{
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
       }));
-      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,executionFootprints,...adapter?.layoutOptions};
+      const alignSpineFront=global.PtoPhotoNarrative.enabled&&!!adapter?.narrativeTask;
+      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,executionFootprints,alignSpineFront,...adapter?.layoutOptions};
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
       if(!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
@@ -103,7 +104,7 @@
     function paintExecution(){
       const data=layers.execution?staticExecutionData(graph):null;
       global.PtoStudioComputationGraph.applyExecution(scene,nodes,graph,data);
-      if(!global.PtoPhotoNarrative.enabled)adapter?.decorate?.(scene,nodes,graph,data);
+      if(!global.PtoPhotoNarrative.enabled||adapter?.narrativeTask)adapter?.decorate?.(scene,nodes,graph,data);
       nodeLabels.forEach(({node,label})=>{const entry=global.PtoPagedAttentionExecution.decoration(node,data),name=label.querySelector('[data-viz2-graph-name]');name.dataset.fullName=node.title;window.PtoPhotoNarrative.text(name,node.title);label.querySelector('[data-viz2-execution-instances]')?.remove();if(entry){const badge=document.createElement('button');badge.type='button';badge.className='viz2-graph-floating-count';badge.dataset.viz2ExecutionInstances=node.id;window.PtoPhotoNarrative.text(badge,`×${entry.count}`);window.PtoPhotoNarrative.attr(badge,'title',`${entry.unit} · 查看逻辑实例`);label.append(badge);}});
     }
 
@@ -249,7 +250,7 @@
       const entering=!!options.active&&!active;
       const languageChanged=renderedRevision!==global.PtoPhotoNarrative.revision;renderedRevision=global.PtoPhotoNarrative.revision;
       const baseModel=adapter?.getModel() || technicalModel;
-      const nextModel=global.PtoPhotoNarrative.enabled?global.PtoPhotoNarrativeGraph.project(baseModel):baseModel;
+      const nextModel=global.PtoPhotoNarrative.enabled?global.PtoPhotoNarrativeGraph.project(baseModel,{task:adapter?.narrativeTask?.()}):baseModel;
       if(nextModel!==model){model=nextModel;layoutKey='';executionKey='';}
       selection=nextSelection;view=nextView;active=!!options.active;camera=view.camera;
       const nextLayers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true,...view.overlays};

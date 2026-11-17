@@ -163,7 +163,7 @@ const DeckLocalEditor = (() => {
     const bindingKey = 'p11-deck:' + location.pathname;
     const canWrite = typeof window.showOpenFilePicker === 'function';
     const block = /(<script type="application\/json" id="deck-copy-edits">)([\s\S]*?)(<\/script>)/;
-    let enabled = role === 'deck';
+    let enabled = false;
     let handle, busy = false;
 
     function syncPage(index) {
@@ -207,6 +207,7 @@ const DeckLocalEditor = (() => {
 
     function updateControls() {
       enabledButton.setAttribute('aria-pressed',String(enabled));
+      enabledButton.title = enabled ? '双击幻灯片文字开始编辑，按 Enter 确认' : '开启编辑模式';
       saveButton.hidden = Boolean(handle) || !canWrite;
       saveButton.disabled = busy;
     }
