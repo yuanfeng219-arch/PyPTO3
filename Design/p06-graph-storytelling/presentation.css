@@ -27,34 +27,48 @@ h1 { margin: 10px 0 0; font-size: 48px; line-height: 1.14; letter-spacing: -.025
   display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 48px;
 }
 .assignment h3, .graph-view h3 { margin: 0; font-size: 19px; }
-.cache-heading { display: grid; gap: 12px; }
-.stack-controls { padding: 0; margin: 0; border: 0; min-inline-size: 0; }
-.stack-control-label,
-#stack-options input {
+.cache-heading { display: grid; gap: 8px; }
+.cache-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.p06-modes {
+  display: flex; gap: 3px; padding: 3px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2);
+}
+.p06-modes button {
+  padding: 4px 10px; color: var(--foreground-secondary); font: inherit; font-size: 14px;
+  white-space: nowrap; background: transparent; border: 0; border-radius: 5px; cursor: pointer;
+}
+.p06-modes button:hover { background: var(--surface-3); color: var(--foreground); }
+.p06-modes button[aria-pressed="true"] {
+  color: var(--repeat-ink); background: color-mix(in srgb, var(--repeat-ink) 16%, var(--surface-2));
+}
+.p06-modes button:focus-visible { outline: 2px solid var(--repeat-ink); outline-offset: -2px; }
+.task-controls { padding: 0; margin: 0; border: 0; min-inline-size: 0; }
+.task-controls legend { padding: 0; margin-bottom: 6px; color: var(--foreground-secondary); font-size: 14px; }
+#task-options input {
   position: absolute; width: 1px; height: 1px; padding: 0;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-#stack-options {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+#task-options {
+  display: flex; gap: 4px;
   padding: 4px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--surface-2);
 }
-#stack-options label { position: relative; cursor: pointer; }
-#stack-options span {
+#task-options label { position: relative; flex: 1; cursor: pointer; }
+#task-options span {
   display: grid; place-items: center; min-height: 34px; border-radius: 5px;
   color: var(--foreground-secondary); font-size: 15px; font-weight: 600;
 }
-#stack-options label:hover span { background: var(--surface-3); color: var(--foreground); }
-#stack-options input:checked + span {
+#task-options label:hover span { background: var(--surface-3); color: var(--foreground); }
+#task-options input:checked + span {
   color: var(--repeat-ink); background: color-mix(in srgb, var(--repeat-ink) 16%, var(--surface-2));
 }
-#stack-options input:focus-visible + span { outline: 2px solid var(--repeat-ink); outline-offset: -2px; }
+#task-options input:focus-visible + span { outline: 2px solid var(--repeat-ink); outline-offset: -2px; }
 #cache-tokens { margin: 0 0 12px; color: var(--foreground-secondary); font: 15px var(--font-mono); }
 .cache-stack-row { display: grid; grid-template-rows: 0fr; opacity: 0; }
 .cache-stack-row.is-active { grid-template-rows: 1fr; opacity: 1; }
 .cache-stack-clip { min-height: 0; overflow: hidden; }
 .cache-stack {
-  display: grid; gap: 8px; margin-bottom: 10px; padding: 10px;
+  display: grid; gap: 4px; margin-bottom: 6px; padding: 5px 10px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2);
 }
 .cache-stack header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -63,7 +77,7 @@ h1 { margin: 10px 0 0; font-size: 48px; line-height: 1.14; letter-spacing: -.025
 .cache-pages { display: grid; grid-template-columns: repeat(var(--pages-per-stack), minmax(0, 1fr)); gap: 8px; }
 .cache-page {
   position: relative; isolation: isolate; overflow: hidden;
-  display: grid; align-content: center; gap: 4px; min-height: 57px; padding: 7px 9px;
+  display: grid; align-content: center; gap: 1px; min-height: 36px; padding: 2px 9px;
   border: 1px solid color-mix(in srgb, var(--repeat-ink) 24%, var(--border));
   border-radius: 5px; background: var(--surface-3);
 }
@@ -85,24 +99,25 @@ h1 { margin: 10px 0 0; font-size: 48px; line-height: 1.14; letter-spacing: -.025
 .scale-summary strong { margin-left: 4px; color: var(--foreground); font: 600 27px/1 var(--font-mono); }
 .graph-surface { position: relative; flex: 1; min-height: 0; margin-top: 4px; }
 .graph-crop { position: relative; overflow: hidden; }
-#graph :is(.attention-layer,.kf-pypa-graph__execution-layer) { transition: opacity 250ms ease; }
-#graph .attention-layer.is-inactive, #graph .kf-pypa-graph__execution-layer.is-inactive { opacity: 0; }
+#photo-graph { transform-origin: top left; }
+:is(#graph,#photo-graph) .attention-layer, #graph .kf-pypa-graph__execution-layer { transition: opacity 250ms ease; }
+:is(#graph,#photo-graph) .attention-layer.is-inactive, #graph .kf-pypa-graph__execution-layer.is-inactive { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
-  #graph :is(.attention-layer,.kf-pypa-graph__execution-layer) { transition: none; }
+  :is(#graph,#photo-graph) .attention-layer, #graph .kf-pypa-graph__execution-layer { transition: none; }
 }
-#graph .kf-pypa-graph__node:disabled { opacity: 1; cursor: default; }
-#graph .kf-pypa-graph__edge-hit { display: none; }
-#graph .kf-pypa-graph__group.attention-layer { pointer-events: none; }
-#graph .kf-pypa-graph__group > .attention-count,
-#graph [data-pypa-node="qk"] .kf-pypa-graph__execution-count {
+:is(#graph,#photo-graph) .kf-pypa-graph__node:disabled { opacity: 1; cursor: default; }
+:is(#graph,#photo-graph) .kf-pypa-graph__edge-hit { display: none; }
+:is(#graph,#photo-graph) .kf-pypa-graph__group.attention-layer { pointer-events: none; }
+:is(#graph,#photo-graph) .kf-pypa-graph__group > .attention-count,
+:is(#graph,#photo-graph) [data-pypa-node="qk"] .kf-pypa-graph__execution-count {
   padding: 0 8px; border-radius: var(--radius-sm);
   color: #191d0c; background: #dcf780;
   font: 600 24px/1.5 var(--font-mono); letter-spacing: normal;
   white-space: nowrap; cursor: default;
 }
-#graph .kf-pypa-graph__group > .attention-count { top: 10px; left: 10px; }
-#graph [data-pypa-node="qk"] .kf-pypa-graph__execution-count { right: -12px; top: -20px; }
-#graph .kf-pypa-graph__execution-layer { pointer-events: none; }
+:is(#graph,#photo-graph) .kf-pypa-graph__group > .attention-count { top: 10px; left: 10px; }
+:is(#graph,#photo-graph) [data-pypa-node="qk"] .kf-pypa-graph__execution-count { right: -12px; top: -20px; }
+:is(#graph,#photo-graph) .kf-pypa-graph__execution-layer { pointer-events: none; }
 #error { position: relative; z-index: 4; padding-top: 30px; }
 .p06-embedded .story-shell.pto-ide-frame { width: 1600px; height: 900px; }
 .p06-embedded #slide { padding-inline: 54px; grid-template-rows: 108px minmax(0, 1fr); }

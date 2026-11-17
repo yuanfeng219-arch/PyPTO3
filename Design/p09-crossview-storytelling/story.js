@@ -12,6 +12,7 @@
     document.title = 'P9 · 跨视角对象定位';
     $('.mast').textContent = 'PyPTO Compute Explorer / P9';
     story.setAttribute('aria-label', 'P9 跨视角对象定位 · 16:9');
+    $('.story-controls .transport').hidden = true;
   }
   function mountDeckHeader({strategy, tabs, title, subtitle, page, interactive, css}) {
     if (story.classList.contains('deck-embedded')) return;
@@ -92,7 +93,8 @@
     let drag = null;
     let reportFrame = 0;
     let lastReport = '';
-    const getState = () => ({branch, progress, playing, storyPosition, dragging: !!drag});
+    const getState = () => ({branch, progress, playing, storyPosition,
+      lastStep:storyViews.length - 1, dragging:!!drag});
 
     function reportState() {
       if (!embedded || reportFrame) return;
@@ -109,8 +111,8 @@
     function describe() {
       const view = progress === 1 ? branch : progress === 0 ? 'assignment' : null;
       views.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === view)));
-      previous.setAttribute('aria-disabled', String(playing || storyPosition === 0));
-      next.setAttribute('aria-disabled', String(playing || storyPosition === storyViews.length - 1));
+      previous.disabled = playing || storyPosition === 0;
+      next.disabled = playing || storyPosition === storyViews.length - 1;
       const caption = branches[branch]?.caption ?? '在 Assignment 查看 Task 48 的 Q Tile 与 KV Cache。';
       if ($('#caption').textContent !== caption) $('#caption').textContent = caption;
       for (const entry of tracks) {
@@ -350,6 +352,9 @@
         if (message.type === 'deck-header') mountDeckHeader(message);
         if (message.type === 'copy-state') copyEditor.sync(message.enabled,message.edits);
         if (message.type === 'reset') reset();
+        if (message.type === 'step' && (message.direction === -1 || message.direction === 1)) {
+          step(message.direction);
+        }
         if (message.type === 'pause') { stopPlayback(); describe(); }
         if (message.type === 'state') {
           const state = message.state;
@@ -360,6 +365,7 @@
           storyPosition = Math.max(0, Math.min(storyViews.length - 1, state.storyPosition));
           leg = Math.floor(storyPosition);
           paint(state.branch, state.branch === 'assignment' ? 0 : clamp(state.progress));
+          lastReport = JSON.stringify(getState());
         }
         if (message.type === 'advance' && !playing && !drag &&
             (message.direction === 1 || message.direction === -1) && !step(message.direction)) {
@@ -369,7 +375,7 @@
       document.addEventListener('keydown', event => {
         if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
             (event.code === 'Space' && event.target.closest('button')) ||
-            !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','Space','KeyF','KeyP','Escape'].includes(event.code)) return;
+            !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','Space','KeyF','KeyG','KeyP','Escape'].includes(event.code)) return;
         event.preventDefault();
         sendToDeck('key', {code: event.code, key: event.key, repeat: event.repeat, shiftKey: event.shiftKey});
       });

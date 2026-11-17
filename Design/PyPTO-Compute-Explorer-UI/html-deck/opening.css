@@ -332,11 +332,16 @@
 }
 
 /* P04 · Design challenge and the goal-to-strategy mapping. */
+[data-opening="judgment"] {
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr);
+}
 .opening-judgment-body[data-opening-stage] {
   display:grid;
-  gap:30px;
-  max-width:1210px;
-  margin:29px auto 0;
+  align-self:center;
+  gap:46px;
+  width:min(100%,1210px);
+  margin:0 auto;
 }
 .opening-judgment-claim {
   display:grid;
@@ -398,9 +403,9 @@
   font-weight:650;
 }
 .opening-judgment-strategy-names {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:24px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 24px;
   margin:0;
   padding:0;
   list-style:none;

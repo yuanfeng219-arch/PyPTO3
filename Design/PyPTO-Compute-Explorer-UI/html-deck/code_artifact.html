@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>可解释算子 · 三位一体的计算认知体系</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-obsidian: #0F1115;
+      --bg-surface: rgba(24, 27, 34, 0.72);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --accent-graph: #6384FF;
+      --accent-assign: #4ADE80;
+      --accent-pipe: #F59E0B;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-obsidian);
+      color: #F3F4F6;
+      font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Subtle SaaS Blueprint Grid & Radial Ambient Glow */
+    .bg-grid {
+      background-size: 48px 48px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    }
+
+    .ambient-glow {
+      background: radial-gradient(circle at 50% 48%, rgba(99, 132, 255, 0.08) 0%, rgba(74, 222, 128, 0.03) 35%, rgba(15, 17, 21, 0) 70%);
+    }
+
+    /* Glassmorphism panels */
+    .glass-panel {
+      background: rgba(20, 23, 30, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .glass-pill.active {
+      background: #F9FAFB;
+      color: #0F1115;
+      border-color: #FFFFFF;
+      font-weight: 600;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Animated dashed flow lines for Scene 1 */
+    @keyframes dashFlow {
+      to {
+        stroke-dashoffset: -24;
+      }
+    }
+    .animate-dash-flow {
+      animation: dashFlow 1.1s linear infinite;
+    }
+
+    /* Subtle pulse for center core */
+    @keyframes corePulse {
+      0%, 100% {
+        filter: drop-shadow(0 0 12px rgba(99, 132, 255, 0.45));
+      }
+      50% {
+        filter: drop-shadow(0 0 22px rgba(74, 222, 128, 0.55));
+      }
+    }
+    .core-glow {
+      animation: corePulse 4s ease-in-out infinite;
+    }
+
+    @keyframes radarPing {
+      0% {
+        transform: scale(0.75);
+        opacity: 0.75;
+      }
+      100% {
+        transform: scale(1.9);
+        opacity: 0;
+      }
+    }
+    .core-radar {
+      transform-origin: 0px 0px;
+      animation: radarPing 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+
+    /* Custom scrollbar hide */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Interactive layer hover in Scene 4 */
+    .layer-hit-area {
+      cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+  </style>
+</head>
+<body class="bg-grid relative flex flex-col justify-between">
+
+  <!-- Ambient radial glow -->
+  <div class="ambient-glow fixed inset-0 pointer-events-none z-0"></div>
+
+  <!-- Top Header / Navigation matching reference slide -->
+  <header class="relative z-20 w-full px-6 md:px-12 pt-6 md:pt-8 flex flex-col gap-3 pointer-events-auto">
+    <!-- Top Breadcrumb Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm">
+        <span class="text-gray-400 font-medium tracking-wide">可解释算子</span>
+        <span class="text-gray-600">|</span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="glass-pill active px-2.5 py-1 rounded text-xs tracking-tight">计算认知模型</span>
+          <span class="glass-pill px-2.5 py-1 rounded text-xs text-gray-400 hover:text-gray-200 cursor-pointer" onclick="goToScene(1)">跨视角对象定位</span>
+          <span class="glass-pill px-2.5 py-1 rounded text-xs text-gray-400 hover:text-gray-200 cursor-pointer" onclick="goToScene(2)">算法直观可感</span>
+          <span class="glass-pill px-2.5 py-1 rounded text-xs text-gray-400 hover:text-gray-200 cursor-pointer" onclick="goToScene(3)">参数驱动的计算推演</span>
+        </div>
+      </div>
+
+      <!-- Scene Status Badge -->
+      <div class="hidden sm:flex items-center gap-2.5 glass-panel px-3.5 py-1.5 rounded-full text-xs text-gray-300">
+        <span id="status-dot" class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+        <span class="mono text-[11px] uppercase tracking-wider text-gray-400" id="scene-code">ACT 01 / 04</span>
+        <span class="text-gray-600">·</span>
+        <span id="scene-short-title" class="font-medium text-gray-200">独立视角隔离</span>
+      </div>
+    </div>
+
+    <!-- Main Slide Headline -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-2">
+      <h1 class="text-xl sm:text-2xl md:text-[28px] font-bold tracking-tight text-white leading-snug">
+        从代码阅读到计算探索，建立三位一体的计算认知体系
+      </h1>
+      <p id="narrative-caption" class="text-xs md:text-sm text-gray-400 max-w-xl transition-opacity duration-300">
+        传统性能调优依赖三类割裂工具独立观察算子，缺乏跨维度的上下文关联。
+      </p>
+    </div>
+  </header>
+
+  <!-- Main Interactive Stage (SVG Vector Canvas) -->
+  <main class="relative z-10 flex-1 w-full flex items-center justify-center overflow-hidden px-2">
+    <svg id="stage-svg" viewBox="0 0 1440 760" preserveAspectRatio="xMidYMid meet" class="w-full h-full max-w-[1520px] max-h-[82vh]">
+      <defs>
+        <!-- View icons from P11 of the PyPTO 3.0 deck -->
+        <symbol id="view-icon-graph" viewBox="0 0 50 50" overflow="visible" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="1" width="48" height="48" rx="4"/>
+          <path d="M10 15h10m-5-5v10m13-5h10M11 29l7 7m0-7-7 7m17-3h10m-5-5v.2m0 9.6v.2"/>
+        </symbol>
+        <symbol id="view-icon-assignment" viewBox="0 0 50 50" overflow="visible" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="1" width="28" height="14" rx="2"/>
+          <rect x="35" y="1" width="14" height="14" rx="2"/>
+          <rect x="1" y="21" width="11" height="28" rx="2"/>
+          <rect x="18" y="21" width="11" height="28" rx="2"/>
+          <rect x="35" y="21" width="14" height="11" rx="2"/>
+          <rect x="35" y="38" width="14" height="11" rx="2"/>
+        </symbol>
+        <symbol id="view-icon-pipeline" viewBox="0 0 50 50" overflow="visible" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 5h9m10 0h16a10 10 0 0 1 0 20H10a10 10 0 0 0 0 20h16m10 0h9"/>
+          <circle cx="17" cy="5" r="5"/>
+          <circle cx="31" cy="45" r="5"/>
+        </symbol>
+
+        <!-- Glow Filters -->
+        <filter id="glow-soft" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="8" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <filter id="glow-strong" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="14" result="blur1" />
+          <feGaussianBlur stdDeviation="4" result="blur2" />
+          <feMerge>
+            <feMergeNode in="blur1" />
+            <feMergeNode in="blur2" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        <!-- Radial Gradients for Circles/Ellipses -->
+        <radialGradient id="grad-graph" cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stop-color="#6384FF" stop-opacity="0.24" />
+          <stop offset="75%" stop-color="#6384FF" stop-opacity="0.08" />
+          <stop offset="100%" stop-color="#6384FF" stop-opacity="0.02" />
+        </radialGradient>
+
+        <radialGradient id="grad-assign" cx="40%" cy="60%" r="60%">
+          <stop offset="0%" stop-color="#4ADE80" stop-opacity="0.22" />
+          <stop offset="75%" stop-color="#4ADE80" stop-opacity="0.07" />
+          <stop offset="100%" stop-color="#4ADE80" stop-opacity="0.02" />
+        </radialGradient>
+
+        <radialGradient id="grad-pipe" cx="60%" cy="60%" r="60%">
+          <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.22" />
+          <stop offset="75%" stop-color="#F59E0B" stop-opacity="0.07" />
+          <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.02" />
+        </radialGradient>
+
+        <radialGradient id="grad-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.28" />
+          <stop offset="60%" stop-color="#818CF8" stop-opacity="0.16" />
+          <stop offset="100%" stop-color="#0F1115" stop-opacity="0.0" />
+        </radialGradient>
+
+        <!-- Arrowhead Markers for Scene 1 -->
+        <marker id="arrow-graph" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#6384FF" />
+        </marker>
+        <marker id="arrow-assign" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#4ADE80" />
+        </marker>
+        <marker id="arrow-pipe" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#F59E0B" />
+        </marker>
+      </defs>
+
+      <!-- Layer 0: Architectural Guides (Vertical Drill-down Axis & Horizontal Matrix Tracks) -->
+      <g id="guides-layer">
+        <!-- Horizontal Matrix Alignment Lines (Visible in Scene 3) -->
+        <g id="matrix-guides" opacity="0">
+          <line x1="140" y1="380" x2="1300" y2="380" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="4 6" />
+          <line x1="360" y1="150" x2="360" y2="610" stroke="rgba(99,132,255,0.12)" stroke-width="1" stroke-dasharray="3 5" />
+          <line x1="720" y1="130" x2="720" y2="630" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3 5" />
+          <line x1="1080" y1="150" x2="1080" y2="610" stroke="rgba(245,158,11,0.12)" stroke-width="1" stroke-dasharray="3 5" />
+          <text x="360" y="635" text-anchor="middle" fill="#6B7280" font-size="11" class="mono">INSTANCE 01 · MACRO</text>
+          <text x="720" y="635" text-anchor="middle" fill="#6B7280" font-size="11" class="mono">INSTANCE 02 · MESO</text>
+          <text x="1080" y="635" text-anchor="middle" fill="#6B7280" font-size="11" class="mono">INSTANCE 03 · MICRO</text>
+        </g>
+
+        <!-- Central Vertical Drill-down Axis (Visible in Scene 4) -->
+        <g id="vertical-axis-group" opacity="0">
+          <line x1="650" y1="65" x2="650" y2="695" stroke="rgba(148, 163, 184, 0.35)" stroke-width="1.5" stroke-dasharray="5 5" />
+          <!-- Top & Bottom Axis Caps -->
+          <circle cx="650" cy="65" r="3" fill="#6384FF" />
+          <path d="M 645 690 L 650 698 L 655 690" fill="none" stroke="rgba(148, 163, 184, 0.55)" stroke-width="1.5" />
+          <text x="650" y="48" text-anchor="middle" fill="#64748B" font-size="11" class="mono" letter-spacing="2">EXECUTION HIERARCHY DRILL-DOWN</text>
+        </g>
+      </g>
+
+      <!-- Layer 1: Scene 1 Isolated Vector Arrows -->
+      <g id="arrows-layer" opacity="1">
+        <!-- Top (Graph) to Center -->
+        <line id="arrow-line-1" x1="720" y1="265" x2="720" y2="332" stroke="#6384FF" stroke-width="2" stroke-dasharray="5 5" class="animate-dash-flow" marker-end="url(#arrow-graph)" />
+        <!-- Bottom-Left (Assignment) to Center -->
+        <line id="arrow-line-2" x1="572" y1="468" x2="668" y2="412" stroke="#4ADE80" stroke-width="2" stroke-dasharray="5 5" class="animate-dash-flow" marker-end="url(#arrow-assign)" />
+        <!-- Bottom-Right (Pipeline) to Center -->
+        <line id="arrow-line-3" x1="868" y1="468" x2="772" y2="412" stroke="#F59E0B" stroke-width="2" stroke-dasharray="5 5" class="animate-dash-flow" marker-end="url(#arrow-pipe)" />
+      </g>
+
+      <!-- Layer 2: Dynamic Venn Instances Container (Populated & Animated via JS) -->
+      <g id="instances-layer"></g>
+
+      <!-- Layer 3: Scene 2 Intersection Overlays & Badges (Compute x Data, Compute x Time, Data x Time) -->
+      <g id="intersections-layer" opacity="0" style="pointer-events: none;">
+        <!-- Exact Venn Lens Highlights matching reference image -->
+        <defs>
+          <clipPath id="clip-graph">
+            <circle cx="720" cy="272" r="185" />
+          </clipPath>
+          <clipPath id="clip-assign">
+            <circle cx="622" cy="442" r="185" />
+          </clipPath>
+          <clipPath id="clip-pipe">
+            <circle cx="818" cy="442" r="185" />
+          </clipPath>
+        </defs>
+
+        <!-- Graph ∩ Assignment -->
+        <g clip-path="url(#clip-graph)">
+          <circle cx="622" cy="442" r="185" fill="rgba(74, 222, 128, 0.08)" />
+        </g>
+        <!-- Graph ∩ Pipeline -->
+        <g clip-path="url(#clip-graph)">
+          <circle cx="818" cy="442" r="185" fill="rgba(99, 132, 255, 0.10)" />
+        </g>
+        <!-- Assignment ∩ Pipeline -->
+        <g clip-path="url(#clip-assign)">
+          <circle cx="818" cy="442" r="185" fill="rgba(168, 85, 247, 0.10)" />
+        </g>
+        <!-- Triple Intersection Center (Reuleaux Triangle Shield) -->
+        <g clip-path="url(#clip-graph)">
+          <g clip-path="url(#clip-assign)">
+            <circle cx="818" cy="442" r="185" fill="rgba(255, 255, 255, 0.13)" />
+          </g>
+        </g>
+
+        <!-- Top-Left Intersection: 计算 x 数据 (Centered in Graph ∩ Assignment lens) -->
+        <g id="badge-compute-data" transform="translate(608, 336)">
+          <rect x="-46" y="-12" width="38" height="24" rx="5" fill="#3156C4" />
+          <text x="-27" y="4" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600">计算</text>
+          <text x="0" y="4" text-anchor="middle" fill="#D1D5DB" font-size="12" font-weight="600">×</text>
+          <rect x="8" y="-12" width="38" height="24" rx="5" fill="#15803D" />
+          <text x="27" y="4" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600">数据</text>
+        </g>
+
+        <!-- Top-Right Intersection: 计算 x 时间 (Centered in Graph ∩ Pipeline lens) -->
+        <g id="badge-compute-time" transform="translate(832, 336)">
+          <rect x="-46" y="-12" width="38" height="24" rx="5" fill="#3156C4" />
+          <text x="-27" y="4" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600">计算</text>
+          <text x="0" y="4" text-anchor="middle" fill="#D1D5DB" font-size="12" font-weight="600">×</text>
+          <rect x="8" y="-12" width="38" height="24" rx="5" fill="#B45309" />
+          <text x="27" y="4" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600">时间</text>
+        </g>
+
+        <!-- Bottom Intersection: 数据 x 时间 (Centered in Assignment ∩ Pipeline lens) -->
+        <g id="badge-data-time" transform="translate(720, 495)">
+          <rect x="-46" y="-12" width="38" height="24" rx="5" fill="#15803D" />
+          <text x="-27" y="4" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600">数据</text>
+          <text x="0" y="4" text-anchor="middle" fill="#D1D5DB" font-size="12" font-weight="600">×</text>
+          <rect x="8" y="-12" width="38" height="24" rx="5" fill="#B45309" />
+          <text x="27" y="4" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600">时间</text>
+        </g>
+      </g>
+
+      <!-- Layer 4: Scene 4 Technical Callout Leader Lines & Hierarchy Labels -->
+      <g id="callouts-layer" opacity="0">
+        <!-- Layer 01: Device -->
+        <g id="callout-0" class="layer-hit-area" onclick="selectTier(0)" onmouseenter="hoverTier(0)" onmouseleave="hoverTier(-1)">
+          <polyline points="920,185 955,185 975,172 1035,172" fill="none" stroke="rgba(148,163,184,0.6)" stroke-width="1.5" />
+          <circle cx="920" cy="185" r="3" fill="#6384FF" />
+          <circle cx="1035" cy="172" r="4" fill="#F8FAFC" filter="url(#glow-soft)" />
+          <text x="1055" y="166" fill="#94A3B8" font-size="13" font-weight="600" class="mono">01</text>
+          <text x="1080" y="167" fill="#F8FAFC" font-size="26" font-weight="700" letter-spacing="-0.5">Device</text>
+          <text x="1080" y="193" fill="#94A3B8" font-size="15" font-weight="400">设备范围 · 跨核调度与显存拓扑</text>
+        </g>
+
+        <!-- Layer 02: AI Core -->
+        <g id="callout-1" class="layer-hit-area" onclick="selectTier(1)" onmouseenter="hoverTier(1)" onmouseleave="hoverTier(-1)">
+          <polyline points="865,390 905,390 925,378 1035,378" fill="none" stroke="rgba(148,163,184,0.6)" stroke-width="1.5" />
+          <circle cx="865" cy="390" r="3" fill="#4ADE80" />
+          <circle cx="1035" cy="378" r="4" fill="#F8FAFC" filter="url(#glow-soft)" />
+          <text x="1055" y="372" fill="#94A3B8" font-size="13" font-weight="600" class="mono">02</text>
+          <text x="1080" y="373" fill="#F8FAFC" font-size="26" font-weight="700" letter-spacing="-0.5">AI Core</text>
+          <text x="1080" y="399" fill="#94A3B8" font-size="15" font-weight="400">核内执行 · Cube/Vector 流水并行</text>
+        </g>
+
+        <!-- Layer 03: Iteration -->
+        <g id="callout-2" class="layer-hit-area" onclick="selectTier(2)" onmouseenter="hoverTier(2)" onmouseleave="hoverTier(-1)">
+          <polyline points="815,585 860,585 880,575 1035,575" fill="none" stroke="rgba(148,163,184,0.6)" stroke-width="1.5" />
+          <circle cx="815" cy="585" r="3" fill="#F59E0B" />
+          <circle cx="1035" cy="575" r="4" fill="#F8FAFC" filter="url(#glow-soft)" />
+          <text x="1055" y="569" fill="#94A3B8" font-size="13" font-weight="600" class="mono">03</text>
+          <text x="1080" y="570" fill="#F8FAFC" font-size="26" font-weight="700" letter-spacing="-0.5">Iteration</text>
+          <text x="1080" y="596" fill="#94A3B8" font-size="15" font-weight="400">单次迭代 · Tile 分块与指令节拍</text>
+        </g>
+      </g>
+    </svg>
+
+    <!-- Contextual Telemetry Card (Appears in Scene 2 & Scene 4) -->
+    <div id="telemetry-card" class="glass-panel rounded-2xl p-4 w-72 md:w-80 fixed left-6 md:left-12 bottom-24 z-20 transition-all duration-500 opacity-0 translate-y-4 pointer-events-none">
+      <div class="flex items-center justify-between mb-2">
+        <span id="card-tag" class="mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">UX INTEGRATION</span>
+        <span id="card-metric" class="mono text-xs text-gray-400">3-WAY SYNC</span>
+      </div>
+      <h2 id="card-title" class="text-sm font-semibold text-white mb-1">跨视角计算对象同源追踪</h2>
+      <p id="card-desc" class="text-xs text-gray-400 leading-relaxed">
+        点击任意交叉域，计算图节点、存储块分配与流水线气泡实现毫秒级联动高亮。
+      </p>
+    </div>
+  </main>
+
+  <!-- Bottom Floating Keynote Stage Controller -->
+  <footer class="relative z-30 w-full px-4 pb-5 md:pb-7 flex justify-center pointer-events-auto">
+    <div class="glass-panel rounded-2xl p-1.5 flex items-center gap-1 sm:gap-2 max-w-full overflow-x-auto">
+      <!-- Prev Button -->
+      <button onclick="prevScene()" title="上一步 (Left Arrow)" class="p-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition active:scale-95 flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <!-- 4 Scene Pills -->
+      <div class="flex items-center gap-1" id="scene-nav-buttons">
+        <button onclick="goToScene(0)" data-scene="0" class="scene-btn px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 whitespace-nowrap bg-white/15 text-white shadow-sm">
+          <span class="mono text-[10px] opacity-70">01</span>
+          <span>独立视角</span>
+        </button>
+        <button onclick="goToScene(1)" data-scene="1" class="scene-btn px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 whitespace-nowrap text-gray-400 hover:text-gray-200 hover:bg-white/5">
+          <span class="mono text-[10px] opacity-70">02</span>
+          <span>视角交汇 · UX融合</span>
+        </button>
+        <button onclick="goToScene(2)" data-scene="2" class="scene-btn px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 whitespace-nowrap text-gray-400 hover:text-gray-200 hover:bg-white/5">
+          <span class="mono text-[10px] opacity-70">03</span>
+          <span>多维克隆与重排</span>
+        </button>
+        <button onclick="goToScene(3)" data-scene="3" class="scene-btn px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 whitespace-nowrap text-gray-400 hover:text-gray-200 hover:bg-white/5">
+          <span class="mono text-[10px] opacity-70">04</span>
+          <span>执行层级爆炸下钻</span>
+        </button>
+      </div>
+
+      <!-- Next Button -->
+      <button onclick="nextScene()" title="下一步 (Right Arrow / Space)" class="p-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition active:scale-95 flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <div class="h-5 w-[1px] bg-white/10 mx-0.5 hidden sm:block"></div>
+
+      <!-- Auto-Play Toggle -->
+      <button id="autoplay-btn" onclick="toggleAutoPlay()" title="自动演示轮播" class="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/10 transition">
+        <svg id="play-icon" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        <span id="autoplay-label">自动演示</span>
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    function createSVGElement(tag, attrs = {}) {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [key, val] of Object.entries(attrs)) {
+        el.setAttribute(key, val);
+      }
+      return el;
+    }
+
+    const SCENES = [
+      {
+        code: 'ACT 01 / 04',
+        shortTitle: '独立视角隔离',
+        caption: '传统性能调优依赖三类割裂工具独立观察算子，缺乏跨维度的上下文关联。',
+        dotColor: 'bg-indigo-400',
+        card: null
+      },
+      {
+        code: 'ACT 02 / 04',
+        shortTitle: '视角交汇 · UX 融合',
+        caption: '打破工具孤岛：让 Graph、Assignment 与 Pipeline 扩张交汇，在交集中精准定位跨视角计算对象。',
+        dotColor: 'bg-emerald-400',
+        card: {
+          tag: 'UX INTEGRATION',
+          metric: '3-WAY SYNC',
+          title: '跨视角计算对象同源追踪',
+          desc: '通过计算×数据、计算×时间、数据×时间三大交叉域，实现图节点、存储块与流水线气泡的毫秒级联动定位。'
+        }
+      },
+      {
+        code: 'ACT 03 / 04',
+        shortTitle: '多维克隆与视角压扁',
+        caption: '将融合后的三位一体观测切面横向克隆为多粒度实例，由 2D 俯视图平滑压缩为立体侧视剖面。',
+        dotColor: 'bg-amber-400',
+        card: {
+          tag: 'PERSPECTIVE MORPH',
+          metric: '3 SCALES',
+          title: '从平面融合切面到多层级观测切片',
+          desc: '每一个侧视切面均完整保留三视角交汇关系，为接下来的执行层级纵向爆炸下钻做好空间编排。'
+        }
+      },
+      {
+        code: 'ACT 04 / 04',
+        shortTitle: '执行层级爆炸下钻',
+        caption: '沿执行轴线纵向展开，自上而下逐级下钻（Device → AI Core → Iteration），点击右侧标注可检视对应层级细节。',
+        dotColor: 'bg-sky-400',
+        card: {
+          tag: 'HIERARCHY DRILL-DOWN',
+          metric: 'DEVICE → ITER',
+          title: '全栈执行层级同轴下钻',
+          desc: '层级越深观测对象越聚焦（面积逐级收敛），同时在任一层级都能同步透视计算依赖、空间分配与流水节拍。'
+        }
+      }
+    ];
+
+    const TIER_DETAILS = [
+      {
+        tag: 'TIER 01 · DEVICE',
+        metric: 'SCALE 100%',
+        title: 'Device 设备级全局视图',
+        desc: '观测多卡/多核间的计算图切分（DAG）、HBM 全局显存分片矩阵（4×3）以及多流并发调度甘特图。'
+      },
+      {
+        tag: 'TIER 02 · AI CORE',
+        metric: 'SCALE 78%',
+        title: 'AI Core 核内执行视图',
+        desc: '下钻至单核内部：追踪 MatMul/Softmax 算子流、片上 L1/UB 缓冲分区（3×2）与 MTE/Cube/Vector 三级流水重叠。'
+      },
+      {
+        tag: 'TIER 03 · ITERATION',
+        metric: 'SCALE 60%',
+        title: 'Iteration 单次迭代微视图',
+        desc: '聚焦最细粒度执行循环：检视单步指令依赖弧线、寄存器 Tile 分块（2×2）与单周期指令发射节拍。'
+      }
+    ];
+
+    const instancesLayer = document.getElementById('instances-layer');
+    const vennInstances = [];
+    let currentScene = 0;
+    let activeTier = -1;
+    let autoPlayTimer = null;
+
+    /**
+     * Build DOM structure for each of the 3 Venn assemblies
+     */
+    function initInstances() {
+      for (let i = 0; i < 3; i++) {
+        const root = createSVGElement('g', { id: `venn-instance-${i}` });
+
+        // 3 Ellipses: Graph (Top), Assignment (Bottom-Left), Pipeline (Bottom-Right)
+        const elGraph = createSVGElement('ellipse', {
+          fill: 'url(#grad-graph)',
+          stroke: '#6384FF',
+          'stroke-width': '1.6',
+          'stroke-opacity': '0.85'
+        });
+
+        const elAssign = createSVGElement('ellipse', {
+          fill: 'url(#grad-assign)',
+          stroke: '#4ADE80',
+          'stroke-width': '1.6',
+          'stroke-opacity': '0.85'
+        });
+
+        const elPipe = createSVGElement('ellipse', {
+          fill: 'url(#grad-pipe)',
+          stroke: '#F59E0B',
+          'stroke-width': '1.6',
+          'stroke-opacity': '0.85'
+        });
+
+        // Labels for each circle/ellipse (Full meta in Scene 1-2, Icon + Title in Scene 3-4)
+        const labelGraph = createSVGElement('g', { class: 'label-graph' });
+        labelGraph.innerHTML = `
+          <g class="detail-meta">
+            <use href="#view-icon-graph" x="-64" y="-36" width="22" height="22" stroke="#E5E7EB" aria-hidden="true"/>
+            <text x="-34" y="-20" fill="#F9FAFB" font-size="21" font-weight="700">Graph</text>
+            <text x="-34" y="-3" fill="#9CA3AF" font-size="11">计算依赖关系网络化</text>
+            <text x="0" y="28" text-anchor="middle" fill="rgba(255,255,255,0.16)" font-size="26" font-weight="700">What/Why</text>
+          </g>
+          <g class="compact-title" opacity="0">
+            <use href="#view-icon-graph" x="-42" y="-11" width="17" height="17" stroke="#818CF8" aria-hidden="true"/>
+            <text x="-18" y="3" fill="#818CF8" font-size="17" font-weight="700">Graph</text>
+          </g>
+        `;
+
+        const labelAssign = createSVGElement('g', { class: 'label-assign' });
+        labelAssign.innerHTML = `
+          <g class="detail-meta">
+            <use href="#view-icon-assignment" x="-82" y="-24" width="22" height="22" stroke="#E5E7EB" aria-hidden="true"/>
+            <text x="-52" y="-9" fill="#F9FAFB" font-size="21" font-weight="700">Assignment</text>
+            <text x="-52" y="8" fill="#9CA3AF" font-size="11">数据与任务分配空间化</text>
+            <text x="-10" y="38" text-anchor="middle" fill="rgba(255,255,255,0.16)" font-size="25" font-weight="700">Who/Where</text>
+          </g>
+          <g class="compact-title" opacity="0">
+            <use href="#view-icon-assignment" x="-64" y="-9" width="17" height="17" stroke="#4ADE80" aria-hidden="true"/>
+            <text x="-40" y="5" fill="#4ADE80" font-size="16" font-weight="700">Assignment</text>
+          </g>
+        `;
+
+        const labelPipe = createSVGElement('g', { class: 'label-pipe' });
+        labelPipe.innerHTML = `
+          <g class="detail-meta">
+            <use href="#view-icon-pipeline" x="-61" y="-27" width="26" height="26" stroke="#E5E7EB" aria-hidden="true"/>
+            <text x="-28" y="-9" fill="#F9FAFB" font-size="21" font-weight="700">Pipeline</text>
+            <text x="-28" y="8" fill="#9CA3AF" font-size="11">计算组织过程可视化</text>
+            <text x="12" y="38" text-anchor="middle" fill="rgba(255,255,255,0.16)" font-size="25" font-weight="700">How/When</text>
+          </g>
+          <g class="compact-title" opacity="0">
+            <use href="#view-icon-pipeline" x="-51" y="-11" width="20" height="20" stroke="#FBBF24" aria-hidden="true"/>
+            <text x="-25" y="5" fill="#FBBF24" font-size="16" font-weight="700">Pipeline</text>
+          </g>
+        `;
+
+        // Central Operator Core Node ("Paged Attention" in Scene 1 & 2, cross-view target reticle in Scene 3 & 4)
+        const coreGroup = createSVGElement('g', { class: 'operator-core core-glow' });
+        const coreHalo = createSVGElement('circle', {
+          cx: 0, cy: 0, r: 46,
+          fill: 'url(#grad-core)'
+        });
+        const coreRadar = createSVGElement('g', { opacity: '0' });
+        const coreRadarRing = createSVGElement('circle', {
+          cx: 0, cy: 0, r: 16,
+          fill: 'none',
+          stroke: '#93C5FD',
+          'stroke-width': '1.2',
+          class: 'core-radar'
+        });
+        coreRadar.appendChild(coreRadarRing);
+        const coreRing = createSVGElement('circle', {
+          cx: 0, cy: 0, r: 36,
+          fill: 'rgba(15, 17, 21, 0.88)',
+          stroke: 'rgba(255, 255, 255, 0.45)',
+          'stroke-width': '1.5'
+        });
+        const coreText = createSVGElement('g', { class: 'core-text' });
+        coreText.innerHTML = `
+          <text x="0" y="-4" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="700" letter-spacing="0.3">Paged</text>
+          <text x="0" y="13" text-anchor="middle" fill="#E5E7EB" font-size="13" font-weight="600" letter-spacing="0.3">Attention</text>
+        `;
+        const coreDiamond = createSVGElement('polygon', {
+          points: '0,-6 6,0 0,6 -6,0',
+          fill: '#F8FAFC',
+          opacity: '0'
+        });
+
+        coreGroup.appendChild(coreHalo);
+        coreGroup.appendChild(coreRadar);
+        coreGroup.appendChild(coreRing);
+        coreGroup.appendChild(coreText);
+        coreGroup.appendChild(coreDiamond);
+
+        // Assemble instance cleanly
+        root.appendChild(elGraph);
+        root.appendChild(elAssign);
+        root.appendChild(elPipe);
+        root.appendChild(labelGraph);
+        root.appendChild(labelAssign);
+        root.appendChild(labelPipe);
+        root.appendChild(coreGroup);
+
+        // Allow clicking layer in Scene 4
+        root.addEventListener('click', () => {
+          if (currentScene === 3) {
+            selectTier(i);
+          }
+        });
+
+        instancesLayer.appendChild(root);
+
+        vennInstances.push({
+          index: i,
+          root,
+          elGraph,
+          elAssign,
+          elPipe,
+          labelGraph,
+          labelAssign,
+          labelPipe,
+          coreGroup,
+          coreHalo,
+          coreRadar,
+          coreRing,
+          coreText,
+          coreDiamond,
+          // Current interpolated state
+          state: null
+        });
+      }
+    }
+
+    /**
+     * Define exact target geometry for each instance in each of the 4 scenes
+     */
+    function getTargetStates(sceneIdx) {
+      // Scene 0: Isolated Circles pointing toward central Paged Attention
+      if (sceneIdx === 0) {
+        return [
+          {
+            x: 720, y: 385, scale: 1.0, opacity: 1,
+            // Circle 1: Top (Graph)
+            gCx: 0, gCy: -215, gRx: 105, gRy: 105,
+            // Circle 2: Bottom-Left (Assignment)
+            aCx: -215, aCy: 125, aRx: 105, aRy: 105,
+            // Circle 3: Bottom-Right (Pipeline)
+            pCx: 215, pCy: 125, pRx: 105, pRy: 105,
+            // Labels
+            lgX: 0, lgY: -212,
+            laX: -212, laY: 125,
+            lpX: 218, lpY: 125,
+            detailAlpha: 1,
+            compactAlpha: 0,
+            coreR: 42,
+            coreTextAlpha: 1,
+            diamondAlpha: 0,
+            telemetryAlpha: 0
+          },
+          // Clones 1 & 2 stay hidden beneath instance 0
+          {
+            x: 720, y: 385, scale: 0.9, opacity: 0,
+            gCx: 0, gCy: -85, gRx: 175, gRy: 175,
+            aCx: -82, aCy: 55, aRx: 175, aRy: 175,
+            pCx: 82, pCy: 55, pRx: 175, pRy: 175,
+            lgX: 0, lgY: -125, laX: -125, laY: 75, lpX: 125, lpY: 75,
+            detailAlpha: 0, compactAlpha: 1, coreR: 16, coreTextAlpha: 0, diamondAlpha: 1, telemetryAlpha: 0
+          },
+          {
+            x: 720, y: 385, scale: 0.9, opacity: 0,
+            gCx: 0, gCy: -85, gRx: 175, gRy: 175,
+            aCx: -82, aCy: 55, aRx: 175, aRy: 175,
+            pCx: 82, pCy: 55, pRx: 175, pRy: 175,
+            lgX: 0, lgY: -125, laX: -125, laY: 75, lpX: 125, lpY: 75,
+            detailAlpha: 0, compactAlpha: 1, coreR: 16, coreTextAlpha: 0, diamondAlpha: 1, telemetryAlpha: 0
+          }
+        ];
+      }
+
+      // Scene 1: Intersecting Venn Diagram (Exact match to Reference Image 1)
+      if (sceneIdx === 1) {
+        return [
+          {
+            x: 720, y: 385, scale: 1.0, opacity: 1,
+            // Equilateral triangle centers: Top (0, -113), BL (-98, 57), BR (98, 57), R = 185
+            gCx: 0, gCy: -113, gRx: 185, gRy: 185,
+            aCx: -98, aCy: 57, aRx: 185, aRy: 185,
+            pCx: 98, pCy: 57, pRx: 185, pRy: 185,
+            // Center the full labels in the three single-circle regions.
+            lgX: 0, lgY: -174,
+            laX: -170, laY: 72,
+            lpX: 168, lpY: 72,
+            detailAlpha: 1,
+            compactAlpha: 0,
+            coreR: 34,
+            coreTextAlpha: 1,
+            diamondAlpha: 0,
+            telemetryAlpha: 0
+          },
+          {
+            x: 720, y: 385, scale: 0.95, opacity: 0,
+            gCx: 0, gCy: -113, gRx: 185, gRy: 185,
+            aCx: -98, aCy: 57, aRx: 185, aRy: 185,
+            pCx: 98, pCy: 57, pRx: 185, pRy: 185,
+            lgX: 0, lgY: -174, laX: -170, laY: 72, lpX: 168, lpY: 72,
+            detailAlpha: 0, compactAlpha: 1, coreR: 15, coreTextAlpha: 0, diamondAlpha: 1, telemetryAlpha: 0
+          },
+          {
+            x: 720, y: 385, scale: 0.95, opacity: 0,
+            gCx: 0, gCy: -113, gRx: 185, gRy: 185,
+            aCx: -98, aCy: 57, aRx: 185, aRy: 185,
+            pCx: 98, pCy: 57, pRx: 185, pRy: 185,
+            lgX: 0, lgY: -174, laX: -170, laY: 72, lpX: 168, lpY: 72,
+            detailAlpha: 0, compactAlpha: 1, coreR: 15, coreTextAlpha: 0, diamondAlpha: 1, telemetryAlpha: 0
+          }
+        ];
+      }
+
+      // Scene 2: Horizontal Multiplication & Perspective Compression (3 Side-by-Side Tilted Assemblies)
+      if (sceneIdx === 2) {
+        const xPositions = [360, 720, 1080];
+        const scales = [0.76, 0.76, 0.76];
+        return [0, 1, 2].map(idx => ({
+          x: xPositions[idx],
+          y: 380,
+          scale: scales[idx],
+          opacity: 1,
+          // Compressed into isometric/side-view ellipses
+          gCx: 0, gCy: -32, gRx: 175, gRy: 54,
+          aCx: -95, aCy: 24, aRx: 175, aRy: 54,
+          pCx: 95, pCy: 24, pRx: 175, pRy: 54,
+          // Centered icon + title positions inside each ellipse
+          lgX: 0, lgY: -48,
+          laX: -158, laY: 28,
+          lpX: 162, lpY: 28,
+          detailAlpha: 0,
+          compactAlpha: 1,
+          coreR: 15,
+          coreTextAlpha: 0,
+          diamondAlpha: 1,
+          telemetryAlpha: 0
+        }));
+      }
+
+      // Scene 3: Vertical Exploded Stack — Side View Drill-Down (Image 2)
+      // Stacked vertically at x=650, progressively scaling down: 1.0 -> 0.78 -> 0.60
+      const yPositions = [185, 390, 585];
+      const tierScales = [1.0, 0.78, 0.60];
+      return [0, 1, 2].map(idx => {
+        const isDimmed = activeTier !== -1 && activeTier !== idx;
+        return {
+          x: 650,
+          y: yPositions[idx],
+          scale: tierScales[idx],
+          opacity: isDimmed ? 0.35 : 1.0,
+          gCx: 0, gCy: -32, gRx: 185, gRy: 52,
+          aCx: -102, aCy: 24, aRx: 185, aRy: 52,
+          pCx: 102, pCy: 24, pRx: 185, pRy: 52,
+          // Centered icon + title positions inside each ellipse
+          lgX: 0, lgY: -48,
+          laX: -165, laY: 28,
+          lpX: 168, lpY: 28,
+          detailAlpha: 0,
+          compactAlpha: 1,
+          coreR: 15,
+          coreTextAlpha: 0,
+          diamondAlpha: 1,
+          telemetryAlpha: 0
+        };
+      });
+    }
+
+    /**
+     * Render a single interpolated state frame onto the SVG elements
+     */
+    function applyState(inst, s) {
+      inst.root.setAttribute('transform', `translate(${s.x.toFixed(2)}, ${s.y.toFixed(2)}) scale(${s.scale.toFixed(4)})`);
+      inst.root.setAttribute('opacity', s.opacity.toFixed(3));
+
+      // Ellipses
+      inst.elGraph.setAttribute('cx', s.gCx.toFixed(2));
+      inst.elGraph.setAttribute('cy', s.gCy.toFixed(2));
+      inst.elGraph.setAttribute('rx', s.gRx.toFixed(2));
+      inst.elGraph.setAttribute('ry', s.gRy.toFixed(2));
+
+      inst.elAssign.setAttribute('cx', s.aCx.toFixed(2));
+      inst.elAssign.setAttribute('cy', s.aCy.toFixed(2));
+      inst.elAssign.setAttribute('rx', s.aRx.toFixed(2));
+      inst.elAssign.setAttribute('ry', s.aRy.toFixed(2));
+
+      inst.elPipe.setAttribute('cx', s.pCx.toFixed(2));
+      inst.elPipe.setAttribute('cy', s.pCy.toFixed(2));
+      inst.elPipe.setAttribute('rx', s.pRx.toFixed(2));
+      inst.elPipe.setAttribute('ry', s.pRy.toFixed(2));
+
+      // Labels
+      inst.labelGraph.setAttribute('transform', `translate(${s.lgX.toFixed(2)}, ${s.lgY.toFixed(2)})`);
+      inst.labelAssign.setAttribute('transform', `translate(${s.laX.toFixed(2)}, ${s.laY.toFixed(2)})`);
+      inst.labelPipe.setAttribute('transform', `translate(${s.lpX.toFixed(2)}, ${s.lpY.toFixed(2)})`);
+
+      // Toggle rich detail meta vs compact side-view titles
+      inst.root.querySelectorAll('.detail-meta').forEach(el => el.setAttribute('opacity', s.detailAlpha.toFixed(3)));
+      inst.root.querySelectorAll('.compact-title').forEach(el => el.setAttribute('opacity', s.compactAlpha.toFixed(3)));
+
+      // Core Node
+      inst.coreRing.setAttribute('r', s.coreR.toFixed(2));
+      inst.coreRing.setAttribute('opacity', s.coreShellAlpha.toFixed(3));
+      inst.coreHalo.setAttribute('opacity', s.coreShellAlpha.toFixed(3));
+      inst.coreText.setAttribute('opacity', s.coreTextAlpha.toFixed(3));
+      inst.coreDiamond.setAttribute('opacity', s.diamondAlpha.toFixed(3));
+      // The circle pulses inside a group whose opacity follows the scene.
+      inst.coreRadar.setAttribute('opacity', s.diamondAlpha.toFixed(3));
+    }
+
+    // Spring / Cubic-Bezier Interpolation Loop
+    let animFrameId = null;
+    let animStartTime = 0;
+    let captionTimer = null;
+    const ANIM_DURATION = 880; // ms for ultra-silky SaaS choreography
+    const auxLayers = [
+      { id: 'arrows-layer', scene: 0, enterDelay: 0, exitSpeed: 2.5 },
+      { id: 'intersections-layer', scene: 1, enterDelay: 0.35, exitSpeed: 3 },
+      { id: 'matrix-guides', scene: 2, enterDelay: 0, exitSpeed: 2.5 },
+      { id: 'vertical-axis-group', scene: 3, enterDelay: 0, exitSpeed: 2.5 },
+      { id: 'callouts-layer', scene: 3, enterDelay: 0.25, exitSpeed: 3 }
+    ];
+
+    function easeOutExpo(t) {
+      return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    }
+
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function interpolateStates(fromStates, toStates, progress) {
+      for (let i = 0; i < 3; i++) {
+        // Stagger clones slightly for organic kinetic wave feel
+        const staggerOffset = i * 0.06;
+        const localT = Math.max(0, Math.min(1, (progress - staggerOffset) / (1 - staggerOffset * 2)));
+        const eased = easeInOutCubic(localT);
+
+        const a = fromStates[i];
+        const b = toStates[i];
+        const current = {};
+        for (const key of Object.keys(b)) {
+          current[key] = lerp(a[key], b[key], eased);
+        }
+        vennInstances[i].state = current;
+        applyState(vennInstances[i], current);
+      }
+    }
+
+    function animateToScene(targetSceneIdx, immediate = false, sourceSceneIdx = targetSceneIdx) {
+      const targetStates = getTargetStates(targetSceneIdx).map(state => ({
+        ...state,
+        coreShellAlpha: targetSceneIdx === 1 ? 0 : 1
+      }));
+
+      if (animFrameId !== null) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+
+      const layerTransitions = auxLayers.map(({ id, scene, enterDelay, exitSpeed }) => {
+        const element = document.getElementById(id);
+        const entering = scene === targetSceneIdx;
+        const belongsToTransition = entering || scene === sourceSceneIdx;
+        return {
+          element,
+          from: belongsToTransition ? Number(element.getAttribute('opacity')) : 0,
+          to: entering ? 1 : 0,
+          enterDelay,
+          exitSpeed
+        };
+      });
+      document.getElementById('callouts-layer').style.pointerEvents = targetSceneIdx === 3 ? 'auto' : 'none';
+
+      if (immediate || !vennInstances[0].state) {
+        for (let i = 0; i < 3; i++) {
+          vennInstances[i].state = { ...targetStates[i] };
+          applyState(vennInstances[i], targetStates[i]);
+        }
+        updateAuxLayers(layerTransitions, 1);
+        return;
+      }
+
+      updateAuxLayers(layerTransitions, 0);
+      const startStates = vennInstances.map(inst => ({ ...inst.state }));
+      animStartTime = performance.now();
+
+      function tick(now) {
+        const elapsed = now - animStartTime;
+        const rawProgress = Math.min(1, elapsed / ANIM_DURATION);
+
+        interpolateStates(startStates, targetStates, rawProgress);
+        updateAuxLayers(layerTransitions, easeInOutCubic(rawProgress));
+
+        if (rawProgress < 1) {
+          animFrameId = requestAnimationFrame(tick);
+        } else {
+          animFrameId = null;
+        }
+      }
+
+      animFrameId = requestAnimationFrame(tick);
+    }
+
+    /**
+     * Smoothly fade & transition auxiliary SVG layers (arrows, badges, guides, callouts)
+     */
+    function updateAuxLayers(transitions, t) {
+      for (const { element, from, to, enterDelay, exitSpeed } of transitions) {
+        const progress = to === 1
+          ? Math.max(0, (t - enterDelay) / (1 - enterDelay))
+          : Math.min(1, t * exitSpeed);
+        element.setAttribute('opacity', lerp(from, to, progress).toFixed(3));
+      }
+    }
+
+    /**
+     * Scene Navigation & UI Synchronization
+     */
+    function goToScene(idx) {
+      if (idx < 0 || idx >= SCENES.length) return;
+      const sourceSceneIdx = currentScene;
+      currentScene = idx;
+      if (idx !== 3) activeTier = -1;
+
+      // Update Bottom Buttons
+      document.querySelectorAll('.scene-btn').forEach((btn, i) => {
+        if (i === idx) {
+          btn.classList.add('bg-white/15', 'text-white', 'shadow-sm');
+          btn.classList.remove('text-gray-400', 'hover:text-gray-200', 'hover:bg-white/5');
+        } else {
+          btn.classList.remove('bg-white/15', 'text-white', 'shadow-sm');
+          btn.classList.add('text-gray-400', 'hover:text-gray-200', 'hover:bg-white/5');
+        }
+      });
+
+      // Update Header Metadata
+      const meta = SCENES[idx];
+      document.getElementById('scene-code').textContent = meta.code;
+      document.getElementById('scene-short-title').textContent = meta.shortTitle;
+      
+      const captionEl = document.getElementById('narrative-caption');
+      captionEl.style.opacity = '0';
+      clearTimeout(captionTimer);
+      captionTimer = setTimeout(() => {
+        captionEl.textContent = meta.caption;
+        captionEl.style.opacity = '1';
+      }, 150);
+
+      const dotEl = document.getElementById('status-dot');
+      dotEl.className = `w-2 h-2 rounded-full animate-pulse ${meta.dotColor}`;
+
+      // Update Contextual Telemetry Card
+      updateTelemetryCard(meta.card);
+
+      // Trigger Vector Choreography
+      animateToScene(idx, false, sourceSceneIdx);
+    }
+
+    function updateTelemetryCard(cardData) {
+      const card = document.getElementById('telemetry-card');
+      if (!cardData) {
+        card.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+        return;
+      }
+      document.getElementById('card-tag').textContent = cardData.tag;
+      document.getElementById('card-metric').textContent = cardData.metric;
+      document.getElementById('card-title').textContent = cardData.title;
+      document.getElementById('card-desc').textContent = cardData.desc;
+
+      card.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+    }
+
+    function nextScene() {
+      goToScene((currentScene + 1) % SCENES.length);
+    }
+
+    function prevScene() {
+      goToScene((currentScene - 1 + SCENES.length) % SCENES.length);
+    }
+
+    /**
+     * Scene 4 Interactive Tier Inspection
+     */
+    function selectTier(tierIdx) {
+      if (currentScene !== 3) return;
+      activeTier = activeTier === tierIdx ? -1 : tierIdx;
+
+      // Update callout visual highlight
+      for (let i = 0; i < 3; i++) {
+        const callout = document.getElementById(`callout-${i}`);
+        callout.style.opacity = activeTier === -1 || activeTier === i ? '1' : '0.35';
+      }
+
+      if (activeTier === -1) {
+        updateTelemetryCard(SCENES[3].card);
+      } else {
+        updateTelemetryCard(TIER_DETAILS[activeTier]);
+      }
+
+      animateToScene(3);
+    }
+
+    function hoverTier(tierIdx) {
+      if (currentScene !== 3 || activeTier !== -1) return;
+      for (let i = 0; i < 3; i++) {
+        const callout = document.getElementById(`callout-${i}`);
+        callout.style.opacity = tierIdx === -1 || tierIdx === i ? '1' : '0.45';
+      }
+    }
+
+    /**
+     * Auto-Play Presentation Mode
+     */
+    function toggleAutoPlay() {
+      const btn = document.getElementById('autoplay-btn');
+      const label = document.getElementById('autoplay-label');
+      const icon = document.getElementById('play-icon');
+
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+        btn.classList.remove('text-indigo-300', 'bg-indigo-500/15');
+        label.textContent = '自动演示';
+        icon.innerHTML = '<path d="M8 5v14l11-7z" />';
+      } else {
+        btn.classList.add('text-indigo-300', 'bg-indigo-500/15');
+        label.textContent = '演示中...';
+        icon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />';
+        nextScene();
+        autoPlayTimer = setInterval(() => {
+          nextScene();
+        }, 3600);
+      }
+    }
+
+    // Keyboard Navigation (Left/Right Arrows & Space)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextScene();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevScene();
+      } else if (e.key >= '1' && e.key <= '4') {
+        goToScene(parseInt(e.key, 10) - 1);
+      }
+    });
+
+    // Touch Swipe Support for Mobile/Tablet
+    let touchStartX = 0;
+    window.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    window.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const diff = touchStartX - touchEndX;
+      if (Math.abs(diff) > 45) {
+        if (diff > 0) nextScene();
+        else prevScene();
+      }
+    }, { passive: true });
+
+    // Initialize on Window Load
+    window.addEventListener('DOMContentLoaded', () => {
+      initInstances();
+      animateToScene(0, true);
+    });
+  </script>
+</body>
+</html>

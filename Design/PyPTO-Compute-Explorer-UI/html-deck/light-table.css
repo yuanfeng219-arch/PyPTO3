@@ -97,11 +97,14 @@
 .light-table-caption span:first-child { color:#aaa; font:12px ui-monospace,monospace; }
 .light-table-caption span:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .light-table-chapter { grid-column:2; color:#b6caff; font-size:11px; }
+.light-table-tile:disabled { opacity:1; color:#aaa; }
+.light-table-tile:disabled .light-table-chapter { color:inherit; }
+.light-table-tile:disabled + .light-table-frame { opacity:.5; }
 .light-table-tile[aria-current="page"] { color:#e2eaff; }
 .light-table-tile[aria-current="page"] + .light-table-frame::after { border:2px solid #9db5ff; }
 .light-table-tile:focus-visible { outline:none; }
 .light-table-tile:focus-visible + .light-table-frame { outline:1px solid #d3dfff; outline-offset:3px; }
-#light-table[data-phase="open"] .light-table-tile:hover + .light-table-frame { filter:brightness(1.13); transform:scale(1.018); }
+#light-table[data-phase="open"] .light-table-tile:hover:not(:disabled) + .light-table-frame { filter:brightness(1.13); transform:scale(1.018); }
 #light-table[data-phase="closing"] .light-table-frame[data-flight] { opacity:0; }
 #light-table[data-phase="opening"] #light-table-grid { animation:light-table-reveal 460ms ease both; }
 #light-table[data-phase="closing"] :is(#light-table-header,#light-table-grid) { animation:light-table-retire 340ms ease both; }
@@ -115,5 +118,5 @@ body.light-table-open > main { visibility:hidden; }
 @media(prefers-reduced-motion:reduce) {
   #light-table :is(#light-table-header,#light-table-grid) { animation:none; }
   .light-table-frame { transition:none; }
-  #light-table[data-phase="open"] .light-table-tile:hover + .light-table-frame { transform:none; }
+  #light-table[data-phase="open"] .light-table-tile:hover:not(:disabled) + .light-table-frame { transform:none; }
 }

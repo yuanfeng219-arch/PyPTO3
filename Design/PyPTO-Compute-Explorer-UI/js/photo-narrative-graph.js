@@ -2,7 +2,7 @@
  * No Python algorithm, real semantic node or source dependency is rewritten. */
 (function(global){
 'use strict';
-const cache=new WeakMap();
+const cache=new WeakMap(), innerCache=new WeakMap();
 const source={file:'photo-narrative',ranges:[{start:1,end:1}],symbols:[]};
 const provenance=[{kind:'resolved',origin:'narrative',fields:[],note:'Explicit photo-studio analogy; not a source-code fact.'}];
 const ports=()=>({inputs:{default:{}},outputs:{default:{}}});
@@ -15,15 +15,27 @@ const stages=[
  ['pv',pv,[['prepare','准备打印','按清单确认照片和打印尺寸。'],['print','打印照片','按批次输出纸质照片。'],['check','检查打印结果','确认照片齐全并交给装帧工序。']]],
  ['output-norm',accumulate,[['collect','汇总已打印照片','收齐各处理批次打印完成的照片。'],['bind','装帧照片','按工单要求装裱照片或编入相册。'],['deliver','整理交付','按顾客与主题归档成品，完成工单。']]]
 ];
-function project(base){
- if(cache.has(base))return cache.get(base);
+function project(base,{task}={}){
+ const projections=task?innerCache:cache;
+ if(projections.has(base))return projections.get(base);
  const nodes=stages.map(([id,name,children])=>{
   const childNodes=children.map(a=>operation(...a)),first=childNodes[0].id,last=childNodes.at(-1).id;
   const description=`${name}：${children.map(x=>x[1]).join(' → ')}。照片叙事投影，不代表源码照片算法。`;
   return {id,type:'composite',name,description,source,provenance,ports:ports(),composite:{semantics:description,category:'photo-narrative',api:[],subgraph:{schemaVersion:2,id:`photo-${id}`,nodes:childNodes,edges:childNodes.slice(1).map((n,i)=>edge(childNodes[i].id,n.id,'照片资料')),groups:[]},portMappings:{inputs:{default:{node:first,port:'default',relation:'view'}},outputs:{default:{node:last,port:'default',relation:'view'}}}}};
  });
- const model={schemaVersion:2,id:`photo-${base.id}`,sourceFiles:[{file:'photo-narrative',lineCount:1}],constants:base.constants,runtimeDims:[],nodes,edges:nodes.slice(1).map((n,i)=>edge(nodes[i].id,n.id,['待修照片','已修照片','已打印照片'][i])),groups:[{id:'photo-workflow',type:'region',name:'原始照片 → 照片加工（叙事投影）→ 整理完成',description:global.PtoPhotoNarrative.boundary,source,provenance,members:nodes.map(n=>n.id)}],synchronizations:[]};
- cache.set(base,model);return model;
+ // Keep the loop region addressable by the same Stack IDs as the operator
+ // graph. The final handoff consumes all batches and sits outside this region.
+ const group=task
+  ? {id:'task-compute',name:`照片加工 · ${task.stacks.length} 个处理批次`,members:nodes.slice(0,-1).map(n=>n.id)}
+  : {id:'photo-workflow',name:'原始照片 → 照片加工（叙事投影）→ 整理完成',members:nodes.map(n=>n.id)};
+ const model={schemaVersion:2,id:`photo-${base.id}`,sourceFiles:[{file:'photo-narrative',lineCount:1}],constants:base.constants,runtimeDims:[],nodes,edges:nodes.slice(1).map((n,i)=>edge(nodes[i].id,n.id,['待修照片','已修照片','已打印照片'][i])),groups:[{...group,type:'region',description:global.PtoPhotoNarrative.boundary,source,provenance}],synchronizations:[]};
+ projections.set(base,model);return model;
+}
+function executionData(task){
+ if(!task)return null;
+ // Each Page has one visible layer on the first processing node.
+ const count=task.pages.length,unit='标准照片包';
+ return {task:task.id,nodes:{qk:{count,unit,label:`${count} 个${unit}`}},edges:{}};
 }
 function focus(graph,selection,view,adapter){
  const f=selection?.subobject,requested=f?.node||f?.stage||selection?.graphNodeId||view.nodeId;
@@ -37,5 +49,5 @@ function inspector(node,selection,task){
  const facts=task?global.PtoPhotoNarrative.taskSummary(task):selection?.task!=null?`工单 ${selection.task} · 顾客 ${selection.batch+1} · 主题 ${selection.kvHead} · 工作小组 ${selection.block}`:'按顾客与主题组织照片工单';
  return {title,html:`<section class="viz2-inspector-core"><h3>当前工单</h3><p>${facts}</p></section><section class="viz2-inspector-core"><h3>加工说明</h3><p>${node?.detail||'选择阶段查看处理步骤；点击 + 展开阶段内部。'}</p></section><section class="viz2-inspector-core"><h3>交接规则</h3><p>每个标准照片包最多 128 张；每个处理批次最多 4 包、512 张。处理批次依次使用周转台位 0、1、2，再循环使用；该规则表示逻辑交接，不表示槽位真实占用。</p></section><section class="viz2-inspector-core"><h3>叙事边界</h3><p>${global.PtoPhotoNarrative.boundary}</p></section>`};
 }
-global.PtoPhotoNarrativeGraph=Object.freeze({project,focus,inspector});
+global.PtoPhotoNarrativeGraph=Object.freeze({project,executionData,focus,inspector});
 })(window);

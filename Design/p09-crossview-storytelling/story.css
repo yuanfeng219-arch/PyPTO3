@@ -36,7 +36,13 @@ body.ai-extracted {
 .mast { color: var(--foreground-secondary); font: 14px var(--font-mono); }
 #story > h1 { margin: 8px 0 0; font-size: 46px; line-height: 1.2; letter-spacing: -.035em; }
 .views, .transport { display: flex; align-items: center; gap: 8px; }
-.views { justify-content: center; gap: 12px; }
+.views {
+  --graph-color: var(--highlight-copy-blue-300);
+  --assignment-color: var(--highlight-ub-green-300);
+  --pipeline-color: var(--highlight-mte-amber-300);
+  justify-content: center;
+  gap: 12px;
+}
 .views .btn {
   display: inline-flex;
   align-items: center;
@@ -52,14 +58,14 @@ body.ai-extracted {
   height: 24px;
   flex: none;
   fill: none;
-  stroke: #fff;
+  stroke: currentColor;
   stroke-width: 2.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.views :is([data-view="graph"], [data-path="graph"]) { --view-color: var(--highlight-copy-blue-300); }
-.views [data-view="assignment"] { --view-color: var(--highlight-ub-green-300); }
-.views :is([data-view="pipeline"], [data-path="pipeline"]) { --view-color: var(--highlight-mte-amber-300); }
+.views :is([data-view="graph"], [data-path="graph"]) { --view-color: var(--graph-color); }
+.views [data-view="assignment"] { --view-color: var(--assignment-color); }
+.views :is([data-view="pipeline"], [data-path="pipeline"]) { --view-color: var(--pipeline-color); }
 .views .btn[aria-pressed="true"] {
   font-weight: 650;
   box-shadow: inset 0 -2px color-mix(in srgb, var(--view-color) 65%, transparent);
@@ -134,10 +140,11 @@ body.ai-extracted #camera { position: relative; width: 100%; height: 100%; overf
   padding-inline: 4px;
   border-radius: 6px;
   font-weight: inherit;
-  background: #10a800;
+  background: var(--assignment-color);
+  color:#101010;
 }
-[data-path="graph"] .morph-pair b:first-child { background: #951db7; }
-[data-path="pipeline"] .morph-pair b:last-child { background: #0095ef; }
+[data-path="graph"] .morph-pair b:first-child { background: var(--graph-color); }
+[data-path="pipeline"] .morph-pair b:last-child { background: var(--pipeline-color); }
 .morph-path[data-path="graph"] { --position: calc(100% - var(--progress)); }
 .morph-track {
   position: relative;

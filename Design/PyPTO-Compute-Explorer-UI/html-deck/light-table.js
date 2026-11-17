@@ -101,13 +101,16 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
   let origin, selected, restoreFocus, restoreInert, resumeAnimations, flight, pendingClose;
 
   function buildTiles() {
-    document.querySelector('#light-table-count').textContent = entries.length + ' slides';
-    return entries.map(({label, chapter}, index) => {
+    const skippedCount = entries.filter(entry => entry.skipped).length;
+    document.querySelector('#light-table-count').textContent = entries.length + ' 页' +
+      (skippedCount ? ' · ' + skippedCount + ' 页放映时跳过' : '');
+    return entries.map(({label, chapter, skipped}, index) => {
       const card = document.createElement('div');
       card.className = 'light-table-card';
       const tile = document.createElement('button');
       tile.type = 'button';
       tile.className = 'light-table-tile';
+      tile.disabled = skipped;
       const frame = document.createElement('span');
       frame.className = 'light-table-frame';
       const status = document.createElement('span');
@@ -124,10 +127,10 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
         caption.append(text);
       }
       tile.title = chapter ? chapter + ' · ' + label : label;
-      if (chapter) {
+      if (chapter || skipped) {
         const section = document.createElement('small');
         section.className = 'light-table-chapter';
-        section.textContent = chapter;
+        section.textContent = [chapter, skipped && '放映时跳过'].filter(Boolean).join(' · ');
         caption.append(section);
       }
       tile.append(caption);
@@ -139,12 +142,35 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
   }
 
   const phase = () => overview.dataset.phase;
+  function markCurrentPage() {
+    const current = page();
+    tiles.forEach(({tile}, i) => {
+      if (i === current) tile.setAttribute('aria-current', 'page');
+      else tile.removeAttribute('aria-current');
+    });
+  }
+
+  function syncCurrentPage() {
+    if (overview.hidden) return;
+    markCurrentPage();
+    flight?.finish();
+  }
+
   function select(index, focus = true) {
     selected = Math.max(0, Math.min(tiles.length - 1, index));
     tiles.forEach(({tile}, i) => { tile.tabIndex = i === selected ? 0 : -1; });
     const tile = tiles[selected].tile;
     tile.scrollIntoView({block:'nearest',inline:'nearest'});
     if (focus) tile.focus({preventScroll:true});
+  }
+
+  function moveSelection(delta) {
+    for (let index = selected + delta; index >= 0 && index < tiles.length; index += delta) {
+      if (!entries[index].skipped) {
+        select(index);
+        return;
+      }
+    }
   }
 
   function fly(index, entering) {
@@ -178,10 +204,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     restoreInert = presentation.map(element => element.inert);
     resumeAnimations = suspend(entries[origin].element);
     tiles ??= buildTiles();
-    tiles.forEach(({tile}, i) => {
-      if (i === origin) tile.setAttribute('aria-current', 'page');
-      else tile.removeAttribute('aria-current');
-    });
+    markCurrentPage();
     overview.hidden = false;
     overview.dataset.phase = 'opening';
     toggle.setAttribute('aria-expanded', 'true');
@@ -194,22 +217,22 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     overview.dataset.phase = 'open';
     if (pendingClose) {
       pendingClose = false;
-      close(origin);
+      close();
       return;
     }
     pump();
   }
 
-  async function close(index = origin) {
+  async function close(index = page()) {
     if (phase() === 'opening') {
       pendingClose = true;
       flight?.finish();
       return;
     }
-    if (phase() !== 'open') return;
+    if (phase() !== 'open' || entries[index].skipped) return;
     overview.dataset.phase = 'closing';
     select(index, false);
-    if (index !== origin) {
+    if (index !== page()) {
       resumeAnimations();
       showPage(index);
       resumeAnimations = suspend(entries[index].element, false);
@@ -223,7 +246,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
     toggle.setAttribute('aria-expanded', 'false');
     presentation.forEach((element, i) => { element.inert = restoreInert[i]; });
     resumeAnimations();
-    (index === origin && restoreFocus?.isConnected ? restoreFocus : toggle).focus({preventScroll:true});
+    (page() === origin && restoreFocus?.isConnected ? restoreFocus : toggle).focus({preventScroll:true});
   }
 
   function onKey(event) {
@@ -244,12 +267,12 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
       const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
       switch (event.code) {
         case 'Enter': if (!event.repeat) close(selected); break;
-        case 'ArrowLeft': select(selected - 1); break;
-        case 'ArrowRight': select(selected + 1); break;
-        case 'ArrowUp': select(selected - columns); break;
-        case 'ArrowDown': select(selected + columns); break;
-        case 'Home': select(0); break;
-        case 'End': select(tiles.length - 1); break;
+        case 'ArrowLeft': moveSelection(-1); break;
+        case 'ArrowRight': moveSelection(1); break;
+        case 'ArrowUp': moveSelection(-columns); break;
+        case 'ArrowDown': moveSelection(columns); break;
+        case 'Home': select(entries.findIndex(entry => !entry.skipped)); break;
+        case 'End': select(entries.findLastIndex(entry => !entry.skipped)); break;
       }
     }
     return true;
@@ -259,7 +282,7 @@ window.createDeckLightTable = function ({entries, page, formatPage, showPage, su
   closeButton.onclick = () => close();
   addEventListener('resize', () => flight?.finish());
   motion.addEventListener('change', () => flight?.finish());
-  return {onKey, get active() { return !overview.hidden; }};
+  return {onKey, syncCurrentPage, get active() { return !overview.hidden; }};
 };
 
 // A single isolated preview runs the deck's normal rendering pipeline. Its
