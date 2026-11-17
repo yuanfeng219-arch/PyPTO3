@@ -46,6 +46,7 @@
   // ── 状态 ──
   let SW = 0, SH = 0, P = null, focus = 'graph', cam = { s: 1, tx: 0, ty: 0 }, anim = null, inited = false;
   let level = Number(document.body.dataset.level) || 1;
+  let l2Settled = false;
   const lay = {};
   const isQk = function () { return /qk_pv/.test(($('kernelMeta') || {}).textContent || '') || /qk_pv/.test(($('lensCrumb') || {}).textContent || ''); };
   const clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
@@ -109,7 +110,10 @@
     L1.style.transform = 'translate(' + cam.tx + 'px,' + cam.ty + 'px) scale(' + cam.s + ')';
     L2.style.transform = 'translate(' + p.x + 'px,' + p.y + 'px) scale(' + p.s + ')';
     const u = clamp(Math.log(cam.s) / Math.log(1 / K), 0, 1.4);
-    const a1 = 1 - smooth(.28, .62, u), a2 = level === 2 ? smooth(.38, .8, u) : 0;
+    // 全览和自由缩放仍在 L2；缩小画布不应触发 L1/L2 的淡入淡出。
+    const stayingInL2 = level === 2 && (l2Settled || focus === 'overview' || focus === 'free');
+    const a1 = stayingInL2 ? 0 : 1 - smooth(.28, .62, u);
+    const a2 = level === 2 ? (stayingInL2 ? 1 : smooth(.38, .8, u)) : 0;
     L1.style.opacity = a1; L1.style.visibility = a1 < .01 ? 'hidden' : '';
     L2.style.opacity = a2; L2.style.visibility = a2 < .01 ? 'hidden' : '';
     stage.classList.toggle('is-l2', level === 2);
@@ -153,7 +157,7 @@
     setTimeout(function () { if (anim === me) { me.stop = true; layout(); cam = camFor(target); apply(); anim = null; stage.classList.remove('is-moving'); settle(); } }, dur + 400);   // 页面在后台时 rAF 不跑，到点直接落到终点
   }
   // 动画结束时按最新尺寸重新算终点（层级切换时画布高度可能变了）
-  function settle() { drawLinks(); paintNav(); setTimeout(drawLinks, 350); }   // 计算图按新尺寸重排后再画一次引线
+  function settle() { if (level === 2) l2Settled = true; drawLinks(); paintNav(); setTimeout(drawLinks, 350); }   // 计算图按新尺寸重排后再画一次引线
 
   // ── 聚焦对象：计算图 / 工作怎么分 / 放在哪 / 全览；卡片与 lens.js 页签同步 ──
   let tabByUs = false, observedChip = L2.classList.contains('is-chip');
@@ -263,7 +267,7 @@
   function onLevel() {
     const lv = Number(document.body.dataset.level) || 1;
     if (lv === level && inited) return;
-    const prev = level; level = lv;
+    const prev = level; level = lv; l2Settled = false;
     stage.classList.toggle('is-l2', lv === 2);
     if (lv === 2) {
       layout();
@@ -333,7 +337,7 @@
       L2.classList.toggle('wb-bottom-closed', focus === 'graph'); L2.dataset.focus = focus;
       cam = camFor(focus === 'graph' ? 'graph' : focus);
     } else cam = camFor('l1');
-    inited = true;
+    inited = true; l2Settled = level === 2;
     apply(); paintNav();
     setTimeout(function () { window.dispatchEvent(new Event('resize')); settle(); }, 120);
   }

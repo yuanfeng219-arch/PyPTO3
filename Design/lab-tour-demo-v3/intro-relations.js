@@ -5,7 +5,7 @@
   const r=root.getBoundingClientRect(),plate=root.querySelector('article.layer-tile').getBoundingClientRect();
   const people=[...root.querySelectorAll('.ava')].map(el=>el.getBoundingClientRect());
   if(matchMedia('(max-width:1080px)').matches){svg.innerHTML='';return;}
-  const x=plate.right-r.left-10,y=(plate.top+plate.bottom)/2-r.top;
+  const x=plate.right-r.left-10,y=(people[0].top+people[0].bottom+people[1].top+people[1].bottom)/4-r.top;
   const end=people.map(a=>({x:a.left-r.left-9,y:(a.top+a.bottom)/2-r.top}));
   const branch=Math.max(x+22,Math.min(...end.map(a=>a.x))-34);
   const junctionRadius=Math.max(0,Math.min(12,branch-x,...end.map(a=>Math.abs(a.y-y)/2)));

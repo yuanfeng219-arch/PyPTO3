@@ -17,7 +17,7 @@
  * 外壳：不要顶栏，主体占满一屏；28px 状态栏、源码行与着色和工作台一致。返回首页放在最左图标栏的第一个（Codex 的首页键）。
  * 布局：参考 Codex 桌面端的默认态 —— 最左图标栏、会话侧栏（新聊天 / 项目 / 线程）、中间空白处一句提问 + 底部输入框；
  *       开始生成后中间变成对话流，右侧「改动」面板展开（Codex 的审阅面板），可用对话栏右上角按钮收起。
- * 生成过程是预置回放；代码是 decode_sparse_attn_csa.py 198–313 行原文（agent-source.js）。 */
+ * 生成过程是预置回放；代码取自工作台共用的源码快照（decode_sparse_attn_csa.py 198–313 行）。 */
 @font-face{font-family:'JetBrains Mono';src:url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
 
 /* ── 主体：图标栏 | 会话侧栏 | 对话 | 改动（生成后才展开） ── */
@@ -158,16 +158,18 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
 .ag-lens-btn:focus-visible { box-shadow:0 0 0 2px var(--demo-focus); }
 .ag-lens-btn[aria-disabled="true"] { background:#262626; color:#6c6c6c; pointer-events:none; }
 /* 进入 Operator Lens 的转场：改动面板（复制一份）从原位放大成整块标签页区域，同时其余内容淡出；图标栏不动。
- * 结束帧与 lens.html 的第一帧一致（顶部 48px 标签条底色 + 面板底色），换页时看不出接缝。 */
+ * 展开时提前加载 Lens，代码和计算图随面板一起出现。 */
 .ag-leaving .ag-side,.ag-leaving .ag-chat-pane,.ag-leaving .ag-diff,.ag-leaving .hp-status { opacity:0; transition:opacity .26s ease; }
 .ag-leaving .ag-chat-pane { transform:translateX(-12px); transition:opacity .26s ease, transform .4s cubic-bezier(.2,.7,.2,1); }
 .ag-fly { position:fixed; z-index:60; overflow:hidden; margin:0; background:var(--surface); border-radius:0; box-shadow:var(--demo-shadow-overlay);
-  transition:left .46s cubic-bezier(.2,.75,.15,1), top .46s cubic-bezier(.2,.75,.15,1), width .46s cubic-bezier(.2,.75,.15,1), height .46s cubic-bezier(.2,.75,.15,1), box-shadow .46s ease; }
-.ag-fly > .ag-fly-copy { position:absolute; inset:0; display:flex; flex-direction:column; transition:opacity .2s ease; }
-.ag-fly::before { content:""; position:absolute; z-index:1; left:0; right:0; top:0; height:48px; background:var(--page); opacity:0; transition:opacity .25s ease .2s; }
+  transition:left .8s cubic-bezier(.25,.65,.2,1), top .8s cubic-bezier(.25,.65,.2,1), width .8s cubic-bezier(.25,.65,.2,1), height .8s cubic-bezier(.25,.65,.2,1), box-shadow .8s ease; }
+.ag-fly > .ag-fly-copy { position:absolute; z-index:2; inset:0; display:flex; flex-direction:column; transition:opacity .45s ease .18s; }
+.ag-fly > iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:var(--surface); }
+.ag-code-flight { position:fixed; z-index:61; box-sizing:border-box; margin:0; padding:0; overflow:hidden; pointer-events:none;
+  transition:left .8s cubic-bezier(.25,.65,.2,1), top .8s cubic-bezier(.25,.65,.2,1), width .8s cubic-bezier(.25,.65,.2,1), height .8s cubic-bezier(.25,.65,.2,1), opacity .2s ease; }
+.ag-code-flight-content { box-sizing:border-box; padding:8px 0 24px; transform-origin:0 0; transition:opacity .22s ease; }
 .ag-fly.is-full { box-shadow:none; }
 .ag-fly.is-full > .ag-fly-copy { opacity:0; }
-.ag-fly.is-full::before { opacity:1; }
 .ag-file { display:flex; align-items:center; gap:8px; padding:0 14px 10px; color:var(--muted); font:12px var(--mono); }
 .ag-file svg { width:14px; height:14px; color:var(--dim); flex:none; }
 .ag-file .add { margin-left:auto; color:#a5e780; }
@@ -287,11 +289,12 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
   </footer>
 </div>
 
-<script src="./agent-source.js?v=2"></script>
+<script src="../csa-operator-lens/js/source-snapshot.js"></script>
 <script>
 (function () {
   'use strict';
-  const SRC = window.QKPV_SOURCE || [];
+  const source = window.LENS_SOURCE.files['decode_sparse_attn_csa.py'].text.split('\n');
+  const SRC = source.slice(197, 313).map((text, i) => [i + 198, text]);
   const LENS_URL = 'lens.html';                // 下一页：Codex 内置浏览器式的标签页，里面打开 Operator Lens（workbench.html?embed=lens，默认 L1）
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
@@ -374,7 +377,7 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
   }
 
   async function streamCode(onLine) {
-    const per = fast ? 0 : 3600 / SRC.length, cursor = el('span', 'cursor');
+    const per = fast ? 0 : 2800 / SRC.length, cursor = el('span', 'cursor');
     for (let i = 0; i < SRC.length; i++) {
       const [no, t] = SRC[i], depth = Math.floor(t.match(/^ */)[0].length / 4);
       const r = el('div', 'cl is-add is-new', '<span class="cl-mark"></span><span class="cl-no">' + no + '</span><span class="cl-text" style="--d:' + depth + '">' + hl(t) + '</span>');
@@ -396,15 +399,15 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     startThread();
     userMsg(text);
     statusLine.textContent = 'Agent · qk_pv · 读取上下文';
-    await wait(450);
+    await wait(350);
     const m = agentMsg(), box = el('div', 'acts');
     m.appendChild(el('p', '', '先看 <code>qk_plan</code> 给出的排队结果和这一层的配置，再写 <code>qk_pv</code>。'));
     m.appendChild(box);
 
     let a = act(box, 'read', '正在读取 <code>decode_csa.py</code>');
-    await wait(800); a.done('已读取 <code>decode_csa.py</code>、<code>config.py</code> · qk_plan / kv_touch 的输出，T=256，TP=2');
+    await wait(650); a.done('已读取 <code>decode_csa.py</code>、<code>config.py</code> · qk_plan / kv_touch 的输出，T=256，TP=2');
     a = act(box, 'plan', '正在规划切分与分工');
-    await wait(1000); a.done('已规划 <b>SPMD × 24</b> → <b>FOR qk_it</b> 轮转领活 → <b>PIPELINE × 2</b>（stage=2）');
+    await wait(800); a.done('已规划 <b>SPMD × 24</b> → <b>FOR qk_it</b> 轮转领活 → <b>PIPELINE × 2</b>（stage=2）');
     a = act(box, 'edit', '正在编辑 <code>decode_sparse_attn_csa.py</code>');
     showDiff(true); diffToggle.disabled = false;               // Codex：开始改文件时右侧审阅面板展开
     statusLine.textContent = 'Agent · qk_pv · 编辑 decode_sparse_attn_csa.py';
@@ -412,11 +415,11 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     a.done('已编辑 <code>decode_sparse_attn_csa.py</code><span class="add">+' + SRC.length + '</span>');
     a = act(box, 'run', '正在编译 qk_pv');
     statusLine.textContent = 'compile · lowering qk_pv';
-    await wait(1100); a.done('已编译 qk_pv · 51 个 Pass 通过');
+    await wait(850); a.done('已编译 qk_pv · 51 个 Pass 通过');
     setChecks(true, false, false);
     a = act(box, 'run', '正在对比 golden');
     statusLine.textContent = 'verify · golden';
-    await wait(900); a.done('已对比 golden · mi / li / oi 一致');
+    await wait(700); a.done('已对比 golden · mi / li / oi 一致');
     setChecks(true, true, true);
 
     const fin = agentMsg();
@@ -435,29 +438,119 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     chip.focus({ preventScroll: true });
   }
 
-  /* 打开 Operator Lens：改动面板放大成标签页后再换页（lens.html#from-agent 接着播入场） */
-  let leaving = false;
+  /* 把预加载的 Lens 直接保留为最终页面，避免转场结束时再次加载。 */
+  let leaving = false, lensFrame = null, lensFly = null;
+  function restoreAgent() {
+    if (!lensFly) return;
+    lensFly.hidden = true;
+    document.body.classList.remove('ag-leaving');
+    leaving = false;
+    if (phase === 'lens') {
+      phase = 'done'; send.disabled = false;
+      chat.querySelectorAll('.chip').forEach(c => { c.disabled = false; });
+      statusLine.textContent = 'Agent · qk_pv · 已生成 · 编译通过 · 精度一致 · 硬件落点未检查';
+    }
+  }
+  window.addEventListener('popstate', e => {
+    if (!lensFly) return;
+    if (e.state && e.state.agentLens) {
+      lensFly.hidden = false; leaving = true;
+      document.body.classList.add('ag-leaving');
+    } else restoreAgent();
+  });
+  window.addEventListener('message', e => {
+    if (lensFrame && e.source === lensFrame.contentWindow && e.data && e.data.type === 'lens:back') history.back();
+  });
+  window.addEventListener('resize', () => {
+    if (!lensFly || lensFly.hidden) return;
+    const rail = main.querySelector('.ag-rail');
+    const left = rail && rail.offsetParent && getComputedStyle(rail).flexDirection === 'column' ? rail.getBoundingClientRect().right : 0;
+    Object.assign(lensFly.style, { left: left + 'px', width: (innerWidth - left) + 'px', height: innerHeight + 'px' });
+    Object.assign(lensFrame.style, { width: (innerWidth - left) + 'px', height: innerHeight + 'px' });
+  });
   function goLens() {
     if (leaving) return; leaving = true;
-    const target = LENS_URL + '#from-agent';
+    // Carry the conversation that actually led to this Lens into the analysis view.
+    try {
+      sessionStorage.setItem('lab-tour-v3-agent-conversation', JSON.stringify({
+        title: $('threadTitle').textContent,
+        messages: [...chat.querySelectorAll('.msg')].map(message => ({
+          role: message.classList.contains('msg-user') ? 'user' : 'agent',
+          text: message.innerText
+        }))
+      }));
+    } catch (e) { /* Storage may be unavailable for local files. */ }
     const panel = main.querySelector('.ag-diff');
     const src = panel && panel.offsetParent ? panel : $('lensBtn');
+    const code0 = panel && panel.querySelector('.ag-code');
+    const boxRect = code0 && code0.getBoundingClientRect();
+    const first = code0 && [...code0.querySelectorAll('.cl')].find(row => row.getBoundingClientRect().bottom > boxRect.top);
+    const line = first ? Number(first.dataset.line) : 208;
+    const offset = first ? first.getBoundingClientRect().top - boxRect.top : 0;
+    const query = 'line=' + line + '&offset=' + offset + '&scrollX=' + (code0 ? code0.scrollLeft : 0);
+    const target = LENS_URL + '?' + query + '#from-agent';
     if (still || !src) { location.href = target; return; }
     const r = src.getBoundingClientRect(), rail = main.querySelector('.ag-rail');
     const rr = rail && rail.offsetParent && getComputedStyle(rail).flexDirection === 'column' ? rail.getBoundingClientRect().right : 0;
+    if (lensFly) { lensFly.remove(); lensFly = null; lensFrame = null; }
     const fly = el('div', 'ag-fly');
+    const preview = document.createElement('iframe');
+    preview.src = LENS_URL + '?transition=1&' + query + '#from-agent';
+    preview.tabIndex = -1; preview.setAttribute('aria-hidden', 'true');
+    preview.title = 'Operator Lens · qk_pv';
+    preview.style.width = (innerWidth - rr) + 'px';
+    preview.style.height = innerHeight + 'px';
+    fly.appendChild(preview);
     if (src === panel) { const copy = panel.cloneNode(true); copy.removeAttribute('id'); copy.className = 'ag-fly-copy'; copy.querySelectorAll('[id]').forEach(n => n.removeAttribute('id')); fly.appendChild(copy); }
     Object.assign(fly.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-    if (src === panel) { const code0 = panel.querySelector('.ag-code'), code1 = fly.querySelector('.ag-code'); if (code0 && code1) code1.scrollTop = code0.scrollTop; }
+    let movingCode = null, movingContent = null;
+    if (src === panel && code0) {
+      const code1 = fly.querySelector('.ag-code');
+      if (code1) code1.style.visibility = 'hidden';
+      movingCode = code0.cloneNode(true); movingCode.removeAttribute('id');
+      movingCode.classList.add('ag-code-flight'); movingCode.setAttribute('aria-hidden', 'true');
+      movingContent = el('div', 'ag-code-flight-content');
+      while (movingCode.firstChild) movingContent.appendChild(movingCode.firstChild);
+      movingContent.style.width = code0.scrollWidth + 'px';
+      movingContent.style.transform = 'translate(' + (-code0.scrollLeft) + 'px,' + (-code0.scrollTop) + 'px)';
+      movingCode.appendChild(movingContent);
+      Object.assign(movingCode.style, { left: boxRect.left + 'px', top: boxRect.top + 'px', width: boxRect.width + 'px', height: boxRect.height + 'px' });
+      document.body.appendChild(movingCode);
+    }
+    let started = false;
+    const fallback = setTimeout(() => { if (!started) { window.removeEventListener('message', moveSource); location.href = target; } }, 3000);
+    const moveSource = e => {
+      const d = e.data || {};
+      if (e.source !== preview.contentWindow || d.type !== 'lens:source-bounds' || started) return;
+      started = true; clearTimeout(fallback);
+      window.removeEventListener('message', moveSource);
+      document.body.classList.add('ag-leaving');
+      void fly.offsetWidth;
+      fly.classList.add('is-full');
+      Object.assign(fly.style, { left: rr + 'px', top: '0px', width: (innerWidth - rr) + 'px', height: innerHeight + 'px' });
+      if (movingCode) Object.assign(movingCode.style, { left: (rr + d.left) + 'px', top: d.top + 'px', width: d.width + 'px', height: d.height + 'px' });
+      setTimeout(() => {
+        lensFrame = preview; lensFly = fly;
+        preview.removeAttribute('aria-hidden'); preview.removeAttribute('tabindex');
+        fly.querySelector('.ag-fly-copy')?.remove();
+        try { history.pushState({ agentLens: true }, '', target); }
+        catch (_) { history.pushState({ agentLens: true }, '', '#lens'); }
+        // 两页是不同文件：先淡出 Agent 文本，再淡入 L1 源码，避免不同代码重叠。
+        const revealSource = () => {
+          if (movingCode) movingCode.remove();
+          preview.contentWindow.postMessage({ type: 'lens:show-source' }, '*');
+        };
+        if (movingContent) {
+          movingContent.style.opacity = '0';
+          setTimeout(revealSource, 230);
+        } else revealSource();
+      }, 800);
+    };
+    window.addEventListener('message', moveSource);
     document.body.appendChild(fly);
-    document.body.classList.add('ag-leaving');
-    void fly.offsetWidth;                                   // 先落定起点，再过渡到终点
-    fly.classList.add('is-full');
-    Object.assign(fly.style, { left: rr + 'px', top: '0px', width: (innerWidth - rr) + 'px', height: innerHeight + 'px' });
-    setTimeout(() => { location.href = target; }, 480);
   }
   $('lensBtn').addEventListener('click', e => { if ($('lensBtn').getAttribute('aria-disabled')) return; e.preventDefault(); goLens(); });
-  window.addEventListener('pageshow', e => { if (e.persisted) { leaving = false; document.body.classList.remove('ag-leaving'); document.querySelectorAll('.ag-fly').forEach(n => n.remove()); } });
+  window.addEventListener('pageshow', e => { if (e.persisted && !(history.state && history.state.agentLens)) restoreAgent(); });
 
   async function openLens() {
     if (phase !== 'done') return;

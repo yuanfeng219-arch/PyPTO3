@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="../lab-tour-demo-v3/demo-shell.css?v=1" />
   <link rel="stylesheet" href="../lab-tour-demo-v3/workbench-polish.css?v=5" />
   <style>
+    @font-face { font-family:'JetBrains Mono'; src:url('../lab-tour-demo-v3/assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
     /* 顶栏：返回键、按钮圆角与阴影取自 demo-shell.css，这里只补本页的主按钮和分段控件 */
     /* 主按钮用 Demo 首页的品牌绿（--lime 在 workbench-polish.css 里改成 #88EC30） */
     .run-button { background:var(--lime); border-color:var(--lime); color:#0d1a00; font-weight:700; text-decoration:none; gap:8px; white-space:nowrap; }
@@ -34,6 +35,10 @@
     /* 各页签共用计算图高度；用户拖动分隔条后仍由行内变量接管。 */
     #viewKernel:not(.is-rules-only) { --l2-graph-height:41%; }
     body[data-level="1"] #hpStatusDim { display:none; }
+    body.source-in-flight #srcFile { visibility:hidden; }
+    body.source-reveal #srcFile { animation:source-reveal .32s ease both; }
+    @keyframes source-reveal { from { opacity:0; } to { opacity:1; } }
+    @media(prefers-reduced-motion:reduce) { body.source-reveal #srcFile { animation:none; } }
   </style>
   <script defer src="../lab-tour-demo-v3/vendor/liquid-glass-controls/liquid-glass.js?v=final-v2"></script>
 </head>
@@ -197,7 +202,7 @@
   <script src="../lab-tour-demo-v3/workbench-story.js?v=3"></script>
   <script src="../lab-tour-demo-v3/workbench-chip.js?v=5"></script>
   <script src="../lab-tour-demo-v3/workbench-canvas.js?v=4"></script>
-  <script src="../lab-tour-demo-v3/workbench-embed.js?v=1"></script>
+  <script src="../lab-tour-demo-v3/workbench-embed.js?v=2"></script>
 <script src="../lab-tour-demo-v3/demo-highlights.js"></script>
 </body>
 </html>

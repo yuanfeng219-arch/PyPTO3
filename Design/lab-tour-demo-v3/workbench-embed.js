@@ -8,6 +8,7 @@
   'use strict';
   if (new URLSearchParams(location.search).get('embed') !== 'lens') return;
   document.body.classList.add('is-embedded');
+  if (new URLSearchParams(location.search).has('transition')) document.body.classList.add('source-in-flight');
 
   const css = document.createElement('style');
   css.textContent =
@@ -31,12 +32,31 @@
     const cur = document.querySelector('#lensCrumb [aria-current="true"]') || document.querySelector('#lensCrumb button:last-of-type');
     const crumb = cur ? cur.textContent.trim() : '';
     const det = document.getElementById('lensDetail'), detail = !!(det && !det.hidden);
-    const key = level + '|' + crumb + '|' + detail;
+    const canvas = document.getElementById('viewKernel');
+    const focus = level === 1 ? 'graph' : (canvas && canvas.dataset.focus) || 'graph';
+    const key = level + '|' + crumb + '|' + detail + '|' + focus;
     if (key === last) return;
     last = key;
-    try { window.parent.postMessage({ type: 'lens:level', level: level, crumb: crumb, detail: detail }, '*'); } catch (err) { /* 没有外层时忽略 */ }
+    try { window.parent.postMessage({ type: 'lens:level', level: level, crumb: crumb, detail: detail, focus: focus }, '*'); } catch (err) { /* 没有外层时忽略 */ }
   }
+  function sourceGeometry(type) {
+    const box = document.getElementById('srcFile');
+    if (!box) return null;
+    const r = box.getBoundingClientRect();
+    // Agent 的 qk_pv 和 L1 的 decode_csa 来自不同文件，行号不能当作同一锚点。
+    return { type: type, left: r.left, top: r.top, width: r.width, height: r.height, anchorX: null, anchorY: null };
+  }
+  function reportSourceBounds() {
+    const data = sourceGeometry('lens:source-bounds');
+    if (data) window.parent.postMessage(data, '*');
+  }
+  // 嵌入样式、字体和布局生效后再测量目标区域。
+  const fontsReady = document.fonts ? Promise.all([document.fonts.ready, document.fonts.load('12px "JetBrains Mono"')]) : Promise.resolve();
+  const sourceReady = fontsReady.catch(() => {}).then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  window.addEventListener('resize', reportSourceBounds);
   new MutationObserver(report).observe(document.body, { attributes: true, attributeFilter: ['data-level'] });
+  const canvas = document.getElementById('viewKernel');
+  if (canvas) new MutationObserver(report).observe(canvas, { attributes: true, attributeFilter: ['data-focus'] });
   const crumb = document.getElementById('lensCrumb');
   if (crumb) new MutationObserver(report).observe(crumb, { childList: true, subtree: true, characterData: true });
   const det = document.getElementById('lensDetail');
@@ -53,6 +73,16 @@
     } else if (d.type === 'lens:hello') {
       last = '';
       report();
+      sourceReady.then(reportSourceBounds);
+    } else if (d.type === 'lens:show-source') {
+      document.body.classList.remove('source-in-flight');
+      document.body.classList.add('source-reveal');
+      const source = document.getElementById('srcFile');
+      if (source) source.addEventListener('animationend', () => document.body.classList.remove('source-reveal'), { once: true });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const data = sourceGeometry('lens:source-shown');
+        if (data) window.parent.postMessage(data, '*');
+      }));
     }
   });
   report();

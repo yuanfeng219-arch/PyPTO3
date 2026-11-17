@@ -60,15 +60,13 @@
 /* 默认结论条：顶栏与泳道之间的一行，进页面就指出最值得先看的一处。
  * 左边是谁，右边三项读数，两项带按同一份数字画出来的图形；
  * 「它在路径哪儿」不再另画一条，直接点亮下面那条真实的关键路径（见 #cp .cp-lead）。
- * 圆角与底色用下钻页共用的 demo-shell.css，强调色取页面自己给该特征的语义色。 */
+ * 低饱和预警底色提示关注，图形与标签仍沿用特征语义色。 */
 .lead-finding{
  flex:none;display:flex;align-items:center;gap:18px;overflow:hidden;
  margin:6px 24px 0;padding:0 18px 0 15px;min-height:50px;
- border:1px solid #2d2d2d;border-left:3px solid var(--lead-color,#bca0f3);
+ border:1px solid #51432d;border-left:3px solid #c19a5c;
  border-radius:var(--demo-radius-card,12px);
- background:linear-gradient(90deg,
-   color-mix(in srgb,var(--lead-color,#bca0f3) 9%,var(--demo-surface,#171717)) 0,
-   var(--demo-surface,#171717) 340px);
+ background:linear-gradient(90deg,#30271d 0,#27221c 48%,#211e1a 100%);
 }
 .lead-finding[role="button"]{cursor:pointer}
 .lead-finding[role="button"]:hover,.lead-finding[aria-pressed="true"]{border-color:var(--lead-color,#bca0f3)}

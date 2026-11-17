@@ -662,7 +662,7 @@ body.cpi-host .lane-toolbar-group .lane-toolbar{position:static;transform:none;t
 /* The task inspector heading does not need a divider. */
 #task-drawer > .drawer-head{border-bottom:0;box-shadow:none}
 </style>
-<link rel="stylesheet" href="../lab-tour-demo-v3/result-polish.css?v=20">
+<link rel="stylesheet" href="../lab-tour-demo-v3/result-polish.css?v=21">
 <link rel="stylesheet" href="../lab-tour-demo-v3/inline-lane-style.css">
 <script src="../lab-tour-demo-v3/lane-transition.js"></script>
 </head>
@@ -2612,7 +2612,7 @@ if (D) {
     inlineZoomFrom=[...document.querySelectorAll('.qk-inline-pipeline [data-event-start]')].map(n=>{const r=n.querySelector('rect');return {key:n.dataset.qkInlineEvent+'-'+n.dataset.fragment,x:+r.getAttribute('x'),y:+r.getAttribute('y')+24,w:+r.getAttribute('width')};});
     const retainedScroll=$("lane-wrap").scrollTop;
     if(!inlineEvolution)inlineReturnRange=laneRange?.slice()||null;
-    inlineEvolution=true;window.INLINE_PASS_TRANSFORM.autoplay();
+    inlineEvolution=true;window.reportDemoAnalysisStep?.('evidence');window.INLINE_PASS_TRANSFORM.autoplay();
     const launch=R.launches.find(l=>l.id===qkInline.id),block=launch.blocks.items.find(b=>b.core===qkInline.core);
     const events=window.QK_RESIDENCY.inlineEvents(block,launch.leaf).filter(e=>Math.floor(e.iter/2)===Math.floor(inlineEvolutionState.iter/2));
     if(events.length){const lo=Math.min(...events.map(e=>e.startUs)),hi=Math.max(...events.map(e=>e.endUs)),pad=(hi-lo)*.12;laneRange=[Math.max(0,lo-pad),Math.min(R.kpi.windowUs,hi+pad)];}
@@ -2887,8 +2887,24 @@ if (D) {
 <script src="pass-ablation.js?v=integrated-1"></script>
 <script src="compile-linked/dist/compile-linked.js"></script>
 <script src="../lab-tour-demo-v3/inline-pass-transform.js"></script>
-<script src="../lab-tour-demo-v3/result-polish.js?v=14"></script>
+<script src="../lab-tour-demo-v3/result-polish.js?v=15"></script>
 <script>if (document.documentElement.classList.contains('lane-preview')) window.LaneTransition?.preview();</script>
 <script src="../lab-tour-demo-v3/demo-highlights.js"></script>
+<script>
+(() => {
+  function reportHighlightStep(step) {
+    window.dispatchEvent(new CustomEvent('demo:analysis-step', { detail: { step } }));
+    if (window.parent !== window) window.parent.postMessage({ type: 'demo:analysis-step', step }, '*');
+  }
+  window.reportDemoAnalysisStep = reportHighlightStep;
+  const dialog = document.getElementById('pass-dialog');
+  if (!dialog) return;
+  // 无论从哪个入口打开 Pass 分析，都同步切换当前说明。
+  new MutationObserver(() => {
+    const step = dialog.open ? 'evidence' : 'focus';
+    reportHighlightStep(step);
+  }).observe(dialog, { attributes: true, attributeFilter: ['open'] });
+})();
+</script>
 </body>
 </html>

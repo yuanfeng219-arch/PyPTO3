@@ -139,7 +139,11 @@
     host=document.createElement('section');host.id='lead-finding';host.className='lead-finding';
     host.setAttribute('aria-label','默认结论：最值得先看的一处');
     host.setAttribute('role','button');host.tabIndex=0;
-    const activate=()=>{window.focusLeadFinding?.(host.dataset.leadKey,host.dataset.pathId);render();};
+    const activate=()=>{
+     window.focusLeadFinding?.(host.dataset.leadKey,host.dataset.pathId);
+     render();
+     window.reportDemoAnalysisStep?.(window.isLeadFindingFocused?.()?'focus':'path');
+    };
     host.addEventListener('click',activate);
     host.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();activate();}});
     header.after(host);
