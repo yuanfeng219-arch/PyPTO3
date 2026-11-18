@@ -14,10 +14,6 @@
     <section class="viz2 graph-view" aria-label="Task Graph 特写">
       <div class="graph-heading">
         <h3>Graph · QK Matmul 特写</h3>
-        <div class="scale-summary" aria-label="逻辑重复规模">
-          <span><span id="module-label">Attention 计算模块</span> <strong id="module-count"></strong></span>
-          <span><span id="qk-label">QK Matmul</span> <strong id="qk-count"></strong></span>
-        </div>
       </div>
       <div class="graph-surface">
         <div class="graph-crop"><div id="graph" class="kf-pypa-graph__scene"></div></div>
@@ -25,19 +21,23 @@
       </div>
     </section>
     <section class="assignment viz2" aria-labelledby="assignment-title">
+      <div class="p06-modes" role="group" aria-label="P6 展示模式">
+        <button type="button" data-p06-photo="true" aria-pressed="false">冲印店</button>
+        <button type="button" data-p06-photo="false" aria-pressed="true">算子</button>
+      </div>
       <div class="cache-heading">
-        <div class="cache-title">
-          <h3 id="assignment-title">KV Cache · Stack / Page</h3>
-          <div class="p06-modes" role="group" aria-label="P6 展示模式">
-            <button type="button" data-p06-photo="true" aria-pressed="false">冲印店</button>
-            <button type="button" data-p06-photo="false" aria-pressed="true">算子</button>
-          </div>
-        </div>
+        <h3 id="assignment-title"><span id="block-label">Block 01</span><span id="task-kind">Tasks</span></h3>
         <fieldset class="task-controls">
           <legend id="task-legend"></legend>
           <div id="task-options"></div>
         </fieldset>
-        <p id="cache-tokens" aria-live="polite"></p>
+      </div>
+      <div class="allocation-metrics" aria-live="polite">
+        <div class="token-metric"><strong id="cache-tokens"></strong><span id="tokens-label">有效 tokens</span></div>
+        <div><strong id="stack-count"></strong><span id="stacks-label">Stacks</span></div>
+        <div><strong id="page-count"></strong><span id="pages-label">Pages</span></div>
+        <div class="repeat-metric"><strong id="module-count"></strong><span id="module-label">Attention 计算模块</span></div>
+        <div class="repeat-metric"><strong id="qk-count"></strong><span id="qk-label">QK Matmul</span></div>
       </div>
       <div id="assignment-stacks"></div>
     </section>
@@ -55,6 +55,7 @@
     header.append(slide.querySelector('h1'));
     header.querySelector('h1').id = 'title';
   }
+  slide.querySelector('.mast').append(slide.querySelector('.p06-modes'));
   const resize = new ResizeObserver(([entry]) => {
     slide.style.setProperty('--slide-scale', entry.contentRect.width / 1600);
   });
@@ -102,7 +103,7 @@
     // Keep the camera and dependency layout stable as Tasks change.
     const {graph} = tasks[largest.task];
     const graphLayout = window.PTO_SEMANTIC_COMPUTATION_GRAPH;
-    const options = {flowLayout: true, overviewLayout: false, compactGlyphs: true, rootLayerGap: 64, childLayerGap: 56};
+    const options = {flowLayout: true, alignSpineFront: true, overviewLayout: false, compactGlyphs: true, rootLayerGap: 64, childLayerGap: 56};
     const baseGraph = graphLayout.materialize(graph, new Set(), options);
     const executionFootprints = Object.fromEntries(baseGraph.nodes.flatMap(node => {
       const count = executionAPI.decoration(node, largest)?.count;
@@ -150,27 +151,15 @@
     qkBadge.removeAttribute('title');
     qkBadge.removeAttribute('data-ai-tip');
     const graphCrop = graphHost.parentElement;
-    const surface = graphCrop.parentElement;
-    // Measure the native layout before transforming, including the largest
-    // possible QK silhouette and badge. Use the same camera for every Task.
-    const origin = graphHost.getBoundingClientRect();
-    const unit = slide.getBoundingClientRect().width / slide.offsetWidth;
-    const cropNodeIds = ['qk', 'scores', 'scale-mask', 'softmax', 'probability', 'm', 'l', 'rescale', 'pv'];
-    const bounds = [
-      graphHost.querySelector('[data-pypa-region="task-inputs"]'),
-      ...cropNodeIds.map(id => graphHost.querySelector(`[data-pypa-node="${id}"]`)),
-      qkBadge, ...qkLayers,
-    ].map(element => element.getBoundingClientRect());
-    const nextNode = graphHost.querySelector('[data-pypa-node="partial"]').getBoundingClientRect();
-    const left = (Math.min(...bounds.map(box => box.left)) - origin.left) / unit - 28;
-    const top = (Math.min(...bounds.map(box => box.top)) - origin.top) / unit - 20;
-    const right = (Math.max(...bounds.map(box => box.right)) - origin.left) / unit + 28;
-    const contentBottom = (Math.max(...bounds.map(box => box.bottom)) - origin.top) / unit;
-    const bottom = Math.min(contentBottom + 50, (nextNode.top - origin.top) / unit - 10);
-    const scale = Math.min(0.65, surface.clientWidth / (right - left), surface.clientHeight / (bottom - top));
-    graphCrop.style.width = `${(right - left) * scale}px`;
-    graphCrop.style.height = `${(bottom - top) * scale}px`;
-    graphHost.style.transform = `translate(${-left * scale}px, ${-top * scale}px) scale(${scale})`;
+        // A fixed close-up keeps the computation legible at every Task size.
+    // The full semantic scene remains intact beyond the viewport.
+    const focus = rendered.placedNodes.find(node => node.id === 'qk');
+    const focusX = focus.x - 210;
+    const focusY = focus.y - 80;
+    const scale = 1.12;
+    graphCrop.style.width = '100%';
+    graphCrop.style.height = '100%';
+    graphHost.style.transform = `translate(${-focusX * scale + 60}px, ${-focusY * scale}px) scale(${scale})`;
 
     const photoHost = $('#photo-graph');
     const photoCrop = $('#photo-graph-crop');
@@ -180,7 +169,7 @@
       if (!photoLayout) {
         const projection = photoAPI.project(graph, {task: tasks[largest.task]});
         photoGraph = graphLayout.materialize(projection, new Set(), {
-          ...options, rootLayerGap: 60, alignSpineFront: true,
+          ...options, rootLayerGap: 60,
           executionFootprints: {qk: executionAPI.deckOffset(largest.pages)},
         });
         photoLayout = renderer.renderScene(photoHost, photoGraph, {
@@ -191,14 +180,10 @@
         photoBadge = photoRegion.querySelector('span');
         photoBadge.className = 'attention-count';
         photoBadge.setAttribute('aria-hidden', 'true');
-        const {sceneWidth, sceneHeight} = photoLayout;
-        const depth = largest.stacks - 1;
-        const width = Math.max(sceneWidth, photoRegion.offsetLeft + photoRegion.offsetWidth + depth * 10 + 1);
-        const height = Math.max(sceneHeight, photoRegion.offsetTop + photoRegion.offsetHeight + depth * 8 + 1);
-        const fit = Math.min(1, surface.clientWidth / width, surface.clientHeight / height);
-        photoCrop.style.width = `${width * fit}px`;
-        photoCrop.style.height = `${height * fit}px`;
-        photoHost.style.transform = `scale(${fit})`;
+        const focus = photoLayout.placedNodes.find(node => node.id === 'qk');
+        photoCrop.style.width = '100%';
+        photoCrop.style.height = '100%';
+        photoHost.style.transform = `translate(${-(focus.x - 210) * scale + 60}px, ${-(focus.y - 80) * scale}px) scale(${scale})`;
         photoHost.querySelectorAll('[data-pypa-node]').forEach(node => { node.disabled = true; });
       }
       photoBadge.textContent = `×${stackCount}`;
@@ -213,18 +198,15 @@
     }
 
     const stackHost = $('#assignment-stacks');
-    const tokenFormat = new Intl.NumberFormat('zh-CN');
     stackHost.style.setProperty('--pages-per-stack', largest.pagesPerStack);
-    const stackRows = largest.stacksDetail.map(({id, pages}) => {
+    const stackRows = largest.stacksDetail.map(({id}) => {
       const row = document.createElement('div');
       row.className = 'cache-stack-row';
       row.innerHTML = `
         <div class="cache-stack-clip">
           <section class="cache-stack" aria-label="Stack ${id}">
             <header><strong>Stack ${id}</strong><span></span></header>
-            <div class="cache-pages">${pages.map(page => `
-              <div class="cache-page"><strong>Page ${page.id}</strong><span></span></div>
-            `).join('')}</div>
+            <div class="cache-pages">${'<div class="cache-page"><strong></strong><span></span></div>'.repeat(largest.pagesPerStack)}</div>
           </section>
         </div>`;
       stackHost.append(row);
@@ -239,7 +221,7 @@
       const label = document.createElement('label');
       label.innerHTML = `
         <input type="radio" name="p06-task" value="${id}">
-        <span>Task ${id}</span>`;
+        <span>T${String(id).padStart(2, '0')}</span>`;
       const input = label.querySelector('input');
       input.addEventListener('change', () => select(id));
       $('#task-options').append(label);
@@ -262,10 +244,10 @@
       current = taskId;
       photoMode = photo;
       const {stacks: stackCount, pages: pageCount} = counts;
-      const quantity = tokenFormat.format(counts.seqLen);
       const unitLabel = photo ? '张照片' : 'tokens';
-      $('#task-legend').textContent = photo ? `工作小组 ${blockLabel} 认领的工单` : `Block ${blockLabel} 认领的 Task`;
-      $('#assignment-title').textContent = photo ? '顾客照片库 · 批次 / 照片包' : 'KV Cache · Stack / Page';
+      $('#task-legend').textContent = photo ? `工作小组 ${blockLabel} 工单选择` : `Block ${blockLabel} Task 选择`;
+      $('#block-label').textContent = photo ? `小组 ${blockLabel}` : `Block ${blockLabel}`;
+      $('#task-kind').textContent = photo ? '工单' : 'Tasks';
       $('.graph-heading h3').textContent = photo ? '冲印店 · 照片加工流程' : 'Graph · QK Matmul 特写';
       $('#module-label').textContent = photo ? '处理批次' : 'Attention 计算模块';
       $('#qk-label').textContent = photo ? '筛选去重' : 'QK Matmul';
@@ -273,9 +255,13 @@
       graphCrop.hidden = photo;
       photoCrop.hidden = !photo;
       if (photo) renderPhotoGraph(tasks[taskId], stackCount);
-      $('#cache-tokens').textContent = photo
-        ? `${stackCount} 个处理批次 · ${pageCount} 个标准照片包 · ${quantity} 张照片`
-        : `${stackCount} ${stackCount === 1 ? 'Stack' : 'Stacks'} · ${pageCount} ${pageCount === 1 ? 'Page' : 'Pages'} · ${quantity} 有效 tokens`;
+      $('#cache-tokens').textContent = String(counts.seqLen);
+      $('#stack-count').textContent = stackCount;
+      $('#page-count').textContent = pageCount;
+      $('#tokens-label').textContent = photo ? '张照片' : 'tokens';
+      $('.assignment').classList.toggle('is-dense', stackCount > 6);
+      $('#stacks-label').textContent = photo ? '处理批次' : 'stacks';
+      $('#pages-label').textContent = photo ? '标准照片包' : 'pages';
       stackRows.forEach(({row, tokens, pages}, index) => {
         const stack = counts.stacksDetail[index];
         row.classList.toggle('is-active', Boolean(stack));
@@ -283,21 +269,27 @@
         if (!stack) return;
 
         const validTokens = stack.tokenEnd - stack.tokenStart + 1;
-        const stackLabel = photo ? `第 ${stack.id + 1} 批` : `Stack ${stack.id}`;
+        const stackLabel = photo ? `第${stack.id + 1}批` : `Stack${stack.id}`;
         row.querySelector('header strong').textContent = stackLabel;
         row.querySelector('section').setAttribute('aria-label', stackLabel);
-        tokens.textContent = `${validTokens} / ${counts.pageTokens * counts.pagesPerStack} ${unitLabel}`;
+        tokens.textContent = `${validTokens} / ${counts.pageTokens * counts.pagesPerStack}`;
         pages.forEach((cell, offset) => {
           const page = stack.pages[offset];
           cell.classList.toggle('is-empty', !page);
           cell.inert = !page;
-          if (!page) return;
+          cell.classList.toggle('is-partial', Boolean(page && page.validTokens < counts.pageTokens));
+          if (!page) {
+            cell.firstElementChild.textContent = '';
+            cell.lastElementChild.textContent = '';
+            cell.removeAttribute('aria-label');
+            cell.style.setProperty('--valid-page', '0%');
+            return;
+          }
           const ratio = page.validTokens / counts.pageTokens;
           cell.style.setProperty('--valid-page', `${ratio * 100}%`);
-          cell.firstElementChild.textContent = photo ? `照片包 ${page.id + 1}` : `Page ${page.id}`;
-          cell.lastElementChild.textContent = page.validTokens === counts.pageTokens
-            ? `${page.validTokens} ${unitLabel}`
-            : `${page.validTokens} / ${counts.pageTokens} ${unitLabel}`;
+          cell.firstElementChild.textContent = photo ? '包' : 'P';
+          cell.lastElementChild.textContent = '';
+          cell.setAttribute('aria-label', `${photo ? '照片包' : 'Page'} ${photo ? page.id + 1 : page.id}，${page.validTokens} / ${counts.pageTokens} ${unitLabel}`);
         });
       });
       const qkCount = counts.nodes.qk.count;
@@ -315,8 +307,14 @@
       });
       buttons.forEach(button => {
         button.checked = Number(button.value) === taskId;
-        button.nextElementSibling.textContent = photo ? `工单 ${button.value}` : `Task ${button.value}`;
+        button.nextElementSibling.textContent = `T${button.value.padStart(2, '0')}`;
+        button.setAttribute('aria-label', `${photo ? '工单' : 'Task'} ${button.value}`);
       });
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const activeBadge = photo ? photoHost.querySelector('[data-pypa-execution-count="qk"]') : qkBadge;
+        activeBadge?.animate([{opacity: .45}, {opacity: 1}], {duration: 240, easing: 'ease-out'});
+        $('.allocation-metrics').animate([{opacity: .7}, {opacity: 1}], {duration: 180, easing: 'ease-out'});
+      }
       return true;
     }
 

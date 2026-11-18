@@ -53,7 +53,7 @@ highlight:
 
 - 多级并行调度的空间化映射：将任务分配、计算资源层级与工作项映射关系进行空间化组织，让开发者直观理解计算任务由谁执行、如何分配
 - 执行流水的动态演绎：将代码中的生产消费关系、数据依赖和资源复用机制转化为动态流水表达，直观呈现计算任务如何衔接
-- 循环执行规模直观可见：将计算节点的静态执行次数转化为多层重叠的视觉表达，让代码中的循环结构和重复计算规模显性化
+- 循环执行规模直观可见：按 SVG 实现 Block 01 / Tasks、绿色横向 tabs、数据规模数字、点线连接的绿色 Attention / QK 次数及三列 Stack 分段。按 T01 → T25 → T121 讲解；T01 的三组 Stack 同排，按 SVG 用尾页斜线底纹表示不足整页，并保留真实有效比例。
 
 painpoint:
 
@@ -82,3 +82,10 @@ highlight:
 
 - 第一幕（S0）：单组三圆围绕 Paged Attention。Graph、Assignment、Pipeline 分别沿用 P3 的蓝、绿、橙，背景依次对应 What / Why、Who / Where、How / When。入页后按 Graph → Assignment → Pipeline 自动聚焦，各停留约 1.2 秒，再回到三圆整体并停住。讲述三个视角如何观察同一计算上下文，以及交叉区如何表达关联。
 - 第二幕（S1–S3）：Next 从 Device 开始，继续进入 AI Core、Iteration。同组三圆等比缩放，中心仍是 Paged Attention，深入后增加层级标注。右侧同步高亮当前层级，页底保留路径。Previous 或右侧 Device 可返回设备范围，Reset 回到 S0 并重播。讲述观察粒度变化时，如何保留上下文与来路。
+
+# P05｜多级并行调度的空间化映射
+
+- **Stage 0，硬件映射。** 从 P01 的原始 HTML 提取 Device / Chip / Die 的 DOM 和对应样式，在 P05 内做局部覆盖。矩阵在左，硬件在右，硬件下方的渐变蒙版衔接两侧。焦点 Die 保留 3×8 组 AI Core，各组的 1 AIC + 2 AIV 去色。P01 保持原样。
+- **Stage 0，任务展开。** 从 `seq_lens` 的 Batch 维度和 `NUM_KV_HEADS` 推得 16 × 8 = 128 Tasks。任务编号为 `batch × 8 + kv_head`。Task 48 的 3072 tokens 按 128 tokens/Page、最多 4 Pages/Stack 组成 24 Pages、6 Stacks；Page 和 Stack 都是 Task 内的划分。依据：[示例源码](../../../Data/paged_attention_pypto.py#L98)及[分配循环](../../../Data/paged_attention_pypto.py#L261)。
+- **Stage 0 → Stage 1。** 用 `task_id % 24` 解释逻辑 Block 归属，物理核落位以运行记录为准。前进时，右侧硬件图与蒙版淡出，左侧同一张矩阵展开至页面中央。随后在矩阵中定位 Task 48，再查看 Block 归属，最后返回整体。
+- **操作。** 进入 P05 直接显示 Stage 0。「进入任务分配」或右方向键继续。Stage 1 起点按左方向键或点击「硬件映射」返回；「重置」返回第一幕。减少动态效果模式下直接切到下一幕。切页或快速操作会取消尚未结束的动画。演讲词使用 JSON 键 `9`。
