@@ -303,17 +303,17 @@ function renderB(el,v,id,r){
  const fURL=url(face),rURL=url(rim),mURL=url(mask),lURL=url(light);
  el.querySelector('.liquid-b-shine').style.backgroundImage=`url(${lURL})`;
  el.querySelector('.liquid-b-shine').style.backgroundSize='100% 100%';
- let svg=document.getElementById(id+'-svg');if(!svg){svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id=id+'-svg';svg.style.cssText='position:absolute;width:0;height:0;pointer-events:none';document.body.append(svg)}
+ const filterRoot=el.getRootNode();const filterHost=filterRoot===document?document.body:filterRoot;let svg=filterRoot.querySelector('[id="'+id+'-svg"]');if(!svg){svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id=id+'-svg';svg.style.cssText='position:absolute;width:0;height:0;pointer-events:none';filterHost.append(svg)}
  const img=(u,result)=>`<feImage href="${u}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="${result}"/>`;
  svg.innerHTML=`<filter id="${id}" color-interpolation-filters="sRGB" x="-30%" y="-100%" width="160%" height="300%">${img(fURL,'rawFaceMap')}<feGaussianBlur in="rawFaceMap" stdDeviation=".35" result="map"/><feDisplacementMap in="SourceGraphic" in2="map" scale="${v.strength===0?0:faceScale}" xChannelSelector="R" yChannelSelector="G"/><feGaussianBlur stdDeviation="${0.22}" result="face"/><feMorphology in="SourceGraphic" operator="erode" radius="2" result="rimChroma"/><feGaussianBlur in="rimChroma" stdDeviation="1" result="rimBackdrop"/>${img(rURL,'rimMap')}<feDisplacementMap in="rimBackdrop" in2="rimMap" scale="${scale}" xChannelSelector="R" yChannelSelector="G" result="sideSample"/><feColorMatrix in="sideSample" type="saturate" values="1.3" result="rimColor"/>${img(mURL,'mask')}<feComposite in="rimColor" in2="mask" operator="in" result="side"/><feComposite in="side" in2="face" operator="over"/></filter>`;
- const filter=/Chrome/.test(navigator.userAgent)?`url(#${id}) blur(${v.blur}px)`:`blur(${v.blur}px)`;el.style.backdropFilter=filter;el.style.webkitBackdropFilter=filter;
+ const filter=/Chrome/.test(navigator.userAgent)?`url("${location.href.split("#")[0]}#${id}") blur(${v.blur}px)`:`blur(${v.blur}px)`;el.style.backdropFilter=filter;el.style.webkitBackdropFilter=filter;
 }
 
 
 function sdf(x,y,w,h,r){let qx=Math.abs(x-w/2)-(w/2-r),qy=Math.abs(y-h/2)-(h/2-r);return Math.hypot(Math.max(qx,0),Math.max(qy,0))+Math.min(Math.max(qx,qy),0)-r}
 let slabId=0;
 function createLiquidGlass(element,options){
- if(element.dataset.liquidGlass==='panel')return {destroy(){}};
+ if(element.dataset.liquidGlass==='panel'&&!element.hasAttribute('data-liquid-optics'))return {destroy(){}};
  const id='liquid-slab-'+(++slabId),shine=document.createElement('span');
  shine.className='liquid-b-shine';shine.setAttribute('aria-hidden','true');element.append(shine);
  let raf=0,lastKey='';
@@ -322,7 +322,7 @@ function createLiquidGlass(element,options){
  if(key===lastKey)return;lastKey=key;renderB(element,activeSettings(),id,Math.min(options.borderRadius,element.clientWidth/2,element.clientHeight/2));
  });};
  const resize=new ResizeObserver(render);resize.observe(element);render();
- return {destroy(){resize.disconnect();cancelAnimationFrame(raf);shine.remove();document.getElementById(id+'-svg')?.remove();}};
+ return {destroy(){resize.disconnect();cancelAnimationFrame(raf);shine.remove();element.getRootNode().querySelector('[id="'+id+'-svg"]')?.remove();}};
 }
 
 const presets=Object.freeze({
@@ -351,7 +351,9 @@ function restore(element,record){
 function remove(element){const record=instances.get(element);if(record){instances.delete(element);restore(element,record);}}
 function refresh(){
  if(!started)return;
- const candidates=new Set(document.querySelectorAll(selector));
+ const candidates=new Set();
+ function collect(root){for(const el of root.querySelectorAll(selector))candidates.add(el);for(const el of root.querySelectorAll('*'))if(el.shadowRoot)collect(el.shadowRoot);}
+ collect(document);
  for(const element of instances.keys())if(!candidates.has(element))remove(element);
  for(const element of candidates){
   const preset=element.getAttribute('data-liquid-glass');
