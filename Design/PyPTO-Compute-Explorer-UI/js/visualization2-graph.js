@@ -55,8 +55,7 @@
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
       }));
-      const alignSpineFront=global.PtoPhotoNarrative.enabled&&!!adapter?.narrativeTask;
-      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,executionFootprints,alignSpineFront,...adapter?.layoutOptions};
+      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,executionFootprints,...adapter?.layoutOptions};
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
       if(!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);

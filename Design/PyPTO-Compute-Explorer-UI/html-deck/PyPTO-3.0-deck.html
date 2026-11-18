@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="../../p05-assignment-storytelling/assignment-focus.css">
 <link rel="stylesheet" href="p05-assignment-story.css">
 <script src="../../p05-assignment-storytelling/assignment-focus.js"></script>
+<script src="p05-hardware-stage.js"></script>
 <script src="p05-assignment-story.js"></script>
 <link rel="stylesheet" href="../styles/pipeline-appearance.css">
 <link rel="stylesheet" href="../../p07-pipeline-storytelling/story.css">
@@ -7558,43 +7559,67 @@ body.ai-extracted .viz2 .viz2-title-group > [data-viz2-world-title]{flex:0 0 aut
   position:absolute; inset:36px 0 auto; margin:0; pointer-events:none;
 }
 .design-slide[data-strategy-chapter="native"] .strategy-demo { flex:1; min-height:0; height:auto; }
+/* P08's editorial cards are scoped to its content area. */
 [data-strategy-summary] .strategy-summary-grid {
-  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px;
-  flex:1; min-height:0; align-content:safe center;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;
+  flex:1;min-height:0;align-content:center;padding:32px;
+  background:#101010;color:#eeeeec;
 }
 [data-strategy-summary] .strategy-summary-frame {
-  display:grid; grid-template-rows:72px 306px 76px; min-width:0; margin:0;
-  border:1px solid #343434; border-radius:14px; overflow:hidden; background:#171717;
+  position:relative;display:grid;grid-template-rows:105px 88px 265px;
+  min-width:0;margin:0;padding:23px 20px 18px;
+  background:#191919;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,0 100%);
+}
+[data-strategy-summary] .strategy-summary-frame::before {
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(45deg,transparent calc(50% - .6px),#444444 50%,transparent calc(50% + .6px)) top right / 20px 20px no-repeat;
+  border:1px solid #3c3c3c;
 }
 [data-strategy-summary] .strategy-summary-heading {
-  align-self:center; margin:0; padding:0 24px;
-  color:#f3f3f3; font:600 24px/1.2 var(--deck-sans);
+  grid-row:1;align-self:start;margin:0;padding:0 28px 0 0;
+  color:#eeeeec;font:500 24px/1.4 var(--deck-sans);
 }
-[data-strategy-summary] .strategy-summary-image {
-  display:grid; place-items:center; padding:14px;
-  border-block:1px solid #2c2c2c; background:#121212;
-}
-[data-strategy-summary] .strategy-summary-crop {
-  position:relative; width:100%; aspect-ratio:var(--crop-ratio); overflow:hidden;
-}
-[data-strategy-summary] .strategy-summary-crop img {
-  position:absolute; top:0; left:0; display:block; width:var(--image-width); max-width:none; height:auto;
-  transform:translate(var(--crop-x),var(--crop-y));
-}
-/* Trim the screenshot margins on the slide. */
-[data-strategy-summary] [data-compute-axis="assignment"] .strategy-summary-crop {
-  --crop-ratio:1.88; --image-width:109.89%; --crop-x:-3%; --crop-y:-8%;
-}
-[data-strategy-summary] [data-compute-axis="graph"] .strategy-summary-crop {
-  --crop-ratio:1.72; --image-width:111.11%; --crop-x:-5%; --crop-y:-13%;
-}
-[data-strategy-summary] [data-compute-axis="pipeline"] .strategy-summary-crop {
-  --crop-ratio:2.50; --image-width:111.11%; --crop-x:-4%; --crop-y:-17%;
+[data-strategy-summary] .strategy-summary-heading span {
+  display:block;color:var(--p08-accent);font:14px/1.5 var(--deck-sans);margin-bottom:6px;
 }
 [data-strategy-summary] .strategy-summary-frame figcaption {
-  display:grid; align-content:center; padding:12px 24px;
-  color:#bdbdbd; font:16px/1.45 var(--deck-sans);
+  grid-row:2;align-self:end;margin:0;padding:0 0 17px;
+  color:#c1c1be;font:17px/1.5 var(--deck-sans);
 }
+[data-strategy-summary] .strategy-summary-image {
+  grid-row:3;min-height:0;overflow:hidden;border:1px solid #343434;background:#101010;
+}
+[data-strategy-summary] .strategy-summary-image svg {
+  display:block;width:100%;height:100%;color:var(--p08-accent);
+}
+[data-strategy-summary] .strategy-summary-image .p08-line {
+  fill:none;stroke:#6d737c;stroke-width:1;vector-effect:non-scaling-stroke;
+}
+[data-strategy-summary] .strategy-summary-image .p08-guide {
+  fill:none;stroke:#40454c;stroke-width:1;stroke-dasharray:3 4;vector-effect:non-scaling-stroke;
+}
+[data-strategy-summary] .strategy-summary-image text {
+  fill:currentColor;font:12px var(--deck-mono);
+}
+[data-strategy-summary] .p08-mark {
+  position:absolute;right:22px;top:24px;width:17px;height:17px;
+  background:radial-gradient(circle,var(--p08-accent) 1px,transparent 1.2px) 0 0 / 4px 4px;
+  clip-path:polygon(45% 0,100% 0,100% 100%,0 100%);
+}
+
+[data-strategy-summary] .strategy-summary-frame[data-compute-axis="assignment"] {--p08-accent:#6ad9a2}
+[data-strategy-summary] .strategy-summary-frame[data-compute-axis="graph"] {--p08-accent:#819efe}
+[data-strategy-summary] .strategy-summary-frame[data-compute-axis="pipeline"] {--p08-accent:#efb864}
+[data-strategy-summary] .strategy-summary-image [fill]:not([fill="none"]) {
+  fill:color-mix(in srgb,var(--p08-accent) 12%,#191919);
+}
+[data-strategy-summary] .strategy-summary-image [stroke] {
+  stroke:color-mix(in srgb,var(--p08-accent) 55%,#343434);
+}
+[data-strategy-summary] .strategy-summary-image .p08-line {
+  stroke:color-mix(in srgb,var(--p08-accent) 48%,#343434);
+}
+[data-strategy-summary] .strategy-summary-image text {fill:#d7d9dd}
 
 </style>
 </head><body data-deck-role="deck"><main class="deck-main" aria-label="演示文稿">
@@ -7679,23 +7704,27 @@ body &gt; main.page {
 .other-foot { padding:4px 10px; font-weight:700; }
 .hw { margin-top:27px; }
 .hardware-layout { display:grid; grid-template-columns:minmax(0,2.85fr) minmax(0,1fr); gap:9px; }
-.device-frame,.chip-frame,.die-frame { min-width:0; border:1px solid #535353; border-radius:7px; }
+.device-frame,.chip-frame,.die-frame { min-width:0; padding:12px; border:1px solid #535353; border-radius:7px; }
 .device-frame {
   --corner-pin:radial-gradient(circle, #222 1px, #666 1.4px 2px, transparent 2.4px);
-  display:grid; grid-template-columns:90px minmax(0,1fr); align-items:stretch; padding:10px;
+  display:grid; grid-template-columns:48px minmax(0,1fr); align-items:stretch;
   background:
     var(--corner-pin) left 7px top 7px / 5px 5px no-repeat,
     var(--corner-pin) right 7px top 7px / 5px 5px no-repeat,
     var(--corner-pin) left 7px bottom 7px / 5px 5px no-repeat,
     var(--corner-pin) right 7px bottom 7px / 5px 5px no-repeat #303030;
 }
-.chip-frame { display:grid; grid-template-columns:88px repeat(2,minmax(0,1fr)); gap:6px; background:#242424; padding:7px; border-radius:5px; }
+.chip-frame { display:grid; grid-template-columns:44px repeat(2,minmax(0,1fr)); gap:6px; background:#242424; border-radius:5px; }
 .hw-entity { display:grid; place-content:center; gap:2px; text-align:center; font-size:10px; }
 .hw-entity small { font-size:8px; color:var(--secondary); }
-.die-frame { padding:5px; background:#1d1d1d; border-color:#435475; border-radius:4px; }
-.die-label { display:block; font-size:9px; margin-bottom:4px; }
-.core-tiles { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:3px; }
-.core-tile { display:grid; place-content:center; height:20px; border:1px solid #3a3a3a; border-radius:2px; background:#282828; }
+.die-frame {
+  display:grid; grid-template-columns:auto max-content; align-items:center; justify-content:space-between; gap:8px;
+  background:#1d1d1d; border-color:#435475; border-radius:4px;
+}
+.die-label { display:grid; gap:2px; min-width:42px; text-align:center; font-size:9px; white-space:nowrap; }
+.die-label small { color:var(--secondary); font-size:8px; font-weight:400; }
+.core-tiles { --core-size:20px; display:grid; grid-template-columns:repeat(8,var(--core-size)); gap:3px; }
+.core-tile { display:grid; place-content:center; aspect-ratio:1; border:1px solid #3a3a3a; border-radius:2px; background:#282828; }
 .core-tile::before,.core-tile::after { content:&quot;&quot;; display:block; width:9px; height:2px; }
 .core-tile::before { background:var(--blue); margin-bottom:2px; }
 .core-tile::after { background:linear-gradient(90deg,var(--green) 43%,transparent 43% 57%,var(--green) 57%); }
@@ -7757,36 +7786,35 @@ body &gt; main.page {
         &lt;/aside&gt;
       &lt;/div&gt;
       &lt;section class=&quot;hw&quot; aria-label=&quot;Device、Chip、Die 与 AI Core Group 执行层级&quot;&gt;
-        &lt;div class=&quot;hw-header&quot;&gt;&lt;span&gt;执行组织深入 · 多级调度、存储与搬运约束、同步与流水&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;ASCEND 950PR_9599 · 示例配置&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;hw-header&quot;&gt;&lt;span&gt;执行组织深入 · 多级调度、存储与搬运约束、同步与流水&lt;/span&gt;&lt;span class=&quot;small-en&quot;&gt;ASCEND 910C · 示例配置&lt;/span&gt;&lt;/div&gt;
         &lt;div class=&quot;hardware-layout&quot;&gt;
           &lt;div class=&quot;device-frame&quot;&gt;
-            &lt;div class=&quot;hw-entity&quot;&gt;&lt;strong&gt;Device&lt;/strong&gt;&lt;/div&gt;
+            &lt;div class=&quot;hw-entity&quot;&gt;&lt;strong&gt;Device&lt;/strong&gt;&lt;small&gt;加速卡&lt;/small&gt;&lt;/div&gt;
             &lt;div class=&quot;chip-frame&quot;&gt;
-              &lt;div class=&quot;hw-entity&quot;&gt;&lt;strong&gt;Chip&lt;/strong&gt;&lt;small&gt;2 Dies&lt;/small&gt;&lt;/div&gt;
-              &lt;div class=&quot;die-frame&quot;&gt;&lt;strong class=&quot;die-label&quot;&gt;Die 0&lt;/strong&gt;
-                &lt;div class=&quot;core-tiles&quot; role=&quot;img&quot; aria-label=&quot;18 组 AI Core，每组包含 1 个 AIC 和 2 个 AIV&quot;&gt;
-                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
-                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+              &lt;div class=&quot;hw-entity&quot;&gt;&lt;strong&gt;Chip&lt;/strong&gt;&lt;small&gt;昇腾910C&lt;/small&gt;&lt;/div&gt;
+              &lt;div class=&quot;die-frame&quot;&gt;&lt;strong class=&quot;die-label&quot;&gt;Die&lt;small&gt;晶粒/裸片&lt;/small&gt;&lt;/strong&gt;
+                &lt;div class=&quot;core-tiles&quot; role=&quot;img&quot; aria-label=&quot;24 组 AI Core，每组包含 1 个 AIC 和 2 个 AIV&quot;&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
                 &lt;/div&gt;
               &lt;/div&gt;
-              &lt;div class=&quot;die-frame&quot;&gt;&lt;strong class=&quot;die-label&quot;&gt;Die 1&lt;/strong&gt;
-                &lt;div class=&quot;core-tiles&quot; role=&quot;img&quot; aria-label=&quot;18 组 AI Core，每组包含 1 个 AIC 和 2 个 AIV&quot;&gt;
-                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
-                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+              &lt;div class=&quot;die-frame&quot;&gt;&lt;strong class=&quot;die-label&quot;&gt;Die&lt;small&gt;晶粒/裸片&lt;/small&gt;&lt;/strong&gt;
+                &lt;div class=&quot;core-tiles&quot; role=&quot;img&quot; aria-label=&quot;24 组 AI Core，每组包含 1 个 AIC 和 2 个 AIV&quot;&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
+                  &lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;&lt;span class=&quot;core-tile&quot;&gt;&lt;/span&gt;
                 &lt;/div&gt;
               &lt;/div&gt;
             &lt;/div&gt;
           &lt;/div&gt;
           &lt;dl class=&quot;hw-counts&quot;&gt;
-            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AI Core Groups&lt;/dt&gt;&lt;dd&gt;36&lt;/dd&gt;&lt;/div&gt;
-            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AIC / Cube&lt;/dt&gt;&lt;dd&gt;36&lt;/dd&gt;&lt;/div&gt;
-            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AIV / Vector&lt;/dt&gt;&lt;dd&gt;72&lt;/dd&gt;&lt;/div&gt;
+            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AI Core Groups&lt;/dt&gt;&lt;dd&gt;48&lt;/dd&gt;&lt;/div&gt;
+            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AIC / Cube&lt;/dt&gt;&lt;dd&gt;48&lt;/dd&gt;&lt;/div&gt;
+            &lt;div class=&quot;hw-count&quot;&gt;&lt;dt&gt;AIV / Vector&lt;/dt&gt;&lt;dd&gt;96&lt;/dd&gt;&lt;/div&gt;
           &lt;/dl&gt;
         &lt;/div&gt;
       &lt;/section&gt;
     &lt;/article&gt;
   &lt;/section&gt;
-  &lt;p style=&quot;margin:17px 0 0;font-size:19px;color:#ddd&quot;&gt;理解一个融合算子，需要追踪计算怎样组织、分配并执行。&lt;/p&gt;
 &lt;/main&gt;
 &lt;/body&gt;
 &lt;/html&gt;
@@ -7872,13 +7900,16 @@ body &gt; main.page {
     </div>
   </header>
   <div class="design-demo" data-p05-story>
-    <div data-p05-matrix aria-label="Assignment 任务矩阵"></div>
+    <div data-p05-matrix aria-label="Assignment 任务矩阵" hidden></div>
+    <div data-p05-hardware hidden></div>
   </div>
   <div class="p05-narration">
     <p data-p05-caption></p>
     <output data-p05-details aria-live="polite"></output>
   </div>
   <div data-p05-actions role="group" aria-label="Assignment 演示操作">
+    <button type="button" data-p05-action="hardware" hidden>硬件映射</button>
+    <button type="button" data-p05-action="next" hidden>进入任务分配</button>
     <span data-p05-operator-actions>
       <button type="button" data-p05-action="reference">Task 48</button>
       <button type="button" data-p05-action="block" disabled>任务生成</button>
@@ -7947,24 +7978,37 @@ body &gt; main.page {
   <header data-deck-title></header>
   <div class="strategy-summary-grid">
     <figure class="strategy-summary-frame" data-compute-axis="assignment" aria-label="Assignment 视图">
+      <span class="p08-mark" aria-hidden="true"></span>
       <h3 class="strategy-summary-heading"><span data-compute-axis="assignment">数据</span>分配空间化</h3>
-      <div class="strategy-summary-image">
-        <span class="strategy-summary-crop"><img src="assets/p08/assignment.png" width="2896" height="1776" alt="按 KV Head 排列的 Block 与 Task 分配矩阵"></span>
-      </div>
+      <div class="strategy-summary-image"><svg viewBox="0 0 370 265" role="img" aria-label="三个 Block 分组，同一组包含间隔 24 的 Task"><path class="p08-guide" d="M102 20V245M190 20V245M278 20V245"/><path class="p08-guide" d="M14 80H355"/><text x="20" y="58">B00</text><rect x="70" y="39" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="103" y="61" text-anchor="middle">T00</text><rect x="158" y="39" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="191" y="61" text-anchor="middle">T24</text><rect x="246" y="39" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="279" y="61" text-anchor="middle">T48</text><path class="p08-guide" d="M14 146H355"/><text x="20" y="124">B01</text><rect x="70" y="105" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="103" y="127" text-anchor="middle">T01</text><rect x="158" y="105" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="191" y="127" text-anchor="middle">T25</text><rect x="246" y="105" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="279" y="127" text-anchor="middle">T49</text><path class="p08-guide" d="M14 212H355"/><text x="20" y="190">B02</text><rect x="70" y="171" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="103" y="193" text-anchor="middle">T02</text><rect x="158" y="171" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="191" y="193" text-anchor="middle">T26</text><rect x="246" y="171" width="66" height="34" fill="#e3e5df" stroke="#a6a9a1"/><text x="279" y="193" text-anchor="middle">T50</text><text x="20" y="247">Task → Block</text></svg></div>
       <figcaption><span>按 KV Head 和 Block 排布任务，<br>快速定位每个 Task 的归属。</span></figcaption>
     </figure>
     <figure class="strategy-summary-frame" data-compute-axis="graph" aria-label="Graph 视图">
+      <span class="p08-mark" aria-hidden="true"></span>
       <h3 class="strategy-summary-heading"><span data-compute-axis="graph">计算</span>循环层次化</h3>
-      <div class="strategy-summary-image">
-        <span class="strategy-summary-crop"><img src="assets/p08/graph.png" width="3126" height="1882" alt="从 Task Inputs 到 QK、Softmax 和 PV 的分层计算图局部"></span>
-      </div>
+      <div class="strategy-summary-image"><svg viewBox="0 0 370 265" role="img" aria-label="Attention 按 Stack 重复，QK Matmul 按 Page 重复">
+<path class="p08-guide" d="M20 236L350 31M20 207L305 31"/>
+<path d="M43 61H304V219H43Z" fill="#e2e4dd" stroke="#bcc0b6"/>
+<path d="M35 53H296V211H35Z" fill="#e9ebe5" stroke="#b5b9ae"/>
+<path d="M27 45H288V203H27Z" fill="#f5f5f3" stroke="#a6a9a1"/>
+<text x="42" y="72">Attention · Stack</text>
+<path class="p08-line" d="M63 120H253V170H63Z M57 114H247V164H57Z"/>
+<rect x="51" y="108" width="190" height="50" fill="#e0e3d9" stroke="#92998b"/>
+<text x="146" y="138" text-anchor="middle">QK Matmul · Page</text>
+<path class="p08-guide" d="M288 45L334 21V179L288 203M304 219L342 195"/>
+<text x="27" y="245">Task → Stack → Page</text></svg></div>
       <figcaption><span>沿数据依赖读计算主链，<br>再从 Task 深入 Stack 和 Page。</span></figcaption>
     </figure>
     <figure class="strategy-summary-frame" data-compute-axis="pipeline" aria-label="Pipeline 视图">
+      <span class="p08-mark" aria-hidden="true"></span>
       <h3 class="strategy-summary-heading"><span data-compute-axis="pipeline">执行时间</span>过程化</h3>
-      <div class="strategy-summary-image">
-        <span class="strategy-summary-crop"><img src="assets/p08/pipeline.png" width="3036" height="1848" alt="按逻辑轮次排列的 QK、Softmax、PV 和 Accumulate 泳道"></span>
-      </div>
+      <div class="strategy-summary-image"><svg viewBox="0 0 370 265" role="img" aria-label="按逻辑轮次组织 QK、Softmax、PV 与 Accumulate，虚线表达交接依赖">
+<path class="p08-guide" d="M92 29V236M153 29V236M214 29V236M275 29V236M336 29V236"/>
+<path class="p08-line" d="M85 65H350M85 110H350M85 155H350M85 200H350"/>
+<text x="14" y="60">QK</text><text x="14" y="105">Softmax</text><text x="14" y="150">PV</text><text x="14" y="195">Accum.</text>
+<g fill="#dce0d5" stroke="#92998b"><rect x="92" y="43" width="48" height="22"/><rect x="153" y="43" width="48" height="22"/><rect x="153" y="88" width="48" height="22"/><rect x="214" y="88" width="48" height="22"/><rect x="214" y="133" width="48" height="22"/><rect x="275" y="133" width="48" height="22"/><rect x="275" y="178" width="48" height="22"/></g>
+<path class="p08-guide" d="M116 65V76H177V88M177 110V121H238V133M238 155V166H299V178"/>
+<text x="18" y="245">Logical Tick →</text></svg></div>
       <figcaption><span>沿逻辑轮次追踪工序依赖，<br>看清数据交接和 Slot 复用。</span></figcaption>
     </figure>
   </div>
@@ -9431,7 +9475,7 @@ h1.deck-heading {
   <div class="control-bar">
     <div class="control-group deck-editor-controls">
       <button type="button" id="presenter-toggle" title="演讲者模式（P）">演讲者模式</button>
-      <button type="button" id="deck-edit-toggle" title="开启编辑模式" aria-pressed="false">编辑</button>
+      <button type="button" id="deck-edit-toggle" title="双击幻灯片文字开始编辑，按 Enter 确认" aria-pressed="true">编辑</button>
       <button type="button" id="deck-edit-bind" title="关联当前 Deck 的原 HTML 文件">关联原文件</button>
       <span id="deck-edit-status" role="status" aria-live="polite"></span>
     </div>
@@ -9500,6 +9544,68 @@ h1.deck-heading {
       "part": 0,
       "original": "从代码到硬件执行，算子开发的理解复杂度正在增加",
       "value": "PyPTO3.0支持复杂的融合算子和多层级执行编排"
+    },
+    "[[[\"section\",1],[\"article\",1],[\"section\",2],[\"div\",0],[\"span\",0]],0,\"执行组织深入 · 多级调度、存储与搬运约束、同步与流水\"]": {
+      "path": [
+        [
+          "section",
+          1
+        ],
+        [
+          "article",
+          1
+        ],
+        [
+          "section",
+          2
+        ],
+        [
+          "div",
+          0
+        ],
+        [
+          "span",
+          0
+        ]
+      ],
+      "part": 0,
+      "original": "执行组织深入 · 多级调度、存储与搬运约束、同步与流水",
+      "value": "执行层级"
+    },
+    "[[[\"section\",1],[\"article\",1],[\"section\",2],[\"div\",1],[\"div\",0],[\"div\",0],[\"strong\",0]],0,\"Device\"]": {
+      "path": [
+        [
+          "section",
+          1
+        ],
+        [
+          "article",
+          1
+        ],
+        [
+          "section",
+          2
+        ],
+        [
+          "div",
+          1
+        ],
+        [
+          "div",
+          0
+        ],
+        [
+          "div",
+          0
+        ],
+        [
+          "strong",
+          0
+        ]
+      ],
+      "part": 0,
+      "original": "Device",
+      "value": "加速卡"
     }
   },
   "1": {
@@ -10278,6 +10384,14 @@ body > :is(.artboard,.page,.slide) {
   transform:scale(1.2); transform-origin:top left;
 }
 </style><style data-deck-header-theme>
+/* Reuse code_artifact.html's 48px background grid across deck canvases. */
+:is(body, .design-slide, body > .artboard, body > .page, body > .slide, body > main, #slide) {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: 0 0;
+}
 :root {
   --deck-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
   --deck-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -19640,6 +19754,10 @@ function activateLocalControls() {
   controlObserver.disconnect();
   chapterStatus.textContent = chapterLabel(slides[current]);
   if (deckRole === 'preview') return;
+  // The overview selects P05 before releasing the main stage's inert state.
+  if (slides[current] === p05AssignmentSlide) {
+    controlObserver.observe(stage,{attributes:true,attributeFilter:['inert']});
+  }
   for (const group of localControlGroups.get(slides[current]) ?? []) {
     controlObserver.observe(group,{subtree:true,childList:true,characterData:true,attributes:true,
       attributeFilter:['aria-current','aria-pressed','aria-label','disabled','hidden','inert']});
@@ -19785,7 +19903,6 @@ function navigate(direction, skipP9 = false) {
   if (frame === p06Slide && p06Story()?.advance(direction)) return;
   const story = strategySlides.get(slides[current]);
   if (frame.hasAttribute('data-opening') ? story?.advance(direction) : story?.set(story.beat + direction)) return;
-  if (frame === p05AssignmentSlide && direction < 0) return;
   const target = current + direction;
   const targetStory = strategySlides.get(slides[target]);
   if (targetStory && direction < 0) {
@@ -19903,7 +20020,7 @@ let demoOpen = false;
 let timerStart = 0;
 let timer = 0;
 const drafts = Object.create(null);
-const strategyNotes = {"native-strategy-summary": "这一组设计，我们不是简单地把代码转换成三张可视化图表，而是根据开发者理解计算的过程，选择了三种不同的交互表达方式。\n\n对于任务分配，用空间关系表达组织与归属；对于计算图，用多层结构表达计算逻辑与循环规模；对于执行流水，用动态过程表达依赖、交接与协同。\n\n我们希望让原本需要开发者从代码中手工还原的计算规则，逐渐变成可以直接观察、定位和理解的计算对象。", "9": "想象一家冲印店收到 128 张工单。知道总量之后，还要知道怎样按顾客和主题整理，以及每张工单归哪个工作小组。算子也是一样。\n\n回到 Assignment。16 个 Batch 和 8 个 KV Head 组合产生 128 个逻辑 Task。以前开发者要从循环、索引和分配规则推导这些关系。现在每个交点都能直接定位。\n\n先选中 Task 48，看看它在整个矩阵里的位置。放大后可以核对它来自 Batch 6、KV Head 0，输入范围覆盖 3072 tokens。\n\n再查看执行归属。Task 48 落在逻辑 Block 00，可以同时看到这个 Block 中的其他 Task。这里的 Block 是逻辑分组。\n\n最后回到全局。开发者可以直接观察、定位并追踪任务怎样生成、怎样组织、交给哪个 Block。", "10": "开发者会在纸上手排流水，把阶段、同步指令和交接关系画在一起。复杂之处在于，同一个阶段可能既等数据，又等通知，还受资源复用约束。执行逻辑变了，纸上的关系也要跟着维护。我们沿用开发者熟悉的轮次和泳道，让这些关系出现在同一张图上。\n\n切到「等数据」，沿实线追踪谁产生数据、谁消费数据。切到「等同步」，沿点线和 READY 节点看谁发出信号、谁在等待。两种关系可能发生在同一对阶段之间，通知表达的是数据何时可以交接。\n\n切到「等资源」，沿虚线看同一 Slot 的前一次读取和下一次覆盖。旧数据读取完成后，这个位置才能交给下一轮。切回「全部」，三个焦点回到同一套时间坐标，开发者可以随时回看全局。Logical Tick 表示逻辑轮次，实际等待时长需要运行记录。", "11": "右侧列出了逻辑 Block 01 在当前场景认领的 6 个 Task。默认选中 Task 1，1025 个有效 token 分成 3 个 Stack、9 个 Page，最后一页只有 1 个有效 token。\n\n切到 Task 25，只剩 1 个 Stack 和 1 个 Page。再切到 Task 121，规模变为 7 个 Stack、26 个 Page。左侧 Attention 按 Stack 重复，QK Matmul 按有效逻辑 Page 重复。", "12": "前面我们看过任务、流水和循环规模。再回到源码，BLOCK_SIZE 是 128，STACK_PAGES 是 4，两者相乘得到每 Stack 512 tokens。Task 48 读取 Batch 6 的 seq_len，默认是 3072 tokens。向上取整后得到 24 Pages、6 Stacks。若数据不足整页，最后一页也要保留，只记有效 tokens。源码给出了规则，工程师仍要找到输入并自己还原规模。没有输入，缺少“计算现场”，难以带入结果。如果直接把参数带入计算模型呢？", "13": "直接进入 Task 48 所在的 Block 00。从 3072 tokens 开始，Assignment 按原规则划分为 24 Pages、6 Stacks。用左下角的原生 Sequence Length 数值框或滑杆调整输入。试一下 1153，Block 内会更新为 10 Pages、3 Stacks，尾页 P9 只有 1 个有效 token。可以点开 P9 核对容量，再用原配置和对比配置来回查看工作划分的变化。", "7": "三个观察视角围绕同一计算上下文。Graph 看计算与依赖，Assignment 看工作和数据分配，Pipeline 看执行组织。三圆形成后，下方的 Tensor / Memory Inspector 表示从选中对象继续查看详情和证据的规划能力。", "2": "第一步｜运行前，我们能读懂源码里的计算规则、数据划分和逻辑执行。运行时，我们已有调优工具，也在持续建设。接下来要做的是把仿真和实测证据接入统一计算语义模型。我们希望同一个计算对象能跨源码、编译变换和执行证据被追溯。以图中的融合和拆分为例，开发者可以从执行对象回看它怎样被改写，以及来自哪些原始操作。未来，三个视角可以在同一计算上下文切换静态与动态信息。Pipeline 对照逻辑时序与实际事件，耗时以运行记录为准。\n\n第二步｜最终希望从一个运行问题出发，找到对应执行，追溯编译优化和源码，再做有针对性的修改。复跑并对比结果，确认问题是否解决。这就是两个方向共同指向的诊断与优化闭环。"};
+const strategyNotes = {"native-strategy-summary": "这一组设计，我们不是简单地把代码转换成三张可视化图表，而是根据开发者理解计算的过程，选择了三种不同的交互表达方式。\n\n对于任务分配，用空间关系表达组织与归属；对于计算图，用多层结构表达计算逻辑与循环规模；对于执行流水，用动态过程表达依赖、交接与协同。\n\n我们希望让原本需要开发者从代码中手工还原的计算规则，逐渐变成可以直接观察、定位和理解的计算对象。", "9": "【Stage 0｜从输入到任务】前面我们看到，计算规则要带入实际输入，才会展开成具体任务。这个 Paged Attention 示例从 seq_lens 的第一维取到 16 个 Batch，每个 Batch 配对 8 个 KV Head。每个组合生成一个逻辑 Task，所以一共是 16 × 8 = 128 个，编号 0–127。Task 48 对应 Batch 6、KV Head 0；它读取 3072 tokens，每 128 tokens 划为一页，每最多 4 页组成一个 Stack，因此这个 Task 内有 24 Pages、6 Stacks。序列长度改变的是 Task 内的划分和循环规模。\n\n【Stage 0｜任务交给谁】这些逻辑任务要交给有限的硬件资源执行。左边的矩阵保留 Batch 与 KV Head 的交点，右边标出 Device、Chip 和 Die：一个 Die 内有 3 行 × 8 列，共 24 个 AI Core。示例在代码中启动 24 个 SPMD Block，每个 Block 从自己的编号开始、以 24 为步长领取任务。Task 0 和 Task 24 都归 Block 00。这里展示的是逻辑分配；具体落到哪个物理核，需要运行记录确认。\n\n【Stage 1｜进入 Assignment】前进时，右侧硬件图淡出，左侧同一张任务矩阵移到页面中央，继续展示任务定位和逻辑分配。过去开发者需要从索引和循环中还原每个任务的归属；现在可以直接在整个矩阵中定位 Task 48，随后查看它和哪些任务同属 Block 00。若切到冲印店，可用工单和工作小组理解同样的分组关系。\n\n刚才看到的是任务怎样生成、怎样分配。下一页聚焦一个任务，看内部的计算逻辑如何随 Page 和 Stack 重复。", "10": "开发者会在纸上手排流水，把阶段、同步指令和交接关系画在一起。复杂之处在于，同一个阶段可能既等数据，又等通知，还受资源复用约束。执行逻辑变了，纸上的关系也要跟着维护。我们沿用开发者熟悉的轮次和泳道，让这些关系出现在同一张图上。\n\n切到「等数据」，沿实线追踪谁产生数据、谁消费数据。切到「等同步」，沿点线和 READY 节点看谁发出信号、谁在等待。两种关系可能发生在同一对阶段之间，通知表达的是数据何时可以交接。\n\n切到「等资源」，沿虚线看同一 Slot 的前一次读取和下一次覆盖。旧数据读取完成后，这个位置才能交给下一轮。切回「全部」，三个焦点回到同一套时间坐标，开发者可以随时回看全局。Logical Tick 表示逻辑轮次，实际等待时长需要运行记录。", "11": "先从右侧 SVG 版卡片讲起。顶部是 Block 01 / Tasks 和 T01–T121 横向选择器，第一排是数据规模：1025 个有效 token、3 stacks、9 pages。第二排缩小显示 ×3 Attention 计算模块和 ×9 QK Matmul，对应上方两组划分。\n\n下方先看三列结构中的 Stack 0、Stack 1，各有四个完整 Page，共 512 / 512；再看同排的 Stack 2，仅有一个有效 token。尾页使用 SVG 中的斜线底纹和 P 标签，表示不足整页；真实占用仍按 1 / 128 绘制，页容量细节保留在无障碍标签中。\n\n切换 T25 和 T121，数字、计算图叠层和 Stack 分段同步更新。悬浮区尺寸、标题、数字区和结构区起点固定；新增 Stack 在三列网格中按行展开，七组时收紧行距。可切到冲印店理解同样的批次与照片包关系。", "12": "前面我们看过任务、流水和循环规模。再回到源码，BLOCK_SIZE 是 128，STACK_PAGES 是 4，两者相乘得到每 Stack 512 tokens。Task 48 读取 Batch 6 的 seq_len，默认是 3072 tokens。向上取整后得到 24 Pages、6 Stacks。若数据不足整页，最后一页也要保留，只记有效 tokens。源码给出了规则，工程师仍要找到输入并自己还原规模。没有输入，缺少“计算现场”，难以带入结果。如果直接把参数带入计算模型呢？", "13": "直接进入 Task 48 所在的 Block 00。从 3072 tokens 开始，Assignment 按原规则划分为 24 Pages、6 Stacks。用左下角的原生 Sequence Length 数值框或滑杆调整输入。试一下 1153，Block 内会更新为 10 Pages、3 Stacks，尾页 P9 只有 1 个有效 token。可以点开 P9 核对容量，再用原配置和对比配置来回查看工作划分的变化。", "7": "三个观察视角围绕同一计算上下文。Graph 看计算与依赖，Assignment 看工作和数据分配，Pipeline 看执行组织。三圆形成后，下方的 Tensor / Memory Inspector 表示从选中对象继续查看详情和证据的规划能力。", "2": "第一步｜运行前，我们能读懂源码里的计算规则、数据划分和逻辑执行。运行时，我们已有调优工具，也在持续建设。接下来要做的是把仿真和实测证据接入统一计算语义模型。我们希望同一个计算对象能跨源码、编译变换和执行证据被追溯。以图中的融合和拆分为例，开发者可以从执行对象回看它怎样被改写，以及来自哪些原始操作。未来，三个视角可以在同一计算上下文切换静态与动态信息。Pipeline 对照逻辑时序与实际事件，耗时以运行记录为准。\n\n第二步｜最终希望从一个运行问题出发，找到对应执行，追溯编译优化和源码，再做有针对性的修改。复跑并对比结果，确认问题是否解决。这就是两个方向共同指向的诊断与优化闭环。"};
 const p6DefaultNotes = "上一页，我们看到了 Task 在等待，却很难沿同一条路径解释它处理了哪些数据、依赖什么计算、来自哪段源码。\n\n这暴露了两个断点：计算规则藏在代码和配置里，需要开发者手工还原；换一个视角，又得重新寻找同一个对象。更换参数时，手工划分和流水推算还得再做一遍。\n\n所以我们有三个目标：让计算关系直接可见，降低理解门槛；让同一对象跨视角保持关联，建立认知连续性；让真实参数进入计算规则，支持主动推演。\n\n设计从三个层次介入：先用统一模型组织信息，再让对象和算法可感知、可定位，最后让用户比较不同参数下的计算组织。\n\n让同一次计算可理解、可追踪、可推演。下一页先看信息架构：三个视图如何围绕同一个对象组织起来？";
 let notesHandle, diskSnapshot, saveDelay, writing;
 let browserSaved = true;
@@ -20350,7 +20467,7 @@ function renderDeckHeader(root, index) {
   updateDeckHeader(content.querySelector('.deck-mast'),index);
   const strategyTitle = strategyTitles[slide.dataset.strategyChapter];
   content.querySelector('h1').textContent = strategyTitle ?? header.dataset.deckTitle;
-  content.append(...header.querySelectorAll('.strategy-subtitle,.strategy-description,[data-p05-modes]'));
+  content.append(...header.querySelectorAll('.strategy-subtitle,.strategy-description,[data-p05-modes],.p06-modes'));
   if (dynamicTitle) {
     content.querySelector('h1').replaceWith(dynamicTitle);
     if (dynamicSubtitle) content.append(dynamicSubtitle);

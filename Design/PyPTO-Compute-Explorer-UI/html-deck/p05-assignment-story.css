@@ -7,8 +7,35 @@
 [data-p05-assignment] [data-p05-matrix]>[data-focus-fragment="matrix"]{top:7%;height:91%}
 /* The first column reuses the Batch strip. Keep it visible as it moves into the Task. */
 [data-p05-assignment] [data-am-task-sequence][data-pa-column]{opacity:1!important}
-[data-p05-assignment] [data-focus="block"] .assignment-focus-lens{width:22%}
+[data-p05-assignment] [data-focus="block"] .assignment-focus-lens{
+  top:13%;width:31%;height:68%;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+}
 [data-p05-assignment] [data-focus="block"] .assignment-focus-lens figcaption{font-size:1.45cqw!important}
+.p05-assignment-source{
+  margin:4px 0 2px;padding:12px;border-radius:5px;background:#282a36;
+  --p05-annotation:#ffd18a;
+  color:#f8f8f2;font:12px/1.45 var(--deck-mono);
+}
+.p05-range-grid{display:grid;grid-template-columns:repeat(4,max-content);row-gap:5px}
+.p05-range-grid > :is(code,.p05-range-labels){
+  display:grid;grid-column:1 / -1;grid-template-columns:subgrid;font:inherit;white-space:pre;
+}
+.p05-assignment-source b{font-weight:inherit}
+.p05-py-keyword{color:#ff79c6}
+.p05-py-call{color:#8be9fd}
+.p05-py-number{color:#bd93f9}
+.p05-range-arg{border-bottom:1px dashed var(--p05-annotation)}
+.p05-range-labels > span{
+  position:relative;justify-self:start;margin-top:4px;padding:1px 5px;
+  border-radius:3px;background:#463825;color:var(--p05-annotation);
+  font:600 11px/1.4 var(--deck-sans);
+}
+.p05-range-labels > span:first-child{grid-column:2}
+.p05-range-labels > span::before{
+  content:"";position:absolute;bottom:100%;left:7px;height:8px;border-left:1px dashed currentColor;
+}
+.assignment-focus-lens .p05-assignment-source p{margin:8px 0 0;color:#c6c8db;font:inherit}
 [data-p05-assignment] .p05-narration{
   display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:37px;padding-top:8px;
 }
@@ -25,3 +52,57 @@
   background:#363044;color:#f2eafa;
 }
 [data-p05-modes] button:hover{color:#fff}
+
+[data-p05-assignment] :is([data-p05-matrix],[data-p05-hardware],[data-p05-actions] *)[hidden] {
+  display:none;
+}
+/* Both beats use the same matrix. The mask sits above it, under the hardware. */
+[data-p05-assignment][data-beat="0"] [data-p05-matrix]{width:74%}
+[data-p05-hardware] {
+  --secondary:#898b90;
+  --blue:#76787e;
+  --green:#76787e;
+  position:absolute;inset:0 0 0 55%;z-index:1;display:grid;align-items:center;
+  padding:0 18px 0 13%;
+  background:linear-gradient(90deg,transparent,#151515 38%);
+  pointer-events:none;font-family:var(--deck-sans);color:#ededed;
+}
+.p05-intro-hardware {min-width:0}
+.p05-intro-hardware > small {
+  font:12px/1.35 var(--deck-mono);letter-spacing:.045em;color:#aaaeb7;
+}
+[data-p05-hardware] h3 {margin:10px 0 8px;font:650 25px/1.2 var(--deck-sans)}
+[data-p05-hardware] code {font:13px/1.5 var(--deck-mono);color:#c3d2f3}
+[data-p05-hardware] [data-p05-device] {margin:20px 0}
+[data-p05-hardware] :is(.device-frame,.chip-frame,.die-frame) {
+  grid-template-columns:max-content minmax(0,1fr);
+  column-gap:8px;
+}
+[data-p05-hardware] .device-frame {padding:8px;background-color:#232323;border-color:#414141}
+[data-p05-hardware] .chip-frame {padding:6px;background:#222;border-color:#3b3b3b}
+[data-p05-hardware] .chip-frame > .hw-entity {grid-row:1 / span 2}
+[data-p05-hardware] .hw-entity {color:#9a9a9a}
+[data-p05-hardware] :is(.hw-entity,.die-label) {
+  place-content:center start;
+  text-align:left;
+  white-space:nowrap;
+  font-size:11px;
+  line-height:1.2;
+}
+[data-p05-hardware] :is(.hw-entity,.die-label) small {font-size:8px}
+[data-p05-hardware] .die-frame {
+  justify-content:stretch;padding:6px;
+  background:#202631;border-color:#6682b3;
+}
+[data-p05-hardware] .die-label {min-width:0}
+[data-p05-hardware] .core-tiles {grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
+[data-p05-hardware] .core-tile {box-sizing:border-box;min-width:0;border-color:#63799e;border-radius:4px;background:#303b50}
+[data-p05-hardware] .core-tile::before,[data-p05-hardware] .core-tile::after {width:9px;height:2px}
+[data-p05-hardware] .chip-frame > .die-frame {grid-column:2}
+[data-p05-hardware] .die-frame:not([data-p05-die]) {filter:grayscale(1);opacity:.44}
+[data-p05-hardware] .die-frame:not([data-p05-die]) .core-tiles {grid-template-rows:repeat(3,6px)}
+[data-p05-hardware] .die-frame:not([data-p05-die]) .core-tile {aspect-ratio:auto}
+[data-p05-hardware] .die-frame:not([data-p05-die]) .core-tile::before,
+[data-p05-hardware] .die-frame:not([data-p05-die]) .core-tile::after {width:5px;height:1px}
+.p05-mapping-rule {display:grid;gap:7px}
+.p05-mapping-rule span {font-size:13px;color:#b8bbc3}

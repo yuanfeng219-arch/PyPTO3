@@ -203,6 +203,7 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate,presentatio
  }
  const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
   narrativeTask:()=>task,alwaysExecution:true,initialMinScale:.5,initialAlignStart:true,
+  layoutOptions:{alignSpineFront:true},
   ...(presentation?{
    fitOnEnter:true,
    fitPadding:{top:30,right:22,bottom:18,left:22},
