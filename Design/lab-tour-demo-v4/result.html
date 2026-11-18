@@ -640,19 +640,19 @@ body.cpi-host .lane-toolbar-group .lane-toolbar{position:static;transform:none;t
 #lane.single-chain-active .single-phase-frame{fill:none;stroke:#c9fce2;stroke-width:.7}.single-phase-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 10px;border:1px solid #3d5146;border-radius:6px;background:#18231e;color:#c5d5cc;font-size:12px}.single-phase-legend span{display:inline-flex;align-items:center;gap:6px}.single-phase-legend i{width:12px;height:8px;border-radius:2px}.single-phase-legend small{flex-basis:100%;color:#aab7ae;line-height:1.5}
 #lane.single-chain-active .task-event.single-hit .qk-inline-entry{fill:#63e6b3!important;stroke:#baffdf!important;stroke-width:1px}
 @media(max-width:800px){body.single-panel-open main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(160px,35%)}body.single-panel-open .main-column{height:auto}body.single-panel-open .single-panel{grid-column:1;grid-row:2;border-left:0;border-top:1px solid #3d3d3d}body.single-panel-open .single-panel-grip{display:none}body.single-panel-open .lane-toolbar-group{left:50%;max-width:calc(100vw - 16px)}body.single-panel-open .canvas-tools{right:16px;bottom:calc(35% + 16px)}}
-</style><link rel="stylesheet" href="../lab-tour-demo-v3/demo-shell.css?v=1"><link rel="stylesheet" href="../lab-tour-demo-v3/header.css">
-<link rel="stylesheet" href="../lab-tour-demo-v3/vendor/liquid-glass-controls/liquid-glass.css?v=final-v2"><link rel="stylesheet" href="../lab-tour-demo-v3/liquid-final.css?v=8"><script defer src="../lab-tour-demo-v3/vendor/liquid-glass-controls/liquid-glass.js?v=final-v2"></script><script defer src="../lab-tour-demo-v3/liquid-final.js?v=8"></script><style>
+</style><link rel="stylesheet" href="../lab-tour-demo-v4/demo-shell.css?v=1"><link rel="stylesheet" href="../lab-tour-demo-v4/header.css">
+<link rel="stylesheet" href="../lab-tour-demo-v4/vendor/liquid-glass-controls/liquid-glass.css?v=final-v2"><link rel="stylesheet" href="../lab-tour-demo-v4/liquid-final.css?v=8"><script defer src="../lab-tour-demo-v4/vendor/liquid-glass-controls/liquid-glass.js?v=optics11"></script><script defer src="../lab-tour-demo-v4/liquid-final.js?v=8"></script><style>
 /* The task inspector heading does not need a divider. */
 #task-drawer > .drawer-head{border-bottom:0;box-shadow:none}
 </style>
-<link rel="stylesheet" href="../lab-tour-demo-v3/result-polish.css?v=16">
-<link rel="stylesheet" href="../lab-tour-demo-v3/inline-lane-style.css">
-</head>
+<link rel="stylesheet" href="../lab-tour-demo-v4/result-polish.css?v=16">
+<link rel="stylesheet" href="../lab-tour-demo-v4/inline-lane-style.css">
+<link rel="stylesheet" href="../lab-tour-demo-v4/result-liquid-controls.css?v=panels12"><link rel="stylesheet" href="../lab-tour-demo-v4/demo-highlights.css"><style>.demo-highlights-chevron{width:16px;height:16px;flex:none}</style></head>
 <body>
   <main>
     <div class="main-column">
   <div class="run-header compact stats-initial" id="run-header"><header class="top"><div class="result-identity">
-    <a class="demo-home" data-liquid-glass="icon" href="../lab-tour-demo-v3/index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5v10.5h13V9.5M9.5 20v-6h5v6"/></svg></a>
+    <a class="demo-home" data-liquid-glass="icon" href="../lab-tour-demo-v4/index.html" aria-label="返回首页" title="返回首页"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5v10.5h13V9.5M9.5 20v-6h5v6"/></svg></a>
     <h1>Device Perf Lane</h1>
     <span class="run" id="run">—</span>
     <span class="sp"></span>
@@ -834,7 +834,7 @@ function criticalPath() {
     const isSel = me && p.ids.includes(me);
     const g = el("g", { class: "cp-seg", "data-t": p.taskId, role:"button", tabindex:0, "aria-label":p.name, style: "cursor:pointer" });
     g.append(el("rect", { x, y: TOP, width: w, height: BAR,
-      fill: isSel ? C.sel : isWait ? C.accent : C.AIC, opacity: isWait || isSel ? 1 : .55 }));
+      fill: isSel ? C.sel : isWait ? C.accent : C.AIC, opacity: 1 }));
     if(w>38){
       const color=isSel||isWait?'#111111':'#ffffff';
       const duration=`${ms(p.spanUs)} ms`,durationWidth=duration.length*6+10;
@@ -2574,8 +2574,17 @@ if (D) {
     if(!inlineEvolution)inlineReturnRange=laneRange?.slice()||null;
     inlineEvolution=true;window.INLINE_PASS_TRANSFORM.autoplay();
     const launch=R.launches.find(l=>l.id===qkInline.id),block=launch.blocks.items.find(b=>b.core===qkInline.core);
-    const events=window.QK_RESIDENCY.inlineEvents(block,launch.leaf).filter(e=>Math.floor(e.iter/2)===Math.floor(inlineEvolutionState.iter/2));
-    if(events.length){const lo=Math.min(...events.map(e=>e.startUs)),hi=Math.max(...events.map(e=>e.endUs)),pad=(hi-lo)*.12;laneRange=[Math.max(0,lo-pad),Math.min(R.kpi.windowUs,hi+pad)];}
+    // Pass geometry is structural, not a measured device-time range. Keep the
+    // measured AIC block and its AIV counterpart inside the shared time axis.
+    const related=R.launches.filter(task=>task.leaf==='qk_pv_aiv'||task.leaf==='qk_pv_aic');
+    const context=related.flatMap(task=>task.blocks.items);
+    if(context.length){
+      const previous=inlineReturnRange||[block.startUs,block.endUs];
+      const lo=Math.min(previous[0],...context.map(item=>item.startUs));
+      const hi=Math.max(previous[1],...context.map(item=>item.endUs));
+      const pad=(hi-lo)*.04;
+      laneRange=[Math.max(0,lo-pad),Math.min(R.kpi.windowUs,hi+pad)];
+    }
     renderLane();
     $("lane-wrap").scrollTop=retainedScroll;
   }
@@ -2845,7 +2854,7 @@ if (D) {
 </script>
 <script src="pass-ablation.js?v=integrated-1"></script>
 <script src="compile-linked/dist/compile-linked.js"></script>
-<script src="../lab-tour-demo-v3/inline-pass-transform.js"></script>
-<script src="../lab-tour-demo-v3/result-polish.js?v=13"></script>
-</body>
+<script src="../lab-tour-demo-v4/inline-pass-transform.js?v=white10"></script>
+<script src="../lab-tour-demo-v4/result-polish.js?v=13"></script>
+<script src="../lab-tour-demo-v4/result-liquid-controls.js?v=panels12"></script><script src="../lab-tour-demo-v4/demo-highlights.js?v=panels12"></script></body>
 </html>
