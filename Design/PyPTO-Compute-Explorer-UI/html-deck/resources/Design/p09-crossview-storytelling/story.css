@@ -1,0 +1,217 @@
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body.ai-extracted {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+#screen {
+  position: relative;
+  width: min(100vw, 100dvh * 16 / 9);
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  overflow: hidden;
+}
+#screen:fullscreen { width: 100%; height: 100%; }
+#story {
+  position: absolute;
+  width: 1600px;
+  height: 900px;
+  padding: 26px 60px 22px;
+  display: grid;
+  grid-template-rows: 24px 68px 54px minmax(0, 1fr) 70px;
+  transform-origin: top left;
+  transform: scale(var(--story-scale, 1));
+}
+/* Embedded Deck header replaces the standalone mast and headline rows. */
+#story.deck-embedded {
+  padding:var(--deck-padding);
+  grid-template-rows:var(--deck-header-height) 54px minmax(0, 1fr) 70px;
+}
+.mast { color: var(--foreground-secondary); font: 14px var(--font-mono); }
+#story > h1 { margin: 8px 0 0; font-size: 46px; line-height: 1.2; letter-spacing: -.035em; }
+.views, .transport { display: flex; align-items: center; gap: 8px; }
+.views {
+  --graph-color: #7498f1;
+  --assignment-color: #7bd19b;
+  --pipeline-color: #e3b165;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+}
+.views .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 108px;
+  min-height: 38px;
+  color: var(--view-color);
+  font-size: 22px;
+  font-weight: 650;
+}
+.views .view-icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.views :is([data-view="graph"], [data-path="graph"]) { --view-color: var(--graph-color); }
+.views [data-view="assignment"] { --view-color: var(--assignment-color); }
+.views :is([data-view="pipeline"], [data-path="pipeline"]) { --view-color: var(--pipeline-color); }
+.views .btn[aria-pressed="true"] {
+  font-weight: 650;
+  box-shadow: none;
+}
+#stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: 66px minmax(0, 1fr);
+  min-height: 0;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--ss-bg);
+}
+.task-identity {
+  display: flex;
+  align-items: baseline;
+  align-self: center;
+  gap: 18px;
+  padding-inline: 26px;
+}
+.task-identity strong { font: 600 26px var(--font-mono); }
+.task-identity span { color: var(--foreground-secondary); font: 14px var(--font-mono); }
+body.ai-extracted #camera { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.shot { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
+.crop { position: absolute; overflow: hidden; transform-origin: top left; }
+.native-frame {
+  position: absolute;
+  width: 1600px;
+  height: 900px;
+  top: var(--native-top, -110px);
+  left: var(--native-left, 0px);
+}
+.shot:not([data-shot="assignment"]) { --native-left: -300px; }
+/* Keep the Matmul instances distinct where their silhouettes overlap. */
+#story .viz2 :is([data-pypa-execution-stack="qk"], [data-pypa-execution-stack="pv"]) .kf-pypa-graph__execution-layer {
+  border: 1.5px solid var(--foreground-muted) !important;
+}
+/* The camera crops the native diagram region. Identity, parameters and
+   navigation belong to the presentation shell. */
+.native-frame :is(.compute-identity, [data-compute-toolbar], [data-anatomy-back], [data-intra-back], .ai-detail-back, .ai-control-bar) {
+  visibility: hidden;
+}
+.native-frame .viz2-canvas { width: 100%; height: 100%; }
+.story-controls { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.story-controls p { margin: 0; color: var(--foreground-secondary); font-size: 17px; }
+.transport { flex: none; }
+.transport .btn { min-height: 38px; font-size: 15px; }
+#error { position: absolute; inset: 70px 26px auto; }
+
+.morph-path {
+  --progress: 0%;
+  --position: var(--progress);
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  width: 178px;
+  text-align: center;
+}
+.morph-pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: rgb(255 255 255 / 60%);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 24px;
+}
+.morph-pair b {
+  --pair-color: var(--assignment-color);
+  padding-inline: 5px;
+  border-radius: 5px;
+  font-weight: inherit;
+  background: color-mix(in srgb, var(--pair-color) 20%, transparent);
+  color: var(--pair-color);
+}
+[data-path="graph"] .morph-pair b:first-child { --pair-color: var(--graph-color); }
+[data-path="pipeline"] .morph-pair b:last-child { --pair-color: var(--pipeline-color); }
+.morph-path[data-path="graph"] {
+  --position: calc(100% - var(--progress));
+  --thumb-inset: 5px;
+  --track-gradient: linear-gradient(90deg, var(--graph-color), var(--assignment-color));
+}
+.morph-path[data-path="pipeline"] {
+  --thumb-inset: -5px;
+  --track-gradient: linear-gradient(90deg, var(--assignment-color), var(--pipeline-color));
+}
+.morph-track {
+  position: relative;
+  height: 38px;
+  touch-action: none;
+  cursor: ew-resize;
+  user-select: none;
+}
+.morph-track::before, .morph-track::after {
+  content: "";
+  position: absolute;
+  inset: 9px 0;
+  border-radius: 5px;
+}
+.morph-track::before { background: #383838; }
+/* The gradient always spans the entire track. Only its visible mask changes. */
+.morph-track::after {
+  background: var(--track-gradient);
+  clip-path: inset(0 calc(100% - var(--progress)) 0 0 round 5px);
+}
+[data-path="graph"] .morph-track::after {
+  clip-path: inset(0 0 0 calc(100% - var(--progress)) round 5px);
+}
+.morph-thumb {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: clamp(5px, calc(var(--position) + var(--thumb-inset)), calc(100% - 5px));
+  width: 3px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 2px;
+  background: #121212;
+}
+.morph-track:focus, .morph-track:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.morph-track:focus-visible:not([data-pointer-focus]) .morph-thumb {
+  outline: 1px solid rgb(255 255 255 / 65%);
+  outline-offset: 2px;
+}
+.morph-value {
+  display: none;
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--ss-surface);
+  color: var(--view-color);
+  font: 12px var(--font-mono);
+}
+.morph-path[data-dragging] { z-index: 2; }
+.morph-path[data-dragging] .morph-value, .morph-track:focus-visible:not([data-pointer-focus]) .morph-value { display: block; }

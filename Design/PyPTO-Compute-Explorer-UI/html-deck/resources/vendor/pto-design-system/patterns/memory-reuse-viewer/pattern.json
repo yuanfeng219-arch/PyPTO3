@@ -1,0 +1,37 @@
+{
+  "id": "memory-reuse-viewer",
+  "name": "Memory Reuse Viewer",
+  "type": "hybrid",
+  "description": "Canvas-based UB/L1/L0C tensor lifetime and memory reuse inspector. It renders buffer offset by kernel tick, peak usage, reuse links, tensor details, source snippets, and CCE snippets for hardware-map panels and future Memory.txt integrations.",
+  "source": {
+    "visualContract": [
+      "pto-design-system/mem-conflicts.html prototype",
+      "patterns/memory-reuse-viewer/pattern.html",
+      "patterns/memory-reuse-viewer/pattern.css",
+      "patterns/memory-reuse-viewer/pattern.js"
+    ],
+    "patternHtml": "patterns/memory-reuse-viewer/pattern.html",
+    "patternCss": "patterns/memory-reuse-viewer/pattern.css",
+    "renderScript": "patterns/memory-reuse-viewer/pattern.js"
+  },
+  "useWhen": [
+    "opening a UB/L1/L0C conflict and reuse analysis panel from hardware architecture diagrams",
+    "visualizing tensor lifetimes over buffer address space",
+    "showing source and CCE snippets linked to local buffer allocation windows"
+  ],
+  "requiredApis": [
+    "window.PtoMemoryReuseViewer.render(container, data, { initialBuffer }) returning { resize, destroy }",
+    "window.PtoMemoryReuseViewer.createDemoData({ coreId, coreTitle })"
+  ],
+  "allowedOverrides": [
+    "data buffers, tensor rows, source snippets, and CCE snippets",
+    "initial selected buffer",
+    "container framing outside the viewer root"
+  ],
+  "forbiddenOverrides": [
+    "writing page-local canvas renderers for the same tensor lifetime chart",
+    "mutating generated tensor rectangles directly instead of changing the data payload",
+    "using non-token colors for panel chrome outside the scoped chart semantic colors"
+  ],
+  "agentReuseRule": "Load pattern.css and pattern.js, then call window.PtoMemoryReuseViewer.render with Memory.txt-derived data or createDemoData for previews. Keep the viewer inside an unscaled panel; do not mount it inside a pan/zoom architecture canvas."
+}

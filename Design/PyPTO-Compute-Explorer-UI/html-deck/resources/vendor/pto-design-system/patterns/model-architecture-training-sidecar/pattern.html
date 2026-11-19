@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Model Architecture Training Sidecar Pattern</title>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../model-architecture-3d-deck/pattern.css?v=training-semantics-v82">
+  <link rel="stylesheet" href="./pattern.css?v=training-semantics-v82">
+  <style>
+    html,body{height:100%;margin:0;background:var(--background);color:var(--foreground)}
+    body{font-family:var(--font-sans);overflow:hidden}
+    .pattern-page{height:100%;padding:12px;box-sizing:border-box}
+    .pattern-page[data-embed="true"]{padding:0}
+    #trainingSidecarPattern{height:100%;min-height:0}
+    @media (max-height:640px){body{overflow:auto}.pattern-page{height:640px}}
+  </style>
+</head>
+<body>
+  <main class="pattern-page" id="patternPage">
+    <section id="trainingSidecarPattern" aria-label="openPangu model architecture training semantics sidecar"></section>
+  </main>
+  <script src="../model-graphviz/pattern.js?v=training-semantics-v82"></script>
+  <script src="../model-architecture-3d-deck/pattern.js?v=training-semantics-v82"></script>
+  <script src="./pattern.js?v=training-semantics-v82"></script>
+  <script>
+    const params=new URLSearchParams(location.search);
+    const theme=params.get('theme')==='light'?'light':'dark';
+    const metricParam=params.get('metrics')||'structure';
+    document.documentElement.dataset.theme=theme;
+    document.getElementById('patternPage').dataset.embed=String(params.get('embed')==='1');
+    if(params.has('layer')){
+      params.delete('layer');
+      const query=params.toString();
+      history.replaceState(null,'',`${location.pathname}${query?`?${query}`:''}${location.hash}`);
+    }
+    window.trainingSidecarController=window.PtoModelArchitectureTrainingSidecar.render('#trainingSidecarPattern',{
+      preset:'openpangu-flash',
+      initialView:params.get('view')||'right',
+      parallelMode:params.get('parallel')||'pp',
+      initialTheme:theme,
+      metricView:metricParam,
+      metricViews:metricParam==='structure'?[]:metricParam.split(','),
+      initialLayer:null
+    });
+    window.addEventListener('message',event=>{
+      if(event.data?.type==='pto-preview-theme')window.trainingSidecarController?.setTheme(event.data.theme==='light'?'light':'dark');
+    });
+  </script>
+</body>
+</html>

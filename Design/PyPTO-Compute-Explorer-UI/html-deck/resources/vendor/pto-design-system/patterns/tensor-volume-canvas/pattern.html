@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PTO Tensor Volume Canvas Pattern</title>
+  <link rel="icon" href="data:,">
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('embed') === '1') document.documentElement.dataset.embed = 'true';
+      const applyPreviewTheme = (theme) => {
+        if (theme !== 'light' && theme !== 'dark' && theme !== 'glass') return;
+        document.documentElement.dataset.theme = theme;
+        window.dispatchEvent(new CustomEvent('pto-preview-theme-applied'));
+      };
+      applyPreviewTheme(params.get('theme'));
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'pto-preview-theme') applyPreviewTheme(event.data.theme);
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="./pattern.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+    }
+
+    html {
+      overflow-y: auto;
+    }
+
+    body {
+      height: auto;
+      padding: var(--space-6);
+      overflow-x: hidden;
+      overflow-y: auto;
+      display: block;
+    }
+
+    html[data-embed='true'] body {
+      padding: 0;
+    }
+
+    html[data-embed='true'] .preview-heading,
+    html[data-embed='true'] .approval-note {
+      display: none;
+    }
+
+    html[data-embed='true'] .preview-page {
+      gap: var(--space-4);
+    }
+
+    .preview-page {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: var(--space-6);
+    }
+
+    .preview-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .preview-heading h1,
+    .preview-heading p,
+    .preview-card h2,
+    .preview-card p,
+    .contract-section h2,
+    .contract-section h3,
+    .contract-section p,
+    .legend-item p {
+      margin: 0;
+    }
+
+    .preview-heading h1 {
+      font: var(--text-title-1);
+    }
+
+    .preview-heading p,
+    .preview-card p,
+    .preview-note,
+    .contract-section p,
+    .legend-item p {
+      color: var(--foreground-secondary);
+      font: var(--type-body);
+    }
+
+    .preview-heading__copy {
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.1fr);
+      gap: var(--space-4);
+      align-items: stretch;
+    }
+
+    .preview-card {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(420px, 1fr);
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: var(--radius-xl);
+      background: var(--surface-1);
+    }
+
+    .preview-card__head {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .preview-card h2 {
+      font: var(--text-title-2);
+    }
+
+    .reference-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      overflow: hidden;
+      border: 0;
+      border-radius: var(--radius-lg);
+      background: var(--surface-2);
+    }
+
+    .reference-specimen {
+      min-height: 300px;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--surface-1) 76%, transparent);
+    }
+
+    .reference-contract {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+    }
+
+    .reference-contract code {
+      color: var(--foreground);
+      font: var(--text-mono);
+    }
+
+    .live-stack {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: repeat(2, minmax(220px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .canvas-stage {
+      min-width: 0;
+      min-height: 220px;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+    }
+
+    .canvas-stage__label {
+      position: absolute;
+      z-index: 1;
+      top: var(--space-3);
+      left: var(--space-3);
+      color: var(--foreground-secondary);
+      font: var(--text-label);
+      pointer-events: none;
+    }
+
+    .state-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      align-items: center;
+    }
+
+    .state-strip span {
+      min-height: var(--tag-height);
+      display: inline-flex;
+      align-items: center;
+      padding: 0 var(--tag-padding-x);
+      border-radius: var(--tag-radius);
+      background: var(--comp-tag-bg);
+      color: var(--foreground-secondary);
+      font: var(--text-label);
+    }
+
+    .contract-section {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .contract-section__head {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .contract-section h2 {
+      font: var(--type-title-2);
+    }
+
+    .contract-section h3 {
+      font: var(--type-title-3);
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+      align-items: start;
+    }
+
+    .config-group {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: var(--radius-xl);
+      background: var(--surface-1);
+    }
+
+    .config-table-wrap {
+      overflow-x: auto;
+    }
+
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+      font: var(--type-body-sm);
+      text-align: left;
+    }
+
+    .config-table th,
+    .config-table td {
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    .config-table th {
+      color: var(--foreground-secondary);
+      font: var(--type-label);
+      white-space: nowrap;
+    }
+
+    .config-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .config-table code,
+    .legend-item code {
+      color: var(--foreground);
+      font: var(--type-mono);
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .legend-item {
+      min-width: 0;
+      min-height: 104px;
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: var(--space-3);
+      align-items: center;
+      padding: var(--space-3);
+      border-radius: var(--radius-lg);
+      background: var(--surface-2);
+    }
+
+    .legend-item canvas {
+      width: 88px;
+      height: 80px;
+    }
+
+    .legend-item__copy {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .legend-item__name {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      align-items: baseline;
+    }
+
+    .legend-item__token {
+      color: var(--foreground-muted);
+      font: var(--type-mono);
+    }
+
+    .code-sample {
+      margin: 0;
+      padding: var(--space-4);
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      background: var(--surface-2);
+      color: var(--foreground);
+      font: var(--type-mono);
+    }
+
+    .responsive-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 320px) minmax(0, 640px);
+      gap: var(--space-4);
+      align-items: stretch;
+    }
+
+    .responsive-grid .canvas-stage {
+      height: 300px;
+    }
+
+    .approval-note {
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--warning) 9%, var(--surface-2));
+    }
+
+    @media (max-width: 980px) {
+      body { padding: var(--space-4); }
+      .preview-grid,
+      .config-grid,
+      .responsive-grid { grid-template-columns: 1fr; }
+      .preview-card { grid-template-rows: auto minmax(360px, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview-page">
+    <header class="preview-heading">
+      <div class="preview-heading__copy">
+        <h1>Tensor Volume Canvas Pattern</h1>
+        <p>用 canonical NCHW fixture、Load3D 状态覆盖和响应式容器验证共享 renderer 的固定视角、状态协议与 DPR 行为。</p>
+      </div>
+      <button class="btn btn-ghost" type="button" id="themeToggle">Light mode</button>
+    </header>
+
+    <section class="preview-grid" aria-label="Canonical fixtures and registered renderer coverage">
+      <article class="preview-card">
+        <div class="preview-card__head">
+          <h2>Canonical NCHW fixture</h2>
+          <p>4×4×3 fixture 验证固定投影、深度排序、轴标、标签和 semantic-token 重绘。</p>
+        </div>
+        <div class="reference-stage">
+          <div class="reference-specimen">
+            <span class="canvas-stage__label">Canonical NCHW renderer fixture</span>
+            <canvas id="referenceCanvas" aria-label="Canonical NCHW tensor volume fixture"></canvas>
+          </div>
+          <div class="reference-contract">
+            <code>depthX=.52u · depthY=.38u · fixed view</code>
+            <span>shared renderer fixture</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="preview-card">
+        <div class="preview-card__head">
+          <h2>Registered shared Pattern</h2>
+          <p>固定斜向视角；无拖拽、滚轮缩放或旋转。页面只传 extent、axes 和 voxel 状态。</p>
+        </div>
+        <div class="live-stack">
+          <div class="canvas-stage">
+            <span class="canvas-stage__label">NCHW · neutral volume</span>
+            <canvas id="nchwCanvas" aria-label="NCHW neutral tensor volume"></canvas>
+          </div>
+          <div class="canvas-stage">
+            <span class="canvas-stage__label">A1 · padding + window states</span>
+            <canvas id="a1Canvas" aria-label="A1 tensor volume with Load3D states"></canvas>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="contract-section" aria-labelledby="configTitle">
+      <div class="contract-section__head">
+        <h2 id="configTitle">可配置项</h2>
+        <p>业务页面只配置 Scene、Voxel 和 Options。投影、体素几何、颜色算法和相机固定由 Pattern 管理。</p>
+      </div>
+
+      <div class="config-grid">
+        <article class="config-group">
+          <h3>Scene</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>类型</th>
+                  <th>默认值</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>extent.columns</code></td>
+                  <td>正整数</td>
+                  <td><code>1</code></td>
+                  <td>横向体素数量</td>
+                </tr>
+                <tr>
+                  <td><code>extent.rows</code></td>
+                  <td>正整数</td>
+                  <td><code>1</code></td>
+                  <td>纵向体素数量</td>
+                </tr>
+                <tr>
+                  <td><code>extent.depth</code></td>
+                  <td>正整数</td>
+                  <td><code>1</code></td>
+                  <td>深度方向体素数量</td>
+                </tr>
+                <tr>
+                  <td><code>axes.columns</code></td>
+                  <td>string</td>
+                  <td><code>W</code></td>
+                  <td>横向坐标轴名称</td>
+                </tr>
+                <tr>
+                  <td><code>axes.rows</code></td>
+                  <td>string</td>
+                  <td><code>H</code></td>
+                  <td>纵向坐标轴名称</td>
+                </tr>
+                <tr>
+                  <td><code>axes.depth</code></td>
+                  <td>string</td>
+                  <td><code>C</code></td>
+                  <td>深度坐标轴名称</td>
+                </tr>
+                <tr>
+                  <td><code>voxels</code></td>
+                  <td>array</td>
+                  <td><code>[]</code></td>
+                  <td>需要绘制的体素列表</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>Voxel</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>类型</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>column</code></td>
+                  <td>number</td>
+                  <td>是</td>
+                  <td>横向坐标，从 0 开始</td>
+                </tr>
+                <tr>
+                  <td><code>row</code></td>
+                  <td>number</td>
+                  <td>是</td>
+                  <td>纵向坐标，从 0 开始</td>
+                </tr>
+                <tr>
+                  <td><code>depth</code></td>
+                  <td>number</td>
+                  <td>是</td>
+                  <td>深度坐标，从 0 开始</td>
+                </tr>
+                <tr>
+                  <td><code>id</code></td>
+                  <td>string</td>
+                  <td>否</td>
+                  <td>体素标识</td>
+                </tr>
+                <tr>
+                  <td><code>label</code></td>
+                  <td>string</td>
+                  <td>否</td>
+                  <td>体素内文字</td>
+                </tr>
+                <tr>
+                  <td><code>tone</code></td>
+                  <td>enum</td>
+                  <td>否</td>
+                  <td>语义颜色，默认 <code>neutral</code></td>
+                </tr>
+                <tr>
+                  <td><code>state</code></td>
+                  <td>enum</td>
+                  <td>否</td>
+                  <td>显示状态，默认 <code>base</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>Options</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>类型</th>
+                  <th>默认值</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>ariaLabel</code></td>
+                  <td>string</td>
+                  <td>英文默认说明</td>
+                  <td>Canvas 无障碍说明</td>
+                </tr>
+                <tr>
+                  <td><code>padding.top</code></td>
+                  <td>number</td>
+                  <td><code>44</code></td>
+                  <td>顶部留白</td>
+                </tr>
+                <tr>
+                  <td><code>padding.right</code></td>
+                  <td>number</td>
+                  <td><code>38</code></td>
+                  <td>右侧留白</td>
+                </tr>
+                <tr>
+                  <td><code>padding.bottom</code></td>
+                  <td>number</td>
+                  <td><code>42</code></td>
+                  <td>底部留白</td>
+                </tr>
+                <tr>
+                  <td><code>padding.left</code></td>
+                  <td>number</td>
+                  <td><code>52</code></td>
+                  <td>左侧留白</td>
+                </tr>
+                <tr>
+                  <td><code>showAxes</code></td>
+                  <td>boolean</td>
+                  <td><code>true</code></td>
+                  <td>是否显示坐标轴</td>
+                </tr>
+                <tr>
+                  <td><code>autoLabelDensity</code></td>
+                  <td>boolean</td>
+                  <td><code>true</code></td>
+                  <td>空间不足时自动隐藏普通标签</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="config-group">
+          <h3>Controller</h3>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
+                <tr>
+                  <th>方法</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>update(nextScene, nextOptions?)</code></td>
+                  <td>更新场景和可选配置</td>
+                </tr>
+                <tr>
+                  <td><code>resize()</code></td>
+                  <td>按当前容器尺寸重新绘制</td>
+                </tr>
+                <tr>
+                  <td><code>destroy()</code></td>
+                  <td>断开监听并销毁控制器</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre class="code-sample"><code>const controller = PtoTensorVolumeCanvas.render(canvas, scene, options);
+controller.update(nextScene);
+controller.resize();
+controller.destroy();</code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="contract-section" aria-labelledby="toneLegendTitle">
+      <div class="contract-section__head">
+        <h2 id="toneLegendTitle">Tone 颜色图例</h2>
+        <p>以下体素均使用 <code>state: 'base'</code>。Neutral 复用 API Visualizer Load3D 固定色板，其余 Tone 使用 PTO 语义 Token。</p>
+      </div>
+      <div class="legend-grid">
+        <article class="legend-item">
+          <canvas data-voxel-tone="neutral" aria-label="neutral 体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>neutral</code></div>
+            <p>普通体素</p>
+            <span class="legend-item__token">API Visualizer palette</span>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-tone="input" aria-label="input 体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>input</code></div>
+            <p>输入数据</p>
+            <span class="legend-item__token">--primary</span>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-tone="output" aria-label="output 体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>output</code></div>
+            <p>输出数据</p>
+            <span class="legend-item__token">--success</span>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-tone="compute" aria-label="compute 体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>compute</code></div>
+            <p>计算数据</p>
+            <span class="legend-item__token">--warning</span>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-tone="reduction" aria-label="reduction 体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>reduction</code></div>
+            <p>归约数据</p>
+            <span class="legend-item__token">--warning</span>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-tone="fusion" aria-label="fusion 体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>fusion</code></div>
+            <p>融合数据</p>
+            <span class="legend-item__token">--accent</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="contract-section" aria-labelledby="stateLegendTitle">
+      <div class="contract-section__head">
+        <h2 id="stateLegendTitle">State 状态图例</h2>
+        <p>State 控制体素的强调方式。<code>current</code>、Padding 和跳过状态会覆盖 Tone 的普通颜色表现。</p>
+      </div>
+      <div class="legend-grid">
+        <article class="legend-item">
+          <canvas data-voxel-state="base" aria-label="base 状态体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>base</code></div>
+            <p>默认状态</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-state="ghost" aria-label="ghost 状态体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>ghost</code></div>
+            <p>弱化显示</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-state="padding" aria-label="padding 状态体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>padding</code></div>
+            <p>H/W 越界或 C 维尾部补齐</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-state="window" aria-label="window 状态体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>window</code></div>
+            <p>当前窗口范围</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-state="current" aria-label="current 状态体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>current</code></div>
+            <p>当前处理体素</p>
+          </div>
+        </article>
+        <article class="legend-item">
+          <canvas data-voxel-state="skipped" aria-label="skipped 状态体素"></canvas>
+          <div class="legend-item__copy">
+            <div class="legend-item__name"><code>skipped</code></div>
+            <p>跳过的体素</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="state-strip" aria-label="Previewed voxel states">
+      <span>direct embedding</span>
+      <span>fixed projection</span>
+      <span>ResizeObserver</span>
+      <span id="selfTestStatus">self-check pending</span>
+    </section>
+    <canvas id="selfTestCanvas" hidden aria-hidden="true"></canvas>
+
+    <section>
+      <div class="preview-card__head">
+        <h2>Responsive contract</h2>
+        <p>同一 scene 在 320px 和 640px 容器中自动重算 unit 与 backing store，不改变固定视角。</p>
+      </div>
+      <div class="responsive-grid">
+        <div class="canvas-stage">
+          <span class="canvas-stage__label">320px</span>
+          <canvas id="narrowCanvas" aria-label="Narrow tensor volume preview"></canvas>
+        </div>
+        <div class="canvas-stage">
+          <span class="canvas-stage__label">640px</span>
+          <canvas id="wideCanvas" aria-label="Wide tensor volume preview"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <p class="preview-note approval-note">
+      Pattern 已写入共享 registry；消费页面应直接加载 pattern.css / pattern.js，并通过 scene 数据接入，不使用 iframe。
+    </p>
+  </main>
+
+  <script src="./pattern.js"></script>
+  <script>
+    (() => {
+      const voxelsFor = (columns, rows, depth, mapState) => {
+        const voxels = [];
+        for (let d = 0; d < depth; d += 1) {
+          for (let row = 0; row < rows; row += 1) {
+            for (let column = 0; column < columns; column += 1) {
+              const resolved = mapState?.({ column, row, depth: d }) || {};
+              voxels.push({
+                id: `${column}-${row}-${d}`,
+                column,
+                row,
+                depth: d,
+                tone: resolved.tone || 'neutral',
+                state: resolved.state || 'base',
+                label: resolved.label || (d === 0 && columns * rows <= 36 ? `${row}${column}` : ''),
+              });
+            }
+          }
+        }
+        return voxels;
+      };
+
+      const nchwScene = {
+        extent: { columns: 4, rows: 4, depth: 3 },
+        axes: { columns: 'Wi', rows: 'Hi', depth: 'Ci' },
+        voxels: voxelsFor(4, 4, 3),
+      };
+
+      const a1Scene = {
+        extent: { columns: 6, rows: 6, depth: 4 },
+        axes: { columns: 'Wi', rows: 'Hi', depth: 'Ci' },
+        voxels: voxelsFor(6, 6, 4, ({ column, row, depth }) => {
+          const border = row === 0 || column === 0 || row === 5 || column === 5;
+          const inWindow = row >= 1 && row <= 2 && column >= 1 && column <= 2 && depth < 3;
+          if (depth === 3) return { state: 'padding' };
+          if (column === 2 && row === 1 && depth === 0) return { tone: 'input', state: 'current', label: 'x010' };
+          if (column === 1 && row === 1 && depth === 0) return { tone: 'input', state: 'window', label: 'x000' };
+          if (column === 1 && row === 2 && depth === 1) return { tone: 'input', state: 'skipped' };
+          if (inWindow) return { tone: 'input', state: 'window', label: depth === 0 ? `x${row - 1}${column - 1}${depth}` : '' };
+          if (border) return { state: 'padding', label: depth === 0 ? 'PAD' : '' };
+          return { state: 'base' };
+        }),
+      };
+
+      const renderer = window.PtoTensorVolumeCanvas;
+      const singleVoxelScene = ({ tone = 'neutral', state = 'base' }) => ({
+        extent: { columns: 1, rows: 1, depth: 1 },
+        axes: { columns: 'W', rows: 'H', depth: 'C' },
+        voxels: [{ id: `${tone}-${state}`, column: 0, row: 0, depth: 0, tone, state }],
+      });
+      const legendOptions = {
+        showAxes: false,
+        autoLabelDensity: false,
+        padding: { top: 8, right: 8, bottom: 8, left: 8 },
+      };
+      const controllers = [
+        renderer.render(document.getElementById('referenceCanvas'), nchwScene, { ariaLabel: 'Canonical NCHW tensor volume fixture' }),
+        renderer.render(document.getElementById('nchwCanvas'), nchwScene, { ariaLabel: 'NCHW neutral tensor volume' }),
+        renderer.render(document.getElementById('a1Canvas'), a1Scene, { ariaLabel: 'A1 tensor volume with Load3D states' }),
+        renderer.render(document.getElementById('narrowCanvas'), a1Scene, { ariaLabel: 'Narrow tensor volume preview' }),
+        renderer.render(document.getElementById('wideCanvas'), a1Scene, { ariaLabel: 'Wide tensor volume preview' }),
+      ];
+
+      document.querySelectorAll('[data-voxel-tone]').forEach((canvas) => {
+        const tone = canvas.dataset.voxelTone;
+        controllers.push(renderer.render(
+          canvas,
+          singleVoxelScene({ tone }),
+          { ...legendOptions, ariaLabel: `${tone} 颜色体素` }
+        ));
+      });
+
+      document.querySelectorAll('[data-voxel-state]').forEach((canvas) => {
+        const state = canvas.dataset.voxelState;
+        controllers.push(renderer.render(
+          canvas,
+          singleVoxelScene({ state }),
+          { ...legendOptions, ariaLabel: `${state} 状态体素` }
+        ));
+      });
+
+      try {
+        const testCanvas = document.getElementById('selfTestCanvas');
+        const selfTest = renderer.render(testCanvas, {
+          extent: { columns: 1, rows: 1, depth: 1 },
+          axes: { columns: 'W', rows: 'H', depth: 'C' },
+          voxels: [],
+        });
+        selfTest.update({
+          extent: { columns: 1, rows: 1, depth: 1 },
+          axes: { columns: 'W', rows: 'H', depth: 'C' },
+          voxels: [{ id: 'single', column: 0, row: 0, depth: 0, state: 'current', tone: 'compute', label: '1' }],
+        });
+        selfTest.update({
+          extent: { columns: 16, rows: 16, depth: 16 },
+          axes: { columns: 'W', rows: 'H', depth: 'C' },
+          voxels: voxelsFor(16, 16, 16),
+        });
+        selfTest.resize();
+        selfTest.destroy();
+        document.getElementById('selfTestStatus').textContent = 'self-check passed';
+      } catch (error) {
+        document.getElementById('selfTestStatus').textContent = `self-check failed: ${error.message}`;
+        console.error(error);
+      }
+
+      document.getElementById('themeToggle').addEventListener('click', (event) => {
+        const root = document.documentElement;
+        const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+        root.dataset.theme = next;
+        event.currentTarget.textContent = next === 'light' ? 'Dark mode' : 'Light mode';
+        controllers.forEach((controller) => controller.resize());
+      });
+
+      window.addEventListener('pto-preview-theme-applied', () => {
+        controllers.forEach((controller) => controller.resize());
+      });
+      window.addEventListener('beforeunload', () => controllers.forEach((controller) => controller.destroy()));
+    })();
+  </script>
+</body>
+</html>

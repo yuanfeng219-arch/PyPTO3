@@ -1,0 +1,35 @@
+#viz2-attention { min-height: 0; }
+.viz2-am-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 26px 8px 200px; min-height:78px; box-sizing:border-box; }
+.viz2-am-head h2 { margin:0 0 5px; color:var(--foreground); font:var(--type-title-3); }
+.viz2-am-head p { margin:0; color:var(--foreground-secondary); font:var(--type-body-sm); }
+.viz2-am-controls { display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+.viz2-am-controls label { color:var(--foreground-secondary); font:var(--type-body-sm); white-space:nowrap; }
+.viz2-am-viewport { min-height:300px; margin:0 22px 0 200px; cursor:grab; }
+.viz2-am-svg { background:var(--surface-1); }
+.viz2-am-svg text { font-size:var(--am-label-size, 12px); }
+.viz2-am-axis, .viz2-am-batch, .viz2-am-kv, .viz2-am-group-label, .viz2-am-seq { fill:var(--foreground-secondary); font-family:var(--font-mono); }
+.viz2-am-axis { fill:var(--foreground-muted); }
+.viz2-am-kv { text-anchor:middle; fill:var(--foreground); }
+.viz2-am-batch, .viz2-am-seq, .viz2-am-group-label { dominant-baseline:central; }
+.viz2-am-seq { text-anchor:end; fill:var(--foreground-muted); }
+.viz2-am-column-rule { stroke:var(--border-subtle); vector-effect:non-scaling-stroke; }
+[data-am-columns], [data-am-generation], [data-am-group-labels] { pointer-events:none; }
+.viz2-am-block { cursor:pointer; }
+.viz2-am-block-frame { fill:transparent; stroke:var(--border-strong); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-am-block-label { fill:var(--foreground-secondary); font-family:var(--font-mono); pointer-events:none; }
+.viz2-am-block:is(.is-selected, .is-hovered, :hover) .viz2-am-block-frame { stroke:var(--primary); }
+.viz2-am-block.is-selected .viz2-am-block-label { fill:var(--primary); }
+.viz2-am-block-hit { cursor:pointer; }
+.viz2-am-block-hit:focus-visible { stroke:var(--focus-ring); outline:none; }
+.viz2-am-task .kf-pa-map__cell { fill:var(--surface-4); }
+.viz2-am-task .kf-pa-map__task-id { fill:var(--foreground); font-size:var(--am-label-size, 12px); font-weight:600; dominant-baseline:central; paint-order:stroke fill; stroke:var(--surface-2); stroke-width:2px; stroke-linejoin:round; }
+.viz2-am-q-encoding, .viz2-am-seq-encoding { pointer-events:none; }
+.viz2-am-seq-encoding .kf-pa-map__seq-track { fill:var(--surface-2); }
+.viz2-am-seq-encoding .kf-pa-map__seq-fill { fill:var(--primary); fill-opacity:.72; }
+.viz2-am-task.is-assigned .kf-pa-map__cell { fill:var(--state-selected); }
+.viz2-am-task.is-selected .kf-pa-map__cell, .viz2-am-task:hover .kf-pa-map__cell { fill:var(--state-focus); stroke:var(--primary); stroke-width:2; }
+.viz2-am-footer { display:flex; gap:15px; align-items:center; padding:var(--space-3) var(--space-5); min-height:43px; color:var(--foreground-muted); font:var(--type-body-sm); }
+.viz2-am-footer p { margin:0; color:var(--foreground-secondary); }
+.viz2-am-footer span { margin-left:auto; }
+.viz2-am-footer > .kf-pa-map__tools { flex:none; margin-left:auto; }
+@media(max-width:1100px) { .viz2-am-head { flex-wrap:wrap; } .viz2-am-footer { flex-wrap:wrap; } }

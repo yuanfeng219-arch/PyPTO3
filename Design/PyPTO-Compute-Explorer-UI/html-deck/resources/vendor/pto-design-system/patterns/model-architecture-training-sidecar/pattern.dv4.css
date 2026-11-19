@@ -1,0 +1,645 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.dv4-pattern-page {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0;
+}
+
+#dv4ArchitecturePattern {
+  height: 100%;
+  min-height: 0;
+}
+
+.pto-dv4-architecture {
+  --dv4-stream: #5273ff;
+  --dv4-stream-soft: #8ca0ff;
+  --dv4-attention: #6fd9e8;
+  --dv4-csa: #71b9ff;
+  --dv4-hca: #a68af4;
+  --dv4-moe: #d29af0;
+  --dv4-router: #f1bc63;
+  --dv4-expert: #f19c6d;
+  --dv4-shared: #bb7bea;
+  --dv4-edge-gray: #858A93;
+  --dv4-module-border-gray: #41464F;
+  --model-graphviz-line: var(--dv4-edge-gray);
+  --model-graphviz-line-soft: var(--dv4-module-border-gray);
+  --model-graphviz-toggle-bg: rgba(0, 0, 0, 0.10);
+  --model-graphviz-toggle-icon: var(--foreground-secondary);
+  --dv4-unselected-node-fill: color-mix(in srgb, var(--surface-4) 82%, var(--foreground-muted));
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--background);
+}
+
+[data-theme="light"] .pto-dv4-architecture {
+  --dv4-stream: #4564ed;
+  --dv4-stream-soft: #6f87ef;
+  --dv4-attention: #36bfd6;
+  --dv4-csa: #4d9fe9;
+  --dv4-hca: #8d6fe0;
+  --dv4-moe: #b879da;
+  --dv4-router: #d99d34;
+  --dv4-expert: #df8350;
+  --dv4-shared: #9c5dca;
+  --dv4-edge-gray: #858A93;
+  --dv4-module-border-gray: #C8CBD1;
+  --dv4-unselected-node-fill: color-mix(in srgb, var(--surface-3) 88%, var(--foreground-muted));
+}
+
+.pto-dv4-architecture__layer-picker {
+  display: flex;
+  align-items: center;
+}
+
+.pto-dv4-architecture__button {
+  min-width: 54px;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--foreground-secondary);
+  background: transparent;
+  font: 650 12px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.pto-dv4-architecture__button:hover,
+.pto-dv4-architecture__button:focus-visible {
+  color: var(--foreground);
+  background: var(--state-hover);
+  outline: none;
+}
+
+.pto-dv4-architecture__button.is-active {
+  color: var(--background);
+  background: var(--foreground);
+}
+
+.pto-dv4-architecture__button.is-icon {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+}
+
+.pto-dv4-architecture__button.is-edge-style {
+  min-width: 94px;
+  font-family: var(--font-mono);
+}
+
+.pto-dv4-architecture__readout {
+  min-width: 42px;
+  color: var(--foreground-secondary);
+  font: 650 12px/1 var(--font-mono);
+  text-align: center;
+}
+
+.pto-dv4-architecture__layer-picker {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: 12px;
+  padding: 4px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--background-elevated) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(10px);
+}
+
+.pto-dv4-architecture__view-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 6px;
+  padding-right: 6px;
+  border-right: 1px solid var(--border-default);
+}
+
+.pto-dv4-architecture__layer-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pto-dv4-architecture__layer-select {
+  height: 28px;
+  min-width: 96px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--foreground);
+  background: var(--surface-2);
+  font: 650 11px/1 var(--font-sans);
+}
+
+.pto-dv4-architecture__viewport-actions,
+.pto-dv4-architecture__legend {
+  position: absolute;
+  z-index: 5;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--background-elevated) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(10px);
+}
+
+.pto-dv4-architecture__viewport-actions {
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.pto-dv4-architecture__legend {
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 210px;
+  padding: 10px 12px;
+}
+
+.pto-dv4-architecture__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.pto-dv4-architecture__legend-mark {
+  flex: none;
+  width: 18px;
+  height: 16px;
+}
+
+.pto-dv4-architecture__legend-mark.is-streams {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--dv4-stream) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+.pto-dv4-architecture__legend-mark.is-merge {
+  position: relative;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  border: 2px double var(--dv4-stream);
+  border-radius: 50%;
+}
+
+.pto-dv4-architecture__legend-mark.is-merge::before {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--dv4-stream);
+  content: '+';
+  font: 800 12px/1 var(--font-sans);
+}
+
+.pto-dv4-architecture__legend-mark.is-merge::after {
+  position: absolute;
+  right: -15px;
+  bottom: -7px;
+  color: var(--dv4-stream);
+  content: '×4';
+  font: 750 8px/1 var(--font-mono);
+}
+
+.pto-dv4-architecture__legend strong {
+  overflow: hidden;
+  color: var(--foreground);
+  font: 650 11px/1.2 var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pto-dv4-architecture__workspace {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pto-dv4-architecture__viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background-color: var(--background);
+  background-image: radial-gradient(circle, var(--border-default) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.pto-dv4-architecture__viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.pto-dv4-architecture__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.pto-dv4-architecture__graph,
+.pto-dv4-architecture__graph .pto-model-graphviz-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-node,
+.pto-dv4-architecture__graph .pto-model-graphviz-edge,
+.pto-dv4-architecture__graph .pto-model-graphviz-cluster {
+  transition: opacity 160ms ease, filter 160ms ease;
+}
+
+.pto-dv4-architecture__graph :is(.pto-model-graphviz-node, .pto-model-graphviz-cluster) {
+  cursor: default;
+}
+
+.pto-dv4-architecture__graph :is(.pto-model-graphviz-node, .pto-model-graphviz-cluster):focus,
+.pto-dv4-architecture__graph :is(.pto-model-graphviz-node, .pto-model-graphviz-cluster):focus-visible {
+  outline: none;
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-toggle {
+  cursor: pointer;
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-edge {
+  stroke: var(--dv4-edge-gray);
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-cluster > rect:first-child {
+  stroke: var(--dv4-module-border-gray);
+}
+
+.dv4-pattern-page[data-focus='csa']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-cluster.is-model-selected > rect:first-child {
+  fill: var(--state-selected);
+  stroke: var(--primary);
+  stroke-width: 4px;
+  filter: drop-shadow(0 0 5px var(--focus-ring));
+}
+
+.dv4-pattern-page[data-focus='csa']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-cluster.is-model-selected > .pto-model-graphviz-cluster-label {
+  fill: var(--primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.dv4-pattern-page[data-mapping='true']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-node.is-csa-focus-member {
+  cursor: pointer;
+}
+
+.dv4-pattern-page[data-mapping='true']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-node.is-csa-node-selected > rect:first-child {
+  stroke: var(--primary);
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 7px var(--focus-ring));
+}
+
+.dv4-pattern-page[data-selection='csa']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-node:not(.is-csa-focus-member) > rect:first-child {
+  fill: var(--dv4-unselected-node-fill) !important;
+  fill-opacity: 1;
+}
+
+.dv4-pattern-page[data-selection='csa']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-node:not(.is-csa-focus-member)
+  > :is(.pto-model-graphviz-node-label, .pto-model-graphviz-node-type) {
+  fill: var(--foreground-muted);
+}
+
+.dv4-pattern-page[data-selection='csa']
+  .pto-dv4-architecture__graph
+  .pto-model-graphviz-edge:not(.is-csa-focus-related) {
+  opacity: .34;
+}
+
+.dv4-pattern-page[data-mapping='true']
+  .pto-model-graphviz-cluster[data-mapping-bound='true'] {
+  cursor: pointer;
+}
+
+.dv4-pattern-page[data-mapping='true']
+  .pto-model-graphviz-cluster[data-mapping-bound='true'] > rect:first-child {
+  pointer-events: all;
+}
+
+.dv4-pattern-page[data-mapping='true']
+  .pto-model-graphviz-cluster[data-mapping-bound='true']:hover > rect:first-child {
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 8px var(--focus-ring));
+}
+
+.dv4-pattern-page[data-embed='true'] [data-dv4-theme] {
+  display: none;
+}
+
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture,
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture__viewport {
+  background-color: #fff;
+}
+
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture {
+  --model-graphviz-bg: #fff;
+  --model-graphviz-surface: #fff;
+  --model-graphviz-surface-soft: #fff;
+  --model-graphviz-stage-bg: #fff;
+}
+
+:root[data-theme='light'] .dv4-pattern-page[data-surface='white'] .pto-dv4-architecture__viewport {
+  background-image: none;
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-toggle {
+  fill: var(--model-graphviz-toggle-bg);
+  stroke: none;
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-toggle-icon {
+  fill: none;
+  stroke: var(--model-graphviz-toggle-icon);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.pto-dv4-architecture__graph .is-inactive-variant {
+  opacity: 1;
+  filter: none;
+}
+
+.pto-dv4-architecture__graph .is-stream-state > rect:first-child {
+  fill: color-mix(in srgb, var(--dv4-stream) 24%, var(--surface-1));
+  fill-opacity: 1;
+  stroke: var(--dv4-stream);
+  stroke-width: 2.4;
+}
+
+.pto-dv4-architecture__graph .is-residual-mix > rect:first-child {
+  rx: 8px;
+  ry: 8px;
+  fill: color-mix(in srgb, var(--dv4-stream) 20%, var(--surface-1));
+  fill-opacity: 1;
+  stroke: var(--dv4-stream);
+  stroke-width: 1.6;
+}
+
+.pto-dv4-architecture__graph .is-residual-mix .pto-model-graphviz-node-label {
+  fill: var(--dv4-stream);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.pto-dv4-architecture__graph .is-mhc-projection > rect:first-child {
+  fill: color-mix(in srgb, var(--dv4-stream) 20%, var(--surface-1));
+  fill-opacity: 1;
+  stroke: var(--dv4-stream);
+  stroke-width: 1.8;
+}
+
+.pto-dv4-architecture__graph .pto-model-graphviz-node.is-mhc-merge {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pto-dv4-mhc-bundles,
+.pto-dv4-mhc-merge {
+  pointer-events: none;
+}
+
+.pto-dv4-mhc-bundle-line {
+  fill: none;
+  stroke: var(--dv4-stream);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-mhc-merge__face {
+  fill: var(--background);
+  stroke: var(--dv4-stream);
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-mhc-merge__face {
+  stroke-width: 2.6;
+}
+
+.pto-dv4-mhc-merge__plus {
+  fill: none;
+  stroke: var(--dv4-stream);
+  stroke-width: 5;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-mhc-merge__badge {
+  fill: var(--dv4-stream);
+  stroke: var(--background);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-mhc-merge__badge-text {
+  fill: white;
+  font: 800 12px/1 var(--font-mono);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.pto-dv4-mhc-merge__label {
+  fill: var(--foreground-secondary);
+  font: 650 12px/1 var(--font-sans);
+  dominant-baseline: central;
+}
+
+.pto-dv4-architecture__graph .is-token-id-input {
+  opacity: .92;
+}
+
+.pto-dv4-architecture__graph :is(
+  .is-token-id-input.is-router-input-inactive,
+  .pto-model-graphviz-edge.is-router-input-inactive
+) {
+  opacity: .16;
+  filter: saturate(.25);
+}
+
+.pto-dv4-architecture__empty {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--foreground-muted);
+  font: 600 12px/1.4 var(--font-sans);
+}
+
+.pto-dv4-architecture__graph.is-side .pto-dv4-side-layer-item {
+  cursor: pointer;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-compact-cluster > rect:first-child {
+  fill: color-mix(in srgb, var(--foreground) 7%, var(--background));
+  fill-opacity: 1;
+  stroke: none;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-compact-cluster:hover > rect:first-child {
+  fill: color-mix(in srgb, var(--dv4-stream) 12%, var(--background));
+  stroke: none;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-selected-cluster > rect:first-child {
+  fill: color-mix(in srgb, var(--surface-1) 32%, transparent);
+  fill-opacity: 1;
+  stroke: var(--dv4-module-border-gray);
+  stroke-width: 2;
+}
+
+.pto-dv4-architecture__graph.is-side .pto-model-graphviz-cluster-label {
+  fill: var(--foreground-secondary);
+  font-size: 10px;
+  font-weight: 750;
+  text-anchor: middle;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-selected-cluster .pto-model-graphviz-cluster-label {
+  font-size: 13px;
+  text-anchor: start;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-compact-cluster .pto-model-graphviz-cluster-label {
+  transform: translateX(1px);
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-operator-slice > rect:first-child {
+  rx: 2px;
+  ry: 2px;
+  fill-opacity: 1;
+  stroke: none;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-operator-slice :is(
+  .pto-model-graphviz-node-label,
+  .pto-model-graphviz-node-type
+) {
+  display: none;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-merge-anchor {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-selected-layer.pto-model-graphviz-node:not(.is-side-merge-anchor) .pto-model-graphviz-node-label {
+  font-size: 11px;
+}
+
+.pto-dv4-architecture__graph.is-side .is-side-selected-layer.pto-model-graphviz-node > rect:first-child {
+  fill-opacity: 1;
+}
+
+.pto-dv4-side-main-stream,
+.pto-dv4-side-residual-bundles,
+.pto-dv4-side-stream-arrows,
+.pto-dv4-side-merge {
+  pointer-events: none;
+}
+
+.pto-dv4-side-main-stream__line,
+.pto-dv4-side-residual-bundle__line {
+  fill: none;
+  stroke: var(--dv4-stream);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-side-residual-bundle__line {
+  stroke-width: 1.6;
+  opacity: .82;
+}
+
+.pto-dv4-side-stream-arrow {
+  fill: var(--dv4-stream);
+  stroke: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-side-merge__face {
+  fill: var(--background);
+  stroke: var(--dv4-stream);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-side-merge__plus {
+  fill: none;
+  stroke: var(--dv4-stream);
+  stroke-width: 2.2;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-side-merge__badge {
+  fill: var(--dv4-stream);
+  stroke: var(--background);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-dv4-side-merge__badge-text {
+  fill: white;
+  font: 800 8px/1 var(--font-mono);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+@media (max-width: 980px) {
+  .pto-dv4-architecture__legend {
+    width: 190px;
+  }
+}

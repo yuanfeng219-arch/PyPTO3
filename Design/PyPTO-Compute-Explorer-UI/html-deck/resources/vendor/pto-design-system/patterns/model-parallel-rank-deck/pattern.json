@@ -1,0 +1,77 @@
+{
+  "id": "model-parallel-rank-deck",
+  "name": "Model Parallel Rank Three.js Deck",
+  "type": "hybrid",
+  "description": "Shows 128 transparent Three.js Rank volumes in one empty default row, then reveals the canonical openPangu Layer payload after PP, TP, EP, or EDP is selected, with Layer depth aligned to the PP axis.",
+  "typography": {
+    "bodyMinimumPx": 14,
+    "uiMinimumPx": 12,
+    "microLabelMinimumPx": 11,
+    "dataVizMinimumPx": 7,
+    "dataVizExceptionReason": "Rank labels and TP/EP ownership marks are geometry-bound annotations inside a zoomable Three.js scene and are mirrored by the fixed Inspector.",
+    "dataVizFallback": "The fixed Inspector exposes the same Rank coordinates, Layer ranges, Expert ranges, source levels, payload signatures, groups, and selected ownership at 11px or larger."
+  },
+  "source": {
+    "spec": "patterns/model-parallel-rank-deck/THREEJS_RANK_PACKING_SPEC.md",
+    "basePattern": "patterns/model-architecture-3d-deck",
+    "patternHtml": "patterns/model-parallel-rank-deck/pattern.html",
+    "patternCss": "patterns/model-parallel-rank-deck/pattern.css",
+    "renderScript": "patterns/model-parallel-rank-deck/pattern.js",
+    "classification": "hybrid-pattern",
+    "topologySourceLevel": "demo",
+    "modelSourceLevel": "official",
+    "modelEvidence": "source-checked"
+  },
+  "globalApi": "window.PtoModelParallelRankDeck",
+  "requiredApis": [
+    "render(root, options)",
+    "controller.setSceneMode(mode)",
+    "controller.setTopologyMode(mode)",
+    "controller.setGroupingAxes(axes)",
+    "controller.resetGrouping()",
+    "controller.setTheme(theme)",
+    "controller.setPose(pose)",
+    "controller.fit()",
+    "controller.selectRank(rank)",
+    "controller.enterRank(rank)",
+    "controller.leaveRank()",
+    "controller.selectLayer(layer, rank)",
+    "controller.selectNode(nodeId, layer, rank)",
+    "controller.selectExpert(expertId)",
+    "controller.selectGroup(groupId)",
+    "controller.getRankManifest(rank)",
+    "controller.getState()",
+    "controller.destroy()"
+  ],
+  "defaultTopology": {
+    "dimensions": {"tp": 2, "pp": 4, "cp": 1, "ep": 8, "edp": 2},
+    "worldSize": 128,
+    "sourceLevel": "demo"
+  },
+  "useWhen": [
+    "presenting an ordered 128-Rank inventory before choosing a parallel split",
+    "placing the complete shared model architecture into Three.js Rank volumes",
+    "inspecting TP, PP, CP, EP, and EDP ownership across Layers, nodes, experts, and communication groups",
+    "switching between model, topology, grouping, Rank focus, and Layer focus without creating a second Layer renderer"
+  ],
+  "allowedOverrides": [
+    "options.model or options.config",
+    "options.topology with explicit sourceLevel",
+    "options.partitionRules.stageRanges",
+    "options.initialState",
+    "options.batchSize",
+    "options.syncUrl",
+    "callbacks and externally supplied state"
+  ],
+  "forbiddenOverrides": [
+    "Do not replace Rank payloads with glyphs, screenshots, textures, or representative Layers.",
+    "Do not create rankLayerHtml or another model renderer.",
+    "Do not remove source Node, Cluster, or Edge records from ModelSceneSpec or SceneIndex as an LOD optimization.",
+    "Do not restyle or rearrange canonical Layer internals from a consuming page.",
+    "Do not describe the 128-rank demo mapping as the official openPangu training topology.",
+    "Do not conflate EP groups with MoGE route groups or EDP with a generic display REP axis.",
+    "Do not create one Three.js Group or one DOM subtree per Rank.",
+    "Do not create one canvas texture per duplicated operator label."
+  ],
+  "agentReuseRule": "Load model-graphviz, model-architecture-3d-deck, then model-parallel-rank-deck and a pinned local Three.js module. Call PtoModelParallelRankDeck.render with THREE and model/topology data. ModelSceneSpec must be compiled from PtoModelArchitecture3dDeck.renderLayerScene/renderStaticScene and retain every original node, cluster, edge, label, geometry, and state."
+}

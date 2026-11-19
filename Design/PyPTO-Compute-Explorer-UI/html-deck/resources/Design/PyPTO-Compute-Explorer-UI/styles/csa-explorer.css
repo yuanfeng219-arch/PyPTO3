@@ -1,0 +1,64 @@
+/* Domain layout only; IDE chrome, controls, graph marks and camera are shared patterns. */
+.csa-explorer { display:flex; flex-direction:column; }
+.csa-toolbar,.csa-focusbar { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-3); padding:var(--space-2) var(--space-5); flex:none; }
+.csa-toolbar nav { color:var(--foreground-secondary); font:var(--type-body-sm); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.csa-crumb { display:inline-flex; align-items:center; gap:var(--space-2); }
+.csa-crumb-separator { color:var(--foreground-muted); margin:0 var(--space-2); }
+.csa-crumb button { border:0; background:none; color:var(--foreground-secondary); font:inherit; padding:2px 0; cursor:pointer; }
+.csa-crumb button:hover,.csa-crumb button:focus-visible { color:var(--primary); text-decoration:underline; }
+.csa-crumb [aria-current] { color:var(--foreground); font-weight:var(--font-weight-semibold); }
+.csa-scope-context { margin-left:var(--space-3); padding-left:var(--space-3); border-left:1px solid var(--border-subtle); color:var(--foreground-muted); }
+.csa-focusbar { padding-top:0; }
+.csa-focusbar[hidden],.csa-workspace[hidden] { display:none; }
+.csa-workspace { display:flex; flex:1; min-height:0; min-width:0; }
+.csa-canvas-column { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; }
+.csa-caption { display:flex; gap:var(--space-3); flex-wrap:wrap; padding:var(--space-2) var(--space-5); color:var(--foreground-muted); font:var(--type-body-sm); }
+.csa-caption b { color:var(--foreground-secondary); font-weight:var(--font-weight-semibold); }
+.csa-stage.pto-model-graphviz-pattern-page { position:relative; flex:1; min-height:0; width:100%; overflow:hidden; background:transparent; }
+.csa-stage > svg { display:block; width:100%; height:100%; }
+.csa-footer { display:flex; align-items:center; padding:var(--space-2) var(--space-4); gap:var(--space-2); flex:none; }
+.csa-legend { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-3); color:var(--foreground-muted); font:var(--type-micro); margin-right:auto; }
+.csa-comm-legend { color:var(--primary); }
+.csa-inspector { flex:0 0 310px; max-width:34%; border-radius:0; border-left:1px solid var(--border-subtle); }
+.csa-detail { padding:var(--space-4); overflow:auto; font:var(--type-body-sm); }
+.csa-detail h2 { font:var(--type-title-3); margin:var(--space-2) 0 var(--space-4); overflow-wrap:anywhere; }
+.csa-detail p { color:var(--foreground-secondary); line-height:var(--line-height-body); }
+.csa-detail dl { margin:0; display:grid; gap:var(--space-2); }
+.csa-detail dt,.csa-eyebrow { color:var(--foreground-muted); font:var(--type-micro); }
+.csa-detail dd { margin:0 0 var(--space-3); color:var(--foreground-secondary); line-height:var(--line-height-body); overflow-wrap:anywhere; }
+.csa-note { padding-top:var(--space-3); color:var(--foreground-muted)!important; font:var(--type-micro); }
+.csa-sources { margin-top:var(--space-5); }
+.csa-sources h3 { color:var(--foreground-secondary); font:var(--type-body-sm); }
+.csa-sources > button { display:block; max-width:100%; white-space:normal; text-align:left; height:auto; min-height:var(--button-height-sm); }
+.csa-sources summary { cursor:pointer; color:var(--foreground-secondary); padding:var(--space-2) 0; overflow-wrap:anywhere; }
+.csa-sources pre { white-space:pre; overflow:auto; max-height:320px; color:var(--foreground-secondary); background:var(--surface-1); padding:var(--space-3); font:var(--type-mono); }
+.csa-unadapted { display:flex; height:100%; flex-direction:column; align-items:center; justify-content:center; gap:var(--space-3); text-align:center; padding:var(--space-5); box-sizing:border-box; }
+.csa-unadapted h2 { margin:0; font:var(--type-title-3); }
+.csa-unadapted p { max-width:440px; margin:0; color:var(--foreground-muted); font:var(--type-body-sm); }
+@media(max-width:1000px){.csa-inspector{flex-basis:260px;}.csa-toolbar,.csa-focusbar{padding-inline:var(--space-3)}.csa-legend{font:var(--type-micro)}}
+
+/* Assignment：Breadcrumb 下方一排紧凑的计算阶段 Tab，画布始终是主界面。 */
+.csa-stagebar { display:flex; flex:none; padding:0 var(--space-5) var(--space-2); overflow-x:auto; scrollbar-width:thin; }
+.csa-stagebar[hidden] { display:none; }
+.csa-stagebar > .segmented-control { flex:0 0 auto; max-width:none; }
+.csa-stagebar > .segmented-control > .btn { flex:0 0 auto; gap:var(--space-1); white-space:nowrap; }
+.csa-stagebar > .segmented-control > .btn.is-pending { color:var(--foreground-muted); }
+.csa-stage-todo { color:var(--foreground-muted); font:var(--type-micro); }
+.csa-stage-hold { flex:1; min-height:0; overflow:auto; }
+.csa-stage-hold[hidden] { display:none; }
+@media(max-width:1000px){.csa-stagebar{padding-inline:var(--space-3)}}
+
+/* CSA uses the shared semantic Graph scene and its original card/edge skins. */
+.csa-semantic-stage.viz2-graph { display:flex; flex-direction:column; }
+.csa-semantic-stage .viz2-graph-body { flex:1; min-height:0; }
+.csa-semantic-stage [data-viz2-graph-layer="execution"] { display:none; }
+.csa-semantic-stage .viz2-graph-inspector [data-viz2-graph-source] { white-space:normal; height:auto; }
+.csa-semantic-stage .viz2-graph-inspector pre { white-space:pre; overflow:auto; max-height:320px; padding:var(--space-3); color:var(--foreground-secondary); background:var(--surface-1); font:var(--type-mono); }
+.csa-semantic-stage [data-pypa-edge*="跨 Rank"] { stroke:var(--primary); stroke-dasharray:5 4; }
+.csa-semantic-stage [data-overlay-sync="true"] .kf-pypa-graph__edge.is-control { stroke:var(--warning); stroke-width:3.5; opacity:1; }
+.csa-semantic-stage [data-overlay-sync="true"] [data-pypa-edge*="跨 Rank"] { stroke:var(--primary); stroke-width:3.5; opacity:1; }
+.csa-semantic-stage .viz2-graph-node-title { justify-content:center; text-align:center; line-height:16px; font-size:12px; white-space:normal; }
+.csa-semantic-stage .viz2-graph-node-title > [data-viz2-graph-name] { overflow-wrap:break-word; }
+.csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node:not(.is-expanded-head) { height:auto; }
+.csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head { flex-wrap:wrap; }
+.csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head b { flex-basis:100%; font-size:15px; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:break-word; line-height:1.15; }

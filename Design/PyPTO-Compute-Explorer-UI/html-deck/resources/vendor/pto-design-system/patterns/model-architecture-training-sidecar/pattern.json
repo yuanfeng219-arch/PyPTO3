@@ -1,0 +1,80 @@
+{
+  "id": "model-architecture-training-sidecar",
+  "name": "Model Architecture Training Sidecar",
+  "type": "hybrid",
+  "description": "A non-destructive training-semantics overlay for the canonical model-architecture-3d-deck right view, with four-stream mHC state flow, backward activation gradients, explicit microbatch/step parameter-gradient lifecycles, configured optimizer synchronization, loss composition, metric strips, in-scene Layer slice flips, and click-through annotation inspectors.",
+  "typography": {
+    "bodyMinimumPx": 14,
+    "uiMinimumPx": 12,
+    "microLabelMinimumPx": 11,
+    "dataVizMinimumPx": 5.2,
+    "dataVizExceptionReason": "Layer, operator, metric, loss-flow, and focus-graph labels are geometry-bound marks scaled with the shared zoomable canvas scene.",
+    "dataVizFallback": "Canvas zoom, the expanded in-scene Layer slice, tooltips, and the fixed 14px Inspector prose expose the same information readably."
+  },
+  "source": {
+    "basePattern": "patterns/model-architecture-3d-deck",
+    "patternHtml": "patterns/model-architecture-training-sidecar/pattern.html",
+    "patternCss": "patterns/model-architecture-training-sidecar/pattern.css",
+    "renderScript": "patterns/model-architecture-training-sidecar/pattern.js",
+    "classification": "hybrid-pattern",
+    "visualContract": "The canonical side view remains owned by model-architecture-3d-deck. Training SVG, DOM labels, hit targets, lines, and metric annotations share one canvas-scene transform, so zoom and pan change every graph element by the same ratio without recomputing visibility. Screen UI such as the top-toolbar Data menu, tooltip, and fixed Inspector never participates in canvas scaling. The model structure is always visible. The Data dropdown independently toggles Numerics, Gradient, Performance, MoE, and Training annotations as a multi-select union and includes Select all and Hide all actions; zoom must never add, remove, expand, or collapse information. Data selection changes preserve operator dimensions and topology positions. The collapsed overview keeps every operator-row name visible as a single-line label. Parallel operators whose projected row slots overlap, such as EP Dispatch, Expert Pool, and Shared Expert, consolidate into one row label containing every name rather than stacking separate labels. Its default right-view fit deliberately permits horizontal panning so row spacing and readable label size take priority over fitting all 46 Layers into the viewport at once; the right-view depth gap is approximately 1.26 times the base preset gap. Collapsed right-view operator sides are explicit shared-scene rectangles calibrated to approximately 2 screen pixels at the adaptive fit and centered on the same layerX as their approximately 10px neutral Layer background. Operator fills are fully opaque and neutral gray at rest; only semantic operator names carry color. Hovering or keyboard-focusing a Layer restores semantic color to that Layer's operator sides. Layer backgrounds are bounded by the first and last measured operator rather than the full card, and the legacy layer/node side pseudo-faces and duplicate internal graph edge are suppressed so only one depth guide remains and no empty tail extends below the final operator. Model-level Input Stem and Output Tail use the same neutral background-column width as Decoder Layers without being identified as Layers. Their 2px operator sides remain centered in the 10px column, while input labels sit to the left, output labels sit to the right, and neutral leader lines prevent text from covering the operator. Input and Output labels do not render outer dashed operator-row frames. `Input IDs · Attn Context · Embedding W` connects to `Parallel Embedding`; a continuous neutral stem then reaches the exact origin of the four mHC residual rails before they fan out to H0 mHC state x4. The four structural residual rails are also the forward mHC-state flow: direction arrows and telemetry hit targets attach to those rails instead of rendering a duplicate single-stream forward lane. Decoder operator-row and FFN-group dashed frames remain deliberately lower contrast than the filled model structure. PP Stage badges use two lines: Stage plus Layer range on the first line and configured parallel dimensions or real ranks on the second. They are omitted entirely when parallel annotations are hidden. In the collapsed right view, each Decoder Layer owns one operator-bounded hit strip; clicking it selects the Layer. A selected Layer may request a symmetric depth gap through setLayerExpansion. Telemetry follows object-specific schemas: tensors show distributions, parameter operators show weight/step-gradient/update, communication shows payload/bandwidth/latency, Router shows Pmax/entropy/imbalance, Norm shows input/output RMS, and Residual/mHC shows norm delta and stream mixing. The selected Layer shows H_l x4 to Attention Mix/Merge to H_l-prime x4 to FFN Mix/Merge to H_l+1 x4; never replace mHC with standard dual-residual Add paths or invent an unverified fusion matrix. Stage ranges and layer count come from controller config; rank labels appear only when real rankGroups exist. Main CE, Router Aux, and MTP losses feed an explicit Total Training Loss composition whose unknown coefficients remain training-job configured. Microbatch gradient contribution and step-accumulated gradient remain distinct; only the latter feeds configured DP Gradient Sync and the optimizer. Forward and backward lanes use a high-contrast neutral flow color in both themes; residual rails remain purple in dark mode and neutral gray in light mode.",
+    "focusLayoutContract": "No Layer is selected on the standalone/default page; the page ignores and removes any legacy layer query, while embedded consumers may still opt into selection through the explicit initialLayer API. The selected Layer's 10px side slice opens a 640-world-unit gap and flips in place to a 600-world-unit front plane. Slice separation, front-face rotation, camera zoom, and camera pan run on one 520ms easing timeline so selection has no intermediate geometry jump. During that transition immutable overview annotations briefly de-emphasize without reflow, then return at their target geometry. The shared scene camera ends with the front plane's operatorTop-to-operatorBottom height fitted to the usable viewport; the plane, base model, residual rails, and overview annotations keep one synchronized transform. Collapsing restores the exact pre-selection camera pose with the same continuous timeline, while Fit and viewport resize refit the active slice. The canonical 720-unit graph is horizontally cropped/recentered into that plane, with mHC state nodes and residual elbows moved inward; there is no independent vertical scaling. The plane uses graphScale 1 on y, the selected slice's exact operatorTop-to-operatorBottom height, the source card's original vertical origin, and the same pan/zoom transform as every side operator. Global side-view operator names and dashed row frames keep immutable geometry and consolidation rules; while a Layer is expanded, only the underlying side-view operator names are hidden so the front-plane names remain the single readable label set, and they return when the Layer collapses. EP Dispatch, Expert Pool, and Shared Expert share one canonical source baseline. The front plane has no title block—only a close control—and its Attention/FFN clusters occupy nearly the full width. A dedicated upper scene prevents base residual rails and row annotations from crossing the flipped plane. Structure mode creates operator names only and no metric nodes. Numerics, Gradient, Performance, MoE, or Training adds only its selected compact values without changing graph geometry; full values remain in the fixed screen-space Inspector. Clicking another Layer, blank canvas, the close control, or Escape returns the plane to the side-view stack. Loss composition is available only in Training mode, remains collapsed by default, expands by explicit click, and does not react to canvas zoom or pan.",
+    "evidence": [
+      "Megatron Core pipeline parallelism and bridge communicator documentation",
+      "PyTorch CrossEntropyLoss and optimization documentation",
+      "Megatron distributed parameter/gradient buffer and optimizer documentation"
+    ]
+  },
+  "globalApi": "window.PtoModelArchitectureTrainingSidecar",
+  "useWhen": [
+    "adding forward, backward, parameter-gradient, optimizer, loss, metric, and telemetry semantics to the canonical model-architecture-3d-deck right view",
+    "opening an in-scene Layer slice without mutating or replacing the base deck renderer",
+    "coordinating selectable training annotation bands with tooltips and a fixed Inspector"
+  ],
+  "requiredApis": [
+    "render(root, options)",
+    "controller.selectLayer(layer)",
+    "controller.collapseLayer()",
+    "controller.openDetail(detail)",
+    "controller.closeDetail()",
+    "controller.setLayerSnapshot(layer, data)",
+    "controller.setMetricView(view)",
+    "controller.setView(view)",
+    "controller.setTheme(theme)",
+    "controller.setZoom(value)",
+    "controller.setPose(pose)",
+    "controller.selectNode(nodeId, layer)",
+    "controller.refresh()",
+    "controller.destroy()"
+  ],
+  "semanticBands": {
+    "module": ["Embedding", "Attention", "MoE", "Head"],
+    "tensor": ["Input", "Hidden State", "Activation", "Residual", "Activation Gradient"],
+    "parameter": ["Weight", "Parameter Gradient", "Optimizer State"],
+    "metric": ["Loss", "Std σ", "Amax", "Latency"]
+  },
+  "telemetryRule": "Snapshots include step, microbatch, stage, layer, tensorName, tensors, and explicit optimizer/weight-version context. Rank is optional and may appear only when a real rank or rankGroups mapping is supplied. Softmax logits and probabilities remain distinct. gradientContribution belongs to one microbatch; accumulatedGradient, optimizer state, and weight versions belong to an optimizer step. The visual does not render provenance rows or source badges.",
+  "allowedOverrides": [
+    "options.step",
+    "options.microbatch",
+    "options.microbatchCount",
+    "options.topLaneReserve",
+    "options.bottomLaneReserve",
+    "options.initialLayer",
+    "options.metricView",
+    "options.layerExpansionDepth",
+    "options.topology",
+    "options.trainingJob",
+    "options.renderLayerDetail",
+    "options.onLayerSelect",
+    "options.onMetricViewChange"
+  ],
+  "forbiddenOverrides": [
+    "Do not edit or restyle model-architecture-3d-deck internals from this pattern.",
+    "Do not relabel the real L0-L45 Decoder stack as a generic 48-layer stack.",
+    "Do not draw parameter gradients as the backward inter-layer transport.",
+    "Do not add provenance rows or source badges inside the visualization.",
+    "Do not replace source-validated openPangu operators with a generic Transformer stack."
+  ],
+  "agentReuseRule": "Load model-graphviz, then model-architecture-3d-deck, then this sidecar. Call PtoModelArchitectureTrainingSidecar.render. Extend training data and the layer-detail slot without copying or changing the base deck renderer. Every added sidecar annotation must use the shared tip/detail metadata contract so it remains hoverable and opens the inspector; metrics must include a definition, current value, reference range, status assessment, and execution context."
+}

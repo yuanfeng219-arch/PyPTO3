@@ -1,0 +1,68 @@
+.pto-matrix-canvas-host {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pto-matrix-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  cursor: default;
+  touch-action: none;
+}
+
+.pto-matrix-canvas:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 3px var(--focus-ring);
+}
+
+.pto-matrix-canvas__tooltip {
+  position: absolute;
+  z-index: var(--z-overlay);
+  left: 0;
+  top: 0;
+  width: max-content;
+  max-width: min(320px, calc(100% - var(--space-4)));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--background-elevated) 96%, transparent);
+  box-shadow: var(--shadow-md);
+  color: var(--foreground);
+  font: var(--type-body-sm);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-9999px, -9999px);
+  transition: opacity var(--duration-fast) var(--easing-default);
+}
+
+.pto-matrix-canvas__tooltip.is-visible {
+  opacity: 1;
+}
+
+.pto-matrix-canvas__tooltip-title {
+  font: var(--type-mono);
+}
+
+.pto-matrix-canvas__tooltip-meta {
+  color: var(--foreground-secondary);
+}
+
+.pto-matrix-canvas__sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,14 @@
+/* Same operator picker on CSA and Paged Attention. */
+body.ai-extracted .viz2-header.has-operator-switcher>.pto-ide-frame__pane-meta,body.ai-extracted .viz2-header.has-operator-switcher>[data-csa-back]{display:none!important}
+.operator-switcher{pointer-events:auto;position:fixed;top:12px;right:132px;z-index:40;color:#aaa;font:12px ui-monospace,monospace}
+.operator-switcher>summary{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:36px;padding:0 10px;list-style:none;border-radius:20px;cursor:pointer;white-space:nowrap}
+.operator-switcher>summary::-webkit-details-marker{display:none}
+.operator-switcher>summary:hover,.operator-switcher[open]>summary{background:#242424;color:#eee}
+.operator-switcher>summary:focus-visible,.operator-switcher a:focus-visible{outline:2px solid #80b7f7;outline-offset:3px}
+.operator-switcher nav{position:absolute;top:44px;right:0;width:280px;max-width:calc(100vw - 32px);padding:6px;border:1px solid #3c3c3c;border-radius:14px;background:#242424;box-sizing:border-box}
+.operator-switcher a{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border-radius:9px;color:#ddd;text-decoration:none;font:13px system-ui,sans-serif}
+.operator-switcher a small{display:block;margin-top:5px;color:#999;font:11px ui-monospace,monospace}
+.operator-switcher a:hover{background:#303030}
+.operator-switcher a[aria-current]{background:#383838}
+@media(max-width:1100px){.operator-switcher>summary>span{max-width:160px;overflow:hidden;text-overflow:ellipsis}}
+@media(max-width:800px){.operator-switcher{top:58px;right:16px}.operator-switcher>summary>span{max-width:130px}.operator-switcher nav{top:42px}}

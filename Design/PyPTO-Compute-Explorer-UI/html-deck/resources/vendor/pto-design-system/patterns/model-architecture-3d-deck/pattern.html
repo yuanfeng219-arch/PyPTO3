@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Model Architecture 3D Deck Pattern</title>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="./pattern.css?v=iso-first-layer-v3">
+  <style>
+    html,body{height:100%;margin:0;background:var(--background);color:var(--foreground)}
+    body{min-height:680px;font-family:var(--font-sans)}
+    .pattern-page{height:100%;padding:12px;box-sizing:border-box}
+    .pattern-page[data-embed="true"]{padding:0}
+    #modelDeckPattern{height:100%;min-height:650px}
+  </style>
+</head>
+<body>
+  <main class="pattern-page" id="patternPage">
+    <section id="modelDeckPattern" aria-label="openPangu model architecture 3D deck"></section>
+  </main>
+  <script src="../model-graphviz/pattern.js?v=iso-first-layer-v3"></script>
+  <script src="./pattern.js?v=iso-first-layer-v3"></script>
+  <script>
+    const params=new URLSearchParams(location.search);
+    const theme=params.get('theme')==='light'?'light':'dark';
+    document.documentElement.dataset.theme=theme;
+    document.getElementById('patternPage').dataset.embed=String(params.get('embed')==='1');
+    window.modelDeckController=window.PtoModelArchitecture3dDeck.render('#modelDeckPattern',{
+      preset:'openpangu-flash',
+      initialView:params.get('view')||'iso',
+      parallelMode:params.get('parallel')||'pp',
+      initialTheme:theme
+    });
+    window.addEventListener('message',event=>{
+      if(event.data?.type==='pto-preview-theme')window.modelDeckController?.setTheme(event.data.theme==='light'?'light':'dark');
+    });
+  </script>
+</body>
+</html>

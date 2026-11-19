@@ -1,0 +1,57 @@
+/* A single Task canvas uses the full viewport; Task navigation remains in the toolbar. */
+#viz2-pipeline { display:flex; flex-direction:column; }
+.viz2-intra { --intra-slot-0:var(--primary); --intra-slot-1:var(--success); --intra-slot-2:var(--warning); }
+.viz2-intra-svg { display:block; flex:none; max-width:none; user-select:none; }
+.viz2-intra-svg text { font:var(--type-mono); font-size:14px; fill:var(--foreground); pointer-events:none; }
+.viz2-intra .viz2-anatomy-viewport { user-select:none; mask-image:none; cursor:default; }
+.viz2-intra .viz2-intra-card[hidden] { display:none; }
+.viz2-intra .viz2-intra-card { max-width:none; }
+.viz2-intra .viz2-intra-tick-scroll { touch-action:auto; }
+.viz2-intra-heading { font-weight:650; }
+.viz2-intra-svg .viz2-intra-column-title { text-anchor:middle; fill:var(--foreground-secondary); }
+.viz2-intra-svg .viz2-intra-node-slot,.viz2-intra-svg .viz2-intra-small { fill:var(--foreground-secondary); font-size:13px; }
+.viz2-intra-svg .viz2-intra-tick-label { fill:var(--foreground-muted); }
+.viz2-intra-svg .viz2-intra-axis,.viz2-intra-svg .viz2-intra-row-title { fill:var(--foreground-secondary); font-size:13px; font-weight:600; }
+.viz2-intra-svg .viz2-intra-tick-label { text-anchor:middle; }
+.viz2-intra-frame { fill:transparent; pointer-events:none; }
+.viz2-intra-tick-hit,.viz2-intra-output-hit,.viz2-intra-event-hit { fill:transparent; pointer-events:all; }
+.viz2-intra-tick-hit { stroke:var(--border-subtle); stroke-width:1; fill:transparent; vector-effect:non-scaling-stroke; }
+.viz2-intra-stack-hit { fill:var(--surface-2); }
+.viz2-intra-operation { fill:var(--surface-2); stroke:var(--slot-color); stroke-opacity:.65; stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-intra-event { fill:var(--surface-2); stroke:var(--slot-color); stroke-width:1.5; vector-effect:non-scaling-stroke; }
+.viz2-intra-flow { fill:none; stroke:var(--slot-color); stroke-width:1; opacity:.7; vector-effect:non-scaling-stroke; pointer-events:none; }
+.viz2-intra-reuse { fill:none; stroke:var(--slot-color); stroke-width:3; stroke-dasharray:4 4; stroke-linecap:round; opacity:.3; vector-effect:non-scaling-stroke; pointer-events:stroke; }
+.viz2-intra-output { fill:var(--surface-2); stroke:var(--foreground-secondary); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-intra-output-link { fill:none; stroke:var(--foreground-muted); stroke-width:1; vector-effect:non-scaling-stroke; pointer-events:none; }
+.viz2-intra-svg [data-intra-kind] { cursor:pointer; }
+.viz2-intra-svg .is-related .viz2-intra-operation,.viz2-intra-svg .is-shared .viz2-intra-operation { fill:var(--surface-4); stroke-opacity:1; }
+.viz2-intra-svg .is-related .viz2-intra-flow,.viz2-intra-svg .is-shared .viz2-intra-flow { opacity:1; }
+.viz2-intra-svg .viz2-intra-flow.is-related { stroke:var(--primary);stroke-width:2;opacity:1; }
+.viz2-intra-svg [data-intra-kind].is-upstream > .viz2-intra-operation { stroke:var(--success); }
+.viz2-intra-svg [data-intra-kind].is-downstream > .viz2-intra-operation { stroke:var(--primary); }
+.viz2-intra [data-intra-dependency-summary]{display:block;flex-basis:100%;color:var(--foreground-secondary);font:var(--type-micro)}
+.viz2-intra-svg [data-intra-scene].has-selection [data-intra-kind="stage"]:not(.is-selected):not(.is-related) { opacity:.3; }
+.viz2-intra-svg [data-intra-kind]:is(:hover,.is-selected,:focus-visible) > rect:not(.viz2-intra-output-hit):not(.viz2-intra-event-hit),.viz2-intra-svg [data-intra-kind]:is(:hover,.is-selected,:focus-visible) > circle:not(.viz2-intra-event-hit),.viz2-intra-svg [data-intra-kind].is-related > rect { stroke:var(--primary); stroke-opacity:1; stroke-width:1.5; vector-effect:non-scaling-stroke; }
+.viz2-intra-svg [data-intra-kind].is-upstream > .viz2-intra-operation { stroke:var(--success); }
+.viz2-intra-svg .viz2-intra-reuse:is(.is-highlighted,.is-selected,:focus-visible) { opacity:1; }
+.viz2-intra-svg [data-intra-kind]:focus-visible { outline:none; }
+.viz2-intra-masked .viz2-intra-card.is-current [data-intra-kind="output"],.viz2-intra-masked .viz2-intra-card.is-current [data-intra-operation$=":qk"],.viz2-intra-masked .viz2-intra-card.is-current .viz2-intra-heading { visibility:hidden; }
+.viz2-intra [data-intra-source-preview] { white-space:pre; overflow:auto; max-height:280px; font:var(--type-mono); }
+.viz2-intra .viz2-anatomy-inspector{flex:0 0 300px;width:300px;max-width:34%;min-width:0;overflow:auto}
+.viz2-intra .viz2-anatomy-inspector[hidden]{display:none}
+.viz2-intra .viz2-anatomy-inspector [data-intra-context]{display:block;color:var(--foreground-muted);font:var(--type-micro);margin-top:4px}
+.viz2-intra-relation-group{display:grid;gap:4px;margin-top:10px}
+.viz2-intra-relation-group b{color:var(--foreground-secondary);font:var(--type-micro)}
+.viz2-intra-relation{justify-content:flex-start;text-align:left;white-space:normal}
+.viz2-intra-legend { flex-wrap:wrap; }
+.viz2-intra-flow-key,.viz2-intra-event-key,.viz2-intra-reuse-key { flex:none; display:inline-block; width:var(--space-4); }
+.viz2-intra-flow-key { border-top:1px solid var(--primary); }
+.viz2-intra-event-key { width:var(--space-2); height:var(--space-2); border:1px solid var(--foreground-secondary); border-radius:var(--radius-pill); }
+.viz2-intra-reuse-key { border-top:3px dashed var(--primary); opacity:.65; }
+#viz2-pipeline:has(#viz2-pipeline-intra:not([hidden])) > .viz2-phase-toolbar { display:none; }
+@media (max-width:620px) {
+  .viz2-intra .viz2-anatomy-taskbar { gap:var(--space-2); flex-wrap:wrap; padding-inline:var(--space-3); }
+  .viz2-intra .viz2-anatomy-task-nav { order:3; flex-basis:100%; border:0; padding:0; }
+  .viz2-intra .viz2-anatomy-footer { gap:var(--space-2); }
+}
+@media (prefers-reduced-motion:reduce) { .viz2-intra .viz2-anatomy-track { will-change:auto; } }

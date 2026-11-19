@@ -50,14 +50,15 @@
       const excerpt = document.createElement('div');
       excerpt.className = 'p05-assignment-source';
       excerpt.innerHTML = `
-        <div class="p05-range-grid">
-          <code>${loopPrefix}<span><span class="p05-range-arg">core</span>, </span><span><span class="p05-range-arg">num_tasks</span>, </span><span><span class="p05-range-arg p05-py-number">ATTN_SPMD_BLOCKS</span>):</span></code>
-          <div class="p05-range-labels">
-            <span>start</span><span>stop</span><span>step</span>
+        <section class="p05-algorithm-section">
+          <h4>任务分配算法</h4>
+          <div class="p05-code-surface p05-range-grid">
+            <code>${loopPrefix}<span><span class="p05-range-arg">core</span>, </span><span><span class="p05-range-arg">num_tasks</span>, </span><span><span class="p05-range-arg p05-py-number">ATTN_SPMD_BLOCKS</span>):</span></code>
+            <div class="p05-range-labels"><span>start</span><span>stop</span><span>step</span></div>
+            <code>${loopPrefix}<span><b class="p05-py-number">0</b>, </span><span><b class="p05-py-number">${taskCount}</b>, </span><span><b class="p05-py-number">${blocks}</b>):</span></code>
           </div>
-          <code>${loopPrefix}<span><b class="p05-py-number">0</b>, </span><span><b class="p05-py-number">${taskCount}</b>, </span><span><b class="p05-py-number">${blocks}</b>):</span></code>
-        </div>
-        <p>Core 0 从 0 开始，每次加 ${blocks}，只领取编号小于 ${taskCount} 的任务。</p>`;
+          <p>Core 0 从 0 开始，每次加 ${blocks}，只领取编号小于 ${taskCount} 的任务。</p>
+        </section>`;
       matrix.querySelector('.assignment-focus-lens figcaption').after(excerpt);
     }
 

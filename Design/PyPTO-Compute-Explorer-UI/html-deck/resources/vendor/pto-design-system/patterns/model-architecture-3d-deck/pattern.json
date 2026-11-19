@@ -1,0 +1,77 @@
+{
+  "id": "model-architecture-3d-deck",
+  "name": "Model Architecture 3D Deck",
+  "type": "hybrid",
+  "description": "Reusable CSS 3D model architecture deck with projected parallel annotations, PP partition wireframes, side-view operator labels, and iso/front/right view switching.",
+  "typography": {
+    "bodyMinimumPx": 14,
+    "uiMinimumPx": 12,
+    "microLabelMinimumPx": 11,
+    "dataVizMinimumPx": 9,
+    "dataVizExceptionReason": "Projected node, cluster, expert, and parallel-annotation labels are geometry-bound marks inside a zoomable 3D canvas.",
+    "dataVizFallback": "Wheel zoom, fit/view controls, and projected annotation detail keep the same values available at a readable scale."
+  },
+  "source": {
+    "visualContract": "/Users/yin/pto/pangu-moe-trainviz/op-rank-time-openpangu-flash-events.html",
+    "colorReference": "patterns/model-graphviz/assets/openpangu_2_0_flash_pass_ir_capsule_modelviz.html",
+    "patternHtml": "patterns/model-architecture-3d-deck/pattern.html",
+    "patternCss": "patterns/model-architecture-3d-deck/pattern.css",
+    "renderScript": "patterns/model-architecture-3d-deck/pattern.js",
+    "colormapDependency": "patterns/model-graphviz/pattern.js#modelArchitectureColormap",
+    "classification": "hybrid-pattern",
+    "extractedCapabilities": [
+      "CSS 3D layer deck rendering",
+      "projected inter-layer activation spine from Embedding through L0-L45 to Final Norm",
+      "iso/front/right view switching",
+      "drag rotate and direct pan",
+      "wheel zoom and fit",
+      "PP stage partition projection",
+      "DP/PP/TP/EP annotation badges",
+      "right-view operator row labels"
+    ],
+    "parityNotes": "The openPangu preset preserves the source page's 46 decoder layers, Dense L0-L1 / MoE L2-L45 split, DSA cadence, block-post layers, full Sparse MLA operator graph, Dense and MoE branches, mHC state paths, input objects, LM Head, logits path, MTP L46-L48 tail, stage ranges, view angles, DOMMatrix projection, label clamping, and pointer interaction. Node semantics and colors reuse model-graphviz's modelArchitectureColormap contract. Operator surfaces use the reference capsule's opaque semantic gradient with inset highlights and no translucent border-fill treatment; light IO tensors use the reference solid gray. Residual edges, side-view residual rails, connectors, dots, and labels share one theme-aware residual color: purple in dark mode and neutral gray in light mode. In iso view only L0, the first layer of the first PP stage, keeps semantic color and the full capsule surface. The first layers of later PP stages (L12, L23, L35) are treated exactly like all other repeated layers: foreground-muted at 0.08 opacity with flat fills and no shadows, restoring the full gradient and inset highlights only on hover. The L45-to-Final-Norm output spine is also neutralized in iso view so it cannot appear as a separate blue highlight; the Embedding-to-L0 input spine remains associated with the single highlighted entry layer. PP wireframe near, depth, and far edges all use the same non-scaling 1.35px stroke and 0.72 opacity. A separate DOMMatrix-projected activation spine connects Embedding to L0, every L_n output to L_n+1 input at the real z coordinates, and L45 to Final Norm. Consumer interaction targets marked data-deck-no-drag bypass the base pointer-capture drag path so click/keyboard interactions remain intact. The source product page should consume this shared renderer while keeping training-specific overlays outside the pattern."
+  },
+  "globalApi": "window.PtoModelArchitecture3dDeck",
+  "requiredApis": [
+    "render(root, options)",
+    "renderLayerScene(layer, options)",
+    "renderStaticScene(kind, options)",
+    "applyLayerContext(element, context)",
+    "applySemanticPalette(root, theme)",
+    "getConfig(options)",
+    "controller.setView(view)",
+    "controller.setParallelMode(mode)",
+    "controller.setTheme(theme)",
+    "controller.fit()",
+    "controller.setZoom(scale)",
+    "controller.setLayerExpansion(layer, depth)",
+    "controller.selectNode(nodeId, layer)",
+    "controller.destroy()"
+  ],
+  "parallelModes": ["pp", "tp", "ep", "dp", "none"],
+  "legacyParallelModeAliases": { "all": "pp" },
+  "useWhen": [
+    "A model architecture must be read as a stack of repeated layers in depth.",
+    "Users need iso, front, and right projections of the same model.",
+    "Parallel topology labels must stay attached to model nodes or PP stage volumes while the view changes."
+  ],
+  "allowedOverrides": [
+    "options.preset or options.config",
+    "options.initialView",
+    "options.parallelMode",
+    "options.initialTheme",
+    "options.initialZoom",
+    "controller.setLayerExpansion(layer, depth) for a temporary right-view focus gap",
+    "--pto-model-deck-card-width",
+    "--pto-model-deck-card-height",
+    "--pto-model-deck-depth-gap",
+    "--pto-model-deck-perspective"
+  ],
+  "forbiddenOverrides": [
+    "Do not replace projected PP wireframe math with fixed SVG paths.",
+    "Do not hand-position parallel badges in product CSS.",
+    "Do not duplicate iso/front/right transform rules in a consuming page.",
+    "Do not restyle internal node, partition, annotation, or side-label classes outside this pattern."
+  ],
+  "agentReuseRule": "Load patterns/model-graphviz/pattern.js before this pattern's pattern.js, load pattern.css, then call window.PtoModelArchitecture3dDeck.render with domain config. Pass data and callbacks only; do not copy the shared colormap, generated DOM, projection math, or view-state CSS into the product page."
+}

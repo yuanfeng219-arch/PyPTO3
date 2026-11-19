@@ -1,0 +1,2964 @@
+{
+  "metadata": {
+    "title": "PyPTO Compute Explorer Deck · Visual Consistency Audit",
+    "date": "2026-11-18",
+    "status": "audit-only / awaiting-confirmation",
+    "target": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+    "viewport": {
+      "width": 1600,
+      "height": 900,
+      "deviceScaleFactor": 1,
+      "engine": "local Google Chrome headless"
+    },
+    "method": [
+      "P01–P13逐页实际渲染和截图",
+      "getComputedStyle：含颜色、边框、圆角、阴影、字体、间距、状态与SVG描边",
+      "CSSOM匹配规则：保留@scope作用域，内联样式单独记录；匹配列表不冒称DevTools最终获胜规则",
+      "对重点CSS/JS加载顺序、Token引用及源码选择器复核",
+      "真实指针hover、键盘模态focus及Task/模式/层级状态采样"
+    ],
+    "limits": [
+      "本报告不判定历史回归；所有问题均为当前快照",
+      "1600×900浏览器视口含76px Deck控制区，1600×900设计画布由Deck现有fit逻辑缩放；computed是变换前CSS值，标记坐标为屏幕像素",
+      "P13是本地PNG预览，图内没有可读取computed styles；外部链接目标不属于本次内嵌页面审计",
+      "P11外部Google Fonts样式表存在跨域CSSOM SecurityError；computed字体栈可读取，不声明逐字形实际字体",
+      "隐藏Inspector/Popover没有被强制打开或移除hidden，不能将其源码属性当成已显示效果",
+      "动效截图是某一时间相位，不是动画全时序评测；未审计移动端、全部对象排列组合或外部远程站点",
+      "未新增/运行单元测试、未修改既有Deck、CSS、JS或设计系统Token"
+    ],
+    "classification": {
+      "设计系统规则缺口": "缺少按角色定义的规则或别名，不一定是当前可见缺陷",
+      "Token / 选择器覆盖": "存在具体局部覆盖、嵌入适配或important链",
+      "Demo 来源差异": "加载来源、隔离文档或缺失共享皮肤造成差异",
+      "业务语义 / 已确认设计": "应保留的差异，不列入待修复数量"
+    },
+    "priorities": {
+      "P1": "优先统一；同一业务映射跨页改变",
+      "P2": "次优先；层级/状态/来源/可维护性问题",
+      "P3": "命名/映射整理，不要求立即改视觉",
+      "保留": "非缺陷；受保护的语义或用户确认设计"
+    },
+    "counts": {
+      "P1": 1,
+      "P2": 11,
+      "P3": 2,
+      "保留": 14
+    }
+  },
+  "pages": [
+    {
+      "pageNumber": "P01",
+      "label": "算子开发的理解复杂度正在增加",
+      "screenshot": "screenshots/P01.png",
+      "computedEvidence": "evidence/P01-computed.json",
+      "sampleCount": 124,
+      "issueIds": [
+        "A01"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "about:srcdoc",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P02",
+      "label": "从代码规则到实际执行",
+      "screenshot": "screenshots/P02.png",
+      "computedEvidence": "evidence/P02-computed.json",
+      "sampleCount": 37,
+      "issueIds": [
+        "K02"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P03",
+      "label": "理解一次计算，需要回答三个问题",
+      "screenshot": "screenshots/P03.png",
+      "computedEvidence": "evidence/P03-computed.json",
+      "sampleCount": 60,
+      "issueIds": [
+        "K03",
+        "K04",
+        "K05"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P04",
+      "label": "从理解负担中寻找设计机会",
+      "screenshot": "screenshots/P04.png",
+      "computedEvidence": "evidence/P04-computed.json",
+      "sampleCount": 33,
+      "issueIds": [
+        "K06"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P05",
+      "label": "多级并行调度的空间化映射",
+      "screenshot": "screenshots/P05.png",
+      "computedEvidence": "evidence/P05-computed.json",
+      "sampleCount": 259,
+      "issueIds": [
+        "A02"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P06",
+      "label": "循环执行规模直观可见",
+      "screenshot": "screenshots/P06.png",
+      "computedEvidence": "evidence/P06-computed.json",
+      "sampleCount": 111,
+      "issueIds": [
+        "K07",
+        "A03",
+        "A04",
+        "K08",
+        "K09"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "about:srcdoc",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p06-graph-storytelling/",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/foundation.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/semantic.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/components.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/css/style.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/ide-frame/pattern.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/design-tokens.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/compute-shared.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/compute-map.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/explorer-controls.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p06-graph-storytelling/presentation.css",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-pypto-source.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-semantic-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-model.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-presentation.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-layout.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-execution.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-task-encoding.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-anatomy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-graph-intra.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/photo-narrative.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/photo-narrative-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/visual-system.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/op-icons.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/tensor-role-glyph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/graph-legend-skin.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/ai-infra-ui.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/compute-graph-scene.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p06-graph-storytelling/presentation.js"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "#101010",
+            "--surface-1": "#161616",
+            "--surface-2": "#1c1c1c",
+            "--border-default": "rgba(255, 255, 255, 0.10)",
+            "--border-strong": "rgba(255, 255, 255, 0.16)",
+            "--card-bg": "#161616",
+            "--card-border": "rgba(255, 255, 255, 0.10)",
+            "--card-radius": "12px",
+            "--font-sans": "'Inter', 'Source Han Sans SC', 'PingFang SC', 'Noto Sans SC', sans-serif",
+            "--shadow-lg": "0 12px 30px rgba(0, 0, 0, 0.42)",
+            "--focus-ring": "rgba(67, 105, 239, 0.42)"
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P07",
+      "label": "执行流水的动态演绎",
+      "screenshot": "screenshots/P07.png",
+      "computedEvidence": "evidence/P07-computed.json",
+      "sampleCount": 97,
+      "issueIds": [
+        "A05",
+        "A06"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P08",
+      "label": "三种交互表达方式",
+      "screenshot": "screenshots/P08.png",
+      "computedEvidence": "evidence/P08-computed.json",
+      "sampleCount": 47,
+      "issueIds": [
+        "K10"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P09",
+      "label": "让计算关系在视角切换中连续可感知",
+      "screenshot": "screenshots/P09.png",
+      "computedEvidence": "evidence/P09-computed.json",
+      "sampleCount": 130,
+      "issueIds": [
+        "A07",
+        "A08",
+        "K11"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p09-crossview-storytelling/index.html?deck=P9",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p09-crossview-storytelling/index.html?deck=P9",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/foundation.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/semantic.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/components.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/css/style.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/workbench-shell/pattern.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/ide-frame/pattern.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/compute-shell.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/compute-map.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/compute-shared.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-graph.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-anatomy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-pipeline-intra.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-graph-intra.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/model-graphviz/pattern.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/design-tokens.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/explorer-controls.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/compute-detail-layout.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p09-crossview-storytelling/story.css",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-pypto-source.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-presentation.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-layout.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/semantic-computation-visibility.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-semantic-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-stack-dependency-model.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-model.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-execution.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/photo-narrative.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/photo-narrative-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/compute-graph-scene.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/visual-system.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/op-icons.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/tensor-role-glyph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/graph-legend-skin.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/system-transport.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/ai-infra-ui.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-task-encoding.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-anatomy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/compute-detail-controls.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-pipeline-intra.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-graph-intra.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/compute-scenario.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-transition-intra.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p09-crossview-storytelling/story.js"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "#101010",
+            "--surface-1": "#161616",
+            "--surface-2": "#1c1c1c",
+            "--border-default": "rgba(255, 255, 255, 0.10)",
+            "--border-strong": "rgba(255, 255, 255, 0.16)",
+            "--card-bg": "#161616",
+            "--card-border": "rgba(255, 255, 255, 0.10)",
+            "--card-radius": "12px",
+            "--font-sans": "'Inter', 'Source Han Sans SC', 'PingFang SC', 'Noto Sans SC', sans-serif",
+            "--shadow-lg": "0 12px 30px rgba(0, 0, 0, 0.42)",
+            "--focus-ring": "rgba(67, 105, 239, 0.42)"
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P10",
+      "label": "逐层深入执行细节，同时保留观察上下文",
+      "screenshot": "screenshots/P10.png",
+      "computedEvidence": "evidence/P10-computed.json",
+      "sampleCount": 191,
+      "issueIds": [
+        "A09",
+        "K12",
+        "K13"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "about:srcdoc",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/foundation.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/semantic.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/tokens/components.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/css/style.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/ide-frame/pattern.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/swimlane-task/pattern.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/design-tokens.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-pipeline.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-anatomy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/visualization2-pipeline-intra.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p09-drilldown.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p10-drilldown-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/vendor/pto-design-system/patterns/swimlane-task/pattern.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-pypto-source.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-semantic-graph.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-model.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/photo-narrative.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-task-encoding.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-phase0.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-anatomy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/compute-scenario.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/compute-detail-controls.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/paged-attention-stack-dependency-model.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/visual-system.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/op-icons.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/system-transport.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p10-drilldown-storytelling/surface.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/ai-infra-ui.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-pipeline.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-pipeline-intra.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/js/visualization2-pipeline-zoom.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p10-drilldown-storytelling/story.js"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "#101010",
+            "--surface-1": "#161616",
+            "--surface-2": "#1c1c1c",
+            "--border-default": "rgba(255, 255, 255, 0.10)",
+            "--border-strong": "rgba(255, 255, 255, 0.16)",
+            "--card-bg": "#161616",
+            "--card-border": "rgba(255, 255, 255, 0.10)",
+            "--card-radius": "12px",
+            "--font-sans": "'Inter', 'Source Han Sans SC', 'PingFang SC', 'Noto Sans SC', sans-serif",
+            "--shadow-lg": "0 12px 30px rgba(0, 0, 0, 0.42)",
+            "--focus-ring": "rgba(67, 105, 239, 0.42)"
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P11",
+      "label": "从代码阅读到计算探索",
+      "screenshot": "screenshots/P11.png",
+      "computedEvidence": "evidence/P11-computed.json",
+      "sampleCount": 70,
+      "issueIds": [
+        "A10",
+        "A11"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "about:srcdoc",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        },
+        {
+          "trail": "slide > html > body > main.deck-copy-enabled > iframe.p11-animation",
+          "url": "about:srcdoc",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [
+            {
+              "source": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap",
+              "error": "SecurityError"
+            }
+          ],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P12",
+      "label": "建立计算现场",
+      "screenshot": "screenshots/P12.png",
+      "computedEvidence": "evidence/P12-computed.json",
+      "sampleCount": 55,
+      "issueIds": [
+        "A12",
+        "A13",
+        "A14",
+        "K14"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": "P13",
+      "label": "主动计算推演",
+      "screenshot": "screenshots/P13.png",
+      "computedEvidence": "evidence/P13-computed.json",
+      "sampleCount": 17,
+      "issueIds": [
+        "K15"
+      ],
+      "documents": [
+        {
+          "trail": "slide",
+          "url": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "base": "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html#1",
+          "stylesheets": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.css",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "scripts": [
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/opening.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/light-table.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p11-p13-strategy.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/deck-local-editor.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p13-stack-scale.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p14-what-if.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p05-assignment-storytelling/assignment-focus.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-hardware-stage.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/PyPTO-Compute-Explorer-UI/html-deck/p05-assignment-story.js",
+            "file:///Users/songchenfei/Documents/pypto%E9%A1%B9%E7%9B%AE/PyPTO3/Design/p07-pipeline-storytelling/story.js",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline",
+            "inline"
+          ],
+          "stylesheetErrors": [],
+          "rootTokens": {
+            "--background": "",
+            "--surface-1": "",
+            "--surface-2": "",
+            "--border-default": "",
+            "--border-strong": "",
+            "--card-bg": "",
+            "--card-border": "",
+            "--card-radius": "",
+            "--font-sans": "",
+            "--shadow-lg": "",
+            "--focus-ring": ""
+          }
+        }
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "id": "A01",
+      "pageNumber": "P01",
+      "pageTitle": "算子开发的理解复杂度正在增加",
+      "elementName": "固定说明面板的中性色未映射 Token",
+      "category": "设计系统规则缺口",
+      "priority": "P3",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgb(23, 23, 23)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(48, 48, 48)",
+        "border-right-width": "1px",
+        "border-right-color": "rgb(48, 48, 48)",
+        "border-radius": "12px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "18.9px",
+        "padding": "17px",
+        "gap": "normal",
+        "outline": "rgb(234, 234, 234) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".panel",
+          "line": 1202,
+          "sourceExcerpt": ".panel-shell {\n  background: var(--panel-shell-bg);\n  border: 1px solid var(--panel-shell-border);\n  border-radius: var(--panel-shell-radius);\n  box-shadow: var(--panel-shell-shadow);"
+        }
+      ],
+      "matchedSelector": "body > main.page.deck-copy-enabled > section.comparison > article.panel.ascend",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "固定面板使用 #171717 / #303030，内部小块使用 #202020 / #363636；它们与设计系统 surface / border 没有映射。12px 与 7px 分属面板和图形层级，本身不是错误。",
+      "recommendation": "仅建立固定面板、内嵌图形的角色别名；先保留当前近似灰值，不把内部图形改成统一 Card。",
+      "impactScope": [
+        "P01"
+      ],
+      "evidence": {
+        "file": "evidence/P01-computed.json",
+        "selector": "body > main.page.deck-copy-enabled > section.comparison > article.panel.ascend",
+        "trail": "slide",
+        "rect": {
+          "x": 116.99554290771485,
+          "y": 137.505,
+          "width": 434.8888969421387,
+          "height": 660.8594444444444
+        },
+        "screenshot": "screenshots/P01.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K02",
+      "pageNumber": "P02",
+      "pageTitle": "从代码规则到实际执行",
+      "elementName": "硬件示意的空间投影",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "linear-gradient(155deg, rgb(37, 44, 59), rgb(24, 28, 37) 76%)",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(80, 92, 116)",
+        "border-right-width": "1px",
+        "border-right-color": "rgb(80, 92, 116)",
+        "border-radius": "10px",
+        "box-shadow": "rgb(27, 32, 44) 0px 10px 0px 0px, rgb(66, 75, 96) 0px 11px 0px 0px, rgba(0, 0, 0, 0.467) 0px 26px 40px 0px",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "19px 20px",
+        "gap": "12px",
+        "outline": "rgb(243, 243, 243) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+          "selector": ".opening-resource-space",
+          "line": 139,
+          "sourceExcerpt": ".opening-resource-space {\n  position:absolute;\n  top:79px;\n  left:30px;\n  width:480px;"
+        }
+      ],
+      "matchedSelector": "section.design-slide.deck-copy-enabled > div.opening-invisible > figure.opening-invisible-target > div.opening-resource-space",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "10px 硬投影与软影用于表现芯片厚度，是画中对象的几何表达，不是页面浮层。",
+      "recommendation": "保留硬件空间层次；不得将其纳入 UI overlay shadow 的批量替换。",
+      "impactScope": [
+        "P02"
+      ],
+      "evidence": {
+        "file": "evidence/P02-computed.json",
+        "selector": "section.design-slide.deck-copy-enabled > div.opening-invisible > figure.opening-invisible-target > div.opening-resource-space",
+        "trail": "slide",
+        "rect": {
+          "x": 998.8153076171875,
+          "y": 242.70445251464844,
+          "width": 495.1285400390625,
+          "height": 341.84552001953125
+        },
+        "screenshot": "screenshots/P02.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K03",
+      "pageNumber": "P03",
+      "pageTitle": "理解一次计算，需要回答三个问题",
+      "elementName": "三栏细分隔线",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(48, 48, 51)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(243, 243, 243)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(243, 243, 243) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+          "selector": ".opening-axes",
+          "line": 10,
+          "sourceExcerpt": ".opening-axes,.opening-columns {\n  display:grid;\n  grid-template-columns:repeat(3,minmax(0,1fr));\n}\n.opening-axes { height:88px; border-block:1px solid var(--opening-line); }"
+        }
+      ],
+      "matchedSelector": "body > main.deck-main > section.design-slide.deck-copy-enabled > div.opening-axes",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "标题带与内容列通过中性细线建立 Graph / Assignment / Pipeline 的并列关系；无需套三张 Card。",
+      "recommendation": "保持 1px / 无圆角；可命名为 border.divider，不改变三栏结构。",
+      "impactScope": [
+        "P03"
+      ],
+      "evidence": {
+        "file": "evidence/P03-computed.json",
+        "selector": "body > main.deck-main > section.design-slide.deck-copy-enabled > div.opening-axes",
+        "trail": "slide",
+        "rect": {
+          "x": 116.99554443359375,
+          "y": 175.7866668701172,
+          "width": 1366.0087890625,
+          "height": 80.56889343261719
+        },
+        "screenshot": "screenshots/P03.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K04",
+      "pageNumber": "P03",
+      "pageTitle": "理解一次计算，需要回答三个问题",
+      "elementName": "任务 / 批次矩阵的绿色边界与单元色",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(24, 33, 29)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(58, 87, 74)",
+        "border-right-width": "1px",
+        "border-right-color": "rgb(58, 87, 74)",
+        "border-radius": "6px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "9px 10px",
+        "gap": "normal",
+        "outline": "rgb(243, 243, 243) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+          "selector": ".opening-tile",
+          "line": 268,
+          "sourceExcerpt": ".opening-tiles { display:grid; grid-template-columns:1fr 1fr; gap:11px; }\n.opening-tile { padding:9px 10px; border:1px solid #3a574a; border-radius:6px; background:#18211d; }\n.opening-tile b { display:block; margin-bottom:7px; color:#bdebd4; font:14px var(--deck-mono); }\n.opening-cells { display:grid; grid-template-columns:repeat(8,1fr); gap:3px; }\n.opening-cells i { height:8px; border-radius:2px; background:color-mix(in srgb,var(--batch) 64%,#151a18); }"
+        }
+      ],
+      "matchedSelector": "div:nth-child(2) > div.opening-figure > div.opening-tiles > div.opening-tile:nth-child(1)",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "绿色容器与批次单元的混色是数据组织示意，不是一般 Selected 控件。",
+      "recommendation": "保留批次颜色与连续矩阵；仅将结构线宽与图形圆角独立归档。",
+      "impactScope": [
+        "P03"
+      ],
+      "evidence": {
+        "file": "evidence/P03-computed.json",
+        "selector": "div:nth-child(2) > div.opening-figure > div.opening-tiles > div.opening-tile:nth-child(1)",
+        "trail": "slide",
+        "rect": {
+          "x": 594.3004150390625,
+          "y": 384.9910888671875,
+          "width": 200.19189453125,
+          "height": 80.56890869140625
+        },
+        "screenshot": "screenshots/P03.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K05",
+      "pageNumber": "P03",
+      "pageTitle": "理解一次计算，需要回答三个问题",
+      "elementName": "Timeline 批次色与时间轴",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(139, 116, 87)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(223, 194, 154)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "7px 0px 0px",
+        "gap": "normal",
+        "outline": "rgb(223, 194, 154) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/opening.css",
+          "selector": ".opening-time",
+          "line": 293,
+          "sourceExcerpt": ".opening-timeline { min-height:172px; }\n.opening-time { margin:8px 0 0 90px; padding-top:7px; border-top:1px solid #8b7457; color:#dfc29a; font-size:14px; }\n.opening-evidence {\n  display:grid;\n  grid-template-rows:auto minmax(0,1fr);"
+        }
+      ],
+      "matchedSelector": "div:nth-child(3) > div.opening-figure > div.opening-timeline > div.opening-time",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "时间槽沿用批次身份色，棕色轴表示时间视角；和 Graph 的蓝色边不应强制同色。",
+      "recommendation": "保留 --batch 及轴语义，数据线与页面分隔线分别建 Token。",
+      "impactScope": [
+        "P03"
+      ],
+      "evidence": {
+        "file": "evidence/P03-computed.json",
+        "selector": "div:nth-child(3) > div.opening-figure > div.opening-timeline > div.opening-time",
+        "trail": "slide",
+        "rect": {
+          "x": 1132.0318603515625,
+          "y": 523.69775390625,
+          "width": 328.999267578125,
+          "height": 25.63555908203125
+        },
+        "screenshot": "screenshots/P03.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K06",
+      "pageNumber": "P04",
+      "pageTitle": "从理解负担中寻找设计机会",
+      "elementName": "共享标题与留白节奏",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(243, 243, 243)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(243, 243, 243)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "46px",
+        "font-weight": "650",
+        "line-height": "55.2px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(243, 243, 243) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".deck-header h1",
+          "line": 8078,
+          "sourceExcerpt": "[data-p11-attached] main &gt; .deck-header h1 { white-space:pre-line; width:610px; }\n.p11-copy-column {\n  position:absolute; inset:86.4px auto 48px 64.8px; width:440px;\n  display:grid; align-items:center; justify-items:start;\n}"
+        }
+      ],
+      "matchedSelector": "main.deck-main > section.design-slide.deck-copy-enabled > header.deck-header > h1",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "实测标题 46px / 650 / 55.2px，与其他页面的共享标题一致。大留白服务于核心设计判断，不属于低密度面板。",
+      "recommendation": "保留共享标题和当前页面结构；不要以组件填充空白。",
+      "impactScope": [
+        "P01–P13"
+      ],
+      "evidence": {
+        "file": "evidence/P04-computed.json",
+        "selector": "main.deck-main > section.design-slide.deck-copy-enabled > header.deck-header > h1",
+        "trail": "slide",
+        "rect": {
+          "x": 116.99554443359375,
+          "y": 65.91999816894531,
+          "width": 1366.0087890625,
+          "height": 50.5272216796875
+        },
+        "screenshot": "screenshots/P04.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A02",
+      "pageNumber": "P05",
+      "pageTitle": "多级并行调度的空间化映射",
+      "elementName": "固定 Assignment 画布存在独立底色",
+      "category": "Demo 来源差异",
+      "priority": "P3",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgb(21, 21, 21)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(244, 242, 236)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(244, 242, 236)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(244, 242, 236) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p05-assignment-storytelling/assignment-focus.css",
+          "selector": ".assignment-focus",
+          "line": 1,
+          "sourceExcerpt": ".assignment-focus{position:relative;overflow:hidden;container-type:inline-size;background:#151515;color:#f4f2ec}\n.assignment-focus .assignment-focus-fragment{position:relative;width:100%;height:100%;min-height:0}\n.assignment-focus .assignment-focus-fragment>.viz2-am-head,\n.assignment-focus .assignment-focus-fragment>.viz2-am-footer{display:none}\n.assignment-focus .assignment-focus-fragment .viz2-am-viewport{"
+        }
+      ],
+      "matchedSelector": "main.deck-main > section.design-slide.deck-copy-enabled > div.design-demo > div.assignment-focus",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "Assignment focus 使用 #151515，而全局画布是 #101010、固定面板基准是 --surface-1 #161616。该差异来自独立 Demo，不是悬浮层。",
+      "recommendation": "命名为 surface.diagram-inset 并记录来源；是否合并近似灰值须确认，避免误当浮卡加边框与阴影。",
+      "impactScope": [
+        "P05"
+      ],
+      "evidence": {
+        "file": "evidence/P05-computed.json",
+        "selector": "main.deck-main > section.design-slide.deck-copy-enabled > div.design-demo > div.assignment-focus",
+        "trail": "slide",
+        "rect": {
+          "x": 116.99554443359375,
+          "y": 175.7866668701172,
+          "width": 1010.8447875976562,
+          "height": 588.7022094726562
+        },
+        "screenshot": "screenshots/P05.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K07",
+      "pageNumber": "P06",
+      "pageTitle": "循环执行规模直观可见",
+      "elementName": "Block Tasks 真正的悬浮卡片",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(22, 22, 22)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgba(255, 255, 255, 0.1)",
+        "border-right-width": "1px",
+        "border-right-color": "rgba(255, 255, 255, 0.1)",
+        "border-radius": "12px",
+        "box-shadow": "none",
+        "font-family": "Inter, Inter, \"Source Han Sans SC\", \"PingFang SC\", \"Noto Sans SC\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "21px",
+        "padding": "384px 0px 60px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p06-graph-storytelling/presentation.css",
+          "selector": ".assignment",
+          "line": 41,
+          "sourceExcerpt": ".assignment {\n  --allocation-accent: #b1ef6b;\n  position: absolute; right: 12px; top: 42px; width: 593px; padding: 384px 0 60px;\n  z-index: 3; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--card-radius);\n  font-family: Inter, var(--font-sans); font-variant-numeric: tabular-nums;"
+        }
+      ],
+      "matchedSelector": "article.is-ready > div.stage > div > section.assignment.viz2",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "卡片使用 --card-bg / --card-border / --card-radius，最终 #161616 / 白色10% / 12px，无阴影，内容驱动高度。这是已确认的独立浮层角色。",
+      "recommendation": "保留背景、边框、自动高度和 SVG 内部布局。共享浮层 Token 可直接映射现有 Token。",
+      "impactScope": [
+        "P06"
+      ],
+      "evidence": {
+        "file": "evidence/P06-computed.json",
+        "selector": "article.is-ready > div.stage > div > section.assignment.viz2",
+        "trail": "slide",
+        "rect": {
+          "x": 929.093335723877,
+          "y": 210.57777777777778,
+          "width": 542.924454498291,
+          "height": 465.1022222222222
+        },
+        "screenshot": "screenshots/P06.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A03",
+      "pageNumber": "P06",
+      "pageTitle": "循环执行规模直观可见",
+      "elementName": "相同模式切换器的键盘聚焦不一致",
+      "category": "Token / 选择器覆盖",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(198, 198, 204)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(198, 198, 204)",
+        "border-radius": "4px",
+        "box-shadow": "none",
+        "font-family": "Inter, Inter, \"Source Han Sans SC\", \"PingFang SC\", \"Noto Sans SC\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "14px",
+        "padding": "0px 13px",
+        "gap": "normal",
+        "outline": "rgb(177, 239, 107) solid 2px",
+        "outline-offset": "3px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p06-graph-storytelling/presentation.css",
+          "selector": ".p06-modes button:focus-visible",
+          "line": 79,
+          "sourceExcerpt": "#task-options input:focus-visible + span, .p06-modes button:focus-visible {\n  outline: 2px solid #b1ef6b; outline-offset: 3px;\n}\n.task-controls:disabled label { cursor: default; }\n"
+        }
+      ],
+      "matchedSelector": "article.is-ready > header.deck-header > div.p06-modes > button:nth-child(1)",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "局部硬编码旁路；未发现直接重定义已有 Token"
+      },
+      "cause": "P05 冲印店按钮聚焦为 #9db5ff 1px、offset -2px；P06 同一按钮为 #b1ef6b 2px、offset 3px。P06 把卡片的局部强调色带到了页眉模式控件。",
+      "recommendation": "统一模式控件的 focus-ring / width / offset；Task 下划线和循环标识继续保留局部语义色。Inter 是用户明确选择，保留。",
+      "impactScope": [
+        "P05",
+        "P06"
+      ],
+      "evidence": {
+        "file": "evidence/P06-focus-computed.json",
+        "selector": "article.is-ready > header.deck-header > div.p06-modes > button:nth-child(1)",
+        "trail": "slide",
+        "rect": {
+          "x": 1364.8977882385254,
+          "y": 124.51555555555555,
+          "width": 62.25777893066406,
+          "height": 25.635555555555555
+        },
+        "screenshot": "screenshots/P06-focus.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A04",
+      "pageNumber": "P06",
+      "pageTitle": "循环执行规模直观可见",
+      "elementName": "Graph 皮肤的 !important 覆盖链",
+      "category": "Token / 选择器覆盖",
+      "priority": "P2",
+      "status": "规范缺口",
+      "actualCss": {
+        "background-color": "rgb(80, 80, 80)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(255, 255, 255)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(255, 255, 255)",
+        "border-radius": "999px",
+        "box-shadow": "none",
+        "font-family": "Arial",
+        "font-size": "13.3333px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "6px 36px",
+        "gap": "8px",
+        "outline": "rgb(160, 160, 160) solid 1px",
+        "outline-offset": "-1px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/styles/ai-infra-ui.css",
+          "selector": ".legend-skin .kf-pypa-graph__node",
+          "line": 62,
+          "sourceExcerpt": ".legend-skin .kf-pypa-graph__node { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 8px; padding: 6px 36px !important; box-sizing: border-box; border: 0 !important; border-radius: 999px !important; background: #505050 !important; color: #eee; overflow: hidden; box-shadow: none !important; }\n.legend-text { flex: 1; min-width: 0; text-align: center; }\n.legend-text b { display: block; font: 500 15px/1.2 -apple-system, BlinkMacSystemFont, \"PingFang SC\", Arial, sans-serif; overflow-wrap: anywhere; }\n.legend-text small { display: block; margin-top: 3px; font: 11px/1.3 ui-monospace, monospace; color: #ccc; }\n.legend-icon { position: absolute; left: 8px; width: 26px; height: 26px; border-radius: 50%; background: #181818; display: grid; place-items: center; }"
+        }
+      ],
+      "matchedSelector": "div.graph-surface > div.graph-crop:nth-child(1) > div.kf-pypa-graph__scene.legend-skin > button.kf-pypa-graph__node.is-operation.is-computation.has-execution-badge:nth-child(17)",
+      "tokenOverride": {
+        "overridesExistingToken": true,
+        "assessment": "直接覆盖已有 Token/语义规则"
+      },
+      "cause": "节点先消费 compute-shared 的语义样式，再由 .legend-skin 强制背景 #505050、无影、999px 圆角；后续局部调整容易被 !important 吞没。这不是要求改掉运算节点的形状。",
+      "recommendation": "保留中性运算节点、蓝 Tensor、黄色中间结果；将 legend 皮肤的视觉属性映射到图形角色 Token，缩小重要性覆盖范围。",
+      "impactScope": [
+        "P06",
+        "P09及复用Graph Demo"
+      ],
+      "evidence": {
+        "file": "evidence/P06-computed.json",
+        "selector": "div.graph-surface > div.graph-crop:nth-child(1) > div.kf-pypa-graph__scene.legend-skin > button.kf-pypa-graph__node.is-operation.is-computation.has-execution-badge:nth-child(17)",
+        "trail": "slide",
+        "rect": {
+          "x": 387.26753114827443,
+          "y": 292.6115611436632,
+          "width": 170.22010433485266,
+          "height": 49.22027560763889
+        },
+        "screenshot": "screenshots/P06.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K08",
+      "pageNumber": "P06",
+      "pageTitle": "循环执行规模直观可见",
+      "elementName": "重复计算叠层和连线顺序",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(46, 46, 46)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "999px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "21px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p06-graph-storytelling/presentation.css",
+          "selector": ".kf-pypa-graph__execution-stack",
+          "line": 138,
+          "sourceExcerpt": ":is(#graph,#photo-graph) .kf-pypa-graph__execution-stack { z-index: 0; }\n:is(#graph,#photo-graph) .kf-pypa-graph__group.attention-layer { pointer-events: none; }\n:is(#graph,#photo-graph) .kf-pypa-graph__group > .attention-count,\n:is(#graph,#photo-graph) [data-pypa-node=\"qk\"] .kf-pypa-graph__execution-count {\n  padding: 0 8px; border-radius: var(--radius-sm);"
+        }
+      ],
+      "matchedSelector": "div.graph-crop:nth-child(1) > div.kf-pypa-graph__scene.legend-skin > div.kf-pypa-graph__execution-stack:nth-child(16) > span.kf-pypa-graph__execution-layer:nth-child(18)",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "重复层是运算次数的表达；胶囊形与中性渐进叠放不等价于 UI 卡片。叠层 z0、连线 z1、节点 z2 的职责不同。",
+      "recommendation": "保留真实重复次数与垂直关系；不得统一 Card 圆角或把叠层阴影当成 overlay shadow。",
+      "impactScope": [
+        "P06"
+      ],
+      "evidence": {
+        "file": "evidence/P06-computed.json",
+        "selector": "div.graph-crop:nth-child(1) > div.kf-pypa-graph__scene.legend-skin > div.kf-pypa-graph__execution-stack:nth-child(16) > span.kf-pypa-graph__execution-layer:nth-child(18)",
+        "trail": "slide",
+        "rect": {
+          "x": 445.20391459960956,
+          "y": 333.6284388563368,
+          "width": 170.22010433485266,
+          "height": 49.22027560763889
+        },
+        "screenshot": "screenshots/P06.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K09",
+      "pageNumber": "P06",
+      "pageTitle": "循环执行规模直观可见",
+      "elementName": "Stack / Page 尾页斜线填充",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "repeating-linear-gradient(135deg, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 4px, rgb(51, 51, 51) 4px, rgb(51, 51, 51) 5px, rgba(0, 0, 0, 0) 5px, rgba(0, 0, 0, 0) 8px)",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "Inter, Inter, \"Source Han Sans SC\", \"PingFang SC\", \"Noto Sans SC\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "21px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p06-graph-storytelling/presentation.css",
+          "selector": ".cache-page.is-partial",
+          "line": 119,
+          "sourceExcerpt": ".cache-page.is-partial {\n  border-left: 2px solid #333;\n  background: repeating-linear-gradient(135deg, transparent 0 4px, #333 4px 5px, transparent 5px 8px);\n}\n.cache-page.is-partial::before {"
+        }
+      ],
+      "matchedSelector": "div.cache-stack-clip > section.cache-stack > div.cache-pages > div.cache-page.is-partial",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "连续 #333 Page、1px 白分隔、无圆角；末页 repeating-linear-gradient 标示未满容量，实际有效比例来自 --valid-page。该结构与用户 SVG 一致。",
+      "recommendation": "保留斜线背景、真实 1/128 比例、三个列位和标签；不新增尾页组件。",
+      "impactScope": [
+        "P06"
+      ],
+      "evidence": {
+        "file": "evidence/P06-computed.json",
+        "selector": "div.cache-stack-clip > section.cache-stack > div.cache-pages > div.cache-page.is-partial",
+        "trail": "slide",
+        "rect": {
+          "x": 1293.4844535827635,
+          "y": 582.2933333333333,
+          "width": 36.622222900390625,
+          "height": 15.564444444444444
+        },
+        "screenshot": "screenshots/P06.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A05",
+      "pageNumber": "P07",
+      "pageTitle": "执行流水的动态演绎",
+      "elementName": "Pipeline 同一关系跨 Demo 颜色与强度分叉",
+      "category": "Demo 来源差异",
+      "priority": "P1",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(238, 238, 238)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(238, 238, 238)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(238, 238, 238) none 3px",
+        "outline-offset": "0px",
+        "opacity": "0.45",
+        "stroke": "rgb(239, 136, 68)",
+        "stroke-width": "1.5px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/styles/pipeline-appearance.css",
+          "selector": "@scope",
+          "line": 2,
+          "sourceExcerpt": "@scope (body.ai-extracted, .p07-story-frame) {\n:scope .viz2 .viz2-intra{--intra-slot-0:#ef8844;--intra-slot-1:#32bdd4;--intra-slot-2:#a267de}\n.viz2 .viz2-intra-flow.is-related,.viz2 .viz2-intra-reuse.is-related {\n  stroke:var(--slot-color)!important;\n}"
+        }
+      ],
+      "matchedSelector": "svg.viz2-intra-svg > g > g:nth-child(25) > path.viz2-intra-flow:nth-child(4)",
+      "tokenOverride": {
+        "overridesExistingToken": true,
+        "assessment": "直接覆盖已有 Token/语义规则"
+      },
+      "cause": "P07 slot0 为 #ef8844，依赖线 1.5px / .45；P10 Iteration slot0 为 #80b7f7，数据线 1px / .7，复用线 3px / .3。P07 加载 pipeline-appearance.css，P10 未加载，造成同一 Pipeline 语法漂移。",
+      "recommendation": "以现有 Pipeline 语义映射为准确定唯一版本；共享各 slot 的身份色和普通/关联的强度。保留 data-flow 实线、reuse 虚线与 READY 圆环，禁止为统一而抹除关系类型。",
+      "impactScope": [
+        "P07",
+        "P09 Pipeline",
+        "P10 Iteration"
+      ],
+      "evidence": {
+        "file": "evidence/P07-computed.json",
+        "selector": "svg.viz2-intra-svg > g > g:nth-child(25) > path.viz2-intra-flow:nth-child(4)",
+        "trail": "slide",
+        "rect": {
+          "x": 271.0928955078125,
+          "y": 440.69476318359375,
+          "width": 279.30145263671875,
+          "height": 38.52435302734375
+        },
+        "screenshot": "screenshots/P07.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A06",
+      "pageNumber": "P07",
+      "pageTitle": "执行流水的动态演绎",
+      "elementName": "状态层级缺少统一的角色约定",
+      "category": "设计系统规则缺口",
+      "priority": "P2",
+      "status": "规范缺口",
+      "actualCss": {
+        "background-color": "rgb(56, 56, 56)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgba(0, 0, 0, 0)",
+        "border-right-width": "1px",
+        "border-right-color": "rgba(0, 0, 0, 0)",
+        "border-radius": "5px",
+        "box-shadow": "none",
+        "font-family": "system-ui",
+        "font-size": "15px",
+        "font-weight": "500",
+        "line-height": "normal",
+        "padding": "0px 13px",
+        "gap": "normal",
+        "outline": "rgb(255, 255, 255) none 3px",
+        "outline-offset": "2px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p07-pipeline-storytelling/story.css",
+          "selector": ".waiting-toolbar",
+          "line": 18,
+          "sourceExcerpt": "[data-p07-story] .waiting-toolbar {\n  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;\n}\n[data-p07-controls], [data-p07-story] .waiting-unavailable {\n  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;"
+        }
+      ],
+      "matchedSelector": "article.viz2 > div.waiting-toolbar > div > button:nth-child(2)",
+      "tokenOverride": {
+        "overridesExistingToken": null,
+        "assessment": "需结合继承与跨作用域适配理解，不推断直接覆盖"
+      },
+      "cause": "等待原因筛选靠背景变化表示 hover / focus，P10 层级按钮靠边框和填充，P06 Task 则是下划线。不同交互角色合理，但当前没有可复用的 focus 与 disabled 约定。",
+      "recommendation": "定义 selection.control、selection.object、relation.related 三类；只统一相同角色的焦点、禁用强度及反馈时长，不把所有控件做成相同 Tab。",
+      "impactScope": [
+        "P05",
+        "P06",
+        "P07",
+        "P09",
+        "P10"
+      ],
+      "evidence": {
+        "file": "evidence/P07-focus-computed.json",
+        "selector": "article.viz2 > div.waiting-toolbar > div > button:nth-child(2)",
+        "trail": "slide",
+        "rect": {
+          "x": 173.75997924804688,
+          "y": 175.7866668701172,
+          "width": 66.83555603027344,
+          "height": 30.213333129882812
+        },
+        "screenshot": "screenshots/P07-focus.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K10",
+      "pageNumber": "P08",
+      "pageTitle": "三种交互表达方式",
+      "elementName": "三张策略图的语义边界",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(25, 25, 25)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(106, 217, 162)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(106, 217, 162)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "23px 20px 18px",
+        "gap": "normal",
+        "outline": "rgb(106, 217, 162) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".strategy-summary-frame",
+          "line": 7568,
+          "sourceExcerpt": "[data-strategy-summary] .strategy-summary-frame {\n  position:relative;display:grid;grid-template-rows:105px 88px 265px;\n  min-width:0;margin:0;padding:23px 20px 18px;\n  background:#191919;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,0 100%);\n}"
+        }
+      ],
+      "matchedSelector": "main.deck-main > section.design-slide.deck-copy-enabled > div.strategy-summary-grid > figure.strategy-summary-frame:nth-child(1)",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "方角 figure 的细边与顶线携带 Assignment / Graph / Pipeline 语义；它是比较图版，不是可操作悬浮卡片。",
+      "recommendation": "保持图版结构和视角色，不能因 P06 使用12px而给图版强制相同圆角。",
+      "impactScope": [
+        "P08"
+      ],
+      "evidence": {
+        "file": "evidence/P08-computed.json",
+        "selector": "main.deck-main > section.design-slide.deck-copy-enabled > div.strategy-summary-grid > figure.strategy-summary-frame:nth-child(1)",
+        "trail": "slide",
+        "rect": {
+          "x": 146.29331970214844,
+          "y": 258.6444396972656,
+          "width": 422.3714599609375,
+          "height": 456.8622131347656
+        },
+        "screenshot": "screenshots/P08.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A07",
+      "pageNumber": "P09",
+      "pageTitle": "让计算关系在视角切换中连续可感知",
+      "elementName": "同层文字来自不同字体栈",
+      "category": "Demo 来源差异",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "\"Segoe UI Variable\", \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", system-ui, -apple-system, \"system-ui\", sans-serif",
+        "font-size": "13.08px",
+        "font-weight": "400",
+        "line-height": "18.966px",
+        "padding": "36px 54px 28px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/assets/ai-infra/design-tokens.css",
+          "selector": ":root",
+          "line": 3,
+          "sourceExcerpt": ":root {\n  --ss-bg: #111111;\n  --ss-surface: #181818;\n  --ss-inspector: #202020;\n  --ss-text: #e8e8e8;"
+        }
+      ],
+      "matchedSelector": "#story",
+      "tokenOverride": {
+        "overridesExistingToken": true,
+        "assessment": "直接覆盖已有 Token/语义规则"
+      },
+      "cause": "P09 默认文本继承 Segoe UI Variable / Segoe UI，其他页使用 Deck 的 Apple/PingFang 字体栈；P06 面板独立使用 Inter。computed 字体栈能证明来源差异，不等同于每个字形的实际字体。",
+      "recommendation": "为 Deck 外壳和通用控件设置明确字体继承；Inter 保留为用户确认的字体，可作为候选共同拉丁字体。代码/坐标继续使用独立 mono，不把业务图形字号机械统一。",
+      "impactScope": [
+        "P01–P13同层标签"
+      ],
+      "evidence": {
+        "file": "evidence/P09-computed.json",
+        "selector": "#story",
+        "trail": "slide",
+        "rect": {
+          "x": 67.5555419921875,
+          "y": 0,
+          "width": 1464.888916015625,
+          "height": 824
+        },
+        "screenshot": "screenshots/P09.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A08",
+      "pageNumber": "P09",
+      "pageTitle": "让计算关系在视角切换中连续可感知",
+      "elementName": "嵌入 IDE Frame 残留外壳阴影",
+      "category": "Demo 来源差异",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "linear-gradient(to right, rgba(255, 255, 255, 0.024) 1px, rgba(0, 0, 0, 0) 1px), linear-gradient(rgba(255, 255, 255, 0.024) 1px, rgba(0, 0, 0, 0) 1px)",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "0px",
+        "box-shadow": "rgba(0, 0, 0, 0.32) 0px 18px 54px 0px, color(srgb 1 1 1 / 0.0450981) 0px 0px 0px 1px inset",
+        "font-family": "\"Segoe UI Variable\", \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", system-ui, -apple-system, \"system-ui\", sans-serif",
+        "font-size": "13.08px",
+        "font-weight": "400",
+        "line-height": "18.966px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "vendor/pto-design-system/patterns/ide-frame/pattern.css",
+          "selector": ".pto-ide-frame",
+          "line": 114,
+          "sourceExcerpt": ".pto-ide-frame-preview-page {\n  min-height: 100vh;\n  margin: 0;\n  background: var(--ide-frame-page-bg);\n  color: var(--foreground);"
+        }
+      ],
+      "matchedSelector": "#screen",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "P06、P09、P10 的全画布框架仍计算出 0 18px 54px 黑影与 inset 1px 高光；它们是固定演示画布，不是真正的浮层。贴边时部分阴影被裁切，不能把它描述为完整可见浮影。",
+      "recommendation": "定义 embedded-canvas shadow:none；只在 Deck 嵌入适配层消费，独立工作台不变。P06 浮卡继续使用其已有边框。",
+      "impactScope": [
+        "P06",
+        "P09",
+        "P10"
+      ],
+      "evidence": {
+        "file": "evidence/P09-computed.json",
+        "selector": "#screen",
+        "trail": "slide",
+        "rect": {
+          "x": 67.5555419921875,
+          "y": 0,
+          "width": 1464.888916015625,
+          "height": 824
+        },
+        "screenshot": "screenshots/P09.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K11",
+      "pageNumber": "P09",
+      "pageTitle": "让计算关系在视角切换中连续可感知",
+      "elementName": "跨视角数据图形的边界",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "\"Segoe UI Variable\", \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", system-ui, -apple-system, \"system-ui\", sans-serif",
+        "font-size": "13.08px",
+        "font-weight": "400",
+        "line-height": "18.966px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/styles/visualization2-anatomy.css",
+          "selector": ".viz2-anatomy-stack-boundary",
+          "line": 24,
+          "sourceExcerpt": ".viz2-anatomy-q-boundary, .viz2-anatomy-slot-boundary, .viz2-anatomy-stack-boundary { fill: var(--surface-3); }\n.viz2-anatomy-unused-page { fill: var(--surface-4); fill-opacity: .45; pointer-events: none; }\n.viz2-anatomy-output-row { fill: var(--accent); }\n.viz2-anatomy-link { fill: none; stroke: var(--foreground-muted); stroke-width: 1; opacity: .35; vector-effect: non-scaling-stroke; }\n.viz2-anatomy-link.is-related { stroke: var(--primary); opacity: 1; }"
+        }
+      ],
+      "matchedSelector": "svg.viz2-anatomy-svg > g:nth-child(1) > g:nth-child(1) > rect.viz2-anatomy-stack-boundary",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "SVG Stack 边界与蓝色 Page 是当前数据对象映射；和 P06 简化分配示意的灰条不同，差异来自叙事粒度。Inspector 在当前嵌入路径中隐藏，点击执行标记也未显示可见 Inspector。",
+      "recommendation": "保留蓝色 Page 与 Stack 几何；不可把隐藏 Inspector 的源样式当成此页已渲染浮层问题。",
+      "impactScope": [
+        "P09"
+      ],
+      "evidence": {
+        "file": "evidence/P09-computed.json",
+        "selector": "svg.viz2-anatomy-svg > g:nth-child(1) > g:nth-child(1) > rect.viz2-anatomy-stack-boundary",
+        "trail": "slide",
+        "rect": {
+          "x": 673.5149694459512,
+          "y": 295.5047200520833,
+          "width": 252.95251444978638,
+          "height": 65.98761610243055
+        },
+        "screenshot": "screenshots/P09.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A09",
+      "pageNumber": "P10",
+      "pageTitle": "逐层深入执行细节，同时保留观察上下文",
+      "elementName": "固定画布的实色覆盖了共享网格",
+      "category": "Token / 选择器覆盖",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgb(22, 22, 22)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "21px",
+        "padding": "36px 54px 28px",
+        "gap": "16px",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p10-drilldown-storytelling/story.css",
+          "selector": "#story",
+          "line": 21,
+          "sourceExcerpt": "#story {\n  width:1600px;\n  height:900px;\n  flex:none;\n  transform-origin:top left;"
+        }
+      ],
+      "matchedSelector": "#story",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "消费 --surface-1 导致画布遮盖；未重定义 Token"
+      },
+      "cause": "#story 的 background:var(--surface-1) 最终 #161616，位于带网格的 #frame 之上，主内容区因此遮住全局网格；与 P06 / P09 的透明内容容器不同。",
+      "recommendation": "后续仅在嵌入适配中让舞台继承 canvas 层；保留内层 Pipeline 固定容器的独立底色和业务几何。",
+      "impactScope": [
+        "P10"
+      ],
+      "evidence": {
+        "file": "evidence/P10-computed.json",
+        "selector": "#story",
+        "trail": "slide",
+        "rect": {
+          "x": 67.5555419921875,
+          "y": 0,
+          "width": 1464.888916015625,
+          "height": 824
+        },
+        "screenshot": "screenshots/P10.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K12",
+      "pageNumber": "P10",
+      "pageTitle": "逐层深入执行细节，同时保留观察上下文",
+      "elementName": "Pipeline 固定内容容器",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(28, 28, 28)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "12px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "21px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/p10-drilldown-storytelling/story.css",
+          "selector": ".pipeline",
+          "line": 43,
+          "sourceExcerpt": ".pipeline {\n  min-width:0;\n  min-height:0;\n  display:grid;\n  grid-template-rows:minmax(0,1fr) 38px;"
+        }
+      ],
+      "matchedSelector": "div.pto-ide-frame__workarea > article > div.workspace > section.pipeline",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "#1c1c1c、12px、无描边无影是固定裁切区域，不是浮层。右侧层级按钮的选中 / 祖先 / 未进入状态有明确语义。",
+      "recommendation": "保留固定容器与层级状态区别；建议别名 surface.diagram-inset / radius.viewport，不能统一包装为 Card。",
+      "impactScope": [
+        "P10"
+      ],
+      "evidence": {
+        "file": "evidence/P10-computed.json",
+        "selector": "div.pto-ide-frame__workarea > article > div.workspace > section.pipeline",
+        "trail": "slide",
+        "rect": {
+          "x": 116.99554290771485,
+          "y": 190.43555555555557,
+          "width": 1065.706686401367,
+          "height": 563.9822222222223
+        },
+        "screenshot": "screenshots/P10.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K13",
+      "pageNumber": "P10",
+      "pageTitle": "逐层深入执行细节，同时保留观察上下文",
+      "elementName": "依赖线类型、Slot 与 READY",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgba(255, 255, 255, 0.9)",
+        "border-right-width": "0px",
+        "border-right-color": "rgba(255, 255, 255, 0.9)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "14px",
+        "font-weight": "400",
+        "line-height": "21px",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgba(255, 255, 255, 0.9) none 3px",
+        "outline-offset": "0px",
+        "opacity": "0.3",
+        "stroke": "rgb(128, 183, 247)",
+        "stroke-width": "3px",
+        "stroke-dasharray": "4px, 4px"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/styles/visualization2-pipeline-intra.css",
+          "selector": ".viz2-intra-reuse",
+          "line": 23,
+          "sourceExcerpt": ".viz2-intra-reuse { fill:none; stroke:var(--slot-color); stroke-width:3; stroke-dasharray:4 4; stroke-linecap:round; opacity:.3; vector-effect:non-scaling-stroke; pointer-events:stroke; }\n.viz2-intra-output { fill:var(--surface-2); stroke:var(--foreground-secondary); stroke-width:1; vector-effect:non-scaling-stroke; }\n.viz2-intra-output-link { fill:none; stroke:var(--foreground-muted); stroke-width:1; vector-effect:non-scaling-stroke; pointer-events:none; }\n.viz2-intra-svg [data-intra-kind] { cursor:pointer; }\n.viz2-intra-svg .is-related .viz2-intra-operation,.viz2-intra-svg .is-shared .viz2-intra-operation { fill:var(--surface-4); stroke-opacity:1; }"
+        }
+      ],
+      "matchedSelector": "div.viz2-anatomy-cache-scroll.viz2-intra-tick-scroll > svg.viz2-intra-svg > g > path.viz2-intra-reuse:nth-child(16)",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "reuse 虚线、flow 实线、READY 事件圆环以及关联态是不同依赖关系。线宽差异需要校准，但线型不应消失。",
+      "recommendation": "统一视觉强度时保留线型、方向、槽位与事件形状；优先修正 A05 的来源分叉。",
+      "impactScope": [
+        "P10"
+      ],
+      "evidence": {
+        "file": "evidence/P10-Iteration-computed.json",
+        "selector": "div.viz2-anatomy-cache-scroll.viz2-intra-tick-scroll > svg.viz2-intra-svg > g > path.viz2-intra-reuse:nth-child(16)",
+        "trail": "slide",
+        "rect": {
+          "x": 316.27897650254886,
+          "y": 334.72217122395836,
+          "width": 213.25666464786045,
+          "height": 87.81155137803819
+        },
+        "screenshot": "screenshots/P10-Iteration.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A10",
+      "pageNumber": "P11",
+      "pageTitle": "从代码阅读到计算探索",
+      "elementName": "P11 带冷色的画布底层",
+      "category": "Demo 来源差异",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgb(17, 20, 25)",
+        "background-image": "linear-gradient(to right, rgba(255, 255, 255, 0.024) 1px, rgba(0, 0, 0, 0) 1px), linear-gradient(rgba(255, 255, 255, 0.024) 1px, rgba(0, 0, 0, 0) 1px)",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(255, 255, 255)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(255, 255, 255)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(255, 255, 255) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": "background:#111419",
+          "line": 8075,
+          "sourceExcerpt": "  transform:translate(-50%,-50%) scale(var(--fit,1)); background:#111419;\n}\nmain &gt; .mast { display:none; }\n[data-p11-attached] main &gt; .deck-header h1 { white-space:pre-line; width:610px; }\n.p11-copy-column {"
+        }
+      ],
+      "matchedSelector": "html > body > main.deck-copy-enabled",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "main 最终背景 #111419，区别于共享 #101010。蓝黑底来自嵌套演示源码的本地风格，不是 Graph / Assignment / Pipeline 的对象语义。",
+      "recommendation": "建议只统一页面基底为 surface.canvas；保留图中三种视角的填充、描边及必要过渡。",
+      "impactScope": [
+        "P11"
+      ],
+      "evidence": {
+        "file": "evidence/P11-computed.json",
+        "selector": "html > body > main.deck-copy-enabled",
+        "trail": "slide",
+        "rect": {
+          "x": 67.5555419921875,
+          "y": 0,
+          "width": 1464.888916015625,
+          "height": 824
+        },
+        "screenshot": "screenshots/P11.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A11",
+      "pageNumber": "P11",
+      "pageTitle": "从代码阅读到计算探索",
+      "elementName": "叙事发光缺少独立于浮层阴影的规范",
+      "category": "设计系统规则缺口",
+      "priority": "P2",
+      "status": "规范缺口",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(243, 244, 246)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(243, 244, 246)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "Inter, \"Noto Sans SC\", -apple-system, \"system-ui\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(243, 244, 246) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".core-glow",
+          "line": 8192,
+          "sourceExcerpt": "    .core-glow {\n      animation: corePulse 4s ease-in-out infinite;\n    }\n\n    @keyframes radarPing {"
+        }
+      ],
+      "matchedSelector": "svg.w-full.h-full.max-w-\\[1520px\\].max-h-\\[82vh\\] > g:nth-child(4) > g:nth-child(1) > g.operator-core.core-glow",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "operator-core 动画产生约21px的绿色 drop-shadow；这是叙事焦点，不应与 overlay elevation 共用 shadow token。截帧会随动画相位变化。",
+      "recommendation": "单独命名 motion.semantic-focus，限定在核心汇聚阶段；保留语义动效，后续确认是否需要降低持续发光。不得静态批量清除动画。",
+      "impactScope": [
+        "P11"
+      ],
+      "evidence": {
+        "file": "evidence/P11-computed.json",
+        "selector": "svg.w-full.h-full.max-w-\\[1520px\\].max-h-\\[82vh\\] > g:nth-child(4) > g:nth-child(1) > g.operator-core.core-glow",
+        "trail": "slide > html > body > main.deck-copy-enabled > iframe.p11-animation",
+        "rect": {
+          "x": 927.8810341932821,
+          "y": 436.64791542018554,
+          "width": 79.94160427963142,
+          "height": 79.94157738822885
+        },
+        "screenshot": "screenshots/P11.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A12",
+      "pageNumber": "P12",
+      "pageTitle": "建立计算现场",
+      "elementName": "P12 页面基底变为 #191919",
+      "category": "Token / 选择器覆盖",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgb(25, 25, 25)",
+        "background-image": "linear-gradient(to right, rgba(255, 255, 255, 0.024) 1px, rgba(0, 0, 0, 0) 1px), linear-gradient(rgba(255, 255, 255, 0.024) 1px, rgba(0, 0, 0, 0) 1px)",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(238, 238, 238)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(238, 238, 238)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "36px 54px 28px",
+        "gap": "normal",
+        "outline": "rgb(238, 238, 238) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": "[data-p14=\"derive\"]",
+          "line": 7457,
+          "sourceExcerpt": "[data-p14=\"derive\"] { background:#191919; }\n.p12-rules-body {\n  display:grid; grid-template-columns:minmax(0, 1fr) 426px;\n  gap:42px; height:490px; margin:0 58px;\n}"
+        }
+      ],
+      "matchedSelector": "html > body > main.deck-main > section.design-slide.deck-copy-enabled",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "[data-p14=\"derive\"] 的页级底色覆盖共享深黑画布。旧 data-p14 是实现标识，不代表 P14；当前实际页码为 P12。",
+      "recommendation": "将该页页面基底映射到 surface.canvas，保留网格、源码区域与公式对象色。",
+      "impactScope": [
+        "P12"
+      ],
+      "evidence": {
+        "file": "evidence/P12-computed.json",
+        "selector": "html > body > main.deck-main > section.design-slide.deck-copy-enabled",
+        "trail": "slide",
+        "rect": {
+          "x": 67.5555419921875,
+          "y": 0,
+          "width": 1464.888916015625,
+          "height": 824
+        },
+        "screenshot": "screenshots/P12.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A13",
+      "pageNumber": "P12",
+      "pageTitle": "建立计算现场",
+      "elementName": "源码证据区域的中性外壳未映射角色",
+      "category": "设计系统规则缺口",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgb(32, 33, 39)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(66, 75, 89)",
+        "border-right-width": "1px",
+        "border-right-color": "rgb(66, 75, 89)",
+        "border-radius": "10px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(238, 238, 238) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".p12-editor",
+          "line": 7482,
+          "sourceExcerpt": ".p12-editor {\n  display:grid; grid-template-rows:auto auto; align-self:center; min-width:0;\n  margin:0; overflow:hidden; border:1px solid #424b59; border-radius:10px; background:#202127;\n}\n.p12-editor figcaption {"
+        }
+      ],
+      "matchedSelector": "main.deck-main > section.design-slide.deck-copy-enabled > div.p12-rules-body > figure.p12-editor",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "编辑器外壳 #202127 / #424b59 / 10px 为独立硬编码，区别于 Deck 的中性背景与边框；语法高亮本身有领域语义。",
+      "recommendation": "为 source-evidence 定义中性外壳 / 边界 / 紧凑圆角别名；保留紫粉青语法色、行号、12px mono 与源码内容。",
+      "impactScope": [
+        "P12"
+      ],
+      "evidence": {
+        "file": "evidence/P12-computed.json",
+        "selector": "main.deck-main > section.design-slide.deck-copy-enabled > div.p12-rules-body > figure.p12-editor",
+        "trail": "slide",
+        "rect": {
+          "x": 1039.87548828125,
+          "y": 257.0279235839844,
+          "width": 390.0267333984375,
+          "height": 286.1396789550781
+        },
+        "screenshot": "screenshots/P12.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "A14",
+      "pageNumber": "P12",
+      "pageTitle": "建立计算现场",
+      "elementName": "底部结论提示被赋予较强容器层级",
+      "category": "设计系统规则缺口",
+      "priority": "P2",
+      "status": "建议统一",
+      "actualCss": {
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "linear-gradient(105deg, rgb(32, 35, 45), rgb(25, 25, 25))",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(81, 94, 119)",
+        "border-right-width": "1px",
+        "border-right-color": "rgb(81, 94, 119)",
+        "border-radius": "12px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "22px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "14px 24px",
+        "gap": "12px",
+        "outline": "rgb(244, 244, 244) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".p12-takeaway",
+          "line": 7503,
+          "sourceExcerpt": ".p12-takeaway {\n  display:flex; justify-content:center; align-items:center; gap:12px; min-height:114px;\n  margin:18px 58px 0; padding:14px 24px; border:1px solid #515e77; border-radius:12px;\n  background:linear-gradient(105deg,#20232d,#191919); color:#f4f4f4; font-size:22px;\n}"
+        }
+      ],
+      "matchedSelector": "body > main.deck-main > section.design-slide.deck-copy-enabled > p.p12-takeaway",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "硬编码旁路或独立作用域；未证明直接覆盖 Token"
+      },
+      "cause": "固定结论提示使用蓝灰渐变、#515e77 边框和12px圆角；没有警告/错误状态，视觉上却接近高优先级提示浮层。",
+      "recommendation": "建议归入 fixed.callout，中性单色背景 + 细边；保留文案与现有位置，不添加新组件或改成错误警告。",
+      "impactScope": [
+        "P12"
+      ],
+      "evidence": {
+        "file": "evidence/P12-computed.json",
+        "selector": "body > main.deck-main > section.design-slide.deck-copy-enabled > p.p12-takeaway",
+        "trail": "slide",
+        "rect": {
+          "x": 170.09776306152344,
+          "y": 640.8888549804688,
+          "width": 1259.804443359375,
+          "height": 104.37335205078125
+        },
+        "screenshot": "screenshots/P12.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K14",
+      "pageNumber": "P12",
+      "pageTitle": "建立计算现场",
+      "elementName": "参数标记与语法高亮",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(216, 250, 82)",
+        "background-image": "none",
+        "border-top-width": "0px",
+        "border-top-color": "rgb(25, 25, 25)",
+        "border-right-width": "0px",
+        "border-right-color": "rgb(25, 25, 25)",
+        "border-radius": "0px",
+        "box-shadow": "none",
+        "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+        "font-size": "32px",
+        "font-weight": "500",
+        "line-height": "36.8px",
+        "padding": "9px",
+        "gap": "normal",
+        "outline": "rgb(25, 25, 25) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".p12-page",
+          "line": 7476,
+          "sourceExcerpt": ".p12-page { background:#d8fa52; }\n.p12-stack-pages { background:#7bd5ec; }\n.p12-stack { background:#e481ce; }\n.p12-seq { color:#ff5469; }\n.p12-rule-group p { margin:17px 0 5px; white-space:nowrap; font-size:16px; color:#f2f2f2; }"
+        }
+      ],
+      "matchedSelector": "div.p12-definitions > div:nth-child(1) > div.p12-formula > mark.p12-page",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "Page #d8fa52、Stack Pages #7bd5ec、Stack Tokens #e481ce、Seq_len #ff5469 映射不同公式对象；不属于无意义的选中态乱色。",
+      "recommendation": "保留四类公式对象色，并与 Graph 循环 lime、Tensor 蓝分别命名，不能以通用 primary 覆盖。",
+      "impactScope": [
+        "P12"
+      ],
+      "evidence": {
+        "file": "evidence/P12-computed.json",
+        "selector": "div.p12-definitions > div:nth-child(1) > div.p12-formula > mark.p12-page",
+        "trail": "slide",
+        "rect": {
+          "x": 327.57330322265625,
+          "y": 233.09471130371094,
+          "width": 69.39627075195312,
+          "height": 50.16960144042969
+        },
+        "screenshot": "screenshots/P12.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    },
+    {
+      "id": "K15",
+      "pageNumber": "P13",
+      "pageTitle": "主动计算推演",
+      "elementName": "预览入口与内嵌图片的证据边界",
+      "category": "业务语义 / 已确认设计",
+      "priority": "保留",
+      "status": "保留",
+      "actualCss": {
+        "background-color": "rgb(22, 22, 22)",
+        "background-image": "none",
+        "border-top-width": "1px",
+        "border-top-color": "rgb(52, 52, 52)",
+        "border-right-width": "1px",
+        "border-right-color": "rgb(52, 52, 52)",
+        "border-radius": "14px",
+        "box-shadow": "none",
+        "font-family": "-apple-system, \"system-ui\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "normal",
+        "padding": "0px",
+        "gap": "normal",
+        "outline": "rgb(242, 242, 242) none 3px",
+        "outline-offset": "0px",
+        "opacity": "1",
+        "stroke": "none",
+        "stroke-width": "1px",
+        "stroke-dasharray": "none"
+      },
+      "cssSources": [
+        {
+          "file": "Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-deck.html",
+          "selector": ".compute-explorer-preview",
+          "line": 50,
+          "sourceExcerpt": "body.is-audience .compute-explorer-preview span[aria-hidden=\"true\"] { display:none; }\nbody.is-presenting > main { inset:104px 46% 58px 20px; border:1px solid #303642; }\n#presenter-panel { position:fixed; inset:0; pointer-events:none; font:14px/1.45 system-ui,sans-serif; }\n#presenter-toolbar { position:absolute; inset:0 0 auto; min-height:64px; padding:12px 20px;\n  display:flex; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid #303642; pointer-events:auto; }"
+        }
+      ],
+      "matchedSelector": "body > main.deck-main > section.design-slide.deck-copy-enabled > a.design-demo.compute-explorer-preview",
+      "tokenOverride": {
+        "overridesExistingToken": false,
+        "assessment": "采用现有 Token 或保持业务语义"
+      },
+      "cause": "P13 当前是 assets/compute-explorer-preview.png + 外链入口，图内按钮不是 DOM。14px外框 / 8px入口有不同角色，不能靠统计图片颜色反推 CSS。",
+      "recommendation": "保留入口行为；外框可映射既有面板Token。若下一轮更改真实 Explorer，需另行审计其源页面，不将本页图片当成在线 Demo。",
+      "impactScope": [
+        "P13"
+      ],
+      "evidence": {
+        "file": "evidence/P13-computed.json",
+        "selector": "body > main.deck-main > section.design-slide.deck-copy-enabled > a.design-demo.compute-explorer-preview",
+        "trail": "slide",
+        "rect": {
+          "x": 116.99554443359375,
+          "y": 175.7866668701172,
+          "width": 1366.0087890625,
+          "height": 622.5777587890625
+        },
+        "screenshot": "screenshots/P13.png"
+      },
+      "verification": "Chrome 1600×900 实际渲染 + getComputedStyle + CSSOM 匹配规则 + 源码复核；不是历史回归判定"
+    }
+  ],
+  "sourceInventory": "evidence/source-inventory.json",
+  "stateCoverage": "evidence/state-coverage.json",
+  "detectorTriage": "evidence/detector-triage.json"
+}
