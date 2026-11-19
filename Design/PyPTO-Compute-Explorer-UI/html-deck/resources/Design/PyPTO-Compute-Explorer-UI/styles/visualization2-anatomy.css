@@ -1,0 +1,86 @@
+/* Domain diagram inside the existing IDE pane; shared controls/tokens own HUD skin. */
+.viz2-assignment-hud { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.viz2-assignment-hud nav { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-anatomy { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.viz2-anatomy-taskbar { display:flex; flex:none; align-items:center; flex-wrap:nowrap; min-width:0; gap:var(--space-4); padding:var(--space-2) var(--space-5); font:var(--type-body-sm); color:var(--foreground-secondary); }
+.viz2-anatomy-taskbar > button { margin-left:auto; flex:none; white-space:nowrap; }
+.viz2-anatomy-taskbar h2 { flex:none; margin:0; color:var(--foreground); font:var(--type-title-3); font-weight:700; white-space:nowrap; }
+.viz2-anatomy-taskbar > span { flex:none; color:var(--foreground-muted); white-space:nowrap; }
+.viz2-anatomy-task-nav { display:flex; flex:0 1 auto; min-width:0; align-items:center; gap:var(--space-1); padding-left:var(--space-4); border-left:1px solid var(--border-subtle); overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.viz2-anatomy-task-nav button { flex:none; white-space:nowrap; color:var(--foreground-muted); border-radius:var(--radius-pill); }
+.viz2-anatomy-task-nav button:is(:hover,:focus-visible) { color:var(--foreground); }
+.viz2-anatomy-task-nav button[aria-current="true"] { color:var(--foreground); background:var(--surface-4); }
+.viz2-anatomy-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.viz2-anatomy-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
+.viz2-anatomy-viewport { position: relative; flex: 1; min-height: 120px; overflow: hidden; touch-action: pan-y; cursor: grab; }
+.viz2-anatomy-svg { display:block; width:100%; flex:none; user-select:none; }
+.viz2-anatomy-svg text { font: var(--type-mono); font-size: var(--anatomy-font,12px); fill: var(--foreground); pointer-events: none; }
+.viz2-anatomy-svg .viz2-anatomy-heading { font-family: var(--font-sans); font-weight: 650; }
+.viz2-anatomy-svg .viz2-anatomy-muted { fill: var(--foreground-secondary); }
+.viz2-anatomy-task-frame { fill: var(--surface-1); fill-opacity: .35; }
+.viz2-anatomy-hit { fill: transparent; pointer-events: all; }
+.viz2-anatomy-empty { fill: var(--surface-4); }
+.viz2-anatomy-valid { fill: var(--primary); }
+.viz2-anatomy-q-boundary, .viz2-anatomy-slot-boundary, .viz2-anatomy-stack-boundary { fill: var(--surface-3); }
+.viz2-anatomy-unused-page { fill: var(--surface-4); fill-opacity: .45; pointer-events: none; }
+.viz2-anatomy-output-row { fill: var(--accent); }
+.viz2-anatomy-link { fill: none; stroke: var(--foreground-muted); stroke-width: 1; opacity: .35; vector-effect: non-scaling-stroke; }
+.viz2-anatomy-link.is-related { stroke: var(--primary); opacity: 1; }
+.viz2-anatomy-svg [data-anatomy-kind] { cursor: pointer; }
+.viz2-anatomy-svg [data-anatomy-kind]:focus-visible { outline: none; }
+.viz2-anatomy-svg [data-anatomy-kind]:is(.is-selected,:focus-visible) > rect:not(.viz2-anatomy-hit):not(.viz2-anatomy-unused-page) { stroke: var(--foreground); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.viz2-anatomy-svg .is-related > .viz2-anatomy-empty, .viz2-anatomy-svg .is-related > .viz2-anatomy-slot-boundary, .viz2-anatomy-svg .is-related > .viz2-anatomy-stack-boundary { stroke: var(--primary); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.viz2-anatomy-svg .is-shared > .viz2-anatomy-stack-boundary { stroke: var(--primary); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.viz2-anatomy-svg [data-anatomy-kind]:hover > rect { filter: brightness(1.2); }
+.viz2-anatomy-footer { display: flex; flex: none; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-5); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-anatomy-footer > span { display: flex; align-items: center; gap: var(--space-2); }
+.viz2-anatomy-key { width: var(--space-2); height: var(--space-2); background: var(--primary); border-radius: var(--radius-sm); }
+.viz2-anatomy-key.is-capacity { background: var(--surface-4); }
+.viz2-anatomy-footer small { color: var(--foreground-muted); }
+.viz2-anatomy-inspector { flex: 0 0 280px; min-width: 0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
+.viz2-anatomy-inspector .pto-ide-frame__pane-header { justify-content: space-between; }
+.viz2-anatomy-inspector .pto-ide-frame__pane-body { padding: var(--space-3) var(--space-4); overflow: auto; font: var(--type-body); }
+.viz2-anatomy-inspector p { color: var(--foreground-secondary); }
+.viz2-anatomy-inspector dt { margin-top: var(--space-4); color: var(--foreground-muted); font: var(--type-body-sm); }
+.viz2-anatomy-inspector dd { margin: var(--space-1) 0; overflow-wrap: anywhere; }
+.viz2-semantic-overlay { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 13; }
+.viz2-semantic-mask #viz2-anatomy [data-anatomy-q-row],
+.viz2-semantic-mask #viz2-anatomy [data-anatomy-cell],
+.viz2-semantic-mask #viz2-anatomy [data-anatomy-page-fill],
+.viz2-semantic-mask #viz2-anatomy [data-anatomy-task-frame],
+.viz2-semantic-mask #viz2-anatomy .viz2-anatomy-task-title { visibility: hidden; }
+@media (max-width: 900px) {
+  .viz2-anatomy-body { position: relative; }
+  .viz2-anatomy-inspector { position: absolute; right: 0; top: 0; bottom: 52px; width: min(280px,75%); z-index: 5; }
+  .viz2-anatomy-footer { padding-inline: var(--space-3); }
+}
+
+/* Q is a fixed structural reference. Only the persistent KV card track moves. */
+.viz2-anatomy-workspace { position:relative; display:flex; flex:1; min-height:0; min-width:0; gap:var(--space-5); padding:var(--space-4) var(--space-5); }
+.viz2-anatomy-query { flex:0 0 clamp(150px,19%,220px); align-self:center; min-width:0; color:var(--foreground-secondary); font:var(--type-body-sm); }
+.viz2-anatomy-query h3 { color:var(--foreground); font:var(--type-title-3); }
+.viz2-anatomy-query b { display:block; margin-top:var(--space-4); }
+.viz2-anatomy-query p { line-height:1.6; }
+.viz2-anatomy-query > p { margin-top:var(--space-5); color:var(--foreground-muted); }
+.viz2-anatomy-viewport { mask-image:linear-gradient(to right,transparent,#000 7%,#000 93%,transparent); }
+.viz2-anatomy-track { position:absolute; top:var(--space-2); bottom:var(--space-2); left:0; width:100%; will-change:transform; }
+.viz2-anatomy-card { position:absolute; top:0; bottom:0; display:flex; flex-direction:column; min-height:0; box-sizing:border-box; padding:var(--space-4); border-radius:var(--radius-lg); background:var(--surface-2); overflow:hidden; }
+.viz2-anatomy-card.is-current { background:var(--surface-3); }
+.viz2-anatomy-card header { flex:none; padding:0 var(--space-2) var(--space-3); }
+.viz2-anatomy-card h3 { margin:0 0 var(--space-2); color:var(--foreground); font:var(--type-title-3); }
+.viz2-anatomy-card header p { margin:var(--space-1) 0; font:var(--type-body-sm); color:var(--foreground-secondary); }
+.viz2-anatomy-cache-scroll { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:var(--space-1); touch-action:pan-y; }
+.viz2-anatomy-card .viz2-anatomy-stack-boundary { fill:var(--surface-2); }
+.viz2-anatomy-card .viz2-anatomy-svg { min-width:0; }
+.viz2-anatomy-footer { flex-wrap:wrap; }
+.viz2-anatomy-footer .kf-pa-map__tools { margin-left:auto; }
+@media(max-width:900px) {
+  .viz2-anatomy-workspace { gap:var(--space-2); padding-inline:var(--space-3); }
+  .viz2-anatomy-query { flex-basis:150px; }
+  .viz2-anatomy-footer small { display:none; }
+  .viz2-anatomy-card { padding:var(--space-2); }
+}
+
+#viz2-assignment:has(#viz2-anatomy:not([hidden])) > .viz2-phase-toolbar { display:none; }
+.viz2-anatomy-card.is-before header { text-align:right; }
+.viz2-anatomy-viewport { overflow:clip; }

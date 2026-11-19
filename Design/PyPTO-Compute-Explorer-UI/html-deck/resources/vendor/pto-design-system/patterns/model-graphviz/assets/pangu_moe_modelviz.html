@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pangu MoE Model Architecture</title>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      let theme = params.get('theme');
+      if (!theme) {
+        try {
+          theme = window.localStorage?.getItem('pangu-moe-modelviz-theme');
+        } catch (_) {
+          theme = null;
+        }
+      }
+      if (theme === 'light' || theme === 'dark' || theme === 'glass') {
+        document.documentElement.dataset.theme = theme;
+      }
+      if (params.get('embed') === '1') {
+        document.documentElement.dataset.embed = '1';
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="../../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../../tokens/components.css">
+  <link rel="stylesheet" href="../pattern.css?v=model-gallery-light-border-1">
+  <link rel="stylesheet" href="../../pass-ir-graph-node/pattern.css?v=pass-ir-capsule-2">
+  <link rel="stylesheet" href="../capsule.css?v=model-capsule-12">
+  <style>
+    :root {
+      --pangu-bg: var(--background);
+      --pangu-panel: color-mix(in srgb, var(--panel-shell-bg) 94%, transparent);
+      --pangu-border: var(--border-subtle);
+      --pangu-text: var(--foreground);
+      --pangu-muted: var(--foreground-secondary);
+      --pangu-accent: var(--highlight-copy-blue-300);
+      --model-graphviz-bg: var(--pangu-bg);
+      --model-graphviz-surface: var(--pangu-panel);
+      --model-graphviz-stage-bg: var(--pangu-bg);
+      --model-graphviz-line: color-mix(in srgb, var(--pangu-muted) 82%, transparent);
+      --model-graphviz-line-soft: var(--border-strong);
+      --model-graphviz-node-label: var(--pangu-text);
+      --model-graphviz-node-type: var(--pangu-muted);
+      --model-graphviz-cluster-label: var(--pangu-muted);
+      --model-graphviz-toggle-bg: color-mix(in srgb, var(--pangu-accent) 60%, var(--pangu-panel));
+      --model-graphviz-toggle-border: color-mix(in srgb, var(--pangu-accent) 64%, var(--border-strong));
+      --model-graphviz-toggle-icon: var(--pangu-text);
+      --model-graphviz-node-shadow: none;
+      --model-graphviz-parent-shadow: none;
+      --model-graphviz-panel-shadow: none;
+    }
+
+    :root[data-theme='light'] {
+      --pangu-panel: #F8F8F8;
+      --model-graphviz-line: color-mix(in srgb, var(--foreground-secondary) 68%, transparent);
+      --model-graphviz-line-soft: color-mix(in srgb, var(--border-strong) 58%, transparent);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background: var(--pangu-bg);
+      color: var(--pangu-text);
+      font-family: var(--font-sans);
+    }
+
+    .pangu-app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100vh;
+    }
+
+    :root[data-embed='1'] .pangu-app {
+      grid-template-rows: 1fr auto;
+      min-height: 0;
+      height: 100vh;
+    }
+
+    .pangu-topbar {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: var(--space-3);
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--pangu-border);
+      background: var(--pangu-panel);
+    }
+
+    :root[data-embed='1'] .pangu-topbar {
+      display: none;
+    }
+
+    .pangu-title {
+      min-width: 0;
+    }
+
+    .pangu-title h1 {
+      margin: 0;
+      color: var(--pangu-text);
+      font: 700 16px / 1.2 var(--font-sans);
+      letter-spacing: 0;
+    }
+
+    .pangu-title span {
+      display: block;
+      margin-top: 4px;
+      color: var(--pangu-muted);
+      font: 12px / 1.4 var(--font-sans);
+    }
+
+    .pangu-actions,
+    .pangu-facts {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .pangu-actions .btn {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      border: 1px solid var(--pangu-border);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      background: color-mix(in srgb, var(--pangu-panel) 88%, var(--foreground) 6%);
+      color: var(--pangu-text);
+      font: 650 12px / 1 var(--font-sans);
+      letter-spacing: 0;
+      cursor: pointer;
+    }
+
+    .pangu-actions .btn:hover {
+      border-color: color-mix(in srgb, var(--pangu-accent) 42%, var(--pangu-border));
+      background: color-mix(in srgb, var(--pangu-panel) 80%, var(--pangu-accent) 12%);
+    }
+
+    .pangu-actions .btn:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--pangu-accent) 72%, transparent);
+      outline-offset: 2px;
+    }
+
+    .pangu-facts {
+      padding: 9px 12px;
+      border-top: 1px solid var(--pangu-border);
+      background: color-mix(in srgb, var(--pangu-panel) 90%, transparent);
+    }
+
+    .pangu-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      max-width: 100%;
+      border-radius: 999px;
+      padding: 0 9px;
+      background: color-mix(in srgb, var(--foreground) 9%, transparent);
+      color: var(--pangu-muted);
+      font: 600 11px / 1 var(--font-sans);
+      white-space: nowrap;
+    }
+
+    :root[data-embed='1'] .pangu-facts {
+      display: none;
+    }
+
+    .pangu-stage {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--pangu-bg);
+      cursor: grab;
+    }
+
+    .pangu-stage.is-panning {
+      cursor: grabbing;
+    }
+
+    .pangu-stage svg {
+      display: block;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    .pangu-detail-toggle {
+      cursor: pointer;
+      pointer-events: all;
+    }
+
+    .pangu-detail-toggle .pangu-toggle-hit {
+      fill: transparent;
+      stroke: transparent;
+      pointer-events: all;
+    }
+
+    .pangu-detail-toggle circle:not(.pangu-toggle-hit) {
+      fill: var(--model-graphviz-toggle-bg);
+      stroke: var(--model-graphviz-toggle-border);
+      stroke-width: 1.2px;
+    }
+
+    .pangu-detail-toggle text {
+      fill: var(--model-graphviz-toggle-icon);
+      font: 750 14px / 1 var(--font-sans);
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .pangu-status {
+      min-height: 28px;
+      padding: 7px 12px;
+      border-top: 1px solid var(--pangu-border);
+      color: var(--pangu-muted);
+      background: var(--pangu-panel);
+      font: 11px / 1.2 var(--font-sans);
+    }
+
+    :root[data-embed='1'] .pangu-status {
+      display: none;
+    }
+
+    @media (max-width: 860px) {
+      body { overflow: auto; }
+      .pangu-app { min-height: 860px; }
+      .pangu-topbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="pto-model-graphviz-pattern-page pto-model-graphviz-capsule-page">
+  <main class="pangu-app">
+    <header class="pangu-topbar">
+      <div class="pangu-title">
+        <h1 id="pageTitle">Pangu MoE Architecture</h1>
+        <span id="pageSource">local model graph asset</span>
+      </div>
+      <div class="pangu-actions">
+        <button class="btn btn-ghost" type="button" id="variantFit">Fit</button>
+        <button class="btn btn-ghost" type="button" id="themeToggle">Light</button>
+        <button class="btn btn-ghost" type="button" id="variantCycle">Next Variant</button>
+      </div>
+    </header>
+    <section class="pangu-stage pto-model-architecture-stage" id="graphStage" aria-label="Pangu MoE model architecture graph"></section>
+    <div class="pangu-facts" id="factRow" aria-label="Model architecture facts"></div>
+    <div class="pangu-status" id="statusText">Loading Pangu graph.</div>
+  </main>
+
+  <script src="../pattern.js?v=model-gallery-tag-avoid-1"></script>
+  <script src="../../pass-ir-graph-node/pattern.js?v=pass-ir-capsule-2"></script>
+  <script src="../capsule.js?v=model-capsule-12"></script>
+  <script src="./pangu_ultramoe_718b_graph.js?v=model-gallery-consistency-2"></script>
+  <script src="./pangu_pro_moe_72ba16b_graph.js?v=model-gallery-consistency-2"></script>
+  <script>
+    const VARIANT_ORDER = ['r72b', 'pro72ba16b'];
+    const params = new URLSearchParams(window.location.search);
+    let currentVariant = VARIANT_ORDER.includes(params.get('variant')) ? params.get('variant') : 'r72b';
+    const showExpertDetail = params.get('expert') === '1' || params.get('detail') === 'experts';
+    const THEME_STORAGE_KEY = 'pangu-moe-modelviz-theme';
+    let controller = null;
+    const R72B_DETAIL_MODULES = {
+      attention: {
+        clusters: ['r72b_attention_detail'],
+        statusLabel: 'MLA Attention',
+      },
+      experts: {
+        clusters: ['r72b_expert_detail'],
+        statusLabel: 'Routed Expert Pool',
+      },
+    };
+    const PANGU_PRO_DETAIL_MODULES = {
+      attention_gqa: {
+        clusters: ['mulattention_detail'],
+        statusLabel: 'Attention(GQA)',
+      },
+      routed_expert: {
+        clusters: ['swiftgmm_detail'],
+        statusLabel: 'Routed Expert FFN',
+      },
+    };
+    const initialProDetail = params.get('detail');
+    const panguR72BExpandedModules = new Set(
+      initialProDetail === 'all'
+        ? Object.keys(R72B_DETAIL_MODULES)
+        : initialProDetail === 'attention'
+          ? ['attention']
+          : initialProDetail === 'experts'
+            ? ['experts']
+            : []
+    );
+    const panguProExpandedModules = new Set(
+      initialProDetail === 'all'
+        ? Object.keys(PANGU_PRO_DETAIL_MODULES)
+        : initialProDetail === 'attention'
+          ? ['attention_gqa']
+          : initialProDetail === 'experts'
+            ? ['routed_expert']
+            : []
+    );
+
+    const VARIANTS = {
+      ultra718b: {
+        title: 'openPangu-Ultra-MoE-718B',
+        source: 'pangu-moe-trainviz PRD + graph-ultramoe-718b.js',
+        facts: ['61 layers', 'dense 0-2 / MoE 3-60', '256 routed + 1 shared', 'top-8', '718B total / 39B active'],
+        build: () => window.buildUltraMoE718BGraph({ moeExpanded: true, expertExpanded: showExpertDetail }),
+      },
+      r72b: {
+        title: 'openPangu-R-72B MoE',
+        source: 'SPEC-op-rank-time-A.md + OmniInfer PanguProMoEV2 source notes',
+        facts: ['50 layers', 'dense 0-3 / MoE 4-49', '80 routed experts', 'top-8', 'hidden 4608'],
+        build: () => buildCompactGraph({
+          id: 'openpangu-r-72b',
+          title: 'openPangu-R-72B MoE',
+          layerText: '50 decoder layers',
+          denseText: 'Dense decoder block',
+          moeText: 'MoE decoder block',
+          expertText: 'Routed Expert Pool',
+          hidden: 4608,
+          vocab: null,
+          routedExperts: 80,
+          sharedExperts: 1,
+          topK: 8,
+        }),
+      },
+      pro72ba16b: {
+        title: 'Pangu Pro MoE 72BA16B · Inference P-Strategy Profile',
+        source: 'arXiv:2505.21411v2 Figure 4 / Section 4.2 inference P-strategy + local graph constants',
+        facts: ['71.99B total / 16.50B active', 'Attention: DP2 + TP4', 'Shared Expert: TP8', 'Routed Expert: EP4 + TP2', 'Training TP8 x EP2 x CP1 x PP5 x VPP5 is separate'],
+        build: () => buildPanguProGraph(),
+      },
+    };
+
+    function cloneGraph(graph) {
+      return JSON.parse(JSON.stringify(graph));
+    }
+
+    function currentTheme() {
+      return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    }
+
+    function updateThemeToggle() {
+      const button = document.getElementById('themeToggle');
+      if (!button) return;
+      button.textContent = currentTheme() === 'light' ? 'Dark' : 'Light';
+      button.setAttribute('aria-label', `Switch to ${button.textContent} mode`);
+    }
+
+    function setTheme(theme, options = {}) {
+      const nextTheme = theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = nextTheme;
+      try {
+        window.localStorage?.setItem(THEME_STORAGE_KEY, nextTheme);
+      } catch (_) {}
+      const url = new URL(window.location.href);
+      url.searchParams.set('theme', nextTheme);
+      window.history.replaceState(null, '', url);
+      updateThemeToggle();
+      if (options.render !== false) renderVariant({ preserveTransform: true, status: `${nextTheme === 'light' ? 'Light' : 'Dark'} mode.` });
+    }
+
+    function graphItemBounds(item, isCluster = false) {
+      if (isCluster) {
+        return { left: item.x, top: item.y, right: item.x + item.width, bottom: item.y + item.height };
+      }
+      return {
+        left: item.x - item.width / 2,
+        top: item.y - item.height / 2,
+        right: item.x + item.width / 2,
+        bottom: item.y + item.height / 2,
+      };
+    }
+
+    function unionBounds(items) {
+      if (!items.length) return null;
+      return items.reduce((acc, item) => ({
+        left: Math.min(acc.left, item.left),
+        top: Math.min(acc.top, item.top),
+        right: Math.max(acc.right, item.right),
+        bottom: Math.max(acc.bottom, item.bottom),
+      }));
+    }
+
+    function deriveClusterBoxes(graph) {
+      const clusters = new Map((graph.clusters || []).map((cluster) => [cluster.id, cluster]));
+      const nodesByParent = new Map();
+      const childClustersByParent = new Map();
+      (graph.nodes || []).forEach((node) => {
+        if (!node.parent || !clusters.has(node.parent)) return;
+        if (!nodesByParent.has(node.parent)) nodesByParent.set(node.parent, []);
+        nodesByParent.get(node.parent).push(node);
+      });
+      (graph.clusters || []).forEach((cluster) => {
+        if (!cluster.parent || !clusters.has(cluster.parent)) return;
+        if (!childClustersByParent.has(cluster.parent)) childClustersByParent.set(cluster.parent, []);
+        childClustersByParent.get(cluster.parent).push(cluster.id);
+      });
+
+      const computed = new Map();
+      function computeCluster(clusterId) {
+        if (computed.has(clusterId)) return computed.get(clusterId);
+        const cluster = clusters.get(clusterId);
+        const childBounds = [];
+        (nodesByParent.get(clusterId) || []).forEach((node) => childBounds.push(graphItemBounds(node)));
+        (childClustersByParent.get(clusterId) || []).forEach((childId) => {
+          const box = computeCluster(childId);
+          if (box) childBounds.push(graphItemBounds(box, true));
+        });
+        const bounds = unionBounds(childBounds);
+        if (!bounds) {
+          computed.set(clusterId, cluster);
+          return cluster;
+        }
+        const padX = cluster.parent ? 28 : 38;
+        const padTop = cluster.parent ? 56 : 64;
+        const padBottom = cluster.parent ? 28 : 34;
+        const next = {
+          ...cluster,
+          x: Math.round(bounds.left - padX),
+          y: Math.round(bounds.top - padTop),
+          width: Math.round(bounds.right - bounds.left + padX * 2),
+          height: Math.round(bounds.bottom - bounds.top + padTop + padBottom),
+        };
+        computed.set(clusterId, next);
+        return next;
+      }
+
+      graph.clusters = graph.clusters.map((cluster) => computeCluster(cluster.id));
+      return graph;
+    }
+
+    function normalizeGraphBounds(graph, padding = 36) {
+      const boxes = [
+        ...(graph.clusters || []).map((cluster) => graphItemBounds(cluster, true)),
+        ...(graph.nodes || []).map((node) => graphItemBounds(node)),
+      ];
+      const bounds = unionBounds(boxes);
+      if (!bounds) return graph;
+      const dx = padding - bounds.left;
+      const dy = padding - bounds.top;
+      graph.nodes.forEach((node) => {
+        node.x = Math.round(node.x + dx);
+        node.y = Math.round(node.y + dy);
+      });
+      graph.clusters.forEach((cluster) => {
+        cluster.x = Math.round(cluster.x + dx);
+        cluster.y = Math.round(cluster.y + dy);
+      });
+      graph.width = Math.round(bounds.right - bounds.left + padding * 2);
+      graph.height = Math.round(bounds.bottom - bounds.top + padding * 2);
+      return graph;
+    }
+
+    function buildPanguProGraph() {
+      const graph = cloneGraph(window.PANGU_GRAPH);
+      const clustersById = new Map(graph.clusters.map((cluster) => [cluster.id, cluster]));
+      const hiddenClusters = new Set();
+      const hiddenNodes = new Set();
+
+      Object.entries(PANGU_PRO_DETAIL_MODULES).forEach(([moduleId, detail]) => {
+        const expanded = panguProExpandedModules.has(moduleId);
+        const moduleNode = graph.nodes.find((nodeItem) => nodeItem.id === moduleId);
+        if (moduleNode) {
+          moduleNode.collapsed = !expanded;
+          moduleNode.typeLabel = expanded ? 'Op' : 'Module';
+        }
+        if (!expanded) {
+          detail.clusters.forEach((clusterId) => hiddenClusters.add(clusterId));
+        }
+      });
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+        graph.clusters.forEach((cluster) => {
+          if (cluster.parent && hiddenClusters.has(cluster.parent) && !hiddenClusters.has(cluster.id)) {
+            hiddenClusters.add(cluster.id);
+            changed = true;
+          }
+        });
+      }
+      graph.nodes.forEach((nodeItem) => {
+        if (nodeItem.parent && hiddenClusters.has(nodeItem.parent)) hiddenNodes.add(nodeItem.id);
+      });
+
+      graph.clusters = graph.clusters.filter((cluster) => !hiddenClusters.has(cluster.id));
+      graph.nodes = graph.nodes.filter((nodeItem) => !hiddenNodes.has(nodeItem.id));
+      const visibleNodeIds = new Set(graph.nodes.map((nodeItem) => nodeItem.id));
+      graph.edges = graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
+      graph.trainingEvidence = Object.fromEntries(
+        Object.entries(graph.trainingEvidence || {}).filter(([id]) => visibleNodeIds.has(id) || clustersById.has(id))
+      );
+      deriveClusterBoxes(graph);
+      return normalizeGraphBounds(graph);
+    }
+
+    function compactNode(id, label, typeLabel, kind, x, y, width, height, colorKey) {
+      return { id, label, typeLabel, kind, x, y, width, height, colorKey };
+    }
+
+    function buildCompactGraph(config) {
+      const cx = 640;
+      const left = 130;
+      const right = 1000;
+      const attentionExpanded = panguR72BExpandedModules.has('attention');
+      const expertsExpanded = panguR72BExpandedModules.has('experts');
+      let y = 72;
+      const nodes = [
+        compactNode('token_ids', 'Token IDs', 'Input', 'tensor', cx, y, 170, 48, 'io:input'),
+      ];
+      y += 106;
+      nodes.push(compactNode('embedding', 'Parallel Embedding', 'Op', 'op', cx, y, 250, 56, 'sem:embedding'));
+      const embeddingY = y;
+      y += 114;
+      nodes.push(compactNode('dense_block', 'Dense Decoder Block', 'Module', 'op', cx, y, 280, 58, 'module:decoder'));
+      y += 96;
+      nodes.push(compactNode('attn_all_gather', 'AllGather', 'Comm', 'op', cx, y, 220, 52, 'sem:comm'));
+      y += 86;
+      const attentionStartY = y;
+      if (attentionExpanded) {
+        nodes.push(
+          compactNode('qkv_proj', 'Q/KV Latent Proj', 'Op', 'op', cx, y, 250, 54, 'sem:linear'),
+          compactNode('rope_sparse', 'RoPE + DSA/SWA', 'Op', 'op', cx, y + 84, 250, 54, 'sem:attention'),
+          compactNode('mla_core', 'MLA Core', 'Op', 'op', cx, y + 168, 230, 54, 'sem:attention'),
+          compactNode('attention_out_proj', 'Output Projection', 'Op', 'op', cx, y + 252, 230, 54, 'sem:linear'),
+          compactNode('attention_weights', 'Attention Weights', 'Parameter', 'tensor', left, y, 190, 48, 'io:parameter')
+        );
+        y += 338;
+      } else {
+        nodes.push({
+          ...compactNode('attention', 'MLA Attention', 'Module', 'op', cx, y, 230, 54, 'sem:attention'),
+          collapsed: true,
+        });
+        nodes.push(compactNode('attention_weights', 'Attention Weights', 'Parameter', 'tensor', left, y, 190, 48, 'io:parameter'));
+        y += 86;
+      }
+      nodes.push(compactNode('attn_reduce_scatter', 'Reduce-Scatter', 'Comm', 'op', cx, y, 242, 52, 'sem:comm'));
+      y += 92;
+      nodes.push(compactNode('moe_norm', 'MoE RMSNorm', 'Op', 'op', cx, y, 220, 54, 'sem:norm'));
+      const moeNormY = y;
+      y += 86;
+      nodes.push(compactNode('moe_all_gather', 'AllGather', 'Comm', 'op', cx, y, 220, 52, 'sem:comm'));
+      y += 88;
+      nodes.push(compactNode('router', 'Router Gate', 'Op', 'op', cx, y, 210, 54, 'sem:gate'));
+      const routerY = y;
+      y += 88;
+      nodes.push(compactNode('dispatch', 'All-to-All Dispatch', 'Comm', 'op', cx, y, 230, 52, 'sem:comm'));
+      const dispatchY = y;
+      y += expertsExpanded ? 124 : 88;
+      const expertStartY = y;
+      if (expertsExpanded) {
+        nodes.push(
+          compactNode('expert_groups', 'Expert Groups', 'Tensor', 'tensor', cx, y, 230, 52, 'io:state'),
+          compactNode('swift_gmm', 'SwiftGMM', 'Op', 'op', cx, y + 84, 220, 56, 'sem:moe'),
+          compactNode('expert_outputs', 'Expert Outputs', 'Tensor', 'tensor', cx, y + 168, 220, 52, 'io:output'),
+          compactNode('expert_weights', 'Expert Weights', 'Parameter', 'tensor', left, y + 84, 180, 48, 'io:parameter')
+        );
+        y += 260;
+      } else {
+        nodes.push({
+          ...compactNode('experts', config.expertText, 'Module', 'op', cx, y, 250, 58, 'sem:moe'),
+          collapsed: true,
+        });
+        nodes.push(compactNode('expert_weights', 'Expert Weights', 'Parameter', 'tensor', left, y, 180, 48, 'io:parameter'));
+        y += 88;
+      }
+      const sharedY = expertsExpanded ? dispatchY + 42 : expertStartY - 64;
+      nodes.push(compactNode('shared_expert', 'Shared Expert', 'Module', 'op', right, sharedY, 190, 58, 'sem:mlp'));
+      nodes.push(compactNode('combine', 'All-to-All Combine', 'Comm', 'op', cx, y, 230, 52, 'sem:comm'));
+      const combineY = y;
+      y += 86;
+      nodes.push(compactNode('moe_reduce_scatter', 'Reduce-Scatter', 'Comm', 'op', cx, y, 242, 52, 'sem:comm'));
+      y += 92;
+      nodes.push(compactNode('final_norm', 'Final RMSNorm', 'Op', 'op', cx, y, 210, 54, 'sem:norm'));
+      y += 92;
+      nodes.push(compactNode('lm_head', 'LM Head', 'Op', 'op', cx, y, 190, 54, 'sem:head'));
+      const lmHeadY = y;
+      y += 88;
+      nodes.push(compactNode('logits', 'Logits', 'Output', 'tensor', cx, y, 160, 48, 'io:output'));
+
+      nodes.push(
+        compactNode('embedding_weight', 'Embedding Weight', 'Parameter', 'tensor', left, embeddingY, 190, 48, 'io:parameter'),
+        compactNode('router_weight', 'Router Weight', 'Parameter', 'tensor', left, routerY, 180, 48, 'io:parameter'),
+        compactNode('shared_weights', 'Shared Weights', 'Parameter', 'tensor', left, sharedY, 180, 48, 'io:parameter'),
+        compactNode('norm_gamma', 'Norm Gamma', 'Parameter', 'tensor', left, moeNormY, 170, 48, 'io:parameter'),
+        compactNode('lm_head_weight', 'LM Head Weight', 'Parameter', 'tensor', left, lmHeadY, 190, 48, 'io:parameter')
+      );
+
+      const edges = [
+        ['token_ids', 'embedding', 'ACT'],
+        ['embedding', 'dense_block', 'ACT'],
+        ['dense_block', 'attn_all_gather', 'AllGather'],
+        ['attn_reduce_scatter', 'moe_norm', 'ACT'],
+        ['moe_norm', 'moe_all_gather', 'AllGather'],
+        ['moe_all_gather', 'router', 'ACT'],
+        ['router', 'dispatch', 'dispatch'],
+        ['moe_all_gather', 'shared_expert', 'ACT'],
+        ['shared_expert', 'combine', 'ACT'],
+        ['combine', 'moe_reduce_scatter', 'ReduceScatter'],
+        ['moe_reduce_scatter', 'final_norm', 'ACT'],
+        ['final_norm', 'lm_head', 'ACT'],
+        ['lm_head', 'logits', 'LOGITS'],
+      ].map(([source, target, tag]) => ({ source, target, tag, edgeType: tag === 'ACT' || tag === 'LOGITS' ? 'activation' : 'communication' }));
+      if (attentionExpanded) {
+        edges.push(
+          { source: 'attn_all_gather', target: 'qkv_proj', tag: ' ', edgeType: 'activation' },
+          { source: 'qkv_proj', target: 'rope_sparse', tag: ' ', edgeType: 'activation' },
+          { source: 'rope_sparse', target: 'mla_core', tag: ' ', edgeType: 'activation' },
+          { source: 'mla_core', target: 'attention_out_proj', tag: ' ', edgeType: 'activation' },
+          { source: 'attention_out_proj', target: 'attn_reduce_scatter', tag: 'ReduceScatter', edgeType: 'communication', tagPosition: 0.78 }
+        );
+      } else {
+        edges.push(
+          { source: 'attn_all_gather', target: 'attention', tag: 'ACT', edgeType: 'activation' },
+          { source: 'attention', target: 'attn_reduce_scatter', tag: 'ReduceScatter', edgeType: 'communication' }
+        );
+      }
+      if (expertsExpanded) {
+        edges.push(
+          { source: 'dispatch', target: 'expert_groups', tag: 'TOKENS', edgeType: 'communication', tagPosition: 0.08 },
+          { source: 'expert_groups', target: 'swift_gmm', tag: 'group', edgeType: 'activation' },
+          { source: 'swift_gmm', target: 'expert_outputs', tag: 'out', edgeType: 'activation' },
+          { source: 'expert_outputs', target: 'combine', tag: 'combine', edgeType: 'communication' }
+        );
+      } else {
+        edges.push(
+          { source: 'dispatch', target: 'experts', tag: 'TOKENS', edgeType: 'communication' },
+          { source: 'experts', target: 'combine', tag: 'combine', edgeType: 'communication' }
+        );
+      }
+      edges.push(
+        { source: 'embedding_weight', target: 'embedding', tag: 'W', edgeType: 'parameter', dashed: true },
+        { source: 'attention_weights', target: attentionExpanded ? 'qkv_proj' : 'attention', tag: 'W', edgeType: 'parameter', dashed: true },
+        { source: 'router_weight', target: 'router', tag: 'W', edgeType: 'parameter', dashed: true },
+        { source: 'expert_weights', target: expertsExpanded ? 'swift_gmm' : 'experts', tag: 'W', edgeType: 'parameter', dashed: true, tagPosition: expertsExpanded ? 0.18 : 0.52 },
+        { source: 'shared_weights', target: 'shared_expert', tag: 'W', edgeType: 'parameter', dashed: true },
+        { source: 'norm_gamma', target: 'moe_norm', tag: 'gamma', edgeType: 'parameter', dashed: true },
+        { source: 'lm_head_weight', target: 'lm_head', tag: 'W', edgeType: 'parameter', dashed: true }
+      );
+      const clusters = [
+        { id: 'model', label: config.title, x: 0, y: 88, width: 1210, height: y - 2, colorKey: 'module:model' },
+        { id: 'decoder', label: config.layerText, x: 300, y: 198, width: 900, height: Math.max(1040, y - 250), colorKey: 'module:decoder', repeat: true },
+        { id: 'moe', label: 'MoE FFN', x: 390, y: moeNormY - 120, width: 760, height: Math.max(560, combineY - moeNormY + 298), colorKey: 'sem:moe', parent: 'decoder', repeat: true },
+      ];
+      if (attentionExpanded) {
+        clusters.push({ id: 'r72b_attention_detail', label: 'MLA Attention Detail', x: cx - 175, y: attentionStartY - 100, width: 350, height: 420, colorKey: 'sem:attention', parent: 'decoder' });
+        ['qkv_proj', 'rope_sparse', 'mla_core', 'attention_out_proj'].forEach((id) => {
+          const node = nodes.find((item) => item.id === id);
+          if (node) node.parent = 'r72b_attention_detail';
+        });
+      }
+      if (expertsExpanded) {
+        const expertDetailY = expertStartY - 72;
+        const expertDetailBottom = combineY + 60;
+        clusters.push({
+          id: 'r72b_expert_detail',
+          label: 'Routed Expert Detail',
+          x: cx - 175,
+          y: expertDetailY,
+          width: 350,
+          height: expertDetailBottom - expertDetailY,
+          colorKey: 'sem:moe',
+          parent: 'moe'
+        });
+        ['expert_groups', 'swift_gmm', 'expert_outputs', 'combine'].forEach((id) => {
+          const node = nodes.find((item) => item.id === id);
+          if (node) node.parent = 'r72b_expert_detail';
+        });
+      }
+      const graph = {
+        width: 1320,
+        height: y + 72,
+        clusters: [
+          ...clusters,
+        ],
+        nodes,
+        edges,
+      };
+      return normalizeGraphBounds(graph);
+    }
+
+    function toggleDetailModule(moduleId) {
+      const modules = currentVariant === 'r72b' ? R72B_DETAIL_MODULES : PANGU_PRO_DETAIL_MODULES;
+      const expandedModules = currentVariant === 'r72b' ? panguR72BExpandedModules : panguProExpandedModules;
+      if (!modules[moduleId]) return;
+      const label = modules[moduleId].statusLabel || moduleId;
+      if (expandedModules.has(moduleId)) {
+        expandedModules.delete(moduleId);
+      } else {
+        expandedModules.add(moduleId);
+      }
+      renderVariant({ preserveTransform: true, status: `${label} detail ${expandedModules.has(moduleId) ? 'opened' : 'closed'}.` });
+    }
+
+    function createSvgElement(tagName, attrs = {}) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tagName);
+      Object.entries(attrs).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) el.setAttribute(key, String(value));
+      });
+      return el;
+    }
+
+    function appendDetailToggle(svg, x, y, moduleId, expanded) {
+      const group = createSvgElement('g', {
+        class: 'pangu-detail-toggle',
+        transform: `translate(${x}, ${y})`,
+        role: 'button',
+        tabindex: '0',
+        'aria-label': `${moduleId} ${expanded ? 'collapse detail' : 'expand detail'}`,
+      });
+      group.appendChild(createSvgElement('circle', { class: 'pangu-toggle-hit', cx: 0, cy: 0, r: 18 }));
+      group.appendChild(createSvgElement('circle', { cx: 0, cy: 0, r: 8.5 }));
+      const icon = createSvgElement('text', { x: 0, y: 0.3 });
+      icon.textContent = expanded ? '-' : '+';
+      group.appendChild(icon);
+      const title = createSvgElement('title');
+      title.textContent = expanded ? 'Collapse detail' : 'Expand detail';
+      group.appendChild(title);
+      group.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleDetailModule(moduleId);
+      });
+      group.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        toggleDetailModule(moduleId);
+      });
+      svg.appendChild(group);
+    }
+
+    function wireDetailInteractions(graph) {
+      const stage = document.getElementById('graphStage');
+      const svg = stage.querySelector('svg');
+      if (!svg) return;
+      const modules = currentVariant === 'r72b' ? R72B_DETAIL_MODULES : PANGU_PRO_DETAIL_MODULES;
+      const expandedModules = currentVariant === 'r72b' ? panguR72BExpandedModules : panguProExpandedModules;
+      Object.entries(modules).forEach(([moduleId, detail]) => {
+        const expanded = expandedModules.has(moduleId);
+        const nodeEl = stage.querySelector(`[data-node-id="${moduleId}"]`);
+        if (nodeEl) {
+          nodeEl.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            toggleDetailModule(moduleId);
+          }, true);
+          nodeEl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            toggleDetailModule(moduleId);
+          }, true);
+        }
+        detail.clusters.forEach((clusterId) => {
+          const clusterEl = stage.querySelector(`[data-cluster-id="${clusterId}"]`);
+          if (!clusterEl) return;
+          clusterEl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            toggleDetailModule(moduleId);
+          }, true);
+        });
+        const node = graph.nodes.find((item) => item.id === moduleId);
+        if (node) {
+          appendDetailToggle(svg, node.x + node.width / 2 - 18, node.y, moduleId, expanded);
+          return;
+        }
+        const clusterId = detail.clusters[0];
+        const cluster = graph.clusters.find((item) => item.id === clusterId);
+        if (cluster) appendDetailToggle(svg, cluster.x + cluster.width - 13, cluster.y + 13, moduleId, expanded);
+      });
+    }
+
+    function applyImmediateFit(graph) {
+      const stage = document.getElementById('graphStage');
+      const svg = stage.querySelector('svg');
+      if (!svg) return;
+      const rect = stage.getBoundingClientRect();
+      const pad = 36;
+      const availableWidth = Math.max(120, rect.width - pad * 2);
+      const availableHeight = Math.max(120, rect.height - pad * 2);
+      const zoom = Math.min(1.08, Math.max(0.16, Math.min(availableWidth / graph.width, availableHeight / graph.height)));
+      const tx = Math.max(pad / 2, (rect.width - graph.width * zoom) / 2);
+      const ty = graph.height * zoom > rect.height
+        ? pad / 2
+        : Math.max(pad / 2, (rect.height - graph.height * zoom) / 2);
+      svg.style.width = `${graph.width}px`;
+      svg.style.height = `${graph.height}px`;
+      svg.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom})`;
+    }
+
+    function renderVariant(options = {}) {
+      const variant = VARIANTS[currentVariant] || VARIANTS.r72b;
+      const initialTransform = options.preserveTransform ? controller?.getTransform?.() : null;
+      document.title = `${variant.title} Architecture`;
+      document.getElementById('pageTitle').textContent = `${variant.title} Architecture`;
+      document.getElementById('pageSource').textContent = variant.source;
+      document.getElementById('factRow').innerHTML = variant.facts.map((fact) => `<span class="pangu-chip">${fact}</span>`).join('');
+      const graph = variant.build();
+      if (controller) controller.destroy();
+      controller = window.PtoModelGraphvizPattern.renderController(document.getElementById('graphStage'), graph, {
+        ariaLabel: `${variant.title} architecture graph`,
+        className: 'pto-model-architecture-stage',
+        autoFit: true,
+        viewportPadding: 36,
+        fitMode: currentVariant === 'pro72ba16b' ? 'full' : 'readable',
+        minReadableZoom: currentVariant === 'pro72ba16b' ? 0.44 : 0.58,
+        selectableClusters: false,
+        reportOverlays: false,
+        initialTransform,
+        colormap: window.PtoModelGraphvizPattern.modelArchitectureColormap(graph),
+      });
+      wireDetailInteractions(graph);
+      if (currentVariant === 'pro72ba16b' && !initialTransform) {
+        applyImmediateFit(graph);
+        requestAnimationFrame(() => controller?.fit());
+        window.setTimeout(() => controller?.fit(), 150);
+      }
+      document.getElementById('statusText').textContent = options.status || `${variant.title} loaded.`;
+    }
+
+    document.getElementById('variantFit').addEventListener('click', () => controller?.fit());
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      setTheme(currentTheme() === 'light' ? 'dark' : 'light');
+    });
+    document.getElementById('variantCycle').addEventListener('click', () => {
+      const index = VARIANT_ORDER.indexOf(currentVariant);
+      currentVariant = VARIANT_ORDER[(index + 1) % VARIANT_ORDER.length];
+      renderVariant();
+    });
+
+    if (!document.documentElement.dataset.theme) {
+      document.documentElement.dataset.theme = 'dark';
+    }
+    updateThemeToggle();
+    renderVariant();
+  </script>
+</body>
+</html>

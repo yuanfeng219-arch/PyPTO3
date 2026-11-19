@@ -1,0 +1,13 @@
+{
+  "id": "investigation-map",
+  "family": "investigation",
+  "name": "Investigation Map",
+  "type": "interactive-graph",
+  "description": "Shared pan-and-zoom reasoning graph for findings, evidence, hypotheses, and next actions.",
+  "source": {"patternCss": "patterns/investigation-map/pattern.css", "renderScript": "patterns/investigation-map/pattern.js"},
+  "requiredApis": ["window.PtoInvestigationMap.create(root, data, actions)", "controller.getState()", "controller.resize()", "controller.destroy()"],
+  "dataContract": {"nodes": "id, kind, title; optional state, signal, summary, evidenceRefs, action", "edges": "id, source, target, relation; optional label", "evidenceById": "evidence details keyed by evidenceRefs"},
+  "actions": ["renderEvidence(id, detail)", "openEvidence(action)", "openDetail(tab)", "openScenario()", "saveState(state)", "evidenceMode: 'note'", "typeTitles"],
+  "state": ["camera", "selectedId", "expanded", "noteEvidenceId"],
+  "allowedOverrides": ["--dg-height", "typeTitles", "ariaLabel", "evidenceMode", "evidence detail content"]
+}

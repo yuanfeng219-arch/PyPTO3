@@ -1,0 +1,47 @@
+{
+  "rawCount": 22,
+  "rules": {
+    "border-accent-on-rounded": 11,
+    "cramped-padding": 3,
+    "ai-color-palette": 1,
+    "dark-glow": 1,
+    "repeating-stripes-gradient": 1,
+    "codex-grid-background": 2,
+    "overused-font": 3
+  },
+  "fixed": [],
+  "suppressedThisAudit": [],
+  "leftStanding": [
+    "border-accent-on-rounded",
+    "cramped-padding",
+    "ai-color-palette",
+    "dark-glow",
+    "repeating-stripes-gradient",
+    "codex-grid-background",
+    "overused-font"
+  ],
+  "decision": "本次仅审计，不运行ignore命令，不修复或修改检测器配置。通用检测器命中不等于已验证视觉问题。",
+  "review": [
+    {
+      "rule": "overused-font",
+      "decision": "Inter为用户明确指定，保留，已有窄范围忽略不扩展。"
+    },
+    {
+      "rule": "border-accent-on-rounded",
+      "decision": "需区分图形边界/参数标记/线性Tab，不能据摘要自动判定Card缺陷。行号0无法精确定位的结果不计入确认问题。"
+    },
+    {
+      "rule": "motion / gradient / color flags",
+      "decision": "硬件厚度、Graph重复、公式语义与P11叙事动效需按业务含义判断；本报告仅采纳有computed证据的条目。"
+    }
+  ],
+  "ruleDecisions": {
+    "border-accent-on-rounded": "保留为候选：11次命中，行号0的摘要无法区分Tab/图形/卡片；按逐项证据处理，不自动修复。",
+    "cramped-padding": "保留为候选：密集矩阵、代码与图形标签允许紧凑间距；只对同角色控件做视觉对照。",
+    "ai-color-palette": "不采纳为缺陷：必须保留现有Graph/Assignment/Pipeline业务语义色。",
+    "dark-glow": "记录为A11规范缺口：区分P11语义聚焦动效与真实浮层阴影。",
+    "repeating-stripes-gradient": "不采纳为缺陷：用户明确要求P06不足Page的斜线背景，保留为K09。",
+    "codex-grid-background": "不采纳为缺陷：用户要求保留现有技术画布网格。",
+    "overused-font": "不采纳为缺陷：Inter为用户明确指定；不扩展既有ignore，不改字体。"
+  }
+}

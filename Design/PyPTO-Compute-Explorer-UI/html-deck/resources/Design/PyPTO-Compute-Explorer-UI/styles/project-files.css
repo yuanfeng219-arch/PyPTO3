@@ -1,0 +1,39 @@
+/* Project Explorer 文件树与跨文件符号链接
+   仅新增多文件场景需要的少量规则，不改动既有 IDE Frame / 可视化样式。 */
+
+/* 文件树：长文件名省略，容器已在 compute-shell.css 里滚动 */
+.kf-file-tree .kf-tree-row button[data-file] > span:not(.kf-file-icon) { max-width: 100%; }
+.kf-file-tree .kf-tree-group .kf-tree-group { display: flex; flex-direction: column; gap: 1px; }
+.kf-file-tree em { font-variant-numeric: tabular-nums; }
+.kf-file-tree .kf-tree-row button[data-file]:hover > span:not(.kf-file-icon) { color: var(--foreground); }
+
+/* Source Tab：只展示已打开文件；文件多时横向滚动而不是撑破布局 */
+.kf-tabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.kf-tabs button { max-width: 240px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 0 0 auto; }
+
+/* 源码里的跨文件符号链接：保持代码字形，只加弱提示 */
+.pf-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, var(--primary) 42%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.pf-link:hover { color: var(--primary); text-decoration-style: solid; text-decoration-color: currentColor; }
+.pf-link:focus-visible { outline: 1px solid var(--primary); outline-offset: 1px; }
+
+/* 右侧源码上下文里的真实路径 */
+.pf-source-meta {
+  margin: 0 0 10px;
+  color: var(--foreground-muted);
+  font: var(--kf-type-2xs, 10px)/1.45 var(--font-mono);
+  overflow-wrap: anywhere;
+}

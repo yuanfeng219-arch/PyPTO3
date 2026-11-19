@@ -1,0 +1,80 @@
+/* CSA QK/PV Assignment follows the Compute Explorer canvas language. */
+.csa-qk-host{display:flex;flex:1;min-width:0;min-height:0;overflow:hidden}
+.csa-qk-host[hidden]{display:none}
+.csa-qk-canvas-shell{position:relative;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;background:var(--surface-0,#111214);color:var(--foreground)}
+.csa-qk-scenario{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border-subtle);font:var(--type-micro);color:var(--foreground-muted);flex:none}
+.csa-qk-scenario label{display:flex;align-items:center;gap:var(--space-1)}
+.csa-qk-scenario select{max-width:210px;padding:4px 7px;border:1px solid var(--border-default);border-radius:4px;background:var(--surface-2);color:var(--foreground);font:var(--type-micro)}
+.csa-qk-scenario-count{margin-left:auto;color:var(--foreground-secondary);font:var(--type-mono);font-size:11px;white-space:nowrap}
+.csa-qk-canvas-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-3) var(--space-5) var(--space-2);flex:none}
+.csa-qk-canvas-head h2{margin:0;color:var(--foreground);font:var(--type-title-3)}
+.csa-qk-canvas-head p{margin:3px 0 0;color:var(--foreground-muted);font:var(--type-micro)}
+.csa-qk-canvas-controls{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}
+.csa-qk-canvas-controls label{font:var(--type-micro);color:var(--foreground-muted)}
+.csa-qk-canvas-viewport{position:relative;flex:1;min-height:240px;margin:0 var(--space-5);overflow:hidden;background:var(--surface-1);outline:none;touch-action:none}
+.csa-qk-canvas-viewport:focus-visible{outline:1px solid var(--primary)}
+.csa-qk-canvas-viewport svg{display:block;width:100%;height:100%;user-select:none}
+/* 高亮层级：Selected Work Item（橙） > Query / Request Context（蓝） > Hover（仅提亮）。
+   所有描边使用 non-scaling-stroke，放大画布时不会变粗遮挡标签。 */
+.csa-qk-canvas-group rect,.csa-qk-canvas-lane rect,.csa-qk-canvas-item rect{vector-effect:non-scaling-stroke}
+.csa-qk-canvas-group rect,.csa-qk-canvas-lane rect{fill:rgba(255,255,255,.015);stroke:var(--border-default);stroke-width:1}
+/* Request 上下文：最弱的细边框，不与内部选中对象竞争注意力。 */
+.csa-qk-canvas-group.is-focused rect{fill:rgba(111,161,255,.03);stroke:rgba(111,161,255,.4);stroke-width:1}
+.csa-qk-canvas-group.is-dimmed{opacity:.34}
+.csa-qk-canvas-group text,.csa-qk-canvas-lane text{fill:var(--foreground-secondary);font-family:var(--font-mono);font-size:12px;pointer-events:none}
+.csa-qk-canvas-group .csa-qk-query-label{font-size:9px;pointer-events:auto;cursor:pointer;transition:fill .12s}
+/* Hover 只提亮文字，不加粗也不改成强调色，避免与 Selected Query 混淆。 */
+.csa-qk-query-label:hover{fill:var(--foreground)!important}
+/* 选中 Work Item 所属 Query：次级强调，强调色但不加粗。 */
+.csa-qk-query-label.is-related{fill:var(--primary)!important;fill-opacity:.78;font-weight:600}
+/* 选中 Query 本身：唯一使用强调色 + 加粗的标签状态。 */
+.csa-qk-query-label.is-focused{fill:var(--primary)!important;fill-opacity:1;font-weight:700}
+.csa-qk-canvas-lane{cursor:pointer}
+.csa-qk-canvas-lane:hover rect,.csa-qk-canvas-lane.is-selected rect{fill:rgba(111,161,255,.09);stroke:var(--primary)}
+.csa-qk-canvas-lane.is-containing rect{stroke:var(--warning);stroke-width:1.5}
+.csa-qk-canvas-lane.is-dimmed{opacity:.28}
+.csa-qk-canvas-lane .csa-qk-canvas-count{fill:var(--foreground-muted);font-size:10px}
+.csa-qk-canvas-axis{fill:var(--foreground-muted);font-family:var(--font-mono);font-size:12px}
+.csa-qk-order-valid{fill:rgba(4,215,147,.035);stroke:rgba(4,215,147,.2)}
+.csa-qk-lane-guide{fill:none;stroke:var(--warning);stroke-width:1.5;stroke-dasharray:4 5;opacity:.8;pointer-events:none}
+.csa-qk-canvas-item{cursor:pointer;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.csa-qk-canvas-item rect{transition:width .5s,height .5s,fill .15s;stroke-width:1}
+.csa-qk-canvas-item text{fill:var(--foreground);font-family:var(--font-mono);font-size:16px;pointer-events:none}
+.csa-qk-canvas-item.is-valid rect{fill:var(--primary);fill-opacity:.82;stroke:var(--primary)}
+.csa-qk-canvas-item.is-invalid rect{fill:var(--foreground-muted);fill-opacity:.22;stroke:var(--foreground-muted)}
+/* Hover 只轻微提亮填充，不改描边颜色，因此不会伪装成 Selected 或 Related。 */
+.csa-qk-canvas-item:hover rect{fill-opacity:1}
+.csa-qk-canvas-item.is-invalid:hover rect{fill-opacity:.34}
+/* Related：同一 Query / Request / Lane 的集合高亮——柔和填充 + 细强调描边，不使用白描边。 */
+.csa-qk-canvas-item.is-related rect{fill-opacity:.92;stroke:var(--primary);stroke-width:1.5;stroke-opacity:.8}
+.csa-qk-canvas-item.is-invalid.is-related rect{fill-opacity:.45;stroke:var(--foreground-muted);stroke-opacity:.8}
+/* Selected Work Item：唯一使用橙色主描边与轻微外发光的层级。 */
+.csa-qk-canvas-item.is-selected rect{fill-opacity:1;stroke:var(--warning);stroke-width:2;filter:drop-shadow(0 0 3px rgba(255,178,54,.5))}
+.csa-qk-canvas-item.is-dimmed{opacity:.18}
+/* 键盘 Focus 只作可访问性提示，不覆盖 Selected / Related 的语义与颜色。 */
+.csa-qk-canvas-item:focus-visible{outline:none}
+.csa-qk-canvas-item:focus-visible:not(.is-selected):not(.is-related) rect{stroke:var(--foreground-secondary);stroke-width:2;stroke-dasharray:4 3}
+.csa-qk-tooltip{position:absolute;z-index:3;max-width:220px;padding:var(--space-2);border-radius:4px;background:var(--surface-3,var(--surface-2));box-shadow:0 5px 15px rgba(0,0,0,.35);color:var(--foreground);font:var(--type-micro);line-height:1.45;pointer-events:none}
+.csa-qk-tooltip[hidden]{display:none}
+.csa-qk-canvas-footer{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-2) var(--space-5);color:var(--foreground-muted);font:var(--type-micro);flex:none}
+.csa-qk-canvas-footer>span:first-child{color:var(--foreground-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csa-qk-legend{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.csa-qk-legend i{display:inline-block;width:8px;height:8px;border-radius:2px}
+.csa-qk-legend i.is-valid{background:var(--primary)}
+.csa-qk-legend i.is-invalid{background:var(--foreground-muted)}
+.csa-qk-zoom{display:flex;align-items:center;gap:var(--space-1);margin-left:auto;white-space:nowrap}
+.csa-qk-zoom output{min-width:40px;text-align:center;font:var(--type-mono);font-size:11px}
+.csa-qk-drawer{position:absolute;z-index:5;top:64px;right:0;bottom:36px;width:min(350px,38%);padding:var(--space-4);overflow:auto;background:var(--surface-2);border-left:1px solid var(--border-default);box-shadow:-14px 0 32px rgba(0,0,0,.35)}
+.csa-qk-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.csa-qk-drawer h2{margin:0;font:var(--type-title-3)}
+.csa-qk-drawer-head button{border:0;background:transparent;color:var(--foreground-secondary);font-size:22px;cursor:pointer}
+.csa-qk-drawer dl{display:grid;grid-template-columns:1fr auto;gap:5px var(--space-3);margin:var(--space-4) 0}
+.csa-qk-drawer dt{font:var(--type-micro);color:var(--foreground-muted)}
+.csa-qk-drawer dd{margin:0;text-align:right;font:var(--type-mono);font-size:10px;color:var(--foreground);overflow-wrap:anywhere}
+.csa-qk-drawer details{padding:var(--space-2) 0;border-top:1px solid var(--border-subtle);font:var(--type-micro);color:var(--foreground-secondary)}
+.csa-qk-drawer summary{cursor:pointer;color:var(--foreground)}
+.csa-qk-drawer pre{max-height:170px;overflow:auto;padding:var(--space-2);background:var(--surface-1);font:var(--type-mono);font-size:10px;white-space:pre-wrap}
+.csa-qk-drawer button[data-qk-source]{border:0;background:transparent;padding:0;color:var(--primary);font:var(--type-micro);cursor:pointer}
+@media(max-width:1100px){.csa-qk-canvas-head{flex-wrap:wrap}.csa-qk-canvas-controls{width:100%;justify-content:flex-end}.csa-qk-canvas-footer>span:nth-child(2){display:none}}
+@media(max-height:800px){.csa-qk-scenario{padding-block:4px}.csa-qk-canvas-head{padding-block:6px}.csa-qk-canvas-footer{padding-block:4px}}
+@media(prefers-reduced-motion:reduce){.csa-qk-canvas-item,.csa-qk-canvas-item rect{transition:none}}

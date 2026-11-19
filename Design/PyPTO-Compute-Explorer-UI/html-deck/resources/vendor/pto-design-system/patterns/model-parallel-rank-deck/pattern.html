@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Model Parallel Rank Three.js Deck Pattern</title>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../model-architecture-3d-deck/pattern.css?v=three-rank-v1">
+  <link rel="stylesheet" href="./pattern.css?v=three-rank-v2">
+  <style>
+    html,body{height:100%;margin:0;background:var(--background);color:var(--foreground)}
+    body{min-height:720px;font-family:var(--font-sans);overflow:hidden}
+    .pattern-page{height:100%;padding:12px;box-sizing:border-box}
+    .pattern-page[data-embed="true"]{padding:0}
+    #modelRankDeckPattern{height:100%;min-height:700px}
+  </style>
+</head>
+<body>
+  <main class="pattern-page" id="patternPage">
+    <section id="modelRankDeckPattern" aria-label="openPangu model architecture partitioned into 128 Three.js Rank containers"></section>
+  </main>
+  <script src="../model-graphviz/pattern.js?v=three-rank-v1"></script>
+  <script src="../model-architecture-3d-deck/pattern.js?v=three-rank-v1"></script>
+  <script src="./pattern.js?v=three-rank-v2"></script>
+  <script type="module">
+    import * as THREE from './vendor/three.module.min.js';
+    const params=new URLSearchParams(location.search);
+    const theme=params.get('theme')==='light'?'light':'dark';
+    document.documentElement.dataset.theme=theme;
+    document.getElementById('patternPage').dataset.embed=String(params.get('embed')==='1');
+    window.modelRankDeckController=window.PtoModelParallelRankDeck.render('#modelRankDeckPattern',{
+      model:'openpangu-flash',
+      topology:window.PtoModelParallelRankDeck.DEFAULT_TOPOLOGY,
+      THREE,
+      initialState:{
+        sceneMode:params.get('scene')||'exploded',
+        topologyMode:params.get('topology')||'standard',
+        selectedRank:params.has('rank')?Number(params.get('rank')):null,
+        selectedLayer:params.has('layer')?Number(params.get('layer')):null,
+        theme
+      }
+    });
+    window.addEventListener('message',event=>{
+      if(event.data?.type==='pto-preview-theme')window.modelRankDeckController?.setTheme(event.data.theme==='light'?'light':'dark');
+    });
+  </script>
+</body>
+</html>

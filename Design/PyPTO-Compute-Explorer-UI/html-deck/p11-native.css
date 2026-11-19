@@ -1,0 +1,14 @@
+/* P11 shares the deck canvas and header; all content stays inside its bounds. */
+[data-p11] .p11-content { display:grid; grid-template-columns:260px minmax(0,1fr); gap:24px; align-items:center; flex:1; min-height:0; width:100%; }
+[data-p11] .p11-copy-list { margin:0; padding:0; list-style:none; color:#eff1f4; font:500 26px/1.7 var(--deck-sans,sans-serif); display:grid; gap:14px; }
+[data-p11] .p11-copy-list li { display:grid; grid-template-columns:7px 1fr; align-items:center; gap:14px; }
+[data-p11] .p11-copy-list li::before { content:""; width:7px; height:7px; border-radius:2px; background:#819efe; }
+[data-p11] .p11-animation { width:100%; height:100%; min-width:0; min-height:0; display:grid; place-items:center; color:#f3f4f6; font-family:var(--deck-sans,sans-serif); }
+[data-p11] #p11-stage-svg { display:block; width:100%; height:100%; }
+[data-p11] .mono { font-family:var(--font-mono,monospace); }
+[data-p11] .animate-dash-flow { animation:p11-dash-flow 1.1s linear infinite; }
+@keyframes p11-dash-flow { to { stroke-dashoffset:-24; } }
+[data-p11] .core-glow { animation:p11-core-pulse 4s ease-in-out infinite; }
+@keyframes p11-core-pulse { 0%,100% { filter:drop-shadow(0 0 12px rgba(99,132,255,.45)); } 50% { filter:drop-shadow(0 0 22px rgba(74,222,128,.55)); } }
+[data-p11] .layer-hit-area { cursor:pointer; transition:opacity .3s ease; }
+[data-p11][hidden] .p11-animation * { animation-play-state:paused; }

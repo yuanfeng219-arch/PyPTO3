@@ -1,0 +1,67 @@
+{
+  "id": "memory-architecture-layout",
+  "name": "Memory Architecture Layout",
+  "type": "hybrid",
+  "description": "Full-stage PTO memory architecture shell for 910B/950 diagrams. It composes the shared AIC/AIV internal renderers, uses the simplified Scalar + UB + Vector AIV object for 910B, uses the full ND-DMA Cache/SIMT/SIMD AIV object for 950B, includes chip-level memory rails, detail rows including the 950 UB bank mini-grid, an SVG overlay for MTE/CV routes, shared hardware hover tips, path-focus hover highlighting, local buffer block occupancy, and a graph-only pan/zoom viewport for iframe embeds.",
+  "source": {
+    "visualContract": [
+      "patterns/aic-core-object/pattern.js",
+      "patterns/aiv-core-object/pattern.js",
+      "pto/ascend-950-workbench-demo/feature_taxonomy.html standard 950 frame source",
+      "pto/ascend-950-workbench-demo/hardware-frame.html iframe postMessage frame",
+      "pto/ascend-hardware-map/ascend-hardware-map-v3.html hardware-focus hover",
+      "pto/ascend-hardware-map/ascend-950b-hardware-frame.html is-path-focused focus states",
+      "CANNVisual/910B-architecture-notes.md",
+      "CANNVisual/950-architecture-notes.md",
+      ".tmp/cann950_extracts/面向新一代硬件，CANN技术架构的变与不变.pdf.txt",
+      ".tmp/cann950_extracts/探索Ascend 950的性能天花板.pdf.txt"
+    ],
+    "patternHtml": "patterns/memory-architecture/pattern.html",
+    "patternCss": "patterns/memory-architecture/pattern.css",
+    "renderScript": "patterns/memory-architecture/pattern.js",
+    "defaultPreset": "ascend950b"
+  },
+  "useWhen": [
+    "building full-chip memory hierarchy diagrams that sit above AIC/AIV detail views",
+    "showing Global Memory and L2 Cache rails feeding AIV and AIC objects",
+    "illustrating 950-specific direct CV lanes without copying business-page HTML",
+    "showing and hiding the shared detail layer with UB bank rows and mini-grid data",
+    "hovering flow steps or chips to dim unrelated hardware, highlight endpoints, and glow active routes",
+    "embedding large architecture diagrams in iframes or inspector panes with graph-only chrome, a 60% default zoom, initial centering when space allows, drag pan, and Command-wheel zoom"
+  ],
+  "requiredApis": [
+    "window.PtoMemoryArchitecturePattern.renderArchitecture(container, presetOrKey)",
+    "window.PtoMemoryArchitecturePattern.createRouteOverlay(container, presetOrKey) returning { render, update, schedule, destroy }",
+    "window.PtoMemoryArchitecturePattern.attachHoverInteractions(container, presetOrKey, options)",
+    "window.PtoMemoryArchitecturePattern.attachPathFocusInteractions(container, presetOrKey, options)",
+    "window.PtoMemoryArchitecturePattern.attachNodeActivation(container, presetOrKey, { selector, label, onActivate })",
+    "window.PtoMemoryArchitecturePattern.setDetailVisibility(container, visible)",
+    "window.PtoMemoryArchitecturePattern.setAivFolded(container, folded)",
+    "window.PtoMemoryArchitecturePattern.setPathFocus(container, presetOrKey, { selectors, routes, errorSelectors })",
+    "window.PtoMemoryArchitecturePattern.clearPathFocus(container)",
+    "window.PtoMemoryArchitecturePattern.setBufferBlocks(root, blocks)",
+    "window.PtoMemoryArchitecturePattern.clearBufferBlocks(root)",
+    "window.PtoMemoryArchitecturePattern.createZoomController({ viewport, sizer, canvas, readout?, outButton?, inButton?, resetButton?, defaultZoom, min, max, step, pan, wheelZoom, centerOnReset, centerTarget, onZoom, onPan }) returning { setZoom, setPan, center, zoomAtPoint, reset, destroy }"
+  ],
+  "allowedOverrides": [
+    "preset rails, core membership, titles, route list, and route labels",
+    "choosing which shared AIC/AIV presets are mounted into each core slot",
+    "hover tip copy and fixed-size viewport scaling through preset hoverTips or attachHoverInteractions options",
+    "flow-step focus payloads through setPathFocus selectors, route ids, and optional errorSelectors",
+    "local on-chip buffer-block occupancy through setBufferBlocks payloads",
+    "iframe/default zoom through createZoomController options, with 0.6 as the shared default for embedded architecture canvases",
+    "optional external zoom buttons; graph-only embeds should rely on drag pan and Command-wheel zoom instead of visible pattern chrome",
+    "direct CV route lane anchors through explicit visible AIC/AIV node selectors such as data-aiv-node=\"exec:SIMD\"",
+    "container framing outside the pattern root"
+  ],
+  "forbiddenOverrides": [
+    "copying generated AIC/AIV DOM into a new page instead of calling the shared renderers",
+    "hand-tuning route geometry in page-local CSS",
+    "using local product CSS or DOM traversal to recolor AIC/AIV buffer cells",
+    "changing chip-level rail widths, route label treatment, or AIC/AIV internal chrome outside the shared patterns",
+    "anchoring direct CV detour lanes to broad stack containers when a concrete AIC/AIV node can define the lane",
+    "anchoring route lanes to business-page-only or hidden elements such as .pto-mem950__notes",
+    "using stroke-width changes for hover or playback focus; use opacity and glow so route thickness remains stable"
+  ],
+  "agentReuseRule": "Read this JSON first. For a new 950-class architecture page, treat pto/ascend-950-workbench-demo/feature_taxonomy.html and its hardware-frame.html iframe as the current standard source, load aic-core-object and aiv-core-object first, then call memory-architecture/pattern.js to mount the full-stage shell. Use attachPathFocusInteractions or setPathFocus/clearPathFocus for flow-step hover like ascend-hardware-map-v3 instead of reimplementing is-path-focused, is-hardware-active, or route glow locally. For iframe or inspector embeds, consume the graph-only pattern surface: wrap the stage with the documented viewport/sizer/canvas classes, call createZoomController with defaultZoom 0.6, pan enabled, Command-wheel zoom enabled, centerTarget set to the visible graph body selectors such as .pto-mem950__rails, .pto-mem950__engine-stack, and .pto-mem950__stack, and call center() once after render when the viewport is wider than the scaled graph. Visible zoom buttons are optional product chrome, not part of the required iframe pattern. Extend presets, route data, and preset engines in pattern.js instead of cloning the rendered DOM. Anchor detour lanes to concrete visible rendered nodes, not hidden notes, business-page-only elements, or whole core stacks, so route labels stay tied to the visible hardware unit."
+}

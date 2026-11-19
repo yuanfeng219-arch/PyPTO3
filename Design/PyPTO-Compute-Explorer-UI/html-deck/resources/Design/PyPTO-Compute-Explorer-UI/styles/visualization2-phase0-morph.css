@@ -1,0 +1,30 @@
+.viz2-p0-morph { position:relative; }
+.viz2-p0-morph .viz2-p0-svg text { font-family:var(--font-mono); font-size:var(--p0-label-size,12px); pointer-events:none; }
+.viz2-p0-morph .viz2-p0-axis, .viz2-p0-morph .viz2-p0-block-label { fill:var(--foreground-secondary); }
+.viz2-p0-morph .viz2-p0-batch { fill:var(--foreground-secondary); dominant-baseline:central; }
+.viz2-p0-morph .viz2-p0-frame { fill:transparent; stroke:var(--border-strong); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-p0-morph .viz2-p0-header-rule { stroke:var(--border-subtle); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-p0-morph .viz2-p0-block.is-selected .viz2-p0-frame { stroke:var(--primary); stroke-dasharray:none; }
+.viz2-p0-morph .viz2-p0-lane-frame { fill:transparent; stroke:var(--border-subtle); vector-effect:non-scaling-stroke; }
+.viz2-p0-morph .viz2-p0-lane.is-selected .viz2-p0-lane-frame { stroke:var(--primary); }
+.viz2-p0-morph .viz2-p0-lane:focus-visible .viz2-p0-lane-frame { stroke:var(--focus-ring); }
+.viz2-p0-morph .viz2-p0-lane-label, .viz2-p0-morph .viz2-p0-idle-label { fill:var(--foreground-muted); }
+.viz2-p0-morph .viz2-p0-item { cursor:pointer; outline:none; }
+.viz2-p0-morph .viz2-p0-item-cell { fill:var(--surface-4); }
+.viz2-p0-morph .viz2-p0-item-id { fill:var(--foreground); font-weight:600; paint-order:stroke fill; stroke:var(--surface-2); stroke-width:2; stroke-linejoin:round; }
+.viz2-p0-morph .viz2-p0-svg .viz2-p0-item-id, .viz2-p0-morph .viz2-p0-svg .viz2-p0-kv-symbol { font-size:10px; }
+.viz2-p0-morph .viz2-p0-svg .viz2-p0-block-label, .viz2-p0-morph .viz2-p0-svg .viz2-p0-lane-label { font-size:11px; }
+.viz2-p0-morph .viz2-p0-item-symbols { pointer-events:none; }
+.viz2-p0-morph .viz2-p0-kv-symbol { fill:var(--foreground-muted); dominant-baseline:central; }
+.viz2-p0-morph .viz2-p0-q { fill:var(--foreground); fill-opacity:.08; }
+.viz2-p0-morph .viz2-p0-item.is-assigned .viz2-p0-item-cell { fill:var(--state-selected); }
+.viz2-p0-morph .viz2-p0-item:is(.is-selected,.is-hovered,:focus-visible) .viz2-p0-item-cell { fill:var(--state-focus); stroke:var(--primary); stroke-width:1.5; vector-effect:non-scaling-stroke; }
+.viz2-p0-morph .viz2-p0-item:is(.is-selected,.is-hovered) .viz2-p0-q { fill:var(--primary); fill-opacity:.3; }
+.viz2-p0-morph .viz2-p0-sync-frame { fill:var(--surface-2); }
+.viz2-p0-morph .viz2-p0-sync-label { fill:var(--foreground-secondary); }
+.viz2-p0-morph .viz2-p0-inspector { position:absolute; z-index:8; right:var(--space-5); top:90px; bottom:var(--space-6); width:min(320px,65%); margin:0; }
+.viz2-p0-morph .viz2-p0-inspector .pto-ide-frame__pane-body { overflow:auto; }
+.viz2-p0-morph .viz2-am-footer { height:60px; min-height:60px; max-height:60px; overflow:hidden; align-items:center; }
+.viz2-p0-morph .viz2-am-footer p { flex:1; min-width:0; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.viz2-p0-morph .viz2-am-footer > span { max-width:45%; }
+.viz2-p0-morph [data-p0-pick-block]:focus-visible rect { stroke:var(--focus-ring); }

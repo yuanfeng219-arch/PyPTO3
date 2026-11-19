@@ -1,0 +1,23 @@
+/* Task controls only. Cards, groups, edges and camera use visualization2-graph. */
+.viz2-compute {display:flex;flex-direction:column;min-height:0;}
+.viz2-compute > .viz2-anatomy-taskbar {flex:none;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-height:48px;max-height:58px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;}
+.viz2-compute-canvas {display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;}
+.viz2-compute select {background:var(--surface-3);color:var(--foreground);border:0;font:inherit;max-width:100px;}
+.viz2-compute [data-compute-stacks] {display:flex;gap:var(--space-1);flex-wrap:nowrap;align-items:center;}
+.viz2-compute [data-compute-context] {color:var(--foreground-secondary);font-size:12px;}
+.viz2-compute [data-compute-code] {white-space:pre;overflow:auto;font:var(--type-mono);max-height:340px;}
+.viz2-ready-source-links {display:flex;flex-wrap:wrap;gap:4px;margin:8px 0;}
+.viz2-compute [data-compute-state-summary],.viz2-compute [data-compute-weight-legend] {font-size:11px;color:var(--muted-foreground);}
+.viz2-compute [data-compute-weight-legend] {max-width:420px;line-height:1.35;}
+.viz2-compute [data-compute-evolution] {flex-basis:100%;min-width:0;}
+.viz2-stack-evolution {display:grid;grid-template-columns:1fr;gap:8px;width:100%;font-size:11px;line-height:1.35;color:var(--foreground);}
+.viz2-stack-evolution__lane,.viz2-stack-evolution__fifo {display:flex;flex-direction:column;gap:3px;min-width:0;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--surface-2);}
+.viz2-stack-evolution__lane:nth-child(2) {border-color:rgba(255,191,96,.55);}
+.viz2-stack-evolution__fifo {grid-column:1;flex-direction:column;border-color:rgba(112,215,177,.5);}
+.viz2-stack-evolution__fifo small {color:var(--muted-foreground);font-size:10px;}
+@media (max-width:900px) {.viz2-stack-evolution {grid-template-columns:1fr;}.viz2-stack-evolution__fifo {grid-column:1;}}
+.viz2-compute .kf-pypa-graph__node[data-state-role="previous"] {box-shadow:0 0 0 2px rgba(133,160,229,.65);}
+.viz2-compute .kf-pypa-graph__node[data-state-role="operation"] {box-shadow:0 0 0 2px rgba(255,191,96,.8);}
+.viz2-compute .kf-pypa-graph__node[data-state-role="next"] {box-shadow:0 0 0 2px rgba(112,215,177,.8);}
+.viz2-compute [data-pypa-edge][data-state-role="previous"] {stroke-dasharray:6 4;}
+.viz2-compute [data-pypa-edge][data-state-role="next"] {stroke-width:3;}

@@ -1,0 +1,39 @@
+/* Independent Pipeline pane, inside the existing shared IDE frame. */
+.viz2-pipeline { display: flex; flex-direction: column; }
+#viz2-pipeline-inter { margin-left: 72px; }
+.viz2-pipeline-body { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.viz2-pipeline-stage { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.viz2-pipeline-viewport { position: relative; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; cursor: grab; }
+.viz2-pipeline-viewport.is-dragging { cursor: grabbing; }
+.viz2-pipeline-surface { position: relative; min-width: 320px; }
+.viz2-pipeline-surface canvas { display: block; }
+.viz2-pipeline-targets { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* Transparent hit regions preserve native button and keyboard semantics for Canvas units. */
+.viz2-pipeline-target { position: absolute; display: block; margin: 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; cursor: pointer; pointer-events: auto; }
+.viz2-pipeline-target:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.viz2-pipeline-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; flex: none; gap: var(--space-2); padding: var(--space-3) var(--space-5); font: var(--type-body-sm); color: var(--foreground-secondary); }
+.viz2-pipeline-footer > span { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.viz2-pipeline-footer i { display: inline-block; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-sm); }
+.viz2-pipeline-footer small { color: var(--foreground-muted); font: var(--type-body-sm); }
+.viz2-pipeline-inspector { flex: 0 0 290px; min-width: 0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
+.viz2-pipeline-inspector .pto-ide-frame__pane-header { justify-content: space-between; }
+.viz2-pipeline-inspector .pto-ide-frame__pane-body { padding: var(--space-3) var(--space-4); overflow: auto; font: var(--type-body); }
+.viz2-pipeline-inspector section { padding-block: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.viz2-pipeline-inspector h3 { margin: 0; font: var(--type-title-3); }
+.viz2-pipeline-inspector p { color: var(--foreground-secondary); margin: var(--space-2) 0; }
+.viz2-pipeline-facts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin: 0 0 var(--space-4); }
+.viz2-pipeline-facts dt { color: var(--foreground-muted); }
+.viz2-pipeline-facts dd { margin: 0; color: var(--foreground); font: var(--type-mono); text-align: right; }
+.viz2-pipeline-task-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.viz2-pipeline-task-list .btn { width: 100%; justify-content: space-between; }
+.viz2-pipeline-task-list span { color: var(--foreground-muted); font: var(--type-body-sm); }
+/* Tooltip movement and lifecycle belong to the shared swimlane pattern. */
+.viz2-pipeline-tooltip { display: none; position: absolute; z-index: 8; max-width: min(340px, calc(100% - 16px)); padding: var(--space-3); background: var(--surface-3); border-radius: var(--radius-md); box-shadow: var(--shadow-md); pointer-events: none; color: var(--foreground); font: var(--type-body-sm); }
+.viz2-pipeline-tooltip.is-visible { display: flex; flex-direction: column; gap: var(--space-1); }
+.viz2-pipeline-tooltip span { color: var(--foreground-secondary); }
+@media (max-width: 900px) {
+  #viz2-pipeline-inter { margin-left: 56px; }
+  .viz2-pipeline-body { position: relative; }
+  .viz2-pipeline-inspector { position: absolute; right: 0; top: 0; bottom: var(--viz2-pipeline-footer-height, 48px); width: min(290px, 80%); z-index: 4; }
+  .viz2-pipeline-footer { padding-inline: var(--space-3); }
+}

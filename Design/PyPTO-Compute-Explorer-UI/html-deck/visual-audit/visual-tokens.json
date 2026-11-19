@@ -1,0 +1,512 @@
+{
+  "schemaVersion": "1.0",
+  "status": "proposal-awaiting-user-confirmation",
+  "applied": false,
+  "scope": "技术演示 Deck 的外壳与展示角色；不是 Dashboard 组件库",
+  "units": "1600×900 设计画布的 CSS px；画布整体缩放不改业务图形坐标",
+  "surface": {
+    "canvas": {
+      "value": "#101010",
+      "existing": [
+        "html/body background",
+        "#slide-theme background"
+      ],
+      "use": "页级基底，保留48px网格"
+    },
+    "panel": {
+      "value": "var(--surface-1)",
+      "resolvedDark": "#161616",
+      "existing": [
+        "--card-bg",
+        "--surface-1"
+      ],
+      "use": "固定信息面板，不默认加阴影",
+      "mappingNote": "既有 --panel-bg 指向 surface-2 或后续变体，不等价于 surface-1；应按固定容器角色保留，不直接重定义 --panel-bg。"
+    },
+    "diagramInset": {
+      "value": "var(--surface-2)",
+      "resolvedDark": "#1c1c1c",
+      "existing": [
+        "--surface-2",
+        ".pipeline background"
+      ],
+      "use": "需要裁切或聚焦的图形区域；允许透明特例"
+    },
+    "overlay": {
+      "value": "var(--surface-1)",
+      "existing": [
+        "--card-bg",
+        ".assignment"
+      ],
+      "use": "P06等真实悬浮卡片，优先不透明"
+    },
+    "popover": {
+      "value": "var(--surface-2)",
+      "existing": [
+        "--surface-2"
+      ],
+      "use": "短暂信息浮层；无业务高亮色大底"
+    },
+    "grid": {
+      "value": "linear-gradient(to right,rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,.025) 1px,transparent 1px)",
+      "size": "48px 48px",
+      "existing": [
+        "data-deck-header-theme"
+      ],
+      "use": "单一画布层绘制，避免父子层叠加"
+    }
+  },
+  "border": {
+    "width": {
+      "hairline": "1px",
+      "focus": "2px"
+    },
+    "subtle": {
+      "value": "rgba(255,255,255,.06)",
+      "existing": [
+        "--border-subtle"
+      ],
+      "use": "背景结构线"
+    },
+    "default": {
+      "value": "var(--border-default)",
+      "resolvedDark": "rgba(255,255,255,.10)",
+      "existing": [
+        "--card-border",
+        "--border-default"
+      ],
+      "use": "面板/浮卡外边"
+    },
+    "strong": {
+      "value": "var(--border-strong)",
+      "existing": [
+        "--border-strong"
+      ],
+      "use": "需要更清晰的popover边界；不要替代对象选中",
+      "resolvedDark": "rgba(255,255,255,.16)"
+    },
+    "diagram": {
+      "value": "preserve-semantic-mapping",
+      "existing": [
+        "--batch",
+        "--slot-color",
+        "Graph edge variables"
+      ],
+      "use": "业务连线保持独立；不是 border.default"
+    }
+  },
+  "radius": {
+    "diagram": "0px（直角 Page / 连续结构带）",
+    "micro": "2px（矩阵单元）",
+    "control": "6px（紧凑按钮，允许现有4/5px嵌套内层）",
+    "viewport": "12px",
+    "overlay": "var(--card-radius) / 12px",
+    "operation": "999px（运算节点语义，不是全局pill）",
+    "existingMappings": [
+      {
+        "old": "--radius-lg / --card-radius",
+        "new": "radius.overlay / viewport",
+        "action": "保留原定义并建立别名"
+      },
+      {
+        "old": "硬编码7 / 8 / 10 / 14px",
+        "new": "按control / source-evidence / preview角色逐项评审",
+        "action": "不能全局查找替换"
+      }
+    ]
+  },
+  "shadow": {
+    "canvas": "none",
+    "fixedPanel": "none",
+    "overlay": "none（以1px边界为主，P06现状保留）",
+    "popover": "var(--shadow-md)",
+    "existingMappings": [
+      {
+        "old": "--shadow-md",
+        "new": "shadow.popover",
+        "value": "0 6px 18px rgba(0,0,0,.34)",
+        "action": "保留"
+      },
+      {
+        "old": ".pto-ide-frame 0 18px 54px + inset",
+        "new": "shadow.canvas",
+        "action": "只建议在embedded变体取消，独立工作台不动"
+      },
+      {
+        "old": "P02硬件投影 / P06运算重复层 / P11核心光晕",
+        "new": "illustration.depth / graph.repeat / motion.semantic-focus",
+        "action": "独立语义角色，禁止通用UI批量替换"
+      }
+    ]
+  },
+  "typography": {
+    "family": {
+      "ui": "Inter, \"Source Han Sans SC\", \"PingFang SC\", \"Noto Sans SC\", sans-serif",
+      "mono": "ui-monospace, \"SFMono-Regular\", Menlo, monospace",
+      "policy": "Inter为用户确认的P06面板字体，不因过度使用字体告警替换；扩展到通用Deck文字需确认"
+    },
+    "title": {
+      "size": "46px",
+      "weight": 650,
+      "lineHeight": "1.2",
+      "existing": [
+        ".deck-header h1"
+      ]
+    },
+    "section": {
+      "size": "22–28px",
+      "weight": "500–600",
+      "lineHeight": "1.3"
+    },
+    "body": {
+      "size": "18–22px",
+      "weight": 400,
+      "lineHeight": "1.45"
+    },
+    "control": {
+      "size": "14–17px",
+      "weight": 500,
+      "lineHeight": "1.25"
+    },
+    "annotation": {
+      "size": "12–15px",
+      "weight": 400,
+      "lineHeight": "1.4"
+    },
+    "data": {
+      "numeric": "tabular-nums",
+      "emphasisWeight": "600–700 only for focal numbers"
+    },
+    "exceptions": [
+      "P06已确认SVG内部32px主数字 / 22px映射 / 12px标签原样保留",
+      "密集计算图的坐标、代码、token labels按业务可读性独立分级；不全局强制最小18px"
+    ]
+  },
+  "spacing": {
+    "scale": [
+      4,
+      8,
+      12,
+      16,
+      24,
+      32,
+      48,
+      64
+    ],
+    "controlGap": "4–8px",
+    "contentGap": "16–24px",
+    "sectionGap": "32–48px",
+    "overlayInset": "24–32px",
+    "existingMappings": [
+      {
+        "old": "--deck-padding / --deck-header-height",
+        "new": "deck.shell",
+        "action": "保留共享页眉与骨架"
+      },
+      {
+        "old": "P06 SVG 29px边内位置 / 30px视觉内边距 / 62px行距",
+        "new": "allocation.reference-layout",
+        "action": "已确认布局例外，不机械吸附4px刻度"
+      },
+      {
+        "old": "矩阵格距 / Graph层间距 / Pipeline tick坐标",
+        "new": "diagram.geometry",
+        "action": "不纳入UI spacing全局替换"
+      }
+    ]
+  },
+  "state": {
+    "hover": {
+      "surface": "rgba(255,255,255,.06)",
+      "transition": "160ms ease-out",
+      "use": "仅控件角色，业务图形使用局部语义亮度"
+    },
+    "focusVisible": {
+      "color": "#9db5ff",
+      "width": "2px",
+      "offset": "2px",
+      "existing": [
+        "--focus-ring",
+        "#deck-nav focus-visible",
+        "P05 focus rule"
+      ],
+      "policy": "候选共同控件焦点；保留已有Token定义，通过Deck适配别名消费"
+    },
+    "disabled": {
+      "opacity": 0.4,
+      "existing": [
+        ".viz2 button:disabled",
+        "#deck-nav button:disabled .35"
+      ],
+      "policy": "建议共同控件.4；P06禁交互的Graph节点不是disabled dim，应保留opacity1"
+    },
+    "selectedControl": {
+      "surface": "#363044",
+      "text": "#f2eafa",
+      "use": "P05/P06模式切换，保留已确认外观"
+    },
+    "selectedObject": {
+      "value": "existing object semantic color",
+      "use": "只强化当前计算对象，不把整个画布着色"
+    },
+    "taskTab": {
+      "accent": "#b1ef6b",
+      "indicator": "underline",
+      "use": "P06用户确认SVG特例；不得强制成胶囊"
+    },
+    "relation": {
+      "normalOpacity": 0.45,
+      "relatedOpacity": 1,
+      "candidateStroke": "1.5px / 2px",
+      "preserve": [
+        "slot color",
+        "flow solid",
+        "reuse dashed",
+        "READY ring"
+      ],
+      "status": "P07现有规则作为候选共同基准，未应用"
+    }
+  },
+  "preserveSemanticDifferences": [
+    "Graph / Assignment / Pipeline视角身份色",
+    "Tensor蓝 / 中间结果黄 / 循环标识lime",
+    "Slot身份色、依赖线型与READY形状",
+    "P12四类公式标记和源码语法色",
+    "P02硬件透视厚度",
+    "P06实比例尾页斜线背景",
+    "固定区域、真实浮卡、隐藏Inspector三类角色"
+  ],
+  "migrationPolicy": [
+    "现有Token全部保留；新增Deck角色alias，不删除旧定义",
+    "优先在嵌入适配层桥接，不改vendor全局Token",
+    "先确认相同角色再统一，不按照值相近自动合并",
+    "先修正来源分叉和层叠覆盖，再评审灰度/圆角细节",
+    "本阶段不生成或注入任何生产CSS"
+  ],
+  "existingTokenDefinitions": {
+    "note": "保留原定义的全部出现位置，包括不同主题/后续覆盖；列表不是同一作用域的最终值，最终值见逐页computed证据。",
+    "definitions": {
+      "--font-sans": [
+        {
+          "file": "vendor/pto-design-system/tokens/foundation.css",
+          "line": 40,
+          "declaration": "'Inter', 'Source Han Sans SC', 'PingFang SC', 'Noto Sans SC', sans-serif"
+        }
+      ],
+      "--font-mono": [
+        {
+          "file": "vendor/pto-design-system/tokens/foundation.css",
+          "line": 41,
+          "declaration": "'JetBrains Mono', 'Fira Code', 'Consolas', monospace"
+        }
+      ],
+      "--radius-lg": [
+        {
+          "file": "vendor/pto-design-system/tokens/foundation.css",
+          "line": 54,
+          "declaration": "12px"
+        }
+      ],
+      "--shadow-md": [
+        {
+          "file": "vendor/pto-design-system/tokens/foundation.css",
+          "line": 60,
+          "declaration": "0 6px 18px rgba(0, 0, 0, 0.34)"
+        }
+      ],
+      "--shadow-lg": [
+        {
+          "file": "vendor/pto-design-system/tokens/foundation.css",
+          "line": 61,
+          "declaration": "0 12px 30px rgba(0, 0, 0, 0.42)"
+        }
+      ],
+      "--background": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 3,
+          "declaration": "var(--ark-neutral-1)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 62,
+          "declaration": "#080a0f"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 111,
+          "declaration": "var(--ark-neutral-1)"
+        }
+      ],
+      "--surface-1": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 5,
+          "declaration": "#161616"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 64,
+          "declaration": "rgba(255, 255, 255, 0.075)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 113,
+          "declaration": "#FFFFFF"
+        }
+      ],
+      "--surface-2": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 6,
+          "declaration": "#1c1c1c"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 65,
+          "declaration": "rgba(255, 255, 255, 0.095)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 114,
+          "declaration": "#F2F2F2"
+        }
+      ],
+      "--surface-3": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 7,
+          "declaration": "#262626"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 66,
+          "declaration": "rgba(255, 255, 255, 0.13)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 115,
+          "declaration": "#E6E6E6"
+        }
+      ],
+      "--border-subtle": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 15,
+          "declaration": "rgba(255, 255, 255, 0.06)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 74,
+          "declaration": "rgba(255, 255, 255, 0.10)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 123,
+          "declaration": "rgba(0, 0, 0, 0.07)"
+        }
+      ],
+      "--border-default": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 16,
+          "declaration": "rgba(255, 255, 255, 0.10)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 75,
+          "declaration": "rgba(255, 255, 255, 0.16)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 124,
+          "declaration": "rgba(0, 0, 0, 0.12)"
+        }
+      ],
+      "--border-strong": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 17,
+          "declaration": "rgba(255, 255, 255, 0.16)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 76,
+          "declaration": "rgba(255, 255, 255, 0.24)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 125,
+          "declaration": "rgba(0, 0, 0, 0.18)"
+        }
+      ],
+      "--focus-ring": [
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 36,
+          "declaration": "rgba(67, 105, 239, 0.42)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 83,
+          "declaration": "rgba(111, 161, 255, 0.44)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/semantic.css",
+          "line": 127,
+          "declaration": "rgba(67, 105, 239, 0.36)"
+        }
+      ],
+      "--panel-radius": [
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 50,
+          "declaration": "var(--radius-lg)"
+        }
+      ],
+      "--panel-bg": [
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 53,
+          "declaration": "var(--surface-2)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 245,
+          "declaration": "color-mix(in srgb, var(--background-elevated) 88%, black 12%)"
+        }
+      ],
+      "--card-radius": [
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 57,
+          "declaration": "var(--radius-lg)"
+        }
+      ],
+      "--card-bg": [
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 59,
+          "declaration": "var(--surface-1)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 247,
+          "declaration": "color-mix(in srgb, var(--background-elevated) 84%, black 16%)"
+        }
+      ],
+      "--card-border": [
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 60,
+          "declaration": "var(--border-default)"
+        },
+        {
+          "file": "vendor/pto-design-system/tokens/components.css",
+          "line": 248,
+          "declaration": "var(--border-subtle)"
+        }
+      ]
+    }
+  }
+}

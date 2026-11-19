@@ -1,0 +1,146 @@
+.csa-qk-pipeline-host{flex:1;min-height:0;min-width:0;overflow:hidden;color:var(--foreground)}
+.csa-qk-pipeline-host[hidden]{display:none}
+.csa-workspace[hidden],.csa-qk-host[hidden]{display:none}
+.csa-qp-shell{height:100%;display:flex;flex-direction:column;min-height:0}
+.csa-qp-context{display:flex;align-items:center;gap:10px 16px;flex-wrap:nowrap;padding:9px 24px;min-height:44px;color:var(--foreground-secondary);font:var(--type-body-sm);border-bottom:1px solid var(--border-subtle)}
+.csa-qp-context-title{flex:none;color:var(--foreground);font:var(--type-body-sm);font-weight:600}
+.csa-qp-context-meta{flex:none;color:var(--foreground-muted);white-space:nowrap}
+.csa-qp-context-tools{display:flex;align-items:center;gap:10px 16px;margin-left:auto;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;color:var(--foreground-secondary);font:var(--type-body-sm)}
+.csa-qp-context-sep{flex:none;color:var(--border-strong)}
+.csa-qp-context-tools label{display:flex;align-items:center;gap:6px;flex:none;white-space:nowrap}
+.csa-qp-context-tools select{max-width:120px;padding:5px 8px;background:var(--surface-2);color:var(--foreground);border:1px solid var(--border-subtle);border-radius:6px}
+.csa-qp-context-tools select[data-qp-rank]{max-width:60px}
+.csa-qp-lane-canvas{display:flex;flex:1;min-height:0;padding:18px 24px;gap:20px}
+.csa-qp-lane-list{width:220px;flex:none;overflow:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px}
+.csa-qp-lane-list .btn{justify-content:space-between;min-width:0}
+.csa-qp-lane-list small{color:var(--foreground-muted)}
+.csa-qp-lane-sequence{flex:1;min-width:0;display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:12px;background:var(--surface-1);overflow:hidden}
+.csa-qp-sequence-title{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:18px 22px;border-bottom:1px solid var(--border-subtle)}
+.csa-qp-sequence-title span,.csa-qp-sequence-foot{color:var(--foreground-muted);font:var(--type-body-sm)}
+.csa-qp-work-list{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));align-content:start;gap:10px;padding:20px}
+.csa-qp-work{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-height:120px;text-align:left;border:1px solid var(--border-subtle);border-radius:9px;background:var(--surface-2);color:var(--foreground);padding:13px;cursor:pointer}
+.csa-qp-work:hover,.csa-qp-work:focus-visible{border-color:var(--primary);outline:none;transform:translateY(-2px)}
+.csa-qp-work span,.csa-qp-work small{color:var(--foreground-muted);font:var(--type-micro)}
+.csa-qp-work strong{font:var(--type-body-sm)}
+.csa-qp-work em{font:var(--type-micro);font-style:normal;color:var(--primary)}
+.csa-qp-work.is-invalid{opacity:.7}.csa-qp-work.is-invalid em{color:var(--foreground-muted)}
+.csa-qp-sequence-foot{padding:12px 22px;border-top:1px solid var(--border-subtle)}
+.csa-qp-item-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 20px;color:var(--foreground-muted);font:var(--type-body-sm)}
+.csa-qp-item-top b{color:var(--foreground);font:var(--type-title-3)}
+.csa-qp-unit-nav{display:flex;align-items:center;gap:16px;min-height:48px;padding:4px 20px;border-bottom:1px solid var(--border-subtle);font:var(--type-body-sm)}
+.csa-qp-unit-nav>b{white-space:nowrap;color:var(--foreground)}
+.csa-qp-unit-nav nav{display:flex;gap:5px;flex:1;min-width:0;overflow:auto}
+.csa-qp-unit-nav nav .btn{flex:none}
+.csa-qp-item-top{justify-content:space-between;min-height:54px;border-bottom:1px solid var(--border-subtle)}
+.csa-qp-item-meta{display:block;margin-top:3px;color:var(--foreground-muted)}
+.csa-qp-item-details{position:relative;z-index:5}
+.csa-qp-item-details summary{cursor:pointer;list-style:none;color:var(--foreground-secondary)}
+.csa-qp-item-details summary:hover{color:var(--foreground)}
+.csa-qp-item-details-body{position:absolute;right:0;top:calc(100% + 10px);width:270px;max-height:min(65vh,560px);overflow:auto;padding:14px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--surface-2);box-shadow:var(--shadow-lg)}
+.csa-qp-item-details-body dl{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:0 0 12px}.csa-qp-item-details-body dt{color:var(--foreground-muted)}.csa-qp-item-details-body dd{margin:0;text-align:right;color:var(--foreground)}
+.csa-qp-item-details-body .btn{display:block;width:100%;text-align:left}
+.csa-qp-footer-tools{display:flex;align-items:center;gap:4px}.csa-qp-footer-tools output{min-width:44px;text-align:center;color:var(--foreground-secondary)}
+.csa-qp-valid{color:var(--primary)}.csa-qp-valid.is-invalid{color:var(--foreground-muted)}
+.csa-qp-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--surface-1)}
+.csa-qp-node{cursor:pointer}.csa-qp-node rect{fill:var(--surface-2);stroke:var(--border-subtle);stroke-width:1.5}.csa-qp-node:hover rect,.csa-qp-node:focus-visible rect,.csa-qp-node.is-selected rect{stroke:var(--primary);stroke-width:2.5}
+.csa-qp-node.is-skipped{opacity:.13}.csa-qp-node-title{fill:var(--foreground);font-size:17px;font-weight:600}.csa-qp-node-shape{fill:var(--foreground-secondary);font-size:14px}
+.csa-qp-row-label,.csa-qp-reuse-label{fill:var(--foreground-muted);font-size:16px}.csa-qp-equation{fill:var(--foreground-secondary);font-size:15px}.csa-qp-arrow,.csa-qp-reuse{stroke:var(--primary);stroke-width:2;fill:none}.csa-qp-arrow.is-skipped,.csa-qp-reuse.is-skipped{opacity:.15}
+.csa-qp-svg marker path{fill:var(--primary)}
+.csa-qp-inspector{position:absolute;right:12px;top:12px;bottom:12px;width:min(340px,40%);box-sizing:border-box;border:1px solid var(--border-subtle);border-radius:10px;background:var(--surface-2);box-shadow:var(--shadow-lg);padding:16px;overflow:auto;font:var(--type-body-sm)}
+.csa-qp-inspector header{display:flex;align-items:center;justify-content:space-between}.csa-qp-inspector p{line-height:1.5;color:var(--foreground-secondary)}.csa-qp-inspector dl{display:grid;gap:7px}.csa-qp-inspector dt{color:var(--foreground-muted)}.csa-qp-inspector dd{margin:0}.csa-qp-inspector [data-qp-source]{white-space:normal;text-align:left}
+.csa-qp-bottom{display:flex;align-items:center;gap:12px 24px;flex-wrap:wrap;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border-subtle);color:var(--foreground-muted);font:var(--type-micro)}.csa-qp-bottom code{font:inherit;color:var(--foreground-secondary)}
+@media(max-width:1100px){.csa-qp-lane-list{width:160px}.csa-qp-work-list{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.csa-qp-context,.csa-qp-item-top{padding-inline:12px}.csa-qp-bottom{gap:7px}}
+@media(max-width:800px){.csa-qp-lane-canvas{flex-direction:column;padding:10px}.csa-qp-lane-list{width:100%;display:flex;overflow:auto}.csa-qp-lane-list .btn{flex:none}.csa-qp-inspector{width:min(320px,70%)}}
+/* P4.1: keep the inspector beside the canvas and expose actual batch-local data paths. */
+.csa-qp-batch-nav{display:flex;gap:8px;padding:6px 20px;flex-wrap:wrap;border-bottom:1px solid var(--border-subtle)}
+.csa-qp-batch-nav .btn.is-selected{background:var(--surface-3);color:var(--foreground)}
+.csa-qp-stage{display:flex}
+.csa-qp-inspector{position:static;flex:0 0 286px;width:286px;max-width:33%;height:auto;border-radius:0;box-shadow:none;border-top:0;border-right:0;border-bottom:0}
+.csa-qp-inspector-scope{display:block;margin-top:12px;color:var(--primary);font:var(--type-micro)}
+.csa-qp-svg text{pointer-events:none}
+.csa-qp-title{fill:var(--foreground);font-size:16px;font-weight:600}
+.csa-qp-sub{fill:var(--foreground-secondary);font-size:13px}
+.csa-qp-label,.csa-qp-section{fill:var(--foreground-secondary);font-size:15px}
+.csa-qp-section{font-weight:600}
+.csa-qp-step,.csa-qp-segment{fill:var(--foreground-secondary);font-size:13px}
+.csa-qp-edge-note{fill:var(--foreground-muted);font-size:12px}
+.csa-qp-symbol{fill:var(--foreground-secondary);font-size:17px}
+.csa-qp-batch-header{cursor:pointer}.csa-qp-batch-header rect{fill:var(--surface-3)}.csa-qp-batch-title{fill:var(--foreground);font-size:14px;font-weight:600}
+.csa-qp-batch-header.is-selected rect{stroke:var(--primary);stroke-width:2;fill:var(--surface-2)}
+.csa-qp-batch.is-dimmed{opacity:.22}
+.csa-qp-node.is-dimmed{opacity:.25}
+.csa-qp-matrix{pointer-events:none}.csa-qp-matrix rect{fill:var(--surface-3);stroke:var(--primary);stroke-width:1.2}.csa-qp-matrix path{stroke:var(--border-subtle);stroke-width:.5}.csa-qp-matrix-caption{fill:var(--foreground-muted);font-size:10px;text-anchor:middle}
+.csa-qp-input-flow,.csa-qp-reuse-flow,.csa-qp-stat-flow,.csa-qp-output-flow,.csa-qp-branch-flow{stroke:var(--primary);stroke-width:1.6;fill:none;opacity:.7}
+.csa-qp-reuse-flow{stroke-dasharray:4 4;opacity:.55}
+.csa-qp-stat-flow{stroke:var(--foreground-secondary);opacity:.6}
+.csa-qp-output-flow{stroke:var(--success)}
+.csa-qp-skipped{opacity:.16}
+@media(max-width:1100px){.csa-qp-inspector{flex-basis:235px;width:235px}.csa-qp-batch-nav{padding-inline:12px}}
+@media(max-width:800px){.csa-qp-inspector{max-width:40%}}
+/* ViewBox camera: the SVG always fills the measured viewport; its content never participates in flex scrolling. */
+.csa-qp-stage{min-width:0;overflow:hidden}
+.csa-qp-stage-inner{display:block;flex:1;min-width:0;min-height:0;overflow:hidden;cursor:grab;touch-action:none}
+.csa-qp-stage-inner.is-panning{cursor:grabbing}
+.csa-qp-svg{display:block;width:100%;height:100%;min-width:0;min-height:0;max-height:none;aspect-ratio:auto;transform:none;transition:none}
+/* Lane workload map: one SVG cell per existing qk_order entry. */
+.csa-qp-map{display:flex;flex:1;min-height:0;min-width:0;flex-direction:column;background:var(--surface-1)}
+.csa-qp-map-footer{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:9px 18px;font:var(--type-body-sm);color:var(--foreground-secondary)}
+/* Valid KV Rows 开关：单个 Checkbox，尺寸与 Request / Query 选择器一致 */
+.csa-qp-map-mode{display:flex;align-items:center;gap:6px;height:28px;padding:0 9px;border:1px solid var(--border-subtle);border-radius:6px;color:var(--foreground-secondary);cursor:pointer;user-select:none}
+.csa-qp-map-mode input{width:13px;height:13px;margin:0;accent-color:var(--primary);cursor:pointer}
+.csa-qp-map-mode:hover{color:var(--foreground);border-color:var(--border-default)}
+.csa-qp-map-mode.is-on{color:var(--foreground);border-color:var(--primary);background:var(--surface-2)}
+.csa-qp-map-viewport{flex:1;min-height:0;min-width:0;overflow:hidden;cursor:grab;touch-action:none}
+.csa-qp-map-viewport.is-panning{cursor:grabbing}
+.csa-qp-map-svg{display:block;width:100%;height:100%;font:11px var(--font-mono,monospace);fill:var(--foreground-muted)}
+.csa-qp-map-axis{font-weight:600;fill:var(--foreground-secondary)}
+.csa-qp-map-lane{fill:var(--foreground-secondary);cursor:pointer}
+.csa-qp-map-lane:hover,.csa-qp-map-lane:focus-visible{fill:var(--foreground);text-decoration:underline}
+.csa-qp-map-count{fill:var(--foreground-muted)}
+.csa-qp-map-cell{cursor:pointer;stroke:transparent;stroke-width:1.5;transition:opacity .12s}
+.csa-qp-map-cell.is-original{fill:#2bbbad}
+.csa-qp-map-cell.is-compressed{fill:#4c78e8}
+.csa-qp-map-cell.is-invalid{fill:#555b66}
+.csa-qp-map-svg.mode-rows .csa-qp-map-cell.is-original,.csa-qp-map-svg.mode-rows .csa-qp-map-cell.is-compressed{fill:#4c78e8;fill-opacity:var(--kv-intensity)}
+.csa-qp-map-cell.is-dimmed,.csa-qp-map-row.is-dimmed .csa-qp-map-count{opacity:.19}
+.csa-qp-map-cell.is-last{stroke:#f5be64;stroke-width:2}
+.csa-qp-map-cell:hover,.csa-qp-map-cell:focus-visible{stroke:#fff;stroke-width:2.5;opacity:1;outline:none}
+.csa-qp-map-footer{justify-content:space-between;border-top:1px solid var(--border-subtle);font:var(--type-micro)}
+.csa-qp-map-legend{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.csa-qp-map-legend i{display:inline-block;width:10px;height:10px;margin-left:8px;border-radius:2px}
+.csa-qp-map-legend i.is-original{background:#2bbbad}.csa-qp-map-legend i.is-compressed{background:#4c78e8}.csa-qp-map-legend i.is-invalid{background:#555b66}
+@media(max-width:900px){.csa-qp-map-footer{padding:7px 10px;gap:6px 10px}.csa-qp-context{padding-inline:10px;gap:6px 10px}.csa-qp-context-tools{gap:6px 10px}.csa-qp-context-tools select{max-width:90px}}
+.csa-qp-inspector[hidden]{display:none}
+/* P7.1 Logical Pipeline Detail shares the horizontal progress / vertical stage grammar. */
+.csa-qp-svg .csa-qp-tick path{fill:none;stroke:var(--border-subtle);stroke-width:1;stroke-dasharray:3 6;pointer-events:none}
+.csa-qp-svg .csa-qp-tick-label{fill:var(--foreground-muted);font-size:13px;text-anchor:middle}
+.csa-qp-svg .csa-qp-row-label{fill:var(--foreground-secondary);font-size:12px;font-weight:600}
+.csa-qp-svg .csa-qp-title{font-size:14px}
+.csa-qp-svg .csa-qp-sub{font-size:13px}
+.csa-qp-svg .csa-qp-batch-title{font-size:11px}
+.csa-qp-svg .csa-qp-node rect{stroke:var(--slot-color,var(--border-subtle));stroke-width:1;stroke-opacity:.65;rx:4}
+.csa-qp-timeline-data,.csa-qp-timeline-reuse{fill:none;stroke-width:1.6;vector-effect:non-scaling-stroke;pointer-events:stroke}
+.csa-qp-timeline-data{stroke:var(--foreground-secondary);opacity:.7}
+.csa-qp-timeline-reuse{stroke:var(--primary);stroke-dasharray:5 5;opacity:.65}
+.csa-qp-timeline-data.is-related,.csa-qp-timeline-reuse.is-related{stroke:var(--primary);stroke-width:2.5;opacity:1}
+.csa-qp-timeline-reuse.is-related{stroke:var(--success)}
+.csa-qp-timeline-data.is-dimmed,.csa-qp-timeline-reuse.is-dimmed{opacity:.15}
+.csa-qp-svg[data-selected-operation]:not([data-selected-operation=""]) .csa-qp-node:not(.is-selected):not(.is-related){opacity:.3}
+.csa-qp-svg .csa-qp-node.is-related rect{stroke:var(--primary);stroke-width:1.5}
+.csa-qp-svg .csa-qp-node:is(:hover,:focus-visible,.is-selected) rect{stroke:var(--primary);stroke-width:1.5;stroke-opacity:1}
+.csa-qp-svg .csa-qp-task-boundary{fill:none;stroke:var(--foreground-muted);stroke-width:1.5;stroke-dasharray:6 5;vector-effect:non-scaling-stroke}
+.csa-qp-svg .csa-qp-boundary-label{fill:var(--foreground-secondary);font-size:12px;font-weight:600}
+.csa-qp-svg .csa-qp-boundary-note{fill:var(--foreground-muted);font-size:11px}
+.csa-qp-bottom [data-qp-dependency-summary]{display:block;color:var(--foreground-secondary);font:var(--type-micro);margin-top:4px}
+.csa-qp-inspector section{margin-top:14px;padding-top:10px;border-top:1px solid var(--border-subtle)}
+.csa-qp-inspector h3{margin:0 0 6px;color:var(--foreground-secondary);font:var(--type-body-sm)}
+.csa-qp-inspector section p{margin:0;color:var(--foreground-secondary);line-height:1.45}
+.csa-qp-inspector header small{display:block;color:var(--foreground-muted);font:var(--type-micro);margin-top:4px}
+.csa-qp-relation{display:grid;gap:4px;margin-top:10px}
+.csa-qp-relation b{color:var(--foreground-secondary);font:var(--type-micro)}
+.csa-qp-relation button{justify-content:flex-start;text-align:left;white-space:normal}
+/* P5: 跨模块跳转入口只出现在 Inspector / Work Item 信息行，不占用画布。 */
+.csa-qp-nav-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)}
+.csa-qp-nav{white-space:normal;text-align:left;height:auto;min-height:var(--button-height-sm)}
+.csa-qp-nav-label{flex-basis:100%;color:var(--foreground-muted);font:var(--type-micro)}
+.csa-qp-orderlink{font:var(--type-micro)}

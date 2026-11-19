@@ -1,0 +1,675 @@
+{
+  "schema_version": "model_architecture.v1",
+  "model": {
+    "name": "Gemma-4-26B-A4B Text Decoder",
+    "framework": "pytorch",
+    "source_root": "/Users/yin/gitcode/perf-breakdown-skill-optimize2/run_1/gemma/gemma-4-26B-A4B"
+  },
+  "extraction_scope": {
+    "kind": "full_source",
+    "full_main_layers": 30,
+    "trace_main_layers": null,
+    "notes": [
+      "Canonical graph is folded from the local Gemma4 text-only implementation.",
+      "The local model class explicitly skips vision/audio tower weights during loading, so the main graph covers the text decoder path used by this package.",
+      "Deployment YAML is used for parallel settings; progress.md records checkpoint-derived model parameters that are not materialized as a local config.json in this folder."
+    ]
+  },
+  "sources": [
+    {
+      "id": "gemma_config",
+      "kind": "source",
+      "path": "/Users/yin/gitcode/perf-breakdown-skill-optimize2/run_1/gemma/gemma-4-26B-A4B/models/configuration_gemma4.py",
+      "role": "source_of_truth"
+    },
+    {
+      "id": "gemma_model",
+      "kind": "source",
+      "path": "/Users/yin/gitcode/perf-breakdown-skill-optimize2/run_1/gemma/gemma-4-26B-A4B/models/modeling_gemma4.py",
+      "role": "source_of_truth"
+    },
+    {
+      "id": "gemma_runtime_yaml",
+      "kind": "config",
+      "path": "/Users/yin/gitcode/perf-breakdown-skill-optimize2/run_1/gemma/gemma-4-26B-A4B/config/gemma4_rank_8_8ep_gegraph_decode.yaml",
+      "role": "runtime_deployment"
+    },
+    {
+      "id": "gemma_progress",
+      "kind": "implementation_notes",
+      "path": "/Users/yin/gitcode/perf-breakdown-skill-optimize2/run_1/gemma/gemma-4-26B-A4B/progress.md",
+      "role": "supporting_evidence"
+    }
+  ],
+  "symbol_table": {
+    "B": "batch",
+    "T": "sequence",
+    "V": 262144,
+    "H": 2816,
+    "L": 30,
+    "N_h": 16,
+    "N_kv_sliding": 8,
+    "N_kv_full": 2,
+    "D_sliding": 256,
+    "D_full": 512,
+    "I_dense": 2112,
+    "E": 128,
+    "top_k": 8,
+    "I_moe": 704,
+    "window": 1024,
+    "world_size": 8,
+    "embed_tp": 8,
+    "lmhead_tp": 8,
+    "moe_ep": 8,
+    "experts_per_rank": 16,
+    "S_max": 4096
+  },
+  "nodes": [
+    {
+      "id": "input_tokens",
+      "kind": "input",
+      "label": "Token IDs",
+      "provenance": [{"source": "gemma_model", "line": 1080, "fact": "Gemma4ForCausalLM.forward accepts input_ids"}]
+    },
+    {
+      "id": "gemma_lm",
+      "kind": "module",
+      "label": "Gemma Causal LM",
+      "module_type": "causal_lm",
+      "provenance": [{"source": "gemma_model", "line": 958, "fact": "class Gemma4ForCausalLM"}]
+    },
+    {
+      "id": "text_model",
+      "kind": "module",
+      "label": "Gemma Text Model",
+      "module_type": "decoder_only_transformer",
+      "provenance": [{"source": "gemma_model", "line": 855, "fact": "class Gemma4TextModel"}]
+    },
+    {
+      "id": "token_embedding",
+      "kind": "op",
+      "label": "Vocab Parallel Embedding",
+      "op_type": "Embedding",
+      "attrs": {"vocab_size_symbol": "V", "hidden_size_symbol": "H", "embed_tp_symbol": "embed_tp", "scale": "sqrt(H)"},
+      "provenance": [{"source": "gemma_model", "line": 877, "fact": "Gemma4ScaledVocabParallelEmbedding is used when embed_tp_size > 1"}]
+    },
+    {
+      "id": "rope_cache",
+      "kind": "state",
+      "label": "RoPE Cache",
+      "state_type": "rotary_embedding_cache",
+      "attrs": {"sliding_theta": 10000.0, "full_theta": 1000000.0, "full_partial_rotary_factor": 0.25},
+      "provenance": [{"source": "gemma_config", "line": 104, "fact": "rope_parameters define sliding and full attention RoPE modes"}]
+    },
+    {
+      "id": "kv_cache",
+      "kind": "state",
+      "label": "KV Cache",
+      "state_type": "attention_cache",
+      "attrs": {"dtype": "bf16", "layout": "BSH"},
+      "provenance": [{"source": "gemma_model", "line": 1158, "fact": "init_cache creates per-layer key/value cache tensors"}]
+    },
+    {
+      "id": "decoder_layer",
+      "kind": "module",
+      "label": "Gemma Decoder Layer",
+      "module_type": "decoder_layer_template",
+      "provenance": [{"source": "gemma_model", "line": 766, "fact": "class Gemma4DecoderLayer"}]
+    },
+    {
+      "id": "input_norm",
+      "kind": "op",
+      "label": "Input RMSNorm",
+      "op_type": "RMSNorm",
+      "attrs": {"epsilon": 0.000001},
+      "provenance": [{"source": "gemma_model", "line": 777, "fact": "self.input_layernorm = Gemma4RMSNorm"}]
+    },
+    {
+      "id": "attention",
+      "kind": "module",
+      "label": "Dual Mode Attention",
+      "module_type": "grouped_query_attention",
+      "provenance": [{"source": "gemma_model", "line": 612, "fact": "class Gemma4Attention"}]
+    },
+    {
+      "id": "sliding_attention",
+      "kind": "module",
+      "label": "Sliding Attention",
+      "module_type": "attention_mode",
+      "attrs": {"num_heads_symbol": "N_h", "num_key_value_heads_symbol": "N_kv_sliding", "head_dim_symbol": "D_sliding", "window_symbol": "window"},
+      "provenance": [{"source": "gemma_model", "line": 621, "fact": "sliding attention uses config.head_dim and config.num_key_value_heads"}]
+    },
+    {
+      "id": "full_attention",
+      "kind": "module",
+      "label": "Full Attention",
+      "module_type": "attention_mode",
+      "attrs": {"num_heads_symbol": "N_h", "num_key_value_heads_symbol": "N_kv_full", "head_dim_symbol": "D_full", "k_eq_v": true},
+      "provenance": [{"source": "gemma_model", "line": 625, "fact": "full attention uses global_head_dim and num_global_key_value_heads"}]
+    },
+    {
+      "id": "q_linear",
+      "kind": "op",
+      "label": "Query Linear",
+      "op_type": "Linear",
+      "attrs": {"bias": false},
+      "provenance": [{"source": "gemma_model", "line": 634, "fact": "self.q_proj = nn.Linear(config.hidden_size, self.num_heads * self.head_dim)"}]
+    },
+    {
+      "id": "k_linear",
+      "kind": "op",
+      "label": "Key Linear",
+      "op_type": "Linear",
+      "attrs": {"bias": false},
+      "provenance": [{"source": "gemma_model", "line": 635, "fact": "self.k_proj = nn.Linear(config.hidden_size, self.num_kv_heads * self.head_dim)"}]
+    },
+    {
+      "id": "v_linear",
+      "kind": "op",
+      "label": "Value Linear",
+      "op_type": "Linear",
+      "attrs": {"bias": false, "absent_when_k_eq_v": true},
+      "provenance": [{"source": "gemma_model", "line": 637, "fact": "self.v_proj is omitted when use_k_eq_v is true"}]
+    },
+    {
+      "id": "value_reuse",
+      "kind": "op",
+      "label": "K/V Reuse",
+      "op_type": "Identity",
+      "attrs": {"applies_to": "full_attention"},
+      "provenance": [{"source": "gemma_model", "line": 680, "fact": "when v_proj is None, value_states = key_states.clone()"}]
+    },
+    {
+      "id": "qkv_norm",
+      "kind": "op",
+      "label": "QKV RMSNorm",
+      "op_type": "RMSNorm",
+      "attrs": {"q_norm": true, "k_norm": true, "v_norm": true},
+      "provenance": [{"source": "gemma_model", "line": 643, "fact": "q_norm, k_norm, and v_norm are declared in attention"}]
+    },
+    {
+      "id": "apply_rope",
+      "kind": "op",
+      "label": "Apply RoPE",
+      "op_type": "RotaryEmbedding",
+      "attrs": {"dual_mode": true},
+      "provenance": [{"source": "gemma_model", "line": 697, "fact": "sliding uses npu_rotary_mul; full uses partial rotary"}]
+    },
+    {
+      "id": "fused_attention",
+      "kind": "op",
+      "label": "Fused Attention",
+      "op_type": "NPUFusedAttention",
+      "attrs": {"decode_sparse_mode": 0, "prefill_sliding_sparse_mode": 4, "prefill_full_sparse_mode": 3, "scale": 1.0},
+      "provenance": [{"source": "gemma_model", "line": 720, "fact": "npu_fused_infer_attention_score computes attention"}]
+    },
+    {
+      "id": "attn_output_linear",
+      "kind": "op",
+      "label": "Attention Output Linear",
+      "op_type": "Linear",
+      "attrs": {"bias": false},
+      "provenance": [{"source": "gemma_model", "line": 640, "fact": "self.o_proj maps num_heads * head_dim to hidden_size"}]
+    },
+    {
+      "id": "dense_mlp",
+      "kind": "module",
+      "label": "Dense MLP",
+      "module_type": "feed_forward",
+      "provenance": [{"source": "gemma_model", "line": 224, "fact": "class Gemma4MLP"}]
+    },
+    {
+      "id": "dense_gate_linear",
+      "kind": "op",
+      "label": "Dense Gate Linear",
+      "op_type": "Linear",
+      "attrs": {"output_size_symbol": "I_dense", "bias": false},
+      "provenance": [{"source": "gemma_model", "line": 229, "fact": "self.gate_proj maps hidden_size to intermediate_size"}]
+    },
+    {
+      "id": "dense_up_linear",
+      "kind": "op",
+      "label": "Dense Up Linear",
+      "op_type": "Linear",
+      "attrs": {"output_size_symbol": "I_dense", "bias": false},
+      "provenance": [{"source": "gemma_model", "line": 230, "fact": "self.up_proj maps hidden_size to intermediate_size"}]
+    },
+    {
+      "id": "gelu_multiply",
+      "kind": "op",
+      "label": "GELU Multiply",
+      "op_type": "ActivationMultiply",
+      "attrs": {"activation": "gelu_pytorch_tanh"},
+      "provenance": [{"source": "gemma_model", "line": 235, "fact": "down_proj(act_fn(gate_proj(x)) * up_proj(x))"}]
+    },
+    {
+      "id": "dense_down_linear",
+      "kind": "op",
+      "label": "Dense Output Linear",
+      "op_type": "Linear",
+      "attrs": {"output_size_symbol": "H", "bias": false},
+      "provenance": [{"source": "gemma_model", "line": 231, "fact": "self.down_proj maps intermediate_size to hidden_size"}]
+    },
+    {
+      "id": "moe_block",
+      "kind": "module",
+      "label": "Sparse MoE Block",
+      "module_type": "mixture_of_experts",
+      "attrs": {"experts_symbol": "E", "top_k_symbol": "top_k", "moe_intermediate_symbol": "I_moe"},
+      "provenance": [{"source": "gemma_model", "line": 339, "fact": "class Gemma4SparseMoeBlock"}]
+    },
+    {
+      "id": "moe_router",
+      "kind": "op",
+      "label": "MoE Router",
+      "op_type": "LinearRouter",
+      "attrs": {"router_norm": true, "per_expert_scale": true},
+      "provenance": [{"source": "gemma_model", "line": 242, "fact": "class Gemma4Router"}]
+    },
+    {
+      "id": "topk_expert_select",
+      "kind": "op",
+      "label": "TopK Expert Select",
+      "op_type": "TopK",
+      "attrs": {"k_symbol": "top_k"},
+      "provenance": [{"source": "gemma_model", "line": 264, "fact": "npu_moe_gating_top_k_softmax selects experts"}]
+    },
+    {
+      "id": "expert_parallel_state",
+      "kind": "state",
+      "label": "Expert Parallel State",
+      "state_type": "parallel_group_state",
+      "attrs": {"moe_ep_symbol": "moe_ep", "experts_per_rank_symbol": "experts_per_rank"},
+      "provenance": [{"source": "gemma_runtime_yaml", "line": 22, "fact": "moe_tp_size=1 with world_size=8 yields moe_ep_size=8"}]
+    },
+    {
+      "id": "moe_dispatch",
+      "kind": "op",
+      "label": "MoE Dispatch",
+      "op_type": "Dispatch",
+      "attrs": {"prefill_path": "double_routing", "decode_graph_path": "local_experts"},
+      "provenance": [{"source": "gemma_model", "line": 430, "fact": "MoE forward selects TP, double-routing, or local-expert path"}]
+    },
+    {
+      "id": "moe_experts",
+      "kind": "op",
+      "label": "Expert GEGLU GMM",
+      "op_type": "GroupedMatMul",
+      "attrs": {"activation": "geglu", "uses_fused_weights": true},
+      "provenance": [{"source": "gemma_model", "line": 365, "fact": "Gemma4GegluMoEGMM computes expert projections"}]
+    },
+    {
+      "id": "moe_combine",
+      "kind": "op",
+      "label": "MoE Combine",
+      "op_type": "FinalizeRouting",
+      "attrs": {"decode_graph_collective": "AllReduce"},
+      "provenance": [{"source": "gemma_model", "line": 595, "fact": "npu_moe_finalize_routing combines expert outputs"}]
+    },
+    {
+      "id": "post_layer_norm",
+      "kind": "op",
+      "label": "Post Layer RMSNorm",
+      "op_type": "RMSNorm",
+      "attrs": {"epsilon": 0.000001},
+      "provenance": [{"source": "gemma_model", "line": 789, "fact": "MoE path declares additional pre/post feedforward RMSNorms"}]
+    },
+    {
+      "id": "final_norm",
+      "kind": "op",
+      "label": "Final RMSNorm",
+      "op_type": "RMSNorm",
+      "attrs": {"epsilon": 0.000001},
+      "provenance": [{"source": "gemma_model", "line": 894, "fact": "self.norm = Gemma4RMSNorm(config.hidden_size, eps=config.rms_norm_eps)"}]
+    },
+    {
+      "id": "lm_head",
+      "kind": "op",
+      "label": "LM Head Linear",
+      "op_type": "Linear",
+      "attrs": {"bias": false, "tie_word_embeddings": true, "lmhead_tp_symbol": "lmhead_tp"},
+      "provenance": [{"source": "gemma_model", "line": 1003, "fact": "ColumnParallelLinear is used when lmhead_tp_size > 1"}]
+    },
+    {
+      "id": "lmhead_all_gather",
+      "kind": "op",
+      "label": "LM Head AllGather",
+      "op_type": "AllGather",
+      "attrs": {"group": "lmhead_tp_group"},
+      "provenance": [{"source": "gemma_model", "line": 1101, "fact": "LMHead AllGather concatenates sharded logits"}]
+    },
+    {
+      "id": "logit_softcap",
+      "kind": "op",
+      "label": "Logit Softcap",
+      "op_type": "TanhScale",
+      "attrs": {"cap": 30.0},
+      "provenance": [{"source": "gemma_progress", "line": 29, "fact": "final_logit_softcapping=30.0"}]
+    },
+    {
+      "id": "output_logits",
+      "kind": "output",
+      "label": "Logits",
+      "provenance": [{"source": "gemma_model", "line": 1111, "fact": "Gemma4ForCausalLM.forward returns logits.float()"}]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_input_to_lm",
+      "source": "input_tokens",
+      "target": "gemma_lm",
+      "tensor": {"name": "input_ids", "shape": "[B,T]", "dtype": "int64", "constraints": ["T<=S_max"]},
+      "provenance": [{"source": "gemma_runtime_yaml", "line": 15, "fact": "input_max_len=256 and max_new_tokens=32 in selected runtime config"}]
+    },
+    {
+      "id": "e_lm_to_text_model",
+      "source": "gemma_lm",
+      "target": "text_model",
+      "tensor": {"name": "input_ids", "shape": "[B,T]", "dtype": "int64"},
+      "provenance": [{"source": "gemma_model", "line": 998, "fact": "Gemma4ForCausalLM owns self.model = Gemma4TextModel"}]
+    },
+    {
+      "id": "e_text_to_embedding",
+      "source": "text_model",
+      "target": "token_embedding",
+      "tensor": {"name": "input_ids", "shape": "[B,T]", "dtype": "int64", "constraints": ["V=262144"]},
+      "provenance": [{"source": "gemma_config", "line": 35, "fact": "vocab_size=262144"}]
+    },
+    {
+      "id": "e_embedding_to_decoder",
+      "source": "token_embedding",
+      "target": "decoder_layer",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16", "constraints": ["H=2816"]},
+      "provenance": [{"source": "gemma_config", "line": 36, "fact": "hidden_size=2816"}]
+    },
+    {
+      "id": "e_decoder_to_input_norm",
+      "source": "decoder_layer",
+      "target": "input_norm",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 806, "fact": "hidden_states = self.input_layernorm(hidden_states)"}]
+    },
+    {
+      "id": "e_input_norm_to_attention",
+      "source": "input_norm",
+      "target": "attention",
+      "tensor": {"name": "normed_hidden_states", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 807, "fact": "self.self_attn consumes normed hidden_states"}]
+    },
+    {
+      "id": "e_attention_to_sliding",
+      "source": "attention",
+      "target": "sliding_attention",
+      "tensor": {"name": "attention_mode", "constraints": ["layers=0-4,6-10,12-16,18-22,24-28", "window=1024"]},
+      "provenance": [{"source": "gemma_progress", "line": 26, "fact": "25 sliding attention layers with sliding_window=1024"}]
+    },
+    {
+      "id": "e_attention_to_full",
+      "source": "attention",
+      "target": "full_attention",
+      "tensor": {"name": "attention_mode", "constraints": ["layers=5,11,17,23,29", "k_eq_v=true"]},
+      "provenance": [{"source": "gemma_progress", "line": 27, "fact": "full attention layers are 5, 11, 17, 23, 29"}]
+    },
+    {
+      "id": "e_sliding_to_q",
+      "source": "sliding_attention",
+      "target": "q_linear",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16", "constraints": ["N_h=16", "D_sliding=256"]},
+      "provenance": [{"source": "gemma_model", "line": 634, "fact": "q_proj maps hidden states to query heads"}]
+    },
+    {
+      "id": "e_attention_to_k",
+      "source": "attention",
+      "target": "k_linear",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16", "constraints": ["N_kv_sliding=8", "N_kv_full=2"]},
+      "provenance": [{"source": "gemma_model", "line": 635, "fact": "k_proj maps hidden states to key heads"}]
+    },
+    {
+      "id": "e_attention_to_v",
+      "source": "attention",
+      "target": "v_linear",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16", "constraints": ["present_for_sliding_attention", "omitted_for_full_attention"]},
+      "provenance": [{"source": "gemma_model", "line": 637, "fact": "v_proj exists only when use_k_eq_v is false"}]
+    },
+    {
+      "id": "e_k_to_reuse",
+      "source": "k_linear",
+      "target": "value_reuse",
+      "tensor": {"name": "key_states", "shape": "[B,T,N_kv_full*D_full]", "dtype": "bf16", "constraints": ["applies_to_full_attention"]},
+      "provenance": [{"source": "gemma_model", "line": 680, "fact": "full attention reuses key states as value states"}]
+    },
+    {
+      "id": "e_qkv_to_norm",
+      "source": "q_linear",
+      "target": "qkv_norm",
+      "tensor": {"name": "query_states", "shape": "[B,T,N_h,D]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 692, "fact": "query_states = self.q_norm(query_states)"}]
+    },
+    {
+      "id": "e_qkv_norm_to_rope",
+      "source": "qkv_norm",
+      "target": "apply_rope",
+      "tensor": {"name": "qk_states", "shape": "[B,T,N,D]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 697, "fact": "RoPE is applied after QK norms"}]
+    },
+    {
+      "id": "e_rope_cache_to_rope",
+      "source": "rope_cache",
+      "target": "apply_rope",
+      "tensor": {"name": "cos_sin", "shape": "[T,D]", "dtype": "bf16", "constraints": ["dual_mode_rope"]},
+      "provenance": [{"source": "gemma_model", "line": 927, "fact": "cos_sin_dict is computed per layer type"}]
+    },
+    {
+      "id": "e_kv_cache_to_attention",
+      "source": "kv_cache",
+      "target": "fused_attention",
+      "tensor": {"name": "past_key_values", "shape": "[B,S_cache,KV_dim]", "dtype": "bf16", "constraints": ["sliding_KV_dim=2048", "full_KV_dim=1024"]},
+      "provenance": [{"source": "gemma_model", "line": 1173, "fact": "init_cache documents sliding and full KV dimensions"}]
+    },
+    {
+      "id": "e_rope_to_fused_attention",
+      "source": "apply_rope",
+      "target": "fused_attention",
+      "tensor": {"name": "query_key_value_states", "shape": "[B,T,H_or_KV]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 720, "fact": "FA consumes query, key, and value states"}]
+    },
+    {
+      "id": "e_fused_attention_to_output",
+      "source": "fused_attention",
+      "target": "attn_output_linear",
+      "tensor": {"name": "attn_output", "shape": "[B,T,N_h*D]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 757, "fact": "attention output is reshaped then projected by o_proj"}]
+    },
+    {
+      "id": "e_attn_to_dense",
+      "source": "attn_output_linear",
+      "target": "dense_mlp",
+      "tensor": {"name": "feedforward_input", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 819, "fact": "hidden_states = self.mlp(hidden_states)"}]
+    },
+    {
+      "id": "e_dense_to_gate",
+      "source": "dense_mlp",
+      "target": "dense_gate_linear",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 229, "fact": "gate_proj is part of Gemma4MLP"}]
+    },
+    {
+      "id": "e_dense_to_up",
+      "source": "dense_mlp",
+      "target": "dense_up_linear",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 230, "fact": "up_proj is part of Gemma4MLP"}]
+    },
+    {
+      "id": "e_dense_gate_to_gelu",
+      "source": "dense_gate_linear",
+      "target": "gelu_multiply",
+      "tensor": {"name": "dense_gate", "shape": "[B,T,I_dense]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_config", "line": 37, "fact": "intermediate_size=2112"}]
+    },
+    {
+      "id": "e_dense_up_to_gelu",
+      "source": "dense_up_linear",
+      "target": "gelu_multiply",
+      "tensor": {"name": "dense_up", "shape": "[B,T,I_dense]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 235, "fact": "act_fn(gate_proj(x)) * up_proj(x)"}]
+    },
+    {
+      "id": "e_gelu_to_dense_down",
+      "source": "gelu_multiply",
+      "target": "dense_down_linear",
+      "tensor": {"name": "dense_intermediate", "shape": "[B,T,I_dense]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 235, "fact": "dense intermediate is consumed by down_proj"}]
+    },
+    {
+      "id": "e_dense_to_moe",
+      "source": "dense_down_linear",
+      "target": "moe_block",
+      "tensor": {"name": "residual_and_dense_output", "shape": "[B,T,H]", "dtype": "bf16", "constraints": ["moe_enabled_all_decoder_layers"]},
+      "provenance": [{"source": "gemma_model", "line": 823, "fact": "MoE block executes when enable_moe_block is true"}]
+    },
+    {
+      "id": "e_moe_to_router",
+      "source": "moe_block",
+      "target": "moe_router",
+      "tensor": {"name": "hidden_states_flat", "shape": "[B*T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 830, "fact": "router consumes flattened residual hidden states"}]
+    },
+    {
+      "id": "e_router_to_topk",
+      "source": "moe_router",
+      "target": "topk_expert_select",
+      "tensor": {"name": "expert_scores", "shape": "[B*T,E]", "dtype": "fp32/bf16", "constraints": ["E=128"]},
+      "provenance": [{"source": "gemma_progress", "line": 33, "fact": "MoE has 128 experts"}]
+    },
+    {
+      "id": "e_topk_to_dispatch",
+      "source": "topk_expert_select",
+      "target": "moe_dispatch",
+      "tensor": {"name": "topk_idx_and_weight", "shape": "[B*T,top_k]", "dtype": "int32+bf16", "constraints": ["top_k=8"]},
+      "provenance": [{"source": "gemma_progress", "line": 33, "fact": "top_k=8"}]
+    },
+    {
+      "id": "e_ep_state_to_dispatch",
+      "source": "expert_parallel_state",
+      "target": "moe_dispatch",
+      "tensor": {"name": "ep_group", "constraints": ["world_size=8", "experts_per_rank=16"]},
+      "provenance": [{"source": "gemma_runtime_yaml", "line": 4, "fact": "world_size=8"}]
+    },
+    {
+      "id": "e_dispatch_to_experts",
+      "source": "moe_dispatch",
+      "target": "moe_experts",
+      "tensor": {"name": "routed_hidden_states", "shape": "[tokens_per_expert,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 365, "fact": "routed tokens enter Gemma4GegluMoEGMM"}]
+    },
+    {
+      "id": "e_experts_to_combine",
+      "source": "moe_experts",
+      "target": "moe_combine",
+      "tensor": {"name": "expert_outputs", "shape": "[tokens_per_expert,H]", "dtype": "bf16", "constraints": ["I_moe=704"]},
+      "provenance": [{"source": "gemma_progress", "line": 33, "fact": "moe_intermediate_size=704"}]
+    },
+    {
+      "id": "e_combine_to_post_norm",
+      "source": "moe_combine",
+      "target": "post_layer_norm",
+      "tensor": {"name": "moe_output", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 844, "fact": "MoE output is normalized and added back into the layer path"}]
+    },
+    {
+      "id": "e_post_norm_to_final_norm",
+      "source": "post_layer_norm",
+      "target": "final_norm",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 943, "fact": "Gemma4TextModel applies final norm after all decoder layers"}]
+    },
+    {
+      "id": "e_final_norm_to_lm_head",
+      "source": "final_norm",
+      "target": "lm_head",
+      "tensor": {"name": "hidden_states", "shape": "[B,T,H]", "dtype": "bf16"},
+      "provenance": [{"source": "gemma_model", "line": 1098, "fact": "lm_head consumes hidden_states"}]
+    },
+    {
+      "id": "e_lm_head_to_allgather",
+      "source": "lm_head",
+      "target": "lmhead_all_gather",
+      "tensor": {"name": "logits_shard", "shape": "[B,T,V/lmhead_tp]", "dtype": "bf16", "constraints": ["lmhead_tp=8"]},
+      "provenance": [{"source": "gemma_runtime_yaml", "line": 23, "fact": "lmhead_tp_size=8"}]
+    },
+    {
+      "id": "e_allgather_to_softcap",
+      "source": "lmhead_all_gather",
+      "target": "logit_softcap",
+      "tensor": {"name": "logits", "shape": "[B,T,V]", "dtype": "bf16/fp32"},
+      "provenance": [{"source": "gemma_model", "line": 1104, "fact": "all_gather shards are concatenated into full logits"}]
+    },
+    {
+      "id": "e_softcap_to_logits",
+      "source": "logit_softcap",
+      "target": "output_logits",
+      "tensor": {"name": "logits", "shape": "[B,T,V]", "dtype": "fp32", "constraints": ["softcap=30.0"]},
+      "provenance": [{"source": "gemma_model", "line": 1108, "fact": "logits are tanh-scaled when final_logit_softcapping is set"}]
+    }
+  ],
+  "repeats": [
+    {
+      "id": "repeat_decoder_layers",
+      "template_node": "decoder_layer",
+      "range": "0-29",
+      "count": 30,
+      "provenance": [{"source": "gemma_config", "line": 38, "fact": "num_hidden_layers=30"}]
+    },
+    {
+      "id": "repeat_sliding_attention_layers",
+      "template_node": "sliding_attention",
+      "range": "0-4,6-10,12-16,18-22,24-28",
+      "count": 25,
+      "provenance": [{"source": "gemma_progress", "line": 26, "fact": "25 sliding attention layers"}]
+    },
+    {
+      "id": "repeat_full_attention_layers",
+      "template_node": "full_attention",
+      "range": "5,11,17,23,29",
+      "count": 5,
+      "provenance": [{"source": "gemma_progress", "line": 27, "fact": "5 full attention layers"}]
+    },
+    {
+      "id": "repeat_moe_layers",
+      "template_node": "moe_block",
+      "range": "0-29",
+      "count": 30,
+      "provenance": [{"source": "gemma_model", "line": 787, "fact": "every decoder layer instantiates Gemma4SparseMoeBlock when enable_moe_block is true"}]
+    }
+  ],
+  "branches": [
+    {
+      "id": "attention_mode_by_layer_type",
+      "condition": "config.layer_types[layer_id]",
+      "true_target": "sliding_attention",
+      "false_target": "full_attention",
+      "resolved_ranges": [
+        {"target": "sliding_attention", "range": "0-4,6-10,12-16,18-22,24-28"},
+        {"target": "full_attention", "range": "5,11,17,23,29"}
+      ],
+      "provenance": [{"source": "gemma_config", "line": 117, "fact": "default layer_types use a 5:1 sliding/full pattern and force the last layer to full"}]
+    },
+    {
+      "id": "full_attention_value_path",
+      "condition": "layer_type == full_attention and attention_k_eq_v",
+      "true_target": "value_reuse",
+      "false_target": "v_linear",
+      "resolved_ranges": [
+        {"target": "value_reuse", "range": "5,11,17,23,29"},
+        {"target": "v_linear", "range": "0-4,6-10,12-16,18-22,24-28"}
+      ],
+      "provenance": [{"source": "gemma_progress", "line": 27, "fact": "full attention uses K=V and has no independent v_proj"}]
+    }
+  ],
+  "warnings": [
+    "The local package does not contain the upstream checkpoint config.json; concrete MoE values are traced through the implementation notes plus source fields that consume config.num_experts/top_k_experts/moe_intermediate_size.",
+    "Vision/audio checkpoint prefixes are skipped by Gemma4ForCausalLM.load_weights, so this schema intentionally covers the text decoder path used by the local runnable implementation."
+  ]
+}
