@@ -1,0 +1,91 @@
+/* Compact object presentation paired with diagram-legend-library/visual-system.js. */
+.path-menu{max-height:min(65vh,560px);overflow:auto;min-width:340px}.path-menu .result-name>span:last-child{overflow:hidden;text-overflow:ellipsis}.path-menu small{margin-left:36px}
+#pass-dialog .mr-diagram{max-width:1000px;margin:16px auto}.mr-diagram svg{width:100%;max-height:360px}
+#pass-dialog .mr-comparison{gap:36px;align-items:start}#pass-dialog .mr-comparison h4{font-size:14px;font-weight:500;color:#bbb;margin:16px 0}
+#pass-dialog .mr-physical{border:0;border-radius:0;background:none;padding:0 0 14px;margin:0 0 10px;display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 16px;align-items:start}
+#pass-dialog .mr-physical header{grid-column:1;grid-row:1 / span var(--value-count,1);padding:0;position:relative;margin-top:4px}#pass-dialog .mr-physical header:after{content:'';position:absolute;top:18px;right:-16px;width:16px;border-top:1px solid #777}
+#pass-dialog .mr-physical header svg{width:150px;display:block}#pass-dialog .mr-value{grid-column:2;margin:0;padding:8px 12px;border:0;border-left:2px solid currentColor;border-radius:0 14px 14px 0;background:#292929;gap:4px;min-width:0}
+#pass-dialog .mr-value strong{display:flex;align-items:center;color:#eee;font-size:13px}#pass-dialog .mr-value small{font-size:10px}#pass-dialog .mr-value code{font-size:10px;color:#999}#pass-dialog .mr-value.selected{outline:1px solid #eee;outline-offset:2px;background:#393939}
+#pass-dialog .mr-alias-note{border:0;border-top:1px solid #444;background:none;padding:12px 0;font-size:12px}#pass-dialog .mr-buffer-tabs{gap:8px}#pass-dialog .mr-buffer-tabs .ctl{border-radius:20px;padding:7px 14px;font-size:12px}#pass-dialog .mr-caption{font-size:12px;color:#999;line-height:1.7}
+#qk-analysis .qk-evolution-canvas{max-height:560px;min-height:300px;font-family:var(--font)}#qk-analysis .qk-evolution-canvas text{font-family:var(--font)}
+@media(max-width:760px){#pass-dialog .mr-comparison{grid-template-columns:1fr}.path-menu{min-width:280px}#pass-dialog .mr-physical{grid-template-columns:120px minmax(0,1fr)}#pass-dialog .mr-physical header svg{width:120px}}
+
+#pass-dialog .mr-takeaway{font-size:24px;line-height:1.45;color:#eee;margin:12px 0 24px;font-weight:500}#pass-dialog .mr-large-diagram{max-width:1100px}#pass-dialog .mr-large-diagram svg{max-height:480px}#pass-dialog .pass-disclosure{font-size:14px;line-height:1.7}#pass-dialog .mr-value-object{padding:0;border:0;background:none;border-radius:6px;width:240px;max-width:100%}#pass-dialog .mr-value-object svg{width:100%;display:block}#pass-dialog .mr-value-object.selected{background:none;outline:1.5px solid #eee}#pass-dialog .mr-value-object:hover{background:none;filter:brightness(1.15)}
+
+#qk-analysis .qk-evolution-canvas{max-height:none;min-height:0;width:100%}#qk-analysis .evo-sequence{margin:22px 0 12px}#qk-analysis .evo-stage-description strong{font-size:20px}#qk-analysis .evo-stage-description p{font-size:15px;line-height:1.6}#qk-analysis .evo-transport .ctl{border-radius:20px;padding:8px 16px}#qk-analysis .evo-comparison-body{display:block}#qk-analysis .evo-comparison-body article{margin-top:24px}
+
+#qk-analysis .qk-evolution-canvas{max-height:500px;max-height:min(54vh,500px)}
+
+/* One SVG unit is at most one CSS pixel: never enlarge library objects to fill a panel. */
+#pass-dialog .mr-diagram{width:min(100%,var(--diagram-width,880px));max-width:none;margin:20px 0}
+#pass-dialog .mr-diagram>svg{display:block;width:100%;height:auto;max-height:none}
+#pass-dialog .mr-diagram [data-kind="storage"] text{font-size:18px}
+#pass-dialog .mr-diagram [data-kind="storage"] text:last-child{font-size:13px}
+#pass-dialog .mr-takeaway{font-size:20px;line-height:1.5;margin:12px 0 20px}
+#pass-dialog .mr-value-object{width:160px}
+#pass-dialog .mr-physical{grid-template-columns:180px minmax(160px,1fr);gap:12px 20px}
+#pass-dialog .mr-physical header svg{width:180px;height:64px}
+#pass-dialog .mr-physical header:after{width:20px;right:-20px;top:32px}
+#pass-dialog .mr-comparison{gap:24px}
+#pass-dialog .mr-caption,#pass-dialog .pass-disclosure>summary{font-size:13px}
+#qk-analysis .qk-evolution-canvas{display:block;width:min(100%,1040px);height:auto;max-height:none;margin:0 auto}
+#qk-analysis .evo-stage-description strong{font-size:18px}
+@media(max-width:900px){#pass-dialog .mr-comparison{grid-template-columns:1fr}}
+
+#pass-dialog .mr-physical header [data-kind="storage"] text{font-size:14px}
+#pass-dialog .mr-physical header [data-kind="storage"] text:last-child{font-size:12px}
+
+/* Fit the full graph inside the remaining dialog space, preserving its aspect ratio. */
+#pass-dialog.qk-mode #pass-evidence{display:flex;flex-direction:column;overflow:auto}
+#pass-dialog.qk-mode #qk-analysis{flex:1;min-height:0;display:flex}
+#qk-analysis .qk-pass-evolution{width:100%;display:flex;flex-direction:column;min-height:0}
+#qk-analysis .evo-transport{margin:0;gap:8px}
+#qk-analysis .evo-transport .ctl{width:32px;height:32px;min-height:32px;padding:0;border-radius:6px;display:grid;place-items:center;font-size:16px}
+#qk-analysis .evo-sequence{margin:8px 0;height:38px}
+#qk-analysis .evo-stage-description p{margin:6px 0 10px;font-size:14px}
+#qk-analysis .qk-pass-evolution>.qk-evolution-canvas{flex:1 1 0;height:0;min-height:180px;width:100%;max-height:none}
+#qk-analysis .evo-comparison,#qk-analysis .evo-source{flex:none;margin:5px 0;font-size:12px}
+#qk-analysis .evo-comparison[open] .qk-evolution-canvas{height:320px}
+
+#qk-analysis .qk-pass-evolution>.qk-evolution-canvas{flex:none;height:clamp(240px,calc(100dvh - 420px),480px);min-height:0}
+
+#qk-analysis .evo-controls{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+#qk-analysis .evo-transport{flex:none}
+#qk-analysis .evo-position-label{display:none}
+#qk-analysis .evo-sequence{flex:1;margin:0;height:32px}
+#qk-analysis .evo-sequence button{height:6px}
+#qk-analysis .evo-sequence .sequence-label{bottom:calc(100% + 4px);font-size:11px}
+.path-quiet{border-top:1px solid #444;margin-top:8px;padding-top:8px}
+.path-quiet>summary{cursor:pointer;padding:8px 12px;font-size:13px;color:#aaa}
+.cpi-tag.cpi-hover{outline:2px solid #eee;outline-offset:3px;filter:brightness(1.3);z-index:5}
+
+/* Keep navigation labels inside their own row; evidence scrolls with the graph. */
+#pass-dialog.qk-mode #qk-analysis{overflow:visible;display:block;flex:none}
+#pass-dialog.qk-mode #pass-evidence{display:block;overflow:auto}
+#pass-dialog.qk-mode .pass-footer{display:none}
+#qk-analysis .evo-controls{padding-top:14px;flex-shrink:0}
+#qk-analysis .evo-evidence{flex:none;font-size:13px;margin:8px 0 0;padding:8px 0;border-top:1px solid var(--divider)}
+#qk-analysis .evo-evidence>summary{cursor:pointer;color:#aaa;width:max-content;padding:4px 0}
+#qk-analysis .evo-evidence[open]{padding-bottom:16px}
+#qk-analysis .evo-boundary{font-size:13px;color:#aaa;margin-top:12px}
+#qk-analysis .evo-boundary p{line-height:1.7}
+#qk-analysis .evo-comparison-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+#qk-analysis .evo-comparison-body article{min-width:0;margin-top:8px}
+#qk-analysis .evo-comparison-body .qk-evolution-canvas{height:auto;max-height:none;width:100%}
+@media(max-width:760px){#qk-analysis .evo-comparison-body{grid-template-columns:1fr}}
+
+/* Evidence shares the control row instead of reserving a footer. */
+#qk-analysis .qk-pass-evolution{position:relative}
+#qk-analysis .evo-controls{padding-right:110px}
+#qk-analysis .evo-evidence{border:0;margin:0;padding:0}
+#qk-analysis .evo-evidence>summary{position:absolute;top:18px;right:0;padding:4px 0;font-size:12px}
+#qk-analysis .evo-evidence[open]{margin-top:12px;padding:12px 0 0;border-top:1px solid var(--divider)}
+#pass-dialog.qk-mode{height:auto;max-height:calc(100dvh - 48px)}
+#pass-dialog.qk-mode #pass-evidence{padding-bottom:16px}
+
+#pass-dialog.qk-mode .pass-shell{height:auto;max-height:calc(100dvh - 50px)}
+#pass-dialog.qk-mode .pass-body{flex:0 1 auto}
+
+#pass-dialog.qk-mode{height:fit-content}
+
+body.hide-path-navigation .cpi-nav{display:none}

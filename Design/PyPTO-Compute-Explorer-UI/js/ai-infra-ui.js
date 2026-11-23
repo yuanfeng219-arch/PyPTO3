@@ -109,6 +109,11 @@
       if (footer && controls) { controls.setAttribute('role','group'); controls.setAttribute('aria-label','播放与分配'); footer.prepend(controls); }
     });
     for (const panel of root.querySelectorAll('.viz2-canvas:not([hidden])')) {
+      if (panel.querySelector('#viz2-graph-intra:not([hidden]) .viz2-instance-graph:not([hidden])') || panel.querySelector('#viz2-pipeline-intra:not([hidden]) .viz2-pipeline-instance:not([hidden])')) {
+        const back=panel.querySelector('[data-graph-back],[data-intra-back]');
+        if (back && back.parentElement!==panel) { back.classList.add('ai-detail-back'); back.dataset.liquidGlass='control'; panel.prepend(back); }
+        continue;
+      }
       const footers=[...panel.querySelectorAll('footer')].filter(f=>f.getClientRects().length);
       const footer=footers[0]; if (!footer) continue;
       footer.classList.add('ai-control-bar'); footer.removeAttribute('data-liquid-glass'); footer.setAttribute('aria-label','画布控制栏');

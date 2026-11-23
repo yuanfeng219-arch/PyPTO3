@@ -1,0 +1,22 @@
+.sequence-nav{position:relative;width:100%;height:44px;display:flex;align-items:center;gap:3px;touch-action:none;user-select:none;font:12px system-ui;color:#ddd}
+.sequence-nav button{position:relative;flex:1 1 0;min-width:0;height:28px;min-height:0;padding:0;border:0;border-radius:2px;background:#666;cursor:pointer;color:inherit}
+.sequence-nav button:hover{background:#aaa}.sequence-nav button[aria-current=step]{background:#eee;color:#111}
+.sequence-nav .sequence-label{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);white-space:nowrap;pointer-events:none;font:12px system-ui;color:#eee}
+.sequence-nav button:not([aria-current=step]) .sequence-label{display:none}.sequence-nav button:hover .sequence-label,.sequence-nav button:focus-visible .sequence-label{display:block;background:#242424;padding:5px 8px;border-radius:5px;z-index:3}
+.sequence-nav button:focus-visible,.sequence-window:focus-visible{outline:2px solid white;outline-offset:3px}
+.sequence-nav[data-variant=time]{gap:0;background:transparent;height:36px;margin:4px 0}
+.sequence-nav[data-variant=time] button{position:absolute;top:8px;height:20px;border:0;border-radius:2px;background:#606060}
+.sequence-nav[data-variant=time] button:hover{background-color:#929292}
+.sequence-nav[data-variant=time] button[aria-current=step]{background-color:#b8b8b8}
+.sequence-window{position:absolute;top:0;bottom:0;min-width:6px;border:1px solid #eee;border-radius:6px;background:transparent;cursor:grab;touch-action:none}
+.sequence-window:active{cursor:grabbing}
+.sequence-handle{position:absolute;top:0;bottom:0;width:16px;cursor:ew-resize}
+.sequence-handle:first-child{left:-8px}.sequence-handle:last-child{right:-8px}
+.sequence-handle::after{content:"";position:absolute;left:7px;top:9px;bottom:9px;width:2px;border-radius:1px;background:#eee;box-shadow:0 0 0 2px #202020}
+.sequence-handle:hover::after{background:#fff}
+.sequence-nav button[data-kind=prefill]{background-image:repeating-linear-gradient(135deg,transparent 0 3px,#ffffff42 3px 4px)!important}
+.sequence-nav button[data-kind=prefill][aria-current=step]{background-image:repeating-linear-gradient(135deg,transparent 0 3px,#11111165 3px 4px)!important}
+.sequence-alert{position:absolute;top:-7px;left:50%;width:4px;height:4px;transform:translateX(-50%);border-radius:50%;background:#fd5644;pointer-events:none}
+.sequence-nav[data-variant=time] button[data-alert=true],.sequence-nav button[data-alert=true]{background-color:#be493d}
+.sequence-nav[data-variant=time] button[data-alert=true]:hover{background-color:#e25a49}
+.sequence-nav[data-variant=time] button[data-alert=true][aria-current=step]{background-color:#ffb4aa}

@@ -102,7 +102,7 @@ function evolutionMarkup(e){
  const s=e.states,v=e.fifo.versions;
  return `<section class="viz2-stack-evolution" aria-label="S${e.index} 状态演化"><div class="viz2-stack-evolution__lane"><b>Previous · ${esc(e.previous)}</b><span>${esc(s.m.previous)} · ${esc(s.l.previous)} · ${esc(s.o.previous)}</span></div><div class="viz2-stack-evolution__lane"><b>Current · S${e.index}</b><span>Tick ${e.produceTick}: Scores → Online Softmax → ${esc(s.m.updated)}, ${esc(s.l.updated)}</span><small>m_new = max(m_old, row_max(Scores)); l_new = rescale × l_old + sum(exp)</small><span>Tick ${e.consumeTick}: PV Partial + delayed Rescale + ${esc(s.o.previous)} → ${esc(s.o.updated)}</span><small>o_new = delayed_rescale × o_old + PV Partial</small></div><div class="viz2-stack-evolution__lane"><b>Updated / Next</b><span>${esc(s.m.updated)} · ${esc(s.l.updated)} · ${esc(s.o.updated)}${e.next?` → ${esc(e.next)} Previous`:' → Output Normalize'}</span></div><div class="viz2-stack-evolution__fifo"><b>Rescale FIFO · 静态逻辑 Tick</b><span>produce → ${esc(v[0])} → ${esc(v[1])} → ${esc(v[2])}</span><small>Softmax 先生产；Context 在 ${e.consumeTick-e.produceTick} Tick 后读取 pending0，补偿此前 m 更新造成的缩放。</small></div></section>`;
 }
-function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate,presentation}){
+function mount(host,{model,scenario,onTask,onFocus,onView,onScale,onNavigate,presentation}){
  host.classList.add('viz2-compute');
  window.PtoPhotoNarrative.html(host,global.PtoComputeDetailControls.identity()+'<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>');
  const toolbar=host.querySelector('[data-compute-toolbar]');
@@ -199,9 +199,31 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate,presentatio
   const selected=groups.flatMap(group=>group.pages).find(page=>page.index===focus.instancePage);
   const needle=selected?`${selected.sourceSymbol} = ${selected.api}`:root==='qk'?'qk_score_page = pl.matmul':'pv0 = pl.matmul';
   const line=model.source.split('\n').findIndex(value=>value.includes(needle))+1;
-  return `<section class="viz2-page-instances"><h3>Page Instances · ${task.pageCount}</h3><p>Per Task / AIC · 每 Page 一次逻辑贡献；源码静态推导，物理 Cache Page ID 未知。</p>${groups.map(group=>`<div class="viz2-page-instance-group"><b>S${group.index}</b><div>${group.pages.map(page=>`<button class="btn btn-ghost btn-sm ${selected?.index===page.index?'is-selected':''}" data-compute-instance-page="${page.index}" aria-pressed="${selected?.index===page.index}" title="${esc(page.api)}">P${page.index}${root==='pv'?` · ${page.api.replace('pl.','')}`:''}</button>`).join('')}</div></div>`).join('')}${selected?`<section><h3>P${selected.index} · S${selected.stack}</h3><dl>${[['Page Index',selected.index],['有效 Token',`${selected.tokens} / ${task.pageTokens}`],['输入',selected.input],['计算',selected.api],['输出',selected.output]].map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl><button class="btn btn-ghost btn-sm" data-compute-source="${line}">PyPTO 源码 :${line}</button><pre data-compute-code hidden></pre></section>`:''}</section>`;
+  return `<section class="viz2-page-instances"><h3>Page Instances · ${task.pageCount}</h3><p>Per Task / AIC · 每 Page 一次逻辑贡献；源码静态推导，物理 Cache Page ID 未知。</p><button type="button" class="btn btn-sm" data-open-instance-view>在 Instance 中完整平铺 ↗</button>${groups.map(group=>`<div class="viz2-page-instance-group"><b>S${group.index}</b><div>${group.pages.map(page=>`<button class="btn btn-ghost btn-sm ${selected?.index===page.index?'is-selected':''}" data-compute-instance-page="${page.index}" aria-pressed="${selected?.index===page.index}" title="${esc(page.api)}">P${page.index}${root==='pv'?` · ${page.api.replace('pl.','')}`:''}</button>`).join('')}</div></div>`).join('')}${selected?`<section><h3>P${selected.index} · S${selected.stack}</h3><dl>${[['Page Index',selected.index],['有效 Token',`${selected.tokens} / ${task.pageTokens}`],['输入',selected.input],['计算',selected.api],['输出',selected.output]].map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl><button class="btn btn-ghost btn-sm" data-compute-source="${line}">PyPTO 源码 :${line}</button><pre data-compute-code hidden></pre></section>`:''}</section>`;
  }
- const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
+ const structureHost=document.createElement('div');
+ structureHost.className='viz2-structure-graph';
+ const instanceModule=global.PtoPagedAttentionInstanceGraph;
+ let instanceHost, instances, scaleButtons=[];
+ if(instanceModule){
+  const scale=document.createElement('div');
+  scale.className='segmented-control segmented-control-muted viz2-graph-scale';
+  scale.setAttribute('role','group');
+  scale.setAttribute('aria-label','Graph 观察尺度');
+  scale.innerHTML='<button type="button" class="btn btn-sm" data-graph-scale="structure">Structure</button><button type="button" class="btn btn-sm" data-graph-scale="instances">Instance</button>';
+  scaleButtons=[...scale.querySelectorAll('button')];
+  scale.addEventListener('click',event=>{
+   const button=event.target.closest('[data-graph-scale]');
+   if(button){if(onScale)onScale(button.dataset.graphScale);else onView({intraScale:button.dataset.graphScale});}
+  });
+  instanceHost=document.createElement('div');
+  instanceHost.hidden=true;
+  canvas.append(scale,structureHost,instanceHost);
+  instances=instanceModule.mount(instanceHost,{
+   pageInstances,scenario,source:model.source,onFocus,onNavigate,onClose:()=>onView({intraInspectorOpen:false}),parentId:currentNode,
+  });
+ }else canvas.append(structureHost);
+ const shared=global.PtoVisualization2Graph.mount(structureHost,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
   narrativeTask:()=>task,alwaysExecution:true,initialMinScale:.5,initialAlignStart:true,
   layoutOptions:{alignSpineFront:true},
   ...(presentation?{
@@ -242,7 +264,7 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate,presentatio
   decorate(scene,nodes,graph,data){scene.dataset.executionWeight=String(!!data);scene.querySelectorAll('[data-stack-container-layer]').forEach(el=>el.remove());const container=scene.querySelector('[data-pypa-region="task-compute"]');if(data&&container){for(let i=task.stackCount-1;i>0;i--){const layer=document.createElement('div');layer.dataset.stackContainerLayer=String(i);layer.className='kf-pypa-graph__group execution-container-layer';layer.style.cssText=container.style.cssText;layer.style.transform=`translate(${i*10}px,${i*8}px)`;layer.setAttribute('aria-hidden','true');scene.insertBefore(layer,container);}}nodes.forEach(n=>{const el=scene.querySelector(`[data-pypa-node="${n.id}"]`),entry=data?.nodes[n.id];if(el)el.style.setProperty('--execution-weight',entry&&n.type==='operation'?String(Math.min(1,entry.count/Math.max(task.pageCount,task.tickCount))):'0');});}
  }});
  host.addEventListener('change',e=>{if(e.target.matches('[data-compute-task]'))onTask(Number(e.target.value));});
- canvas.addEventListener('click',e=>{const button=e.target.closest('[data-compute-instance-page],[data-compute-instance-stack]');if(!button)return;e.stopPropagation();const page=button.dataset.computeInstancePage!==undefined?Number(button.dataset.computeInstancePage):undefined,index=page!==undefined?task.pages[page].stack:Number(button.dataset.computeInstanceStack);onFocus({...focus,instancePage:page,index,stackIndex:index});},true);
+ canvas.addEventListener('click',e=>{if(e.target.closest('[data-open-instance-view]')){e.stopPropagation();if(onScale)onScale('instances');else onView({intraScale:'instances'});return;}const button=e.target.closest('[data-compute-instance-page],[data-compute-instance-stack]');if(!button)return;e.stopPropagation();const page=button.dataset.computeInstancePage!==undefined?Number(button.dataset.computeInstancePage):undefined,index=page!==undefined?task.pages[page].stack:Number(button.dataset.computeInstanceStack);onFocus({...focus,instancePage:page,index,stackIndex:index});},true);
  toolbar.addEventListener('click',e=>{const b=e.target.closest('[data-compute-stack],[data-compute-page]');if(!b)return;if(b.dataset.computeStack!==undefined){const index=Number(b.dataset.computeStack);onFocus(focus?.node||focus?.edge?{...focus,index,stackIndex:index,instancePage:undefined}:{kind:'stack',index,stackIndex:index});}else onFocus({kind:'page',index:Number(b.dataset.computePage)});});
  // Shared controller stops legacy document-level graph handlers; source actions
  // are handled in capture so their Inspector remains local to this Task.
@@ -265,8 +287,13 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onNavigate,presentatio
    host.querySelector('[data-compute-task]').value=task.id;window.PtoPhotoNarrative.text(toolbar.querySelector('[data-compute-context]'),`Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.pageCount} Pages / ${task.stackCount} Stacks / ${task.tickCount} logical ticks`);
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));
-  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||(v.intraOverlays?.sync??true),execution:true},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
- },hideTooltip:shared.hideTooltip,getTransitionRect:shared.getTransitionRect};
+  const isInstances=v.intraScale==='instances';
+  const showInstances=!!instances&&active&&isInstances;
+  structureHost.hidden=showInstances;
+  scaleButtons.forEach(button=>{const selected=(button.dataset.graphScale==='instances')===isInstances;button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));});
+  instances?.update(task,focus,v.intraInspectorOpen,showInstances);
+  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||(v.intraOverlays?.sync??true),execution:true},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active:active&&!showInstances});
+ },hideTooltip:shared.hideTooltip,getTransitionRect:()=>instanceHost&&!instanceHost.hidden?instances.getTransitionRect():shared.getTransitionRect()};
 }
 global.PtoVisualization2GraphIntra=Object.freeze({createModel,stackEvolution,pageInstances,mount});
 })(window);
