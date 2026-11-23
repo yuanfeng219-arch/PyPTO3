@@ -208,7 +208,8 @@
       </div>`;
     }
 
-    function render() {
+    function render({ preserveScroll = false } = {}) {
+      const scrollTop = preserveScroll ? host.querySelector('.csa-sv-main')?.scrollTop : null;
       const data = getData();
       if (!data) return;
       const { stage, kernels } = currentStageEntries();
@@ -252,6 +253,7 @@
           ${selectedObj ? inspectorHtml(selectedObj, stage, data) : ''}
         </aside>
       </div>`;
+      if (scrollTop != null) host.querySelector('.csa-sv-main').scrollTop = scrollTop;
     }
 
     host.addEventListener('click', event => {
@@ -270,7 +272,7 @@
       }
       if (event.target.closest('[data-sv-close]')) {
         selectedKernel = null;
-        render();
+        render({ preserveScroll: true });
         return;
       }
       const openQk = event.target.closest('[data-sv-open-qkpv]');
@@ -293,7 +295,7 @@
       if (kRow) {
         const name = kRow.dataset.svKernel;
         selectedKernel = selectedKernel === name ? null : name;
-        render();
+        render({ preserveScroll: true });
       }
     });
 

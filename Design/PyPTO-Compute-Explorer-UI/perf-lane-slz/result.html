@@ -689,19 +689,25 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
   color: #111;
 }
 :root #run-header .lane-toolbar .menu-panel.kernel-menu {
-  width: 356px;
+  width: 392px;
   max-width: calc(100vw - 32px);
-  max-height: min(68vh, 520px);
+  max-height: min(72vh, 560px);
   overflow: hidden;
   padding: 10px;
   gap: 8px;
 }
-.kernel-menu-search {
+.kernel-menu-search-wrap {
+  position: relative;
   flex: none;
+  display: flex;
+  align-items: center;
+}
+.kernel-menu-search {
+  flex: 1;
   width: 100%;
   box-sizing: border-box;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 28px 0 10px;
   border-radius: 7px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: #14161b;
@@ -715,6 +721,28 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
 .kernel-menu-search::placeholder {
   color: #778090;
 }
+.kernel-menu-clear {
+  position: absolute;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #8c94a3;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.kernel-menu-clear:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.kernel-menu-clear[hidden] {
+  display: none !important;
+}
 .kernel-menu-list {
   flex: 1;
   min-height: 0;
@@ -723,6 +751,13 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
   flex-direction: column;
   gap: 2px;
   padding-right: 2px;
+}
+.kernel-menu-heading {
+  flex: none;
+  padding: 6px 8px 3px;
+  font: 600 10.5px/1.2 var(--font);
+  letter-spacing: 0.04em;
+  color: #7f8899;
 }
 :root #run-header .lane-toolbar .menu-panel.kernel-menu .kernel-option {
   display: flex;
@@ -733,6 +768,12 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
   padding: 6px 10px;
   border-radius: 7px;
 }
+:root #run-header .lane-toolbar .menu-panel.kernel-menu .kernel-option[hidden],
+.kernel-menu-heading[hidden],
+.kernel-menu-divider[hidden],
+.kernel-menu-empty[hidden] {
+  display: none !important;
+}
 :root #run-header .lane-toolbar .menu-panel.kernel-menu .kernel-option::before {
   display: none;
 }
@@ -740,12 +781,37 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
   background: rgba(128, 183, 247, 0.16);
   color: #f4f6fa;
 }
+:root #run-header .lane-toolbar .menu-panel.kernel-menu .kernel-option.is-stage-option {
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 7px 10px;
+}
 .kernel-option-main {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
   flex: 1;
+}
+.kernel-option-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.kernel-option-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.kernel-option-sub {
+  font: 10.5px/1.3 var(--mono);
+  color: #7c8596;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .kernel-option-name {
   font: 12.5px/1.3 var(--mono);
@@ -760,6 +826,10 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
   border-radius: 4px;
   font: 600 10px/1.4 var(--mono);
   letter-spacing: 0.02em;
+}
+.kernel-option-badge.is-stage {
+  background: rgba(79, 184, 153, 0.18);
+  color: #6ce0be;
 }
 .kernel-option-badge.is-mix {
   background: rgba(128, 183, 247, 0.16);
@@ -788,8 +858,283 @@ body.cpi-host .lane-toolbar .kernel-selector.on::after {
   font: 12px/1.4 var(--font);
 }
 
+/* Stage multi-kernel pipeline step strip */
+.kf-stage-steps {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #17191f;
+}
+.kf-stage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #dce1ea;
+  font: 11px/1 var(--mono);
+  cursor: pointer;
+  transition: background-color 0.1s, border-color 0.1s, opacity 0.1s;
+}
+.kf-stage-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.kf-stage-chip.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+.kf-stage-chip.is-dimmed {
+  opacity: 0.42;
+}
+.kf-stage-chip i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+.kf-stage-chip small {
+  color: #8c95a6;
+  font-size: 10px;
+}
+.kf-stage-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 10px/1 var(--mono);
+  color: #7c8596;
+  white-space: nowrap;
+}
+.kf-stage-link.is-overlap { color: #67d4b3; }
+.kf-stage-link.is-gap { color: #f2c45f; }
+.kf-rt-bar.is-dimmed { opacity: 0.14 !important; }
+.kf-rt-step-jump {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #dce1ea;
+  font: 11px/1.2 var(--mono);
+  cursor: pointer;
+  text-align: left;
+}
+.kf-rt-step-jump:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.kf-rt-step-jump span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kf-rt-step-jump i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+.kf-rt-step-jump small {
+  color: #8c95a6;
+  flex: none;
+}
+
+/* Full-swimlane live search & Stage/Kernel highlight controls */
+.kernel-menu-mode {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: #14161b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.kernel-menu-mode button {
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9aa3b2;
+  font: 11.5px/1 var(--font);
+  cursor: pointer;
+}
+.kernel-menu-mode button:hover {
+  color: #edf0f5;
+}
+.kernel-menu-mode button.is-selected {
+  background: #eceef2;
+  color: #111;
+  font-weight: 600;
+}
+.kernel-menu-live {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: rgba(128, 183, 247, 0.11);
+  border: 1px solid rgba(128, 183, 247, 0.28);
+  font: 11px/1.3 var(--mono);
+  color: #b8d7fc;
+}
+.kernel-menu-live[hidden] {
+  display: none !important;
+}
+.kernel-menu-live button {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #80b7f7;
+  color: #0d1522;
+  font: 600 11px/1 var(--font);
+  cursor: pointer;
+}
+.kernel-menu-live button:hover {
+  background: #9cc7fa;
+}
+
+/* Full-lane highlight state on #lane and #cp */
+#lane.kernel-hl-active .task-event {
+  opacity: 0.16;
+  transition: opacity 0.1s ease-out;
+}
+#lane.kernel-hl-active .task-event.kernel-hl-hit {
+  opacity: 1;
+}
+#lane.kernel-hl-active [data-feature-outlines],
+#lane.kernel-hl-active [data-lane-labels],
+#lane.kernel-hl-active [data-result-region],
+#lane.kernel-hl-active [data-lane-annotation] {
+  opacity: 0.12 !important;
+}
+#cp .cp-seg.cp-kernel-muted {
+  opacity: 0.22;
+}
+#cp .cp-seg.cp-kernel-hit > rect {
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  opacity: 1 !important;
+}
+
+/* Pinned highlight banner above full swimlane */
+.kernel-hl-bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 6px 0 4px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 183, 247, 0.36);
+  background: linear-gradient(90deg, rgba(128, 183, 247, 0.12) 0%, #17191f 280px);
+  font: 12px/1.3 var(--font);
+  color: #e6ebf2;
+}
+.kernel-hl-bar[hidden] {
+  display: none !important;
+}
+.kernel-hl-bar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.kernel-hl-bar-title {
+  font: 600 12.5px/1.2 var(--mono);
+  color: #f4f6fa;
+}
+.kernel-hl-bar-meta {
+  font: 11.5px/1.2 var(--mono);
+  color: #9aa3b2;
+  font-variant-numeric: tabular-nums;
+}
+.kernel-hl-bar-steps {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.kernel-hl-step-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font: 10.5px/1.2 var(--mono);
+  color: #cfd5e0;
+}
+.kernel-hl-step-tag i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.kernel-hl-bar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.kernel-hl-btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #1d2028;
+  color: #dbe1eb;
+  font: 11.5px/1 var(--font);
+  cursor: pointer;
+}
+.kernel-hl-btn:hover {
+  background: #272b36;
+  color: #fff;
+}
+.kernel-hl-btn.is-primary {
+  border-color: transparent;
+  background: #80b7f7;
+  color: #0e1522;
+  font-weight: 600;
+}
+.kernel-hl-btn.is-primary:hover {
+  background: #9ac6fa;
+}
+.kernel-hl-btn.is-close {
+  width: 26px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
 /* Single-Kernel Runtime Trace View (matches Compute Explorer Runtime Trace). */
 body.kernel-focus-mode #lane-wrap,
+body.kernel-focus-mode #kernel-hl-bar,
 body.kernel-focus-mode #lane-navigator,
 body.kernel-focus-mode #lane-zoom,
 body.kernel-focus-mode #lead-finding,
@@ -1341,6 +1686,7 @@ body.kernel-focus-mode .trace-pair > .sec:last-child {
     </section>
 
     <section class="sec">
+      <div id="kernel-hl-bar" class="kernel-hl-bar" hidden aria-label="完整泳道高亮状态"></div>
       <div class="scroll" id="lane-wrap">
         <div class="lane-axis-sticky"><svg id="lane-axis" aria-label="设备时间轴"></svg></div>
         <div id="single-scroll-before" aria-hidden="true"></div>
@@ -1428,7 +1774,8 @@ let inlineEvolution=false,inlineReturnRange=null,inlineZoomFrom=null;const inlin
 let laneExpanded = false, laneComposition = false, laneRowCenters = [];
 let laneZoomRaf = 0;
 let singleChains = [], singleSelected = null, singlePanelOpen = false, singlePreviousRange = null, singlePreviousScroll = 0;
-let kernelFilter = null, kernelSortBy = "group", kernelShowAiv1Hatch = true, kernelShowSetupSplit = false, kernelSelectedGroup = null;
+let kernelFilter = null, kernelSortBy = "group", kernelShowAiv1Hatch = true, kernelShowSetupSplit = false, kernelSelectedGroup = null, kernelStageHighlight = null;
+let kernelMenuAction = "highlight", kernelPinnedHighlight = null, kernelPreviewHighlight = null;
 const ovl = { ribbon: false, bands: true, marks: true };
 const lanePreview = document.documentElement.classList.contains('lane-preview') && window.LaneTransition;
 function laneLeft() {
@@ -1633,6 +1980,9 @@ function buildKernelTraceModel(entry) {
         : Math.max(aiv0?.durUs || 0, aiv1?.durUs || 0);
       return {
         group: raw.group,
+        aicCore: raw.aicCore,
+        aiv0Core: raw.aiv0Core,
+        aiv1Core: raw.aiv1Core,
         aic,
         aiv0,
         aiv1,
@@ -1683,17 +2033,503 @@ function buildKernelTraceModel(entry) {
   };
 }
 
+const STAGE_STEP_COLORS = ["#80b7f7", "#4fb899", "#f2b857", "#a87ef0", "#f47b8c", "#56c7d6", "#9be05a"];
+
+const STAGE_CHAINS = [
+  {
+    id: "o-proj",
+    name: "O Projection",
+    subtitle: "tp_o_a → tp_o_a_quant → tp_o_b → tp_o_b_dequant",
+    source: "decode_o_proj.py",
+    steps: ["tp_o_a", "tp_o_a_quant", "tp_o_b", "tp_o_b_dequant"],
+  },
+  {
+    id: "q-proj",
+    name: "Q Projection",
+    subtitle: "qr_proj_matmul → qr_rms_norm_quant → qproj_matmul → qproj_dequant_rms_nope_rope",
+    source: "qkv_proj_rope.py",
+    steps: ["qr_proj_matmul", "qr_rms_norm_quant", "qproj_matmul", "qproj_dequant_rms_nope_rope"],
+  },
+  {
+    id: "main-comp",
+    name: "Main Compressor",
+    subtitle: "kv_score_proj → scatter_softmax_pool → rmsnorm_rope_cache_write + compress_state_commit",
+    source: "decode_compressor_ratio4.py",
+    steps: ["kv_score_proj", "scatter_softmax_pool", "rmsnorm_rope_cache_write", "compress_state_commit"],
+  },
+  {
+    id: "idx-q",
+    name: "Indexer Query",
+    subtitle: "idx_qr_proj_matmul → idx_qr_proj_dequant → qr_rope → qr_hadamard_matmul → qr_hadamard_quant",
+    source: "decode_indexer.py",
+    steps: ["idx_qr_proj_matmul", "idx_qr_proj_dequant", "qr_rope", "qr_hadamard_matmul", "qr_hadamard_quant"],
+  },
+  {
+    id: "idx-comp",
+    name: "Indexer Compressor",
+    subtitle: "kv_score_proj_0 → scatter_softmax_pool_0 → compress_state_commit_0 → kv_hadamard",
+    source: "decode_indexer_compressor.py",
+    steps: ["kv_score_proj_0", "scatter_softmax_pool_0", "compress_state_commit_0", "kv_hadamard"],
+  },
+  {
+    id: "hc-pre",
+    name: "HC Pre + RMSNorm",
+    subtitle: "hc_pre_rms → hc_pre_linear → hc_pre_linear_reduce → split/sinkhorn → mix_x → rms_norm",
+    source: "hc_pre.py",
+    steps: ["hc_pre_rms", "hc_pre_linear", "hc_pre_linear_reduce", "split_pre_post", "comb_sinkhorn", "mix_x", "rms_norm"],
+  },
+  {
+    id: "qk-merge",
+    name: "Sparse Attn + Merge",
+    subtitle: "qk_pv (MIX 1:2) → csa_merge_pack_publish",
+    source: "decode_sparse_attn_csa.py",
+    steps: ["qk_pv", "csa_merge_pack_publish"],
+  },
+];
+
+function getStageCatalog() {
+  if (!R) return [];
+  if (R._stageCatalog) return R._stageCatalog;
+  const kMap = new Map(getKernelCatalog().map((k) => [k.name, k]));
+  const list = [];
+  for (const def of STAGE_CHAINS) {
+    const steps = def.steps.map((kName, idx) => {
+      const k = kMap.get(kName);
+      if (!k) return null;
+      return {
+        index: idx,
+        name: k.name,
+        coreType: k.coreType,
+        launches: k.launches,
+        startUs: k.startUs,
+        endUs: k.endUs,
+        spanUs: k.spanUs,
+        totalBlocks: k.totalBlocks,
+        uniqueCores: k.uniqueCores,
+        computeUs: k.computeUs,
+        setupUs: k.setupUs,
+        color: STAGE_STEP_COLORS[idx % STAGE_STEP_COLORS.length],
+      };
+    }).filter(Boolean);
+    if (!steps.length) continue;
+    const launches = steps.flatMap((s) => s.launches);
+    const startUs = Math.min(...steps.map((s) => s.startUs));
+    const endUs = Math.max(...steps.map((s) => s.endUs));
+    const computeUs = steps.reduce((a, s) => a + s.computeUs, 0);
+    const setupUs = steps.reduce((a, s) => a + s.setupUs, 0);
+    const cores = new Set();
+    let totalBlocks = 0;
+    for (const l of launches) {
+      const items = l.blocks?.items || [];
+      totalBlocks += items.length;
+      for (const b of items) cores.add(b.core);
+    }
+    const taskCount = new Set(launches.map((l) => String(l.taskId))).size;
+    list.push({
+      id: def.id,
+      key: "stage:" + def.id,
+      name: def.name,
+      subtitle: def.subtitle,
+      source: def.source,
+      steps,
+      launches,
+      taskCount,
+      launchCount: launches.length,
+      startUs,
+      endUs,
+      spanUs: Math.max(0.1, endUs - startUs),
+      computeUs,
+      setupUs,
+      setupShare: setupUs / Math.max(1e-6, setupUs + computeUs),
+      totalBlocks,
+      uniqueCores: cores.size,
+      searchText: [def.name, def.id, def.source, def.subtitle, ...steps.map((s) => s.name)].join(" ").toLowerCase(),
+    });
+  }
+  R._stageCatalog = list;
+  return list;
+}
+
+function buildStageTraceModel(stage) {
+  const aicCount = R.kpi.aicCores || 24;
+  const stepByName = new Map(stage.steps.map((s) => [s.name, s]));
+  const allBlocks = [];
+  for (const step of stage.steps) {
+    for (const launch of step.launches) {
+      for (const b of (launch.blocks?.items || [])) {
+        allBlocks.push({
+          ...b,
+          ct: launch.ct,
+          launch,
+          stepName: step.name,
+          stepColor: step.color,
+          stepIndex: step.index,
+        });
+      }
+    }
+  }
+  if (!allBlocks.length) return null;
+  const originUs = Math.min(...allBlocks.map((b) => b.startUs));
+  const finishUs = Math.max(...allBlocks.map((b) => b.endUs));
+  const spanUs = Math.max(0.1, finishUs - originUs);
+
+  const byGroup = new Map();
+  const ensureGroup = (gId) => {
+    if (!byGroup.has(gId)) {
+      byGroup.set(gId, {
+        group: gId,
+        aicCore: gId,
+        aiv0Core: aicCount + 2 * gId,
+        aiv1Core: aicCount + 2 * gId + 1,
+        aicBlocks: [],
+        aiv0Blocks: [],
+        aiv1Blocks: [],
+      });
+    }
+    return byGroup.get(gId);
+  };
+
+  for (const b of allBlocks) {
+    if (b.ct === "AIC") {
+      ensureGroup(b.core).aicBlocks.push(b);
+    } else {
+      const rel = b.core - aicCount;
+      const gId = rel >= 0 ? Math.floor(rel / 2) : b.core;
+      const grp = ensureGroup(gId);
+      if (rel >= 0 && rel % 2 === 1) grp.aiv1Blocks.push(b);
+      else grp.aiv0Blocks.push(b);
+    }
+  }
+
+  const summarize = (blocks, coreId) => {
+    if (!blocks.length) return null;
+    const sorted = blocks.slice().sort((a, b) => a.startUs - b.startUs);
+    const startUs = sorted[0].startUs;
+    const endUs = Math.max(...sorted.map((b) => b.endUs));
+    const slotUs = sorted.reduce((s, b) => s + (b.slotUs ?? Math.max(0, b.endUs - b.startUs)), 0);
+    const computeUs = sorted.reduce((s, b) => s + (b.computeUs || 0), 0);
+    const setupUs = sorted.reduce((s, b) => s + (b.setupUs || 0), 0);
+    return { core: coreId, blocks: sorted, count: sorted.length, startUs, endUs, slotUs, computeUs, setupUs };
+  };
+
+  const groups = [...byGroup.values()]
+    .sort((a, b) => a.group - b.group)
+    .map((raw) => {
+      const aic = summarize(raw.aicBlocks, raw.aicCore);
+      const aiv0 = summarize(raw.aiv0Blocks, raw.aiv0Core);
+      const aiv1 = summarize(raw.aiv1Blocks, raw.aiv1Core);
+      const lanes = [aic, aiv0, aiv1].filter(Boolean);
+      const startUs = Math.min(...lanes.map((x) => x.startUs));
+      const endUs = Math.max(...lanes.map((x) => x.endUs));
+      const totalSetupUs = lanes.reduce((s, x) => s + x.setupUs, 0);
+      const totalComputeUs = lanes.reduce((s, x) => s + x.computeUs, 0);
+      const totalSlotUs = lanes.reduce((s, x) => s + x.slotUs, 0);
+      const totalBlocks = lanes.reduce((s, x) => s + x.count, 0);
+      const setupPct = (totalSetupUs / Math.max(1e-6, totalSetupUs + totalComputeUs)) * 100;
+      return {
+        group: raw.group,
+        aicCore: raw.aicCore,
+        aiv0Core: raw.aiv0Core,
+        aiv1Core: raw.aiv1Core,
+        aic,
+        aiv0,
+        aiv1,
+        startUs,
+        endUs,
+        spanUs: Math.max(0, endUs - startUs),
+        totalSlotUs,
+        totalSetupUs,
+        totalComputeUs,
+        totalBlocks,
+        setupPct,
+      };
+    });
+
+  const durs = groups.map((g) => g.totalComputeUs + g.totalSetupUs).filter((v) => v > 0);
+  const minDur = durs.length ? Math.min(...durs) : 0;
+  const maxDur = durs.length ? Math.max(...durs) : 0;
+  const spreadRatio = minDur > 0 ? maxDur / minDur : 1;
+  const threshold = minDur + (maxDur - minDur) * 0.5;
+  groups.forEach((g) => {
+    const busy = g.totalComputeUs + g.totalSetupUs;
+    g.tier = spreadRatio >= 1.25 && busy >= threshold ? "slow" : "fast";
+  });
+
+  // Consecutive step handoff deltas (overlap vs gap)
+  const stepTransitions = stage.steps.map((s, idx) => {
+    if (idx === 0) return null;
+    const prev = stage.steps[idx - 1];
+    const delta = s.startUs - prev.endUs; // <0 means overlap, >0 means gap
+    return { from: prev.name, to: s.name, delta };
+  });
+
+  return {
+    stage,
+    stepByName,
+    originUs,
+    finishUs,
+    spanUs,
+    groups,
+    spreadRatio,
+    setupPct: stage.setupShare * 100,
+    hasAic: groups.some((g) => !!g.aic),
+    hasAiv0: groups.some((g) => !!g.aiv0),
+    hasAiv1: groups.some((g) => !!g.aiv1),
+    stepTransitions,
+  };
+}
+
+function renderStageTrace(stage) {
+  const host = $("kernel-trace-view");
+  const model = buildStageTraceModel(stage);
+  if (!model) {
+    host.innerHTML = `<div class="kf-rt-board" style="padding:24px;color:#9aa3b2">当前 Rank 未采集到 ${esc(stage.name)} 的核上块数据。</div>`;
+    return;
+  }
+
+  const origin = model.originUs;
+  const axisSpan = Math.max(model.spanUs * 1.03, 0.1);
+  const finishPct = Math.min(100, (model.spanUs / axisSpan) * 100);
+  const isQkMerge = stage.id === "qk-merge";
+
+  const barStyle = (sUs, eUs) => {
+    const left = Math.max(0, ((sUs - origin) / axisSpan) * 100);
+    const width = Math.max(0.35, ((eUs - sUs) / axisSpan) * 100);
+    return `left:${left.toFixed(3)}%;width:${width.toFixed(3)}%`;
+  };
+
+  const renderStageLaneBars = (lane, subRole, aicRef) => {
+    if (!lane) return "";
+    return lane.blocks.map((b) => {
+      const dimmed = kernelStageHighlight && kernelStageHighlight !== b.stepName ? " is-dimmed" : "";
+      const tip = `${b.launch.leaf} (${b.launch.tag}) · Core ${b.core}\n相对 +${(b.startUs - origin).toFixed(1)} → +${(b.endUs - origin).toFixed(1)} µs\n计算 ${(b.computeUs || 0).toFixed(1)} µs · Setup ${(b.setupUs || 0).toFixed(1)} µs`;
+      if (isQkMerge && b.stepName === "qk_pv") {
+        if (subRole === "aiv1" && kernelShowAiv1Hatch) {
+          return `<span class="kf-rt-bar is-aiv1 is-hatched${dimmed}" style="${barStyle(b.startUs, b.endUs)}" data-tooltip="${esc(tip)}"></span>`;
+        }
+        if (subRole === "aiv0") {
+          let html = `<span class="kf-rt-bar is-aiv0${dimmed}" style="${barStyle(b.startUs, b.endUs)}" data-tooltip="${esc(tip)}"></span>`;
+          const aicQk = aicRef?.blocks.find((x) => x.stepName === "qk_pv");
+          if (aicQk && b.endUs > aicQk.endUs + 2) {
+            html += `<span class="kf-rt-bar is-aiv0-tail${dimmed}" style="${barStyle(Math.max(b.startUs, aicQk.endUs), b.endUs)}"></span>`;
+          }
+          return html;
+        }
+      }
+      if (kernelShowSetupSplit && (b.setupUs || 0) > axisSpan * 0.002) {
+        const setupEnd = Math.min(b.endUs, b.startUs + Math.max(0, b.setupUs || 0));
+        return (
+          `<span class="kf-rt-bar is-setup${dimmed}" style="${barStyle(b.startUs, setupEnd)}" data-tooltip="${esc(tip)}"></span>` +
+          `<span class="kf-rt-bar${dimmed}" style="${barStyle(setupEnd, b.endUs)};background:${b.stepColor}" data-tooltip="${esc(tip)}"></span>`
+        );
+      }
+      return `<span class="kf-rt-bar${dimmed}" style="${barStyle(b.startUs, b.endUs)};background:${b.stepColor}" data-tooltip="${esc(tip)}"></span>`;
+    }).join("");
+  };
+
+  const step = niceAxisStep(model.spanUs);
+  const ticks = [];
+  for (let t = 0; t <= model.spanUs + 1e-6; t += step) {
+    const pct = (t / axisSpan) * 100;
+    if (finishPct - pct < 11 && t > 0) continue;
+    ticks.push(`<span style="left:${pct.toFixed(2)}%">${t >= 10 || t === 0 ? Math.round(t) : t.toFixed(1)} µs</span>`);
+  }
+
+  const ordered = model.groups.slice().sort((a, b) =>
+    kernelSortBy === "duration"
+      ? (b.totalComputeUs + b.totalSetupUs) - (a.totalComputeUs + a.totalSetupUs) || a.group - b.group
+      : a.group - b.group
+  );
+
+  const stepStripHtml = stage.steps.map((s, idx) => {
+    const isAct = kernelStageHighlight === s.name;
+    const isDim = kernelStageHighlight && !isAct;
+    const trans = model.stepTransitions[idx];
+    let linkHtml = "";
+    if (trans) {
+      if (trans.delta < -1) {
+        linkHtml = `<span class="kf-stage-link is-overlap" data-tooltip="${esc(trans.from)} 与 ${esc(trans.to)} 存在真实重叠 ${Math.abs(trans.delta).toFixed(1)} µs">⇢ 重叠 ${Math.abs(trans.delta).toFixed(0)}µs</span>`;
+      } else if (trans.delta > 2) {
+        linkHtml = `<span class="kf-stage-link is-gap" data-tooltip="${esc(trans.from)} 结束至 ${esc(trans.to)} 启动之间存在 ${trans.delta.toFixed(1)} µs 间隔">→ 空窗 +${trans.delta.toFixed(0)}µs</span>`;
+      } else {
+        linkHtml = `<span class="kf-stage-link">→</span>`;
+      }
+    }
+    const cnt = s.launches.length > 1 ? `×${s.launches.length}` : "";
+    const relWin = `${Math.round(s.startUs - origin)}–${Math.round(s.endUs - origin)}µs`;
+    return (
+      linkHtml +
+      `<button type="button" class="kf-stage-chip${isAct ? " is-active" : ""}${isDim ? " is-dimmed" : ""}" data-kf-step="${esc(s.name)}" aria-pressed="${isAct}" data-tooltip="点击仅高亮 ${esc(s.name)}（${s.coreType}${cnt} · ${s.totalBlocks} 块 · 跨度 ${fmtKernelUs(s.spanUs)}）">` +
+        `<i style="background:${s.color}"></i>` +
+        `<span>${esc(s.name)}</span>` +
+        `<small>${s.coreType}${cnt} · ${relWin}</small>` +
+      `</button>`
+    );
+  }).join("");
+
+  const rowsHtml = ordered.map((g) => {
+    const isSel = kernelSelectedGroup === g.group;
+    const isSlow = g.tier === "slow";
+    const idSub = model.hasAic ? `C${g.aicCore}` : `V${g.aiv0Core}/${g.aiv1Core}`;
+    let sublanesHtml = "";
+    if (model.hasAic) sublanesHtml += `<div class="kf-rt-sublane"><span class="kf-rt-subtag">C</span><div class="kf-rt-lane-bg">${renderStageLaneBars(g.aic, "aic", null)}</div></div>`;
+    if (model.hasAiv0) sublanesHtml += `<div class="kf-rt-sublane"><span class="kf-rt-subtag">V0</span><div class="kf-rt-lane-bg">${renderStageLaneBars(g.aiv0, "aiv0", g.aic)}</div></div>`;
+    if (model.hasAiv1) sublanesHtml += `<div class="kf-rt-sublane"><span class="kf-rt-subtag is-muted">V1</span><div class="kf-rt-lane-bg">${renderStageLaneBars(g.aiv1, "aiv1", g.aic)}</div></div>`;
+    const activeDur = g.endUs - g.startUs;
+    const setupPct = Math.round(g.setupPct);
+    const secondStat = kernelShowSetupSplit
+      ? `<span class="kf-rt-stat-warn${setupPct >= 30 ? " is-warn" : ""}">${setupPct}%</span>`
+      : `<span class="kf-rt-stat-warn">${g.totalBlocks} 块</span>`;
+    return (
+      `<button type="button" class="kf-rt-row${isSel ? " is-selected" : ""}" data-kf-group="${g.group}" aria-pressed="${isSel}">` +
+        `<div class="kf-rt-col-id">` +
+          `<span class="kf-rt-dot-tier ${isSlow ? "is-slow" : "is-fast"}" aria-hidden="true"></span>` +
+          `<strong>G${String(g.group).padStart(2, "0")}</strong>` +
+          `<small>${esc(idSub)}</small>` +
+        `</div>` +
+        `<div class="kf-rt-track">` +
+          `<div class="kf-rt-end-overlay" aria-hidden="true"><span class="kf-rt-end-line" style="left:${finishPct.toFixed(2)}%"></span></div>` +
+          sublanesHtml +
+        `</div>` +
+        `<div class="kf-rt-col-stat">` +
+          `<span class="kf-rt-stat-main">${fmtKernelShortUs(activeDur)}</span>` +
+          secondStat +
+        `</div>` +
+      `</button>`
+    );
+  }).join("");
+
+  let inspectorHtml = "";
+  const selGroup = kernelSelectedGroup != null ? model.groups.find((g) => g.group === kernelSelectedGroup) : null;
+  if (selGroup) {
+    const stepSummaryMap = new Map();
+    for (const [role, lane] of [["AIC", selGroup.aic], ["AIV 0", selGroup.aiv0], ["AIV 1", selGroup.aiv1]]) {
+      if (!lane) continue;
+      for (const b of lane.blocks) {
+        const key = b.stepName + "|" + role;
+        if (!stepSummaryMap.has(key)) {
+          stepSummaryMap.set(key, {
+            stepName: b.stepName,
+            color: b.stepColor,
+            role,
+            core: lane.core,
+            count: 0,
+            computeUs: 0,
+            setupUs: 0,
+            startUs: Infinity,
+            endUs: -Infinity,
+          });
+        }
+        const st = stepSummaryMap.get(key);
+        st.count++;
+        st.computeUs += b.computeUs || 0;
+        st.setupUs += b.setupUs || 0;
+        st.startUs = Math.min(st.startUs, b.startUs);
+        st.endUs = Math.max(st.endUs, b.endUs);
+      }
+    }
+    const stepRows = [...stepSummaryMap.values()]
+      .sort((a, b) => a.startUs - b.startUs)
+      .map((st) =>
+        `<tr><td><i class="kf-rt-dot" style="background:${st.color}"></i>${esc(st.stepName)}</td><td>${st.role} (${st.core})</td><td>${fmtKernelShortUs(st.computeUs + st.setupUs)} · ${st.count}块</td></tr>`
+      ).join("");
+
+    const jumpButtons = stage.steps.map((s) =>
+      `<button type="button" class="kf-rt-step-jump" data-kf-jump-kernel="${esc(s.name)}"><span><i style="background:${s.color}"></i>${esc(s.name)}</span><small>${s.coreType} · ${fmtKernelShortUs(s.spanUs)} →</small></button>`
+    ).join("");
+
+    inspectorHtml =
+      `<aside class="kf-rt-inspector" aria-label="Stage 核组实测详情">` +
+        `<header class="kf-rt-insp-head">` +
+          `<div>` +
+            `<span class="kf-rt-insp-kicker">${esc(R.rank.toUpperCase())} · ${selGroup.startUs.toFixed(0)}→${selGroup.endUs.toFixed(0)} µs</span>` +
+            `<h3>Group ${String(selGroup.group).padStart(2, "0")} <span class="kf-rt-tier ${selGroup.tier === "slow" ? "is-slow" : "is-fast"}">${selGroup.totalBlocks} 块</span></h3>` +
+          `</div>` +
+          `<button type="button" class="kf-rt-close" data-kf-close aria-label="关闭详情">×</button>` +
+        `</header>` +
+        `<div class="kf-rt-insp-body">` +
+          `<section class="kf-rt-insp-sec">` +
+            `<h4>本核组执行的阶段任务</h4>` +
+            `<table class="kf-rt-mini-table"><thead><tr><th>Kernel</th><th>核</th><th>核时</th></tr></thead><tbody>${stepRows}</tbody></table>` +
+          `</section>` +
+          `<section class="kf-rt-insp-sec">` +
+            `<h4>单步下钻（仅看该 Kernel）</h4>` +
+            `<div style="display:flex;flex-direction:column;gap:5px">${jumpButtons}</div>` +
+          `</section>` +
+          `<div class="kf-rt-actions">` +
+            `<button type="button" class="kf-rt-cta-ghost" data-kf-exit>← 返回完整设备泳道</button>` +
+          `</div>` +
+        `</div>` +
+      `</aside>`;
+  }
+
+  host.innerHTML =
+    `<div class="kf-rt-shell${selGroup ? " has-inspector" : ""}">` +
+      `<div class="kf-rt-main">` +
+        `<div class="kf-rt-controls">` +
+          `<div class="kf-rt-controls-left">` +
+            `<button type="button" class="kf-rt-back" data-kf-exit>← 全部泳道</button>` +
+            `<span class="kf-rt-title-pill">${esc(stage.name)}<span class="kernel-option-badge is-stage">STAGE · ${stage.taskCount} TASK</span></span>` +
+            `<div class="kf-rt-seg" role="group" aria-label="核组排序">` +
+              `<button type="button" class="${kernelSortBy === "group" ? "is-selected" : ""}" data-kf-sort="group" aria-pressed="${kernelSortBy === "group"}">Group 序</button>` +
+              `<button type="button" class="${kernelSortBy === "duration" ? "is-selected" : ""}" data-kf-sort="duration" aria-pressed="${kernelSortBy === "duration"}">耗时降序</button>` +
+            `</div>` +
+            `<div class="kf-rt-seg" role="group" aria-label="叠加信号">` +
+              (isQkMerge ? `<button type="button" class="${kernelShowAiv1Hatch ? "is-selected" : ""}" data-kf-toggle="aiv1" aria-pressed="${kernelShowAiv1Hatch}">AIV 1 握手空转</button>` : "") +
+              `<button type="button" class="${kernelShowSetupSplit ? "is-selected" : ""}" data-kf-toggle="setup" aria-pressed="${kernelShowSetupSplit}">Setup 拆分</button>` +
+            `</div>` +
+            `<span class="kf-rt-metrics-inline"><b>${stage.steps.length}</b> 阶段<i>·</i><b>${stage.totalBlocks}</b> 块<i>·</i>Setup <b>${model.setupPct.toFixed(1)}%</b><i>·</i>${esc(stage.source)}</span>` +
+          `</div>` +
+          `<div class="kf-rt-legend" aria-label="泳道图例">` +
+            (kernelShowSetupSplit ? `<span><i class="is-setup"></i>Setup 等待</span>` : "") +
+            `<span>点击下方阶段胶囊可高亮单步</span>` +
+          `</div>` +
+        `</div>` +
+        `<div class="kf-stage-steps" aria-label="阶段流水步骤与交接">${stepStripHtml}</div>` +
+        `<div class="kf-rt-board">` +
+          `<div class="kf-rt-axis">` +
+            `<div class="kf-rt-col-id">Group</div>` +
+            `<div class="kf-rt-axis-track">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="该 Stage 链路最慢完成时刻">${fmtKernelShortUs(model.spanUs)} 完成线</span></div>` +
+            `<div class="kf-rt-col-stat">组跨度</div>` +
+          `</div>` +
+          `<div class="kf-rt-rows">${rowsHtml}</div>` +
+        `</div>` +
+      `</div>` +
+      inspectorHtml +
+    `</div>`;
+}
+
 function setKernelFilter(name) {
   const catalog = getKernelCatalog();
-  const next = name && catalog.some((k) => k.name === name) ? name : null;
+  const stages = getStageCatalog();
+  let next = null;
+  if (name && String(name).startsWith("stage:")) {
+    const st = stages.find((s) => s.key === name);
+    next = st ? st.key : null;
+  } else if (name && catalog.some((k) => k.name === name)) {
+    next = name;
+  }
   kernelFilter = next;
   kernelSelectedGroup = null;
+  kernelStageHighlight = null;
+  kernelPreviewHighlight = null;
+  if (next) kernelPinnedHighlight = null;
   kernelSortBy = "group";
   if (next) {
-    const entry = catalog.find((k) => k.name === next);
-    kernelShowSetupSplit = !!entry && entry.setupShare >= 0.08;
+    if (next.startsWith("stage:")) {
+      const st = stages.find((s) => s.key === next);
+      kernelShowSetupSplit = !!st && (st.id === "qk-merge" || st.setupShare >= 0.12);
+    } else {
+      const entry = catalog.find((k) => k.name === next);
+      kernelShowSetupSplit = !!entry && entry.setupShare >= 0.08;
+    }
     kernelShowAiv1Hatch = true;
-    leaveSingleMode();
+    if (singlePanelOpen || singleSelected != null) {
+      singlePanelOpen = false;
+      singleSelected = null;
+      singlePreviousRange = null;
+      renderSinglePanel();
+    }
     pathAnalysisActive = false;
     recommendedFocus = null;
     leadFocusIds = null;
@@ -1715,14 +2551,326 @@ function syncKernelFocusView() {
   host.hidden = !active;
   if (!active) {
     host.textContent = "";
+    applyFullLaneKernelHighlight();
     return;
   }
+  const hlBar = $("kernel-hl-bar");
+  if (hlBar) hlBar.hidden = true;
   renderKernelTrace();
+}
+
+function resolveKernelHighlightTarget(target) {
+  if (!target || !R) return null;
+  const stages = getStageCatalog();
+  const kernels = getKernelCatalog();
+  const launchStyle = new Map();
+  let title = "", badge = "", badgeCls = "is-aic", steps = [], canFocus = false, focusValue = null, matchedKernelCount = 0;
+
+  if (target.kind === "stage") {
+    const st = stages.find((s) => s.id === target.id);
+    if (!st) return null;
+    title = st.name;
+    badge = `STAGE · ${st.taskCount}T`;
+    badgeCls = "is-stage";
+    steps = st.steps.map((s) => ({ name: s.name, color: s.color }));
+    matchedKernelCount = st.steps.length;
+    canFocus = true;
+    focusValue = st.key;
+    for (const s of st.steps) {
+      for (const l of s.launches) launchStyle.set(l.id, { color: s.color, label: s.name });
+    }
+  } else if (target.kind === "kernel") {
+    const k = kernels.find((item) => item.name === target.name);
+    if (!k) return null;
+    title = k.name;
+    badge = k.coreType === "MIX" ? "MIX 1:2" : k.coreType;
+    badgeCls = k.coreType === "MIX" ? "is-mix" : k.coreType === "AIC" ? "is-aic" : "is-aiv";
+    matchedKernelCount = 1;
+    canFocus = true;
+    focusValue = k.name;
+    for (const l of k.launches) {
+      launchStyle.set(l.id, { color: l.ct === "AIC" ? "#80b7f7" : "#a87ef0", label: k.name });
+    }
+  } else if (target.kind === "query") {
+    const q = String(target.query || "").trim().toLowerCase();
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+    if (!tokens.length) return null;
+    const tokMatch = (hay, tok) => tok.length === 1
+      ? new RegExp(`(?:^|[\\s_\\-/])${tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(hay)
+      : hay.includes(tok);
+    const phraseStages = stages.filter((s) => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
+    const hitStages = phraseStages.length ? phraseStages : stages.filter((s) => tokens.every((t) => tokMatch(s.searchText, t)));
+    const hitKernels = kernels.filter((k) => tokens.every((t) => tokMatch((k.name + " " + k.coreType).toLowerCase(), t)));
+    if (!hitStages.length && !hitKernels.length) return null;
+
+    // If the query directly names a single stage (e.g. "o proj", "q proj"), use its step colors cleanly.
+    const directStage = phraseStages.length === 1;
+    if (directStage) {
+      const st = hitStages[0];
+      title = st.name;
+      badge = `STAGE · ${st.taskCount}T`;
+      badgeCls = "is-stage";
+      steps = st.steps.map((s) => ({ name: s.name, color: s.color }));
+      matchedKernelCount = st.steps.length;
+      canFocus = true;
+      focusValue = st.key;
+      for (const s of st.steps) {
+        for (const l of s.launches) launchStyle.set(l.id, { color: s.color, label: s.name });
+      }
+    } else {
+      const uniqueKernels = new Map();
+      for (const k of hitKernels) uniqueKernels.set(k.name, k);
+      for (const st of hitStages) {
+        for (const s of st.steps) {
+          const full = kernels.find((k) => k.name === s.name);
+          if (full && !uniqueKernels.has(full.name)) uniqueKernels.set(full.name, full);
+        }
+      }
+      const list = [...uniqueKernels.values()];
+      if (!list.length) return null;
+      matchedKernelCount = list.length;
+      title = `搜索 “${target.query.trim()}”`;
+      badge = `${list.length} KERNEL`;
+      badgeCls = "is-mix";
+      const multiColor = list.length <= STAGE_STEP_COLORS.length;
+      list.forEach((k, idx) => {
+        const col = multiColor ? STAGE_STEP_COLORS[idx % STAGE_STEP_COLORS.length] : null;
+        if (multiColor) steps.push({ name: k.name, color: col });
+        for (const l of k.launches) {
+          launchStyle.set(l.id, { color: col || (l.ct === "AIC" ? "#80b7f7" : "#a87ef0"), label: k.name });
+        }
+      });
+      if (list.length === 1) {
+        canFocus = true;
+        focusValue = list[0].name;
+      } else if (hitStages.length === 1 && list.every((k) => hitStages[0].steps.some((s) => s.name === k.name))) {
+        canFocus = true;
+        focusValue = hitStages[0].key;
+      }
+    }
+  } else {
+    return null;
+  }
+
+  const launches = R.launches.filter((l) => launchStyle.has(l.id));
+  if (!launches.length) return null;
+  const taskIds = new Set(launches.map((l) => String(l.taskId)));
+  const startUs = Math.min(...launches.map((l) => l.startUs));
+  const endUs = Math.max(...launches.map((l) => l.endUs));
+  const blockCount = launches.reduce((sum, l) => sum + (l.blocks?.items?.length || 0), 0);
+  return {
+    title,
+    badge,
+    badgeCls,
+    launches,
+    launchStyle,
+    steps,
+    taskIds,
+    taskCount: taskIds.size,
+    matchedKernelCount,
+    blockCount,
+    startUs,
+    endUs,
+    canFocus,
+    focusValue,
+  };
+}
+
+function updateKernelSelectorChip() {
+  const summary = $("lane-ovl")?.querySelector("[data-kernel-mode]");
+  if (!summary) return;
+  const textEl = summary.querySelector(".kernel-selector-text");
+  let label = "Kernel / Stage";
+  let active = false;
+  if (kernelFilter) {
+    active = true;
+    const st = kernelFilter.startsWith("stage:") ? getStageCatalog().find((s) => s.key === kernelFilter) : null;
+    label = st ? st.name : kernelFilter;
+  } else if (kernelPinnedHighlight) {
+    const res = resolveKernelHighlightTarget(kernelPinnedHighlight);
+    if (res) {
+      active = true;
+      label = "高亮 · " + (kernelPinnedHighlight.kind === "query" ? kernelPinnedHighlight.query.trim() : res.title);
+    }
+  }
+  summary.classList.toggle("on", active);
+  if (textEl) textEl.textContent = label;
+}
+
+function syncKernelHighlightBar(resolved) {
+  const bar = $("kernel-hl-bar");
+  if (!bar) return;
+  if (kernelFilter || !kernelPinnedHighlight || !resolved) {
+    bar.hidden = true;
+    bar.textContent = "";
+    return;
+  }
+  const stepsHtml = resolved.steps.length && resolved.steps.length <= 7
+    ? `<span class="kernel-hl-bar-steps">${resolved.steps.map((s) => `<span class="kernel-hl-step-tag"><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}</span>`
+    : "";
+  const isZoomed = laneRange && Math.abs(laneRange[0] - Math.max(0, resolved.startUs - Math.max((resolved.endUs - resolved.startUs) * 0.12, 12))) < 5;
+  bar.innerHTML =
+    `<div class="kernel-hl-bar-left">` +
+      `<span class="kernel-option-badge ${resolved.badgeCls}">${esc(resolved.badge)}</span>` +
+      `<span class="kernel-hl-bar-title">${esc(resolved.title)}</span>` +
+      `<span class="kernel-hl-bar-meta">${resolved.taskCount} Task · ${resolved.blockCount} 块 · ${ms(resolved.startUs)}–${ms(resolved.endUs)} ms</span>` +
+      stepsHtml +
+    `</div>` +
+    `<div class="kernel-hl-bar-actions">` +
+      `<button type="button" class="kernel-hl-btn" data-khl-zoom>${isZoomed ? "恢复全局窗口" : "定位缩放"}</button>` +
+      (resolved.canFocus ? `<button type="button" class="kernel-hl-btn is-primary" data-khl-focus="${esc(resolved.focusValue)}">独立泳道视图 →</button>` : "") +
+      `<button type="button" class="kernel-hl-btn is-close" data-khl-clear aria-label="清除高亮" title="清除高亮">×</button>` +
+    `</div>`;
+  bar.hidden = false;
+}
+
+function applyFullLaneKernelHighlight() {
+  const svg = $("lane");
+  const cp = $("cp");
+  if (!svg) return;
+  svg.querySelector("#kernel-search-highlight")?.remove();
+  if (kernelFilter) {
+    svg.classList.remove("kernel-hl-active");
+    syncKernelHighlightBar(null);
+    return;
+  }
+  const target = kernelPreviewHighlight || kernelPinnedHighlight;
+  const resolved = resolveKernelHighlightTarget(target);
+  const pinnedResolved = kernelPinnedHighlight ? resolveKernelHighlightTarget(kernelPinnedHighlight) : null;
+  syncKernelHighlightBar(pinnedResolved);
+  updateKernelSelectorChip();
+
+  if (!resolved || !laneRelationIndex) {
+    svg.classList.remove("kernel-hl-active");
+    svg.querySelectorAll(".task-event.kernel-hl-hit").forEach((n) => n.classList.remove("kernel-hl-hit"));
+    if (cp) cp.querySelectorAll(".cp-seg").forEach((n) => n.classList.remove("cp-kernel-hit", "cp-kernel-muted"));
+    return;
+  }
+
+  svg.classList.add("kernel-hl-active");
+  const overlay = el("g", { id: "kernel-search-highlight", "pointer-events": "none", "aria-hidden": "true" });
+  const groupBoxes = new Map();
+  const W = svg.viewBox.baseVal.width || 800;
+  const LEFT = laneLeft();
+  const RIGHT = 12;
+
+  for (const { element, task, box } of laneRelationIndex.byElement.values()) {
+    const st = resolved.launchStyle.get(task.id);
+    if (st) {
+      element.classList.add("kernel-hl-hit");
+      const bw = Math.max(1.8, box.w);
+      const bh = Math.max(3, box.h);
+      const by = box.cy - bh / 2;
+      overlay.append(el("rect", {
+        x: box.x,
+        y: by,
+        width: bw,
+        height: bh,
+        rx: 1,
+        fill: st.color,
+        "fill-opacity": 0.96,
+      }));
+      const gKey = st.label;
+      if (!groupBoxes.has(gKey)) {
+        groupBoxes.set(gKey, { label: st.label, color: st.color, x0: box.x, x1: box.x + bw, y0: by, y1: by + bh, count: 0 });
+      }
+      const gb = groupBoxes.get(gKey);
+      gb.x0 = Math.min(gb.x0, box.x);
+      gb.x1 = Math.max(gb.x1, box.x + bw);
+      gb.y0 = Math.min(gb.y0, by);
+      gb.y1 = Math.max(gb.y1, by + bh);
+      gb.count++;
+    } else {
+      element.classList.remove("kernel-hl-hit");
+    }
+  }
+
+  // Draw crisp bounding frames + non-overlapping pill labels for matched groups (up to 6)
+  const placed = [];
+  const sortedBoxes = [...groupBoxes.values()].sort((a, b) => a.x0 - b.x0);
+  sortedBoxes.forEach((gb) => {
+    const pad = 3;
+    const fx = Math.max(LEFT, gb.x0 - pad);
+    const fx1 = Math.min(W - RIGHT, gb.x1 + pad);
+    const fy = Math.max(2, gb.y0 - pad);
+    const fy1 = gb.y1 + pad;
+    overlay.append(el("rect", {
+      x: fx,
+      y: fy,
+      width: Math.max(4, fx1 - fx),
+      height: Math.max(8, fy1 - fy),
+      rx: 4,
+      fill: gb.color,
+      "fill-opacity": 0.07,
+      stroke: gb.color,
+      "stroke-opacity": 0.85,
+      "stroke-width": 1.2,
+    }));
+  });
+  sortedBoxes.slice(0, 6).forEach((gb) => {
+    const txtLabel = gb.label.length > 26 ? gb.label.slice(0, 25) + "…" : gb.label;
+    const pw = Math.min(220, txtLabel.length * 6.8 + 18);
+    const ph = 20;
+    const px = Math.max(LEFT, Math.min(W - RIGHT - pw, gb.x0));
+    let py = Math.max(4, gb.y0 - ph - 5);
+    for (let tries = 0; tries < 6; tries++) {
+      if (!placed.some((p) => px < p.x + p.w + 4 && px + pw + 4 > p.x && py < p.y + p.h + 3 && py + ph + 3 > p.y)) break;
+      py += ph + 4;
+    }
+    placed.push({ x: px, y: py, w: pw, h: ph });
+    overlay.append(el("rect", {
+      x: px,
+      y: py,
+      width: pw,
+      height: ph,
+      rx: 10,
+      fill: "#14161c",
+      "fill-opacity": 0.94,
+      stroke: gb.color,
+      "stroke-width": 1.2,
+    }));
+    overlay.append(el("circle", { cx: px + 9, cy: py + ph / 2, r: 3.5, fill: gb.color }));
+    const t = el("text", {
+      x: px + 16,
+      y: py + 13.5,
+      fill: "#f2f5fa",
+      "font-family": "var(--mono)",
+      "font-size": 10.5,
+      "font-weight": 600,
+    });
+    t.textContent = txtLabel;
+    overlay.append(t);
+  });
+
+  svg.append(overlay);
+
+  // Sync Critical Path bar highlight
+  if (cp) {
+    let anyCpHit = false;
+    cp.querySelectorAll(".cp-seg").forEach((seg) => {
+      if (resolved.taskIds.has(seg.dataset.t)) anyCpHit = true;
+    });
+    cp.querySelectorAll(".cp-seg").forEach((seg) => {
+      const hit = resolved.taskIds.has(seg.dataset.t);
+      seg.classList.toggle("cp-kernel-hit", hit);
+      seg.classList.toggle("cp-kernel-muted", anyCpHit && !hit);
+    });
+  }
 }
 
 function renderKernelTrace() {
   const host = $("kernel-trace-view");
   if (!host || !kernelFilter) return;
+  if (kernelFilter.startsWith("stage:")) {
+    const st = getStageCatalog().find((s) => s.key === kernelFilter);
+    if (!st) {
+      kernelFilter = null;
+      syncKernelFocusView();
+      return;
+    }
+    renderStageTrace(st);
+    return;
+  }
   const entry = getKernelCatalog().find((k) => k.name === kernelFilter);
   if (!entry) {
     kernelFilter = null;
@@ -3234,10 +4382,63 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
   $("lane-rows").dataset.tooltip = laneExpanded ? "紧凑行" : "展开行";
   const openMenus = [...document.querySelectorAll("#lane-ovl details[open],#lane-zoom details[open]")].map(d=>d.dataset.menu);
   const viewLabel = byTask ? '按 Task' : byBlock ? '按 Block' : '按 AIC / AIV';
+  const kernelCatalog = getKernelCatalog();
+  const stageCatalog = getStageCatalog();
+  const activeStage = kernelFilter?.startsWith('stage:') ? stageCatalog.find((s) => s.key === kernelFilter) : null;
+  const pinnedRes = !kernelFilter && kernelPinnedHighlight ? resolveKernelHighlightTarget(kernelPinnedHighlight) : null;
+  const kernelBtnLabel = activeStage
+    ? activeStage.name
+    : kernelFilter
+    ? kernelFilter
+    : pinnedRes
+    ? '高亮 · ' + (kernelPinnedHighlight.kind === 'query' ? kernelPinnedHighlight.query.trim() : pinnedRes.title)
+    : 'Kernel / Stage';
+  const isKernelBtnActive = !!(kernelFilter || pinnedRes);
+  const effectiveMenuAction = kernelFilter ? 'focus' : kernelMenuAction;
+  const isItemChecked = (choiceKey) => {
+    if (kernelFilter) return kernelFilter === choiceKey;
+    if (!kernelPinnedHighlight) return !choiceKey;
+    if (choiceKey.startsWith('stage:')) return kernelPinnedHighlight.kind === 'stage' && ('stage:' + kernelPinnedHighlight.id) === choiceKey;
+    return kernelPinnedHighlight.kind === 'kernel' && kernelPinnedHighlight.name === choiceKey;
+  };
+  const stageMenuItems = stageCatalog.map((s) => (
+    `<button type="button" class="ctl kernel-option is-stage-option" data-kernel-choice="${esc(s.key)}" data-kernel-group="stage" data-kernel-search="${esc(s.searchText)}" role="radio" aria-checked="${isItemChecked(s.key)}">` +
+      `<span class="kernel-option-stack">` +
+        `<span class="kernel-option-row"><span class="kernel-option-badge is-stage">STAGE</span><span class="kernel-option-name" title="${esc(s.name)}">${esc(s.name)}</span></span>` +
+        `<span class="kernel-option-sub" title="${esc(s.subtitle)}">${esc(s.subtitle)}</span>` +
+      `</span>` +
+      `<span class="kernel-option-meta">${fmtKernelShortUs(s.spanUs)} · ${s.taskCount}T</span>` +
+    `</button>`
+  )).join('');
+  const kernelMenuItems =
+    `<button type="button" class="ctl kernel-option" data-kernel-choice="" data-kernel-all role="radio" aria-checked="${!kernelFilter && !kernelPinnedHighlight}">` +
+      `<span class="kernel-option-main"><span class="kernel-option-name">全部 Kernel（完整泳道 · 清除高亮）</span></span>` +
+      `<span class="kernel-option-meta">${kernelCatalog.length} 个</span>` +
+    `</button>` +
+    `<div class="menu-divider kernel-menu-divider" data-kernel-divider="top"></div>` +
+    `<div class="kernel-menu-heading" data-kernel-heading="stage">Stage / 未融合流水子链（${stageCatalog.length}）</div>` +
+    stageMenuItems +
+    `<div class="menu-divider kernel-menu-divider" data-kernel-divider="mid"></div>` +
+    `<div class="kernel-menu-heading" data-kernel-heading="kernel">单 Kernel（${kernelCatalog.length}）</div>` +
+    kernelCatalog.map((k) => {
+      const bCls = k.coreType === 'MIX' ? 'is-mix' : k.coreType === 'AIC' ? 'is-aic' : 'is-aiv';
+      const bTxt = k.coreType === 'MIX' ? 'MIX' : k.coreType;
+      const meta = `${fmtKernelShortUs(k.spanUs)} · ${k.uniqueCores}核`;
+      return (
+        `<button type="button" class="ctl kernel-option" data-kernel-choice="${esc(k.name)}" data-kernel-group="kernel" data-kernel-search="${esc((k.name + ' ' + k.coreType).toLowerCase())}" role="radio" aria-checked="${isItemChecked(k.name)}">` +
+          `<span class="kernel-option-main">` +
+            `<span class="kernel-option-badge ${bCls}">${bTxt}</span>` +
+            `<span class="kernel-option-name" title="${esc(k.name)}">${esc(k.name)}</span>` +
+          `</span>` +
+          `<span class="kernel-option-meta">${meta}</span>` +
+        `</button>`
+      );
+    }).join('');
   $("lane-ovl").innerHTML =
-    `<div class="bar-group"><details class="bar-menu" data-menu="view"><summary class="ctl view-selector" aria-label="泳道布局">${viewLabel}</summary><div class="menu-panel view-menu">${[['core','按 AIC / AIV 聚合'],['block','按 Block 聚合'],['task','按 Task']].map(([value,label])=>`<button class="ctl choice-item" data-view="${value}" role="radio" aria-checked="${laneView===value}">${label}</button>`).join('')}</div></details></div><span class="analysis-group-label">分析</span>`
+    `<div class="bar-group"><details class="bar-menu" data-menu="view"><summary class="ctl view-selector" aria-label="泳道布局">${viewLabel}</summary><div class="menu-panel view-menu">${[['core','按 AIC / AIV 聚合'],['block','按 Block 聚合'],['task','按 Task']].map(([value,label])=>`<button class="ctl choice-item" data-view="${value}" role="radio" aria-checked="${laneView===value}">${label}</button>`).join('')}</div></details></div>`
+    + `<div class="bar-group"><details class="bar-menu" data-menu="kernel"><summary class="ctl view-selector kernel-selector${isKernelBtnActive ? ' on' : ''}" data-kernel-mode aria-label="按 Kernel 或 Stage 筛选泳道" data-tooltip="${isKernelBtnActive ? '当前：' + esc(kernelBtnLabel) : '搜索并在完整泳道实时高亮，或进入单 Stage / Kernel 独立视图'}"><span class="kernel-selector-text">${esc(kernelBtnLabel)}</span></summary><div class="menu-panel kernel-menu"><div class="kernel-menu-search-wrap"><input type="text" class="kernel-menu-search" data-kernel-search-input placeholder="输入关键字实时高亮 Stage / Kernel…" aria-label="搜索 Stage 或 Kernel" autocomplete="off" spellcheck="false"><button type="button" class="kernel-menu-clear" data-kernel-search-clear hidden aria-label="清空搜索">×</button></div><div class="kernel-menu-mode" role="group" aria-label="点击选项后的动作"><button type="button" class="${effectiveMenuAction === 'highlight' ? 'is-selected' : ''}" data-kernel-mode-action="highlight" aria-pressed="${effectiveMenuAction === 'highlight'}">完整泳道高亮</button><button type="button" class="${effectiveMenuAction === 'focus' ? 'is-selected' : ''}" data-kernel-mode-action="focus" aria-pressed="${effectiveMenuAction === 'focus'}">独立泳道视图</button></div><div class="kernel-menu-live" data-kernel-live hidden><span data-kernel-live-text></span><button type="button" data-kernel-pin-query>固定高亮</button></div><div class="kernel-menu-list">${kernelMenuItems}<p class="kernel-menu-empty" hidden>未找到匹配的 Stage 或 Kernel</p></div></div></details></div><span class="analysis-group-label">分析</span>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="path"><summary class="ctl mode-pill${pathAnalysisActive ? ' on' : ''}" data-path-mode data-tooltip="控制泳道图层显示。" aria-pressed="${pathAnalysisActive}" aria-label="图层">图层</summary><div class="menu-panel results-menu path-menu">${[["ribbon","并行宽度"],["bands","低并行区"],["marks","地标"]].map(([k,label])=>`<button class="ctl" data-ovl="${k}" aria-pressed="${!!ovl[k]}">${label}</button>`).join('')}<div class="menu-divider"></div><strong>Task染色</strong>${[['none','默认着色'],['setup','Setup 占比'],['tail','尾块浪费']].map(([v,l])=>`<button class="ctl choice-item" data-color="${v}" role="radio" aria-checked="${laneColor===v}">${l}</button>`).join('')}</div></details></div>`
-    + (`<div class="bar-group"><details class="bar-menu" data-menu="filter"><summary class="ctl mode-pill${!resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode') ? " on" : ""}" data-filter-mode data-tooltip="按性能特征查找同类问题。" aria-pressed="${!resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode')}" aria-label="特征筛选">特征</summary><div class="menu-panel"><strong>任务特征</strong>` + TASK_LAYERS.map(([v,l])=>`<button class="ctl choice-item" data-task-layer="${v}" role="radio" aria-checked="${taskLayer===v}"><span>${TaskSemanticIcons.feature(v, v === "none" ? null : v === "recommended" ? "conic-gradient(from 0deg," + ["tail", "setup", "parallel", "bubble", "underfill", "fragmented", "imbalance", "tail"].map(key => taskLayerColor(key)).join(",") + ")" : taskLayerColor(v))}${l}</span></button>`).join('') + `<div class="menu-divider"></div><button class="ctl" data-ovl="only" aria-pressed="${!laneAll}">仅显示候选</button></div></details></div>`)
+    + (`<div class="bar-group"><details class="bar-menu" data-menu="filter"><summary class="ctl mode-pill${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode') ? " on" : ""}" data-filter-mode data-tooltip="按性能特征查找同类问题。" aria-pressed="${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode')}" aria-label="特征筛选">特征</summary><div class="menu-panel"><strong>任务特征</strong>` + TASK_LAYERS.map(([v,l])=>`<button class="ctl choice-item" data-task-layer="${v}" role="radio" aria-checked="${taskLayer===v}"><span>${TaskSemanticIcons.feature(v, v === "none" ? null : v === "recommended" ? "conic-gradient(from 0deg," + ["tail", "setup", "parallel", "bubble", "underfill", "fragmented", "imbalance", "tail"].map(key => taskLayerColor(key)).join(",") + ")" : taskLayerColor(v))}${l}</span></button>`).join('') + `<div class="menu-divider"></div><button class="ctl" data-ovl="only" aria-pressed="${!laneAll}">仅显示候选</button></div></details></div>`)
     + `<div class="bar-group">${window.CompileAnalysis?.menu().replace('>编译分析</summary>',' aria-label="编译分析">编译</summary>') || '<button class="ctl" data-compile-tab>编译</button>'}</div>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="results"><summary class="ctl mode-pill${resultsActive ? " on" : ""}" aria-pressed="${resultsActive}" data-results data-tooltip="优先排查推荐任务，查看优化证据。" aria-label="优化候选">优化</summary><div class="menu-panel results-menu"><strong>优化候选</strong>${recommendTaskGroups().groups.map(group=>`<button class="ctl result-item" data-result-choice="${esc(group.key)}" aria-pressed="${recommendedFocus===group.key}"><span class="result-name">${TaskSemanticIcons.task(group.kernel,taskLayerColor(group.primaryMode))}${esc(group.kernel)}</span><small>${esc(group.evidence[0].reason)}</small></button>`).join('')}</div></details></div>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="single"><summary class="ctl mode-pill${singlePanelOpen ? ' on' : ''}" data-single-mode aria-pressed="${singlePanelOpen}" aria-label="单依赖分析" data-tooltip="查看连续单依赖任务链">单依赖分析</summary><div class="menu-panel results-menu single-menu"><strong>连续单依赖任务链</strong>${singleChains.length ? singleChains.map((chain,i)=>`<button type="button" class="ctl result-item single-menu-item" data-single-chain="${i}" aria-pressed="${singleSelected===i}"><span class="result-name">任务链 ${i+1} · ${chain.length} 个 Task</span><small>${esc(chain.map(singleTaskName).join(' → '))}</small></button>`).join('') : '<p class="single-menu-empty">当前 Rank 没有满足条件的任务链。</p>'}</div></details></div>`
@@ -3297,6 +4498,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
   applySingleChain();
   featurePreviewCache=new Map(); featurePreviewMode=null;
   drawLaneRelations();
+  syncKernelFocusView();
 }
 
 let laneNavigator=null, navigatorRank=null;
@@ -3699,6 +4901,19 @@ function loadRank(name) {
     l.availCores = l.ct === "AIC" ? R.kpi.aicCores : R.kpi.aivCores;
     l.waves = Math.ceil(l.blocks.n / l.availCores);
   });
+  if (kernelFilter) {
+    if (kernelFilter.startsWith("stage:")) {
+      if (!getStageCatalog().some((s) => s.key === kernelFilter)) kernelFilter = null;
+    } else if (!getKernelCatalog().some((k) => k.name === kernelFilter)) {
+      kernelFilter = null;
+    }
+    kernelSelectedGroup = null;
+    kernelStageHighlight = null;
+  }
+  kernelPreviewHighlight = null;
+  if (kernelPinnedHighlight && !resolveKernelHighlightTarget(kernelPinnedHighlight)) {
+    kernelPinnedHighlight = null;
+  }
   me = null;
   laneComposition = false;
   paint();
@@ -3888,7 +5103,198 @@ if (D) {
   document.addEventListener('pointerdown',e=>{if(!e.target.closest('[data-menu="results"]'))highlightResult(null);},true);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')highlightResult(null);});
   $("results-close").onclick=()=>toggleResults(false);
+  function choiceToHighlightTarget(choice) {
+    if (!choice) return null;
+    if (choice.startsWith("stage:")) return { kind: "stage", id: choice.slice(6) };
+    return { kind: "kernel", name: choice };
+  }
+  function applyKernelMenuFilter(menu, rawQuery) {
+    if (!menu) return;
+    const q = String(rawQuery || "").trim().toLowerCase();
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+    const clearBtn = menu.querySelector("[data-kernel-search-clear]");
+    if (clearBtn) clearBtn.hidden = !q;
+    let stageVisible = 0, kernelVisible = 0;
+    const tokMatch = (hay, tok) => tok.length === 1
+      ? new RegExp(`(?:^|[\\s_\\-/])${tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(hay)
+      : hay.includes(tok);
+    menu.querySelectorAll("[data-kernel-search]").forEach(btn => {
+      const hay = btn.dataset.kernelSearch || "";
+      const match = !tokens.length || tokens.every(tok => tokMatch(hay, tok));
+      btn.hidden = !match;
+      if (match) {
+        if (btn.dataset.kernelGroup === "stage") stageVisible++;
+        else kernelVisible++;
+      }
+    });
+    const allBtn = menu.querySelector("[data-kernel-all]");
+    if (allBtn) allBtn.hidden = !!q;
+    const divTop = menu.querySelector('[data-kernel-divider="top"]');
+    if (divTop) divTop.hidden = !!q;
+    const divMid = menu.querySelector('[data-kernel-divider="mid"]');
+    if (divMid) divMid.hidden = !(stageVisible > 0 && kernelVisible > 0);
+    const hStage = menu.querySelector('[data-kernel-heading="stage"]');
+    if (hStage) hStage.hidden = stageVisible === 0;
+    const hKernel = menu.querySelector('[data-kernel-heading="kernel"]');
+    if (hKernel) hKernel.hidden = kernelVisible === 0;
+    const empty = menu.querySelector(".kernel-menu-empty");
+    if (empty) empty.hidden = (stageVisible + kernelVisible) > 0;
+
+    // Live-highlight matching Stage/Kernel blocks directly on the full swimlane as the user types!
+    const liveRow = menu.querySelector("[data-kernel-live]");
+    const liveText = menu.querySelector("[data-kernel-live-text]");
+    if (!kernelFilter) {
+      kernelPreviewHighlight = q ? { kind: "query", query: rawQuery } : null;
+      const resolved = kernelPreviewHighlight ? resolveKernelHighlightTarget(kernelPreviewHighlight) : null;
+      applyFullLaneKernelHighlight();
+      if (liveRow && liveText) {
+        if (resolved) {
+          liveText.textContent = `完整泳道已高亮 ${resolved.matchedKernelCount} 个 Kernel · ${resolved.blockCount} 块`;
+          liveRow.hidden = false;
+        } else {
+          liveRow.hidden = true;
+        }
+      }
+    } else if (liveRow) {
+      liveRow.hidden = true;
+    }
+  }
+  const onKernelSearchChange = e => {
+    const input = e.target.closest("[data-kernel-search-input]");
+    if (!input) return;
+    applyKernelMenuFilter(input.closest(".kernel-menu"), input.value);
+  };
+  $("lane-ovl").addEventListener("input", onKernelSearchChange);
+  $("lane-ovl").addEventListener("compositionend", onKernelSearchChange);
+  $("lane-ovl").addEventListener("pointerover", e => {
+    if (kernelFilter) return;
+    const opt = e.target.closest('.kernel-menu [data-kernel-choice][data-kernel-search]');
+    if (!opt) return;
+    kernelPreviewHighlight = choiceToHighlightTarget(opt.dataset.kernelChoice);
+    applyFullLaneKernelHighlight();
+  });
+  $("lane-ovl").addEventListener("pointerleave", e => {
+    if (kernelFilter) return;
+    if (!e.target.closest?.('.kernel-menu-list')) return;
+    const input = $("lane-ovl").querySelector("[data-kernel-search-input]");
+    const q = input?.value?.trim() || "";
+    kernelPreviewHighlight = q ? { kind: "query", query: input.value } : null;
+    applyFullLaneKernelHighlight();
+  }, true);
+  $("lane-ovl").addEventListener("keydown", e => {
+    const input = e.target.closest("[data-kernel-search-input]");
+    if (!input) return;
+    if (e.key === "Escape") {
+      if (input.value) {
+        e.preventDefault();
+        e.stopPropagation();
+        input.value = "";
+        applyKernelMenuFilter(input.closest(".kernel-menu"), "");
+      }
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const menu = input.closest(".kernel-menu");
+      if (!kernelFilter && kernelMenuAction === "highlight" && input.value.trim()) {
+        kernelPinnedHighlight = { kind: "query", query: input.value.trim() };
+        kernelPreviewHighlight = null;
+        const details = $("lane-ovl").querySelector('[data-menu="kernel"]');
+        if (details) details.open = false;
+        applyFullLaneKernelHighlight();
+        return;
+      }
+      const firstMatch = menu?.querySelector('[data-kernel-choice][data-kernel-search]:not([hidden])');
+      if (firstMatch) firstMatch.click();
+      return;
+    }
+    e.stopPropagation();
+  });
+  $("lane-ovl").addEventListener("toggle", e => {
+    const details = e.target;
+    if (!details?.matches?.('[data-menu="kernel"]')) return;
+    const input = details.querySelector("[data-kernel-search-input]");
+    if (!input) return;
+    if (details.open) {
+      requestAnimationFrame(() => input.focus({ preventScroll: true }));
+    } else {
+      kernelPreviewHighlight = null;
+      if (input.value) {
+        input.value = "";
+        applyKernelMenuFilter(details.querySelector(".kernel-menu"), "");
+      } else if (!kernelFilter) {
+        applyFullLaneKernelHighlight();
+      }
+    }
+  }, true);
   $("lane-ovl").addEventListener("click",e=>{
+    const modeBtn = e.target.closest("[data-kernel-mode-action]");
+    if (modeBtn) {
+      kernelMenuAction = modeBtn.dataset.kernelModeAction === "focus" ? "focus" : "highlight";
+      const wrap = modeBtn.closest(".kernel-menu-mode");
+      wrap?.querySelectorAll("[data-kernel-mode-action]").forEach(b => {
+        const sel = b.dataset.kernelModeAction === kernelMenuAction;
+        b.classList.toggle("is-selected", sel);
+        b.setAttribute("aria-pressed", String(sel));
+      });
+      if (kernelMenuAction === "highlight" && kernelFilter) {
+        const currentTarget = choiceToHighlightTarget(kernelFilter);
+        kernelFilter = null;
+        kernelPinnedHighlight = currentTarget;
+        renderLane();
+      }
+      return;
+    }
+    const pinBtn = e.target.closest("[data-kernel-pin-query]");
+    if (pinBtn) {
+      const menu = pinBtn.closest(".kernel-menu");
+      const input = menu?.querySelector("[data-kernel-search-input]");
+      const q = input?.value?.trim() || "";
+      if (q) {
+        kernelPinnedHighlight = { kind: "query", query: q };
+        kernelPreviewHighlight = null;
+        const details = $("lane-ovl").querySelector('[data-menu="kernel"]');
+        if (details) details.open = false;
+        applyFullLaneKernelHighlight();
+      }
+      return;
+    }
+    const clearSearch = e.target.closest("[data-kernel-search-clear]");
+    if (clearSearch) {
+      const menu = clearSearch.closest(".kernel-menu");
+      const input = menu?.querySelector("[data-kernel-search-input]");
+      if (input) {
+        input.value = "";
+        applyKernelMenuFilter(menu, "");
+        input.focus({ preventScroll: true });
+      }
+      return;
+    }
+    const kernelChoice = e.target.closest("[data-kernel-choice]");
+    if (kernelChoice) {
+      const next = kernelChoice.dataset.kernelChoice || null;
+      const details = $("lane-ovl").querySelector('[data-menu="kernel"]');
+      if (details) details.open = false;
+      kernelPreviewHighlight = null;
+      if (!next) {
+        kernelPinnedHighlight = null;
+        if (kernelFilter) setKernelFilter(null);
+        else renderLane();
+        return;
+      }
+      if (!kernelFilter && kernelMenuAction === "highlight") {
+        kernelPinnedHighlight = choiceToHighlightTarget(next);
+        renderLane();
+      } else {
+        setKernelFilter(next);
+      }
+      return;
+    }
+    if (kernelFilter && e.target.closest('[data-single-mode],[data-path-mode],[data-filter-mode],[data-results],[data-compile-tab],[data-compile-memory],[data-compile-qk]')) {
+      kernelFilter = null;
+      kernelSelectedGroup = null;
+      kernelStageHighlight = null;
+    }
     if(e.target.closest('[data-single-mode]')){
       if(singlePanelOpen)return;
       e.preventDefault(); pathAnalysisActive=false; singlePanelOpen=true;
@@ -3965,7 +5371,7 @@ if (D) {
       renderLane(); document.querySelector(selector)?.focus({preventScroll:true}); return;
     }
     const v = e.target.closest("[data-view]");
-    if (v) { laneView = v.dataset.view; renderLane();$("lane-ovl").querySelector('[data-menu="view"]').open=false; return; }
+    if (v) { kernelFilter = null; kernelSelectedGroup = null; laneView = v.dataset.view; renderLane();$("lane-ovl").querySelector('[data-menu="view"]').open=false; return; }
     const b = e.target.closest("[data-ovl]"); if (!b) return;
     const k = b.dataset.ovl;
     if (k === "path") pathVisible = !pathVisible;
@@ -3975,6 +5381,92 @@ if (D) {
     renderLane();
   });
   $("drawer-close").addEventListener("click", clearSelection);
+  $("kernel-focus-open").onclick = () => {
+    const task = R.launches.find((l) => l.id === me);
+    if (task) setKernelFilter(kernelBaseName(task.leaf));
+  };
+  $("kernel-hl-bar").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.hasAttribute("data-khl-clear")) {
+      kernelPinnedHighlight = null;
+      kernelPreviewHighlight = null;
+      renderLane();
+      return;
+    }
+    if (btn.dataset.khlFocus) {
+      setKernelFilter(btn.dataset.khlFocus);
+      return;
+    }
+    if (btn.hasAttribute("data-khl-zoom")) {
+      const resolved = resolveKernelHighlightTarget(kernelPinnedHighlight);
+      if (!resolved) return;
+      const pad = Math.max((resolved.endUs - resolved.startUs) * 0.12, 12);
+      const targetStart = Math.max(0, resolved.startUs - pad);
+      const targetEnd = Math.min(R.kpi.windowUs, resolved.endUs + pad);
+      const alreadyZoomed = laneRange && Math.abs(laneRange[0] - targetStart) < 5 && Math.abs(laneRange[1] - targetEnd) < 10;
+      laneRange = alreadyZoomed ? null : [targetStart, targetEnd];
+      renderLane();
+    }
+  });
+  $("kernel-trace-view").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.hasAttribute("data-kf-exit")) {
+      setKernelFilter(null);
+      return;
+    }
+    if (btn.hasAttribute("data-kf-close")) {
+      kernelSelectedGroup = null;
+      renderKernelTrace();
+      return;
+    }
+    if (btn.dataset.kfSort) {
+      kernelSortBy = btn.dataset.kfSort;
+      renderKernelTrace();
+      return;
+    }
+    if (btn.dataset.kfToggle) {
+      if (btn.dataset.kfToggle === "aiv1") kernelShowAiv1Hatch = !kernelShowAiv1Hatch;
+      else if (btn.dataset.kfToggle === "setup") kernelShowSetupSplit = !kernelShowSetupSplit;
+      renderKernelTrace();
+      return;
+    }
+    if (btn.dataset.kfStep) {
+      const stepName = btn.dataset.kfStep;
+      kernelStageHighlight = kernelStageHighlight === stepName ? null : stepName;
+      renderKernelTrace();
+      return;
+    }
+    if (btn.dataset.kfJumpKernel) {
+      setKernelFilter(btn.dataset.kfJumpKernel);
+      return;
+    }
+    if (btn.dataset.kfGroup != null) {
+      const clicked = Number(btn.dataset.kfGroup);
+      kernelSelectedGroup = kernelSelectedGroup === clicked ? null : clicked;
+      renderKernelTrace();
+      return;
+    }
+    if (btn.dataset.kfOpenDrawer) {
+      const task = R.launches.find((l) => l.id === btn.dataset.kfOpenDrawer);
+      if (task) {
+        me = task.id;
+        distribution();
+        detail();
+        $("drawer-sub").textContent = `${task.leaf} · ${task.ct} · ${task.blocks.n} 块 / ${task.waves} 波`;
+        setDrawer(true);
+      }
+      return;
+    }
+    if (btn.dataset.kfOpenPass) {
+      const task = R.launches.find((l) => l.leaf === btn.dataset.kfOpenPass);
+      if (task) {
+        me = task.id;
+        openPassAnalysis("task:" + task.id);
+      }
+    }
+  });
   $("composition-toggle").onclick = () => { laneComposition = !laneComposition; renderLane(); $("composition-toggle").setAttribute("aria-pressed", String(laneComposition)); };
   $("evidence-open").onclick = () => { renderEvidence(); $("evidence-dialog").showModal(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pass-dialog").open && !$("evidence-dialog").open) clearSelection(); });
@@ -4060,7 +5552,7 @@ if (D) {
     laneResizeRaf = requestAnimationFrame(() => { laneResizeRaf = 0; criticalPath(); renderLane(); });
   });
   window.CompileLaneAdapter={
-    enterSplit:()=>{leaveSingleMode();ovl.ribbon=false;pathAnalysisActive=false;taskLayer="none";recommendedFocus=null;$("analysis-panel-anchor").classList.remove("results-open");},
+    enterSplit:()=>{kernelFilter=null;kernelSelectedGroup=null;leaveSingleMode();ovl.ribbon=false;pathAnalysisActive=false;taskLayer="none";recommendedFocus=null;$("analysis-panel-anchor").classList.remove("results-open");syncKernelFocusView();},
     leaveCompile:()=>{document.body.classList.remove('compile-analysis-mode');},
     resize:()=>{renderLane();window.dispatchEvent(new Event('compile-lane-resized'));},
     current:()=>({rank:R.rank,selected:R.launches.find(l=>l.id===me),launches:R.launches}),
@@ -4131,6 +5623,11 @@ if (D) {
     redraw: () => renderLane()
   });
   loadRank(D.ranks[0].rank);
+  const urlParams = new URLSearchParams(location.search);
+  const initialStage = urlParams.get("stage");
+  const initialKernel = urlParams.get("kernel");
+  if (initialStage) setKernelFilter("stage:" + initialStage);
+  else if (initialKernel) setKernelFilter(initialKernel);
 }
 })();
 </script>
