@@ -150,6 +150,15 @@
     const fitted = () => {
       const box=bounds(nodes.filter(node=>!node.expandedGroup).map(node=>node.id));
       if(!box)return {scale:1,x:0,y:0};
+      // Include expanded composite frames so top-level stage/module headers
+      // and borders are never clipped behind floating toolbars.
+      for(const node of nodes){
+        if(!node.expandedGroup)continue;
+        const left=node.x-3,top=node.y-8,right=left+node.groupWidth+6,bottom=top+node.groupHeight;
+        const curRight=Math.max(box.x+box.w,right),curBottom=Math.max(box.y+box.h,bottom);
+        box.x=Math.min(box.x,left);box.y=Math.min(box.y,top);
+        box.w=curRight-box.x;box.h=curBottom-box.y;
+      }
       // The AI Infra skin retains the original groups. Include their title
       // margins so Fit to View also fits the surrounding stage boundaries.
       if(global.PtoAIInfraPresentation){
@@ -159,9 +168,10 @@
           box.w=right-box.x;box.h=bottom-box.y;
         }
       }
-      if(adapter?.fitPadding){
-        const {top,right,bottom,left}=adapter.fitPadding;
-        const width=viewport.clientWidth-left-right,height=viewport.clientHeight-top-bottom;
+      const padding=typeof adapter?.fitPadding==='function'?adapter.fitPadding():adapter?.fitPadding;
+      if(padding){
+        const {top,right,bottom,left}=padding;
+        const width=Math.max(120,viewport.clientWidth-left-right),height=Math.max(120,viewport.clientHeight-top-bottom);
         const scale=Math.max(.01,Math.min(width/box.w,height/box.h,1));
         return {scale,x:left+(width-box.w*scale)/2-box.x*scale,y:top+(height-box.h*scale)/2-box.y*scale};
       }
@@ -320,6 +330,8 @@
       if (event.target.closest('.viz2-phase-toolbar')) return;
       // Graph owns these node events; the legacy page has document-level selectors.
       event.stopPropagation(); tooltip.hidden=true;
+      const action=event.target.closest('[data-viz2-graph-action]');
+      if(action&&adapter?.onAction){adapter.onAction(action.dataset.viz2GraphAction);return;}
       const sourceButton=event.target.closest('[data-viz2-graph-source]');
       if(sourceButton&&adapter?.onSource){adapter.onSource(sourceButton.dataset.viz2GraphSource);return;}
       const layer=event.target.closest('[data-viz2-graph-layer]');
@@ -389,7 +401,11 @@
       const width=viewport.clientWidth,height=viewport.clientHeight;
       if(first||!camera){first=false;onView({camera:initialCamera()});}
       else if(lastSize&&(lastSize.width!==width||lastSize.height!==height)){
-        onView({camera:{...camera,x:camera.x+(width-lastSize.width)/2,y:camera.y+(height-lastSize.height)/2}});
+        if(adapter?.autoFitExpanded&&(Math.abs(width-lastSize.width)>80||(width<=800)!==(lastSize.width<=800))){
+          onView({camera:fitted()});
+        }else{
+          onView({camera:{...camera,x:camera.x+(width-lastSize.width)/2,y:camera.y+(height-lastSize.height)/2}});
+        }
       }
       lastSize={width,height};
     });resizeObserver.observe(viewport);

@@ -140,18 +140,21 @@
       }
       const isStateRail = (item) => item.node.type === 'state' &&
         (item.node.state?.feedback || graph.edges.some((edge) => edge.type === 'feedback' && (edge.s === item.node.id || edge.t === item.node.id)));
+      const parallel = !!options.parallelBranches && (ranks.get(0) || []).filter((item) => item.node.type === 'composite').length > 1;
       const sideRows = levels.map((rank) => ranks.get(rank).filter((item) => !spine.has(item.node.id) && !isStateRail(item)));
       const split = (row) => ({ left: row.filter((_, index) => index % 2 === 0), right: row.filter((_, index) => index % 2 === 1) });
-      const leftWidth = Math.max(0, ...sideRows.map((row) => rowWidth(options.overviewLayout ? split(row).left : row)));
-      const rightWidth = options.overviewLayout ? Math.max(0, ...sideRows.map((row) => rowWidth(split(row).right))) : 0;
+      const leftWidth = parallel ? 0 : Math.max(0, ...sideRows.map((row) => rowWidth(options.overviewLayout ? split(row).left : row)));
+      const rightWidth = parallel ? Math.max(0, ...sideRows.map((row) => rowWidth(row))) : options.overviewLayout ? Math.max(0, ...sideRows.map((row) => rowWidth(split(row).right))) : 0;
       const spineWidth = Math.max(188, ...nodes.filter((item) => spine.has(item.node.id)).map((item) => item.boxW));
-      const center = side + leftWidth + columnGap + spineWidth / 2;
+      const center = side + (leftWidth ? leftWidth + columnGap : 0) + spineWidth / 2;
       const stateX = center + spineWidth / 2 + columnGap * 2;
+      const parallelSpan = Math.max(widest, spineWidth + (rightWidth ? columnGap + rightWidth : 0));
+      const centeredRail = new Set();
       levels.forEach((rank) => {
         const row = ranks.get(rank), main = row.find((item) => spine.has(item.node.id));
         const rail = row.filter(isStateRail);
         const others = row.filter((item) => item !== main && !rail.includes(item));
-        const sides = options.overviewLayout ? split(others) : { left: others, right: [] };
+        const sides = parallel ? { left: [], right: others } : options.overviewLayout ? split(others) : { left: others, right: [] };
         let leftX = center - spineWidth / 2 - columnGap - rowWidth(sides.left);
         sides.left.forEach((item) => { item.x = leftX; item.y = cursorY; leftX += item.boxW + columnGap; });
         if (main) {
@@ -162,11 +165,17 @@
         }
         let rightX = center + spineWidth / 2 + columnGap;
         sides.right.forEach((item) => { item.x = rightX; item.y = cursorY; rightX += item.boxW + columnGap; });
-        rail.forEach((item, index) => { item.x = stateX + index * (item.boxW + columnGap); item.y = cursorY; });
+        if (parallel && !main && !others.length && rail.length) {
+          let railX = side + Math.max(0, (parallelSpan - rowWidth(rail)) / 2);
+          rail.forEach((item) => { item.x = railX; item.y = cursorY; railX += item.boxW + columnGap; centeredRail.add(item); });
+        } else {
+          rail.forEach((item, index) => { item.x = stateX + index * (item.boxW + columnGap); item.y = cursorY; });
+        }
         cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
       });
+      const sideRailNodes = nodes.filter((item) => isStateRail(item) && !centeredRail.has(item));
       width = Math.max(width, ...nodes.map(item=>item.x+item.boxW+side), center + spineWidth / 2 + columnGap + rightWidth + side,
-        stateX + Math.max(0, ...nodes.filter(isStateRail).map((item) => item.boxW)) + side,
+        sideRailNodes.length ? stateX + Math.max(0, ...sideRailNodes.map((item) => item.boxW)) + side : 0,
         center + spineWidth / 2 + side);
     } else {
       levels.forEach((rank) => {

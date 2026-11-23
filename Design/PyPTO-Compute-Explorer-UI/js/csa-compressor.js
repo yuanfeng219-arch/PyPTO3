@@ -1,89 +1,13 @@
-/* Main ratio-4 compressor projection. Source contract: decode_compressor_ratio4.py:62–69, 94–136. */
+/* Shared kernel-stage canvas. Domain models supply task, tile and operation semantics. */
 (function (global) {
   'use strict';
-  const data = global.PTO_CSA_COMPRESSOR_DATA;
-  const stage = global.PTO_CSA_RUNTIME_DATA.stages.find(item => item.id === 'cache/main');
   const phases = ['generation', 'ordering', 'assignment'];
   const phaseNames = {generation:'Work Generation', ordering:'Block Ordering', assignment:'Core Assignment'};
   const reduceMotion = global.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const [mainSource, indexSource] = ['decode_compressor_ratio4.py', 'decode_indexer_compressor.py'];
-  const definitions = {
-    kv_score_proj: [mainSource, 110, 136, [[118,'K Tile Pipeline'],[128,'双投影累加'],[135,'KV / Score 写回']]],
-    scatter_softmax_pool: [mainSource, 145, 215, [[148,'定位压缩边界'],[154,'读取历史 Ring 与当前投影'],[209,'Online Softmax 累加与输出']]],
-    compress_state_commit: [mainSource, 221, 233, [[223,'遍历请求 Token'],[226,'提交本步投影']]],
-    rmsnorm_rope_cache_write: [mainSource, 237, 287, [[246,'RMSNorm'],[254,'NoPE / RoPE'],[279,'按 Slot 写入主 Cache']]],
-    kv_score_proj_0: [indexSource, 112, 142, [[120,'K Tile Pipeline'],[130,'双投影累加'],[137,'KV / Score 写回']]],
-    scatter_softmax_pool_0: [indexSource, 148, 225, [[151,'定位压缩边界'],[157,'读取历史 Ring 与当前投影'],[212,'Online Softmax 累加与输出']]],
-    compress_state_commit_0: [indexSource, 227, 244, [[229,'遍历请求 Token'],[232,'提交本步投影']]],
-    rmsnorm_rope: [indexSource, 245, 294, [[255,'RMS 归约'],[263,'NoPE / RoPE']]],
-    kv_hadamard: [indexSource, 297, 304, [[301,'Hadamard 变换']]],
-    kv_and_cache_write: [indexSource, 306, 335, [[308,'量化与 Scale'],[325,'按 Slot 写入 Indexer Cache']]],
-  };
-  const localObjects = {
-    scatter_softmax_pool: ['每个 Block 对应一个请求', '当前 KV / Score、APE、历史状态 Ring', '跨窗口在线 Softmax 池化后的 KV'],
-    scatter_softmax_pool_0: ['每个 Block 对应一个请求', 'Indexer KV / Score、APE、Indexer 状态 Ring', 'Indexer 池化后的 KV'],
-    compress_state_commit: ['每个 Block 对应一个请求', '本步投影、APE、state_slot_mapping', '主 Compressor 状态 Ring'],
-    compress_state_commit_0: ['每个 Block 对应一个请求', 'Indexer 投影、APE、state_slot_mapping', 'Indexer 状态 Ring'],
-    rmsnorm_rope_cache_write: ['每个 Block 处理 16 行 Tile', '池化 KV、Norm 权重、RoPE、Slot 映射', '归一化 KV 与主 Cache'],
-    rmsnorm_rope: ['每个 Block 处理 16 行 Tile', 'Indexer 池化 KV、Norm 权重、RoPE', '供 Hadamard 消费的 KV'],
-    kv_hadamard: ['每个 Block 处理 16 行 Tile', '归一化 KV、Hadamard 权重', '变换后的 Indexer KV'],
-    kv_and_cache_write: ['每个 Block 处理 16 行 Tile', '变换后的 KV、Indexer Slot 映射', 'INT8 Indexer Cache 与反量化 Scale'],
-  };
-  const isProjection = name => name.startsWith('kv_score_proj');
-  const kernelByName = new Map(stage.kernels.map(k => [k.name, k]));
-  const rows = 16, columns = 64, inner = 512, iterations = 4096 / inner;
-  const columnTiles = 1024 / columns;
-  const ops = {
-    x: ['Load X', 120, 121, 'MTE2', 'pto.tload'],
-    wkv: ['Load Wkv', 122, 126, 'MTE2', 'pto.tload'],
-    wgate: ['Load Wgate', 122, 127, 'MTE2', 'pto.tload'],
-    kv: ['KV Matmul', 128, 132, 'M', 'pto.tmatmul'],
-    score: ['Score Matmul', 128, 133, 'M', 'pto.tmatmul'],
-    kvOut: ['Write KV', 135, 135, 'FIX', 'pto.tstore'],
-    scoreOut: ['Write Score', 136, 136, 'FIX', 'pto.tstore'],
-  };
   const escape = value => String(value).replace(/[&<>"']/g, char =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
-  const tile = (block, name) => {
-    const n = name === 'kv_score_proj_0' ? 32 : columns;
-    const nTiles = name === 'kv_score_proj_0' ? 8 : columnTiles;
-    return { row: Math.floor(block / nTiles) * rows, col: block % nTiles * n, n };
-  };
-  const range = (start, size) => `[${start}, ${start + size})`;
-  const ticks = count => Array.from({ length: count }, (_, i) => i);
   const button = (label, attr, value, selected = false) =>
     `<button type="button" class="btn btn-sm${selected ? ' is-selected' : ''}" ${attr}="${escape(value)}">${escape(label)}</button>`;
-
-  function operationGraph(expanded, name) {
-    const count = expanded ? iterations : 1, nodes = [], edges = [];
-    const add = (op, step, col, row) => {
-      const repeated = step != null;
-      const accumulates = expanded && (op === 'kv' || op === 'score') && step > 0;
-      const node = {
-        id: repeated ? `${op}:${step}` : op, op, step: repeated && expanded ? step : null,
-        col, row, title: ops[op][0] + (accumulates ? ' Acc' : ''),
-        detail: repeated ? (expanded ? `K ${range(step * inner, inner)}` : `×${iterations} · K Tile`) : `FP32 · 16 × ${tile(0, name).n}`,
-      };
-      nodes.push(node);
-      return node.id;
-    };
-    const link = (from, to, state = false) => edges.push({ from, to, state });
-    for (let i = 0; i < count; i++) {
-      const x = add('x', i, i, 2);
-      const kv = add('kv', i, i, 1), score = add('score', i, i, 3);
-      link(add('wkv', i, i, 0), kv);
-      link(add('wgate', i, i, 4), score);
-      link(x, kv);
-      link(x, score);
-      if (i > 0) {
-        link(`kv:${i - 1}`, kv, true);
-        link(`score:${i - 1}`, score, true);
-      }
-    }
-    link(`kv:${count - 1}`, add('kvOut', null, count, 1));
-    link(`score:${count - 1}`, add('scoreOut', null, count, 3));
-    return { nodes, edges, columns: count + 1 };
-  }
 
   function glyph(title, detail, role, unit, attributes) {
     return `<button type="button" class="viz2-instance-node csa-kvsp-node" data-role="${role}" ${attributes}>
@@ -91,62 +15,204 @@
       <small>${escape(detail)}</small></button>`;
   }
 
-  function graphMarkup(graph, selected) {
-    const width = graph.columns * 184, height = 372;
-    const x = n => n.col * 184 + 16, y = n => n.row * 72 + 16;
-    const byId = new Map(graph.nodes.map(node => [node.id, node]));
-    const selectedIds = new Set(graph.nodes.filter(n => selected?.op === n.op && (n.step === null || selected.step == null || selected.step === n.step)).map(n => n.id));
-    const neighbors = new Set(selectedIds);
-    const paths = graph.edges.map(edge => {
-      const active = selectedIds.has(edge.from) || selectedIds.has(edge.to);
-      if (active) { neighbors.add(edge.from); neighbors.add(edge.to); }
-      const kind = edge.state ? 'accum' : 'data';
-      const attrs = `data-kind="${kind}" class="${active ? 'is-related' : ''}"`;
-      const a = byId.get(edge.from), b = byId.get(edge.to);
-      if (a.col === b.col) {
-        const down = a.row < b.row, offset = a.op === 'x' ? 88 : 60;
-        return `<path ${attrs} d="M${x(a)+offset} ${y(a)+(down?48:0)} V${y(b)+(down?0:48)}"/>`;
+  function operationScene(graph, selected, kernel, pipeline, expanded, identify, iterations, mIndex) {
+    const marker=mIndex==null?'csa-kvsp-arrow':`csa-kvsp-arrow-m${mIndex}`;
+    const {nodes,edges}=graph, byId=new Map(nodes.map(n=>[n.id,n]));
+    const laneLayout=pipeline||kernel?.type==='projection'&&expanded;
+    const laneOrder=graph.pipelineLanes
+      ? ['Input','Load','Cube','Split 0 · Load','Split 0 · Cube','Split 0 · Write','Split 1 · Load','Split 1 · Cube','Split 1 · Write','Write']
+      : ['Input','Control','MTE2','MTE1','Gather','Vector','M','FIX','Write'];
+    const usedLanes=new Set(nodes.map(n=>n.lane));
+    const lanes=[...laneOrder.filter(lane=>usedLanes.has(lane)),...[...usedLanes].filter(lane=>!laneOrder.includes(lane))];
+    const windowColumns=new Map(nodes.filter(n=>n.op==='carry').map(n=>[n.step,n.rank]));
+    const groups=new Map();
+    const focused=new Set(nodes.filter(n=>selected && (selected.overview
+      ? n.id===selected.overview
+      : n.op===selected.op && (selected.split==null||n.split===selected.split) &&
+        (!expanded||selected.step==null||n.step===selected.step))).map(n=>n.id));
+    const adjacent=new Set(focused);
+    for(const edge of edges) if(focused.has(edge.from)||focused.has(edge.to)) {
+      adjacent.add(edge.from);adjacent.add(edge.to);
+    }
+
+    for(const node of nodes) {
+      const projectionStep=kernel?.type==='projection'&&node.step!=null;
+      node.column=node.layoutColumn??(projectionStep ? 1+node.step
+        : kernel?.type==='projection' && expanded && node.role==='aggregate' ? iterations+1
+        : pipeline && kernel?.type==='pool' && node.op==='window' ? windowColumns.get(node.step)
+        : node.rank);
+      const key=laneLayout?node.lane+':'+node.column:node.column;
+      if(!groups.has(key))groups.set(key,[]);
+      const slots=groups.get(key);node.slot=slots.length;slots.push(node);
+    }
+    const rowSize=65, nodeWidth=168, nodeHeight=44, colSize=216, margin=laneLayout?139:30;
+    const rowByLane=new Map();
+    let y=52;
+    if(laneLayout) for(const lane of lanes) {
+      const depth=Math.max(...[...groups].filter(([key])=>key.startsWith(lane+':')).map(([,slots])=>slots.length));
+      const size=depth*rowSize+12;
+      rowByLane.set(lane,{y,size}); y+=size;
+    }
+    for(const node of nodes) {
+      node.x=margin+node.column*colSize;
+      node.y=(laneLayout?rowByLane.get(node.lane).y+8:46)+(laneLayout?node.slot:node.layoutRow??node.slot)*rowSize;
+    }
+    const width=Math.max(...nodes.map(n=>n.x))+nodeWidth+40;
+    const height=laneLayout?y+12:Math.max(...nodes.map(n=>n.y))+nodeHeight+28;
+    const ports=new Map();
+    for(const edge of edges) for(const [side,id] of [['from',edge.from],['to',edge.to]]) {
+      const key=side+':'+id;
+      if(!ports.has(key))ports.set(key,[]);
+      ports.get(key).push(edge);
+    }
+    const portOffset=(side,id,edge)=>{
+      const items=ports.get(side+':'+id);
+      return 7+(nodeHeight-14)*(items.indexOf(edge)+1)/(items.length+1);
+    };
+    const occupiedRows=new Map();
+    const links=edges.map(edge=>{
+      const from=byId.get(edge.from), to=byId.get(edge.to);
+      const a=from.x+nodeWidth, b=to.x;
+      const sy=from.y+portOffset('from',from.id,edge), ty=to.y+portOffset('to',to.id,edge);
+      const related=focused.has(from.id)||focused.has(to.id);
+      const outgoingIndex=ports.get('from:'+from.id).indexOf(edge);
+      const incomingIndex=ports.get('to:'+to.id).indexOf(edge);
+      let path;
+      if(from.column===to.column){
+        const gutter=a+18+outgoingIndex*3+incomingIndex*6;
+        path=`M${a} ${sy} C${gutter} ${sy} ${gutter} ${ty} ${a} ${ty}`;
+      }else if(to.column-from.column>1){
+        const row=from.y+nodeHeight;
+        const occupied=occupiedRows.get(row)||[];
+        const lane=Math.max(0,...occupied.filter(track=>track.to>a && track.from<b).map(track=>track.lane+1));
+        occupied.push({from:a,to:b,lane});
+        occupiedRows.set(row,occupied);
+        const corridor=row+6+Math.min(lane*2,12);
+        const exit=a+9+outgoingIndex*4, entry=b-9-incomingIndex*5;
+        const turn=Math.sign(ty-corridor);
+        const radius=Math.min(5,Math.abs(ty-corridor)/2);
+        path=`M${a} ${sy} H${exit-5} Q${exit} ${sy} ${exit} ${sy+5} V${corridor-5}
+          Q${exit} ${corridor} ${exit+5} ${corridor} H${entry-radius}
+          Q${entry} ${corridor} ${entry} ${corridor+turn*radius} V${ty-turn*radius}
+          Q${entry} ${ty} ${entry+radius} ${ty} H${b}`;
+      }else{
+        path=`M${a} ${sy} C${a+30} ${sy} ${b-30} ${ty} ${b} ${ty}`;
       }
-      return `<path ${attrs} d="M${x(a)+152} ${y(a)+24} H${x(b)}"/>`;
+      return `<path class="${pipeline?'csa-qp-timeline-data':''} ${related?'is-related':''}" data-kind="${edge.type}" d="${path}" style="marker-end:url(#${marker})"/>`;
     }).join('');
-    return `<div class="csa-kvsp-graph ${selectedIds.size ? 'has-focus' : ''}" style="width:${width}px;height:${height}px">
-      <svg width="${width}" height="${height}" aria-hidden="true"><defs><marker id="csa-kvsp-arrow" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z"/></marker></defs>${paths}</svg>
-      ${graph.nodes.map(n => {
-        const role = n.op.endsWith('Out') ? 'aggregate' : n.row % 2 === 0 ? 'activation' : 'operation';
-        return glyph(n.title, n.detail, role, role === 'operation' ? 'AIC' : '',
-          `style="left:${x(n)}px;top:${y(n)}px" data-kvsp-op="${n.id}" data-related="${neighbors.has(n.id)}" aria-pressed="${selectedIds.has(n.id)}"`);
-      }).join('')}</div>`;
+    return `<div class="csa-kvsp-graph csa-compressor-op-scene ${focused.size?'has-focus':''}" style="width:${width}px;height:${height}px">
+      <svg class="${pipeline?'csa-qp-svg':''}" width="${width}" height="${height}" aria-hidden="true">
+      <defs><marker id="${marker}" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z"/></marker></defs>
+      ${laneLayout?lanes.map(lane=>{
+        const {y,size}=rowByLane.get(lane);
+        return `<rect class="csa-compressor-region" x="10" y="${y}" width="${width-20}" height="${size-6}" rx="8"/><text class="csa-qp-row-label" x="24" y="${y+34}">${lane}</text>`;
+      }).join(''):''}${links}</svg>
+      ${nodes.map(node=>glyph(node.title,node.detail||node.condition||node.lane,node.role,node.unit||(node.role==='operation'?kernel?.coreType:''),
+        `style="left:${node.x}px;top:${node.y}px;width:${nodeWidth}px;height:${nodeHeight}px" ${kernel?'data-kvsp-op':'data-kvsp-overview'}="${node.id}" data-object-id="${identify(node)}" ${mIndex==null?'':`data-kvsp-m="${mIndex}"`} title="${escape([node.title,node.detail,node.condition].filter(Boolean).join(' · '))}" data-related="${adjacent.has(node.id)}" aria-pressed="${focused.has(node.id)}"`)).join('')}</div>`;
   }
 
-  function mount(host, { onSource, onRank, onExit }) {
-    let rank = 0, mode = 'assignment', scope = 'inter', scale = 'structure', block = 0, kernel = 'kv_score_proj';
+  // Preserve the viewport and logical SVG nodes when selection or phase changes.
+  function syncElement(current,next) {
+    if(current.isEqualNode(next))return;
+    if(current.nodeName!==next.nodeName || current.nodeType!==next.nodeType ||
+        current.nodeType===1 && current.getAttribute('data-owner')!==next.getAttribute('data-owner')) {
+      current.replaceWith(next.cloneNode(true));return;
+    }
+    if(current.nodeType!==1){current.nodeValue=next.nodeValue;return;}
+    const userExpanded = current.localName==='details';
+    for(const attr of [...current.attributes]) {
+      if(attr.name==='open'&&userExpanded)continue;
+      if(!next.hasAttribute(attr.name))current.removeAttribute(attr.name);
+    }
+    for(const attr of next.attributes) {
+      if(attr.name==='open'&&userExpanded)continue;
+      if(current.getAttribute(attr.name)!==attr.value)current.setAttribute(attr.name,attr.value);
+    }
+    const existing=[...current.childNodes], incoming=[...next.childNodes];
+    if(existing.length!==incoming.length)current.replaceChildren(...incoming.map(child=>child.cloneNode(true)));
+    else for(let i=0;i<existing.length;i++)syncElement(existing[i],incoming[i]);
+    if(current.localName==='select' && current.value!==next.value)current.value=next.value;
+  }
+
+  function mount(host,{onSource,onRank,onExit,onTab,model=global.PtoCsaCompressorModel,renderTiles,pipelineFactory}) {
+    const {stage,measured:data,kernels:kernelByName,rows,kTile:inner,kCount:iterations,ticks,range,objectId,operationModel}=model;
+    const title=model.title||'Compressor', layoutBranches=model.branches||{main:'Main',indexer:'Indexer'};
+    const caseOptions=model.cases||[];
+    let customPipelineHost=null, customPipelineCtrl=null, pendingPipelineState=null;
+    let tokens=caseOptions[0]?.tokens, tileIndex=0, selectedK=0, overviewId=null, allTiles=false;
+    let rank=0,mode='assignment',scope='inter',scale='structure',block=0,kernel=model.defaultKernel||'kv_score_proj';
+    const info=()=>kernelByName.get(kernel);
+    const isProjection=name=>kernelByName.get(name).type==='projection';
+    const localView=()=>({block,tokens,tileIndex});
+    const tile=(index,name)=>model.blockShape(kernelByName.get(name),index,localView());
+    const localGraph=()=>operationModel(info(),scale==='instances',localView());
+    const defaultCount=name=>kernelByName.get(name).blockNum;
+    const countFor=name=>model.blockCount?model.blockCount(kernelByName.get(name),tokens):defaultCount(name);
+    const drawTiles=()=>renderTiles?.(info(),localView(),selectedK)||'';
+
     let sliceId = null, selected = null, blockSelected = false, inspectorOpen = false;
     let phase = 'generation', timer = null, loop = false, zoom = 1;
+    let coreId = null, filter = 'all', branch = 'all', lastKey = null;
+    let navigation = [], focusSelector = null, savedFocus = null;
+    const cameras = new Map();
+    const keyFor = () => JSON.stringify([rank,tokens,mode,scope,scope==='intra'?kernel:null,scope==='intra'?tileIndex:null,mode==='assignment'?phase:null,
+      mode==='graph'||scope==='intra'?scale:null,mode==='graph'&&scale==='instances'&&allTiles]);
+    const viewport=()=>host.querySelector('.csa-kvsp-main');
+    const remember=()=>{
+      const region=viewport();
+      if(lastKey&&region)cameras.set(lastKey,{left:region.scrollLeft,top:region.scrollTop,zoom});
+    };
+    const updateZoom=()=>{
+      host.querySelectorAll('.csa-compressor-sheet,.csa-compressor-zoom-content').forEach(el=>el.style.setProperty('--compressor-zoom',zoom));
+      const output=host.querySelector('.csa-compressor-footer output');
+      if(output)output.textContent=`${Math.round(zoom*100)}%`;
+    };
+    function frame(selector, smooth=true) {
+      const item=viewport()?.querySelector(selector);
+      if(!item||!item.getClientRects().length)return;
+      const box=item.getBoundingClientRect(), view=viewport().getBoundingClientRect();
+      if(box.left<view.left||box.right>view.right||box.top<view.top||box.bottom>view.bottom) {
+        viewport().scrollBy({left:box.left+box.width/2-view.left-view.width/2,top:box.top+box.height/2-view.top-view.height/2,behavior:!smooth||reduceMotion?'instant':'smooth'});
+      }
+    }
+    function focusObject(selector) { focusSelector=selector; }
+    const jumpLabel = label => `在 ${label} 中查看`;
+    function navActions(targetScope, marker) {
+      const options={assignment:'Assignment',pipeline:'Pipeline',graph:'Graph'};
+      return `<div class="csa-qp-nav-group">${Object.entries(options).filter(([id])=>id!==mode).map(([id,title])=>
+        button(jumpLabel(title),'data-kvsp-nav',`${id}:${targetScope}:${marker}`)).join('')}</div>`;
+    }
+    function snapshot() {
+      remember();
+      return {mode,scope,scale,block,kernel,sliceId,selected,blockSelected,inspectorOpen,phase,coreId,filter,branch,tokens,tileIndex,selectedK,overviewId,allTiles,zoom,key:lastKey};
+    }
     const stop = () => { if (timer != null) global.clearInterval(timer); timer = null; };
     function play() {
       stop();
       timer = global.setInterval(() => {
         const next = phases.indexOf(phase) + 1;
-        if (next === phases.length && !loop) stop();
-        else phase = phases[next % phases.length];
-        render(true);
+        if(next===phases.length&&!loop){stop();render();}
+        else setPhase(phases[next%phases.length]);
       }, 1500);
     }
     function setKernel(name) {
-      kernel = name; block = 0; selected = null; sliceId = null; blockSelected = false;
+      if(kernel===name)return;
+      kernel=name; block=0; tileIndex=0; allTiles=false; selectedK=0; overviewId=null; selected=null; sliceId=null; coreId=null; blockSelected=false;
+      if(branch!=='all'&&kernelByName.get(kernel).branch!==branch)branch='all';
     }
     const phaseButton = (name, attr, value, pressed) =>
       button(name, attr, value, pressed).replace('<button ', `<button aria-pressed="${pressed}" `);
     const current = () => data.ranks[rank];
-    const blocks = () => kernelByName.get(kernel).blockNum;
+    const blocks = () => countFor(kernel);
 
     function blockGrid(indices, label, name = kernel) {
       return `<div class="csa-kvsp-blocks" role="group" aria-label="${label}">${indices.map(index =>
-        `<button type="button" class="btn btn-sm" data-kvsp-block="${index}" data-kvsp-block-kernel="${name}" aria-label="查看 Block ${index}" title="${isProjection(name) ? `M ${range(tile(index, name).row, rows)} · N ${range(tile(index, name).col, tile(index, name).n)}` : `逻辑 Block ${index}`}">${index}</button>`).join('')}</div>`;
+        `<button type="button" class="btn btn-sm" data-kvsp-block="${index}" data-kvsp-block-kernel="${name}" aria-label="查看 Block ${index}" title="${escape(model.cases?tile(index,name).text:isProjection(name)?`M ${range(tile(index,name).row,rows)} · N ${range(tile(index,name).col,tile(index,name).n)}`:`逻辑 Block ${index}`)}">${index}</button>`).join('')}</div>`;
     }
 
     function assignment() {
       if (scope === 'intra') {
+        if(renderTiles&&model.isMatmul(info()))return `<h3>${kernel} · Block ${block}</h3>${drawTiles()}${navActions('intra','block')}`;
         if (!isProjection(kernel)) return localAssignment();
         const { row, col, n } = tile(block, kernel);
         return `<h3>Block ${block} · Tile 与存储</h3>
@@ -162,8 +228,12 @@
 
     function assignmentCanvas() {
       const count = blocks(), projection = isProjection(kernel);
-      const perRow = projection ? (kernel === 'kv_score_proj_0' ? 8 : 16) : 16;
-      const groupCount = Math.ceil(count / perRow), sequenceColumns = 32;
+      const perRow=model.groupSize?.(info())??(projection?tile(0,kernel).nTiles:16);
+      const groupCount=Math.ceil(count/perRow), sequenceColumns=32;
+      const groupColumns=4, groupWidth=254, groupHeight=projection?79:69;
+      const size=projection||model.groupSize?perRow:8;
+      const generatedGroups=Math.ceil(count/size);
+      const groupOrigin=i=>[22+i%groupColumns*groupWidth,58+Math.floor(i/groupColumns)*groupHeight];
       const records = current().kernels[kernel];
       const cores = new Map();
       for (const record of records) {
@@ -175,13 +245,17 @@
       const ordered = phase !== 'generation';
       const gridColumns = ordered ? sequenceColumns : perRow;
       const width = 1080, step = 27, rowStep = 23, left = 115, top = 68;
-      const taskHeight = Math.ceil(count/gridColumns)*rowStep+top+14;
+      const taskHeight=ordered?Math.ceil(count/gridColumns)*rowStep+top+14
+        : 58+Math.ceil(generatedGroups/groupColumns)*groupHeight;
       const measuredTop = top;
       const height = showMeasured ? measuredTop+byCore.length*rowStep+18 : Math.max(310,taskHeight+22);
-      const ownership = projection ? `${groupCount} M Tiles × ${perRow} N Tiles` : /pool|commit/.test(kernel) ? `${count} requests × 1 Block` : `${count} 个 16 行 Tiles × 1 Block`;
+      const ownership = model.cases ? info().type==='qr'?`${count/2} N Groups × 2 Split-K`:
+        info().type==='qmat'?`${count} N Groups × 1 Block`:info().type==='post'?`${count} Head Groups × 4 Heads`:
+        info().type==='seed'?'1 Core Group · 遍历 M/N Tile':`${count} Token Tiles × 1 Block`
+        : projection ? `${groupCount} M Tiles × ${perRow} N Tiles` : /pool|commit/.test(kernel) ? `${count} requests × 1 Block` : `${count} 个 16 行 Tiles × 1 Block`;
       const caption = phase === 'generation' ? `${ownership} → ${count} Work Items` :
-        phase === 'ordering' ? `SPMD Block 0–${count-1} · 按 block_idx 编号` :
-        `${count} 逻辑 Blocks · ${records.length} 实测切片 · ${cores.size} 个物理核`;
+        phase === 'ordering' ? `SPMD Block 0–${count-1} · ${info().type==='qr'?'block_idx = N Group × 2 + Split':'按 block_idx 编号'}` :
+        `${count} 逻辑 Blocks · ${records.length} 实测切片 · ${cores.size} 个物理核${model.cases&&tokens!==caseOptions[0].tokens?'（存档为 256 行）':''}`;
       return `<div class="csa-qk-canvas-head csa-compressor-controls">
         <div><h2>${phaseNames[phase]}</h2><p>${caption}</p></div>
         <div class="csa-qk-canvas-controls">
@@ -189,28 +263,49 @@
           ${button('重播','data-kvsp-replay','')}
           <div class="segmented-control segmented-control-muted" role="group" aria-label="任务分配阶段">
             ${phases.map((p,i)=>phaseButton(['Generation','Ordering','Assignment'][i],'data-kvsp-phase',p,p===phase)).join('')}
-          </div><label><input type="checkbox" data-kvsp-loop ${loop?'checked':''}> 循环</label>
+          </div>${phaseButton('循环','data-kvsp-loop','',loop)}
         </div></div>
         <div class="csa-compressor-sheet" style="--compressor-zoom:${zoom}">
-          <svg class="csa-compressor-assignment" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Compressor Work Assignment">
+          ${renderTiles&&model.isMatmul(info())?`<div ${showMeasured?'hidden':''}>${drawTiles()}</div>`:''}
+          <svg class="csa-compressor-assignment" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="${title} Work Assignment">
           <text x="22" y="26" class="csa-qk-canvas-axis">${escape(phaseNames[phase] + ' · ' + caption)}</text>
-          ${!showMeasured ? ticks(Math.ceil(count/gridColumns)).map(i=>`<g class="csa-qk-canvas-group">
+          <g data-kvsp-logical-backdrop display="${showMeasured?'none':'inline'}">
+          ${ordered?ticks(Math.ceil(count/gridColumns)).map(i=>`<g class="csa-qk-canvas-group">
             <rect x="100" y="${top+i*rowStep-3}" width="${gridColumns*step+20}" height="22" rx="4"/>
-            <text x="20" y="${top+i*rowStep+10}">${!ordered&&projection?'M '+i:'B '+i*gridColumns}</text></g>`).join('') : ''}
-          ${!showMeasured ? ticks(count).map(i=>{
-            const x=left+(i%gridColumns)*step,y=top+Math.floor(i/gridColumns)*rowStep;
+            <text x="20" y="${top+i*rowStep+10}">B ${i*gridColumns}</text></g>`).join(''):
+            ticks(generatedGroups).map(i=>{
+              const [x,y]=groupOrigin(i), first=i*size;
+              const active=blockSelected&&Math.floor(block/size)===i;
+              const name=model.groupSize?` ${info().type==='qr'?'N Group '+i+' · Split 0 / 1':
+                info().type==='qmat'?'N Groups '+first+'–'+Math.min(first+size-1,count-1):
+                info().type==='post'?'Head Groups '+first+'–'+Math.min(first+size-1,count-1):
+                info().type==='seed'?'QR FP32 初始化':'Token Tiles '+first+'–'+Math.min(first+size-1,count-1)}`
+                :projection?`M ${range(i*rows,rows)} × N Tiles`
+                : `${model.requestScoped(kernelByName.get(kernel))?'Request':'M Tile'} ${first}–${Math.min(first+7,count-1)}`;
+              return `<g class="csa-qk-canvas-group ${active?'is-focused':blockSelected?'is-dimmed':''}">
+                <rect x="${x}" y="${y}" width="${groupWidth-12}" height="${groupHeight-8}" rx="5"/>
+                <text x="${x+10}" y="${y+17}">${name}</text></g>`;
+            }).join('')}</g>
+          <g data-kvsp-logical-layer display="${showMeasured?'none':'inline'}" data-owner="${kernel}">
+          ${ticks(count).map(i=>{
+            const [baseX,baseY]=groupOrigin(Math.floor(i/size));
+            const x=ordered?left+i%gridColumns*step:baseX+10+(i%size)%8*28;
+            const y=ordered?top+Math.floor(i/gridColumns)*rowStep:baseY+27+Math.floor((i%size)/8)*19;
             const active=blockSelected&&block===i;
-            return `<g class="csa-qk-canvas-item is-valid ${active?'is-selected':''}" role="button" tabindex="0"
-              data-kvsp-logical="${i}" data-x="${x}" data-y="${y}" style="transform:translate(${x}px,${y}px)" aria-pressed="${active}" aria-label="逻辑 Block ${i}">
-              <rect width="22" height="16" rx="3"/><title>Block ${i}</title></g>`;
-          }).join('') : ''}
-          ${showMeasured ? `<text x="22" y="${measuredTop-22}" class="csa-qk-canvas-axis">按物理核分组 · 每个色块是一条实测切片</text>
-            ${byCore.map(([core, entries],i)=>`<g class="csa-qk-canvas-lane">
+            const related=blockSelected&&Math.floor(block/size)===Math.floor(i/size);
+            const dim=blockSelected&&!related;
+            return `<g class="csa-qk-canvas-item is-valid ${active?'is-selected':related?'is-related':dim?'is-dimmed':''}" role="button" tabindex="0"
+              data-kvsp-logical="${i}" data-object-id="${objectId(rank,kernelByName.get(kernel),i,null,localView())}" data-x="${x}" data-y="${y}" style="transform:translate(${x}px,${y}px)" aria-pressed="${active}" aria-label="逻辑 Block ${i}">
+              <rect width="22" height="16" rx="3"/><title>Block ${i} · ${tile(i,kernel).text}</title></g>`;
+          }).join('')}</g>
+          <g data-kvsp-measured display="${showMeasured?'inline':'none'}">
+          ${showMeasured ? `<text x="22" y="${measuredTop-22}" class="csa-qk-canvas-axis">按物理核分组 · 每个色块是一条实测切片${blockSelected?` · 逻辑 Block ${block} 保留在 Ordering`:''}</text>
+            ${byCore.map(([core, entries],i)=>`<g class="csa-qk-canvas-lane ${coreId===core?'is-selected':coreId!=null?'is-dimmed':''}" role="button" tabindex="0" data-kvsp-core="${core}" aria-label="物理核 ${core}">
               <rect x="100" y="${measuredTop+i*rowStep-3}" width="916" height="22" rx="4"/>
               <text x="20" y="${measuredTop+i*rowStep+10}">${core<24?'AIC':'AIV'} ${core}</text></g>
               ${entries.map(([id,,time,dur],j)=>`<rect class="csa-compressor-slice" role="button" tabindex="0" data-kvsp-slice="${id}" data-unit="${core<24?'aic':'aiv'}"
-                aria-pressed="${sliceId===id}" aria-label="物理切片 ${id}，Core ${core}" x="${left+j*Math.min(step,875/entries.length)}" y="${measuredTop+i*rowStep}" width="${Math.min(22,800/entries.length)}" height="16" rx="3"><title>#${id} · ${time} µs · ${dur} µs</title></rect>`).join('')}`).join('')}` : ''}
-          </svg></div>`;
+                data-highlight="${coreId==null||coreId===core}" aria-pressed="${sliceId===id}" aria-label="物理切片 ${id}，Core ${core}" x="${left+j*Math.min(step,875/entries.length)}" y="${measuredTop+i*rowStep}" width="${Math.min(22,800/entries.length)}" height="16" rx="3"><title>#${id} · ${time} µs · ${dur} µs</title></rect>`).join('')}`).join('')}` : ''}
+          </g></svg></div>`;
     }
 
     const classify = op => /load/.test(op) ? 'Load' : /store/.test(op) ? 'Store' :
@@ -224,286 +319,382 @@
     }
 
     function localAssignment() {
-      const groups = new Map();
-      for (const [op] of data.ir[kernel]) {
-        const type = classify(op);
-        groups.set(type, (groups.get(type) || 0) + 1);
-      }
-      return `<h3>${kernel} · Block ${block} · ${kernelByName.get(kernel).coreType}</h3>
-        <dl class="csa-sv-dl">${['Block 归属','读取','写入'].map((label,i)=>`<dt>${label}</dt><dd>${localObjects[kernel][i]}</dd>`).join('')}</dl>
-        <div class="csa-kvsp-cores">${[...groups].map(([name, count])=>`<section class="csa-sv-card"><b>${name}</b><small>${count} 个编译指令位置</small></section>`).join('')}</div>`;
+      const k=info(), graph=operationModel(k,false,localView());
+      const inputs=graph.nodes.filter(n=>n.role==='activation');
+      const outputs=graph.nodes.filter(n=>n.role==='aggregate');
+      return `<h3>${kernel} · Block ${block} · ${k.coreType}</h3><p>${tile(block,kernel).text}</p>
+        <div class="csa-compressor-flow">${[['输入',inputs],['输出及状态',outputs]].map(([label,nodes])=>`<section class="csa-sv-card">
+        <h3>${label}</h3>${nodes.map(n=>`<dl class="csa-sv-dl"><dt>${n.title}</dt><dd>${n.detail}</dd></dl>`).join('')}</section>`).join('')}</div>
+        ${button('查看切分与读写源码','data-kvsp-source',k.first+':'+k.last)}`;
     }
 
-    function stageGraph() {
-      const positions = [
-        ['kv_score_proj',0,0],['scatter_softmax_pool',1,0],['compress_state_commit',2,1],['rmsnorm_rope_cache_write',2,0],
-        ['kv_score_proj_0',0,2],['scatter_softmax_pool_0',1,2],['compress_state_commit_0',2,3],['rmsnorm_rope',2,2],
-        ['kv_hadamard',3,2],['kv_and_cache_write',4,2],
-      ];
-      const xy = new Map(positions.map(([name,c,r])=>[name,[c*224+16,r*82+38+(r>=2?38:0)]]));
-      const pairs = new Map();
-      for (const edge of stage.internalEdges) {
-        const key = edge.from+'>'+edge.to;
-        if (!pairs.has(key)) pairs.set(key,{...edge,sources:[]});
-        pairs.get(key).sources.push(edge.source);
-      }
-      const paths = [...pairs.values()].map(edge=>{
-        const [x,y] = xy.get(edge.from), [tx,ty] = xy.get(edge.to);
-        const offset = /commit/.test(edge.to) ? 10 : 0;
-        const start = y+24+offset, finish = ty+24;
-        const route = tx-x>224
-          ? `M${x+190} ${start} H${x+198} Q${x+206} ${start} ${x+206} ${start+8}
-            V${finish+7} Q${x+206} ${finish+15} ${x+214} ${finish+15} H${tx}`
-          : `M${x+190} ${start} C${x+210} ${start} ${tx-20} ${finish} ${tx} ${finish}`;
-        return `<path class="${edge.sources.includes('tensormap') ? '' : 'is-state'}" d="${route}"/>`;
-      });
-      return `<p>Main Compressor 与 Indexer Compressor · 实线是 Tensor 关系，虚线是显式依赖</p>
-        <div class="csa-kvsp-graph csa-compressor-stage-graph" style="width:1130px;height:390px"><svg width="1130" height="390" aria-hidden="true">
-        <rect class="csa-compressor-region" x="5" y="5" width="1110" height="171" rx="9"/><text class="csa-qp-row-label" x="16" y="25">Main Compressor</text>
-        <rect class="csa-compressor-region" x="5" y="200" width="1110" height="177" rx="9"/><text class="csa-qp-row-label" x="16" y="225">Indexer Compressor</text>
-        <defs><marker id="csa-kvsp-arrow" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z"/></marker></defs>${paths.join('')}</svg>
-        ${positions.map(([name])=>{const [x,y]=xy.get(name);const k=kernelByName.get(name);
-          return glyph(name, `${k.blockNum} Blocks`, 'operation', k.coreType,
-            `style="left:${x}px;top:${y}px" data-kvsp-kernel="${name}" aria-pressed="${kernel===name}"`);
-        }).join('')}</div>`;
+    function localOperations(pipeline) {
+      const expanded=scale==='instances', info=kernelByName.get(kernel);
+      const symbolic = ['pool','commit','write'].includes(info.type) || info.type==='norm' && info.branch==='main';
+      return `<h3>${kernel} · Block ${block} · ${pipeline?'核内因果泳道':'计算依赖'}</h3>
+        <p>${pipeline?'逻辑因果顺序 · 不含核内实测时间戳。':''}${symbolic?' 条件路径按源码展示，Token / Slot 的实际执行由输入决定。':''}</p>
+        ${model.cases?`<p>${escape(tile(block,kernel).text)}</p>`:''}
+        ${operationScene(localGraph(),selected,info,pipeline,expanded,
+          node=>objectId(rank,info,node.block??block,node.id,localView()),iterations)}
+        ${data.ir[kernel].length?`<details class="csa-sv-card"><summary>PTO IR 与源码位置</summary>${irTable(true)}</details>`:''}`;
     }
 
     function computation() {
-      if (scope === 'intra' && isProjection(kernel)) return graphMarkup(operationGraph(scale === 'instances', kernel), selected);
-      if (scope === 'intra') return localGraph();
-      return stageGraph() + (scale === 'instances'
-        ? `<h3>逻辑执行实例</h3><p>按编译任务展开。选择 Block 查看它的核内计算。</p>
-          ${stage.kernels.map(k => `<details class="csa-sv-card" ${k.name === kernel ? 'open' : ''}>
-            <summary>${k.name} · ${k.blockNum} Blocks</summary>${blockGrid(ticks(k.blockNum), k.name + ' SPMD 实例', k.name)}</details>`).join('')}`
-        : `<p>选中 Kernel 查看分配与源码，或进入核内查看选定 Block。</p>`);
-    }
-
-    function localGraph() {
-      const [, , end, stages] = definitions[kernel];
-      const expanded = scale === 'instances';
-      const unit=kernelByName.get(kernel).coreType;
-      const width=stages.length*225+24;
-      return `<h3>${kernel} · Block ${block}</h3>
-        ${expanded ? '<p>按结构节点展开编译指令位置。实际循环次数与条件分支随输入变化。</p>' : ''}
-        <div class="csa-kvsp-graph csa-compressor-stage-graph" style="width:${width}px;height:80px">
-        <svg width="${width}" height="80" aria-hidden="true"><defs><marker id="csa-kvsp-arrow" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z"/></marker></defs>
-        ${stages.slice(1).map((_,i)=>`<path d="M${206+i*225} 40H${241+i*225}"/>`).join('')}</svg>
-        ${stages.map(([line,label],i)=>glyph(label,'源码 L'+line,'operation',unit,
-          `style="left:${16+i*225}px;top:16px" data-kvsp-site-group="${i}" aria-pressed="${selected?.group===i}"`)).join('')}</div>
-        ${expanded ? `<div class="csa-compressor-flow">${stages.map(([first,label],i)=>{
-          const last=stages[i+1]?stages[i+1][0]-1:end;
-          const sites=data.ir[kernel].filter(([, , line])=>line>=first&&line<=last);
-          return `<details class="csa-sv-card" ${selected?.group===i||selected==null?'open':''}><summary>${label} · ${sites.length}</summary>
-            <ul>${sites.map(([op,line])=>`<li>${button(op+' · IR L'+line,'data-kvsp-site',line,selected?.site===line)}</li>`).join('')}</ul></details>`;
-        }).join('')}</div>` : ''}`;
-    }
-
-    function localPipeline() {
-      const sites = data.ir[kernel], count = sites.length;
-      const lanes = ['Load', 'Tile Move / Extract', 'Vector / Scalar', 'Cube', 'Store', 'Sync']
-        .filter(lane => sites.some(([op]) => classify(op) === lane));
-      return `<h3>${kernel} · Block ${block} · 静态编译顺序</h3>
-        <p>横轴是 PTO IR 指令位置序号。循环与分支随输入变化，核内指令时间戳未采集。</p>
-        <svg class="csa-kvsp-timeline" viewBox="0 0 1100 ${lanes.length*34+36}" role="img" aria-label="按指令类别分组的编译位置">
-          ${lanes.map((lane,i)=>`<text x="10" y="${30+i*34}">${lane}</text><path d="M155 ${34+i*34}H1080"/>`).join('')}
-          ${sites.map(([op,line],i)=>`<rect role="button" tabindex="0" data-kvsp-site="${line}" aria-label="${op}，IR L${line}" aria-pressed="${selected?.site===line}" x="${158+i*914/Math.max(1,count)}" y="${18+lanes.indexOf(classify(op))*34}" width="${Math.min(11,Math.max(1,840/Math.max(1,count)))}" height="14" rx="2"><title>${op} · IR L${line}</title></rect>`).join('')}
-        </svg><details class="csa-sv-card"><summary>PTO IR 与源码行</summary>${irTable(true)}</details>`;
-    }
-
-    function projectionPipeline() {
-      const laneNames = ['MTE2 · GM → L1','MTE1 · L1 → L0','M · Cube','FIX · L0C → GM'];
-      const laneY = i => 75+i*63, colX = i => 175+i*145;
-      const opsByLane = ['x','extract','kv','kvOut'];
-      const active = (op,i) => selected?.op===op && (selected.step==null || selected.step===i);
-      const cell = (i,lane,labels) => {
-        const op=opsByLane[lane], key=lane===3?op:`${op}:${i}`;
-        return `<g class="csa-qp-node ${active(op,i)?'is-selected':''}" role="button" tabindex="0" data-kvsp-op="${key}" data-unit="${lane}" aria-label="${labels.join(' ')}">
-          <rect x="${colX(i)}" y="${laneY(lane)}" width="123" height="38" rx="5"/>
-          <text x="${colX(i)+9}" y="${laneY(lane)+15}">${labels[0]}</text><text class="csa-qp-boundary-note" x="${colX(i)+9}" y="${laneY(lane)+29}">${labels[1]}</text></g>`;
-      };
-      const edges=ticks(iterations).map(i=>{
-        const x=colX(i)+61,acc=i+1<iterations?`<path class="csa-qp-timeline-reuse" d="M${colX(i)+123} ${laneY(2)+19}H${colX(i+1)}"/>`:'';
-        return `<path class="csa-qp-timeline-data" d="M${x} ${laneY(0)+38}V${laneY(1)} M${x} ${laneY(1)+38}V${laneY(2)}"/>${acc}`;
-      }).join('');
-      return `<h3>Block ${block} · K Tile 因果泳道</h3><p>源码双级 Pipeline · 横轴为逻辑 K 索引</p>
-        <div class="csa-compressor-sheet" style="--compressor-zoom:${zoom}"><svg class="csa-qp-svg csa-compressor-causal" width="1480" height="340" viewBox="0 0 1480 340" role="group" aria-label="投影核内因果泳道">
-          <defs><marker id="csa-compressor-pipe-arrow" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z"/></marker></defs>
-          ${laneNames.map((name,i)=>`<text class="csa-qp-row-label" x="16" y="${laneY(i)+23}">${name}</text><path class="csa-compressor-lane-rule" d="M16 ${laneY(i)+48}H1472"/>`).join('')}
-          ${ticks(iterations).map(i=>`<text class="csa-qp-row-label" x="${colX(i)}" y="46">K${i} · ${range(i*inner,inner)}</text>`).join('')}
-          ${edges}<path class="csa-qp-timeline-data" d="M${colX(7)+123} ${laneY(2)+19} Q${colX(8)+60} ${laneY(2)+19} ${colX(8)+61} ${laneY(3)}"/>
-          ${ticks(iterations).map(i=>cell(i,0,['Load X / Weights','BF16 · GM → L1'])+cell(i,1,['Tile Extract','2 × K256 / 投影'])+cell(i,2,[i?'KV / Score Acc':'KV / Score Init','FP32 · L0C'])).join('')}
-          ${cell(iterations,3,['KV / Score Store','FP32 · L0C → GM'])}
-        </svg></div>`;
+      if(scope==='intra'){
+        if(scale!=='instances'||!allTiles)return localOperations(false);
+        const infoForBlock=info(), shape=tile(block,kernel);
+        return shape.tiles.map((m,index)=>{
+          const view={...localView(),tileIndex:index};
+          const graph=operationModel(infoForBlock,true,view);
+          return `<section class="csa-qp-tile-band">
+            <h3>${escape(m.path)} · M ${range(m.start,m.valid)}${m.valid<m.size?` · ${m.valid}/${m.size} 行`:''}</h3>
+            ${operationScene(graph,index===tileIndex?selected:null,infoForBlock,false,true,
+              node=>objectId(rank,infoForBlock,node.block??block,node.id,view),iterations,index)}</section>`;
+        }).join('');
+      }
+      const graph=model.overview(tokens);
+      const instanceIndex=scale==='instances'?`<section class="csa-sv-card csa-qp-instance-index">
+        <h3>逻辑 Block · ${stage.kernels.reduce((total,k)=>total+countFor(k.name),0)}</h3>
+        ${stage.kernels.map(k=>`<details><summary>${escape(k.name)} · ${countFor(k.name)} Blocks</summary>
+          ${blockGrid(ticks(countFor(k.name)),k.name,k.name)}</details>`).join('')}</section>`:'';
+      return `${operationScene(graph,overviewId?{overview:overviewId}:null,null,false,false,
+        node=>[stage.id,'rank'+rank,tokens,node.id].join('/'),iterations)}${instanceIndex}`;
     }
 
     function pipeline() {
-      if (scope === 'intra') {
-        if (!isProjection(kernel)) return localPipeline();
-        return projectionPipeline();
-
-      }
+      if (scope==='intra') return localOperations(true);
       const slices = Object.entries(current().kernels).flatMap(([name, entries]) => entries.map(e => [...e, name]));
       const start = Math.min(...slices.map(s => s[2])), end = Math.max(...slices.map(s => s[2] + s[3]));
+      const visible=slices.filter(([,core,,, , name]) => (filter==='all'||filter===name||filter===kernelByName.get(name).branch) &&
+        (coreId==null||coreId===core));
       const toX = time => 74 + (time - start) / (end - start) * 1000;
-      return `<h3>实测执行泳道 · Rank ${rank}</h3><p>横轴为合并记录时间（µs）。选择切片查看所属 Kernel、物理核和耗时。</p>
-        <svg class="csa-kvsp-timeline" viewBox="0 0 1100 914" role="group" aria-label="物理 AIC 与 AIV 泳道">
-        ${ticks(6).map(i => { const x = 74 + 200 * i; return `<text x="${x}" y="16">${(start+(end-start)*i/5).toFixed(1)}</text><path d="M${x} 24V902"/>`; }).join('')}
-        ${ticks(72).map(i => `<text x="12" y="${40 + i * 12}">${i<24?'AIC':'AIV'} ${i}</text><path d="M72 ${42+i*12}H1074"/>`).join('')}
-        ${slices.map(([id, core, time, duration, , name]) => `<rect role="button" tabindex="0" data-kvsp-slice="${id}" data-unit="${core<24?'aic':'aiv'}" data-highlight="${kernel===name}" aria-label="事件 ${id}，${name}，Core ${core}，${time} 微秒" aria-pressed="${sliceId === id}" x="${toX(time)}" y="${29+core*12}" width="${Math.max(1,toX(time+duration)-toX(time))}" height="10" rx="2"><title>#${id} · ${name} · Core ${core} · ${duration} µs</title></rect>`).join('')}
-        </svg><small>${escape(current().source)} · Compressor</small>`;
+      return `<div class="csa-compressor-trace-head"><h3>实测执行泳道 · Rank ${rank}</h3><label>显示
+        <select data-kvsp-filter><option value="all" ${filter==='all'?'selected':''}>全部 Kernel</option>
+          ${Object.entries(layoutBranches).map(([id,name])=>`<option value="${id}" ${filter===id?'selected':''}>${name}</option>`).join('')}
+          ${stage.kernels.map(k=>`<option ${filter===k.name?'selected':''}>${k.name}</option>`).join('')}</select></label>
+        ${coreId==null?'':button('显示所有物理核','data-kvsp-all-cores','')}</div>
+        <p>${model.cases?'存档使用 256 行本地 Q 与 512 行全组 KV。':''} 显示 ${visible.length} / ${slices.length} 条切片。横轴为合并记录时间（µs）。选择切片查看所属 Kernel、物理核和耗时。</p>
+        <svg class="csa-kvsp-timeline" width="1100" height="914" viewBox="0 0 1100 914" role="group" aria-label="物理 AIC 与 AIV 泳道">
+        ${ticks(6).map(i => { const x = 74 + 200 * i; return `<text x="${x}" y="16" text-anchor="${i===5?'end':'start'}">${(start+(end-start)*i/5).toFixed(1)}</text><path d="M${x} 24V902"/>`; }).join('')}
+        ${ticks(72).map(i => `<g class="csa-compressor-core-label" role="button" tabindex="0" data-kvsp-core="${i}" aria-label="物理核 ${i}">
+          <rect x="6" y="${29+i*12}" width="60" height="11" rx="2"/><text x="12" y="${39+i*12}">${i<24?'AIC':'AIV'} ${i}</text></g><path d="M72 ${42+i*12}H1074"/>`).join('')}
+        ${visible.map(([id, core, time, duration, , name]) => `<rect role="button" tabindex="0" data-kvsp-slice="${id}" data-unit="${core<24?'aic':'aiv'}" data-object-id="${objectId(rank,kernelByName.get(name),null,'slice'+id)}" data-highlight="${sliceId==null||kernel===name}" aria-label="事件 ${id}，${name}，Core ${core}，${time} 微秒" aria-pressed="${sliceId === id}" x="${toX(time)}" y="${29+core*12}" width="${Math.max(1,toX(time+duration)-toX(time))}" height="10" rx="2"><title>#${id} · ${name} · Core ${core} · ${duration} µs</title></rect>`).join('')}
+        </svg><small>${escape(current().source)} · ${title}</small>`;
     }
 
     function detail() {
       if (scope === 'inter' && sliceId != null && mode !== 'graph') {
-        const [id, core, time, duration, elapsed] = Object.values(current().kernels).flat().find(s => s[0] === sliceId);
-        return `<h3>${kernel} · 事件 #${id}</h3><dl class="csa-sv-dl"><dt>物理核</dt><dd>${core<24?'AIC':'AIV'} ${core}</dd><dt>起点</dt><dd>${time} µs</dd><dt>切片耗时</dt><dd>${duration} µs</dd><dt>Kernel 耗时</dt><dd>${elapsed} µs</dd></dl><p>记录未提供逻辑 Block ID。</p>`;
+        const [id, core, time, duration, elapsed] = current().kernels[kernel].find(s => s[0] === sliceId);
+        return `<h3>${kernel} · 事件 #${id}</h3><dl class="csa-sv-dl"><dt>物理核</dt><dd>${core<24?'AIC':'AIV'} ${core}</dd><dt>起点</dt><dd>${time} µs</dd><dt>切片耗时</dt><dd>${duration} µs</dd><dt>Kernel 耗时</dt><dd>${elapsed} µs</dd>
+          ${current().ids?.[kernel]?`<dt>Task / FuncId</dt><dd>${current().ids[kernel].join(' / ')}</dd>`:''}</dl><p>此记录没有逻辑 Block ID。可以查看同一 Kernel 的逻辑 Block 列表。</p>
+          ${button('选择逻辑 Block','data-kvsp-logical-list','')}${navActions('inter','slice')}`;
+      }
+      if(scope==='inter' && coreId!=null){
+        const shown=mode==='assignment'?[kernel]:[...kernelByName.keys()].filter(name=>filter==='all'||filter===name||filter===kernelByName.get(name).branch);
+        const matches=shown.flatMap(name=>current().kernels[name].filter(record=>record[1]===coreId));
+        return `<h3>${coreId<24?'AIC':'AIV'} ${coreId} · Rank ${rank}</h3><p>${matches.length} 条实测切片</p>
+          ${navActions('inter','core')}`;
       }
       if (mode === 'assignment' && scope === 'inter' && blockSelected) {
-        const [file,start,end]=definitions[kernel];
+        const {first:start,last:end}=kernelByName.get(kernel);
         const t=tile(block,kernel);
-        const ownership=isProjection(kernel)?`M ${range(t.row,rows)} · N ${range(t.col,t.n)}`:/pool|commit/.test(kernel)?`Request ${block}`:`M ${range(block*rows,rows)}`;
-        return `<h3>${kernel} · Block ${block}</h3><dl class="csa-sv-dl"><dt>Rank</dt><dd>${rank}</dd><dt>逻辑归属</dt><dd>${ownership}</dd><dt>身份</dt><dd>rank${rank}/${kernel}/block${block}</dd></dl>
-          ${button('进入核内','data-kvsp-block',block)}${button('查看生成规则','data-kvsp-source',start+':'+end)}`;
+        const ownership=model.cases?t.text:isProjection(kernel)?`M ${range(t.row,rows)} · N ${range(t.col,t.n)}`:/pool|commit/.test(kernel)?`Request ${block}`:`M ${range(block*rows,rows)}`;
+        return `<h3>${kernel} · Block ${block}</h3><dl class="csa-sv-dl"><dt>Rank</dt><dd>${rank}</dd><dt>逻辑归属</dt><dd>${ownership}</dd><dt>身份</dt><dd>${objectId(rank,kernelByName.get(kernel),block,null,localView())}</dd>
+          ${t.kTile?`<dt>K Iteration ${selectedK}</dt><dd>${range(t.k+selectedK*t.kTile,t.kTile)}</dd>`:''}</dl>
+          ${button('进入核内','data-kvsp-block',block)}${button('查看生成规则','data-kvsp-source',start+':'+end)}${navActions('intra','block')}`;
+      }
+      if(scope==='inter'&&mode==='graph'&&model.overview&&overviewId){
+        const graph=model.overview(tokens), node=graph.nodes.find(i=>i.id===overviewId);
+        const related=direction=>graph.edges.filter(edge=>edge[direction]===node.id).map(edge=>{
+          const peer=graph.nodes.find(n=>n.id===edge[direction==='to'?'from':'to']);
+          return button(peer.title,'data-kvsp-overview',peer.id);
+        }).join('')||'阶段边界';
+        return `<h3>${escape(node.title)}</h3><p>${escape(node.detail)}</p>
+          <div class="csa-qp-relation"><b>输入</b>${related('to')}</div>
+          <div class="csa-qp-relation"><b>输出</b>${related('from')}</div>
+          ${button('查看源码 · L'+node.lines.join('–'),'data-kvsp-source',node.file+':'+node.lines.join(':'))}
+          ${sliceId!=null&&node.kernelLink===kernel?'<p>实测切片只能定位到所属 Kernel。选择逻辑 Block 探索静态计算。</p>':''}
+          ${node.kernelLink?button('展开 Kernel','data-kvsp-block',block)+navActions('inter','kernel')+
+            (scale==='instances'?blockGrid(ticks(countFor(kernel)),kernel):button('查看任务切分','data-kvsp-logical-list','')):''}`;
       }
       if (scope !== 'intra') {
         const records = kernelByName.get(kernel);
-        return `<h3>${kernel}</h3><p>${records.coreType} · ${records.blockNum} Blocks</p>${button('进入核内', 'data-kvsp-block', 0)}`;
+        const peers=side=>model.stageEdges.filter(edge=>edge[side]===kernel).map(edge=>button(edge[side==='from'?'to':'from'],'data-kvsp-kernel',edge[side==='from'?'to':'from'])).join('')||'阶段边界';
+        return `<h3>${kernel}</h3><p>${records.coreType} · ${countFor(kernel)} Blocks</p>
+          <div class="csa-qp-relation"><b>输入任务</b>${peers('to')}</div><div class="csa-qp-relation"><b>下游任务</b>${peers('from')}</div>
+          ${button('选择逻辑 Block', 'data-kvsp-logical-list', '')}${button('查看源码','data-kvsp-source',records.first+':'+records.last)}
+          ${navActions('inter','kernel')}`;
       }
-      if (!isProjection(kernel)) {
-        const [, , end, stages]=definitions[kernel];
-        const group=stages[selected?.group], site=data.ir[kernel].find(([,line])=>line===selected?.site);
-        const line=site?.[2]||group?.[0];
-        return `<h3>${site?.[0]||group?.[1]||kernel} · Block ${block}</h3>
-          <dl class="csa-sv-dl">${['归属','输入','输出'].map((label,i)=>`<dt>${label}</dt><dd>${localObjects[kernel][i]}</dd>`).join('')}
-          ${site?`<dt>PTO IR</dt><dd>${kernel}.pto L${site[1]}</dd>`:''}</dl>
-          ${line?button('查看源码','data-kvsp-source',line+':'+(site?line:stages[selected.group+1]?.[0]-1||end)):''}`;
-      }
-      const { row, col, n } = tile(block, kernel);
-      if (mode==='pipeline' && selected?.op==='extract') {
-        const [,start,end]=definitions[kernel];
-        const sites=data.ir[kernel].filter(([op])=>op==='pto.textract');
-        return `<h3>Tile Extract · K${selected.step}</h3><dl class="csa-sv-dl"><dt>K 范围</dt><dd>${range(selected.step*inner,inner)}</dd>
-          <dt>执行管线</dt><dd>MTE1 · L1 → L0A / L0B</dd><dt>数据关系</dt><dd>每个投影将 K512 拆为 2 × K256，供 Cube 累加</dd>
-          <dt>PTO IR</dt><dd>${kernel}.pto · pto.textract · ${sites.length} 个静态位置</dd></dl>${button('查看源码','data-kvsp-source',start+':'+end)}`;
-      }
-      const rawOp = ['graph','pipeline'].includes(mode) && selected && ops[selected.op];
-      const sourceOffset = selected?.op === 'kvOut' || selected?.op === 'scoreOut' ? 5 : 2;
-      const op = rawOp && kernel === 'kv_score_proj_0' ? [rawOp[0],rawOp[1]+sourceOffset,rawOp[2]+sourceOffset,rawOp[3],rawOp[4]] : rawOp;
-      const ir = op && (selected.step > 0 && op[4] === 'pto.tmatmul' ? 'pto.tmatmul.acc' : op[4]);
-      const expanded = (scale === 'instances' || mode === 'pipeline') && selected?.step != null;
-      const related = rawOp ? operationGraph(expanded, kernel) : null;
-      const node = related?.nodes.find(n => n.op === selected.op && (!expanded || n.step === selected.step));
-      const connections = key => related.edges.filter(edge => edge[key] === node.id).map(edge =>
-        related.nodes.find(n => n.id === edge[key === 'to' ? 'from' : 'to']).title).join('、') || 'Block 边界';
-      return `<h3>逻辑 Block ${block}</h3><dl class="csa-sv-dl"><dt>输出 M</dt><dd>${range(row, rows)}</dd><dt>输出 N</dt><dd>${range(col, n)}</dd></dl>
-        ${op && node ? `<h3>${node.title}</h3><dl class="csa-sv-dl"><dt>对象 ID</dt><dd>rank${rank}/block${block}/${node.id}</dd>
-        <dt>K 范围</dt><dd>${expanded ? range(selected.step * inner, inner) : node.detail}</dd><dt>输入</dt><dd>${connections('to')}</dd><dt>输出</dt><dd>${connections('from')}</dd>
-        <dt>执行管线</dt><dd>${op[3]}</dd><dt>PTO IR</dt><dd>${ir} · ${kernel}.pto</dd></dl>
-        ${button('查看源码', 'data-kvsp-source', op[1]+':'+op[2])}` : ''}`;
+      const info=kernelByName.get(kernel), shape=tile(block,kernel);
+      const inspectIteration=mode==='assignment'&&model.isMatmul?.(info)&&selected?.step!=null;
+      const graph=inspectIteration?operationModel(info,true,localView()):localGraph();
+      const node=graph.nodes.find(n=>n.id===selected?.id)||graph.nodes.find(n=>n.op===selected?.op &&
+        (selected.split==null||n.split===selected.split)&&(!inspectIteration&&scale==='structure'||selected.step==null||n.step===selected.step));
+      const neighbors=direction=>node ? graph.edges.filter(e=>e[direction]===node.id).map(e=>graph.nodes.find(n=>n.id===e[direction==='to'?'from':'to'])) : [];
+      const nav=nodes=>nodes.length ? nodes.map(peer=>button(peer.title+(peer.step==null?'':` · ${peer.step}`),'data-kvsp-op',peer.id)).join('') : 'Block 边界';
+      const facts=[['Rank',rank],['逻辑归属',shape.text],['对象 ID',objectId(rank,info,node?.block??block,node?.id,localView())]];
+      if(node) facts.push(...(node.nameRange?[['K 输入区间',node.nameRange]]:[]),['执行类别',node.lane],['范围',node.detail||'当前 Block'],...(node.condition?[['条件',node.condition]]:[]));
+      const lines=node?.lines||[info.first,info.last];
+      return `<h3>${node?.title||kernel} · Block ${block}</h3><dl class="csa-sv-dl">
+        ${facts.map(([key,value])=>`<dt>${key}</dt><dd>${escape(value)}</dd>`).join('')}</dl>
+        ${node?`<div class="csa-qp-relation"><b>输入</b>${nav(neighbors('to'))}</div><div class="csa-qp-relation"><b>输出</b>${nav(neighbors('from'))}</div>`:''}
+        ${node?.kernelLink?button('查看 '+node.kernelLink,'data-kvsp-kernel-link',node.kernelLink):''}
+        ${button('查看源码 · L'+lines.join('–'),'data-kvsp-source',lines.join(':'))}${navActions('intra','op')}`;
     }
 
-    function render(preserve = false) {
-      const previous = host.querySelector('.csa-sv-main');
-      const offset = preserve && previous ? [previous.scrollLeft, previous.scrollTop] : null;
-      const positions = mode==='assignment' && preserve ? new Map([...host.querySelectorAll('[data-kvsp-logical]')].map(el=>[el.dataset.kvspLogical,[Number(el.dataset.x),Number(el.dataset.y)]])) : null;
+    function render() {
+      const useCustomPipeline=mode==='pipeline'&&!!pipelineFactory;
+      const existingShell=host.querySelector(':scope > .csa-sv-shell');
+      if(useCustomPipeline){
+        if(existingShell)existingShell.hidden=true;
+        if(!customPipelineHost){
+          customPipelineHost=document.createElement('div');
+          customPipelineHost.className='csa-cmp-pipeline-host';
+          host.append(customPipelineHost);
+          customPipelineCtrl=pipelineFactory.create(customPipelineHost,{
+            model,
+            rank,
+            kernel,
+            onSource,
+            onRankChange:r=>{rank=r;onRank(r);},
+            onKernelChange:(kName,blk)=>{if(kernelByName.has(kName))kernel=kName;if(blk!=null)block=blk;},
+            onNavigateTab:(dest,ctx)=>{
+              if(ctx?.kernel&&kernelByName.has(ctx.kernel))kernel=ctx.kernel;
+              if(ctx?.block!=null)block=ctx.block;
+              if(ctx?.rank!=null&&ctx.rank!==rank){rank=ctx.rank;onRank(rank);}
+              onTab(dest,graphSelection());
+            },
+          });
+        }
+        customPipelineHost.hidden=false;
+        const payload=pendingPipelineState||{rank,kernel,block,tokens,tileIndex};
+        pendingPipelineState=null;
+        customPipelineCtrl.update(payload);
+        return;
+      }
+      if(customPipelineHost)customPipelineHost.hidden=true;
+      if(existingShell)existingShell.hidden=false;
+      const nextKey=keyFor(), changed=lastKey!==nextKey;
+      if(changed){remember();zoom=cameras.get(nextKey)?.zoom??1;}
       const inspector = inspectorOpen ? detail() : '';
+      if(mode==='graph'&&!model.overview)return onTab('graph');
       const screen = ({assignment,graph:computation,pipeline})[mode]();
-      const canZoom = mode !== 'assignment' || scope === 'inter';
-      const content = mode === 'graph' || mode === 'pipeline' && scope === 'inter'
+      const canZoom=mode!=='assignment'||scope==='inter'||!!(renderTiles&&model.isMatmul(info()));
+      const content = mode === 'graph' || mode === 'pipeline'||scope==='intra'&&!!renderTiles
         ? `<div class="csa-compressor-zoom-content" style="--compressor-zoom:${zoom}">${screen}</div>` : screen;
-      host.innerHTML = `<div class="csa-sv-shell"><header class="csa-sv-header"><div class="csa-sv-title-group">
-        <div class="csa-sv-title-row"><h2>Compressor</h2></div><p class="csa-sv-sub">Main + Indexer · ${stage.kernels.length} Kernels · ${Object.values(current().kernels).flat().length} 实测切片 / Rank</p></div>
+      const markup = `<div class="csa-sv-shell"><header class="csa-sv-header"><div class="csa-sv-title-group">
+        <div class="csa-sv-title-row"><h2>${title}</h2></div><p class="csa-sv-sub">${model.cases?'Rank-local Q':'Main + Indexer'} · ${stage.kernels.length} Kernels · ${Object.values(current().kernels).flat().length} 实测切片 / Rank</p></div>
         <div class="csa-sv-controls">
         <div class="segmented-control segmented-control-muted" role="group" aria-label="Rank">${[0,1].map(r => button(`Rank ${r}`, 'data-kvsp-rank', r, r === rank)).join('')}</div>
         <div class="segmented-control segmented-control-muted" role="group" aria-label="核间核内">${button('核间', 'data-kvsp-scope', 'inter', scope === 'inter')}${button('核内', 'data-kvsp-scope', 'intra', scope === 'intra')}</div>
-        <label>Kernel <select data-kvsp-kernel-picker>${stage.kernels.map(k=>`<option ${k.name===kernel?'selected':''}>${k.name}</option>`).join('')}</select></label>
+        <label>分支 <select data-kvsp-branch>
+          <option value="all" ${branch==='all'?'selected':''}>全部</option>
+          ${Object.entries(layoutBranches).map(([id,name])=>`<option value="${id}" ${branch===id?'selected':''}>${name}</option>`).join('')}</select></label>
+        <label>Kernel <select data-kvsp-kernel-picker>${stage.kernels.filter(k=>branch==='all'||kernelByName.get(k.name).branch===branch).map(k=>`<option ${k.name===kernel?'selected':''}>${k.name}</option>`).join('')}</select></label>
+        ${caseOptions.length&&(mode!=='pipeline'||scope==='intra')?`<label>Q 行数 <select data-kvsp-case>
+          ${caseOptions.map(c=>`<option value="${c.tokens}" ${c.tokens===tokens?'selected':''}>${c.label}</option>`).join('')}</select></label>`:''}
         ${scope === 'intra' ? `<label>Block <select data-kvsp-block-picker>${ticks(blocks()).map(i => `<option ${i === block ? 'selected' : ''}>${i}</option>`).join('')}</select></label>` : ''}
-        ${mode === 'graph' ? `<div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 观察尺度">${button('Structure', 'data-kvsp-scale', 'structure', scale === 'structure')}${button('Instances', 'data-kvsp-scale', 'instances', scale === 'instances')}</div>` : ''}
+        ${scope==='intra'&&model.cases&&tile(block,kernel).tiles.length>1?`<label>M Tile <select data-kvsp-tile-picker>
+          ${tile(block,kernel).tiles.map((m,i)=>`<option value="${i}" ${i===tileIndex?'selected':''}>${m.path} ${range(m.start,m.valid)}</option>`).join('')}</select></label>`:''}
+        ${mode==='graph'&&scope==='intra'&&scale==='instances'&&model.cases&&tile(block,kernel).tiles.length>1
+          ? phaseButton('全部 M Tiles','data-kvsp-all-tiles','',allTiles):''}
+        ${(mode==='graph'||mode==='pipeline'&&scope==='intra') ? `<div class="segmented-control segmented-control-muted" role="group" aria-label="核内观察尺度">${button('Structure', 'data-kvsp-scale', 'structure', scale === 'structure')}${button('Instances', 'data-kvsp-scale', 'instances', scale === 'instances')}</div>` : ''}
+        ${navigation.length?button('← 返回原位置','data-kvsp-back',''):''}
         ${button('返回 CSA', 'data-kvsp-exit', '')}</div></header>
-        <div class="csa-compressor-canvas"><div class="csa-sv-main csa-kvsp-main" tabindex="0" aria-label="Compressor 画布">${content}</div>
-        ${canZoom?`<footer class="csa-compressor-footer"><span>${mode==='pipeline'&&scope==='inter'?'实测 µs · AIC / AIV':mode==='assignment'?'逻辑任务 / 实测分配':'静态计算'}</span>
-          <div class="viz2-instance-tools">${button('−','data-kvsp-zoom','out')}<output>${Math.round(zoom*100)}%</output>${button('＋','data-kvsp-zoom','in')}${button('适应','data-kvsp-zoom','fit')}</div></footer>`:''}</div>
+        <div class="csa-compressor-canvas"><div class="csa-sv-main csa-kvsp-main" tabindex="0" aria-label="${title} 画布">${content}</div>
+        <footer class="csa-compressor-footer" ${canZoom?'':'hidden'}><span>${mode==='pipeline'&&scope==='inter'?'实测 µs · AIC / AIV':mode==='assignment'?'逻辑任务 / 实测分配':'静态计算'}</span>
+          <div class="viz2-instance-tools">${button('−','data-kvsp-zoom','out')}<output>${Math.round(zoom*100)}%</output>${button('＋','data-kvsp-zoom','in')}${button('适应','data-kvsp-zoom','fit')}</div></footer></div>
         <aside class="pto-ide-frame__pane csa-sv-inspector" ${inspector ? '' : 'hidden'}>
           <header class="pto-ide-frame__pane-header"><b>对象详情</b><button type="button" class="btn btn-ghost btn-sm" data-kvsp-close aria-label="关闭详情">×</button></header>
           <div class="pto-ide-frame__pane-body">${inspector}</div></aside></div>`;
-      if (offset) host.querySelector('.csa-sv-main').scrollTo(...offset);
-      if (positions && !reduceMotion) for (const el of host.querySelectorAll('[data-kvsp-logical]')) {
-        const before=positions.get(el.dataset.kvspLogical), after=el.style.transform;
-        if (before && (before[0]!==Number(el.dataset.x) || before[1]!==Number(el.dataset.y))) {
-          el.animate([{transform:`translate(${before[0]}px,${before[1]}px)`},{transform:after}],{duration:420,easing:'cubic-bezier(.2,.7,.2,1)'});
+      const template=document.createElement('template');
+      template.innerHTML=markup;
+      const next=template.content.firstElementChild, mounted=host.querySelector(':scope > .csa-sv-shell');
+      if(!mounted)host.append(next);
+      else {
+        const focus=document.activeElement;
+        const container=viewport(), newContainer=next.querySelector('.csa-kvsp-main');
+        const morph=mode==='assignment'&&scope==='inter'&&container.querySelector('[data-kvsp-logical-layer]');
+        const body=mounted.querySelector('aside .pto-ide-frame__pane-body'), top=body.scrollTop;
+        if(changed&&!morph)container.replaceChildren(...newContainer.childNodes);
+        else syncElement(container,newContainer);
+        syncElement(mounted.querySelector('header'),next.querySelector('header'));
+        syncElement(mounted.querySelector('footer'),next.querySelector('footer'));
+        syncElement(mounted.querySelector('aside'),next.querySelector('aside'));
+        body.scrollTop=top;
+        if(!focus?.isConnected&&savedFocus)host.querySelector(savedFocus)?.focus({preventScroll:true});
+      }
+      lastKey=nextKey;
+      updateZoom();
+      if(changed) {
+        const camera=cameras.get(lastKey);
+        viewport().scrollTo(camera?.left??0,camera?.top??0);
+        if(!camera&&mode!=='assignment')zoomBy('fit');
+        if(!reduceMotion&&!viewport().querySelector('[data-kvsp-logical-layer]')) {
+          viewport().firstElementChild?.animate([{opacity:.5,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],
+            {duration:240,easing:'cubic-bezier(.2,.7,.2,1)'});
         }
       }
+      if(focusSelector){frame(focusSelector);focusSelector=null;}
     }
 
+    const selector=(type,value)=>'[data-kvsp-'+type+'="'+CSS.escape(String(value))+'"]';
+
     function inspectSlice(id) {
-      sliceId = Number(id);
-      inspectorOpen = true;
-      blockSelected = false;
-      kernel = Object.keys(current().kernels).find(name => current().kernels[name].some(slice => slice[0] === sliceId));
-      block = 0;
-      selected = null;
-      render(true);
+      const owner=Object.keys(current().kernels).find(name=>current().kernels[name].some(slice=>slice[0]===Number(id)));
+      setKernel(owner);
+      sliceId=Number(id);inspectorOpen=true;
+      focusObject(selector('slice',sliceId));render();
     }
-    host.addEventListener('keydown', event => {
-      if (event.target.matches('[data-kvsp-slice],[data-kvsp-logical],[data-kvsp-op],[data-kvsp-site]') && event.target instanceof SVGElement && ['Enter', ' '].includes(event.key)) {
+
+    function setPhase(next) {
+      phase=next;
+      if(phase!=='assignment'&&blockSelected)focusObject(selector('logical',block));
+      render();
+    }
+
+    function focusOperation(targetMode=mode) {
+      if(!selected?.op)return;
+      const graph=localGraph();
+      const node=graph.nodes.find(n=>n.id===selected.id)||graph.nodes.find(n=>n.op===selected.op&&
+        (selected.split==null||selected.split===n.split)&&(scale==='structure'||selected.step==null||n.step===selected.step));
+      if(node)focusObject(selector('op',node.id)+(targetMode==='graph'&&scale==='instances'&&allTiles?selector('m',tileIndex):''));
+    }
+
+    function zoomBy(direction) {
+      const region=viewport(), scene=region.querySelector('.csa-kvsp-graph,.csa-kvsp-timeline,.csa-compressor-assignment,.csa-qproj-matrices');
+      if(!scene)return;
+      const old=zoom, anchor=[region.scrollLeft+region.clientWidth/2,region.scrollTop+region.clientHeight/2];
+      const rect=scene.getBoundingClientRect();
+      const topOffset=scene.matches('.csa-kvsp-timeline')
+        ? rect.top-region.getBoundingClientRect().top+region.scrollTop+22 : 70;
+      zoom=direction==='fit'?Math.max(.15,Math.min(1,(region.clientWidth-48)*old/rect.width,(region.clientHeight-topOffset)*old/rect.height))
+        :Math.max(.15,Math.min(2.5,old*(direction==='in'?1.25:.8)));
+      updateZoom();
+      region.scrollTo(...(direction==='fit'?[0,0]:[anchor[0]*zoom/old-region.clientWidth/2,anchor[1]*zoom/old-region.clientHeight/2]));
+      remember();
+    }
+
+    const interactive='[data-kvsp-slice],[data-kvsp-logical],[data-kvsp-core],[data-kvsp-tile],[data-kvsp-k]';
+    host.addEventListener('keydown',event=>{
+      if(event.target.matches(interactive)&&event.target instanceof SVGElement&&['Enter',' '].includes(event.key)) {
         event.preventDefault();
-        const attr=['data-kvsp-slice','data-kvsp-logical','data-kvsp-op','data-kvsp-site'].find(name=>event.target.hasAttribute(name));
-        const value=event.target.getAttribute(attr);
         event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));
-        host.querySelector(`[${attr}="${value}"]`)?.focus();
       }
     });
-    host.addEventListener('click', event => {
-      const action = event.target.closest('button,[data-kvsp-slice],[data-kvsp-logical],[data-kvsp-op],[data-kvsp-site]');
-      if (!action) return;
-      const d = action.dataset;
-      if (d.kvspExit != null) { stop(); return onExit(); }
-      if (d.kvspClose != null) { inspectorOpen=false; selected=null; sliceId=null; blockSelected=false; return render(true); }
-      if (d.kvspPhase) { stop(); phase=d.kvspPhase; return render(true); }
-      if (d.kvspPlay != null) { if (timer==null) { if (phase==='assignment') phase='generation'; play(); } else stop(); return render(true); }
-      if (d.kvspReplay != null) { phase='generation'; play(); return render(true); }
-      if (d.kvspZoom) {
-        const scene=host.querySelector('.csa-kvsp-graph,.csa-compressor-causal,.csa-kvsp-timeline,.csa-compressor-assignment');
-        const viewport=host.querySelector('.csa-kvsp-main');
-        zoom=d.kvspZoom==='fit'?Math.max(.25,Math.min(1,
-          (viewport.clientWidth-48)/(scene?.getBoundingClientRect().width/zoom||viewport.clientWidth),
-          (viewport.clientHeight-36)/(scene?.getBoundingClientRect().height/zoom||viewport.clientHeight)))
-          :Math.max(.25,Math.min(2.5,zoom*(d.kvspZoom==='in'?1.25:.8)));
-        return render(d.kvspZoom!=='fit');
+
+    host.addEventListener('click',event=>{
+      if(event.target.closest('.csa-cmp-pipeline-host'))return;
+      const action=event.target.closest('button,'+interactive);
+      if(!action)return;
+      const d=action.dataset, attr=[...action.attributes].find(item=>item.name.startsWith('data-kvsp-'));
+      savedFocus=attr?'['+attr.name+'="'+CSS.escape(attr.value)+'"]':null;
+      if(d.kvspExit!=null){stop();return onExit();}
+      if(d.kvspBack!=null){
+        const previous=navigation.pop();
+        if(!previous)return;
+        ({scope,scale,block,kernel,sliceId,selected,blockSelected,inspectorOpen,phase,coreId,filter,branch,tokens,tileIndex,selectedK,overviewId,allTiles}=previous);
+        if(previous.mode!==mode)return onTab(previous.mode);
+        return render();
       }
-      if (d.kvspLogical != null) {
-        block=Number(d.kvspLogical); blockSelected=true; sliceId=null; inspectorOpen=true; return render(true);
-      }
-      if (d.kvspSource) {
-        const [file,start,end] = definitions[kernel];
-        return onSource(file, ...(['110:136','118:136','108:136'].includes(d.kvspSource) ? [start,end] : d.kvspSource.split(':').map(Number)));
-      }
-      if (d.kvspSlice) return inspectSlice(d.kvspSlice);
-      if (d.kvspRank != null) { rank = Number(d.kvspRank); sliceId = null; onRank(rank); }
-      if (d.kvspScope) { if (scope!==d.kvspScope) zoom=1; scope=d.kvspScope; stop(); inspectorOpen=scope==='intra' && blockSelected; }
-      if (d.kvspKernel) { setKernel(d.kvspKernel); inspectorOpen=true; }
-      if (d.kvspScale) scale = d.kvspScale;
-      if (d.kvspBlock != null) {
-        if (d.kvspBlockKernel && kernel !== d.kvspBlockKernel) {
-          kernel = d.kvspBlockKernel; selected = null; sliceId = null;
+      if(d.kvspNav){
+        const [destination,next,kind]=d.kvspNav.split(':');
+        navigation.push(snapshot());stop();scope=next;
+        if(kind==='slice'){
+          if(destination==='assignment')phase='assignment';
+          if(destination==='pipeline'){filter=kernel;pendingPipelineState={rank,kernel,level:'lane',overviewMode:'runtime',filter:kernel,sliceId};}
+          if(destination==='graph'&&model.overview){
+            overviewId=kernel;focusObject(selector('overview',overviewId));
+          }else if(destination!=='graph')focusObject(selector('slice',sliceId));
+        } else if(destination==='pipeline'){
+          pendingPipelineState=next==='intra'
+            ? {rank,kernel,block,level:'block',intraScale:scale==='structure'?'structure':'instances'}
+            : {rank,kernel,block,level:'lane',overviewMode:'lane'};
         }
-        block = Number(d.kvspBlock); scope = 'intra'; stop(); inspectorOpen=true;
+        if(kind==='core'&&destination==='assignment')phase='assignment';
+        if(scope==='intra'){if(mode==='assignment'&&selected?.step!=null)scale='instances';focusOperation();}
+        return onTab(destination,graphSelection());
       }
-      if (d.kvspSiteGroup != null || d.kvspSite != null) {
-        const site=d.kvspSite==null?null:Number(d.kvspSite);
-        const py=data.ir[kernel].find(([,line])=>line===site)?.[2];
-        const region=definitions[kernel][3];
-        const group=d.kvspSiteGroup!=null?Number(d.kvspSiteGroup):region.reduce((hit,[line],i)=>py>=line?i:hit,0);
-        selected={group,site}; inspectorOpen=true; return render(true);
+      if(d.kvspLogicalList!=null){
+        navigation.push(snapshot());stop();
+        scope='inter';phase='generation';sliceId=null;coreId=null;inspectorOpen=blockSelected;
+        if(mode==='assignment')return render();
+        return onTab('assignment');
       }
-      if (d.kvspOp) {
-        const [op, index] = d.kvspOp.split(':');
+      if(d.kvspClose!=null){
+        inspectorOpen=false;selected=null;sliceId=null;coreId=null;blockSelected=false;return render();
+      }
+      if(d.kvspSource){
+        const ref=d.kvspSource.split(':');
+        const file=ref.length===3?ref.shift():info().file;
+        return onSource(file,...ref.map(Number));
+      }
+      if(d.kvspOverview){
+        const node=model.overview(tokens).nodes.find(i=>i.id===d.kvspOverview);
+        if(node.kernelLink)setKernel(node.kernelLink);
+        overviewId=node.id;inspectorOpen=true;focusObject(selector('overview',overviewId));return render();
+      }
+      if(d.kvspKernelLink){
+        navigation.push(snapshot());setKernel(d.kvspKernelLink);scope='inter';inspectorOpen=true;
+        overviewId=kernel;return onTab('graph');
+      }
+      if(d.kvspTile!=null||d.kvspK!=null){
+        if(d.kvspTile!=null){tileIndex=Number(d.kvspTile);selected=null;}
+        if(d.kvspK!=null)selectedK=Number(d.kvspK);
+        if(model.isMatmul(info())){
+          const shape=tile(block,kernel);
+          selected={op:'matmul',step:selectedK,split:shape.split??0};
+        }
+        blockSelected=true;inspectorOpen=true;return render();
+      }
+      if(d.kvspPhase){stop();return setPhase(d.kvspPhase);}
+      if(d.kvspPlay!=null){if(timer==null){if(phase==='assignment')phase='generation';play();}else stop();return render();}
+      if(d.kvspReplay!=null){phase='generation';play();return render();}
+      if(d.kvspLoop!=null){loop=!loop;return render();}
+      if(d.kvspZoom)return zoomBy(d.kvspZoom);
+      if(d.kvspLogical!=null){
+        block=Number(d.kvspLogical);if(model.cases&&selected?.split!=null)selected={...selected,split:tile(block,kernel).split??0};blockSelected=true;sliceId=null;coreId=null;inspectorOpen=true;
+        focusObject(selector('logical',block));return render();
+      }
+      if(d.kvspSlice)return inspectSlice(d.kvspSlice);
+      if(d.kvspCore!=null){
+        coreId=Number(d.kvspCore);sliceId=null;inspectorOpen=true;
+        focusObject(selector('core',coreId));return render();
+      }
+      if(d.kvspAllCores!=null){coreId=null;return render();}
+      if(d.kvspRank!=null&&rank!==Number(d.kvspRank)){
+        rank=Number(d.kvspRank);sliceId=null;coreId=null;navigation=[];onRank(rank);
+      }
+      if(d.kvspScope&&scope!==d.kvspScope){
+        navigation.push(snapshot());scope=d.kvspScope;stop();inspectorOpen=scope==='intra'&&(blockSelected||!!model.overview);
+      }
+      if(d.kvspKernel){setKernel(d.kvspKernel);overviewId=null;inspectorOpen=true;focusObject(selector('kernel',kernel));}
+      if(d.kvspAllTiles!=null){allTiles=!allTiles;selected=null;}
+      if(d.kvspScale){scale=d.kvspScale;focusOperation();}
+      if(d.kvspBlock!=null){
+        if(scope!=='intra')navigation.push(snapshot());
+        if(d.kvspBlockKernel)setKernel(d.kvspBlockKernel);
+        block=Number(d.kvspBlock);scope='intra';stop();blockSelected=true;inspectorOpen=true;
+      }
+      if(d.kvspOp){
+        const graph=mode==='assignment'&&model.isMatmul?.(info())?operationModel(info(),true,localView()):localGraph();
+        const node=graph.nodes.find(n=>n.id===d.kvspOp);
+        if(!node)return;
+        if(d.kvspM!=null)tileIndex=Number(d.kvspM);
+        if(node.block!=null)block=node.block;
+        if(node.step!=null&&model.isMatmul?.(info()))selectedK=node.step;
         inspectorOpen=true;
-        selected = { op, step: (mode==='pipeline' || scale === 'instances') && index != null ? Number(index) : selected?.op === op ? selected.step : null };
-        return render(true);
+        const previousStep=selected?.op===node.op&&selected.split===node.split?selected.step:null;
+        selected={op:node.op,step:node.step??previousStep,split:node.split,id:node.step==null&&previousStep!=null?null:node.id};
+        focusObject(selector('op',node.id)+(d.kvspM==null?'':selector('m',d.kvspM)));
       }
       render();
     });
+    host.addEventListener('wheel',event=>{
+      if(!(event.metaKey||event.ctrlKey)||!event.target.closest('.csa-kvsp-main'))return;
+      event.preventDefault();
+      zoomBy(event.deltaY<0?'in':'out');
+    },{passive:false});
     let drag = null;
     host.addEventListener('pointerdown', event => {
       const viewport=event.target.closest('.csa-kvsp-main');
@@ -522,21 +713,49 @@
       drag=null;
     });
     host.addEventListener('change', event => {
-      if (event.target.matches('[data-kvsp-loop]')) { loop=event.target.checked; return; }
-      if (event.target.matches('[data-kvsp-kernel-picker]')) {
+      if(event.target.closest('.csa-cmp-pipeline-host'))return;
+      if(event.target.matches('[data-kvsp-case]')){
+        tokens=Number(event.target.value);block=Math.min(block,blocks()-1);
+        tileIndex=Math.min(tileIndex,tile(block,kernel).tiles.length-1);
+        selected=null;selectedK=0;
+      } else if(event.target.matches('[data-kvsp-tile-picker]')){
+        tileIndex=Number(event.target.value);allTiles=false;
+        focusOperation();
+      } else if(event.target.matches('[data-kvsp-branch]')){
+        branch=event.target.value;
+        if(branch!=='all'&&kernelByName.get(kernel).branch!==branch)setKernel([...kernelByName.values()].find(k=>k.branch===branch).name);
+        if(mode==='pipeline'&&scope==='inter')filter=branch;
+      } else if(event.target.matches('[data-kvsp-filter]')){
+        filter=event.target.value;sliceId=null;coreId=null;
+        if(kernelByName.has(filter))setKernel(filter);
+      } else if (event.target.matches('[data-kvsp-kernel-picker]')) {
         setKernel(event.target.value);
-      } else if (event.target.matches('[data-kvsp-block-picker]')) block = Number(event.target.value);
+        if(mode==='pipeline'&&scope==='inter')filter=kernel;
+      } else if(event.target.matches('[data-kvsp-block-picker]')){
+        block=Number(event.target.value);
+        if(model.cases&&selected?.split!=null)selected={...selected,id:null,split:tile(block,kernel).split??0};
+      }
       else return;
       render();
     });
-    return { update(nextMode, nextRank) {
+    function graphSelection(){
+      const operation=selected?.op?(selected.step!=null?selected.op+':'+selected.step:selected.op):null;
+      return {kernel,operation,rank,block,scale,key:JSON.stringify([kernel,operation,rank,block,scale])};
+    }
+    return {getSelection:graphSelection,setGraphSelection(context){
+      if(!kernelByName.has(context.kernel))return;
+      kernel=context.kernel;branch='all';
+      if(context.operation){selected={op:context.operation,step:context.iteration??null};scope='intra';scale=context.iteration==null?'structure':'instances';inspectorOpen=true;pendingPipelineState={rank,kernel,block,level:'block',intraScale:scale==='structure'?'structure':'instances'};}
+      else {pendingPipelineState={rank,kernel,block,level:'lane',overviewMode:'lane'};}
+    }, update(nextMode, nextRank) {
       if (rank !== nextRank) sliceId = null;
-      if (mode !== nextMode) { stop(); zoom=1; }
+      if(mode!==nextMode){stop();if(scope==='intra'){if(mode==='assignment'&&selected?.step!=null)scale='instances';focusOperation(nextMode);}}
       mode = nextMode;
       rank = nextRank;
       render();
-    }, pause: stop };
+    }, pause(){stop();remember();} };
   }
 
-  global.PtoCsaCompressor = Object.freeze({ mount });
+  global.PtoCsaKernelStage=Object.freeze({mount});
+  global.PtoCsaCompressor=global.PtoCsaKernelStage;
 })(window);

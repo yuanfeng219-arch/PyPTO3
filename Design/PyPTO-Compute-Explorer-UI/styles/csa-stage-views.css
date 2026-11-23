@@ -425,6 +425,18 @@ body.csa-visual .csa-toolbar {
   min-height: 32px;
   padding: 0 24px;
 }
+@media (max-width: 800px) {
+  body.csa-visual .csa-toolbar {
+    top: 110px !important;
+    padding: 0 16px;
+  }
+  body.csa-visual .csa-toolbar nav {
+    max-width: 100%;
+  }
+  body.csa-visual .csa-stagebar {
+    top: 184px;
+  }
+}
 body.csa-visual .csa-toolbar :is(button, a, .csa-scale-bar) {
   pointer-events: auto;
 }
@@ -1192,3 +1204,10 @@ body.csa-visual .csa-qp-runtime-host {
   .csa-rt-shell.has-inspector { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
   .csa-rt-inspector { max-height: 240px; }
 }
+
+/* Reserve the centre tab strip while the stage picker stays on the right. */
+body.csa-visual .csa-toolbar nav { max-width: max(0px, calc(50% - 190px)); }
+body.csa-visual .csa-scale-bar { margin-left: auto; flex-shrink: 0; }
+body.csa-visual .csa-stage-picker { flex-shrink: 0; }
+body.csa-visual .csa-scale-bar:not([hidden]) ~ .csa-stage-picker { margin-left: 0; }
+body.csa-visual .csa-stagebar { max-height: calc(100dvh - 120px); overflow-y: auto; }

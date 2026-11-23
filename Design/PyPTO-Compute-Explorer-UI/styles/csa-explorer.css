@@ -62,3 +62,14 @@
 .csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node:not(.is-expanded-head) { height:auto; }
 .csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head { flex-wrap:wrap; }
 .csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head b { flex-basis:100%; font-size:15px; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:break-word; line-height:1.15; }
+
+/* Shared Graph chrome clearance: applies to every CSA semantic module. */
+body.ai-extracted .csa-explorer .csa-semantic-stage .viz2-graph-inspector {
+  top:104px;
+  max-height:calc(100dvh - 184px);
+}
+@media(max-width:800px){
+  .csa-visual .csa-explorer .csa-toolbar {flex-wrap:wrap;gap:var(--space-2)}
+  .csa-visual .csa-explorer .csa-toolbar nav {flex:1 0 100%;max-width:100%}
+  body.ai-extracted .csa-explorer .csa-semantic-stage .viz2-graph-inspector {top:192px;max-height:calc(100dvh - 272px)}
+}
