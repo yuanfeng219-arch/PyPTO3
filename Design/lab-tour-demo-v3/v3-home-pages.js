@@ -1,7 +1,7 @@
 /* 开场页沿用 V4 的翻页样式，目标保持在 V3 演示中。 */
 (() => {
-  const pages = ['map.html', 'intro.html', 'agent.html'];
-  const labels = ['计算领域体验设计创新', '项目背景', '进入算子开发'];
+  const pages = ['map.html', 'intro.html', 'index.html'];
+  const labels = ['计算领域体验设计创新', '项目背景', '设计总览'];
   const current = pages.indexOf(location.pathname.split('/').pop());
   if (current < 0) return;
   function go(delta) {

@@ -266,10 +266,10 @@ button.ide-row{cursor:pointer}
 .sw-chart.is-pointer-over .lane-analysis-entry,.lane-analysis-entry:has(.sw-go:focus-visible){opacity:1}
 .sw-chart.is-pointer-over .sw-go,.sw-go:focus-visible{pointer-events:auto}
 .ln.ide[inert] .lane-analysis-entry{visibility:hidden}
-.sw-go{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;
+.sw-go{display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 32px);min-height:44px;padding:10px 18px;
   border:1px solid #6d90ff;border-radius:999px;background:#1953fc;color:#fff;
   box-shadow:0 8px 24px #0006;font:600 14px var(--sans);cursor:pointer}
-.sw-go svg{width:16px;height:16px}
+.sw-go svg{width:16px;height:16px;flex:none}
 .sw-go:hover{background:#3468ff}
 .sw-go:focus-visible{outline:2px solid #c9d6ff;outline-offset:3px}
 /* 结果页预览和移动中的图元共用视口坐标。 */
@@ -277,6 +277,41 @@ button.ide-row{cursor:pointer}
 .analysis-shell{z-index:45;opacity:0;background:var(--page)}
 .analysis-shell.is-result:not(.is-parked){pointer-events:auto}
 .analysis-shell.is-parked{visibility:hidden}
+.analysis-shell{grid-template-columns:52px 0 minmax(0,1fr);transition:grid-template-columns .7s cubic-bezier(.22,1,.36,1)}
+.analysis-shell.is-chat-open{grid-template-columns:52px min(400px,32vw) minmax(0,1fr)}
+@media(min-width:861px){.analysis-shell .ag-rail{box-sizing:border-box;border-right:1px solid #303030}}
+.analysis-chat{min-width:0;overflow:hidden;background:var(--page);border-right:1px solid var(--divider,#222)}
+.analysis-chat-inner{width:min(400px,32vw);height:100%;box-sizing:border-box;display:flex;flex-direction:column;opacity:0;transform:translateX(-16px);transition:opacity .35s ease .15s,transform .6s cubic-bezier(.22,1,.36,1)}
+.is-chat-open .analysis-chat-inner{opacity:1;transform:translateX(0)}
+.analysis-chat-head{height:52px;flex:none;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #303030}
+.analysis-chat-head h2{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;color:var(--text);font:600 13px var(--sans)}
+.analysis-chat-head a{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:8px;color:var(--muted);text-decoration:none}
+.analysis-chat-head a:hover{background:#292929;color:var(--text)}.analysis-chat-head svg{width:17px;height:17px}
+.analysis-chat p{margin:0;line-height:1.7}
+.analysis-chat-log{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:22px;padding:20px 22px 24px;scrollbar-color:#444 transparent;scrollbar-width:thin}
+.analysis-chat .analysis-message{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.7}
+.analysis-chat .analysis-message.is-user{align-self:flex-end;max-width:86%;box-sizing:border-box;padding:11px 14px;border-radius:16px;background:#292929;color:var(--text)}
+.analysis-chat .analysis-message.is-agent{color:#d4d4d4}
+.analysis-chat .analysis-empty{font-size:12px;color:var(--dim)}
+.analysis-history{color:var(--dim);font-size:12px;border-bottom:1px solid #303030;padding:0 0 12px}
+.analysis-history summary{cursor:pointer;list-style:none}.analysis-history summary::after{content:'›';display:inline-block;font-size:16px;margin-left:7px}.analysis-history[open] summary::after{transform:rotate(90deg)}
+.analysis-history-content{display:flex;flex-direction:column;gap:14px;padding-top:16px}
+.analysis-chat .analysis-output{font-size:13px;line-height:1.75;color:#d4d4d4}
+.analysis-output strong{color:var(--text);font-weight:600}.analysis-output ul{padding-left:20px;margin:9px 0 12px}.analysis-output li+li{margin-top:6px}
+.analysis-output-label{display:block;color:var(--dim);font-size:12px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #303030}
+.analysis-dock{flex:none;padding:12px 16px 16px;background:linear-gradient(0deg,var(--page) 75%,transparent)}
+.analysis-composer{border:1px solid #303030;border-radius:16px;background:#1d1d1d;padding:10px 12px 8px}
+.analysis-composer:focus-within{border-color:#6e8460}
+.analysis-composer textarea{display:block;box-sizing:border-box;width:100%;min-height:48px;max-height:140px;resize:vertical;border:0;outline:0;background:transparent;color:var(--text);font:13px/1.6 var(--sans)}
+.analysis-composer textarea::placeholder{color:#777}
+.analysis-composer-footer{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:12px}
+.analysis-composer-context{margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.analysis-composer-icon{font-size:19px;line-height:1;color:#777}
+.analysis-composer button{display:grid;place-items:center;flex:none;width:32px;height:32px;border:0;border-radius:50%;background:#383838;color:#c8c8c8;cursor:pointer}
+.analysis-composer button svg{width:16px;height:16px}.analysis-composer button:hover{background:#505050;color:#fff}
+.analysis-composer button:focus-visible,.analysis-history summary:focus-visible,.analysis-chat-head a:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+@media(max-width:860px){.analysis-shell{grid-template-columns:0 minmax(0,1fr)}.analysis-shell.is-chat-open{grid-template-columns:min(280px,40vw) minmax(0,1fr)}.analysis-chat-inner{width:min(280px,40vw)}}
+@media(max-width:540px){.analysis-shell.is-chat-open{grid-template-columns:min(240px,55vw) minmax(0,1fr)}.analysis-chat-inner{width:min(240px,55vw)}}
+@media(prefers-reduced-motion:reduce){.analysis-shell,.analysis-chat-inner{transition:none}}
 .analysis-shell .lb-main{grid-template-rows:44px minmax(0,1fr)}
 .analysis-shell .lb-bar{grid-template-columns:auto minmax(0,max-content) minmax(0,1fr) auto;gap:10px;background:var(--page)}
 .analysis-finish{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 14px;border-radius:999px;background:rgb(255 255 255 / 8%);color:#eee;font:500 12px var(--sans,system-ui,sans-serif);text-decoration:none;white-space:nowrap}
@@ -435,7 +470,7 @@ button.ide-row{cursor:pointer}
           </div>
           <div class="ln-tip" id="lnTip" hidden></div>
           <div class="lane-analysis-entry">
-            <button type="button" class="sw-go" id="lnGo" title="查看 PyPTO Toolkit 泳道图从 IDE 到 Agent 的迭代">查看 Agent 版泳道图<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 11 5M6 5h5v5"/></svg></button>
+            <button type="button" class="sw-go" id="lnGo" title="After：基于 Agent 协作的性能分析">After：基于 Agent 协作的性能分析<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 11 5M6 5h5v5"/></svg></button>
           </div>
         </div>
             </div>
@@ -473,6 +508,17 @@ button.ide-row{cursor:pointer}
     <span aria-hidden="true" class="sp"></span>
     <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2.5"/><path d="M10 2.8v2.4M10 14.8v2.4M2.8 10h2.4M14.8 10h2.4M4.9 4.9l1.7 1.7M13.4 13.4l1.7 1.7M4.9 15.1l1.7-1.7M13.4 6.6l1.7-1.7"/></svg></span>
   </div>
+  <aside class="analysis-chat" aria-label="Agent 对话">
+    <div class="analysis-chat-inner">
+      <header class="analysis-chat-head"><a href="agent.html#done" aria-label="返回 Agent 对话" title="返回 Agent 对话"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5 8 10l5 5"/></svg></a><h2 data-chat-title>Agent 对话</h2></header>
+      <div class="analysis-chat-log" data-chat-log>
+        <details class="analysis-history" data-chat-history><summary>此前的 Agent 对话</summary><div class="analysis-history-content" data-chat-history-content></div></details>
+        <p class="analysis-message is-user">请可视化分析这次运行的算子性能，找出值得关注的瓶颈。</p>
+        <div class="analysis-output"><span class="analysis-output-label">性能分析 · rank0</span><strong>已打开性能泳道图</strong><ul><li>Rank 0 的执行窗口约 4.82 ms，关键路径包含 30 个任务。</li><li>核计算占可用核时约 31.4%；尾块核时上界约为计算核时的 46.9%，可进一步检查任务分布。</li></ul><p>可以在右侧查看关键路径、任务耗时与执行证据；这些指标本身还不能确定瓶颈成因。</p></div>
+      </div>
+      <div class="analysis-dock"><form class="analysis-composer" data-chat-form><textarea aria-label="继续对话" placeholder="继续询问算子性能…"></textarea><div class="analysis-composer-footer"><span class="analysis-composer-icon" aria-hidden="true">＋</span><span class="analysis-composer-context">Operator Agent · 演示</span><button type="submit" aria-label="发送"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg></button></div></form></div>
+    </div>
+  </aside>
   <div class="lb-main">
     <div class="lb-bar">
       <div class="lb-nav">
@@ -487,7 +533,7 @@ button.ide-row{cursor:pointer}
         </div>
       </div>
       <div class="lb-addr"><span><b>decode_csa</b></span></div>
-      <a class="analysis-finish" href="index.html">演示总览 <span aria-hidden="true">→</span></a>
+      <a class="analysis-finish" href="index.html">体验设计 <span aria-hidden="true">→</span></a>
     </div>
     <div class="lb-view"></div>
   </div>
@@ -520,6 +566,7 @@ const STAGES = [
     status: 'trace · building lanes' }
 ];
 const END = 5.55;
+const LOADING_PACE = .375; // 泳道出现前的阶段和日志按原节奏的一半播放。
 
 const LINES = [
   [ .05, 'load',   'decode_sparse_attn_csa.py · 208–313'],
@@ -547,7 +594,7 @@ function line(t, kind, msg) {
   el.dataset.kind = kind;
   el.style.setProperty('--c', colourFor(t));
   el.innerHTML = '<span class="ts"></span><span class="kind"></span><span class="msg"></span>';
-  el.children[0].textContent = stamp(t);
+  el.children[0].textContent = stamp(t * LOADING_PACE);
   el.children[1].textContent = kind;
   const tokens=msg.split(/(\b\d+(?:\.\d+)?\b|\b(?:kernel|grid|tiling|lane|critical|path|focus|device|done|tasks|passes|op|trace)\b|\b(?:qk_pv|csa_merge|a2a3|\w+\.py)\b|[·×/–])/g);
   tokens.forEach(token=>{
@@ -569,7 +616,7 @@ function runStage(s) {
   const link = links[s.link];
   link.dataset.state = 'run';
   const fill = link.firstElementChild;
-  fill.style.transitionDuration = (still ? 0 : s.ms) + 'ms';
+  fill.style.transitionDuration = (still ? 0 : s.ms * LOADING_PACE) + 'ms';
   requestAnimationFrame(() => {
     const vertical = matchMedia('(max-width: 720px)').matches;
     fill.style[vertical ? 'height' : 'width'] = '100%';
@@ -583,7 +630,7 @@ function runStage(s) {
     node.dataset.state = 'done';
     const meta = node.querySelector('.cb-meta');
     if (meta && meta.dataset.fill) meta.textContent = meta.dataset.fill;
-  }, still ? 0 : s.ms);
+  }, still ? 0 : s.ms * LOADING_PACE);
 }
 
 /* 编译结束后停在 IDE 的设备泳道，由悬停按钮打开 Agent 版泳道图。 */
@@ -591,7 +638,7 @@ function finish() {
   title.textContent = '演示流程已完成';
   detail.textContent = '这次运行的 trace 已准备就绪，正在画出设备泳道。';
   statusLine.textContent = 'ready · device lane';
-  setTimeout(showLane, still ? 0 : 700);
+  setTimeout(showLane, still ? 0 : 250);
 }
 
 /* ── 设备泳道（参照 IDE 里的泳道图）：每行一个核（AIC_0…AIC_23、AIV_24…AIV_71），左侧核名与该核 block 数，
@@ -920,10 +967,48 @@ let leaving = false;
 let restoreAnalysisFocus = false;
 const analysisButton = document.getElementById('lnGo');
 const analysisHash = '#analysis';
-const analysisPage = 'result.html?embed=agent';
+const analysisPage = 'result.html?embed=agent&v=2';
 let resultShell = null;
 function createResult(preview = false) {
   const shell = document.getElementById('analysisShell').content.firstElementChild.cloneNode(true);
+  const log = shell.querySelector('[data-chat-log]');
+  const historyContent = shell.querySelector('[data-chat-history-content]');
+  let conversation;
+  try { conversation = JSON.parse(sessionStorage.getItem('lab-tour-v3-agent-conversation')); } catch (e) { /* No saved conversation. */ }
+  if (conversation && Array.isArray(conversation.messages) && conversation.messages.length) {
+    shell.querySelector('[data-chat-title]').textContent = conversation.title || 'Agent 对话';
+    conversation.messages.forEach(message => {
+      if (typeof message.text !== 'string') return;
+      const item = document.createElement('p');
+      item.className = 'analysis-message ' + (message.role === 'user' ? 'is-user' : 'is-agent');
+      item.textContent = message.text;
+      historyContent.append(item);
+    });
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'analysis-empty';
+    empty.textContent = '没有可继承的历史对话。';
+    historyContent.append(empty);
+  }
+  const form = shell.querySelector('[data-chat-form]');
+  const input = form.querySelector('textarea');
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    const question = document.createElement('p');
+    question.className = 'analysis-message is-user';
+    question.textContent = text;
+    const answer = document.createElement('p');
+    answer.className = 'analysis-message is-agent';
+    answer.textContent = '这是演示界面，暂不支持实时 Agent 回复。可在右侧泳道图选择任务，查看耗时分布和执行证据。';
+    log.append(question, answer);
+    input.value = '';
+    log.scrollTop = log.scrollHeight;
+  });
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
+  });
   const frame = document.createElement('iframe');
   frame.title = 'PyPTO Toolkit 泳道图 · Agent 版';
   frame.src = analysisPage + (preview ? '#lane-preview' : '#from-lane');
@@ -970,6 +1055,11 @@ function activateResult(shell) {
     history.pushState({ fromDeviceLane: true }, '', analysisHash);
   }
   showResult(true);
+  const log = shell.querySelector('[data-chat-log]');
+  // Let the destination settle before the conversation pushes the lane aside.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (resultShell === shell) shell.classList.add('is-chat-open');
+  }));
 }
 
 function openResult() {
@@ -1060,9 +1150,9 @@ if (location.hash === analysisHash) {
   nodes.forEach(n => { n.dataset.state = 'done'; });
   showLane();
 } else {
-  LINES.forEach(([t, kind, msg]) => setTimeout(() => line(t, kind, msg), t * 1000));
-  STAGES.forEach(s => setTimeout(() => runStage(s), s.at * 1000));
-  setTimeout(finish, END * 1000);
+  LINES.forEach(([t, kind, msg]) => setTimeout(() => line(t, kind, msg), t * 1000 * LOADING_PACE));
+  STAGES.forEach(s => setTimeout(() => runStage(s), s.at * 1000 * LOADING_PACE));
+  setTimeout(finish, END * 1000 * LOADING_PACE);
 }
 </script>
 </body>

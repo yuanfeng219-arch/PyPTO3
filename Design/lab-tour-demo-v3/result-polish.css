@@ -60,15 +60,13 @@
 /* 默认结论条：顶栏与泳道之间的一行，进页面就指出最值得先看的一处。
  * 左边是谁，右边三项读数，两项带按同一份数字画出来的图形；
  * 「它在路径哪儿」不再另画一条，直接点亮下面那条真实的关键路径（见 #cp .cp-lead）。
- * 圆角与底色用下钻页共用的 demo-shell.css，强调色取页面自己给该特征的语义色。 */
+ * 低饱和预警底色提示关注，图形与标签仍沿用特征语义色。 */
 .lead-finding{
  flex:none;display:flex;align-items:center;gap:18px;overflow:hidden;
  margin:6px 24px 0;padding:0 18px 0 15px;min-height:50px;
- border:1px solid #2d2d2d;border-left:3px solid var(--lead-color,#bca0f3);
+ border:1px solid #51432d;border-left:3px solid #c19a5c;
  border-radius:var(--demo-radius-card,12px);
- background:linear-gradient(90deg,
-   color-mix(in srgb,var(--lead-color,#bca0f3) 9%,var(--demo-surface,#171717)) 0,
-   var(--demo-surface,#171717) 340px);
+ background:linear-gradient(90deg,#30271d 0,#27221c 48%,#211e1a 100%);
 }
 .lead-finding[role="button"]{cursor:pointer}
 .lead-finding[role="button"]:hover,.lead-finding[aria-pressed="true"]{border-color:var(--lead-color,#bca0f3)}
@@ -101,10 +99,23 @@
 /* 下面真实的关键路径条上，把结论指到的那一步点亮 */
 #cp .cp-lead rect{fill:color-mix(in srgb,var(--lead-color,#bca0f3) 58%,#141414)!important;opacity:1!important}
 @media(max-width:1240px){
- .lead-finding{flex-wrap:wrap;padding:8px 18px 10px 15px;gap:4px 18px}
- .lead-id{flex-basis:100%}
- .lead-metrics{flex:1;justify-content:space-between}
+ .lead-finding{gap:10px;padding:0 12px 0 10px}
+ .lead-id{gap:7px}
+ .lead-id b{font-size:13px}
+ .lead-place{font-size:11px}
+ .lead-tag{padding:1px 7px;font-size:10px}
+ .lead-metric{gap:6px;padding:5px 10px}
+ .lead-metric>span{font-size:11px}
+ .lead-metric>b{font-size:14px}
+ .lead-metric>em{font-size:10px}
+ .lead-pair,.lead-fill{width:64px}
  .lead-metric:first-child{padding-left:0;border-left:0}
+}
+@media(max-width:900px){
+ .lead-finding{gap:7px}
+ .lead-place{max-width:140px;overflow:hidden;text-overflow:ellipsis}
+ .lead-metric{padding-left:7px;padding-right:7px}
+ .lead-metric>em{display:none}
 }
 @media(max-width:680px){
  .lead-finding{margin:6px 12px 0;padding:8px 12px;gap:8px}

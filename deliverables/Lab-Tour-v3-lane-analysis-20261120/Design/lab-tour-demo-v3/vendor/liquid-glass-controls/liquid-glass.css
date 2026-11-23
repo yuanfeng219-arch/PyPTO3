@@ -1,0 +1,13 @@
+/* Liquid glass v2; host owns layout, radius, positioning and interaction. */
+[data-liquid-glass]{--glass-ink:#eee;--glass-fill:rgb(255 255 255 / 5%);color:var(--glass-ink);border:0}
+[data-theme=light] [data-liquid-glass]{--glass-ink:#252525;--glass-fill:transparent}
+[data-liquid-glass=control],[data-liquid-glass=icon]{background:var(--glass-fill);box-shadow:0 7px 20px rgb(0 0 0 / 8%);isolation:isolate}
+.liquid-b-shine{position:absolute!important;inset:0;display:block;pointer-events:none;border-radius:inherit;z-index:-1}
+[data-liquid-glass=control] :is(button:not([aria-pressed=true]),select,[data-liquid-readout]){color:var(--glass-ink);text-shadow:none}
+[data-liquid-glass=panel]{background:rgb(26 26 26 / 78%);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 16px 48px rgb(0 0 0 / 18%),0 3px 10px rgb(0 0 0 / 8%)}
+[data-theme=light] [data-liquid-glass=panel]{background:rgb(255 255 255 / 74%);box-shadow:0 16px 48px rgb(0 0 0 / 10%),0 3px 10px rgb(0 0 0 / 5%)}
+[data-liquid-glass=panel] :is(p,legend,[data-liquid-muted]){color:var(--glass-ink);opacity:.7}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ [data-liquid-glass]{background:#242424}
+ [data-theme=light] [data-liquid-glass]{background:#f3f3f3}
+}

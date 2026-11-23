@@ -1,0 +1,63 @@
+/* Import explicitly; map to existing tokens rather than overriding global elements.
+   These are defaults, not evidence of accessibility compliance on every surface. */
+:root {
+  --ss-bg: #111111;
+  --ss-surface: #181818;
+  --ss-inspector: #202020;
+  --ss-text: #e8e8e8;
+  --ss-text-secondary: #b0b0b0;
+  --ss-text-muted: #a0a0a0;
+  --ss-divider: #383838; /* Decorative only. */
+  --ss-boundary: #858585; /* Necessary interactive boundaries. */
+  --ss-selection: #f0f0f0;
+  --ss-anomaly: #fd5644;
+  --ss-font: Arial, "Noto Sans CJK SC", sans-serif;
+  --ss-font-data: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --ss-type-focus: clamp(2.75rem, 4vw, 4.5rem);
+  --ss-type-title: clamp(1.375rem, 2vw, 2rem);
+  --ss-type-value: 0.9375rem;
+  --ss-type-label: 0.8125rem;
+  --ss-type-body: 0.875rem;
+  --ss-space-1: 4px;
+  --ss-space-2: 8px;
+  --ss-space-3: 12px;
+  --ss-space-4: 20px;
+  --ss-space-5: 32px;
+  --ss-space-6: 48px;
+  --ss-page-inset: clamp(16px, 3vw, 48px);
+  --ss-line: 1px;
+  --ss-line-focus: 2px;
+  --ss-radius-control: 2px;
+  --ss-radius-panel: 4px;
+  /* Dark spatial-canvas Liquid Glass materials. Optical parameters live in the bundled JS presets. */
+  --ss-ui-fill: rgb(26 26 26 / 28%);
+  --ss-ui-border: rgb(255 255 255 / 28%); /* Decorative, not the sole affordance. */
+  --ss-ui-blur: blur(12px); /* CSS fallback; control optical blur is 4px in JS. */
+  --ss-ui-panel-fill: rgb(26 26 26 / 94%);
+  --ss-ui-panel-border: rgb(255 255 255 / 18%);
+  --ss-ui-panel-blur: blur(18px);
+  --ss-ui-icon-fill: rgb(26 26 26 / 72%);
+  --ss-ui-icon-border: rgb(255 255 255 / 18%);
+  --ss-ui-fallback: #242424;
+  --ss-ui-radius: 999px;
+  --ss-ui-panel-radius: 20px;
+  --ss-ui-selected-fill: #ffffff;
+  --ss-ui-selected-text: #111111;
+  --ss-ui-icon-size: 18px;
+  --ss-ui-hit-size: 36px;
+  --ss-ui-touch-hit-size: 44px;
+  /* Context volumes only, not numerical data encoding. */
+  --ss-context-top: #272727;
+  --ss-context-side-light: #222222;
+  --ss-context-side-dark: #1f1f1f;
+  --ss-context-occluder-opacity: 0.25; /* Apply once to the whole group. */
+  --ss-motion-feedback: 160ms;
+  --ss-motion-structure: 320ms;
+  --ss-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ss-motion-feedback: 0ms;
+    --ss-motion-structure: 0ms;
+  }
+}

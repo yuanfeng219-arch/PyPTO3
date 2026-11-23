@@ -417,8 +417,12 @@
     svg.querySelectorAll('.wb-sec').forEach(function (n) { n.classList.toggle('is-peek', on.indexOf(n.dataset.owner) >= 0); });
     svg.querySelectorAll('.sv-region').forEach(function (r) { r.classList.toggle('wb-pinned', pinSet.indexOf(r.dataset.region) >= 0); });
   }
-  host.addEventListener('pointerover', function (e) { hoverSet = ownersFrom(e.target); paintPeek(); });
-  host.addEventListener('pointerleave', function () { hoverSet = []; paintPeek(); });
+  host.addEventListener('pointerover', function (e) {
+    const next = ownersFrom(e.target);
+    if (next[0] === hoverSet[0]) return; // 同一区域内跨越 SVG 子元素时不重复刷新
+    hoverSet = next; paintPeek();
+  });
+  host.addEventListener('pointerleave', function () { if (hoverSet.length) { hoverSet = []; paintPeek(); } });
   host.addEventListener('click', function (e) {
     const o = ownersFrom(e.target);
     if (!o.length) { pinSet = []; paintPeek(); return; }
@@ -449,9 +453,13 @@
   const stats = document.getElementById('hpChipStats');
   if (stats) new MutationObserver(tagStats).observe(stats, { childList: true });
   new MutationObserver(decorate).observe(host, { childList: true });
+  new MutationObserver(function () { paintPeek(); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(function (changes) {
-    if (changes.some(function (change) { return change.target === document.body || change.target.classList.contains('sv-region'); })) paintPeek();
-  }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
+    if (changes.some(function (change) {
+      return change.target.classList.contains('sv-region') &&
+        /(?:^|\s)is-hot(?:\s|$)/.test(change.oldValue || '') !== change.target.classList.contains('is-hot');
+    })) paintPeek();
+  }).observe(host, { attributes: true, subtree: true, attributeFilter: ['class'], attributeOldValue: true });
   const detail = document.getElementById('lensDetail');
   if (detail) new MutationObserver(function () { paintPeek(); }).observe(detail, { attributes: true, attributeFilter: ['hidden'] });
   decorate(); tagStats();
@@ -534,16 +542,27 @@
   }
   function fix(root) {
     if (!root) return;
+    if (root.nodeType === Node.TEXT_NODE) {
+      const value = root.nodeValue;
+      if (value && value.trim()) { const next = fixText(value); if (next !== value) root.nodeValue = next; }
+      return;
+    }
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let n;
-    while ((n = w.nextNode())) { const v = n.nodeValue; if (!v || !v.trim()) continue; const f = fixText(v); if (f !== v) n.nodeValue = f; }
+    while ((n = w.nextNode())) fix(n);
   }
   const roots = ['hpLensPane', 'hpStatus'].map(function (id) { return document.getElementById(id); })
     .concat([document.querySelector('.wb-card-h.is-chip'), document.querySelector('.wb-chip-extra')]).filter(Boolean);
   let queued = false;
-  function run() { queued = false; roots.forEach(fix); }
-  function queue() { if (queued) return; queued = true; Promise.resolve().then(run); }
+  const pending = new Set();
+  function run() { queued = false; const nodes = Array.from(pending); pending.clear(); nodes.forEach(fix); }
+  function queue(changes) {
+    changes.forEach(function (change) {
+      if (change.type === 'characterData') pending.add(change.target);
+      else change.addedNodes.forEach(function (node) { if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) pending.add(node); });
+    });
+    if (pending.size && !queued) { queued = true; Promise.resolve().then(run); }
+  }
   roots.forEach(function (r) { new MutationObserver(queue).observe(r, { childList: true, characterData: true, subtree: true }); });
-  run();
-  setTimeout(run, 300);
+  roots.forEach(fix);
 })();

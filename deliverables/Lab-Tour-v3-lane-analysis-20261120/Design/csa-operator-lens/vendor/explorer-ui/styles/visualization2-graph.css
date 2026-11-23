@@ -1,0 +1,107 @@
+/* Canvas chrome is local; node/edge/group appearance comes from the original graph CSS. */
+#viz2-graph, .viz2-graph { display: flex; flex-direction: column; }
+.viz2-graph-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.viz2-graph-stage { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.viz2-graph-viewport { position: relative; inset: auto; flex: 1; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; }
+.viz2-graph-scene { user-select: none; }
+.viz2-graph-footer { display: flex; flex: none; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-graph-footer__controls {display:flex;align-items:center;gap:var(--space-2);flex:none;}
+.viz2-graph-layer-menu {position:relative;}
+.viz2-graph-layer-menu > summary {list-style:none;cursor:pointer;padding:5px 9px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--foreground);}
+.viz2-graph-layer-menu > summary::-webkit-details-marker {display:none;}
+.viz2-graph-layer-menu__content {position:absolute;right:0;bottom:calc(100% + 8px);z-index:10;display:grid;grid-template-columns:1fr;gap:var(--space-1);padding:var(--space-2);min-width:180px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-2);box-shadow:var(--shadow-md);}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer] {display:flex;align-items:center;justify-content:flex-start;gap:var(--space-2);width:100%;background:transparent;color:var(--foreground);box-shadow:none;}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer]::before {content:"";display:inline-block;width:16px;flex:none;}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer][aria-pressed="true"]::before {content:"✓";}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer]:is(.is-selected,:hover,:active) {background:transparent;color:var(--foreground);box-shadow:none;}
+.viz2-graph .kf-pypa-graph__node.is-viz2-related { box-shadow: 0 0 0 2px var(--focus-ring); }
+.viz2-graph .kf-pypa-graph__edge.is-viz2-related { opacity: 1; stroke-width: 3; }
+.viz2-graph .kf-pa-map__tooltip { max-width: min(360px, calc(100% - 16px)); }
+.viz2-graph-inspector { flex: 0 0 clamp(270px,28vw,340px); min-width: 0; min-height:0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
+.viz2-graph-inspector .pto-ide-frame__pane-header { justify-content: space-between; }
+.viz2-graph-inspector .pto-ide-frame__pane-header b { min-width: 0; font: var(--type-title-3); }
+.viz2-graph-inspector .pto-ide-frame__pane-body { padding: var(--space-3) var(--space-4); overflow: auto; font: var(--type-body); }
+.viz2-graph-inspector section { padding-block: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.viz2-graph-inspector section:first-child { border-top: 0; padding-top: 0; }
+.viz2-graph-inspector h3 { margin: 0 0 var(--space-2); font: var(--type-title-3); }
+.viz2-graph-inspector dl { margin: 0; overflow-wrap: anywhere; }
+.viz2-graph-inspector dt { color: var(--foreground-muted); font: var(--type-body-sm); margin-top: var(--space-2); }
+.viz2-graph-inspector dd { margin: var(--space-1) 0 var(--space-3); color: var(--foreground-secondary); }
+.viz2-graph-inspector summary { cursor: pointer; color: var(--foreground-secondary); }
+.viz2-graph-inspector .viz2-inspector-core p {margin:0;color:var(--foreground);line-height:1.5;overflow-wrap:anywhere;}
+.viz2-graph-inspector .viz2-inspector-core h3 {color:var(--foreground-muted);font:var(--type-label);}
+.viz2-graph-inspector .viz2-inspector-details {padding:var(--space-3) 0;border-top:1px solid var(--border-subtle);}
+.viz2-graph-inspector .viz2-inspector-details > summary {font:var(--type-label);color:var(--foreground);}
+.viz2-graph-inspector .viz2-inspector-details[open] > summary {margin-bottom:var(--space-3);}
+@media (max-width: 900px) {
+  .viz2-graph-inspector { flex-basis: min(280px,42vw); }
+  .viz2-graph-footer [data-viz2-graph-context] {display:none;}
+}
+
+/* Screen-space titles stay attached to their nodes at every zoom level. */
+.viz2-graph-scene .kf-pypa-graph__group > span { display: none; }
+.viz2-graph-scene .kf-pypa-graph__node.is-compact-node { box-sizing: border-box; overflow: hidden; }
+.viz2-graph-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.viz2-graph-node-title { position: absolute; left: 0; top: 0; box-sizing: border-box; max-width: 300px; padding: 0 var(--space-1); font: var(--type-body); line-height: 20px; color: var(--foreground); background: var(--surface-2); border-radius: var(--radius-sm); cursor: pointer; pointer-events: auto; }
+.viz2-graph-node-title > [data-viz2-graph-name] { min-width: 0; overflow-wrap: anywhere; }
+.viz2-graph-node-title.is-compact { font-size: 13px; line-height: 18px; }
+.viz2-graph-labels[data-density="comfortable"] .viz2-graph-node-title {display:none;pointer-events:none;}
+.viz2-graph .viz2-graph-scene.has-semantic-overlays .kf-pypa-graph__node.is-compact-node .viz2-graph-compact-title {display:flex;align-items:center;justify-content:center;gap:var(--space-2);width:100%;height:100%;box-sizing:border-box;padding:var(--space-2) var(--space-3);font:var(--type-body);text-align:center;}
+.viz2-graph .viz2-graph-scene.has-semantic-overlays .kf-pypa-graph__node.is-compact-node .viz2-graph-compact-title > b {grid-area:auto;overflow:visible;text-overflow:clip;font:var(--type-body);min-width:0;white-space:normal;overflow-wrap:break-word;line-height:1.2;font-weight:500;}
+.viz2-graph .viz2-graph-scene.has-semantic-overlays .kf-pypa-graph__node.is-compact-node .viz2-graph-compact-title > .kf-pypa-graph__node-expand {grid-area:auto;position:static;flex:none;margin:0;}
+.viz2-graph-scene[data-density="compact"] .viz2-graph-compact-title {visibility:hidden;pointer-events:none;}
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-head,
+.viz2-graph-scene[data-density="compact"] [data-pypa-card],
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-meta,
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__detail-source,
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-expand { visibility: hidden; }
+.viz2-graph-node-title.is-selected { color: var(--foreground); background: var(--surface-2); }
+.viz2-graph-node-title.is-viz2-related { color: var(--foreground); }
+.viz2-graph-stage-title { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: auto auto; align-items: center; gap: var(--space-1) var(--space-3); width: max-content; max-width: 340px; padding: var(--space-1); background: var(--surface-2); border-radius: var(--radius-sm); }
+.viz2-graph-stage-title b { font: var(--type-title-3); color: var(--foreground-secondary); }
+.viz2-graph-labels[data-density="compact"] .viz2-graph-stage-title { padding: 2px 4px; }
+.viz2-graph-labels[data-density="compact"] .viz2-graph-stage-title b { font-size: 12px; line-height: 16px; }
+.viz2-graph-stage-title span { font: var(--type-mono); color: var(--primary); }
+.viz2-graph-stage-title small { grid-column: 1 / -1; font: var(--type-body-sm); color: var(--foreground-muted); }
+.viz2-graph-labels[data-density="compact"] .viz2-graph-stage-title small { display: none; }
+.viz2-graph-block-rail { position: absolute; left: 0; top: 0; width: 148px; padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-2); box-shadow: var(--shadow-md); pointer-events: auto; }
+.viz2-graph-block-rail__title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2); color: var(--foreground-secondary); font: var(--type-label); }
+.viz2-graph-block-rail__title small { color: var(--foreground-muted); font: var(--type-mono); }
+.viz2-graph-block-rail__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.viz2-graph-block-rail__grid button { min-width: 0; height: 28px; padding: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--foreground-secondary); font: var(--type-mono); cursor: pointer; }
+.viz2-graph-block-rail__grid button:hover { border-color: var(--primary); color: var(--foreground); }
+.viz2-graph-block-rail__grid button.is-selected { border-color: var(--primary); background: var(--state-selected); color: var(--foreground); }
+.viz2-graph-block-rail__grid button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Shared information layers scoped to the independent Block-level graph. */
+.viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker,
+.viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-path {display:none;}
+.viz2-graph > .kf-pypa-graph__overlays {flex:none;flex-wrap:wrap;}
+
+.viz2-graph-scene .kf-pypa-graph__edge:is(.is-control,.is-feedback) { opacity: .18; }
+.viz2-graph-scene[data-overlay-control="true"] .kf-pypa-graph__edge:is(.is-control,.is-feedback) { opacity: 1; }
+.viz2-graph-scene[data-state-expanded="true"] .kf-pypa-graph__edge.is-feedback { opacity: .9; stroke-width: 2.5; cursor: pointer; }
+.viz2-graph-scene[data-state-expanded="true"] .kf-pypa-graph__edge.is-state { opacity: .9; cursor: pointer; }
+.viz2-graph-scene[data-state-expanded="true"] .kf-pypa-graph__edge-label[data-edge-type="feedback"] { opacity: 1; }
+.viz2-graph-scene .kf-pypa-graph__edge-hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }
+.viz2-graph-scene .kf-pypa-graph__edge-label { opacity: 0; transition: opacity .15s; }
+.viz2-graph-scene .kf-pypa-graph__edge.is-viz2-related + .kf-pypa-graph__edge-label { opacity: 1; }
+.viz2-graph-scene[data-focused="true"] .kf-pypa-graph__node:not(.is-selected):not(.is-viz2-related) { opacity: .42; }
+
+.viz2-graph-node-title {display:inline-flex;align-items:center;gap:var(--space-1);}
+.viz2-graph-node-title > button {min-height:20px;padding:0 var(--space-1);}
+
+/* Static execution is a decoration of shared cards, never a geometry change. */
+.viz2-compute .viz2-graph-scene .kf-pypa-graph__node {transition:filter .25s,box-shadow .25s;}
+.viz2-compute .viz2-graph-scene[data-execution-weight="true"] .kf-pypa-graph__node {filter:brightness(calc(1 + var(--execution-weight,0) * .25));}
+.viz2-compute .viz2-graph-scene [data-pypa-edge] {transition:stroke-width .25s;}
+@media(prefers-reduced-motion:reduce){.viz2-compute .viz2-graph-scene .kf-pypa-graph__node,.viz2-compute .viz2-graph-scene [data-pypa-edge] {transition:none;}}
+
+/* Weight labels have their own hit target; only one density representation lives. */
+.viz2-graph-floating-count {position:absolute;right:0;bottom:calc(100% + 3px);padding:0 var(--space-1);border:0;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--foreground);font:var(--type-mono);cursor:pointer;}
+.viz2-graph-scene[data-density="compact"] [data-pypa-execution-count] {visibility:hidden;pointer-events:none;}
+.viz2-graph .has-semantic-overlays .kf-pypa-graph__node.has-execution-badge .kf-pypa-graph__node-head > b {padding-right:0;white-space:normal;overflow:visible;text-overflow:clip;}
+.viz2-graph .has-semantic-overlays .kf-pypa-graph__node.has-execution-badge > .viz2-graph-compact-title {padding-right:48px;}
+.viz2-graph .has-semantic-overlays .kf-pypa-graph__node.has-execution-badge .viz2-graph-compact-title > .kf-pypa-graph__node-expand {position:absolute;right:var(--space-2);bottom:var(--space-2);}
+.viz2-page-instance-group {display:flex;align-items:baseline;gap:var(--space-2);margin-block:var(--space-2);}
+.viz2-page-instance-group > div {display:flex;flex-wrap:wrap;gap:var(--space-1);}

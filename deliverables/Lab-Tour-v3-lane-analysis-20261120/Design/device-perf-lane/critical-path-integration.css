@@ -1,0 +1,97 @@
+/* Scoped additions; host layout and controls remain owned by index-focus. */
+.cpi-host .trace-pair>.sec:first-child{display:none}
+.cpi-nav{height:58px;position:relative;background:var(--bg,#111);font:12px var(--mono,monospace)}
+.cpi-nav button,.cpi-drawer button{cursor:pointer;border:0;color:#ddd;background:#303030;font:inherit}
+.cpi-label{position:absolute;left:0;top:18px;color:#aaa;font-size:11px}
+.cpi-info{border-radius:50%;margin-left:4px;padding:1px 5px}
+.cpi-track{position:absolute;top:0;bottom:0;overflow:hidden}
+.cpi-track:before{content:"";position:absolute;left:0;right:0;top:28px;height:3px;background:radial-gradient(circle,#666 1.3px,transparent 1.5px) 0 0/10px 3px}
+.cpi-tag,.cpi-gap{position:absolute;top:12px;transform:translateX(-50%);white-space:nowrap}
+.cpi-nav .cpi-tag{border-radius:24px;padding:9px 12px;background:#373737;min-width:44px}
+.cpi-nav .cpi-tag.wait{background:var(--accent,#fd5644);color:#111}.cpi-nav .cpi-tag.selected{background:#eee;color:#111}.cpi-nav .cpi-tag.wait.selected{background:var(--accent,#fd5644)}
+.cpi-nav .cpi-gap{top:20px;background:var(--bg,#111);color:#999;padding:2px 8px}
+.cpi-nav button:focus-visible,.cpi-drawer button:focus-visible{outline:2px solid #aaa;outline-offset:2px}
+.cpi-nav .cpi-collapse{position:absolute;right:12px;top:0;background:#111;color:#aaa;font-size:10px}
+.cpi-help{position:absolute;z-index:12;top:55px;left:0;width:min(520px,80vw);padding:16px;background:#242424;color:#ccc;line-height:1.7;box-shadow:0 8px 24px #0008}
+.cpi-drawer{flex:none;height:240px;min-height:0;margin:0 24px;background:#191919;border-top:1px solid #444;position:relative;overflow:hidden;font:13px var(--font,sans-serif)}
+.cpi-drawer[hidden]{display:none}.cpi-resize{position:absolute;top:0;left:0;right:0;height:8px;cursor:ns-resize;touch-action:none}.cpi-resize:after{content:"";display:block;width:36px;height:2px;background:#666;margin:2px auto}
+.cpi-drawer header{display:flex;align-items:center;gap:12px;padding:16px 20px 8px;color:#999}.cpi-drawer header button{margin-left:auto;padding:5px 10px;border-radius:4px}
+.cpi-detail{height:calc(100% - 54px);overflow:auto;display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:24px;align-items:center;padding:8px 20px 20px;box-sizing:border-box}
+.cpi-center{text-align:center;min-width:0}.cpi-center strong{display:block;overflow-wrap:anywhere;font:14px var(--mono,monospace);margin:10px 0}.cpi-center b{font:28px var(--mono,monospace)}.cpi-center p{color:#999;font-size:12px;margin:8px 0}
+.cpi-badge{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#ddd;color:#111}.cpi-badge.wait{background:var(--accent,#fd5644)}
+.cpi-neighbors{display:grid;gap:8px;min-width:0}.cpi-neighbors button{text-align:left;padding:10px;border-left:2px solid #555;background:#202020;overflow-wrap:anywhere}.cpi-neighbors small{display:block;color:#999;margin-bottom:6px}
+
+.cpi-host:has(.cpi-drawer:not([hidden])) .lane-toolbar,.cpi-host:has(.cpi-drawer:not([hidden])) .canvas-tools{translate:0 calc(-1 * var(--cpi-drawer-height,240px))}
+
+/* Statistics no longer derive their height from the retired path strip. */
+.cpi-host .run-header .perf-overview{height:112px;min-height:112px}
+.cpi-host .run-header{z-index:10}
+.cpi-nav .cpi-tag.wait,.cpi-nav .cpi-tag.wait.selected,.cpi-badge.wait{color:#fff}
+/* Float only the controls; let the lane continue behind them. */
+.cpi-host .trace-pair>.sec:last-child{padding-bottom:0}
+.cpi-host .trace-pair{padding-bottom:0}
+
+.cpi-label{display:flex;align-items:center;gap:7px;top:17px;color:#bbb;font:14px var(--font,sans-serif)}
+.cpi-nav .cpi-info{display:grid;place-items:center;width:22px;height:22px;margin:0;padding:0;background:#262626;color:#aaa;border-radius:50%;flex:none}
+
+/* Dependency branches share the centerline of the selected task. */
+.cpi-detail{grid-template-columns:minmax(0,1fr) minmax(180px,280px) minmax(0,1fr);column-gap:64px}
+.cpi-neighbors{position:relative}
+.cpi-neighbors button{position:relative}
+.cpi-neighbors:first-child button:after,.cpi-neighbors:last-child button:after{content:"";position:absolute;top:50%;width:24px;height:1px;background:#666;pointer-events:none}
+.cpi-neighbors:first-child button:after{left:100%}
+.cpi-neighbors:last-child button:after{right:100%}
+.cpi-neighbors:has(button):before{content:"";position:absolute;top:0;bottom:0;width:1px;background:#666;pointer-events:none}
+.cpi-neighbors:first-child:has(button):before{right:-24px}
+.cpi-neighbors:last-child:has(button):before{left:-24px}
+.cpi-neighbors:has(button):after{content:"";position:absolute;top:50%;width:40px;height:1px;background:#888;pointer-events:none}
+.cpi-neighbors:first-child:has(button):after{right:-64px}
+.cpi-neighbors:last-child:has(button):after{left:-64px}
+
+/* The dependency drawer overlays the lane; only floating controls move. */
+.cpi-host .main-column{position:relative}
+.cpi-drawer{position:absolute;left:24px;right:24px;bottom:0;margin:0;z-index:11}
+
+.cpi-center{position:relative;padding:0 12px;box-sizing:border-box}
+.cpi-center:before,.cpi-center:after{content:"";position:absolute;top:50%;width:6px;height:6px;border-radius:50%;background:#999;transform:translateY(-50%)}
+.cpi-center:before{left:-3px}.cpi-center:after{right:-3px}
+
+/* Expand dependencies at their path selection without resizing device rows. */
+#path-analysis-lane{position:relative}
+#path-analysis-lane .cpi-drawer{top:100%;bottom:auto;left:0;right:0;height:120px;border:1px solid #444;box-shadow:0 8px 18px #0005;z-index:12}
+#path-analysis-lane .cpi-drawer header{height:28px;box-sizing:border-box;padding:4px 12px;font-size:12px}
+#path-analysis-lane .cpi-drawer header button{padding:3px 8px}
+#path-analysis-lane .cpi-detail{height:90px;padding:4px 16px 10px;column-gap:48px;grid-template-columns:minmax(0,1fr) minmax(180px,300px) minmax(0,1fr)}
+#path-analysis-lane .cpi-center strong{margin:0 0 4px;font-size:13px;overflow-wrap:anywhere}
+#path-analysis-lane .cpi-center b{font-size:22px}
+#path-analysis-lane .cpi-center p{margin:2px 0;font-size:11px}
+#path-analysis-lane .cpi-neighbors{max-height:76px;overflow:auto;gap:4px}
+#path-analysis-lane .cpi-neighbors button{padding:6px 8px;font-size:12px}
+#path-analysis-lane .cpi-neighbors small{margin-bottom:3px;font-size:11px}
+.cpi-host:has(#path-analysis-lane .cpi-drawer:not([hidden])) .lane-toolbar,.cpi-host:has(#path-analysis-lane .cpi-drawer:not([hidden])) .canvas-tools{translate:none}
+
+#path-analysis-lane .cpi-detail{background:linear-gradient(#777,#777) center / calc(100% - 48px) 1px no-repeat}
+#path-analysis-lane .cpi-center{background:#191919}
+#path-analysis-lane .cpi-neighbors:before,#path-analysis-lane .cpi-neighbors:after,#path-analysis-lane .cpi-neighbors button:after{display:none}
+
+/* Continue the path surface downward, like the execution-window disclosure. */
+#path-analysis-lane .cpi-drawer{border:0;border-bottom:1px solid #303030;background:var(--bg,#111);box-shadow:none;animation:cpi-unfold .15s ease-out}
+#path-analysis-lane .cpi-drawer header{position:absolute;right:4px;top:0;height:24px;padding:0;z-index:2}
+#path-analysis-lane .cpi-drawer header button{display:grid;place-items:center;background:none;width:24px;height:24px;padding:0;color:#aaa;font-size:18px}
+#path-analysis-lane .cpi-detail{height:100%;padding:22px 20px 18px;column-gap:40px;background:linear-gradient(#777,#777) center / calc(100% - 60px) 1px no-repeat}
+#path-analysis-lane .cpi-center{background:var(--bg,#111);padding:8px 12px}
+#path-analysis-lane .cpi-neighbors{display:flex;flex-wrap:wrap;align-items:center;align-content:center;gap:6px;max-height:80px;overflow:auto;background:var(--bg,#111);padding:4px}
+#path-analysis-lane .cpi-neighbors:first-child{justify-content:flex-end}
+#path-analysis-lane .cpi-neighbors button{border:0;border-radius:14px;padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:#303030;color:#ddd;line-height:18px}
+#path-analysis-lane .cpi-neighbors button:hover,#path-analysis-lane .cpi-neighbors button.is-linked-hover{background:#484848;outline:1px solid #aaa;outline-offset:-1px}
+#path-analysis-lane .cpi-center.is-linked-hover{outline:1px solid #aaa;border-radius:6px}
+@keyframes cpi-unfold{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#path-analysis-lane .cpi-drawer{animation:none}}
+
+/* Equal columns and content-driven height keep every dependency visible. */
+#path-analysis-lane .cpi-drawer{height:auto;overflow:visible}
+#path-analysis-lane .cpi-detail{height:auto;min-height:120px;overflow:visible;align-items:center}
+#path-analysis-lane .cpi-neighbors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible;align-content:center;gap:6px;padding:0;min-width:0}
+#path-analysis-lane .cpi-neighbors button{width:100%;min-width:0;box-sizing:border-box;height:30px;padding:5px 10px;text-align:left;font-size:12px;line-height:20px}
+#path-analysis-lane .cpi-neighbors button:only-child{grid-column:1 / -1}
+@media(max-width:800px){#path-analysis-lane .cpi-neighbors{grid-template-columns:minmax(0,1fr)}#path-analysis-lane .cpi-detail{column-gap:20px;grid-template-columns:minmax(0,1fr) minmax(140px,200px) minmax(0,1fr)}}

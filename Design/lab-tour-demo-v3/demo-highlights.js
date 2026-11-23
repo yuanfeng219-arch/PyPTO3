@@ -1,35 +1,35 @@
 (() => {
-  // 每条说明：[标题，正文或标签列表，可选图示]。
+  // 每页用一句总结和一行辅助说明表达核心信息。
   const highlights = {
     'agent.html': [
-      ['开发方式在变化', '开发者开始借助 Agent 生成和修改算子，从逐行编写转向描述需求、引导生成。'],
-      ['理解与审阅成为新挑战', '代码生成更快，但面对数百上千行代码，开发者仍需看懂逻辑、判断实现是否合理。']
+      '从手写代码转向引导 Agent 生成',
+      '写出算子变得简单，但理解和判断依然困难',
+      { detail: '理解和判断' }
     ],
     'lens.html': [
-      ['计算图', '从整层下钻到 Kernel，对照源码看循环和分支。', 'compute'],
-      ['分工图', '五步看清数据怎么切、各核怎么分工、跑几轮。', 'assignment'],
-      ['硅片落点图', '从源码追到芯片，看到数据存在哪、由谁计算。', 'placement']
+      '计算图 · 算什么',
+      '将复杂源码可视化，快速看懂从整层到 Kernel 的计算逻辑。'
     ],
     'workbench.html': [
-      ['源码、计算图与硬件对齐', '同一对象在源码、计算图与芯片落点中一一对应，解决代码与硬件执行之间无从对照的问题。'],
-      ['分工与落点上板前可见', '任务如何分给各核、数据落在哪块存储，编译后即可查看与评估，避免分工不均、核心空闲到上板才暴露。']
+      '上板前看清代码如何执行',
+      '对照源码、计算图与芯片落点，检查任务分工和存储分配'
     ],
     'compile.html': [
-      ['编译过程可视化回看', '将每个 Pass 的变换以图形与代码对照呈现，解决结果异常却无报错时，不清楚编译器做了什么的问题。'],
-      ['问题定位到具体 Pass', '对照变换前后与诊断信息，把问题收敛到具体 Pass 与源码位置，减少逐层排查。']
+      '看清编译过程，定位异常',
+      '对照图形、代码与诊断信息，追踪各 Pass 的变换'
     ],
     'loading.html': [
-      ['PyPTO Toolkit 泳道图', '在同一条时间轴上查看各核的任务、耗时、并行和空闲时段。新版把泳道图从 IDE 带进 Agent 工作台。'],
-      ['落地局点', ['盘古', 'MY', '车BU']]
+      '通过泳道图看清算子的设备性能表现',
+      '展示各核任务、耗时与并行情况，辅助分析执行效率。',
+      { challenge: '瓶颈发现仍依赖开发者的读图经验。' }
     ],
     'result.html': [
-      ['关键路径', '高亮影响总耗时的任务依赖链。', 'critical-path'],
-      ['信息减负', '淡化任务颜色，突出低并行度，细节按需展开。', 'declutter'],
-      ['信息聚合', '把任务、核内数据和关键 Pass 串起来。', 'evidence']
+      '抓主线 · 看清关键路径',
+      '突出影响整体耗时的任务，帮助开发者聚焦分析主线。'
     ],
     'all-passes.html': [
-      ['完整编译链回看', '按编译顺序查看各 Pass 的中间状态，把单步变换放回整条编译链中理解。'],
-      ['相邻阶段对照', '对照相邻阶段的差异，确认每一步变换的作用与影响范围。']
+      '回看完整编译链',
+      '按顺序对照各 Pass 的中间状态，理解每一步变换'
     ]
   };
 
@@ -52,88 +52,123 @@
     panel.open = true;
     panel.dataset.page = page.replace('.html', '');
     const panelTitles = {
-      'agent.html': '开发者的变化',
+      'agent.html': '算子开发的挑战',
       'lens.html': '算子理解三张图',
-      'loading.html': '泳道图与落地局点',
+      'loading.html': '性能分析图',
       'result.html': '泳道排查三步走'
-    };
-    const takeaways = {
-      'lens.html': '算什么、怎么分、落在哪。',
-      'result.html': '抓主线、看重点、追证据。'
     };
     const summary = document.createElement('summary');
     const title = panelTitles[page] ?? '体验设计亮点';
-    const count = String(highlights[page].length).padStart(2, '0');
     summary.innerHTML = `
-      <span class="demo-highlights-mark" aria-hidden="true">✦</span>
       <span class="demo-highlights-label">${title}<small>DESIGN NOTES</small></span>
-      <span class="demo-highlights-count">${count}</span>
       <svg class="demo-highlights-chevron" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>`;
 
-    const list = document.createElement('dl');
-    for (const [title, description, diagram] of highlights[page]) {
-      const heading = document.createElement('dt');
-      heading.textContent = title;
-      const text = document.createElement('dd');
-      if (Array.isArray(description)) {
-        const labels = document.createElement('ul');
-        labels.className = 'demo-note-labels';
-        for (const label of description) {
-          const item = document.createElement('li');
-          item.textContent = label;
-          labels.append(item);
-        }
-        text.append(labels);
-      } else {
-        text.textContent = description;
-      }
-      if (diagram) {
-        const row = document.createElement('div');
-        row.className = 'highlight-row';
-        const mark = document.createElement('span');
-        mark.className = 'highlight-diagram ' + diagram;
-        mark.setAttribute('aria-hidden', 'true');
-        mark.innerHTML = '<i></i><i></i><i></i>';
-        heading.prepend(mark);
-        row.append(heading, text);
-        list.append(row);
-      } else {
-        list.append(heading, text);
-      }
-    }
-    if (page === 'agent.html') {
-      const visual = document.createElement('div');
-      visual.className = 'agent-change';
-      visual.innerHTML = `
-        <section class="agent-change-section">
-          <p class="agent-change-label">开发方式</p>
-          <div class="agent-change-flow">
-            <div class="agent-change-step"><small>过去</small><strong>手写代码</strong></div>
-            <span class="agent-change-arrow" aria-hidden="true">→</span>
-            <div class="agent-change-step is-after"><small>Agent 时代</small><strong>描述需求，引导生成</strong></div>
-          </div>
-        </section>
-        <section class="agent-change-section">
-          <p class="agent-change-label">新的挑战</p>
-          <div class="agent-challenge-line"><span>AI 写得快</span><span class="agent-change-arrow" aria-hidden="true">→</span><strong>人要看懂、审阅</strong></div>
-          <p class="agent-challenge-note">几百上千行代码，如何快速理解和判断？</p>
-        </section>`;
-      panel.append(summary, visual);
-    } else if (takeaways[page]) {
-      const content = document.createElement('div');
-      content.className = 'highlight-content';
-      const takeaway = document.createElement('p');
-      takeaway.className = 'highlight-takeaway';
-      takeaway.textContent = takeaways[page];
-      content.append(takeaway, list);
-      panel.append(summary, content);
+    const content = document.createElement('div');
+    content.className = 'highlight-brief';
+    const headline = document.createElement('p');
+    headline.className = 'highlight-brief-main';
+    headline.textContent = highlights[page][0];
+    const detail = document.createElement('p');
+    detail.className = 'highlight-brief-detail';
+    const detailText = highlights[page][1];
+    const emphasis = highlights[page][2]?.detail;
+    const index = emphasis ? detailText.indexOf(emphasis) : -1;
+    if (index >= 0) {
+      const warning = document.createElement('span');
+      warning.className = 'highlight-brief-caution';
+      warning.textContent = emphasis;
+      detail.append(detailText.slice(0, index), warning, detailText.slice(index + emphasis.length));
     } else {
-      panel.append(summary, list);
+      detail.textContent = detailText;
     }
+    content.append(headline, detail);
+    if (highlights[page][2]?.challenge) {
+      const challenge = document.createElement('p');
+      challenge.className = 'highlight-brief-detail highlight-brief-caution';
+      challenge.textContent = highlights[page][2].challenge;
+      content.append(challenge);
+    }
+    panel.append(summary, content);
     return panel;
   }
 
-  document.body.append(createPanel(page));
+  const panel = createPanel(page);
+  // 触发时机待演示路径确定后接入：发送 step 为 path、focus 或 evidence。
+  const analysisSteps = {
+    path: ['抓主线 · 看清关键路径', '突出影响整体耗时的任务，帮助开发者聚焦分析主线。'],
+    focus: ['看重点 · 缩小排查范围', '突出低并行度等线索，帮助开发者发现值得关注的任务。'],
+    evidence: ['追证据 · 理解问题原因', '关联任务、核内数据与关键 Pass，帮助开发者分析问题原因。']
+  };
+  function showAnalysisStep(target, step) {
+    const copy = analysisSteps[step];
+    if (!target || !copy) return;
+    target.querySelector('.highlight-brief-main').textContent = copy[0];
+    target.querySelector('.highlight-brief-detail').textContent = copy[1];
+  }
+  if (page === 'result.html' || page === 'loading.html') {
+    window.addEventListener('demo:analysis-step', event => {
+      const target = page === 'result.html' ? panel : document.querySelector('.analysis-shell.is-result .demo-highlights[data-page="result"]');
+      showAnalysisStep(target, event.detail?.step);
+    });
+    if (page === 'loading.html') window.addEventListener('message', event => {
+      if (event.data?.type !== 'demo:analysis-step') return;
+      const frame = document.querySelector('.analysis-shell.is-result iframe');
+      if (frame && event.source === frame.contentWindow) {
+        showAnalysisStep(frame.closest('.analysis-shell').querySelector('.demo-highlights[data-page="result"]'), event.data.step);
+      }
+    });
+  }
+  let lensView = 'graph';
+  function updateLensPanel(target, state) {
+    if (state.level === 1 || state.focus === 'graph') lensView = 'graph';
+    else if (state.focus === 'work') lensView = 'work';
+    else if (state.focus === 'chip' || state.focus === 'linked') lensView = 'chip';
+    if (!target) return;
+    const copy = {
+      graph: ['计算图 · 算什么', '将复杂源码可视化，快速看懂从整层到 Kernel 的计算逻辑。'],
+      work: ['任务分配 · 数据怎么分', '看清数据切分与 SPMD Lane 分工，快速理解任务如何分配。'],
+      chip: ['存储落点 · 落在哪儿算', '关联源码与昇腾硬件，直观看清 AIC / AIV 的存储落点。']
+    }[lensView];
+    target.querySelector('.highlight-brief-main').textContent = copy[0];
+    target.querySelector('.highlight-brief-detail').textContent = copy[1];
+  }
+  if (page === 'agent.html') {
+    // file:// 下父子页面可能不能直接访问 DOM，使用消息让外层创建 Lens 说明。
+    window.addEventListener('message', event => {
+      const frame = document.querySelector('.ag-fly > iframe');
+      if (!frame || event.source !== frame.contentWindow) return;
+      if (event.data?.type === 'lens:level') {
+        updateLensPanel(document.querySelector('.demo-highlights.is-hosted-lens'), event.data);
+        return;
+      }
+      if (event.data?.type !== 'highlights:host-lens') return;
+      document.querySelector('.demo-highlights.is-hosted-lens')?.remove();
+      const hosted = createPanel('lens.html');
+      hosted.classList.add('is-hosted-lens');
+      document.body.append(hosted);
+      updateLensPanel(hosted, { level: 2, focus: lensView });
+      event.source.postMessage({ type: 'highlights:lens-hosted' }, '*');
+    });
+  }
+  if (page === 'lens.html') {
+    window.addEventListener('message', event => {
+      const frame = document.getElementById('view');
+      if (frame && event.source === frame.contentWindow && event.data?.type === 'lens:level') updateLensPanel(panel, event.data);
+    });
+  }
+  if (page === 'lens.html' && new URLSearchParams(location.search).has('transition') && window.parent !== window) {
+    let hosted = false;
+    window.addEventListener('message', event => {
+      if (event.source !== window.parent || event.data?.type !== 'highlights:lens-hosted') return;
+      hosted = true;
+      panel.remove();
+    });
+    window.parent.postMessage({ type: 'highlights:host-lens' }, '*');
+    // 非 Agent 宿主仍可在 iframe 内展示说明；收到确认后会移除备用面板。
+    setTimeout(() => { if (!hosted) document.body.append(panel); }, 500);
+  } else {
+    document.body.append(panel);
+  }
   if (page === 'loading.html') {
     // 卡片随 Agent 工作台挂载，定位使用外层视口。
     document.getElementById('analysisShell').content.firstElementChild.append(createPanel('result.html'));

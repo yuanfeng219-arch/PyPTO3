@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Compute Explorer · Agent</title>
+<link rel="stylesheet" href="../lab-tour-demo-v3/demo-shell.css"><link rel="stylesheet" href="../lab-tour-demo-v3/agent-browser-shell.css">
+<style>
+@font-face { font-family:'JetBrains Mono'; src:url('../lab-tour-demo-v3/assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-style:normal; font-weight:400; font-display:swap; }
+:root { --page:#111; --surface:#171717; --text:#eee; --muted:#aaa; --dim:#777; --lime:#8aef24; --divider:#222; --sans:Inter,"Microsoft YaHei",system-ui,sans-serif; --mono:"JetBrains Mono","Cascadia Code",Consolas,"SFMono-Regular",monospace; }
+* { box-sizing:border-box; } html,body { height:100%; margin:0; background:var(--page); color:var(--text); } .lb-tab { max-width:340px; }
+.agent-workspace { --source-size:36%; display:grid; grid-template-columns:minmax(0,var(--source-size)) 8px minmax(0,1fr); min-width:0; min-height:0; overflow:hidden; }
+.agent-splitter { position:relative; z-index:2; background:#1a1a1a; cursor:col-resize; touch-action:none; outline:none; }
+.agent-splitter::after { content:""; position:absolute; inset:0 3px; background:#363636; transition:background .15s; }
+.agent-splitter:hover::after, .agent-splitter:focus-visible::after, .agent-workspace.is-resizing .agent-splitter::after { background:var(--lime); }
+.agent-splitter:focus-visible { box-shadow:inset 0 0 0 1px var(--lime); }
+.agent-workspace.is-resizing iframe { pointer-events:none; }
+.agent-workspace.is-resizing { user-select:none; }
+.agent-source { display:flex; flex-direction:column; min-width:0; min-height:0; background:#111; border-right:1px solid #292929; }
+.agent-source__header { display:flex; align-items:center; gap:10px; min-height:48px; padding:0 16px; border-bottom:1px solid #292929; font:13px var(--sans); }
+.agent-source__header strong { font-weight:600; color:#eee; }
+.agent-source__header span { color:#888; font:12px var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.agent-source__scroll { flex:1; overflow:auto; padding:12px 0 24px; outline-offset:-2px; color-scheme:dark; scrollbar-width:thin; scrollbar-color:#515151 #161616; }
+.agent-source__scroll::-webkit-scrollbar { width:10px; height:10px; }
+.agent-source__scroll::-webkit-scrollbar-track, .agent-source__scroll::-webkit-scrollbar-corner { background:#161616; }
+.agent-source__scroll::-webkit-scrollbar-thumb { background:#515151; border:2px solid #161616; border-radius:8px; }
+.agent-source__scroll::-webkit-scrollbar-thumb:hover { background:#777; }
+.agent-source__scroll::-webkit-scrollbar-button { display:none; }
+.agent-source__code { width:max-content; min-width:100%; margin:0; font:clamp(12px,calc(8.6px + .28vw),16px)/1.65 var(--mono); color:#c9c9c9; tab-size:4; font-variant-ligatures:none; }
+.agent-source__line { display:flex; min-height:clamp(20px,calc(15px + .35vw),28px); padding-right:20px; white-space:pre; }
+.agent-source__line:hover { background:#1d1d1d; }
+.agent-source__line.is-active { background:rgba(138,239,36,.11); box-shadow:inset 3px 0 var(--lime); }
+.agent-source__line.is-active .agent-source__number { color:var(--lime); }
+.agent-source__number { position:sticky; left:0; z-index:1; width:55px; flex:none; padding-right:16px; text-align:right; color:#6e6e6e; background:#111; user-select:none; }
+.agent-source__text { position:relative; border-left:1px solid #292929; padding-left:16px; font:inherit; }
+.agent-source__text::before { content:""; position:absolute; pointer-events:none; left:16px; top:0; bottom:0; width:calc(var(--indent-columns, 0) * 1ch); background:repeating-linear-gradient(to right, #272727 0, #272727 1px, transparent 1px, transparent 4ch); }
+.agent-source__line:hover .agent-source__number { background:#1d1d1d; }
+.agent-source__line.is-active .agent-source__number { background:#1e2a16; }
+.agent-source__code .tok-kw { color:#c084f5; font-weight:600; }
+.agent-source__code .tok-const { color:#59b0ff; }
+.agent-source__code .tok-self { color:#d9739a; font-style:italic; }
+.agent-source__code .tok-fn { color:#e2c46b; }
+.agent-source__code .tok-cls { color:#57c7a5; font-weight:500; }
+.agent-source__code .tok-str { color:#c99a63; }
+.agent-source__code .tok-num { color:#9fd08a; }
+.agent-source__code .tok-com { color:#777; font-style:italic; }
+.agent-source__code .tok-dec { color:#8ea8ff; }
+.agent-source__code .tok-builtin { color:#4fc1e9; }
+.agent-source__code .tok-prop { color:#9db4ff; }
+.agent-source__code .tok-op { color:#e0876a; }
+.agent-source__code .tok-punc { color:#8a8a8a; }
+.agent-source__code .tok-doc { color:#6fae9c; font-style:italic; }
+.agent-source__code .tok-interp { color:#ffd479; }
+@media(max-width:600px) { .agent-workspace { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,var(--source-size)) 8px minmax(0,1fr); } .agent-source { border-right:0; border-bottom:1px solid #292929; } .agent-splitter { cursor:row-resize; } .agent-splitter::after { inset:3px 0; } }
+.lb-bar { grid-template-columns:auto minmax(0,1fr) auto; }
+.lb-bar::after { content:""; width:104px; }
+@media(max-width:860px) { .lb-bar { grid-template-columns:auto minmax(0,1fr); } .lb-bar::after { display:none; } }
+</style></head><body><div class="lb-app">
+  <div class="ag-rail">
+    <a class="is-on" href="agent-generation.html#done" aria-label="返回 Agent" title="返回 Agent"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9 10 3.5 16.5 9v7.5h-13z"/></svg></a>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M7 3.5h6v4h4v6h-4v3H7v-3H3v-6h4z"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M10 6.5V10l2.5 1.5"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3.5 4h3.5v12H3.5zM8.5 4H12v12H8.5zM13.5 4.5l3 .8-2.8 10.5-3-.8"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="5" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/><circle cx="15" cy="10" r="1.3"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="5" r="1.8"/><circle cx="6" cy="15" r="1.8"/><circle cx="14" cy="9" r="1.8"/><path d="M6 7v6M14 11c0 3-3 2.5-6.5 3.5"/></svg></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z"/></svg></span>
+    <span aria-hidden="true" class="sp"></span>
+    <span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2.5"/><path d="M10 2.8v2.4M10 14.8v2.4M2.8 10h2.4M14.8 10h2.4M4.9 4.9l1.7 1.7M13.4 13.4l1.7 1.7M4.9 15.1l1.7-1.7M13.4 6.6l1.7-1.7"/></svg></span>
+  </div>
+  <div class="lb-main"><div class="lb-tabs" aria-label="标签页"><span class="lb-dot" aria-hidden="true"></span><div class="lb-tab">
+<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></svg><b>PyPTO Compute Explorer</b>
+<a class="lb-x" href="agent-generation.html#done" aria-label="关闭标签页，回到 Agent" title="回到 Agent"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3.5 3.5 7 7M10.5 3.5l-7 7"/></svg></a></div>
+<span class="lb-plus" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 2.5v9M2.5 7h9"/></svg></span></div>
+<div class="lb-bar"><div class="lb-nav"><a href="agent-generation.html#done" aria-label="返回 Agent" title="返回 Agent"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8H3.5M7 4 3 8l4 4"/></svg></a>
+<button type="button" disabled aria-label="前进"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4l4 4-4 4"/></svg></button>
+<button type="button" id="reload" aria-label="刷新 Demo" title="刷新 Demo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></svg></button></div>
+<div class="lb-addr"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></svg><span>pypto / <b>compute-explorer</b></span></div>
+</div>
+<main class="agent-workspace"><section class="agent-source" id="sourcePane" aria-label="Paged Attention 算子源码"><header class="agent-source__header"><strong>源码</strong><span>paged_attention_pypto.py</span></header><div class="agent-source__scroll" tabindex="0" aria-label="滚动浏览 Paged Attention 算子源码"><div class="agent-source__code" id="agentSource"><p>正在加载源码…</p></div></div></section><div class="agent-splitter" id="splitter" role="separator" tabindex="0" aria-label="调整源码区大小" aria-controls="sourcePane" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="36"></div><div class="lb-view"><iframe id="view" src="agent-content.html" title="PyPTO Compute Explorer"></iframe></div></main></div></div>
+<script src="./js/paged-attention-pypto-source.js"></script><script src="./js/agent-python-highlight.js"></script><script>
+(function () {
+  if (!new URLSearchParams(location.search).has('from-generation') || window.parent === window) return;
+  document.querySelectorAll('a[href="agent-generation.html#done"]').forEach(link => {
+    link.addEventListener('click', event => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      window.parent.postMessage({ type: 'pypto-agent:back' }, '*');
+    });
+  });
+}());
+(function () {
+  const host = document.getElementById('agentSource');
+  const source = window.PTO_PAGED_ATTENTION_PYPTO_SOURCE;
+  if (typeof source !== 'string') { host.textContent = '源码加载失败，请检查源文件。'; return; }
+  const fragment = document.createDocumentFragment();
+  const highlighted = window.agentHighlightPythonLines(source);
+  const lines = source.split('\n');
+  const indent = text => {
+    let columns = 0;
+    for (const character of text.match(/^[ \t]*/)[0]) columns += character === '\t' ? 4 - columns % 4 : 1;
+    return columns;
+  };
+  const indents = lines.map(indent);
+  // 空行延续相邻代码共有的缩进层级，避免辅助线在块内中断。
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim()) continue;
+    let previous = i - 1, next = i + 1;
+    while (previous >= 0 && !lines[previous].trim()) previous--;
+    while (next < lines.length && !lines[next].trim()) next++;
+    indents[i] = previous >= 0 && next < lines.length ? Math.min(indents[previous], indents[next]) : 0;
+  }
+  highlighted.forEach((line, index) => {
+    const row = document.createElement('div'); row.className = 'agent-source__line';
+    const number = document.createElement('span'); number.className = 'agent-source__number'; number.setAttribute('aria-hidden', 'true'); number.textContent = index + 1;
+    const code = document.createElement('code'); code.className = 'agent-source__text';
+    code.style.setProperty('--indent-columns', String(indents[index]));
+    code.innerHTML = line || ' ';
+    row.append(number, code); fragment.append(row);
+  });
+  host.replaceChildren(fragment);
+  const scroller = host.parentElement;
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (event.source !== document.getElementById('view').contentWindow || data?.type !== 'pypto-agent:source' || data.file !== 'paged_attention_pypto.py' || !Array.isArray(data.ranges)) return;
+    const ranges = data.ranges.filter(range => Number.isInteger(range.start) && Number.isInteger(range.end) && range.start >= 1 && range.end >= range.start && range.end <= host.children.length);
+    if (!ranges.length) return;
+    const primary = data.ranges[data.primaryRange] || data.ranges[0];
+    const focus = ranges.find(range => range.start === primary.start && range.end === primary.end) || ranges[0];
+    Array.from(host.children).forEach((row, index) => row.classList.toggle('is-active', ranges.some(range => index + 1 >= range.start && index + 1 <= range.end)));
+    const target = host.children[focus.start - 1];
+    scroller.scrollTo({top: target.offsetTop - host.offsetTop, behavior: 'smooth'});
+  });
+}());
+(function () {
+  const workspace = document.querySelector('.agent-workspace');
+  const splitter = document.getElementById('splitter');
+  const narrow = window.matchMedia('(max-width: 600px)');
+  let ratio = 0.36;
+  function bounds() {
+    const rect = workspace.getBoundingClientRect();
+    const size = (narrow.matches ? rect.height : rect.width) - 8;
+    const minimum = Math.min(narrow.matches ? 120 : 220, size * 0.4);
+    return { rect, size, min: minimum, max: size - minimum };
+  }
+  function setSize(pixels) {
+    const { size, min, max } = bounds();
+    if (size <= 0) return;
+    const value = Math.max(min, Math.min(max, pixels));
+    ratio = value / size;
+    workspace.style.setProperty('--source-size', value + 'px');
+    splitter.setAttribute('aria-valuemin', String(Math.round(min / size * 100)));
+    splitter.setAttribute('aria-valuemax', String(Math.round(max / size * 100)));
+    splitter.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+    splitter.setAttribute('aria-orientation', narrow.matches ? 'horizontal' : 'vertical');
+  }
+  function resize() { setSize(bounds().size * ratio); }
+  splitter.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    splitter.setPointerCapture(event.pointerId);
+    workspace.classList.add('is-resizing');
+  });
+  splitter.addEventListener('pointermove', event => {
+    if (!splitter.hasPointerCapture(event.pointerId)) return;
+    const { rect } = bounds();
+    setSize(narrow.matches ? event.clientY - rect.top : event.clientX - rect.left);
+  });
+  function endDrag() { workspace.classList.remove('is-resizing'); }
+  splitter.addEventListener('pointerup', endDrag);
+  splitter.addEventListener('pointercancel', endDrag);
+  splitter.addEventListener('lostpointercapture', endDrag);
+  splitter.addEventListener('keydown', event => {
+    const backwards = narrow.matches ? 'ArrowUp' : 'ArrowLeft';
+    const forwards = narrow.matches ? 'ArrowDown' : 'ArrowRight';
+    if (![backwards, forwards, 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const { size, min, max } = bounds();
+    setSize(event.key === 'Home' ? min : event.key === 'End' ? max : size * ratio + (event.key === forwards ? 20 : -20));
+  });
+  window.addEventListener('resize', resize);
+  resize();
+}());
+document.getElementById('reload').addEventListener('click', function () { document.getElementById('view').contentWindow.location.reload(); });</script></body></html>

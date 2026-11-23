@@ -3,14 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<base target="_top" />
 <title>Operator Lens · qk_pv</title>
 <link rel="stylesheet" href="../csa-operator-lens/vendor/path.css" />
 <link rel="stylesheet" href="./demo-shell.css?v=1" />
 <link rel="stylesheet" href="./workbench-polish.css?v=2" />
 <link rel="stylesheet" href="./agent-browser-shell.css" />
 <style>
+@font-face { font-family:'JetBrains Mono'; src:url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
+/* Agent 转场预览复用外层图标栏。 */
+html.is-transition .lb-app { grid-template-columns:minmax(0,1fr); }
+html.is-transition .ag-rail { display:none; }
 /* 「开发即可见」第二步：从 Agent 页右上角「Operator Lens」或 /lens 进入。
- * 布局参考 Codex 内置浏览器的标签页：最左图标栏（同 agent.html）、顶部标签条、导航栏 + 地址栏，下面整块是 Operator Lens（workbench.html?embed=lens，默认 L1）。工作台自己的顶栏在嵌入时隐藏，L1 / L2 与「编译并上板」放在导航栏右侧。
+ * 布局参考 Codex 内置浏览器的标签页：最左图标栏（同 agent.html）、顶部标签条、导航栏 + 地址栏，下面整块是 Operator Lens（默认 L1，显示整层源码与计算图）。工作台自己的顶栏在嵌入时隐藏，L1 / L2 与「编译并上板」放在导航栏右侧。
  * 颜色沿用 Agent 页 / 工作台的深色。工作台里的离页链接（返回首页、编译并上板等）在整页打开，不留在标签页里。 */
 :root { --sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
 html,body { height:100%; margin:0; }
@@ -37,6 +42,8 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
  * 随后标签条、导航栏的内容依次落下；工作台加载完成后淡入、轻微上浮。直接打开本页时只有工作台淡入。 */
 .lb-view iframe { opacity:0; transform:translateY(10px) scale(.996); transform-origin:50% 0; transition:opacity .42s ease, transform .55s cubic-bezier(.2,.75,.15,1); }
 .lb-view.is-ready iframe { opacity:1; transform:none; }
+/* 转场预览需要用最终布局测量源码区，避免入场缩放造成坐标偏差。 */
+html.is-transition .lb-view iframe { transform:none; transition:none; }
 @keyframes lb-drop { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
 .lb-enter .lb-tabs > *,.lb-enter .lb-bar > * { animation:lb-drop .44s cubic-bezier(.2,.75,.15,1) both; }
 .lb-enter .lb-tabs > :nth-child(2) { animation-delay:.05s; }
@@ -97,7 +104,7 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
     </div>
 
     <div class="lb-view">
-      <iframe id="view" title="Operator Lens · qk_pv" src="workbench.html?embed=lens"></iframe>
+      <iframe id="view" title="Operator Lens · qk_pv"></iframe>
       <i class="lb-load" id="load" aria-hidden="true"></i>
     </div>
   </div>
@@ -105,16 +112,31 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
 <script>
 (function () {
   'use strict';
+  if (new URLSearchParams(location.search).has('transition')) document.documentElement.classList.add('is-transition');
   const view = document.getElementById('view'), load = document.getElementById('load'), stage = view.parentNode;
-  if (location.hash === '#from-agent') {                    // 从 Agent 页转场过来：播入场，并把地址里的标记去掉
+  const fromAgent = location.hash === '#from-agent';
+  const params = new URLSearchParams(location.search);
+  const transitionParam = fromAgent && params.has('transition') ? '&transition=1' : '';
+  const sourcePosition = fromAgent ? ['line', 'offset', 'scrollX'].filter(key => params.has(key))
+    .map(key => '&' + key + '=' + encodeURIComponent(params.get(key))).join('') : '';
+  view.src = 'workbench.html?embed=lens' + transitionParam + sourcePosition;
+  if (fromAgent) {                    // 从 Agent 页转场过来：播入场，并把地址里的标记去掉
     document.querySelector('.lb-app').classList.add('lb-enter');
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* file:// 下可能不允许，忽略 */ }
   }
   const reveal = () => stage.classList.add('is-ready');
   setTimeout(reveal, 2500);                                   // 兜底：加载太慢也不让画面一直空着
   setTimeout(() => { load.style.width = '70%'; }, 30);
-  document.getElementById('back').addEventListener('click', () => { location.href = 'agent.html#done'; });
+  function backToAgent(e) {
+    if (params.has('transition') && window.parent !== window) {
+      if (e) e.preventDefault();
+      window.parent.postMessage({ type: 'lens:back' }, '*');
+    } else if (!e) { location.href = 'agent.html#done'; }
+  }
+  document.getElementById('back').addEventListener('click', () => backToAgent());
+  document.querySelector('.lb-x').addEventListener('click', backToAgent);
   document.getElementById('reload').addEventListener('click', () => {
+    if (params.has('transition')) window.parent.postMessage({ type: 'lens:agent-source-dismissed' }, '*');
     load.classList.remove('is-done'); load.style.width = '0'; stage.classList.remove('is-ready');
     setTimeout(() => { load.style.width = '70%'; }, 30);
     view.contentWindow.location.reload();
@@ -123,10 +145,34 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
   const seg = [...document.querySelectorAll('.lb-seg button')], addr = document.getElementById('addr'), detBtn = document.getElementById('detail');
   detBtn.addEventListener('click', () => view.contentWindow.postMessage({ type: 'lens:detail' }, '*'));
   const AREA = 'operator-lens / deepseek_v4_flash_dspark / ';
+  let viewReady = false, sourceRevealed = false;
   window.addEventListener('message', e => {
+    if (e.source === window.parent && e.data && e.data.type === 'lens:agent-source' && params.has('transition')) {
+      view.contentWindow.postMessage(e.data, '*');
+      return;
+    }
+    if (e.source === window.parent && e.data && e.data.type === 'lens:show-source' && params.has('transition')) {
+      sourceRevealed = true;
+      view.contentWindow.postMessage({ type: 'lens:show-source' }, '*');
+      return;
+    }
     if (e.source !== view.contentWindow) return;
     const d = e.data || {};
+    if ((d.type === 'lens:agent-source-dismissed' || d.type === 'lens:agent-source-scroll') && params.has('transition')) {
+      window.parent.postMessage(d, '*');
+      return;
+    }
+    if (d.type === 'lens:source-shown' && params.has('transition')) {
+      window.parent.postMessage(d, '*');
+      return;
+    }
+    if ((d.type === 'lens:source-bounds' || d.type === 'lens:agent-source-ready') && params.has('transition') && viewReady) {
+      const r = view.getBoundingClientRect();
+      window.parent.postMessage({ type: d.type, left: r.left + d.left, top: r.top + d.top, width: d.width, height: d.height, anchorX: d.anchorX, anchorY: d.anchorY }, '*');
+      return;
+    }
     if (d.type !== 'lens:level') return;
+    if (params.has('transition')) window.parent.postMessage(d, '*');
     seg.forEach(b => { b.disabled = false; b.setAttribute('aria-selected', String(Number(b.dataset.level) === d.level)); });
     detBtn.disabled = false; detBtn.setAttribute('aria-pressed', String(!!d.detail));
     const kernel = (d.crumb || '').split('/').pop().trim();
@@ -141,7 +187,10 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
     view.contentWindow.postMessage({ type: 'lens:go', level: Number(b.dataset.level) }, '*');
   }));
   view.addEventListener('load', () => {
+    viewReady = true;
+    if (params.has('transition')) reveal();
     view.contentWindow.postMessage({ type: 'lens:hello' }, '*');
+    if (sourceRevealed) view.contentWindow.postMessage({ type: 'lens:show-source' }, '*');
     load.classList.add('is-done');
     setTimeout(reveal, 60);
     // 工作台里的离页链接（返回首页、编译并上板……）整页打开，不留在这个标签页里
@@ -155,7 +204,7 @@ body { background:var(--page); color:var(--text); font:13px/1.5 var(--sans); }
       if (!h || h.charAt(0) === '#') return;
       e.preventDefault();
       e.stopPropagation();
-      location.href = a.href;
+      window.top.location.href = a.href;
     }, true);
   });
 })();

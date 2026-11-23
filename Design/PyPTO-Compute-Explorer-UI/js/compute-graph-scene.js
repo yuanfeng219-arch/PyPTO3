@@ -1,6 +1,6 @@
 (function(){'use strict';
 const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function applyPypaExecution(scene, nodes, graph, data) {
+  function applyPypaExecution(scene, nodes, graph, data, { compactEdgeLabels = false } = {}) {
     scene.querySelectorAll('[data-pypa-execution-count], [data-pypa-execution-stack]').forEach((decoration) => decoration.remove());
     scene.querySelectorAll('[data-pypa-node]').forEach((element) => {
       const entry = data?.nodes[element.dataset.pypaNode];
@@ -48,35 +48,45 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       stack.classList.toggle('is-context-muted', element.classList.contains('is-context-muted'));
       scene.insertBefore(stack, element);
     });
-    const executionForEdge = (edge) => {
+    const edgeExecution = new Map();
+    for (const edge of graph.edges) {
       const entries = (edge.sourceEdgeIds || [edge.id]).map((id) => data?.edges[id]).filter(Boolean);
-      if (!entries.length) return null;
-      return { width: Math.max(...entries.map((entry) => entry.width)),
-        label: [...new Set(entries.map((entry) => entry.label))].join(' → ') };
-    };
+      if (!entries.length) continue;
+      const labels = [...new Set(entries.map((entry) => entry.label))];
+      edgeExecution.set(edge.id, {
+        width: Math.max(...entries.map((entry) => entry.width)),
+        label: labels.join(' → '),
+        countLabel: labels.length === 1 ? `×${entries[0].count}` : ''
+      });
+    }
     scene.querySelectorAll('[data-pypa-edge]').forEach((path) => {
-      const edge = graph.edges.find((item) => item.id === path.dataset.pypaEdge);
-      const entry = executionForEdge(edge);
+      const entry = edgeExecution.get(path.dataset.pypaEdge);
       if (entry) path.style.strokeWidth = String(entry.width);
       else path.style.removeProperty('stroke-width');
     });
     scene.querySelectorAll('[data-pypa-edge-label]').forEach((label) => {
       const edge = graph.edges.find((item) => item.id === label.dataset.pypaEdgeLabel);
-      const entry = executionForEdge(edge);
+      const entry = edgeExecution.get(edge.id);
+      const value = compactEdgeLabels ? entry?.countLabel : entry?.label;
       window.PtoPhotoNarrative.text(label,edge.label);
-      if (entry) {
+      if (value) {
         const count = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        count.setAttribute('x', label.getAttribute('x'));
-        count.setAttribute('dy', '1.3em');
-        window.PtoPhotoNarrative.text(count,entry.label);
+        if (compactEdgeLabels) {
+          count.setAttribute('class', 'kf-pypa-graph__edge-count');
+          count.setAttribute('dx', '7');
+        } else {
+          count.setAttribute('x', label.getAttribute('x'));
+          count.setAttribute('dy', '1.3em');
+        }
+        window.PtoPhotoNarrative.text(count,value);
         label.appendChild(count);
       }
     });
-
+    return edgeExecution;
   }
   function renderPypaGraphScene(scene, graph, options = {}) {
     const { view = 'compute', selectedNodeId = null, expandedStages = new Set(),
-      modelGraphviz = false, compactNodes = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
+      modelGraphviz = false, compactNodes = false, compactEdgeLabels = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
     const labelMeasure = document.createElement('canvas').getContext('2d');
     labelMeasure.font = '500 15px -apple-system, BlinkMacSystemFont, "PingFang SC", Arial, sans-serif';
     const opWidth = node => Math.ceil(labelMeasure.measureText(node.title).width) + (node.expandable ? 88 : 58);
@@ -95,6 +105,8 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
     const byId = new Map(placedNodes.map((node) => [node.id, node]));
     const svgNS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(svgNS, 'svg');
+    const edgeLabels = compactEdgeLabels ? document.createElementNS(svgNS, 'g') : svg;
+    if (compactEdgeLabels) edgeLabels.setAttribute('class', 'kf-pypa-graph__compact-edge-labels');
     svg.classList.add('kf-pypa-graph__edges');
     svg.setAttribute('viewBox', `0 0 ${sceneWidth} ${sceneHeight}`);
     svg.style.width = `${sceneWidth}px`;
@@ -175,7 +187,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
             label.setAttribute('x', String(routed.labelX));
             label.setAttribute('y', String(routed.labelY));
             label.setAttribute('text-anchor', routed.labelAnchor || 'middle');
-            svg.appendChild(label);
+            edgeLabels.appendChild(label);
           }
         }
         return;
@@ -224,9 +236,10 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
         label.setAttribute('class', 'kf-pypa-graph__edge-label');
         label.dataset.pypaEdgeLabel = edge.id; label.dataset.edgeType = edge.type;
         window.PtoPhotoNarrative.text(label,edge.label);
-        svg.appendChild(label);
+        edgeLabels.appendChild(label);
       }
     });
+    if (compactEdgeLabels) svg.appendChild(edgeLabels);
     scene.replaceChildren();
     graph.groups?.forEach((group) => {
       const box = document.createElement('div');
