@@ -4,10 +4,10 @@
   const model=global.PtoCsaModel, objects=model.objects;
   const qkPvId='sparse/attention/qk-pv';
   // 两个视图分别保存展示阶段；Shared Focus 只记录明确选中的计算对象。
-  const state={open:false,tab:'assignment',focus:null,rank:0,assignmentStage:qkPvId,pipelineStage:qkPvId,
+  const state={open:false,tab:'assignment',focus:null,rank:0,assignmentStage:qkPvId,pipelineStage:qkPvId,graphScale:'structure',pipelineScale:'instances',
     views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'local',camera:null,expanded:['input'],overlays:{data:true,control:true},nodeId:null,edgeId:null,inspectorOpen:false,projectedFocusKey:null}}};
-  const tabs=['assignment','pipeline','graph'];
-  let root, controller, semanticController, qkController, qkPipelineController, trigger, previousInert=[], graph;
+  const tabs=['graph','assignment','pipeline'];
+  let root, controller, semanticController, qkController, qkPipelineController, stageViewsController, graphInstanceController, trigger, previousInert=[], graph;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const titles={assignment:'Rank / Data Assignment',pipeline:'Distributed Execution',graph:'CSA Graph'};
   const alias={rows0:'full',rows1:'full',group0:'publish',group1:'publish',mainstate:'main',innerstate:'idxcomp',gather:'push',local:'pre',full:'gather',original:'write',compressed:'main',indexcache:'idxcomp',window:'publish',group:'publish',push:'gather',payload:'gather',readback:'gather',rope:'ready'};
@@ -164,16 +164,22 @@
     root.setAttribute('aria-label','DeepSeek V4 CSA Compute Explorer');
     root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">PyPTO Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
     '<div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="CSA 可视化视图">'+tabs.map(id=>'<button class="tab-control-item" role="tab" id="csa-tab-'+id+'" data-csa-tab="'+id+'" aria-controls="csa-panel"><span class="viz2-tab-icon viz2-tab-icon--'+id+'"></span>'+id[0].toUpperCase()+id.slice(1)+'</button>').join('')+'</div></div>'+
-    '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button><button class="btn btn-ghost btn-sm" data-csa-full-graph hidden>完整计算图</button><button class="btn btn-ghost btn-sm" data-csa-qk-graph hidden>展开 QK / PV</button></div>'+
+    '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><div class="segmented-control segmented-control-muted viz2-graph-scale csa-scale-bar" data-csa-graph-scale-bar role="group" aria-label="Graph 观察尺度" hidden><button type="button" class="btn btn-sm is-selected" data-csa-graph-scale="structure" aria-pressed="true">Structure</button><button type="button" class="btn btn-sm" data-csa-graph-scale="instances" aria-pressed="false">Instance</button></div><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button><button class="btn btn-ghost btn-sm" data-csa-full-graph hidden>完整计算图</button><button class="btn btn-ghost btn-sm" data-csa-qk-graph hidden>展开 QK / PV</button></div>'+
     '<div class="csa-stagebar" hidden>'+stageBarHtml()+'</div>'+
     '<div class="csa-focusbar" aria-label="关键路径焦点"></div>'+
     '<div class="csa-workspace" id="csa-panel" role="tabpanel"><div class="csa-canvas-column"><div class="csa-caption"></div><div class="csa-stage pto-model-graphviz-pattern-page" role="group" aria-label="CSA 数据与任务关系，拖拽平移，按住 Command 或 Ctrl 滚轮缩放"></div><footer class="csa-footer"><div class="csa-legend"><span>中性矩形 · Tensor / Cache</span><span>彩色模块 · 计算 / 通信 / 同步</span><span>实线 · 数据</span><span class="csa-comm-legend">蓝线 · 跨 Rank</span><span>虚线 · 控制 / 同步</span></div><button class="btn btn-ghost btn-sm" data-csa-fit>全览</button><button class="btn btn-ghost btn-sm" data-csa-read>阅读</button><button class="btn btn-ghost btn-sm" data-csa-zoom="0.8" aria-label="缩小 CSA">−</button><button class="btn btn-ghost btn-sm" data-csa-zoom="1.25" aria-label="放大 CSA">＋</button></footer></div>'+
     '<aside class="pto-ide-frame__pane csa-inspector" aria-label="CSA 对象详情"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">对象详情</span><button class="btn btn-ghost btn-sm" data-csa-clear>清除选择</button></header><div class="pto-ide-frame__pane-body csa-detail"></div></aside></div>'+
-    '<div class="csa-stage-hold" hidden></div><div class="csa-qk-host" hidden></div><div class="csa-qk-pipeline-host" hidden></div>';
+    '<div class="csa-graph-instance-host" hidden></div><div class="csa-stage-host" hidden></div><div class="csa-qk-host" hidden></div><div class="csa-qk-pipeline-host" hidden></div>';
     document.getElementById('ideWorkarea').append(root);
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
+      if(b.dataset.csaGraphScale){
+        const next=b.dataset.csaGraphScale;
+        if(next!==state.graphScale){state.graphScale=next;render();}
+        return;
+      }
       if(b.hasAttribute('data-csa-full-graph')||b.hasAttribute('data-csa-qk-graph')){
+        state.graphScale='structure';
         const v=state.views.graph;setFocus(null);v.expanded=(b.hasAttribute('data-csa-qk-graph')?fullGraphQk:fullGraphStages).slice();v.scope='local';v.camera=null;render();return;
       }
       if(b.hasAttribute('data-csa-back'))return close();
@@ -193,17 +199,17 @@
     root.querySelector('[role="tablist"]').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const at=tabs.indexOf(state.tab),i=e.key==='Home'?0:e.key==='End'?2:(at+(e.key==='ArrowRight'?1:2))%3;root.querySelector('[data-csa-tab="'+tabs[i]+'"]').click();root.querySelector('[data-csa-tab="'+tabs[i]+'"]').focus();});
   }
   function selectedTopic(fallback){const object=objectForFocus();return object==='rank'?(fallback||'gather'):objects[object]?.topic||(fallback||'gather');}
-  // Assignment 计算阶段：顺序体现计算链路，ID 复用 csa-semantic-graph.js 的语义节点。
-  // 只有 qk_pv 已完成 Work Assignment Canvas，其余阶段在同一框架下显示建设中占位。
+  // Assignment / Pipeline 计算阶段：顺序体现计算链路，全部由真实 DFX 编译/运行产物与源码驱动。
   const assignmentStages=[
-    {id:'input/q',label:'Q Proj',full:'Q Projection'},
-    {id:'input/kv',label:'KV Proj',full:'KV Projection'},
-    {id:'cache/main',label:'Compressor',full:'Main Compressor'},
-    {id:'cache/indexer',label:'Indexer',full:'Indexer / Top-K'},
-    {id:'sparse/attention/plan',label:'qk_plan',full:'Candidate Planning · qk_plan'},
+    {id:'all',label:'All Stages',full:'整层实测总览 · 8 Stages · 64 Kernels',ready:true},
+    {id:'input/q',label:'Q Proj',full:'Pre-Norm · AllGather · Q Projection',ready:true},
+    {id:'input/kv',label:'KV Proj',full:'KV Projection · Original KV Writeback',ready:true},
+    {id:'cache/main',label:'Compressor',full:'Main & Indexer Compressors (Ratio-4)',ready:true},
+    {id:'cache/indexer',label:'Indexer',full:'Indexer Query · Leaf Wave · Top-K',ready:true},
+    {id:'sparse/attention/plan',label:'qk_plan',full:'Candidate Planning · qk_plan',ready:true},
     {id:'sparse/attention/qk-pv',label:'qk_pv',full:'Sparse Attention · qk_pv',ready:true},
-    {id:'redistribute/publish',label:'Merge',full:'Merge / Pack / Publish'},
-    {id:'output/oproj',label:'O Proj',full:'Output Projection'}
+    {id:'redistribute/publish',label:'Merge',full:'Merge / Inverse RoPE / O-Group A2A',ready:true},
+    {id:'output/oproj',label:'O Proj',full:'Grouped O Projection · ReduceScatter · Post',ready:true}
   ];
   // 落在阶段之间但属于该阶段的节点（Cache、Partial、A2A 等）映射回所属阶段；未命中退回 qk_pv。
   const stageAlias={input:'input/q','input/hc-pre':'input/q','input/local':'input/q',
@@ -229,7 +235,7 @@
   }
   function stageBarHtml(){
     return '<div class="segmented-control segmented-control-muted" role="group" aria-label="计算阶段">'+assignmentStages.map(stage=>
-      '<button type="button" class="btn btn-sm'+(stage.ready?'':' is-pending')+'" data-csa-stage="'+stage.id+'" aria-pressed="false" title="'+esc(stage.full)+(stage.ready?' · 可查看计算画布':' · 建设中')+'">'+esc(stage.label)+(stage.ready?'':'<span class="csa-stage-todo">建设中</span>')+'</button>').join('')+'</div>';
+      '<button type="button" class="btn btn-sm" data-csa-stage="'+stage.id+'" aria-pressed="false" title="'+esc(stage.full)+'">'+esc(stage.label)+'</button>').join('')+'</div>';
   }
   // Stage Bar 是各 Tab 的展示选择；它不改写 Shared Focus。
   function selectStage(id){
@@ -237,10 +243,6 @@
     if(!key||id===state[key]||!assignmentStages.some(stage=>stage.id===id))return;
     state[key]=id;
     render();
-  }
-  function stageHoldView(){
-    const pipeline=state.tab==='pipeline',id=pipeline?state.pipelineStage:state.assignmentStage,stage=assignmentStages.find(item=>item.id===id);
-    root.querySelector('.csa-stage-hold').innerHTML='<div class="csa-unadapted"><span class="csa-eyebrow">DEEPSEEK V4 · DECODE CSA · TP=2</span><h2>'+esc(stage?stage.full:id)+'</h2><p>'+(pipeline?'Pipeline 建设中。当前仅支持 qk_pv Pipeline 可视化。':'该计算阶段的 Work Assignment 尚未建设。qk_pv 已完成 Work Item 与 SPMD Lane 分配可视化，可切换到 qk_pv 查看。')+'</p></div>';
   }
   // P5：跨模块探索只保存对象身份，Work Item / Scenario 数据仍由 QK Work Controller 派生。
   let navigationReturn=null;
@@ -292,8 +294,17 @@
     // Graph 层级完全由 expanded 推导：没有展开节点 = 整体，存在展开节点 = 局部。
     const scope=state.tab==='graph'?(state.views.graph.expanded.length?'local':'overall'):state.views[state.tab].scope;
     if(state.tab==='graph')state.views.graph.scope=scope;
+    const graphScaleBar=root.querySelector('[data-csa-graph-scale-bar]');
+    if(graphScaleBar){
+      graphScaleBar.hidden=state.tab!=='graph'||!global.PtoCsaInstanceGraph;
+      graphScaleBar.querySelectorAll('[data-csa-graph-scale]').forEach(b=>{
+        const on=b.dataset.csaGraphScale===state.graphScale;
+        b.classList.toggle('is-selected',on);
+        b.setAttribute('aria-pressed',String(on));
+      });
+    }
     const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=true;
-    root.querySelector('[data-csa-return]').hidden=state.tab!=='graph'||scope!=='local';root.querySelector('[data-csa-return]').textContent='← 返回上级';
+    root.querySelector('[data-csa-return]').hidden=state.tab!=='graph'||state.graphScale==='instances'||scope!=='local';root.querySelector('[data-csa-return]').textContent='← 返回上级';
     const navReturn=root.querySelector('[data-csa-navreturn]');
     if(navReturn){navReturn.hidden=!navigationReturn;if(navigationReturn)navReturn.textContent=returnLabel(navigationReturn.focus);}
     const crumbs=state.tab==='pipeline'&&state.pipelineStage===qkPvId&&state.focus?.kind==='work-item'?focusCrumbs().filter(item=>!/^Request |^Q\d+$|^Work Item /.test(item.label)):focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=semanticNodes.get(scopeId)?.name;
@@ -318,14 +329,57 @@
   }
   function render(){
     controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
-    root.querySelector('[data-csa-full-graph]').hidden=state.tab!=='graph';
-    root.querySelector('[data-csa-qk-graph]').hidden=state.tab!=='graph';
+    const graphInstanceActive=state.tab==='graph'&&state.graphScale==='instances'&&!!global.PtoCsaInstanceGraph;
+    root.querySelector('[data-csa-full-graph]').hidden=state.tab!=='graph'||graphInstanceActive;
+    root.querySelector('[data-csa-qk-graph]').hidden=state.tab!=='graph'||graphInstanceActive;
     const qkHost=root.querySelector('.csa-qk-host'),qkActive=state.tab==='assignment'&&state.assignmentStage===qkPvId;
-    const stageHoldHost=root.querySelector('.csa-stage-hold'),stageHoldActive=state.tab!=='graph'&&(state.tab==='assignment'?state.assignmentStage:state.pipelineStage)!==qkPvId;
+    const stageHost=root.querySelector('.csa-stage-host'),stageHostActive=state.tab!=='graph'&&(state.tab==='assignment'?state.assignmentStage:state.pipelineStage)!==qkPvId;
     const qkPipelineHost=root.querySelector('.csa-qk-pipeline-host'),qkPipelineActive=state.tab==='pipeline'&&state.pipelineStage===qkPvId;
+    const graphInstanceHost=root.querySelector('.csa-graph-instance-host');
     if(!qkActive)qkController?.pause();
-    root.querySelector('.csa-workspace').hidden=state.tab!=='graph';qkHost.hidden=!qkActive;stageHoldHost.hidden=!stageHoldActive;qkPipelineHost.hidden=!qkPipelineActive;
-    if(stageHoldActive){stageHoldView();chrome();return;}
+    root.querySelector('.csa-workspace').hidden=state.tab!=='graph'||graphInstanceActive;
+    if(graphInstanceHost)graphInstanceHost.hidden=!graphInstanceActive;
+    qkHost.hidden=!qkActive;stageHost.hidden=!stageHostActive;qkPipelineHost.hidden=!qkPipelineActive;
+    if(stageHostActive){
+      const currentStage=state.tab==='pipeline'?state.pipelineStage:state.assignmentStage;
+      if(!stageViewsController&&global.PtoCsaStageViews){
+        stageViewsController=global.PtoCsaStageViews.mount(stageHost,{
+          onSource:qkSource,
+          onNavigateGraph:id=>{state.graphScale='structure';navigateToGraph(id);},
+          onRankChange:r=>{state.rank=r;if(qkController)qkController.setRank(r);chrome();},
+          onOpenQkPv:targetMode=>{
+            state.tab=targetMode==='pipeline'?'pipeline':'assignment';
+            if(state.tab==='pipeline'){state.pipelineStage=qkPvId;state.pipelineScale='instances';}
+            else state.assignmentStage=qkPvId;
+            render();
+          }
+        });
+      }
+      stageViewsController?.update(state.tab,currentStage,state.rank);
+      chrome();return;
+    }
+    if(graphInstanceActive){
+      const context=qkController?.getState()||{mode:'source',workload:'mixed',position:8192,rank:state.focus?.rank??state.rank};
+      const sc=qkController?.getScenario()||global.PtoCsaQkWork.deriveScenario(context);
+      if(!graphInstanceController){
+        graphInstanceController=global.PtoCsaInstanceGraph.mount(graphInstanceHost,{
+          onSource:qkSource,
+          onOpenPipeline:itemId=>{
+            const it=sc.byId.get(itemId);
+            state.tab='pipeline';
+            state.pipelineStage=qkPvId;
+            state.pipelineScale='instances';
+            if(it){
+              const d=global.PtoCsaQkWork.getWorkItemDetails(it.id,sc.queue,sc.blockCount);
+              setFocus({kind:'work-item',rank:context.rank,scenarioId:sc.items[0]?.scenarioId,moduleId:qkPvId,operationId:qkPvId+'/dispatch',workItemId:it.id,requestIndex:it.requestIndex,tokenIndex:it.token,positionId:it.positionId,sparseBlockIndex:it.sparseBlock,valid:it.valid,validKvCount:it.validKvCount,queuePosition:d.queuePosition,laneId:d.block,laneIteration:d.iteration});
+            }
+            render();
+          }
+        });
+      }
+      graphInstanceController.update(sc,state.focus?.workItemId);
+      chrome();return;
+    }
     if(qkActive){
       if(qkController){qkController.setSelection(qkSelection());qkController.render();}
       else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,rank:state.focus?.rank??state.rank,selection:qkSelection(),onContext:context=>{
@@ -342,8 +396,8 @@
     }
     if(qkPipelineActive){
       const context=qkController?.getState()||{mode:'source',workload:'mixed',position:8192,rank:state.focus?.rank??state.rank};
-      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{onFocus:focus=>{navigationReturn=null;setFocus(focus);chrome();},onSource:qkSource,onNavigate:navigateToGraph,onRankChange:qkSetRank,moduleId:qkPvId});
-      qkPipelineController.update(isQkFocus(state.focus)?state.focus:null,context,qkController?.getScenario());
+      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{scale:state.pipelineScale,onScaleChange:next=>{state.pipelineScale=next;},onFocus:focus=>{navigationReturn=null;setFocus(focus);chrome();},onSource:qkSource,onNavigate:navigateToGraph,onRankChange:qkSetRank,moduleId:qkPvId});
+      qkPipelineController.update(isQkFocus(state.focus)?state.focus:null,context,qkController?.getScenario(),state.pipelineScale);
       root.querySelector('.csa-focusbar').innerHTML='';chrome();return;
     }
     // Decode CSA 的 Assignment / Pipeline 均在上方返回；旧版 Distributed Execution 不再进入渲染分支。

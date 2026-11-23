@@ -1,0 +1,56 @@
+
+/* Scoped material overrides; no changes to diagram objects or selected fills. */
+:root [data-liquid-glass=control],:root [data-liquid-glass=icon]{background:rgb(255 255 255 / 5%)!important;border:0!important;box-shadow:0 7px 20px rgb(0 0 0 / 8%)!important;isolation:isolate}
+:root[data-theme=light] [data-liquid-glass=control],:root[data-theme=light] [data-liquid-glass=icon]{background:transparent!important}
+:root [data-liquid-glass=panel]{border:0!important;box-shadow:0 16px 48px #0002!important}
+[data-liquid-glass=icon]{border-radius:999px}
+.hp-top-right[data-liquid-glass],.top-actions[data-liquid-glass]{border-radius:999px}
+[data-liquid-glass]>.liquid-b-shine{position:absolute!important}
+
+/* Internal toolbar buttons never add a second painted glass backing. */
+:root [data-liquid-glass=control] :is(button,summary){background:transparent!important;border:0!important;box-shadow:none!important}
+:root [data-liquid-glass=control] :is(button,summary)[aria-pressed=true]{background:#eee!important;color:#111!important}
+:root .hp-top-right{background:transparent!important;border:0!important;box-shadow:none!important}
+:root .hp-topbtn:not(.run-button),:root .pane-info>summary{border-radius:999px;border:0;box-shadow:none}
+:root .hp-topbtn.run-button{border-radius:999px}
+:root .pane-info>summary{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px}
+
+/* Workbench header: one icon row with a shared 36px hit target. */
+.hp-top .hp-top-right{display:flex;align-items:center;flex-wrap:nowrap;gap:12px}
+.workbench-icon-actions{display:flex;align-items:center;gap:8px;flex:none}
+:root .hp-top .workbench-icon-actions :is(.hp-topbtn,.pane-info>summary){box-sizing:border-box;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;flex:none}
+.hp-top .workbench-icon-actions .pane-info{margin:0;position:relative}
+.hp-top .workbench-icon-actions svg{width:18px;height:18px}
+:root .hp-top .run-button{box-sizing:border-box;height:36px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;white-space:nowrap}
+.hp-top .workbench-icon-actions .pane-info-body{top:calc(100% + 12px);right:0;left:auto;width:min(352px,calc(100vw - 32px))}
+@media(max-width:860px){.hp-top{flex-wrap:wrap}.hp-top .hp-top-right{margin-left:auto}}
+
+/* One button scale across compile / workbench / result. */
+:root :is(.demo-home,.hp-topbtn:not(.run-button),.pane-info>summary,.canvas-tools button,.lane-toolbar .ctl,.single-analysis-button,.drawer-close,.pass-close,#stats-close){box-sizing:border-box;min-height:36px;height:36px}
+:root :is(.demo-home,.hp-topbtn:not(.run-button),.pane-info>summary,.canvas-tools button,.drawer-close,.pass-close,#stats-close){width:36px;min-width:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+:root :is(.demo-home,.hp-topbtn,.pane-info>summary,.canvas-tools button,.lane-toolbar .ctl) svg{width:18px;height:18px}
+:root .canvas-tools{gap:8px;padding:6px}
+:root .lane-toolbar .ctl{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border-radius:999px}
+:root .lane-toolbar{gap:8px}
+
+/* Close actions are quiet content controls, never glass surfaces. */
+:root :is(.drawer-close,.pass-close,#stats-close,.single-close){background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;color:#aaa;border-radius:999px}
+:root :is(.drawer-close,.pass-close,#stats-close,.single-close):hover{background:#ffffff0d!important;color:#eee}
+
+/* Static three-column header centers the analysis slab on the viewport. */
+:root #run-header .top{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);height:64px;gap:16px;padding:0 20px;align-items:center}
+.result-identity{display:flex;align-items:center;gap:12px;min-width:0;overflow:hidden}
+:root #run-header .top h1{font-size:16px;white-space:nowrap;flex:none}
+:root #run-header .top #rank{height:36px;border:0;border-radius:999px;background:#ffffff0d;min-width:70px;max-width:180px;width:100%;flex:1}
+:root #run-header .top .sp,:root #run-header .top .run,:root #run-header .top .soc{display:none}
+:root #run-header .top>.lane-toolbar-group{position:static;inset:auto;transform:none;translate:none;display:flex;width:max-content;max-width:none;margin:0;padding:0;flex-wrap:nowrap}
+:root #run-header .top .lane-toolbar{position:relative;inset:auto;transform:none;translate:none;display:flex;align-items:center;width:max-content;max-width:none;height:48px;min-height:48px;padding:6px 8px;gap:4px;box-sizing:border-box;border-radius:999px}
+:root #run-header .top .lane-toolbar #lane-ovl{width:auto;flex:none;flex-wrap:nowrap;gap:0}
+:root #run-header .top .lane-toolbar :is(.ctl,.single-analysis-button,.bar-label){font-family:var(--font,system-ui);font-size:13px;font-weight:400;line-height:1}
+:root #run-header .top .lane-toolbar :is(.ctl,.single-analysis-button){height:36px;min-height:36px;padding:0 12px}
+:root #run-header .top .single-analysis-button{background:transparent!important;border:0;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+:root #run-header .top .single-analysis-button[aria-pressed=true]{background:#eee!important;color:#111}
+:root #run-header .top #stats-toggle{justify-self:end;white-space:nowrap;margin:0}
+@media(max-width:1500px){:root #run-header .top h1{display:none}}
+@media(max-width:1050px){:root #run-header .top{gap:8px;padding:0 12px}:root #run-header .top #stats-toggle{font-size:11px}:root #run-header .top #stats-toggle b{font-size:16px}:root #run-header .top .lane-toolbar :is(.ctl,.single-analysis-button){padding:0 8px}}
+@media(max-width:850px){:root #run-header .top{display:flex;overflow-x:auto}.result-identity{flex:none}.result-identity #rank{max-width:100px}:root #run-header .top>.lane-toolbar-group{flex:none}}

@@ -1,0 +1,441 @@
+/* Step 2: Causal serial hardware-core swimlane (AIC / AIV 0 / AIV 1).
+ * Unified visual grammar: rounded capsule pills + op-icons for OPs (no Tensor left-border stripe);
+ * squared blocks for DMA / memory transfers; dedicated inter-core highway for forward-in-time sync arcs. */
+.viz2-pipeline-detail > .viz2-anatomy-body {
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+.viz2-pipeline-detail > .viz2-anatomy-body > .viz2-pipeline-scale {
+  align-self:flex-start;
+  flex:none;
+  margin-block-end:var(--space-2);
+  z-index:3;
+}
+.viz2-pipeline-structure-host {
+  display:flex;
+  flex:1;
+  min-height:0;
+  min-width:0;
+}
+.viz2-pipeline-structure-host[hidden],
+.viz2-pipeline-instance[hidden] { display:none !important; }
+
+.viz2-pipeline-instance {
+  --intra-slot-0:#80B7F7;
+  --intra-slot-1:#9EF04B;
+  --intra-slot-2:#F2C45F;
+  flex:1;
+  min-height:0;
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-rows:auto auto minmax(0,1fr);
+}
+.viz2-pi-toolbar {
+  grid-column:1;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px 14px;
+  padding-bottom:6px;
+  color:var(--foreground-secondary);
+  font:var(--type-body-sm);
+}
+.viz2-pi-toolbar__left {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+}
+.viz2-pi-layers {
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  padding:2px;
+  border-radius:8px;
+  background:var(--surface-2);
+  border:1px solid var(--border-subtle);
+}
+.viz2-pi-layer-btn {
+  border-radius:6px;
+  padding:2px 9px;
+  font-size:11.5px;
+  color:var(--foreground-secondary);
+  border:1px solid transparent;
+}
+.viz2-pi-layer-btn:hover { color:var(--foreground); }
+.viz2-pi-layer-btn.is-selected {
+  background:var(--ss-selection,#f0f0f0);
+  color:#111;
+  font-weight:600;
+}
+.viz2-pi-boundary-note {
+  grid-column:1;
+  font-size:11px;
+  color:var(--foreground-muted);
+  padding:2px 2px 6px;
+}
+.viz2-pi-viewport {
+  grid-column:1;
+  position:relative;
+  overflow:hidden;
+  min-height:0;
+  touch-action:none;
+  cursor:grab;
+  border-radius:10px;
+}
+.viz2-pi-viewport:active { cursor:grabbing; }
+.viz2-pi-scene {
+  position:absolute;
+  top:0;
+  left:0;
+  transform-origin:0 0;
+  user-select:none;
+}
+
+/* Causal logical time axis */
+.viz2-pi-axis {
+  position:absolute;
+  top:52px;
+  height:32px;
+  border-bottom:1px solid rgba(255,255,255,.12);
+  pointer-events:none;
+}
+.viz2-pi-axis__title {
+  position:absolute;
+  left:0;
+  top:0;
+  font:600 11px/1.2 var(--font-mono);
+  color:var(--foreground-secondary);
+}
+.viz2-pi-axis__mark {
+  position:absolute;
+  bottom:3px;
+  font:10px/1 var(--font-mono);
+  color:var(--foreground-muted);
+}
+.viz2-pi-gridline {
+  position:absolute;
+  width:1px;
+  border-left:1px dashed rgba(255,255,255,.05);
+  pointer-events:none;
+}
+
+/* Hardware core swimlane rows */
+.viz2-pi-core-row {
+  position:absolute;
+  left:8px;
+  display:flex;
+  border:1px solid var(--border-subtle);
+  border-radius:10px;
+  background:rgba(255,255,255,.018);
+  overflow:hidden;
+  pointer-events:none;
+}
+.viz2-pi-core-label {
+  flex:none;
+  display:flex;
+  background:rgba(255,255,255,.028);
+  border-right:1px solid var(--border-subtle);
+}
+.viz2-pi-core-main {
+  flex:1;
+  min-width:0;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+}
+.viz2-pi-pipe-rail {
+  position:relative;
+  width:72px;
+  flex:none;
+  border-left:1px solid rgba(255,255,255,.07);
+  background:rgba(0,0,0,.18);
+}
+.viz2-pi-pipe-rail__item {
+  position:absolute;
+  inset-inline:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:0 6px;
+  border-bottom:1px dashed rgba(255,255,255,.07);
+}
+.viz2-pi-pipe-rail__item:last-child { border-bottom:0; }
+.viz2-pi-pipe-rail__item b { font:600 10.5px/1.2 var(--font-mono); color:var(--foreground); }
+.viz2-pi-pipe-rail__item small { font:9px/1.2 var(--font-mono); color:var(--foreground-muted); }
+
+.viz2-pi-core-title {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:5px;
+}
+.viz2-pi-core-title strong {
+  font:700 13.5px/1.2 var(--font-mono);
+  color:var(--foreground);
+}
+.viz2-pi-core-row[data-core="aic"] .viz2-pi-core-title strong { color:#80B7F7; }
+.viz2-pi-core-row[data-core="aiv0"] .viz2-pi-core-title strong,
+.viz2-pi-core-row[data-core="aiv1"] .viz2-pi-core-title strong { color:#9EF04B; }
+.viz2-pi-core-badge {
+  font:600 9.5px/1.3 var(--font-mono);
+  padding:1px 6px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  color:var(--foreground-secondary);
+}
+.viz2-pi-core-badge.is-imbalance {
+  color:#F2C45F;
+  background:rgba(242,196,95,.14);
+  border:1px solid rgba(242,196,95,.35);
+}
+.viz2-pi-core-main small {
+  font:10.5px/1.3 var(--font-mono);
+  color:var(--foreground-secondary);
+}
+.viz2-pi-core-track {
+  position:relative;
+  flex:1;
+}
+.viz2-pi-subpipe {
+  position:absolute;
+  inset-inline:0;
+  border-bottom:1px dashed rgba(255,255,255,.07);
+}
+.viz2-pi-subpipe:last-child { border-bottom:0; }
+
+/* Stage grouping frames (Op mode) */
+.viz2-pi-stage-frame {
+  position:absolute;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:10px;
+  background:rgba(255,255,255,.022);
+  pointer-events:none;
+  transition:border-color .15s,opacity .15s;
+}
+.viz2-pi-stage-frame.is-related {
+  border-color:color-mix(in srgb,var(--slot-color) 55%,transparent);
+  background:color-mix(in srgb,var(--slot-color) 5%,transparent);
+}
+.viz2-pi-stage-frame__head {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 8px 0;
+  font:600 10.5px/1.2 var(--font-mono);
+  color:var(--foreground-secondary);
+  white-space:nowrap;
+  overflow:hidden;
+}
+.viz2-pi-tick-tag {
+  margin-left:auto;
+  font:600 9.5px/1.2 var(--font-mono);
+  color:var(--foreground-muted);
+}
+.viz2-pi-reuse-mini {
+  font:600 9px/1.3 var(--font-mono);
+  padding:0 5px;
+  border-radius:999px;
+  color:#111;
+  background:var(--slot-color);
+}
+.viz2-pi-slot-tag {
+  font:600 9px/1.3 var(--font-mono);
+  padding:0 5px;
+  border-radius:999px;
+  color:var(--slot-color);
+  border:1px solid color-mix(in srgb,var(--slot-color) 48%,transparent);
+  background:color-mix(in srgb,var(--slot-color) 12%,transparent);
+  flex:none;
+}
+.viz2-pi-tail-tag {
+  font:600 9px/1.3 var(--font-mono);
+  padding:0 5px;
+  border-radius:999px;
+  color:#F2C45F;
+  background:rgba(242,196,95,.14);
+  flex:none;
+}
+
+/* Individual serial events on hardware lanes */
+.viz2-pi-event {
+  box-sizing:border-box;
+  position:absolute;
+  z-index:2;
+  appearance:none;
+  cursor:pointer;
+  text-align:left;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:2px;
+  padding:4px 8px;
+  color:var(--foreground);
+  transition:opacity .15s,border-color .15s,background-color .15s;
+}
+/* OP pill: unified with Graph Instance OPs (rounded capsule + op icon, NO left Tensor stripe) */
+.viz2-pi-event--op {
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.22);
+  background:var(--surface-3);
+}
+.viz2-pi-event--op.is-tail {
+  border-color:rgba(242,196,95,.52);
+  background:rgba(242,196,95,.1);
+}
+/* DMA / Pipe memory block: crisp squared block distinct from both OP pills and Tensor cards */
+.viz2-pi-event--dma {
+  border-radius:6px;
+  border:1px solid rgba(128,183,247,.32);
+  background:rgba(128,183,247,.08);
+}
+.viz2-pi-event--dma[data-pipe="fix"],
+.viz2-pi-event--dma[data-pipe="mte3"] {
+  border-color:rgba(158,240,75,.34);
+  background:rgba(158,240,75,.08);
+}
+.viz2-pi-event:hover,
+.viz2-pi-event.is-selected {
+  border-color:var(--foreground);
+  background:var(--surface-4,#333);
+}
+.viz2-pi-event.is-selected {
+  outline:2px solid var(--ss-selection,#f0f0f0);
+  outline-offset:1px;
+}
+.viz2-pi-scene.has-focus .viz2-pi-event:not(.is-selected) { opacity:.32; }
+
+.viz2-pi-event__head {
+  display:flex;
+  align-items:center;
+  gap:4px;
+  min-width:0;
+}
+.viz2-pi-op-icon {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:rgba(0,0,0,.35);
+  color:#eee;
+  flex:none;
+}
+.viz2-pi-event b {
+  font:600 11px/1.15 var(--font-sans);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.viz2-pi-event small {
+  font:9.5px/1.15 var(--font-mono);
+  color:var(--foreground-secondary);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.viz2-pi-ev-dot {
+  margin-left:auto;
+  flex:none;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--ev-color);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--ev-color) 28%,transparent);
+}
+
+/* SVG overlays: strictly in dedicated inter-core highway, behind blocks */
+.viz2-pi-overlay {
+  position:absolute;
+  inset:0;
+  overflow:visible;
+  pointer-events:none;
+  z-index:1;
+}
+.viz2-pi-sync-arc {
+  fill:none;
+  stroke-width:1.35;
+  opacity:.4;
+  stroke-linejoin:round;
+  transition:opacity .15s,stroke-width .15s;
+}
+.viz2-pi-scene.has-focus .viz2-pi-sync-arc:not(.is-related) { opacity:.08; }
+.viz2-pi-sync-arc.is-related { opacity:1; stroke-width:2.3; }
+.viz2-pi-reuse-arc {
+  fill:none;
+  stroke:var(--slot-color);
+  stroke-width:2;
+  stroke-dasharray:5 3;
+  opacity:.85;
+}
+.viz2-pi-reuse-pills {
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  height:44px;
+  z-index:4;
+  pointer-events:none;
+}
+.viz2-pi-reuse-pill {
+  position:absolute;
+  transform:translateX(-50%);
+  pointer-events:auto;
+  appearance:none;
+  cursor:pointer;
+  padding:2px 10px;
+  border-radius:999px;
+  font:600 10.5px/1.4 var(--font-mono);
+  color:#111;
+  background:var(--slot-color);
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+.viz2-pi-reuse-pill.is-selected {
+  outline:2px solid #fff;
+  outline-offset:1px;
+}
+
+/* Layer visibility switches */
+.viz2-pipeline-instance[data-show-sync="false"] .viz2-pi-sync-layer,
+.viz2-pipeline-instance[data-show-sync="false"] .viz2-pi-ev-dot { display:none; }
+.viz2-pipeline-instance[data-show-slot="false"] .viz2-pi-reuse-layer,
+.viz2-pipeline-instance[data-show-slot="false"] .viz2-pi-reuse-pills,
+.viz2-pipeline-instance[data-show-slot="false"] .viz2-pi-slot-tag,
+.viz2-pipeline-instance[data-show-slot="false"] .viz2-pi-reuse-mini { display:none; }
+
+/* Inspector */
+.viz2-pipeline-detail .viz2-pipeline-instance .viz2-pi-inspector {
+  position:relative;
+  inset:auto;
+  grid-column:2;
+  grid-row:1 / 4;
+  margin:0 0 0 var(--space-3);
+  width:clamp(240px,25vw,330px);
+  max-width:none;
+  flex:none;
+}
+.viz2-pi-debug-card {
+  margin:10px 0;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid rgba(128,183,247,.32);
+  background:rgba(128,183,247,.07);
+}
+.viz2-pi-debug-card h3 {
+  margin:0 0 4px;
+  font-size:11.5px;
+  color:#80B7F7;
+}
+.viz2-pi-debug-card p {
+  margin:0;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--foreground);
+}

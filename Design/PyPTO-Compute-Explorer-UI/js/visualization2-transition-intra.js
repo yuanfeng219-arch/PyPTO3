@@ -2,7 +2,7 @@
 (function(global){
   'use strict';
   const NS='http://www.w3.org/2000/svg';
-  const stageNode={qk:'qk',softmax:'softmax',pv:'pv',accumulate:'context-acc'};
+  const stageNode={qk:'qk','scale-mask':'scale-mask',softmax:'softmax',pv:'pv',accumulate:'context-acc'};
   const nodeStage=Object.fromEntries(Object.entries(stageNode).map(([stage,node])=>[node,stage]));
   const panes={assignment:'#viz2-anatomy',pipeline:'#viz2-pipeline-intra',graph:'#viz2-graph-intra'};
   const clamp=n=>Math.max(0,Math.min(1,n));
@@ -27,20 +27,22 @@
       return valid?{kind:'stack',index:stack}:null;
     }
     if(to==='pipeline'){
-      if(focus.kind==='output'||['output','output-norm'].includes(focus.node))return {kind:'output',index:0};
-      if(focus.kind==='slot'&&task.slots[focus.index])return focus;
-      if(focus.kind==='event'&&valid)return focus;
+      const extra={...(focus.instancePage!=null?{instancePage:focus.instancePage}:{}),...(focus.executionInstanceId?{executionInstanceId:focus.executionInstanceId}:{}),...(focus.node?{node:focus.node}:{}),...(focus.lane!=null?{lane:focus.lane}:{})};
+      if(focus.kind==='output'||['output','output-norm'].includes(focus.node))return {kind:'output',index:0,...extra};
+      if(focus.kind==='slot'&&task.slots[focus.index])return {...focus,...extra};
+      if(focus.kind==='event'&&valid)return {...focus,...extra};
       const stage=focus.kind==='stage'?focus.stage:nodeStage[focus.node?.split('/')[0]];
-      if(stage&&valid)return {kind:'stage',index:stack,stage};
-      return valid?{kind:'stack',index:stack}:null;
+      if(stage&&valid)return {kind:'stage',index:stack,stage,...extra};
+      return valid?{kind:'stack',index:stack,...extra}:null;
     }
     if(to==='graph'){
-      if(focus.kind==='output')return {kind:'output',index:0,stackIndex:valid?stack:null};
-      if(focus.kind==='q')return {kind:'graph',node:'q',index:valid?stack:0,stackIndex:valid?stack:null};
-      if(focus.kind==='event'&&valid)return {...focus,stackIndex:stack};
-      if(focus.kind==='stage'&&stageNode[focus.stage]&&valid)return {...focus,stackIndex:stack};
-      if(focus.kind==='page'&&task.pages[focus.index])return {...focus,stackIndex:stack};
-      return valid?{kind:'stack',index:stack,stackIndex:stack}:null;
+      const extra={...(focus.instancePage!=null?{instancePage:focus.instancePage}:{}),...(focus.executionInstanceId?{executionInstanceId:focus.executionInstanceId}:{}),...(focus.node?{node:focus.node}:{})};
+      if(focus.kind==='output')return {kind:'output',index:0,stackIndex:valid?stack:null,...extra};
+      if(focus.kind==='q')return {kind:'graph',node:'q',index:valid?stack:0,stackIndex:valid?stack:null,...extra};
+      if(focus.kind==='event'&&valid)return {...focus,stackIndex:stack,...extra};
+      if(focus.kind==='stage'&&stageNode[focus.stage]&&valid)return {...focus,node:focus.node||stageNode[focus.stage],stackIndex:stack,...extra};
+      if(focus.kind==='page'&&task.pages[focus.index])return {...focus,stackIndex:stack,...extra};
+      return valid?{kind:'stack',index:stack,stackIndex:stack,...extra}:null;
     }
     return null;
   }
