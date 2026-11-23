@@ -74,6 +74,37 @@
 .viz2-graph-block-rail__grid button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* Shared information layers scoped to the independent Block-level graph. */
+.viz2-graph-scene .kf-pypa-graph__sync-marker.btn {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+}
+.viz2-graph-scene .kf-pypa-graph__sync-marker small {
+  color: var(--foreground-secondary);
+  font-size: 11px;
+}
+.viz2-graph-scene .kf-pypa-graph__sync-marker:is(:hover, [aria-pressed="true"]) {
+  border-color: var(--warning);
+}
+.viz2-graph-scene .kf-pypa-graph__sync-path {
+  stroke: var(--warning);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 5;
+  opacity: .65;
+}
 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker,
 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-path {display:none;}
 .viz2-graph > .kf-pypa-graph__overlays {flex:none;flex-wrap:wrap;}
@@ -86,6 +117,23 @@
 .viz2-graph-scene .kf-pypa-graph__edge-hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }
 .viz2-graph-scene .kf-pypa-graph__edge-label { opacity: 0; transition: opacity .15s; }
 .viz2-graph-scene .kf-pypa-graph__edge.is-viz2-related + .kf-pypa-graph__edge-label { opacity: 1; }
+.viz2-graph-scene .kf-pypa-graph__compact-edge-labels .kf-pypa-graph__edge-label {
+  fill: var(--foreground);
+  font-size: 15px;
+  font-weight: 650;
+  stroke-width: 4px;
+}
+.viz2-graph-scene .kf-pypa-graph__edge-count {
+  fill: var(--foreground-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.viz2-graph-scene .kf-pypa-graph__compact-edge-labels .kf-pypa-graph__edge-label.is-viz2-related { opacity: 1; }
+.viz2-graph-scene[data-overlay-control="true"] .kf-pypa-graph__compact-edge-labels .kf-pypa-graph__edge-label:is([data-edge-type="state"],[data-edge-type="feedback"]) {
+  pointer-events: bounding-box;
+  cursor: pointer;
+}
+.viz2-graph-scene[data-overlay-control="true"] .kf-pypa-graph__edge-label:is(:hover,.is-viz2-related):is([data-edge-type="state"],[data-edge-type="feedback"]) { opacity: 1; }
 .viz2-graph-scene[data-focused="true"] .kf-pypa-graph__node:not(.is-selected):not(.is-viz2-related) { opacity: .42; }
 
 .viz2-graph-node-title {display:inline-flex;align-items:center;gap:var(--space-1);}

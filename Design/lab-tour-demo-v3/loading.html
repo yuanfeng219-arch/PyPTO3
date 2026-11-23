@@ -566,7 +566,7 @@ const STAGES = [
     status: 'trace · building lanes' }
 ];
 const END = 5.55;
-const LOADING_PACE = .75; // 同步缩短阶段、日志和完成等待，保持原有顺序。
+const LOADING_PACE = .375; // 泳道出现前的阶段和日志按原节奏的一半播放。
 
 const LINES = [
   [ .05, 'load',   'decode_sparse_attn_csa.py · 208–313'],
@@ -638,7 +638,7 @@ function finish() {
   title.textContent = '演示流程已完成';
   detail.textContent = '这次运行的 trace 已准备就绪，正在画出设备泳道。';
   statusLine.textContent = 'ready · device lane';
-  setTimeout(showLane, still ? 0 : 500);
+  setTimeout(showLane, still ? 0 : 250);
 }
 
 /* ── 设备泳道（参照 IDE 里的泳道图）：每行一个核（AIC_0…AIC_23、AIV_24…AIV_71），左侧核名与该核 block 数，

@@ -4,7 +4,7 @@
  *   - L1 平面：#viewLayer（整层计算图），占 [0, 0, SW, SH]；
  *   - L2 平面：#viewKernel，按 K = 0.1 缩小后嵌在 L1 里被下钻节点的位置 P（双击点）上；
  *     L2 平面内部（L2 坐标，缩放 1 时与画布像素一致）：
- *       计算图卡片  [0, 0, SW, SH]            —— Kernel 工作区标题 + 计算图（#l2GraphPane）
+ *       计算图卡片  [0, 0, SW, SH]            —— 计算图（#l2GraphPane）
  *       工作怎么分  [-SW/2 - g/2, SH + gap]    —— 关联对象：SPMD × 24 / FOR qk_it 外框（#kernelWork）
  *       放在哪      [ SW/2 + g/2, SH + gap]    —— 关联对象：PIPELINE 内的阶段 ①–④（#hpLensPane，仅 qk_pv）
  *   - 相机：screen = world × s + t。L1：s = 1；L2 计算图：s = 1 / K，L2 平面恰好 1:1，文字清晰。
@@ -66,7 +66,7 @@
     lay.graphCard = [0, 0, SW, SH];
     lay.work = qk ? [Math.round(-SW / 2 - g / 2), SH + gap, SW, SH] : [0, SH + gap, SW, SH];
     lay.chip = [Math.round(SW / 2 + g / 2), SH + gap, SW, SH];
-    const hh = head ? 42 : 0;
+    const hh = 0; // 隐藏工作区标题栏，计算图占满卡片。
     if (focus === 'linked' && qk) {
       const gap = 12, top = 12, bottom = 64, width = SW - gap * 2;
       const available = SH - top - bottom, graphHeight = Math.round((available - gap) * .48);

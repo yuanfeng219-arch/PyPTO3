@@ -308,6 +308,12 @@
 
   function routeFlowEdges(nodes, edges, rightBound, options = {}) {
     const byId = new Map(nodes.map((node) => [node.id, node]));
+    const stateInputs = new Map();
+    if (options.branchEdgeLabels) {
+      for (const edge of edges) {
+        if (edge.type === 'state') stateInputs.set(edge.t, (stateInputs.get(edge.t) || 0) + 1);
+      }
+    }
     const obstacles = nodes.filter((node) => !node.expandedGroup).map(node=>({...node,w:node.w+(node.executionFootprint?.right||0),h:node.h+(node.executionFootprint?.bottom||0)}));
     const clearance = options.overviewLayout ? 3 : 10;
     const same = (a, b) => Math.abs(a - b) < 0.5;
@@ -338,7 +344,12 @@
         if(source.y > target.y + target.h + 20){
           const laneY=(target.y + target.h + source.y)/2;
           const points=[{x:sx,y:source.y},{x:sx,y:laneY},{x:tx,y:laneY},{x:tx,y:target.y+target.h}];
-          if(clear(points,source,target))return {points,path:roundedPath(points,EDGE_CORNER_RADIUS),labelX:tx+10,labelY:laneY-8,labelAnchor:'start',maxX:Math.max(sx,tx)};
+          if(clear(points,source,target)){
+            // Place a return label next to its state branch, below the shared rail.
+            const atSource=options.branchEdgeLabels&&edge.type==='feedback'&&Math.abs(sx-tx)>32;
+            return {points,path:roundedPath(points,EDGE_CORNER_RADIUS),labelX:(atSource?sx:tx)+10,
+              labelY:laneY+(atSource?22:-8),labelAnchor:'start',maxX:Math.max(sx,tx)};
+          }
         }
         if(edge.type==='feedback'&&source.y>target.y){
           const exitY=source.y-24,lanes=[target.x-24,target.x+target.w+24,source.x-24,source.x+source.w+24,rightBound+32+returnLane*18,Math.min(...nodes.map(node=>node.x))-32];
@@ -353,8 +364,10 @@
         const start = { x: left ? source.x : source.x + source.w, y: source.y + source.h / 2 };
         const end = { x: left ? target.x : target.x + target.w, y: target.y + target.h / 2 };
         const points = [start, { x: lane, y: start.y }, { x: lane, y: end.y }, end];
-        return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX: lane - 10,
-          labelY: (start.y + end.y) / 2, labelAnchor: 'end', maxX: lane };
+        const selfFeedback = options.branchEdgeLabels && edge.type === 'feedback' && source.id === target.id;
+        return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX: selfFeedback ? sx + 10 : lane - 10,
+          labelY: selfFeedback ? sy + 24 : (start.y + end.y) / 2,
+          labelAnchor: selfFeedback ? 'start' : 'end', maxX: lane };
       }
       const middle = (sy + ty) / 2;
       const direct = [{ x: sx, y: sy }, { x: sx, y: middle }, { x: tx, y: middle }, { x: tx, y: ty }];
@@ -374,9 +387,19 @@
       const cost = (points) => points.slice(1).reduce((sum, point, index) =>
         sum + Math.abs(point.x - points[index].x) + Math.abs(point.y - points[index].y), 0) + points.length * 12;
       const points = (valid.length ? valid : candidates.slice(-2)).sort((a, b) => cost(a) - cost(b))[0];
-      const labelY = points.length === 4 ? middle : lower;
-      return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX: tx + 10,
-        labelY: labelY - 8, labelAnchor: 'start', maxX: Math.max(...points.map((point) => point.x)) };
+      let labelX = tx + 10, labelY = points.length === 4 ? middle : lower, labelAnchor = 'start';
+      if (edge.type === 'state' && stateInputs.get(edge.t) > 1) {
+        // Label converging inputs on their horizontal branches before they share the target's port.
+        const railEnd = points.length === 6 && !same(points[3].x, points[4].x) ? 4 : 2;
+        const from = points[railEnd - 1], to = points[railEnd];
+        if (Math.abs(from.x - to.x) > 32) {
+          labelX = (from.x + to.x) / 2;
+          labelY = from.y;
+          labelAnchor = 'middle';
+        }
+      }
+      return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX,
+        labelY: labelY - 8, labelAnchor, maxX: Math.max(...points.map((point) => point.x)) };
     });
   }
 
@@ -474,12 +497,49 @@
     return routes;
   }
 
+  function placeSyncMarker(marker, occupied, bounds) {
+    const gap = 10;
+    const rowStep = marker.h + gap;
+    const positions = [];
+    for (const dy of [0, -rowStep, rowStep, -2 * rowStep, 2 * rowStep]) {
+      const y = marker.y + dy;
+      if (y < 0 || y + marker.h > bounds.h) continue;
+      const row = occupied.filter(box => box.y < y + marker.h + gap && box.y + box.h > y - gap);
+      const candidates = [marker.x, ...row.flatMap(box => [box.x - marker.w - gap, box.x + box.w + gap])];
+      for (const x of candidates) {
+        if (x < 0 || x + marker.w > bounds.w) continue;
+        if (row.some(box => box.x < x + marker.w + gap && box.x + box.w > x - gap)) continue;
+        positions.push({ x, y, distance: Math.abs(x - marker.x) + Math.abs(dy) * 2 });
+      }
+    }
+    positions.sort((a, b) => a.distance - b.distance);
+    const position = positions[0] || {
+      x: Math.max(bounds.w, ...occupied.map(box => box.x + box.w)) + gap,
+      y: marker.y
+    };
+    return { ...marker, x: position.x, y: position.y };
+  }
+
   // Project static synchronization metadata after layout; never rank it as data flow.
   function synchronizationBridges(graph) {
+    if (!graph.synchronizations?.length) return [];
     const byId = new Map(graph.nodes.map((node) => [node.id, node]));
     const right = Math.max(...graph.nodes.map((node) => node.x + (node.groupWidth || node.w)));
     const resolve = (end) => byId.get(end.anchor) || byId.get(end.boundary || end.node);
-    return (graph.synchronizations || []).map((event) => {
+    const occupied = graph.nodes.map(node => ({
+      x: node.x, y: node.y,
+      w: node.w + (node.executionFootprint?.right || 0),
+      h: node.h + (node.executionFootprint?.bottom || 0)
+    }));
+    graph.edgeRoutes?.forEach((route, index) => {
+      const label = graph.edges[index]?.label;
+      if (!label || !route) return;
+      // Match the compact edge font and leave room for its optional count.
+      const w = labelWidth(label) * 1.25 + 40;
+      const offset = route.labelAnchor === 'start' ? 0 : route.labelAnchor === 'end' ? w : w / 2;
+      occupied.push({ x: route.labelX - offset, y: route.labelY - 17, w, h: 22 });
+    });
+    return graph.synchronizations.map((event) => {
       const producer = resolve(event.producer), consumer = resolve(event.consumer);
       if (!producer || !consumer) throw new Error(`${event.name}: unresolved synchronization boundary`);
       const sx = producer.x + producer.w / 2, sy = producer.y + producer.h;
@@ -487,8 +547,13 @@
       if (graph.flowLayout) {
         const route = routeFlowEdges(graph.nodes, [{ s: producer.id, t: consumer.id, type: 'sync' }], right)[0];
         const x = (route.points[3]?.x ?? producer.x + producer.w) + 16;
+        const marker = placeSyncMarker({ x, y: sy + 18, w: 254, h: 48 }, occupied, {
+          w: Math.max(graph.width || 0, x + 254),
+          h: graph.height || Infinity
+        });
+        occupied.push(marker);
         return { event, producer: producer.id, consumer: consumer.id,
-          x, y: sy + 18, w: 254, h: 48, path: route.path, maxX: Math.max(route.maxX, x + 254) };
+          ...marker, path: route.path, maxX: Math.max(route.maxX, marker.x + marker.w) };
       }
       const lane = right + 24 + event.eventId * 12;
       return { event, producer: producer.id, consumer: consumer.id,

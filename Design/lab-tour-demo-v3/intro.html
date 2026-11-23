@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>项目背景 · 昇腾算子开发可解释/可观测设计</title>
+<title>项目背景 · 昇腾算子开发可解释·可观测设计</title>
 <style>
 /* 项目背景页：首页（index.html）之前的一页。左边是三层叠放的平面，右边是开发与调优的问题。
  * 变量、字体与首页对应入口的颜色沿用 index.html：01 绿、03 蓝 */
@@ -206,6 +206,8 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
 <style>
   /* Keep the opening title visually higher without changing the two-column flow. */
   .intro-heading{transform:translateY(-16px)}
+  .bubble .act::after{content:"";position:absolute;inset:0;cursor:pointer}
+  .bubble:focus-within{outline:2px solid white;outline-offset:5px}
   @media(max-width:1080px){.intro-heading{transform:translateY(-10px)}}
   @media(max-width:620px){.intro-heading{transform:translateY(-6px)}}
 </style>
@@ -219,7 +221,7 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
     </div>
   </header>
 
-  <div class="intro-light intro-light-green" aria-hidden="true"></div><div class="intro-light intro-light-blue" aria-hidden="true"></div><div class="intro-heading"><h1 id="bgTitle">昇腾算子开发</h1><p>PyPTO产品体验设计</p></div><div class="cols">
+  <div class="intro-light intro-light-green" aria-hidden="true"></div><div class="intro-light intro-light-blue" aria-hidden="true"></div><div class="intro-heading"><h1 id="bgTitle">昇腾算子开发<br>可解释·可观测设计</h1><p>PyPTO产品体验设计</p></div><div class="cols">
     <!-- 左：只放标题和三层平面（Tensor → Tile → 芯片），文字一律归到右栏 -->
     <section class="bg" aria-labelledby="bgTitle">
 
@@ -252,9 +254,9 @@ h2{margin:0 0 6px;font-size:clamp(22px,1.9vw,30px);font-weight:600;line-height:1
       </div>
     </section>
 
-    <!-- 右：开发与调优的两个断点，对应首页入口 -->
+    <!-- 右：开发与调优的两个挑战，对应首页入口 -->
     <section class="voices-col" aria-labelledby="vTitle">
-      <h2 id="vTitle" class="sr-only">两个断点</h2>
+      <h2 id="vTitle" class="sr-only">两个挑战</h2>
 
       <ol class="voices" role="list">
         <li class="voice">
@@ -298,5 +300,5 @@ requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector('
   if (mq.addEventListener) mq.addEventListener('change', fit); else mq.addListener(fit);
 })();
 </script>
-<script src="v3-home-pages.js?v=2"></script><script src="../lab-tour-demo-v4/layer-blur.js?v=1"></script><script src="intro-relations.js?v=2"></script></body>
+<script src="v3-home-pages.js?v=2"></script><script src="../lab-tour-demo-v4/layer-blur.js?v=1"></script><script src="intro-relations.js?v=4"></script></body>
 </html>

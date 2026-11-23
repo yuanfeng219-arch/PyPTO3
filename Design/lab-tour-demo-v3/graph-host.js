@@ -68,10 +68,10 @@
     });
     return { w: w + (hasGroup ? LABEL_OVERHANG : 0), h: h };
   }
-  // L1：整层图是一条竖着的长流水（约 1014 × 2616）。宽度适配，上限 L1_MAX、下限 L1_MIN：
-  // 节点名在 1440 宽下约 10px，比原来的 62% 上限更好读；首屏随后由 frameFocus 对准当前阶段。
+  // L1：整层图是一条竖着的长流水（约 1014 × 2616）。适当缩小首屏，显示更多相邻节点；
+  // 首屏随后由 frameFocus 对准当前阶段，用户仍可自行缩放。
   // L2：整条链放得下（不小于 45%）就整体适配，否则按宽度适配——与 ../csa-operator-lens/ 原版一致。
-  const L1_MAX = .8, L1_MIN = .62;
+  const L1_MAX = .50, L1_MIN = .50;
   function frameWidth() {
     const vp = host.querySelector('.viz2-graph-viewport'), ex = extent();
     if (!vp || !vp.clientWidth || !vp.clientHeight || !ex.w) return false;
@@ -110,6 +110,12 @@
   if (model) waitFrame(0);
   // 用户动过镜头（滚轮、拖动、缩放键）后，画布尺寸变化不再重新取景
   const markMoved = function () { userMoved = true; };
+  function reportInteraction(event) {
+    if (event.isTrusted) window.parent.postMessage({ type: 'lens:user-interaction' }, '*');
+  }
+  document.addEventListener('pointerdown', reportInteraction, true);
+  document.addEventListener('wheel', reportInteraction, { capture: true, passive: true });
+  document.addEventListener('keydown', reportInteraction, true);
   host.addEventListener('wheel', markMoved, { passive: true });
   let downAt = null;
   host.addEventListener('pointerdown', function (e) { downAt = [e.clientX, e.clientY]; });

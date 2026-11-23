@@ -24,6 +24,7 @@
     const technicalModel=global.PTO_PYPA_SEMANTIC_GRAPH;
     let model = adapter?.getModel() || technicalModel;
     let graph,rendered,nodes,nodeMap,nodeLabels,stageLabels,labels,renderedRevision=-1;
+    let edgeExecution,edgeById,edgeLabels;
     let expanded=new Set(),layers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true},layoutKey='',executionKey='';
     const layerNames={data:'数据节点',shape:'Shape',precision:'精度',memory:'存储及执行',control:'状态 / 控制',execution:'执行次数',sync:'同步'};
     host.classList.add('viz2-graph');
@@ -55,16 +56,18 @@
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
       }));
-      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,executionFootprints,...adapter?.layoutOptions};
+      const layoutOptions={flowLayout:true,overviewLayout:false,compactGlyphs:true,rootLayerGap:64,childLayerGap:56,branchEdgeLabels:true,executionFootprints,...adapter?.layoutOptions};
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
       if(!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
       Object.entries(layers).forEach(([key,value])=>{scene.dataset[`overlay${key[0].toUpperCase()+key.slice(1)}`]=String(value);});
     rendered = global.PtoStudioComputationGraph.renderScene(scene, graph, {
-      view:'compute', expandedStages:expanded, synchronizations:true, compactNodes:!adapter, markerPrefix:'viz2-graph',
+      view:'compute', expandedStages:expanded, synchronizations:true, compactNodes:!adapter, compactEdgeLabels:true, markerPrefix:'viz2-graph',
       cardHtml:node=>global.PtoStudioComputationGraph.cardHtml(node,model,layers),
     });
     nodes = rendered.placedNodes; nodeMap = new Map(nodes.map(node=>[node.id,node]));
+    edgeById = new Map(graph.edges.map(edge=>[edge.id,edge]));
+    edgeLabels = new Map([...scene.querySelectorAll('[data-pypa-edge-label]')].map(label=>[label.dataset.pypaEdgeLabel,label]));
     // Labels live in viewport coordinates, independently of scene scale. At low
     // zoom, callouts avoid overlaps without changing the shared graph geometry.
     labels = document.createElement('div');labels.className='viz2-graph-labels';
@@ -102,7 +105,7 @@
     }
     function paintExecution(){
       const data=layers.execution?staticExecutionData(graph):null;
-      global.PtoStudioComputationGraph.applyExecution(scene,nodes,graph,data);
+      edgeExecution=global.PtoStudioComputationGraph.applyExecution(scene,nodes,graph,data,{compactEdgeLabels:true});
       if(!global.PtoPhotoNarrative.enabled||adapter?.narrativeTask)adapter?.decorate?.(scene,nodes,graph,data);
       nodeLabels.forEach(({node,label})=>{const entry=global.PtoPagedAttentionExecution.decoration(node,data),name=label.querySelector('[data-viz2-graph-name]');name.dataset.fullName=node.title;window.PtoPhotoNarrative.text(name,node.title);label.querySelector('[data-viz2-execution-instances]')?.remove();if(entry){const badge=document.createElement('button');badge.type='button';badge.className='viz2-graph-floating-count';badge.dataset.viz2ExecutionInstances=node.id;window.PtoPhotoNarrative.text(badge,`×${entry.count}`);window.PtoPhotoNarrative.attr(badge,'title',`${entry.unit} · 查看逻辑实例`);label.append(badge);}});
     }
@@ -233,8 +236,10 @@
       });
       nodeLabels.forEach(({node,label})=>label.classList.toggle('is-viz2-related',related.includes(node.id)));
       scene.querySelectorAll('[data-pypa-edge]').forEach(el=>{
-        const edge=graph.edges.find(edge=>edge.id===el.dataset.pypaEdge);const edgeNode=edge&&(nodeMap.get(edge.s)?.type==='data'?nodeMap.get(edge.s):nodeMap.get(edge.t));const edgeColor=edgeNode&&window.PtoAIInfraPresentation?.semanticRole(edgeNode)?.color;if(edgeColor)el.style.setProperty('--graph-semantic-color',edgeColor);
-        el.classList.toggle('is-viz2-related',!!edge&&(view.edgeId===edge.id||focus.edgeId===edge.id||related.includes(edge.s)&&related.includes(edge.t)));
+        const edge=edgeById.get(el.dataset.pypaEdge);const edgeNode=edge&&(nodeMap.get(edge.s)?.type==='data'?nodeMap.get(edge.s):nodeMap.get(edge.t));const edgeColor=edgeNode&&window.PtoAIInfraPresentation?.semanticRole(edgeNode)?.color;if(edgeColor)el.style.setProperty('--graph-semantic-color',edgeColor);
+        const isRelated=!!edge&&(view.edgeId===edge.id||focus.edgeId===edge.id||related.includes(edge.s)&&related.includes(edge.t));
+        el.classList.toggle('is-viz2-related',isRelated);
+        edgeLabels.get(el.dataset.pypaEdge)?.classList.toggle('is-viz2-related',isRelated);
         if(!adapter&&['state','feedback'].includes(edge?.type))el.style.pointerEvents='stroke';
         if(adapter)el.style.pointerEvents='stroke';
         if(adapter){const role=focus.edgeRoles?.[el.dataset.pypaEdge];if(role)el.dataset.stateRole=role;else delete el.dataset.stateRole;}
@@ -350,16 +355,30 @@
       if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);tooltip.hidden=true;const c=camera||fitted();onView({camera:{...c,x:c.x+event.clientX-drag.x,y:c.y+event.clientY-drag.y}});drag.x=event.clientX;drag.y=event.clientY;return;}
       const target=event.target.closest('[data-pypa-node], [data-viz2-graph-label]'),node=target?nodeMap.get(target.dataset.pypaNode||target.dataset.viz2GraphLabel):null;tooltip.hidden=!node;
       if(hoverNodeId!==(node?.id||null)){hoverNodeId=node?.id||null;paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));}
-      if(adapter&&!global.PtoPhotoNarrative.enabled){const el=event.target.closest('[data-pypa-edge],[data-pypa-edge-label],[data-pypa-sync]');adapter.onHover?.(node?.id,el?.dataset.pypaEdge||el?.dataset.pypaEdgeLabel,el?.dataset.pypaSync,graph);paintFocus(adapter.resolveFocus(graph,selection,view));if(!node&&el){tooltip.hidden=false;window.PtoPhotoNarrative.text(tooltip,adapter.tooltip?.(null,el.dataset.pypaEdge||el.dataset.pypaEdgeLabel,el.dataset.pypaSync,graph)||'');const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}}
-      if(!node&&layers.execution&&event.target.closest('[data-pypa-edge],[data-pypa-edge-label]')){
-        tooltip.hidden=false;
-        const widthHelp='连线越粗，静态逻辑传输或贡献次数越多；不表示数据量、带宽或耗时';
-        window.PtoPhotoNarrative.text(tooltip,[adapter?tooltip.textContent:'',widthHelp].filter(Boolean).join('。'));
-        const r=viewport.getBoundingClientRect();
-        tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;
-        tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;
+      const hit=event.target.closest('[data-pypa-edge],[data-pypa-edge-hit],[data-pypa-edge-label],[data-pypa-sync]');
+      const edgeId=hit?.dataset.pypaEdge||hit?.dataset.pypaEdgeHit||hit?.dataset.pypaEdgeLabel;
+      const syncId=hit?.dataset.pypaSync;
+      const technicalAdapter=!global.PtoPhotoNarrative.enabled&&adapter;
+      if(technicalAdapter){
+        adapter.onHover?.(node?.id,edgeId,syncId,graph);
+        paintFocus(adapter.resolveFocus(graph,selection,view));
       }
-      if(node){window.PtoPhotoNarrative.text(tooltip,(!global.PtoPhotoNarrative.enabled&&adapter?.tooltip?.(node.id,null,null,graph))||`${node.title} · ${node.detail.length>100?node.detail.slice(0,100)+'…':node.detail}`);const rect=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-rect.left+14,rect.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-rect.top+16,rect.height-tooltip.offsetHeight-8))}px`;}
+      let tip;
+      if(node){
+        tip=(technicalAdapter&&adapter.tooltip?.(node.id,null,null,graph))||`${node.title} · ${node.detail.length>100?node.detail.slice(0,100)+'…':node.detail}`;
+      }else if(hit){
+        const edge=edgeById.get(edgeId),weight=edgeExecution.get(edgeId);
+        const detail=!weight&&technicalAdapter&&adapter.tooltip?.(null,edgeId,syncId,graph);
+        const widthHelp=weight&&'线宽表示静态逻辑传输或贡献次数，与数据量、带宽和耗时无关';
+        tip=[detail||edge?.label,weight?.label,widthHelp].filter(Boolean).join('。');
+      }
+      tooltip.hidden=!tip;
+      if(tip){
+        window.PtoPhotoNarrative.text(tooltip,tip);
+        const rect=viewport.getBoundingClientRect();
+        tooltip.style.left=`${Math.max(8,Math.min(event.clientX-rect.left+14,rect.width-tooltip.offsetWidth-8))}px`;
+        tooltip.style.top=`${Math.max(8,Math.min(event.clientY-rect.top+16,rect.height-tooltip.offsetHeight-8))}px`;
+      }
     },{signal:events.signal});
     const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag,{signal:events.signal}));
     viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;hoverNodeId=null;adapter?.onHover?.(null,null,null,graph);paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));},{signal:events.signal});

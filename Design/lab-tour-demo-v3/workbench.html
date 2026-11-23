@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="../lab-tour-demo-v3/header.css" />
   <link rel="stylesheet" href="../lab-tour-demo-v3/vendor/liquid-glass-controls/liquid-glass.css?v=final-v2" />
   <link rel="stylesheet" href="../lab-tour-demo-v3/demo-shell.css?v=1" />
-  <link rel="stylesheet" href="../lab-tour-demo-v3/workbench-polish.css?v=5" />
+  <link rel="stylesheet" href="../lab-tour-demo-v3/workbench-polish.css?v=6" />
   <style>
     @font-face { font-family:'JetBrains Mono'; src:url('../lab-tour-demo-v3/assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
     /* 顶栏：返回键、按钮圆角与阴影取自 demo-shell.css，这里只补本页的主按钮和分段控件 */
@@ -31,7 +31,9 @@
     :root .hp-top .lens-levels button[aria-selected="true"] { background:#eee; color:#111; }
     @media(max-width:700px){ .hp-top-right { gap:6px; } }
     /* 源码栏默认宽度：整层图是竖排流水，缩放压低后画布横向有富余，源码多给一些，代码行不被截断。拖动后仍由 --code-width 接管 */
-    @media(min-width:1101px){ .hp-main, .hp-main:has(.hp-story[hidden]) { grid-template-columns:clamp(360px,var(--code-width,34%),max(360px,calc(100% - 560px))) minmax(0,1fr); } }
+    @media(min-width:1101px){ .hp-main, .hp-main:has(.hp-story[hidden]) { grid-template-columns:clamp(360px,var(--code-width,40%),max(360px,calc(100% - 560px))) minmax(0,1fr); } }
+    /* 与 Agent 生成区保持相同行高，交接时各行不会逐行错位。 */
+    #srcFile .cl { line-height:22px; }
     /* 各页签共用计算图高度；用户拖动分隔条后仍由行内变量接管。 */
     #viewKernel:not(.is-rules-only) { --l2-graph-height:41%; }
     body[data-level="1"] #hpStatusDim { display:none; }
@@ -201,8 +203,8 @@
   <script src="../lab-tour-demo-v3/workbench-polish.js?v=4"></script>
   <script src="../lab-tour-demo-v3/workbench-story.js?v=3"></script>
   <script src="../lab-tour-demo-v3/workbench-chip.js?v=5"></script>
-  <script src="../lab-tour-demo-v3/workbench-canvas.js?v=4"></script>
-  <script src="../lab-tour-demo-v3/workbench-embed.js?v=2"></script>
+  <script src="../lab-tour-demo-v3/workbench-canvas.js?v=5"></script>
+  <script src="../lab-tour-demo-v3/workbench-embed.js?v=5"></script>
 <script src="../lab-tour-demo-v3/demo-highlights.js"></script>
 </body>
 </html>

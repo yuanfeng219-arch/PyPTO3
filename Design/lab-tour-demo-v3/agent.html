@@ -166,7 +166,7 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
 .ag-fly > .ag-fly-copy { position:absolute; z-index:2; inset:0; display:flex; flex-direction:column; transition:opacity .45s ease .18s; }
 .ag-fly > iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:var(--surface); }
 .ag-code-flight { position:fixed; z-index:61; box-sizing:border-box; margin:0; padding:0; overflow:hidden; pointer-events:none;
-  transition:left .8s cubic-bezier(.25,.65,.2,1), top .8s cubic-bezier(.25,.65,.2,1), width .8s cubic-bezier(.25,.65,.2,1), height .8s cubic-bezier(.25,.65,.2,1), opacity .2s ease; }
+  transition:left .8s cubic-bezier(.25,.65,.2,1), top .8s cubic-bezier(.25,.65,.2,1), width .8s cubic-bezier(.25,.65,.2,1), height .8s cubic-bezier(.25,.65,.2,1), opacity .32s ease; }
 .ag-code-flight-content { box-sizing:border-box; padding:8px 0 24px; transform-origin:0 0; transition:opacity .22s ease; }
 .ag-fly.is-full { box-shadow:none; }
 .ag-fly.is-full > .ag-fly-copy { opacity:0; }
@@ -439,10 +439,11 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
   }
 
   /* 把预加载的 Lens 直接保留为最终页面，避免转场结束时再次加载。 */
-  let leaving = false, lensFrame = null, lensFly = null;
+  let leaving = false, lensFrame = null, lensFly = null, lensSourceFlight = null, lensSourceContent = null;
   function restoreAgent() {
     if (!lensFly) return;
     lensFly.hidden = true;
+    if (lensSourceFlight) lensSourceFlight.hidden = true;
     document.body.classList.remove('ag-leaving');
     leaving = false;
     if (phase === 'lens') {
@@ -455,11 +456,23 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     if (!lensFly) return;
     if (e.state && e.state.agentLens) {
       lensFly.hidden = false; leaving = true;
+      if (lensSourceFlight) lensSourceFlight.hidden = false;
       document.body.classList.add('ag-leaving');
     } else restoreAgent();
   });
   window.addEventListener('message', e => {
-    if (lensFrame && e.source === lensFrame.contentWindow && e.data && e.data.type === 'lens:back') history.back();
+    if (!lensFrame || e.source !== lensFrame.contentWindow || !e.data) return;
+    if (e.data.type === 'lens:back') history.back();
+    else if (e.data.type === 'lens:agent-source-dismissed') {
+      if (lensSourceFlight) lensSourceFlight.remove();
+      lensSourceFlight = null; lensSourceContent = null;
+    } else if (e.data.type === 'lens:agent-source-scroll' && lensSourceContent) {
+      lensSourceContent.style.transform = 'translate(' + (-e.data.scrollLeft) + 'px,' + (-e.data.scrollTop) + 'px)';
+    } else if (e.data.type === 'lens:source-bounds' && lensSourceFlight) {
+      const rail = main.querySelector('.ag-rail');
+      const left = rail && rail.offsetParent && getComputedStyle(rail).flexDirection === 'column' ? rail.getBoundingClientRect().right : 0;
+      Object.assign(lensSourceFlight.style, { left: (left + e.data.left) + 'px', top: e.data.top + 'px', width: e.data.width + 'px', height: e.data.height + 'px' });
+    }
   });
   window.addEventListener('resize', () => {
     if (!lensFly || lensFly.hidden) return;
@@ -485,14 +498,13 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
     const code0 = panel && panel.querySelector('.ag-code');
     const boxRect = code0 && code0.getBoundingClientRect();
     const first = code0 && [...code0.querySelectorAll('.cl')].find(row => row.getBoundingClientRect().bottom > boxRect.top);
-    const line = first ? Number(first.dataset.line) : 208;
-    const offset = first ? first.getBoundingClientRect().top - boxRect.top : 0;
-    const query = 'line=' + line + '&offset=' + offset + '&scrollX=' + (code0 ? code0.scrollLeft : 0);
+    const query = new URLSearchParams({ line: first ? first.dataset.line : '208', offset: first ? first.getBoundingClientRect().top - boxRect.top : 0, scrollX: code0 ? code0.scrollLeft : 0 }).toString();
     const target = LENS_URL + '?' + query + '#from-agent';
-    if (still || !src) { location.href = target; return; }
+    if (!src) { location.href = target; return; }
     const r = src.getBoundingClientRect(), rail = main.querySelector('.ag-rail');
     const rr = rail && rail.offsetParent && getComputedStyle(rail).flexDirection === 'column' ? rail.getBoundingClientRect().right : 0;
     if (lensFly) { lensFly.remove(); lensFly = null; lensFrame = null; }
+    if (lensSourceFlight) { lensSourceFlight.remove(); lensSourceFlight = null; lensSourceContent = null; }
     const fly = el('div', 'ag-fly');
     const preview = document.createElement('iframe');
     preview.src = LENS_URL + '?transition=1&' + query + '#from-agent';
@@ -517,34 +529,50 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
       Object.assign(movingCode.style, { left: boxRect.left + 'px', top: boxRect.top + 'px', width: boxRect.width + 'px', height: boxRect.height + 'px' });
       document.body.appendChild(movingCode);
     }
-    let started = false;
+    let started = false, sourcePrepared = !code0, sourceRequested = false;
     const fallback = setTimeout(() => { if (!started) { window.removeEventListener('message', moveSource); location.href = target; } }, 3000);
     const moveSource = e => {
       const d = e.data || {};
-      if (e.source !== preview.contentWindow || d.type !== 'lens:source-bounds' || started) return;
+      if (e.source !== preview.contentWindow || started) return;
+      if (d.type === 'lens:source-bounds' && !sourcePrepared) {
+        if (!sourceRequested) {
+          sourceRequested = true;
+          preview.contentWindow.postMessage({ type: 'lens:agent-source', html: code0.innerHTML, scrollTop: code0.scrollTop, scrollLeft: code0.scrollLeft }, '*');
+        }
+        return;
+      }
+      if (d.type === 'lens:agent-source-ready') sourcePrepared = true;
+      if (!sourcePrepared || (d.type !== 'lens:source-bounds' && d.type !== 'lens:agent-source-ready')) return;
       started = true; clearTimeout(fallback);
       window.removeEventListener('message', moveSource);
-      document.body.classList.add('ag-leaving');
-      void fly.offsetWidth;
-      fly.classList.add('is-full');
-      Object.assign(fly.style, { left: rr + 'px', top: '0px', width: (innerWidth - rr) + 'px', height: innerHeight + 'px' });
-      if (movingCode) Object.assign(movingCode.style, { left: (rr + d.left) + 'px', top: d.top + 'px', width: d.width + 'px', height: d.height + 'px' });
-      setTimeout(() => {
+      let finished = false;
+      const finishFlight = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(flightFallback);
+        fly.removeEventListener('transitionend', onFlightEnd);
         lensFrame = preview; lensFly = fly;
         preview.removeAttribute('aria-hidden'); preview.removeAttribute('tabindex');
         fly.querySelector('.ag-fly-copy')?.remove();
         try { history.pushState({ agentLens: true }, '', target); }
         catch (_) { history.pushState({ agentLens: true }, '', '#lens'); }
-        // 两页是不同文件：先淡出 Agent 文本，再淡入 L1 源码，避免不同代码重叠。
-        const revealSource = () => {
-          if (movingCode) movingCode.remove();
-          preview.contentWindow.postMessage({ type: 'lens:show-source' }, '*');
-        };
-        if (movingContent) {
-          movingContent.style.opacity = '0';
-          setTimeout(revealSource, 230);
-        } else revealSource();
-      }, 800);
+        // 保留同一个代码层，直到用户操作计算图；不在结束帧替换 DOM。
+        lensSourceFlight = movingCode; lensSourceContent = movingContent;
+        if (movingCode) movingCode.style.transition = 'none';
+        preview.contentWindow.postMessage({ type: 'lens:show-source' }, '*');
+      };
+      const onFlightEnd = event => {
+        if (event.target === fly && event.propertyName === 'width') finishFlight();
+      };
+      fly.addEventListener('transitionend', onFlightEnd);
+      // 宽度未变化或动画被中断时仍可完成转场。
+      const flightFallback = setTimeout(finishFlight, 1100);
+      document.body.classList.add('ag-leaving');
+      void fly.offsetWidth;
+      fly.classList.add('is-full');
+      Object.assign(fly.style, { left: rr + 'px', top: '0px', width: (innerWidth - rr) + 'px', height: innerHeight + 'px' });
+      if (movingCode) Object.assign(movingCode.style, { left: (rr + d.left) + 'px', top: d.top + 'px', width: d.width + 'px', height: d.height + 'px' });
+      if (still) finishFlight();
     };
     window.addEventListener('message', moveSource);
     document.body.appendChild(fly);
@@ -595,6 +623,24 @@ button.ag-row:hover,button.ag-row:focus-visible { background:#202020; color:var(
   } else {
     prompt.focus({ preventScroll: true });
     prompt.setSelectionRange(prompt.value.length, prompt.value.length);
+    // 页面加载后无人操作时，自动发送预填需求；任何主动操作都取消自动发送。
+    let autoStartTimer, interacted = false;
+    const cancelAutoStart = () => {
+      interacted = true;
+      clearTimeout(autoStartTimer);
+    };
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(type =>
+      window.addEventListener(type, cancelAutoStart, { once: true, capture: true, passive: true })
+    );
+    const scheduleAutoStart = () => {
+      if (interacted) return;
+      autoStartTimer = setTimeout(() => {
+        const text = prompt.value.trim();
+        if (phase === 'idle' && text) generate(text);
+      }, 3000);
+    };
+    if (document.readyState === 'complete') scheduleAutoStart();
+    else window.addEventListener('load', scheduleAutoStart, { once: true });
   }
 })();
 </script>

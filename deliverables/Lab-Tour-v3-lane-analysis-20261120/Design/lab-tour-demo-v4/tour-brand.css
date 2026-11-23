@@ -1,0 +1,5 @@
+/* One fixed brand anchor shared by all three presentation pages. */
+:root{--tour-brand-left:clamp(24px,3.55vw,80px);--tour-brand-top:28px}
+.scene>.brand,.intro .brand-home,.poster>.ascend-brand{position:fixed;left:var(--tour-brand-left);top:var(--tour-brand-top);z-index:100;width:105px;height:48px;margin:0;padding:0;transform:none;object-fit:contain;object-position:left center;border-radius:0}
+.intro .brand-home .ascend-brand{width:105px;height:48px;object-fit:contain;object-position:left center}
+@media(max-width:700px){:root{--tour-brand-left:20px;--tour-brand-top:18px}.scene>.brand,.intro .brand-home,.poster>.ascend-brand,.intro .brand-home .ascend-brand{width:84px;height:40px}}

@@ -1,0 +1,161 @@
+/* 复制自 Design/compile-board-demo/workbench.html 的内联样式（2026-11-10），供 L3 / L4 与洞察栏使用；原文件未改动。 */
+.story-toggle { width:30px; justify-content:center; padding:0; } .story-toggle svg { width:16px; height:16px; } .story-toggle[aria-expanded="false"] .story-panel { opacity:.35; } .run-button { background:#c8ef6b; border-color:#c8ef6b; color:#17200a; font-weight:700; text-decoration:none; gap:8px; } .run-button:hover,.run-button:focus-visible { background:#dcfa94; border-color:#dcfa94; color:#17200a; } @media(max-width:700px){.hp-top-right{gap:5px}.run-button{white-space:nowrap}}
+.hp-svg .sv-box { fill:#282828; stroke:none; rx:12px; }
+.hp-svg .sv-mem { fill:#333; stroke:#454545; }
+.hp-svg .sv-buf.k-slot { fill:#0062d6; }
+.hp-svg .sv-buf.k-bias, .hp-svg .sv-buf.k-row { fill:#79c1ff; }
+.hp-svg .sv-buf.k-tmp, .hp-svg .sv-buf.k-work { fill:#087cfa; }
+.hp-svg .sv-buf.is-idle { fill:url(#csIdle); }
+.hp-svg .sv-region.is-hot .sv-box, .hp-svg .sv-region.is-hot .sv-mem { stroke:#e8e8e8; }
+.hp-resize[hidden] { display:none; }
+.hp-code .pane-info { margin-left:auto; }
+.lens-toggle { margin-left:0; flex:none; width:28px; height:26px; justify-content:center; padding:0; }
+.lens-toggle svg { width:16px; height:16px; }
+.lens-toggle[aria-expanded="false"] svg { opacity:.5; }
+.hp-main:has(.hp-mid[hidden]) { grid-template-columns: minmax(0,1fr) minmax(320px,360px); }
+.hp-main:has(.hp-mid[hidden]):has(.hp-story[hidden]) { grid-template-columns: minmax(0,1fr); }
+@media(max-width:1280px) { .hp-main:has(.hp-mid[hidden]), .hp-main:has(.hp-mid[hidden]):has(.hp-story[hidden]) { grid-template-columns:minmax(0,1fr); } }
+
+.demo-home{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:none;border:1px solid #444;border-radius:5px;background:#1a1a1a;color:#c8d2ce;text-decoration:none}.demo-home:hover,.demo-home:focus-visible{color:#fff;border-color:#9bafa3;background:#292f2b;outline:2px solid transparent;outline-offset:2px}.demo-home:focus-visible{outline-color:#b1ef6b}
+
+/* 源码栏默认宽度：右栏收起时 45%（两栏），右栏展开时 34%（三栏）；拖动后由 --code-width 接管。只在宽屏三栏布局生效 */
+@media(min-width:1101px) {
+  /* 上限与 resize.js 的拖动上限一致（右栏展开时留 920px，收起时留 560px），默认值不会超出拖动范围 */
+  .hp-main { grid-template-columns:clamp(300px,var(--code-width,34%),max(300px,calc(100% - 920px))) minmax(0,1fr) minmax(300px,340px); }
+  .hp-main:has(.hp-story[hidden]) { grid-template-columns:clamp(300px,var(--code-width,45%),max(300px,calc(100% - 560px))) minmax(0,1fr); }
+}
+/* 待确认：和 path-csa.css 的 .tag-real / .tag-proj 同一个壳子，中性色 */
+.tag-open { display:inline-block; padding:0 5px; border:1px solid var(--border-strong); border-radius:3px; color:var(--muted); font:9.5px/1.6 var(--mono); vertical-align:1px; }
+/* 硅片落点标题栏里的资源占用摘要（原底部资源预算）；推算值琥珀色，同画布上的 .sv-warn */
+.chip-stats { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 14px; min-width:0; margin-left:6px; }
+.cs-stat { display:inline-flex; align-items:baseline; gap:5px; white-space:nowrap; font:11px var(--mono); color:var(--muted); }
+.cs-stat b { font-weight:600; color:var(--text); }
+.cs-stat small { font-size:10px; color:var(--dim); }
+.cs-stat .meter-k { text-transform:none; } /* 保留 Vec 的大小写，和画布、状态栏一致 */
+.cs-stat.is-proj b { color:var(--amber); }
+.chip-stats .tag-real, .chip-stats .tag-proj { margin-left:0; }
+
+/* 右栏问题分析的可视化小件：颜色沿用硅片画布——AIC lavender、AIV sky、空转斜纹（同 #csIdle）、超限红 */
+.hp-story { --idle:repeating-linear-gradient(45deg,#1a1a1a 0 3px,#5a5a5a 3px 4px); }
+.viz { margin:0 0 14px; }
+.hp-story .sec-body .st-sec:first-child { margin-top:4px; }
+.hp-story .sec-body .note .tag-real, .hp-story .sec-body .note .tag-proj, .hp-story .sec-body .note .tag-open { margin-left:4px; }
+/* 24 × 2 核心格 */
+.viz-cores { display:grid; grid-template-columns:34px minmax(0,1fr); gap:3px 6px; align-items:center; }
+.vc-k { white-space:nowrap; }
+.vc-row { display:grid; grid-template-columns:repeat(24,minmax(0,1fr)); gap:2px; }
+.vc-row i { height:12px; border-radius:2px; background:var(--idle); }
+.vc-row i.on { background:var(--sky); }
+.vc-row i.on.is-proj { background:transparent; box-shadow:inset 0 0 0 1px var(--sky); }
+.vc-axis { display:flex; justify-content:space-between; letter-spacing:0; }
+.vc-axis b { font-weight:400; }
+/* 横向环节轨道 */
+.viz-track { list-style:none; padding:0; display:grid; grid-auto-columns:minmax(0,1fr); grid-auto-flow:column; position:relative; }
+.viz-track::before { content:""; position:absolute; left:10%; right:10%; top:5px; border-top:1px solid var(--border-strong); }
+.viz-track li { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px; padding:0 2px; }
+.vt-dot { width:11px; height:11px; border-radius:50%; background:var(--surface); border:1.5px solid #666; margin-bottom:4px; }
+.vt-miss .vt-dot { border-color:var(--lime); }
+.vt-hit .vt-dot { background:var(--text); border-color:var(--text); }
+.vt-open .vt-dot { background:var(--red); border-color:var(--red); }
+.vt-k { line-height:1.3; letter-spacing:0; }
+.vt-v { font-size:11.5px; line-height:1.35; color:var(--muted); }
+.vt-hit .vt-v { color:var(--text); font-weight:600; }
+.vt-open .vt-v { color:var(--red); }
+/* 因果链 */
+.viz-chain { display:flex; flex-direction:column; align-items:stretch; }
+.ch-node { padding:8px 11px; border-radius:6px; background:var(--raised); }
+.ch-node.is-src { box-shadow:inset 2px 0 0 var(--muted); }
+.ch-node.is-warn { box-shadow:inset 2px 0 0 var(--amber); }
+.ch-k { display:block; line-height:1.5; }
+.ch-v { display:block; font-size:12.5px; line-height:1.5; color:var(--text); overflow-wrap:anywhere; }
+.ch-v code { font-size:11.5px; }
+.ch-arrow { align-self:center; width:1px; height:14px; background:#666; position:relative; }
+.ch-arrow::after { content:""; position:absolute; left:-3px; bottom:0; border:3.5px solid transparent; border-top:4px solid #666; border-bottom:0; }
+/* 32 行切分条 */
+.viz-split { display:grid; gap:5px; }
+.vs-row { display:grid; grid-template-columns:62px minmax(0,1fr); gap:8px; align-items:center; }
+.vs-k { white-space:nowrap; letter-spacing:0; }
+.vs-bar { display:flex; gap:2px; height:20px; }
+.vs-seg { display:flex; align-items:center; justify-content:center; min-width:0; border-radius:3px; font:10px var(--mono); color:#111; white-space:nowrap; overflow:hidden; }
+.vs-seg.on { background:var(--sky); }
+.vs-seg.on.is-proj { background:transparent; color:var(--sky); box-shadow:inset 0 0 0 1px var(--sky); }
+.vs-seg.idle { background:var(--idle); color:var(--muted); }
+.viz-split.is-compact { margin:8px 0 4px; }
+.viz-split.is-compact .vs-row { grid-template-columns:28px minmax(0,1fr); }
+/* Vec 容量 / 组成：同一把 0–220 KB 尺子 */
+.viz-cap { display:grid; gap:6px; }
+.vk-scale { position:relative; height:14px; margin-left:62px; margin-right:52px; font:10px var(--mono); color:var(--dim); }
+.vk-scale span { position:absolute; top:0; padding-left:3px; white-space:nowrap; }
+.vk-scale .is-usable { color:var(--red); transform:translateX(-100%); padding-right:3px; }
+.vk-row { display:grid; grid-template-columns:54px minmax(0,1fr) 44px; gap:8px; align-items:center; }
+.vk-k { white-space:nowrap; letter-spacing:0; }
+.vk-v { font:600 11px var(--mono); color:var(--text); text-align:right; white-space:nowrap; }
+.vk-track { position:relative; display:flex; height:16px; background:#262626; border-radius:2px; }
+.vk-track i, .vk-track em { position:absolute; top:-3px; bottom:-3px; width:1px; }
+.vk-track i { background:var(--red); }
+.vk-track em { background:#8a8a8a; }
+.vk-fill { height:100%; border-radius:2px 0 0 2px; }
+.vk-fill.is-real { background:var(--sky); }
+.vk-fill.is-est { background:transparent; box-shadow:inset 0 0 0 1px var(--sky); }
+.vk-over { position:absolute; top:0; bottom:0; background:var(--red); border-radius:0 2px 2px 0; }
+.vk-seg { height:100%; border-right:1px solid #131313; }
+.vk-seg.k-slot, .vk-sw.k-slot { background:#0062d6; }
+.vk-seg.k-bias, .vk-seg.k-row { background:#79c1ff; }
+.vk-seg.k-tmp, .vk-sw.k-tmp, .vk-seg.k-work { background:#087cfa; }
+.vk-seg.k-chain, .vk-sw.k-chain { background:transparent; box-shadow:inset 0 0 0 1px var(--sky); }
+.vk-cmp { width:100%; border-collapse:collapse; margin-top:4px; font-size:12px; }
+.vk-cmp th { font:10px var(--mono); color:var(--dim); font-weight:400; text-align:right; padding:0 0 4px; }
+.vk-cmp td { padding:3px 0; color:var(--muted); text-align:right; font-family:var(--mono); font-size:11px; white-space:nowrap; }
+.vk-cmp td:first-child { text-align:left; font-family:var(--sans); font-size:12px; }
+.vk-cmp tr.is-diff td { color:var(--text); }
+.vk-sw { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; vertical-align:0; }
+/* 管道示意 */
+.viz-pipe { display:grid; grid-template-columns:52px minmax(0,1fr) 52px; gap:8px; align-items:center; }
+.vp-core { display:flex; align-items:center; justify-content:center; height:52px; border-radius:6px; font:600 11px var(--mono); color:#111; }
+.vp-core.k-aic { background:var(--lav); }
+.vp-core.k-aiv { background:var(--sky); }
+.vp-slots { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:4px; padding-bottom:18px; }
+.vp-slots > span { display:flex; flex-direction:column; align-items:center; padding:5px 0; border-radius:4px; background:#3a4f63; font:10px var(--mono); color:var(--text); }
+.vp-slots small { font-size:9.5px; color:#c8d2da; }
+.vp-slots em { position:absolute; left:0; right:0; bottom:0; font:normal 10px var(--mono); color:var(--amber); text-align:center; }
+/* stage 在飞格 */
+.viz-flight { display:grid; gap:6px; }
+.vf-k { letter-spacing:0; }
+.vf-row { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:4px; }
+.vf-cell { display:flex; flex-direction:column; align-items:center; padding:6px 0; border-radius:4px; font:10px var(--mono); }
+.vf-cell small { font-size:9.5px; }
+.vf-cell.on { background:var(--sky); color:#111; }
+.vf-cell.empty { border:1px dashed var(--amber); color:var(--amber); }
+.vf-cell.wait { background:var(--idle); color:var(--muted); }
+/* 时间线示意 */
+.viz-gantt { display:grid; gap:10px; }
+.vg-case { display:grid; gap:3px; }
+.vg-title { display:flex; justify-content:space-between; letter-spacing:0; }
+.vg-title b { font-weight:400; color:var(--dim); }
+.vg-lane { display:grid; grid-template-columns:30px minmax(0,1fr); gap:6px; align-items:center; }
+.vg-k { letter-spacing:0; }
+.vg-track { position:relative; height:16px; background:#181818; border-radius:2px; }
+.vg-b { position:absolute; top:0; bottom:0; display:flex; align-items:center; justify-content:center; border-right:1px solid #131313; font:9px var(--mono); color:var(--text); overflow:hidden; }
+.vg-b.u-aic { background:#6f5b9b; }
+.vg-b.u-aiv { background:#3b6f80; }
+.vg-note { margin:0; font-size:11px; color:var(--dim); }
+/* 复查步骤 */
+.viz-checks { margin-bottom:14px; }
+.hp-story .viz-checks .ev { margin-right:6px; }
+/* 与 .hp-story .cmp .ev 同一个胶囊（path.css 492–495），这里不在 .cmp 里，需要再声明一次 */
+.hp-story .viz-checks .ev { display:inline-flex; align-items:center; padding:2px 7px; border-radius:999px; font:600 10.5px/1.4 var(--sans); color:#111; background:#c8d7e5; white-space:nowrap; }
+.hp-story .viz-checks .ev.e-est { background:#79d4f2; }
+.hp-story .viz-checks .ev.e-build { background:#f2c45f; }
+.hp-story .viz-checks .ev.e-board { background:#bca0f3; }
+
+/* 单图放大：中栏只留一张图 */
+.zoom-toggle { flex:none; width:28px; height:26px; justify-content:center; padding:0; }
+.hp-logic .pane-info, .hp-chip .pane-info { margin-left:auto; }
+.zoom-toggle svg { width:16px; height:16px; }
+.zoom-toggle .zi-out, .zoom-toggle[aria-pressed="true"] .zi-in { display:none; }
+.zoom-toggle[aria-pressed="true"] .zi-out { display:inline; }
+.zoom-toggle[aria-pressed="true"] { color:var(--text); border-color:var(--border-strong); }
+.hp-mid[data-zoom="logic"] .hp-chip, .hp-mid[data-zoom="logic"] .hp-splitter,
+.hp-mid[data-zoom="chip"] .hp-logic, .hp-mid[data-zoom="chip"] .hp-splitter { display:none; }
+.hp-mid[data-zoom="logic"] .hp-logic { flex:1 1 auto; max-height:none; }
+

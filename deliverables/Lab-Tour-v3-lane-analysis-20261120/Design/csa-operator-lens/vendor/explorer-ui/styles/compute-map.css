@@ -1,0 +1,211 @@
+/* Domain data marks within the existing ide-frame; no additional pane shell. */
+.kf-pypa-graph.has-task-intro { display: flex; flex-direction: column; min-height: 0; }
+.kf-pypa-graph.has-task-intro > .kf-pypa-graph__layers { position: static; order: -1; flex: none; max-width: none; justify-content: flex-start; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+.kf-pa-intro-mount { flex: 1; min-height: 0; min-width: 0; }
+.kf-pa-map { height: 100%; display: flex; flex-direction: column; padding: var(--space-4) var(--space-5) var(--space-3); box-sizing: border-box; color: var(--foreground); container-type: inline-size; }
+.kf-pa-map [hidden] { display: none !important; }
+/* 顶部关键参数：editorial tech 风格——大号等宽数字 + 小号字距标签，
+   只用细分割线分层，不加底纹、不用卡片。 */
+.kf-pa-map__metrics { flex: none; display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.kf-pa-map__metrics-row { display: flex; flex: 1; flex-wrap: wrap; gap: var(--space-2) 0; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.kf-pa-map__metrics-row li { display: flex; flex-direction: column; gap: 3px; padding: 0 var(--space-3); border-left: 1px solid var(--border-subtle); }
+.kf-pa-map__metrics-row li:first-child { padding-left: 0; border-left: 0; }
+/* 指标字号必须带 !important 并压过 demo.css 里那条
+   `.pto-ide-frame [data-ide-pane="inspector"] :where(..., b, span, li, ...) { font-size: 12px !important }`
+   的强制 12px——否则这里的字号调多大都会被它吃掉。 */
+.kf-pa-map .kf-pa-map__metrics-row b { color: var(--foreground); font-family: var(--font-mono); font-size: 34px !important; font-weight: 300; line-height: 1; letter-spacing: -.02em; }
+/* 标签用 12px：那是 js/typography-responsive.js 给全站设的最小可读字号底线，
+   写更小只会被它改写成内联样式，不如直接对齐这个下限。 */
+.kf-pa-map .kf-pa-map__metrics-row span { color: var(--foreground-muted); font-size: 12px !important; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+.kf-pa-map__shelf { flex: none; }
+.kf-pa-map__shelf-label { display: flex; justify-content: space-between; gap: var(--space-2); color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-map__shelf-label b { color: var(--foreground-secondary); font-weight: 500; }
+.kf-pa-map__shelf-label b span { margin-left: var(--space-2); color: var(--foreground-muted); font-family: var(--font-mono); }
+.kf-pa-map__blocks { display: flex; gap: var(--space-4); margin: var(--space-2) 0 0; }
+.kf-pa-map__block-group { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--space-1); flex: 1; min-width: 0; }
+.kf-pa-map .kf-pa-map__block { display: flex; flex-direction: column; justify-content: center; gap: var(--space-1); height: 58px; min-width: 0; padding: var(--space-1) 0; border-radius: var(--radius-sm); color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-map__block svg { width: 26px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1; }
+.kf-pa-map__block-face { fill: var(--surface-3); }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__metrics { display: none; }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__block { height: 42px; }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__block svg { width: 18px; height: 16px; flex: none; }
+.kf-pa-map .kf-pa-map__block:is(.is-selected, .is-hovered) { color: var(--primary); background: var(--state-selected); }
+.kf-pa-map__block:is(.is-selected, .is-hovered) .kf-pa-map__block-face { fill: var(--primary); fill-opacity: .24; }
+/* Block 分配到矩阵之间只留一条细线，让上下两块读成一整块。 */
+.kf-pa-map__assignment { min-height: 14px; margin: var(--space-1) 0 0; color: var(--foreground-secondary); font: var(--type-mono); }
+.kf-pa-map__context { display: flex; align-items: center; gap: var(--space-3); min-height: 26px; padding: var(--space-1) 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+.kf-pa-map__breadcrumb { display: flex; align-items: center; gap: var(--space-2); font: var(--type-label); }
+.kf-pa-map__context > [data-pa-action="enter"] { margin-left: auto; }
+.kf-pa-map__detail-meta { color: var(--foreground-secondary); font: var(--type-micro); }
+.kf-pa-map__config { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-2) 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pa-map__config label { display: inline-flex; align-items: center; gap: var(--space-2); }
+.kf-pa-map__config input[type="number"], .kf-pa-execution-input input[type="number"] { width: 82px; height: 30px; font: var(--type-mono); background: var(--input-bg); color: var(--foreground); border: 1px solid var(--input-border); border-radius: var(--input-radius); padding: 0 var(--space-2); }
+.kf-pa-map__config input[type="range"] { flex: 1; min-width: 100px; max-width: 240px; accent-color: var(--primary); }
+.kf-pa-map__viewport { flex: 1; min-height: 180px; position: relative; overflow: hidden; cursor: grab; touch-action: none; }
+.kf-pa-map__viewport.is-dragging { cursor: grabbing; }
+.kf-pa-map__viewport:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: -1px; }
+.kf-pa-map__svg { width: 100%; height: 100%; display: block; overflow: hidden; user-select: none; }
+.kf-pa-map__svg text { font-family: var(--font-mono); font-size: var(--pa-svg-label, 12px); pointer-events: none; }
+.kf-pa-map__axis { fill: var(--foreground-muted); letter-spacing: .05em; }
+.kf-pa-map__batch, .kf-pa-map__row { fill: var(--foreground-secondary); }
+.kf-pa-map__batch, .kf-pa-map__seq, .kf-pa-map__task-id { text-anchor: middle; }
+.kf-pa-map__seq { fill: var(--foreground-muted); }
+.kf-pa-map__task { cursor: pointer; outline: none; }
+.kf-pa-map__cell { fill: var(--surface-2); stroke: none; }
+/* Five separate marks encode Q heads, not five extra tasks or token slots. */
+.kf-pa-map__q { fill: var(--foreground); fill-opacity: .055; pointer-events: none; }
+.kf-pa-map__task-id { fill: var(--foreground-muted); }
+.kf-pa-map__svg .is-distant .kf-pa-map__seq { visibility: hidden; }
+.kf-pa-map__svg .is-tiny .kf-pa-map__task-id { visibility: hidden; }
+.kf-pa-map__svg .is-tiny .kf-pa-map__task:is(.is-hovered, :focus-visible) .kf-pa-map__task-id { visibility: visible; }
+.kf-pa-map__task.is-assigned .kf-pa-map__cell { fill: var(--state-selected); }
+.kf-pa-map__task.is-assigned .kf-pa-map__q { fill: var(--primary); fill-opacity: .24; }
+.kf-pa-map__task:is(.is-assigned, .is-selected, .is-hovered, :focus-visible) .kf-pa-map__task-id { fill: var(--foreground); }
+.kf-pa-map__task:is(.is-selected, .is-hovered, :focus-visible) .kf-pa-map__cell { fill: var(--state-focus); stroke: var(--primary); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.kf-pa-map__task:is(.is-selected, .is-hovered, :focus-visible) .kf-pa-map__q { fill: var(--primary); fill-opacity: .3; }
+.kf-pa-map__tooltip { position: absolute; z-index: 3; max-width: calc(100% - 16px); padding: var(--space-2) var(--space-3); background: var(--surface-3); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); color: var(--foreground); font: var(--type-body-sm); pointer-events: none; }
+.kf-pa-map__stack { fill: var(--surface-2); }
+.kf-pa-map__stack-label, .kf-pa-map__page-label { fill: var(--foreground); }
+.kf-pa-map__page-value { fill: var(--foreground-secondary); }
+.kf-pa-map__detail-label { fill: var(--foreground-secondary); }
+.kf-pa-map__page { fill: var(--surface-3); }
+.kf-pa-map__page-track { fill: var(--surface-4); }
+.kf-pa-map__page-fill { fill: var(--primary); }
+.kf-pa-map__page-fill.is-tail { fill: var(--warning); }
+.kf-pa-map__unused { fill: none; stroke: var(--border-subtle); stroke-dasharray: 3 5; }
+.kf-pa-map__unused-label { fill: var(--foreground-muted); text-anchor: middle; }
+/* seq_lens 的图形化表达：按 512 tokens 分段的长度条（矩阵列与 Task 外框共用）。 */
+.kf-pa-map__seq-track { fill: var(--surface-4); }
+.kf-pa-map__seq-fill { fill: var(--primary); }
+/* Task 外框：详情视图里保留矩阵空间关系，选中的 Task 加重外框并在显著位置标号。 */
+.kf-pa-map__task-frame { cursor: pointer; outline: none; }
+.kf-pa-map__task-boundary { fill: color-mix(in srgb, var(--surface-2) 55%, transparent); stroke: var(--border-subtle); }
+.kf-pa-map__task-frame.is-expanded .kf-pa-map__task-boundary { fill: var(--surface-2); stroke: var(--primary); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.kf-pa-map__task-frame:is(.is-selected, .is-hovered, :focus-visible) .kf-pa-map__task-boundary { stroke: var(--primary); vector-effect: non-scaling-stroke; }
+/* 字号比通用 --pa-svg-label 更大，且随缩放反向放大，缩小时不至于看不清。 */
+.kf-pa-map__svg .kf-pa-map__frame-title { fill: var(--foreground); font-weight: 700; font-size: var(--pa-task-title, 30px); }
+.kf-pa-map__svg .kf-pa-map__frame-meta,
+.kf-pa-map__svg .kf-pa-map__frame-length { fill: var(--foreground-secondary); font-size: max(13px, calc(var(--pa-svg-label, 12px) * 1.15)); }
+.kf-pa-map__svg .kf-pa-map__neighbor-title { fill: var(--foreground-secondary); font-size: var(--pa-neighbor-title, 18px); }
+.kf-pa-map__svg .kf-pa-map__neighbor-length { fill: var(--foreground-muted); font-size: max(12px, calc(var(--pa-svg-label, 12px) * 0.95)); }
+/* 入场 morph 层：不挂场景变换的屏幕坐标共享元素，把被点的格子直接补间成任务卡。
+   字号在 JS 里按屏幕像素给，所以这里只兜住字体族与命中，避免被 .kf-pa-map__svg text 覆盖。 */
+.kf-pa-map__svg .kf-pa-map__morph-id,
+.kf-pa-map__svg .kf-pa-map__morph-title,
+.kf-pa-map__svg .kf-pa-map__morph-prefix { fill: var(--foreground); font-family: var(--font-mono); }
+/* 入场时卡片本体先让位给 morph 层：外框/标题/正文各自按进度接管，
+   避免 morph 的边线和卡片自己的边线在同一帧里各画一遍。
+   正文另由 JS 把展开组的裁剪收成跟外框同步长大的窗口——边框还没长到的地方，
+   Stack / Page 不会先漏出来（见 startMorph 里的 pa-frame-clip）。 */
+.kf-pa-map__scene.is-morphing .kf-pa-map__task-frame.is-expanded .kf-pa-map__task-boundary,
+.kf-pa-map__scene.is-morphing .kf-pa-map__task-frame.is-expanded .kf-pa-map__frame-title { opacity: var(--pa-morph-handoff, 0); }
+.kf-pa-map__scene.is-morphing .kf-pa-map__task-frame.is-expanded .kf-pa-map__frame-body { opacity: var(--pa-morph-body, 0); }
+.kf-pa-map__footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-2); flex: none; }
+.kf-pa-map__footer p { margin: 0 0 var(--space-1); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pa-map__footer span { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-map__tools { display: flex; align-items: center; gap: var(--space-1); flex: none; }
+.kf-pa-map__tools output { min-width: 40px; text-align: center; font: var(--type-micro); color: var(--foreground-secondary); }
+/* Automatic assignment sweep. The same weight follows a Block's Tasks,
+   preserving the stride mapping rather than implying execution timings. */
+.kf-pa-map .kf-pa-map__block.is-playing {
+  color: color-mix(in srgb, var(--primary) calc(var(--pa-playback-strength) * 100%), var(--foreground-muted));
+  background: color-mix(in srgb, var(--primary) calc(var(--pa-playback-strength) * 16%), transparent);
+  transition: color 160ms linear, background-color 160ms linear;
+}
+.kf-pa-map__block.is-playing .kf-pa-map__block-face {
+  fill: var(--primary);
+  fill-opacity: calc(var(--pa-playback-strength) * .3);
+  transition: fill-opacity 160ms linear;
+}
+.kf-pa-map__task.is-playing .kf-pa-map__cell {
+  fill: color-mix(in srgb, var(--primary) calc(var(--pa-playback-strength) * 14%), var(--surface-2));
+  transition: fill 160ms linear;
+}
+.kf-pa-map__task.is-playing .kf-pa-map__q {
+  fill: var(--primary);
+  fill-opacity: calc(.035 + var(--pa-playback-strength) * .38);
+  transition: fill 160ms linear, fill-opacity 160ms linear;
+}
+.kf-pa-map__task.is-playing .kf-pa-map__task-id {
+  fill: color-mix(in srgb, var(--foreground) calc(var(--pa-playback-strength) * 45%), var(--foreground-muted));
+  transition: fill 160ms linear;
+}
+/* The current assignment has a crisp boundary; neighboring weights stay quiet. */
+.kf-pa-map .kf-pa-map__block.is-playback-current {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  outline: 1.5px solid var(--primary);
+  outline-offset: -1.5px;
+}
+.kf-pa-map__block.is-playback-current span { color: var(--foreground); font-weight: 700; }
+.kf-pa-map__block.is-playback-current svg { stroke-width: 1.8; }
+.kf-pa-map__block.is-playback-current .kf-pa-map__block-face { fill-opacity: .8; }
+.kf-pa-map__task.is-playback-current .kf-pa-map__cell {
+  fill: color-mix(in srgb, var(--primary) 30%, var(--surface-2));
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.kf-pa-map__task.is-playback-current .kf-pa-map__q { fill-opacity: .9; }
+.kf-pa-map__task.is-playback-current .kf-pa-map__task-id { fill: var(--foreground); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .kf-pa-map .is-playing, .kf-pa-map .is-playing :is(path, rect, text) { transition: none; }
+}
+@container (max-width: 720px) {
+  .kf-pa-map .kf-pa-map__metrics-row b { font-size: 26px !important; }
+  .kf-pa-map__metrics-row li { padding: 0 var(--space-2); }
+  .kf-pa-map__blocks { gap: var(--space-2); }
+  .kf-pa-map__block-group { gap: 0; }
+  .kf-pa-map__footer { align-items: flex-end; }
+  .kf-pa-map__assignment { font-size: 11px; }
+}
+/* Logical execution data within the existing Task frame and pane. */
+.kf-pa-map__pipeline-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-2) 0; flex: none; }
+.kf-pa-map__pipeline-controls > span { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-map__pipeline-controls [data-pa-steps] { display: flex; align-items: center; gap: var(--space-1); font: var(--type-mono); }
+.kf-pa-map__pipeline-controls .btn[aria-pressed="true"] { color: var(--primary); background: var(--state-selected); }
+.kf-pa-map__pipeline-mark { cursor: pointer; outline: none; }
+.kf-pa-map__pipeline-mark rect { fill: var(--surface-3); stroke: var(--border-subtle); }
+.kf-pa-map__pipeline-mark text { fill: var(--foreground-secondary); }
+.kf-pa-map__pipeline-mark.is-active rect { fill: var(--state-selected); stroke: var(--primary); }
+.kf-pa-map__pipeline-mark:is(.is-active, .is-stack-selected) text { fill: var(--primary); }
+.kf-pa-map__pipeline-mark:is(.is-stack-selected, :focus-visible) rect { stroke: var(--primary); stroke-width: 2; }
+.kf-pa-map__pipeline-offset { fill: none; stroke: var(--primary); }
+.kf-pa-map__slot { fill: var(--foreground-muted); }
+.kf-pa-map__slot.is-active { fill: var(--primary); }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map { overflow-y: auto; }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__viewport { min-height: 320px; }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__footer { align-items: flex-start; }
+.kf-pa-map__stack.is-stack-selected { fill: var(--state-selected); stroke: var(--primary); }
+
+/* Selection continuity uses the existing button, metadata and selected-state tokens. */
+.kf-pa-map__stage { cursor: pointer; }
+.kf-pa-map__stage rect { fill: transparent; }
+.kf-pa-map__stage.is-selected rect { fill: var(--state-selected); }
+.kf-pa-map__stage.is-selected text { fill: var(--primary); }
+.kf-pa-map__stage[aria-disabled="true"] { opacity: .4; cursor: default; }
+.kf-pa-map__stage:focus-visible rect { stroke: var(--focus-ring); }
+.kf-pa-map [data-pa-stage][aria-pressed="true"] { color: var(--primary); background: var(--state-selected); }
+.kf-pypa-graph__execution-count {
+  position:absolute;top:var(--space-2);right:var(--space-2);z-index:4;
+  padding:0 var(--space-1);border-radius:var(--radius-sm);background:var(--surface-3);
+  color:var(--foreground);font:var(--type-mono);font-size:11px;line-height:1.5;white-space:nowrap;cursor:pointer;
+}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-head {box-sizing:border-box;padding-right:46px;}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-expand {z-index:6;pointer-events:auto;position:absolute;right:var(--space-2);bottom:var(--space-2);top:auto;transform:none;}
+.kf-pypa-graph__execution-stack {position:absolute;z-index:2;pointer-events:none;}
+.kf-pypa-graph__execution-layer {
+  position:absolute;inset:0;box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--primary) 48%,var(--foreground-muted));
+  border-radius:var(--radius-pill);background:color-mix(in srgb,var(--primary) 16%,var(--surface-3));
+  transform:translate(var(--execution-offset),var(--execution-offset-y,0px));pointer-events:auto;cursor:pointer;
+}
+.kf-pypa-graph__execution-stack.is-context-muted { opacity: .6; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__execution-stack:not(.is-journey-path):not(.is-selected) {
+  opacity: .28;
+}
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__execution-stack:is(.is-journey-path, .is-selected) { opacity: 1; }
+
+/* Logical repetition: separated silhouettes stay legible at half scale. */
+.kf-pypa-graph__execution-layer { border-width: 1.5px; background: var(--surface-3); }
+.kf-pypa-graph__group.execution-container-layer { pointer-events:none; background:transparent; border:1.5px solid color-mix(in srgb,var(--foreground-muted) 38%,transparent); }
