@@ -3,10 +3,12 @@
   'use strict';
   const model=global.PtoCsaModel, objects=model.objects;
   const qkPvId='sparse/attention/qk-pv';
-  const compressorId='cache/main';
-  let compressorOpen=false, compressorController;
-  // 两个视图分别保存展示阶段；Shared Focus 只记录明确选中的计算对象。
-  const state={open:false,tab:'assignment',focus:null,rank:0,assignmentStage:qkPvId,pipelineStage:qkPvId,graphScale:'structure',pipelineScale:'instances',
+  const compressorId='cache/main', qProjectionId='input/q';
+  const stageControllers=new Map(), stageRanks=new Map();
+  let activeKernelStage=null;
+  const compressorOpen=()=>activeKernelStage===compressorId&&state.tab==='graph';
+  // 各视图分别保存展示阶段；Shared Focus 只记录明确选中的计算对象。
+  const state={open:false,tab:'assignment',focus:null,rank:0,assignmentStage:qkPvId,pipelineStage:qkPvId,graphStage:'all',graphScale:'structure',pipelineScale:'instances',
     views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'local',camera:null,expanded:['input'],overlays:{data:true,control:true},nodeId:null,edgeId:null,inspectorOpen:false,projectedFocusKey:null}}};
   const tabs=['graph','assignment','pipeline'];
   let root, controller, semanticController, qkController, qkPipelineController, stageViewsController, graphInstanceController, trigger, previousInert=[], graph;
@@ -16,7 +18,18 @@
   // Explicit adapters between the older Rank diagrams and semantic graph IDs.
   const objectToGraph={pre:'input/hc-pre',gather:'input/allgather',q:'input/q',kv:'input/kv',main:'cache/main',idxcomp:'cache/idxcomp',write:'cache/write',indexer:'cache/indexer',attention:'sparse/attention',publish:'redistribute/publish',a2a:'redistribute/a2a',oproj:'output/oproj',rs:'output/oproj/rs',post:'output/post',local:'input/local',full:'input/full',original:'cache/original',compressed:'cache/compressed',indexcache:'cache/indexcache',ready:'cache/ready'};
   const graphToObject=Object.fromEntries(Object.entries(objectToGraph).map(([object,id])=>[id,object]));
-  const semantic=global.PTO_CSA_SEMANTIC_GRAPH;
+  const semantic=global.PtoCsaCompressorSemantic.getModel();
+  const compressorModel=()=>global.PtoCsaCompressorSemantic.getModel({focused:compressorOpen(),instances:compressorOpen()&&state.graphScale==='instances'});
+  function enterCompressor(){activeKernelStage=compressorId;state.graphStage=compressorId;state.graphScale='structure';setFocus(null);Object.assign(state.views.graph,{expanded:['cache','cache/main','cache/idxcomp'],camera:null});}
+  function openCompressorSelection(selected){
+    const info=global.PtoCsaCompressorModel.kernels.get(selected.kernel);if(!info)return selectStage(compressorId);
+    stageRanks.set(compressorId,selected.rank);state.rank=selected.rank;
+    state.graphScale=selected.scale||'structure';
+    const prefix='cache/'+(info.branch==='main'?'main':'idxcomp')+'/'+info.name;
+    const operation=selected.operation?'/'+selected.operation:'';
+    const target=semanticNodes.has(prefix+operation)?prefix+operation:prefix;
+    navigateToGraph(target);
+  }
   const fullGraphStages=semantic.nodes.map(node=>node.id);
   const fullGraphQk=[...fullGraphStages,'sparse/attention','sparse/attention/qk-pv'];
   if(new URLSearchParams(global.location.search).get('graph')==='full'){
@@ -26,6 +39,7 @@
   const semanticNodes=new Map();
   function indexSemantic(nodes,parentId=null){for(const n of nodes){const id=parentId?parentId+'/'+n.id:n.id;semanticNodes.set(id,{...n,parentId});if(n.composite?.subgraph)indexSemantic(n.composite.subgraph.nodes,id);}}
   indexSemantic(semantic.nodes);
+  indexSemantic(global.PtoCsaCompressorSemantic.getModel({instances:true}).nodes);
   function nearestObject(id){while(id){if(graphToObject[id])return graphToObject[id];id=id.slice(0,id.lastIndexOf('/'));}return null;}
   function isQkFocus(focus){return !!focus&&(['request','query','work-item','lane'].includes(focus.kind)||focus.semanticId===qkPvId);}
   function setFocus(focus){state.focus=focus;state.rank=focus?.rank??state.rank;if(focus){const stage=stageForAssignment(focus);state.assignmentStage=stage;state.pipelineStage=stage;}state.views.graph.nodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=false;if(qkController)qkController.setSelection(qkSelection());}
@@ -41,14 +55,14 @@
   function graphIdForFocus(){const f=state.focus;if(!f||f.kind==='rank')return null;if(['request','query','work-item','lane'].includes(f.kind))return qkPvId;if(f.semanticId)return f.semanticId;return objectToGraph[f.objectId]||null;}
   function focusKey(){const f=state.focus;return f?JSON.stringify([f.kind,f.semanticId,f.objectId,f.requestIndex,f.tokenIndex,f.workItemId,f.blockId,f.rank,f.scenarioId]):null;}
   function objectForFocus(){const f=state.focus;if(!f)return null;if(f.kind==='rank')return 'rank';if(['request','query','work-item','lane'].includes(f.kind))return 'attention';return f.objectId||nearestObject(f.semanticId)||nearestObject(f.moduleId);}
-  function graphFocus(id){const n=semanticNodes.get(id);if(!n)return null;const parent=n.parentId&&semanticNodes.get(n.parentId);const moduleId=n.composite?.category==='module'?id:parent?.composite?.category==='module'?n.parentId:null;return {kind:n.composite?.category==='stage'?'stage':n.type==='composite'?'module':n.type==='operation'?'operation':n.type==='data'?'data':n.type==='state'?'state':'module',rank:null,semanticId:id,moduleId,objectId:nearestObject(id)};}
+  function graphFocus(id){const n=semanticNodes.get(id);if(!n)return null;const parent=n.parentId&&semanticNodes.get(n.parentId);const moduleId=n.composite?.category==='module'?id:parent?.composite?.category==='module'?n.parentId:null;return {kind:n.composite?.category==='stage'?'stage':n.type==='composite'?'module':n.type==='operation'?'operation':n.type==='data'?'data':n.type==='state'?'state':'module',rank:activeKernelStage===compressorId?(stageRanks.get(compressorId)??state.rank):null,semanticId:id,moduleId,objectId:nearestObject(id)};}
   function legacyFocus(object,rank){return object==='rank'?{kind:'rank',rank}:{kind:['tensor','state'].includes(objects[object]?.kind)?'data':'module',rank,objectId:object,moduleId:objectToGraph[object]||null};}
   function focusCrumbs(){const f=state.focus,items=[{id:'',label:'Decode CSA'}];
     // 非 qk_pv 阶段只展示阶段名，不把其他 Tab 的 Work Item 当作当前页面标题。
-    const visibleStage=state.tab==='assignment'?state.assignmentStage:state.tab==='pipeline'?state.pipelineStage:null;
-    if(visibleStage&&visibleStage!==qkPvId){const s=assignmentStages.find(x=>x.id===visibleStage);return [...items,{label:s?s.full:visibleStage}];}
-    if(visibleStage===qkPvId&&!isQkFocus(f))return [...items,{label:assignmentStages.find(x=>x.id===qkPvId).full}];
-    if(!f)return items;if(f.kind==='rank')return [...items,{label:'Rank '+f.rank}];if(f.rank!=null)items.push({label:'Rank '+f.rank});const id=graphIdForFocus(),path=id?.split('/')||[];path.forEach((_,index)=>{const key=path.slice(0,index+1).join('/'),node=semanticNodes.get(key);if(node&&!(key==='sparse/attention'))items.push({id:key,label:node.name});});if(['request','query','work-item'].includes(f.kind)&&f.requestIndex!=null)items.push({label:'Request '+f.requestIndex});if(['query','work-item'].includes(f.kind)&&f.tokenIndex!=null)items.push({label:'Q'+f.tokenIndex});if(f.kind==='work-item')items.push({label:'Work Item '+f.workItemId});if(f.kind==='lane')items.push({label:'SPMD Lane '+f.blockId});if(path.length===0&&f.objectId)items.push({label:objects[f.objectId]?.label||f.objectId});return items;}
+    const visibleStage=state.tab==='assignment'?state.assignmentStage:state.tab==='pipeline'?state.pipelineStage:state.graphStage;
+    if(state.tab!=='graph'&&visibleStage&&visibleStage!=='all'&&visibleStage!==qkPvId){const s=assignmentStages.find(x=>x.id===visibleStage);return [...items,{label:s?s.full:visibleStage}];}
+    if(state.tab!=='graph'&&visibleStage===qkPvId&&!isQkFocus(f))return [...items,{label:assignmentStages.find(x=>x.id===qkPvId).full}];
+    if(!f)return compressorOpen()?[...items,{id:'cache',label:'Compressor'}]:items;if(f.kind==='rank')return [...items,{label:'Rank '+f.rank}];if(f.rank!=null)items.push({label:'Rank '+f.rank});const id=graphIdForFocus(),path=id?.split('/')||[];path.forEach((_,index)=>{const key=path.slice(0,index+1).join('/'),node=semanticNodes.get(key);if(node&&!(key==='sparse/attention'))items.push({id:key,label:compressorOpen()&&key==='cache'?'Compressor':node.name});});if(['request','query','work-item'].includes(f.kind)&&f.requestIndex!=null)items.push({label:'Request '+f.requestIndex});if(['query','work-item'].includes(f.kind)&&f.tokenIndex!=null)items.push({label:'Q'+f.tokenIndex});if(f.kind==='work-item')items.push({label:'Work Item '+f.workItemId});if(f.kind==='lane')items.push({label:'SPMD Lane '+f.blockId});if(path.length===0&&f.objectId)items.push({label:objects[f.objectId]?.label||f.objectId});return items;}
   function node(g,object,rank,x,y,label){const o=objects[object],id='r'+rank+':'+object;
     g.nodes.push({id,object,rank,x,y,width:242,height:62,label:label||o.label,kind:['tensor','state'].includes(o.kind)?'tensor':'module',typeLabel:model.kindLabels[o.kind],colorKey:o.sem,parent:'rank-'+rank});
     return id;
@@ -166,31 +180,89 @@
     root.setAttribute('aria-label','DeepSeek V4 CSA Compute Explorer');
     root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">PyPTO Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
     '<div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="CSA 可视化视图">'+tabs.map(id=>'<button class="tab-control-item" role="tab" id="csa-tab-'+id+'" data-csa-tab="'+id+'" aria-controls="csa-panel"><span class="viz2-tab-icon viz2-tab-icon--'+id+'"></span>'+id[0].toUpperCase()+id.slice(1)+'</button>').join('')+'</div></div>'+
-    '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><div class="segmented-control segmented-control-muted viz2-graph-scale csa-scale-bar" data-csa-graph-scale-bar role="group" aria-label="Graph 观察尺度" hidden><button type="button" class="btn btn-sm is-selected" data-csa-graph-scale="structure" aria-pressed="true">Structure</button><button type="button" class="btn btn-sm" data-csa-graph-scale="instances" aria-pressed="false">Instance</button></div><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button><button class="btn btn-ghost btn-sm" data-csa-compressor-graph hidden>Compressor</button><button class="btn btn-ghost btn-sm" data-csa-full-graph hidden>完整计算图</button><button class="btn btn-ghost btn-sm" data-csa-qk-graph hidden>展开 QK / PV</button></div>'+
+    '<div class="csa-toolbar"><nav data-csa-breadcrumb aria-label="当前对象"></nav><div class="segmented-control segmented-control-muted viz2-graph-scale csa-scale-bar" data-csa-graph-scale-bar role="group" aria-label="Graph 观察尺度" hidden><button type="button" class="btn btn-sm is-selected" data-csa-graph-scale="structure" aria-pressed="true">Structure</button><button type="button" class="btn btn-sm" data-csa-graph-scale="instances" aria-pressed="false">Instance</button></div><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回上级</button><button class="btn btn-ghost btn-sm" data-csa-kernel-stage="input/q" hidden>Q Proj</button><button class="btn btn-ghost btn-sm" data-csa-kernel-stage="cache/main" hidden>Compressor</button><button class="btn btn-ghost btn-sm" data-csa-full-graph hidden>完整计算图</button><button class="btn btn-ghost btn-sm" data-csa-qk-graph hidden>展开 QK / PV</button></div>'+
     '<div class="csa-stagebar" hidden>'+stageBarHtml()+'</div>'+
     '<div class="csa-focusbar" aria-label="关键路径焦点"></div>'+
     '<div class="csa-workspace" id="csa-panel" role="tabpanel"><div class="csa-canvas-column"><div class="csa-caption"></div><div class="csa-stage pto-model-graphviz-pattern-page" role="group" aria-label="CSA 数据与任务关系，拖拽平移，按住 Command 或 Ctrl 滚轮缩放"></div><footer class="csa-footer"><div class="csa-legend"><span>中性矩形 · Tensor / Cache</span><span>彩色模块 · 计算 / 通信 / 同步</span><span>实线 · 数据</span><span class="csa-comm-legend">蓝线 · 跨 Rank</span><span>虚线 · 控制 / 同步</span></div><button class="btn btn-ghost btn-sm" data-csa-fit>全览</button><button class="btn btn-ghost btn-sm" data-csa-read>阅读</button><button class="btn btn-ghost btn-sm" data-csa-zoom="0.8" aria-label="缩小 CSA">−</button><button class="btn btn-ghost btn-sm" data-csa-zoom="1.25" aria-label="放大 CSA">＋</button></footer></div>'+
     '<aside class="pto-ide-frame__pane csa-inspector" aria-label="CSA 对象详情"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">对象详情</span><button class="btn btn-ghost btn-sm" data-csa-clear>清除选择</button></header><div class="pto-ide-frame__pane-body csa-detail"></div></aside></div>'+
-    '<div class="csa-stage-host csa-kvsp-host" hidden></div><div class="csa-graph-instance-host" hidden></div><div class="csa-stage-host" hidden></div><div class="csa-qk-host" hidden></div><div class="csa-qk-pipeline-host" hidden></div>';
+    '<div class="csa-stage-host csa-kvsp-host" data-csa-kernel-host="cache/main" hidden></div><div class="csa-stage-host csa-kvsp-host" data-csa-kernel-host="input/q" hidden></div><div class="csa-graph-instance-host" hidden></div><div class="csa-stage-host" hidden></div><div class="csa-qk-host" hidden></div><div class="csa-qk-pipeline-host" hidden></div>';
     document.getElementById('ideWorkarea').append(root);
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
-      if(b.hasAttribute('data-csa-compressor-graph')){compressorOpen=true;render();return;}
+      if(b.dataset.csaObjectView){state.tab=b.dataset.csaObjectView;render();return;}
+      if(b.dataset.csaKernelStage){if(b.dataset.csaKernelStage===compressorId)enterCompressor();else{activeKernelStage=b.dataset.csaKernelStage;}render();return;}
       if(b.dataset.csaGraphScale){
         const next=b.dataset.csaGraphScale;
-        if(next!==state.graphScale){state.graphScale=next;render();}
+        if(next!==state.graphScale){
+          state.graphScale=next;
+          if(next==='instances')state.graphStage=compressorOpen()?compressorId:qkPvId;
+          if(compressorOpen()){
+            const v=state.views.graph;
+            v.camera=null;
+            if(next==='instances'&&!v.expanded.some(id=>id.split('/').length>=3)){
+              const cur=semanticNodes.get(graphIdForFocus());
+              const focusKernel=cur?.compressor?.kernel?`cache/${cur.compressor.branch==='main'?'main':'idxcomp'}/${cur.compressor.kernel}`:null;
+              const targetKernel=focusKernel&&semanticNodes.has(focusKernel)?focusKernel:'cache/main/kv_score_proj';
+              v.expanded=[...new Set(['cache','cache/main','cache/idxcomp',...ancestorsOf(targetKernel),targetKernel])];
+              v.scope='local';
+            }
+            const id=graphIdForFocus();
+            if(id){
+              const normalized=next==='structure'?id.replace(/:(\d+)(?=-acc$|$)/,''):semanticNodes.has(id+':0')?id+':0':id;
+              if(semanticNodes.has(normalized)){const open=v.inspectorOpen;setFocus(graphFocus(normalized));v.nodeId=normalized;v.inspectorOpen=open;}
+            }
+          }
+          render();
+        }
         return;
       }
       if(b.hasAttribute('data-csa-full-graph')||b.hasAttribute('data-csa-qk-graph')){
-        state.graphScale='structure';
+        activeKernelStage=null;state.graphScale='structure';
+        state.graphStage=b.hasAttribute('data-csa-qk-graph')?qkPvId:'all';
         const v=state.views.graph;setFocus(null);v.expanded=(b.hasAttribute('data-csa-qk-graph')?fullGraphQk:fullGraphStages).slice();v.scope='local';v.camera=null;render();return;
       }
       if(b.hasAttribute('data-csa-back'))return close();
       if(b.hasAttribute('data-csa-navreturn')){returnFromNavigation();return;}
       if(b.dataset.csaStage){selectStage(b.dataset.csaStage);return;}
-      if(b.hasAttribute('data-csa-crumb')){const id=b.dataset.csaCrumb;setFocus(id?graphFocus(id):null);const v=state.views.graph;v.expanded=id?id.split('/').slice(0,-1).map((_,i)=>id.split('/').slice(0,i+1).join('/')):[];v.scope=v.expanded.length?'local':'overall';v.camera=null;render();return;}
-      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(compressorOpen){state.assignmentStage=compressorId;state.pipelineStage=compressorId;}if(state.tab!=='graph')navigationReturn=null;if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
-      if(b.hasAttribute('data-csa-return')){const v=state.views.graph,focusId=graphIdForFocus()||'';const branch=v.expanded.filter(id=>focusId.startsWith(id)).sort((a,b)=>b.length-a.length);const last=branch[0]||v.expanded.at(-1);if(last){v.expanded=v.expanded.filter(id=>id!==last&&!id.startsWith(last+'/'));v.scope=v.expanded.length?'local':'overall';v.camera=null;}render();return;}
+      if(b.hasAttribute('data-csa-crumb')){
+        const id=b.dataset.csaCrumb, v=state.views.graph;
+        if(!id){
+          activeKernelStage=null;state.graphScale='structure';state.graphStage='all';setFocus(null);
+          v.expanded=[];v.scope='overall';v.camera=null;render();return;
+        }
+        if(compressorOpen()){
+          if(id==='cache'){
+            setFocus(null);v.expanded=['cache','cache/main','cache/idxcomp'];v.scope='local';v.camera=null;render();return;
+          }
+          const nextFocus=graphFocus(id);setFocus(nextFocus);state.graphStage=compressorId;
+          const base=['cache','cache/main','cache/idxcomp'];
+          v.expanded=id.split('/').length>=3?[...new Set([...base,...ancestorsOf(id),id])]:base;
+          v.scope='local';v.nodeId=id;v.camera=null;render();return;
+        }
+        setFocus(graphFocus(id));state.graphStage=stageForAssignment(graphFocus(id));
+        v.expanded=id.split('/').slice(0,-1).map((_,i)=>id.split('/').slice(0,i+1).join('/'));v.scope=v.expanded.length?'local':'overall';v.camera=null;render();return;
+      }
+      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='graph'&&activeKernelStage){if(activeKernelStage===compressorId){const selected=stageControllers.get(compressorId)?.getSelection?.();if(selected&&state.views.graph.stageSelectionKey&&selected.key!==state.views.graph.stageSelectionKey){state.views.graph.stageSelectionKey=selected.key;openCompressorSelection(selected);return;}}selectStage(activeKernelStage);return;}if(state.tab!=='graph')navigationReturn=null;if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
+      if(b.hasAttribute('data-csa-return')){
+        const v=state.views.graph,focusId=graphIdForFocus()||'';
+        if(compressorOpen()){
+          const kernels=v.expanded.filter(id=>id.split('/').length>=3);
+          if(kernels.length){
+            const match=kernels.filter(id=>focusId.startsWith(id)).sort((a,b)=>b.length-a.length)[0]||kernels.at(-1);
+            v.expanded=v.expanded.filter(id=>id!==match&&!id.startsWith(match+'/'));
+            v.scope='local';v.camera=null;setFocus(graphFocus(match));v.nodeId=match;render();return;
+          }
+          if(focusId&&focusId!=='cache'){
+            setFocus(null);v.expanded=['cache','cache/main','cache/idxcomp'];v.scope='local';v.camera=null;render();return;
+          }
+          activeKernelStage=null;state.graphStage='all';state.graphScale='structure';setFocus(null);
+          v.expanded=['cache'];v.scope='local';v.camera=null;render();return;
+        }
+        const branch=v.expanded.filter(id=>focusId.startsWith(id)).sort((a,b)=>b.length-a.length);
+        const last=branch[0]||v.expanded.at(-1);
+        if(last){v.expanded=v.expanded.filter(id=>id!==last&&!id.startsWith(last+'/'));v.scope=v.expanded.length?'local':'overall';v.camera=null;}
+        render();return;
+      }
       if(b.dataset.csaFocus){const topic=b.dataset.csaFocus,v=state.views[state.tab];v.topic=topic;v.camera=null;setFocus(legacyFocus({gather:'gather',cache:'ready',output:'publish'}[topic],state.rank));render();return;}
       if(b.hasAttribute('data-csa-clear')){setFocus(null);state.views.graph.nodeId=null;controller?.clearSelection();details();chrome();return;}
       if(b.hasAttribute('data-csa-drill')){const v=state.views[state.tab];v.scope='local';v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
@@ -217,8 +289,8 @@
   // 落在阶段之间但属于该阶段的节点（Cache、Partial、A2A 等）映射回所属阶段；未命中退回 qk_pv。
   const stageAlias={input:'input/q','input/hc-pre':'input/q','input/local':'input/q',
     'input/full':'input/kv','input/allgather':'input/kv','cache/write':'input/kv','cache/original':'input/kv',
-    cache:'cache/main','cache/compressed':'cache/main','cache/ready':'cache/main',
-    'cache/idxcomp':'cache/indexer','cache/indexcache':'cache/indexer','cache/topk-positions':'cache/indexer',
+    cache:'cache/main','cache/main-state':'cache/main','cache/compressed':'cache/main','cache/ready':'cache/main',
+    'cache/idxcomp':'cache/main','cache/idx-state':'cache/main','cache/indexcache':'cache/indexer','cache/topk-positions':'cache/indexer',
     redistribute:'redistribute/publish','redistribute/a2a':'redistribute/publish',
     output:'output/oproj','output/post':'output/oproj'};
   // Focus 决定 Assignment 应该展示哪个阶段；null 或 qk 对象统一落到 qk_pv。
@@ -240,12 +312,22 @@
     return '<div class="segmented-control segmented-control-muted" role="group" aria-label="计算阶段">'+assignmentStages.map(stage=>
       '<button type="button" class="btn btn-sm" data-csa-stage="'+stage.id+'" aria-pressed="false" title="'+esc(stage.full)+'">'+esc(stage.label)+'</button>').join('')+'</div>';
   }
-  // Stage Bar 是各 Tab 的展示选择；它不改写 Shared Focus。
+  // Stage Picker 在所有 Tab 可用；Graph 通过共享 renderer 展开对应阶段。
   function selectStage(id){
-    const key=state.tab==='assignment'?'assignmentStage':state.tab==='pipeline'?'pipelineStage':null;
-    if(!key||id===state[key]||!assignmentStages.some(stage=>stage.id===id))return;
+    const key=state.tab==='assignment'?'assignmentStage':state.tab==='pipeline'?'pipelineStage':'graphStage';
+    if(!assignmentStages.some(stage=>stage.id===id))return;
     state[key]=id;
-    compressorOpen=id===compressorId;
+    const previous=activeKernelStage;
+    activeKernelStage=id===compressorId||id===qProjectionId?id:null;
+    if(state.tab==='graph'){
+      if(id===qProjectionId){render();return;}
+      if(id===compressorId&&previous===compressorId&&state.views.graph.expanded.includes('cache')){render();return;}
+      const v=state.views.graph;
+      if(id!==qkPvId)state.graphScale='structure';
+      setFocus(null);
+      v.expanded=id==='all'?fullGraphQk.slice():id===compressorId?['cache','cache/main','cache/idxcomp']:[...ancestorsOf(id),id];
+      v.scope='local';v.camera=null;v.bookmarkedNodeId=null;v.projectedFocusKey=null;
+    }
     render();
   }
   // P5：跨模块探索只保存对象身份，Work Item / Scenario 数据仍由 QK Work Controller 派生。
@@ -261,15 +343,18 @@
   }
   function navigateToGraph(targetNodeId){
     if(!targetNodeId||!semanticNodes.has(targetNodeId))return false;
-    if(state.tab!=='graph')navigationReturn={tab:state.tab,focus:state.focus?{...state.focus}:null};
+    if(state.tab!=='graph')navigationReturn={tab:state.tab,kernelStage:activeKernelStage,focus:state.focus?{...state.focus}:null};
     saveCamera();
+    const targetCompressor=targetNodeId.startsWith('cache/main')||targetNodeId.startsWith('cache/idxcomp');
+    activeKernelStage=targetCompressor?compressorId:null;
     setFocus(graphFocus(targetNodeId));
     // 只展开目标路径的祖先，避免整图展开；setFocus 会清空 Graph 选中态，因此在其后写回。
     const v=state.views.graph;
-    v.expanded=ancestorsOf(targetNodeId);
+    v.expanded=targetCompressor?[...new Set(['cache','cache/main','cache/idxcomp',...ancestorsOf(targetNodeId)])]:ancestorsOf(targetNodeId);
     v.scope=v.expanded.length?'local':'overall';
     v.camera=null;v.nodeId=targetNodeId;v.edgeId=null;v.bookmarkedNodeId=null;v.inspectorOpen=true;v.projectedFocusKey=focusKey();
     state.tab='graph';
+    state.graphStage=targetCompressor?compressorId:stageForAssignment(graphFocus(targetNodeId));
     render();
     return true;
   }
@@ -282,6 +367,7 @@
     const detached=focus&&['request','query','work-item','lane'].includes(focus.kind)&&scenarioId&&focus.scenarioId&&focus.scenarioId!==scenarioId;
     if(detached)focus={kind:'module',rank:focus.rank??state.rank,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'};
     state.tab=back.tab||'pipeline';
+    activeKernelStage=back.kernelStage??null;
     // setFocus 会按恢复的对象重新推导 Assignment 阶段，无需另存层级。
     setFocus(focus);
     render();
@@ -292,15 +378,15 @@
     root.querySelectorAll('[data-csa-tab]').forEach(b=>{const active=b.dataset.csaTab===state.tab;b.classList.toggle('is-selected',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     root.querySelector('#csa-panel').setAttribute('aria-labelledby','csa-tab-'+state.tab);
     const stagebar=root.querySelector('.csa-stagebar');
-    if(stagebar)stagebar.hidden=state.tab==='graph';
-    const visibleStage=state.tab==='pipeline'?state.pipelineStage:state.assignmentStage;
+    if(stagebar)stagebar.hidden=false;
+    const visibleStage=activeKernelStage||(state.tab==='graph'?state.graphStage:state.tab==='pipeline'?state.pipelineStage:state.assignmentStage);
     root.querySelectorAll('[data-csa-stage]').forEach(b=>{const active=b.dataset.csaStage===visibleStage;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
     // Graph 层级完全由 expanded 推导：没有展开节点 = 整体，存在展开节点 = 局部。
     const scope=state.tab==='graph'?(state.views.graph.expanded.length?'local':'overall'):state.views[state.tab].scope;
     if(state.tab==='graph')state.views.graph.scope=scope;
     const graphScaleBar=root.querySelector('[data-csa-graph-scale-bar]');
     if(graphScaleBar){
-      graphScaleBar.hidden=state.tab!=='graph'||compressorOpen||!global.PtoCsaInstanceGraph;
+      graphScaleBar.hidden=state.tab!=='graph'||(!!activeKernelStage&&!compressorOpen())||!global.PtoCsaInstanceGraph;
       graphScaleBar.querySelectorAll('[data-csa-graph-scale]').forEach(b=>{
         const on=b.dataset.csaGraphScale===state.graphScale;
         b.classList.toggle('is-selected',on);
@@ -308,10 +394,25 @@
       });
     }
     const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=true;
-    root.querySelector('[data-csa-return]').hidden=state.tab!=='graph'||compressorOpen||state.graphScale==='instances'||scope!=='local';root.querySelector('[data-csa-return]').textContent='← 返回上级';
+    root.querySelector('[data-csa-return]').hidden=state.tab!=='graph'||(!!activeKernelStage&&!compressorOpen())||(!compressorOpen()&&state.graphScale==='instances')||scope!=='local';root.querySelector('[data-csa-return]').textContent='← 返回上级';
     const navReturn=root.querySelector('[data-csa-navreturn]');
     if(navReturn){navReturn.hidden=!navigationReturn;if(navigationReturn)navReturn.textContent=returnLabel(navigationReturn.focus);}
-    const crumbs=compressorOpen?[{label:'Decode CSA'},{label:'Compressor'}]:state.tab==='pipeline'&&state.pipelineStage===qkPvId&&state.focus?.kind==='work-item'?focusCrumbs().filter(item=>!/^Request |^Q\d+$|^Work Item /.test(item.label)):focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=compressorOpen?null:semanticNodes.get(scopeId)?.name;
+    const crumbs=activeKernelStage&&!(compressorOpen()&&state.tab==='graph')?[{label:'Decode CSA'},{label:activeKernelStage===qProjectionId?'Q Projection':'Compressor'}]:state.tab==='pipeline'&&state.pipelineStage===qkPvId&&state.focus?.kind==='work-item'?focusCrumbs().filter(item=>!/^Request |^Q\d+$|^Work Item /.test(item.label)):focusCrumbs();
+    const expandedList=state.views.graph.expanded;
+    const compressorScope=()=>{
+      const kernels=expandedList.filter(id=>id.split('/').length>=3);
+      if(kernels.length){
+        const focusId=graphIdForFocus()||'';
+        const hit=kernels.find(id=>focusId.startsWith(id))||kernels.at(-1);
+        return semanticNodes.get(hit)?.name||null;
+      }
+      const hasMain=expandedList.includes('cache/main'),hasIdx=expandedList.includes('cache/idxcomp');
+      if(hasMain&&hasIdx)return 'Main + Indexer';
+      if(hasMain)return 'Main Compressor';
+      if(hasIdx)return 'Indexer Compressor';
+      return 'Compressor';
+    };
+    const scopeId=expandedList.at(-1),scopeName=compressorOpen()&&state.tab==='graph'?compressorScope():activeKernelStage?null:semanticNodes.get(scopeId)?.name;
     root.querySelector('[data-csa-breadcrumb]').innerHTML=crumbs.map((item,index)=>'<span class="csa-crumb">'+(index?'<span class="csa-crumb-separator" aria-hidden="true">/</span>':'')+(item.id!==undefined&&index<crumbs.length-1?'<button type="button" data-csa-crumb="'+esc(item.id)+'">'+esc(item.label)+'</button>':'<span aria-current="location">'+esc(item.label)+'</span>')+'</span>').join('')+(state.tab==='graph'&&scopeName?'<span class="csa-scope-context">视图层级：'+esc(scopeName)+'</span>':'');
     const drill=root.querySelector('[data-csa-drill]');if(drill)drill.disabled=state.tab==='graph';
   }
@@ -333,37 +434,42 @@
   }
   function render(){
     controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
-    const currentStage=state.tab==='pipeline'?state.pipelineStage:state.assignmentStage;
-    const compressorActive=!!global.PtoCsaCompressor&&(state.tab==='graph'?compressorOpen:currentStage===compressorId);
-    const compressorHost=root.querySelector('.csa-kvsp-host');
-    compressorHost.hidden=!compressorActive;
-    root.querySelector('[data-csa-compressor-graph]').hidden=state.tab!=='graph'||compressorActive;
-    const graphInstanceActive=!compressorActive&&state.tab==='graph'&&state.graphScale==='instances'&&!!global.PtoCsaInstanceGraph;
-    root.querySelector('[data-csa-full-graph]').hidden=state.tab!=='graph'||graphInstanceActive||compressorActive;
-    root.querySelector('[data-csa-qk-graph]').hidden=state.tab!=='graph'||graphInstanceActive||compressorActive;
+    const kernelStageModel=activeKernelStage===qProjectionId?global.PtoCsaQProjectionModel
+      :activeKernelStage===compressorId?global.PtoCsaCompressorModel:null;
+    const kernelStageActive=!!kernelStageModel&&!!global.PtoCsaKernelStage&&!(compressorOpen()&&state.tab==='graph');
+    root.querySelectorAll('[data-csa-kernel-host]').forEach(host=>{host.hidden=!kernelStageActive||host.dataset.csaKernelHost!==activeKernelStage;});
+    root.querySelectorAll('[data-csa-kernel-stage]').forEach(button=>{button.hidden=document.body.classList.contains('csa-visual')||state.tab!=='graph'||kernelStageActive;});
+    const graphInstanceActive=!kernelStageActive&&!compressorOpen()&&state.tab==='graph'&&state.graphScale==='instances'&&!!global.PtoCsaInstanceGraph;
+    root.querySelector('[data-csa-full-graph]').hidden=document.body.classList.contains('csa-visual')||state.tab!=='graph'||graphInstanceActive||kernelStageActive;
+    root.querySelector('[data-csa-qk-graph]').hidden=document.body.classList.contains('csa-visual')||state.tab!=='graph'||graphInstanceActive||kernelStageActive;
     const qkHost=root.querySelector('.csa-qk-host'),qkActive=state.tab==='assignment'&&state.assignmentStage===qkPvId;
     const stageHost=root.querySelector('.csa-stage-host:not(.csa-kvsp-host)'),stageHostActive=state.tab!=='graph'&&(state.tab==='assignment'?state.assignmentStage:state.pipelineStage)!==qkPvId;
     const qkPipelineHost=root.querySelector('.csa-qk-pipeline-host'),qkPipelineActive=state.tab==='pipeline'&&state.pipelineStage===qkPvId;
     const graphInstanceHost=root.querySelector('.csa-graph-instance-host');
     if(!qkActive)qkController?.pause();
-    root.querySelector('.csa-workspace').hidden=state.tab!=='graph'||graphInstanceActive||compressorActive;
+    root.querySelector('.csa-workspace').hidden=state.tab!=='graph'||graphInstanceActive||kernelStageActive;
     if(graphInstanceHost)graphInstanceHost.hidden=!graphInstanceActive;
-    qkHost.hidden=!qkActive||compressorActive;stageHost.hidden=!stageHostActive||compressorActive;qkPipelineHost.hidden=!qkPipelineActive||compressorActive;
-    if(!compressorActive)compressorController?.pause();
-    if(compressorActive){
+    qkHost.hidden=!qkActive||kernelStageActive;stageHost.hidden=!stageHostActive||kernelStageActive;qkPipelineHost.hidden=!qkPipelineActive||kernelStageActive;
+    for(const [id,stageController] of stageControllers)if(id!==activeKernelStage||!kernelStageActive)stageController.pause();
+    if(kernelStageActive){
       qkController?.pause();
-      compressorOpen=true;
-      if(!compressorController)compressorController=global.PtoCsaCompressor.mount(compressorHost,{
-        onSource:qkSource,
-        onRank:rank=>{state.rank=rank;},
-        onExit:()=>{
-          compressorOpen=false;
-          if(state.assignmentStage===compressorId)state.assignmentStage='all';
-          if(state.pipelineStage===compressorId)state.pipelineStage='all';
-          render();
-        },
-      });
-      compressorController.update(state.tab,state.rank);
+      const id=activeKernelStage;
+      if(!stageControllers.has(id)){
+        const host=root.querySelector('[data-csa-kernel-host="'+id+'"]');
+        stageControllers.set(id,global.PtoCsaKernelStage.mount(host,{
+          model:kernelStageModel,
+          renderTiles:id===qProjectionId?global.PtoCsaQProjectionTiles.render:undefined,
+          pipelineFactory:(id===compressorId||id===qProjectionId)?global.PtoCsaCompressorPipeline:undefined,
+          onSource:qkSource,
+          onRank:rank=>{stageRanks.set(id,rank);if(id===compressorId)state.rank=rank;},
+          onTab:(tab,selected)=>{if(tab==='graph'&&id===compressorId&&selected){state.views.graph.stageSelectionKey=selected.key;openCompressorSelection(selected);return;}state.tab=tab;if(tab==='graph'){selectStage(id);return;}render();},
+          onExit:()=>{selectStage('all');},
+        }));
+      }
+      const focused=semanticNodes.get(graphIdForFocus());
+      if(id===compressorId&&focused?.compressor&&state.views.graph.projectedFocusKey!==stageControllers.get(id).graphFocusKey){stageControllers.get(id).setGraphSelection?.(focused.compressor);stageControllers.get(id).graphFocusKey=state.views.graph.projectedFocusKey;}
+      stageControllers.get(id).update(state.tab,stageRanks.get(id)??state.rank);
+      if(id===compressorId)state.views.graph.stageSelectionKey=stageControllers.get(id).getSelection?.().key;
       chrome();return;
     }
     if(stageHostActive){
@@ -435,7 +541,19 @@
       root.querySelector('.csa-caption').innerHTML='<b>CSA Compute Graph</b><span>Stage 为语义分组；Module 可用 + 逐层展开。Tensor / Cache 表示数据与状态；连线区分数据与 Task / Control 依赖，不表示执行时长。</span>';
       stage.classList.add('csa-semantic-stage');
       semanticController=global.PtoVisualization2Graph.mount(stage,{onSelect:()=>{},onView:patch=>{
-        if(patch.expanded){const opened=new Set(patch.expanded);patch.expanded=patch.expanded.filter(id=>id.split('/').slice(0,-1).every((_,i)=>opened.has(id.split('/').slice(0,i+1).join('/'))));}
+        if(patch.expanded){
+          const opened=new Set(patch.expanded);
+          patch.expanded=patch.expanded.filter(id=>id.split('/').slice(0,-1).every((_,i)=>opened.has(id.split('/').slice(0,i+1).join('/'))));
+          const focusId=graphIdForFocus();
+          if(focusId){
+            const ancestors=ancestorsOf(focusId);
+            const collapsed=ancestors.find(id=>!opened.has(id));
+            if(collapsed){
+              const nextFocus=graphFocus(collapsed);
+              if(nextFocus){state.focus=nextFocus;state.views.graph.nodeId=collapsed;state.views.graph.projectedFocusKey=focusKey();}
+            }
+          }
+        }
         if(patch.expanded){delete patch.nodeId;delete patch.inspectorOpen;}
         if(patch.nodeId)state.views.graph.edgeId=null;
         Object.assign(state.views.graph,patch);
@@ -443,14 +561,15 @@
         if(patch.expanded)state.views.graph.scope=patch.expanded.length?'local':'overall';
         semanticController.update(null,state.views.graph,{active:true});chrome();
       },adapter:{
-        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,layoutOptions:{rootLayerGap:64,childLayerGap:56},labelMinWidth:96,autoFitExpanded:document.body.classList.contains('csa-visual'),focusExpandedTop:false,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
+        getModel:compressorModel,executionData:()=>null,fitOnEnter:true,fitPadding:()=>({top:global.innerWidth<=800?192:114,right:32,bottom:76,left:32}),layoutOptions:{rootLayerGap:64,childLayerGap:56,...(compressorOpen()?{parallelBranches:true}:{})},labelMinWidth:96,autoFitExpanded:document.body.classList.contains('csa-visual'),focusExpandedTop:false,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
         context:()=> '源码静态数据、状态和 Task ID 依赖；Stage 不表示严格串行。',
         resolveFocus:(g,selection,v)=>{const path=graphIdForFocus()?.split('/')||[];let nodeId=null;while(path.length&&!nodeId){const candidate=path.join('/');if(g.nodes.some(n=>n.id===candidate))nodeId=candidate;else path.pop();}return {nodeId,edgeId:v.edgeId,related:nodeId?[nodeId]:[],kind:'node'};},
         hasInspector:()=>!!(state.views.graph.nodeId||state.views.graph.edgeId),
         onNode:id=>{setFocus(graphFocus(id));state.views.graph.projectedFocusKey=focusKey();state.views.graph.nodeId=id;state.views.graph.bookmarkedNodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});chrome();},
         onEdge:id=>{setFocus(null);state.views.graph.edgeId=id;state.views.graph.bookmarkedNodeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});chrome();},
         onSync:()=>{},
-        onSource:range=>{const [file,a,z]=range.split(':');global.PtoComputeIDE.showSourceFile(file,Number(a),Number(z));},
+        onAction:tab=>{if(['assignment','pipeline'].includes(tab)){state.tab=tab;render();}},
+        onSource:range=>{const [file,a,z]=range.split(':');qkSource(file,Number(a),Number(z));},
         inspector:(node,sync,g)=>{
           const selectedEdge=g.edges.find(edge=>edge.id===state.views.graph.edgeId);
           const semanticNode=node?.semantic||semantic.nodes.find(item=>item.id===node?.id?.split('/')[0]);
@@ -473,7 +592,9 @@
           const facts=(item?.provenance||[]).filter(entry=>entry.kind==='fact');
           const resolved=(item?.provenance||[]).filter(entry=>entry.kind==='resolved');
           const descriptions={sparse:'qk_plan 生成候选与 qk_order；qk_pv 按 Work Item 执行 QK、Softmax 和 PV，写出 Partial m/l/o。跨 Sparse Block 的合并与归一化由下游 csa_merge_pack_publish 完成。'};
-          const overview='<section class="graph-detail-overview"><p>'+esc(descriptions[item?.id]||node?.detail||item?.description||'源码静态关系')+'</p></section>';
+          const context=item?.compressor;
+          const contextHtml=context?section('计算上下文',[['Rank',String(stageRanks.get(compressorId)??state.rank)],['Branch',context.branch==='main'?'Main Compressor':'Indexer Compressor'],['Kernel',context.kernel],...(context.iteration!=null?[['Iteration',String(context.iteration)],...(context.kRange?[['K input',context.kRange]]:[])]:[])])+['assignment','pipeline'].map(tab=>'<button class="btn btn-ghost btn-sm" data-viz2-graph-action="'+tab+'">'+(tab==='assignment'?'Assignment':'Pipeline')+' ↗</button>').join(''):'';
+          const overview='<section class="graph-detail-overview"><p>'+esc(descriptions[item?.id]||node?.detail||item?.description||'源码静态关系')+'</p></section>'+contextHtml;
           const grouped=(edges,direction)=>{const groups=new Map();edges.filter(edge=>edge.type==='data').forEach(edge=>{const peer=label(direction==='in'?edge.s:edge.t);if(!groups.has(peer))groups.set(peer,[]);if(edge.label)groups.get(peer).push(edge.label.replace(/ read$/,''));});return [...groups].map(([peer,labels])=>peer+(labels.length?'：'+[...new Set(labels)].join('、'):'' )).join('；');};
           const inputText=grouped(incoming,'in'),outputText=grouped(outgoing,'out');
           const io=section('数据关系',[
@@ -520,7 +641,7 @@
     if(state.tab!=='graph')details();chrome();
   }
   function open(button){if(!root)mount();if(state.open)return;trigger=button;state.open=true;root.hidden=false;const area=document.getElementById('ideWorkarea');area.dataset.visualization2='open';previousInert=[...area.children].filter(el=>el!==root).map(el=>[el,el.inert]);previousInert.forEach(([el])=>el.inert=true);render();root.querySelector('[data-csa-tab="'+state.tab+'"]').focus();}
-  function close(){if(!state.open)return;saveCamera();navigationReturn=null;qkController?.pause();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
+  function close(){if(!state.open)return;saveCamera();navigationReturn=null;qkController?.pause();stageControllers.get(activeKernelStage)?.pause();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
   document.addEventListener('click',e=>{const b=e.target.closest('[data-visualization2-open]');if(b&&global.PtoComputeIDE.getScene()==='csa')open(b);});
   global.PtoCsaExplorer=Object.freeze({open,close,getState:()=>structuredClone(state)});
 })(window);
