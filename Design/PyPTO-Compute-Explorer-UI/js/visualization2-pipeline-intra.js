@@ -281,10 +281,10 @@
       if(!active){saveScroll();stop();host.classList.remove('viz2-intra-masked');pipelineInstance?.update(task,null,false,false);return;}
       const source=model.tasks[id];if(!source)return;
       sourceTask=source;
-      const next=scenario.task('pipeline',id)||source,rebuild=task!==next;
+      const next=scenario.task('pipeline',id)||source,rebuild=task!==next,sameTaskScenarioChange=!!task&&task.id===id&&rebuild;
       isCustom=!!scenario.get()?.isCustom;
       maxStacks=scenario.limits().stacks;stackInput.max=stackRange.max=maxStacks;
-      if(rebuild){if(!presentation||task?.id!==id){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;}window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');stackInput.removeAttribute('aria-invalid');}
+      if(rebuild){if(sameTaskScenarioChange){nextFocus=null;nextCamera=null;scales.delete(id);inspectorOpen=false;}else if(!presentation&&task?.id!==id){nextCamera=null;}window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');stackInput.removeAttribute('aria-invalid');}
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen&&!!(isInstances?nextFocus:focus);identity();
       structureHost.hidden=isInstances;

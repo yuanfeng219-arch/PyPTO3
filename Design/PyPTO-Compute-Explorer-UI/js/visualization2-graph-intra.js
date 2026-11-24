@@ -109,7 +109,7 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onScale,onNavigate,pre
  window.PtoPhotoNarrative.html(toolbar,global.PtoComputeDetailControls.parameter());
  const syncScenario=global.PtoComputeDetailControls.connect(toolbar,scenario);
  window.PtoPhotoNarrative.html(host.querySelector('[data-compute-identity]'),global.PtoComputeDetailControls.picker(model));
- let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null;
+ let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null,initialized=false;
  const canvas=host.querySelector('.viz2-compute-canvas');
  let sourceTask=task,isCustom=false;
  let maxPages=1;
@@ -272,9 +272,11 @@ function mount(host,{model,scenario,onTask,onFocus,onView,onScale,onNavigate,pre
  return {update(id,f,v,{active:next}={}){
   if(model.tasks[id])sourceTask=model.tasks[id];
   const effective=scenario.task('graph',id)||sourceTask;
-  const changed=task!==effective, preserveView=presentation&&task.id===effective.id;task=effective;isCustom=!!scenario.get()?.isCustom;
+  const prevTask=task;
+  const changed=prevTask!==effective, sameTaskScenarioChange=initialized&&prevTask.id===effective.id&&changed, preserveView=presentation&&prevTask.id===effective.id;
+  task=effective;initialized=true;isCustom=!!scenario.get()?.isCustom;
   focus=f;view=v;active=!!next;hover=null;
-  if(changed){if(!preserveView){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};}window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');pageInput.removeAttribute('aria-invalid');}
+  if(changed){if(sameTaskScenarioChange&&!preserveView){focus=null;f=null;v={...v,intraCamera:null,intraInspectorOpen:false};}else if(!preserveView){v={...v,intraCamera:null};}window.PtoPhotoNarrative.text(toolbar.querySelector('[data-page-error]'),'');pageInput.removeAttribute('aria-invalid');}
   maxPages=scenario.limits().pages;pageInput.max=pageRange.max=maxPages;
   if((Number.isInteger(f?.stackIndex)&&f.stackIndex>=task.stackCount)||(f?.kind==='stack'&&f.index>=task.stackCount)||(f?.kind==='page'&&f.index>=task.pageCount)){focus=null;f=null;v={...v,intraInspectorOpen:false};}
   if(active){

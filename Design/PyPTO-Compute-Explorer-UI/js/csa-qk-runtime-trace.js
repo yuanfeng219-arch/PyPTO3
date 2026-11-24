@@ -17,6 +17,7 @@
       sortBy: 'group', // 'group' | 'duration'
       showAiv1Idle: true,
       showMerge: true,
+      highlightStep: null, // null | 'qk_pv' | 'csa_merge_pack_publish'
     };
 
     function rankData() {
@@ -105,10 +106,47 @@
       return 'left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%';
     }
 
+    function buildStepsHtml(rd) {
+      const origin = rd.windowOriginUs;
+      const qkStart = Math.min(...rd.groups.map(g => Math.min(g.aic.startUs, g.aiv0.startUs, g.aiv1.startUs)));
+      const qkEnd = rd.qkEndUs;
+      const mergeStart = Math.min(...rd.groups.map(g => Math.min(g.merge0.startUs, g.merge1.startUs)));
+      const mergeEnd = rd.mergeEndUs;
+      const delta = mergeStart - qkEnd;
+      const qkAct = state.highlightStep === 'qk_pv';
+      const qkDim = state.highlightStep && !qkAct;
+      const mAct = state.highlightStep === 'csa_merge_pack_publish';
+      const mDim = state.highlightStep && !mAct;
+
+      let html =
+        '<div class="csa-rt-steps" aria-label="阶段流水步骤与交接">' +
+          '<button type="button" class="csa-rt-step-chip' + (qkAct ? ' is-active' : '') + (qkDim ? ' is-dimmed' : '') + '" data-rt-step="qk_pv" aria-pressed="' + qkAct + '" title="点击仅高亮 qk_pv（MIX 1:2 · 72 核 · 跨度 ' + rd.qkSpanUs.toFixed(1) + ' µs）">' +
+            '<i style="background:#80b7f7"></i><span>qk_pv</span>' +
+            '<small>MIX 1:2 · ' + Math.round(qkStart - origin) + '–' + Math.round(qkEnd - origin) + 'µs</small>' +
+          '</button>';
+
+      if (state.showMerge) {
+        const linkHtml = delta < -1
+          ? '<span class="csa-rt-step-link is-overlap" title="快组完成后即启动下游 Merge，与慢组 qk_pv 存在 ' + Math.abs(delta).toFixed(1) + ' µs 重叠">⇢ 重叠 ' + Math.abs(delta).toFixed(0) + 'µs</span>'
+          : delta > 2
+            ? '<span class="csa-rt-step-link is-gap">→ 空窗 +' + delta.toFixed(0) + 'µs</span>'
+            : '<span class="csa-rt-step-link">→</span>';
+        html += linkHtml +
+          '<button type="button" class="csa-rt-step-chip' + (mAct ? ' is-active' : '') + (mDim ? ' is-dimmed' : '') + '" data-rt-step="csa_merge_pack_publish" aria-pressed="' + mAct + '" title="点击仅高亮 csa_merge_pack_publish（AIV · 48 核 · Setup ' + rd.summary.mergeSetupTotalPct.toFixed(1) + '%）">' +
+            '<i style="background:#4fb899"></i><span>csa_merge_pack_publish</span>' +
+            '<small>AIV · ' + Math.round(mergeStart - origin) + '–' + Math.round(mergeEnd - origin) + 'µs</small>' +
+          '</button>';
+      }
+      html += '</div>';
+      return html;
+    }
+
     function buildRowsHtml(rd, spanUs) {
       const origin = rd.windowOriginUs;
       const qkEndPct = ((rd.qkEndUs - origin) / spanUs) * 100;
       const groups = orderedGroups(rd);
+      const qkDim = state.highlightStep && state.highlightStep !== 'qk_pv' ? ' is-dimmed' : '';
+      const mergeDim = state.highlightStep && state.highlightStep !== 'csa_merge_pack_publish' ? ' is-dimmed' : '';
       return groups.map(g => {
         const isSel = g.group === state.selectedGroup;
         const isSlow = g.tier === 'slow';
@@ -121,9 +159,9 @@
           if (!state.showMerge) return '';
           const setupEnd = Math.min(m.endUs, m.startUs + m.setupUs);
           const setupPart = m.setupUs > 1
-            ? '<span class="csa-rt-bar is-msetup" style="' + barStyle(m.startUs, setupEnd, origin, spanUs) + '"></span>'
+            ? '<span class="csa-rt-bar is-msetup' + mergeDim + '" style="' + barStyle(m.startUs, setupEnd, origin, spanUs) + '"></span>'
             : '';
-          const kernPart = '<span class="csa-rt-bar is-mkern" style="' + barStyle(setupEnd, m.endUs, origin, spanUs) + '"></span>';
+          const kernPart = '<span class="csa-rt-bar is-mkern' + mergeDim + '" style="' + barStyle(setupEnd, m.endUs, origin, spanUs) + '"></span>';
           return setupPart + kernPart;
         };
 
@@ -140,20 +178,20 @@
               '<div class="csa-rt-end-overlay" aria-hidden="true"><span class="csa-rt-end-line" style="left:' + qkEndPct.toFixed(2) + '%"></span></div>' +
               '<div class="csa-rt-sublane">' +
                 '<span class="csa-rt-subtag">C</span>' +
-                '<div class="csa-rt-lane-bg"><span class="csa-rt-bar is-aic" style="' + barStyle(g.aic.startUs, g.aic.endUs, origin, spanUs) + '"></span></div>' +
+                '<div class="csa-rt-lane-bg"><span class="csa-rt-bar is-aic' + qkDim + '" style="' + barStyle(g.aic.startUs, g.aic.endUs, origin, spanUs) + '"></span></div>' +
               '</div>' +
               '<div class="csa-rt-sublane">' +
                 '<span class="csa-rt-subtag">V0</span>' +
                 '<div class="csa-rt-lane-bg">' +
-                  '<span class="csa-rt-bar is-aiv0" style="' + barStyle(g.aiv0.startUs, g.aiv0.endUs, origin, spanUs) + '"></span>' +
-                  (hasTail ? '<span class="csa-rt-bar is-aiv0-tail" style="' + barStyle(aiv0TailStart, g.aiv0.endUs, origin, spanUs) + '"></span>' : '') +
+                  '<span class="csa-rt-bar is-aiv0' + qkDim + '" style="' + barStyle(g.aiv0.startUs, g.aiv0.endUs, origin, spanUs) + '"></span>' +
+                  (hasTail ? '<span class="csa-rt-bar is-aiv0-tail' + qkDim + '" style="' + barStyle(aiv0TailStart, g.aiv0.endUs, origin, spanUs) + '"></span>' : '') +
                   mergeBar(g.merge0) +
                 '</div>' +
               '</div>' +
               '<div class="csa-rt-sublane">' +
                 '<span class="csa-rt-subtag is-muted">V1</span>' +
                 '<div class="csa-rt-lane-bg">' +
-                  '<span class="csa-rt-bar is-aiv1' + (state.showAiv1Idle ? ' is-hatched' : '') + '" style="' + barStyle(g.aiv1.startUs, g.aiv1.endUs, origin, spanUs) + '"></span>' +
+                  '<span class="csa-rt-bar is-aiv1' + (state.showAiv1Idle ? ' is-hatched' : '') + qkDim + '" style="' + barStyle(g.aiv1.startUs, g.aiv1.endUs, origin, spanUs) + '"></span>' +
                   mergeBar(g.merge1) +
                 '</div>' +
               '</div>' +
@@ -234,10 +272,12 @@
       const spanUs = state.showMerge ? rd.totalSpanUs : Math.max(rd.qkSpanUs * 1.04, 1);
       const hasInspector = state.selectedGroup != null;
 
+      const prevScroll = host.querySelector('.csa-rt-rows')?.scrollTop ?? null;
       host.innerHTML =
         '<div class="csa-rt-shell' + (hasInspector ? ' has-inspector' : '') + '">' +
           '<div class="csa-rt-main">' +
             buildTopStripHtml(rd) +
+            buildStepsHtml(rd) +
             '<div class="csa-rt-board">' +
               buildAxisHtml(rd, spanUs) +
               '<div class="csa-rt-rows">' + buildRowsHtml(rd, spanUs) + '</div>' +
@@ -245,6 +285,10 @@
           '</div>' +
           buildInspectorHtml(rd) +
         '</div>';
+      if (prevScroll != null) {
+        const rowsEl = host.querySelector('.csa-rt-rows');
+        if (rowsEl) rowsEl.scrollTop = prevScroll;
+      }
     }
 
     host.addEventListener('click', event => {
@@ -252,6 +296,13 @@
       if (!btn) return;
       if (btn.hasAttribute('data-rt-close')) {
         state.selectedGroup = null;
+        opts.onSelectGroup?.(null);
+        render();
+        return;
+      }
+      if (btn.dataset.rtStep) {
+        const s = btn.dataset.rtStep;
+        state.highlightStep = state.highlightStep === s ? null : s;
         render();
         return;
       }
@@ -263,14 +314,17 @@
       if (btn.dataset.rtToggle) {
         const key = btn.dataset.rtToggle;
         if (key === 'aiv1') state.showAiv1Idle = !state.showAiv1Idle;
-        else if (key === 'merge') state.showMerge = !state.showMerge;
+        else if (key === 'merge') {
+          state.showMerge = !state.showMerge;
+          if (!state.showMerge && state.highlightStep === 'csa_merge_pack_publish') state.highlightStep = null;
+        }
         render();
         return;
       }
       if (btn.dataset.rtGroup != null) {
         const clicked = Number(btn.dataset.rtGroup);
         state.selectedGroup = state.selectedGroup === clicked ? null : clicked;
-        if (state.selectedGroup != null) opts.onSelectGroup?.(state.selectedGroup);
+        opts.onSelectGroup?.(state.selectedGroup);
         render();
         return;
       }

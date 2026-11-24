@@ -670,6 +670,7 @@
           focusId = null;
           hoverId = null;
           host.querySelectorAll('[data-csa-ig-preset]').forEach(b => b.classList.toggle('is-selected', b === presetBtn));
+          options.onSelectItem?.(found.id);
           redraw(true);
         }
         return;
@@ -813,6 +814,8 @@
 
     return {
       update(nextScenario, preferredItemId) {
+        const prevItemId = itemId;
+        const prevScenario = scenario;
         scenario = nextScenario;
         if (preferredItemId != null && scenario?.byId.has(preferredItemId)) {
           itemId = preferredItemId;
@@ -827,9 +830,11 @@
             b.classList.toggle('is-selected', b.dataset.csaIgPreset === activePreset)
           );
         }
-        focusId = null;
-        hoverId = null;
-        redraw(true);
+        if (prevItemId !== itemId || prevScenario !== scenario) {
+          focusId = null;
+          hoverId = null;
+        }
+        redraw(prevItemId !== itemId || prevScenario !== scenario);
       },
       fit,
     };

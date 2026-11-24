@@ -20,7 +20,7 @@
   <base href="./vendor/device-perf-lane/" target="_top">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Device Perf Lane · 原始数据 & Block 聚合</title>
+  <title>Device Perf Lane · 核组与核型视图</title>
   <link rel="stylesheet" href="../csa-swimlane/sequence-navigation/navigation.css">
   <script src="../csa-swimlane/sequence-navigation/navigation.js"></script>
   <style>
@@ -1165,6 +1165,219 @@ body.kernel-focus-mode .trace-pair > .sec:last-child {
   display: none !important;
 }
 
+/* Focused Core-Type Hairline View (matches CSA Compute Explorer & Device Perf Lane) */
+.kf-type-board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f1013;
+  overflow: hidden;
+}
+.kf-type-par {
+  flex: none;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: #121317;
+}
+.kf-type-rail-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font: 500 10px/1.1 var(--mono);
+  color: #7a7a7a;
+  white-space: nowrap;
+}
+.kf-type-rail-label small {
+  font-size: 9px;
+  color: #5c5c5c;
+}
+.kf-type-par-track {
+  position: relative;
+  height: 36px;
+  min-width: 0;
+}
+.kf-type-par-track svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.kf-type-par-peak {
+  position: absolute;
+  right: 4px;
+  top: 2px;
+  font: 500 9.5px/1 var(--mono);
+  color: #a0a0a0;
+  background: rgba(15, 16, 19, 0.82);
+  padding: 1px 5px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.kf-type-axis {
+  flex: none;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: #15161a;
+  font: 500 10.5px/1.2 var(--mono);
+  color: #7a7a7a;
+}
+.kf-type-axis .kf-rt-axis-track {
+  margin-left: 0;
+}
+.kf-type-canvas {
+  flex: 1;
+  min-height: 340px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 14px;
+  position: relative;
+  overflow: hidden;
+}
+.kf-type-yaxis {
+  position: relative;
+  height: 100%;
+  font: 500 9.5px/1 var(--mono);
+  color: #6e6e6e;
+  user-select: none;
+}
+.kf-type-yaxis span {
+  position: absolute;
+  right: 2px;
+  transform: translateY(-25%);
+}
+.kf-type-ygroup {
+  position: absolute;
+  left: 0;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 10px;
+  color: #aaaaaa;
+  letter-spacing: 0.02em;
+}
+.kf-type-plot {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  border-radius: 4px;
+  background: #0d0e11;
+  overflow: hidden;
+}
+.kf-type-plot .kf-rt-end-overlay {
+  inset: 0;
+}
+.kf-type-svg {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.kf-type-slice {
+  cursor: pointer;
+}
+.kf-type-slice:hover {
+  filter: brightness(1.25);
+}
+.kf-type-tip {
+  position: absolute;
+  z-index: 8;
+  pointer-events: none;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: rgba(15, 16, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e4e6ec;
+  font: 500 10.5px/1.3 var(--mono);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.kf-type-foot {
+  flex: none;
+  padding: 6px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #131418;
+  font: 10.5px/1.3 var(--font);
+  color: #727680;
+}
+.kf-rt-legend i.is-mono-base { background: #565656; }
+.kf-rt-legend i.is-mono-cand { background: #a8a8a8; }
+.kf-rt-legend i.is-mono-setup { background: linear-gradient(90deg, #9a7639 0 45%, #dfbd69 45% 100%); }
+.kf-task-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kf-task-row {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 128px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kf-task-row:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+.kf-task-id {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 500 11.5px/1.2 var(--mono);
+  color: #dde2ec;
+}
+.kf-task-id span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kf-task-track {
+  position: relative;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.kf-task-bar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 2px;
+  background: #565656;
+}
+.kf-task-bar.is-emph {
+  background: #a8a8a8;
+}
+.kf-task-stat {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  font: 11px/1 var(--mono);
+  color: #9ca4b3;
+  white-space: nowrap;
+}
+
 .kf-rt-shell {
   flex: 1;
   min-height: 0;
@@ -1774,7 +1987,7 @@ let inlineEvolution=false,inlineReturnRange=null,inlineZoomFrom=null;const inlin
 let laneExpanded = false, laneComposition = false, laneRowCenters = [];
 let laneZoomRaf = 0;
 let singleChains = [], singleSelected = null, singlePanelOpen = false, singlePreviousRange = null, singlePreviousScroll = 0;
-let kernelFilter = null, kernelSortBy = "group", kernelShowAiv1Hatch = true, kernelShowSetupSplit = false, kernelSelectedGroup = null, kernelStageHighlight = null;
+let kernelFilter = null, kernelSortBy = "group", kernelShowAiv1Hatch = true, kernelShowSetupSplit = false, kernelExpanded = false, kernelSelectedGroup = null, kernelStageHighlight = null;
 let kernelMenuAction = "highlight", kernelPinnedHighlight = null, kernelPreviewHighlight = null;
 const ovl = { ribbon: false, bands: true, marks: true };
 const lanePreview = document.documentElement.classList.contains('lane-preview') && window.LaneTransition;
@@ -2279,6 +2492,157 @@ function buildStageTraceModel(stage) {
   };
 }
 
+function renderFocusedCompactBoard(blocks, { groupBy = "group", origin, spanUs, axisSpan, finishPct, ticks, selectedGroup, highlightStep, showSetup, finishTooltip }) {
+  const isGroup = groupBy === "group";
+  const ROW = 8, BAR_H = 2.6, GROUP_H = 21;
+  const aicCount = R?.kpi?.aicCores || 24;
+  const aivCount = R?.kpi?.aivCores || 48;
+  const AIC_H = aicCount * ROW; // 192
+  const AIV_TOP = AIC_H + 20; // 212
+  const AIV_H = aivCount * ROW; // 384
+  const TOTAL_H = isGroup ? aicCount * GROUP_H : AIV_TOP + AIV_H; // 504 | 596
+  const xPctOf = (t) => Math.max(0, Math.min(100, ((t - origin) / axisSpan) * 100));
+  const coreGroupIdx = (c) => (c < aicCount ? c : Math.floor((c - aicCount) / 2));
+
+  // Parallelism sparkline (120 bins over [origin, origin + spanUs])
+  const binCount = 120;
+  const stepUs = Math.max(1e-6, spanUs / binCount);
+  const binSets = Array.from({ length: binCount }, () => new Set());
+  for (const b of blocks) {
+    const i0 = Math.max(0, Math.floor((b.startUs - origin) / stepUs));
+    const i1 = Math.min(binCount - 1, Math.floor((b.endUs - origin) / stepUs));
+    for (let i = i0; i <= i1; i++) binSets[i].add(b.core);
+  }
+  const totalCores = aicCount + aivCount;
+  let peak = 0;
+  const pts = binSets.map((set, i) => {
+    const n = set.size;
+    if (n > peak) peak = n;
+    const x = ((i + 0.5) / binCount) * (finishPct * 10);
+    const y = 34 - (n / Math.max(1, totalCores)) * 32;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const endX = (finishPct * 10).toFixed(1);
+  const areaPath = pts.length ? `M 0,34 L ${pts.join(" L ")} L ${endX},34 Z` : "";
+  const linePath = pts.length ? `M ${pts.join(" L ")}` : "";
+  const refCores = Math.round(totalCores * 0.25);
+  const refY = (34 - (refCores / Math.max(1, totalCores)) * 32).toFixed(1);
+
+  const svgGrid = isGroup
+    ? Array.from({ length: aicCount }, (_, g) => {
+        const y = g * GROUP_H;
+        const zebra = g % 2 === 1 ? `<rect x="0" y="${y}" width="1000" height="${GROUP_H}" fill="rgba(255,255,255,0.012)"/>` : "";
+        const line = g > 0 ? `<line x1="0" y1="${y}" x2="1000" y2="${y}" stroke="rgba(255,255,255,0.045)" stroke-width="1"/>` : "";
+        return zebra + line;
+      }).join("")
+    : [
+        ...[0, 4, 8, 12, 16, 20].map((c) => `<line x1="0" y1="${c * ROW}" x2="1000" y2="${c * ROW}" stroke="rgba(255,255,255,0.028)" stroke-width="1"/>`),
+        `<line x1="0" y1="${AIC_H + 10}" x2="1000" y2="${AIC_H + 10}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`,
+        ...[24, 32, 40, 48, 56, 64].map((c) => `<line x1="0" y1="${AIV_TOP + (c - aicCount) * ROW}" x2="1000" y2="${AIV_TOP + (c - aicCount) * ROW}" stroke="rgba(255,255,255,0.028)" stroke-width="1"/>`),
+      ].join("");
+
+  const svgRects = blocks.map((b) => {
+    const isAic = b.core < aicCount;
+    const grp = coreGroupIdx(b.core);
+    let yNum;
+    if (isGroup) {
+      if (isAic) yNum = grp * GROUP_H + 2.5;
+      else yNum = grp * GROUP_H + (((b.core - aicCount) % 2) === 0 ? 8.5 : 14.5);
+    } else {
+      const rowTop = isAic ? b.core * ROW : AIV_TOP + (b.core - aicCount) * ROW;
+      yNum = rowTop + (ROW - BAR_H) / 2;
+    }
+    const y = yNum.toFixed(2);
+    const x = (xPctOf(b.startUs) * 10).toFixed(2);
+    const w = Math.max(1.4, ((b.endUs - b.startUs) / axisSpan) * 1000).toFixed(2);
+    const isGrpSel = selectedGroup != null && selectedGroup === grp;
+    const isStepHit = !!(highlightStep && b.stepName === highlightStep);
+    const isDim = !!(highlightStep && b.stepName !== highlightStep);
+    const fill = isGrpSel ? "#f0f0f0" : isStepHit ? "#a8a8a8" : "#565656";
+    const op = isDim ? "0.28" : (isGrpSel || isStepHit ? "0.96" : "0.85");
+    const role = isAic ? `AIC (C${b.core})` : `AIV ${(b.core - aicCount) % 2} (V${b.core})`;
+    const name = b.stepName || b.launch?.leaf || "";
+    const setupUs = Math.max(0, b.setupUs || 0);
+    const setupNote = setupUs >= 0.8 ? ` · Setup ${setupUs.toFixed(1)} µs` : "";
+    const tip = `G${String(grp).padStart(2, "0")} · ${role} · ${name} · ${(b.endUs - b.startUs).toFixed(1)} µs (+${(b.startUs - origin).toFixed(1)}→+${(b.endUs - origin).toFixed(1)} µs)${setupNote}`;
+    if (showSetup && setupUs > axisSpan * 0.002) {
+      const setupEnd = Math.min(b.endUs, b.startUs + setupUs);
+      const sw = Math.max(1.2, ((setupEnd - b.startUs) / axisSpan) * 1000).toFixed(2);
+      const cx = (xPctOf(setupEnd) * 10).toFixed(2);
+      const cw = Math.max(1.2, ((b.endUs - setupEnd) / axisSpan) * 1000).toFixed(2);
+      return `<g class="kf-type-slice" data-kf-group="${grp}" data-kf-tip="${esc(tip)}"><rect x="${x}" y="${y}" width="${sw}" height="${BAR_H.toFixed(2)}" rx="0.8" fill="#9a7639" fill-opacity="${op}"/><rect x="${cx}" y="${y}" width="${cw}" height="${BAR_H.toFixed(2)}" rx="0.8" fill="#dfbd69" fill-opacity="${op}"/></g>`;
+    }
+    return `<rect class="kf-type-slice" data-kf-group="${grp}" data-kf-tip="${esc(tip)}" x="${x}" y="${y}" width="${w}" height="${BAR_H.toFixed(2)}" rx="0.8" fill="${fill}" fill-opacity="${op}"/>`;
+  }).join("");
+
+  const yAxisHtml = isGroup
+    ? [0, 3, 6, 9, 12, 15, 18, 21, 23].filter((g) => g < aicCount).map((g) =>
+        `<span style="top:${((g * GROUP_H + GROUP_H * 0.45) / TOTAL_H * 100).toFixed(2)}%">G${String(g).padStart(2, "0")}</span>`
+      ).join("")
+    : `<em class="kf-type-ygroup" style="top:1.2%">AIC</em>` +
+      [0, 4, 8, 12, 16, 20, 22].map((c) => `<span style="top:${((c * ROW + ROW * 0.35) / TOTAL_H * 100).toFixed(2)}%">${c}</span>`).join("") +
+      `<em class="kf-type-ygroup" style="top:${((AIV_TOP / TOTAL_H) * 100 - 1.5).toFixed(2)}%">AIV</em>` +
+      [24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68].map((c) => `<span style="top:${((AIV_TOP + (c - aicCount) * ROW + ROW * 0.35) / TOTAL_H * 100).toFixed(2)}%">${c}</span>`).join("");
+
+  return (
+    `<div class="kf-type-board">` +
+      `<div class="kf-type-par">` +
+        `<div class="kf-type-rail-label"><span>并行宽度</span><small>25% · ${refCores} 核</small></div>` +
+        `<div class="kf-type-par-track">` +
+          `<svg viewBox="0 0 1000 36" preserveAspectRatio="none" aria-hidden="true">` +
+            `<line x1="0" y1="${refY}" x2="1000" y2="${refY}" stroke="rgba(196,196,196,0.34)" stroke-dasharray="4 4" stroke-width="1"/>` +
+            `<path d="${areaPath}" fill="rgba(110,110,110,0.48)"/>` +
+            `<path d="${linePath}" fill="none" stroke="#a6a6a6" stroke-width="1.1"/>` +
+          `</svg>` +
+          `<span class="kf-type-par-peak">峰值 ${peak} / ${totalCores} 核</span>` +
+        `</div>` +
+      `</div>` +
+      `<div class="kf-type-axis">` +
+        `<div class="kf-type-rail-label"><span>${isGroup ? "Group" : "Core"}</span></div>` +
+        `<div class="kf-rt-axis-track">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="${esc(finishTooltip)}">${fmtKernelShortUs(spanUs)} 完成线</span></div>` +
+      `</div>` +
+      `<div class="kf-type-canvas">` +
+        `<div class="kf-type-yaxis" aria-hidden="true">${yAxisHtml}</div>` +
+        `<div class="kf-type-plot" data-kf-type-plot data-kf-group-by="${isGroup ? "group" : "type"}" data-aic-count="${aicCount}" data-total-h="${TOTAL_H}">` +
+          `<div class="kf-rt-end-overlay" aria-hidden="true"><span class="kf-rt-end-line" style="left:${finishPct.toFixed(2)}%"></span></div>` +
+          `<svg class="kf-type-svg" viewBox="0 0 1000 ${TOTAL_H}" preserveAspectRatio="none">${svgGrid}${svgRects}</svg>` +
+          `<div class="kf-type-tip" data-kf-type-tip hidden></div>` +
+        `</div>` +
+      `</div>` +
+      `<div class="kf-type-foot">${isGroup ? `按 ${aicCount} 个物理核组聚类（每组 3 条细轨默认对应 AIC / AIV / AIV，悬停提示核型与耗时）` : `按物理核型聚类（${aicCount} AIC + ${aivCount} AIV，一屏全览 · 悬停查看核号与耗时分解）`}· 点击色块查看对应核组详情</div>` +
+    `</div>`
+  );
+}
+
+function renderFocusedTaskBoard(launches, { origin, spanUs, axisSpan, finishPct, ticks, highlightStep, finishTooltip }) {
+  const sorted = launches.slice().sort((a, b) => a.startUs - b.startUs || b.spanUs - a.spanUs);
+  const rows = sorted.map((l) => {
+    const left = Math.max(0, ((l.startUs - origin) / axisSpan) * 100);
+    const width = Math.max(0.5, ((l.endUs - l.startUs) / axisSpan) * 100);
+    const baseName = kernelBaseName(l.leaf);
+    const isEmph = !!(highlightStep && baseName === highlightStep);
+    const bCls = l.ct === "AIC" ? "is-aic" : "is-aiv";
+    const sPct = Math.round((l.setupUs / Math.max(1e-6, l.setupUs + l.computeUs)) * 100);
+    return (
+      `<button type="button" class="kf-task-row" data-kf-open-drawer="${esc(l.id)}">` +
+        `<div class="kf-task-id"><span class="kernel-option-badge ${bCls}">${esc(l.ct)}</span><span title="${esc(l.leaf)}">${esc(l.leaf)}</span></div>` +
+        `<div class="kf-task-track"><span class="kf-task-bar${isEmph ? " is-emph" : ""}" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%"></span></div>` +
+        `<div class="kf-task-stat"><span>${fmtKernelShortUs(l.spanUs)}</span><span>${l.blocks.n} 块 · S${sPct}%</span></div>` +
+      `</button>`
+    );
+  }).join("");
+  return (
+    `<div class="kf-rt-board">` +
+      `<div class="kf-rt-axis" style="grid-template-columns:200px minmax(0,1fr) 128px">` +
+        `<div>Task / Launch</div>` +
+        `<div class="kf-rt-axis-track" style="margin-left:0">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="${esc(finishTooltip)}">${fmtKernelShortUs(spanUs)} 完成线</span></div>` +
+        `<div style="text-align:right">跨度 · 块数</div>` +
+      `</div>` +
+      `<div class="kf-task-rows">${rows}</div>` +
+    `</div>`
+  );
+}
+
 function renderStageTrace(stage) {
   const host = $("kernel-trace-view");
   const model = buildStageTraceModel(stage);
@@ -2463,6 +2827,52 @@ function renderStageTrace(stage) {
       `</aside>`;
   }
 
+  const isTypeView = laneView === "core";
+  const isTaskView = laneView === "task";
+  const useCompact = !isTaskView && (isTypeView || !kernelExpanded);
+  let stageBoardHtml;
+  if (useCompact) {
+    const allStageBlocks = [];
+    for (const g of model.groups) {
+      if (g.aic) allStageBlocks.push(...g.aic.blocks);
+      if (g.aiv0) allStageBlocks.push(...g.aiv0.blocks);
+      if (g.aiv1) allStageBlocks.push(...g.aiv1.blocks);
+    }
+    stageBoardHtml = renderFocusedCompactBoard(allStageBlocks, {
+      groupBy: isTypeView ? "type" : "group",
+      origin,
+      spanUs: model.spanUs,
+      axisSpan,
+      finishPct,
+      ticks,
+      selectedGroup: kernelSelectedGroup,
+      highlightStep: kernelStageHighlight,
+      showSetup: kernelShowSetupSplit,
+      finishTooltip: "该 Stage 链路最慢完成时刻",
+    });
+  } else if (isTaskView) {
+    const stageLaunches = stage.steps.flatMap((s) => s.launches);
+    stageBoardHtml = renderFocusedTaskBoard(stageLaunches, {
+      origin,
+      spanUs: model.spanUs,
+      axisSpan,
+      finishPct,
+      ticks,
+      highlightStep: kernelStageHighlight,
+      finishTooltip: "该 Stage 链路最慢完成时刻",
+    });
+  } else {
+    stageBoardHtml =
+      `<div class="kf-rt-board">` +
+        `<div class="kf-rt-axis">` +
+          `<div class="kf-rt-col-id">Group</div>` +
+          `<div class="kf-rt-axis-track">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="该 Stage 链路最慢完成时刻">${fmtKernelShortUs(model.spanUs)} 完成线</span></div>` +
+          `<div class="kf-rt-col-stat">组跨度</div>` +
+        `</div>` +
+        `<div class="kf-rt-rows">${rowsHtml}</div>` +
+      `</div>`;
+  }
+
   host.innerHTML =
     `<div class="kf-rt-shell${selGroup ? " has-inspector" : ""}">` +
       `<div class="kf-rt-main">` +
@@ -2470,30 +2880,32 @@ function renderStageTrace(stage) {
           `<div class="kf-rt-controls-left">` +
             `<button type="button" class="kf-rt-back" data-kf-exit>← 全部泳道</button>` +
             `<span class="kf-rt-title-pill">${esc(stage.name)}<span class="kernel-option-badge is-stage">STAGE · ${stage.taskCount} TASK</span></span>` +
-            `<div class="kf-rt-seg" role="group" aria-label="核组排序">` +
-              `<button type="button" class="${kernelSortBy === "group" ? "is-selected" : ""}" data-kf-sort="group" aria-pressed="${kernelSortBy === "group"}">Group 序</button>` +
-              `<button type="button" class="${kernelSortBy === "duration" ? "is-selected" : ""}" data-kf-sort="duration" aria-pressed="${kernelSortBy === "duration"}">耗时降序</button>` +
-            `</div>` +
+            (!isTypeView && !isTaskView
+              ? `<div class="kf-rt-seg" role="group" aria-label="视图密度">` +
+                  `<button type="button" class="${!kernelExpanded ? "is-selected" : ""}" data-kf-expand="compact" aria-pressed="${!kernelExpanded}">紧凑行</button>` +
+                  `<button type="button" class="${kernelExpanded ? "is-selected" : ""}" data-kf-expand="expanded" aria-pressed="${kernelExpanded}">展开行</button>` +
+                `</div>`
+              : "") +
+            (!useCompact && !isTaskView
+              ? `<div class="kf-rt-seg" role="group" aria-label="核组排序">` +
+                  `<button type="button" class="${kernelSortBy === "group" ? "is-selected" : ""}" data-kf-sort="group" aria-pressed="${kernelSortBy === "group"}">Group 序</button>` +
+                  `<button type="button" class="${kernelSortBy === "duration" ? "is-selected" : ""}" data-kf-sort="duration" aria-pressed="${kernelSortBy === "duration"}">耗时降序</button>` +
+                `</div>`
+              : "") +
             `<div class="kf-rt-seg" role="group" aria-label="叠加信号">` +
-              (isQkMerge ? `<button type="button" class="${kernelShowAiv1Hatch ? "is-selected" : ""}" data-kf-toggle="aiv1" aria-pressed="${kernelShowAiv1Hatch}">AIV 1 握手空转</button>` : "") +
-              `<button type="button" class="${kernelShowSetupSplit ? "is-selected" : ""}" data-kf-toggle="setup" aria-pressed="${kernelShowSetupSplit}">Setup 拆分</button>` +
+              (isQkMerge && !useCompact && !isTaskView ? `<button type="button" class="${kernelShowAiv1Hatch ? "is-selected" : ""}" data-kf-toggle="aiv1" aria-pressed="${kernelShowAiv1Hatch}">AIV 1 握手空转</button>` : "") +
+              (!isTaskView ? `<button type="button" class="${kernelShowSetupSplit ? "is-selected" : ""}" data-kf-toggle="setup" aria-pressed="${kernelShowSetupSplit}">${useCompact ? "耗时构成" : "Setup 拆分"}</button>` : "") +
             `</div>` +
             `<span class="kf-rt-metrics-inline"><b>${stage.steps.length}</b> 阶段<i>·</i><b>${stage.totalBlocks}</b> 块<i>·</i>Setup <b>${model.setupPct.toFixed(1)}%</b><i>·</i>${esc(stage.source)}</span>` +
           `</div>` +
           `<div class="kf-rt-legend" aria-label="泳道图例">` +
-            (kernelShowSetupSplit ? `<span><i class="is-setup"></i>Setup 等待</span>` : "") +
-            `<span>点击下方阶段胶囊可高亮单步</span>` +
+            (useCompact
+              ? `<span><i class="is-mono-base"></i>Task block（底层）</span><span><i class="is-mono-cand"></i>高亮关联</span>${kernelShowSetupSplit ? `<span><i class="is-mono-setup"></i>Setup / 计算</span>` : ""}`
+              : (kernelShowSetupSplit ? `<span><i class="is-setup"></i>Setup 等待</span>` : "") + `<span>点击下方阶段胶囊可高亮单步</span>`) +
           `</div>` +
         `</div>` +
         `<div class="kf-stage-steps" aria-label="阶段流水步骤与交接">${stepStripHtml}</div>` +
-        `<div class="kf-rt-board">` +
-          `<div class="kf-rt-axis">` +
-            `<div class="kf-rt-col-id">Group</div>` +
-            `<div class="kf-rt-axis-track">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="该 Stage 链路最慢完成时刻">${fmtKernelShortUs(model.spanUs)} 完成线</span></div>` +
-            `<div class="kf-rt-col-stat">组跨度</div>` +
-          `</div>` +
-          `<div class="kf-rt-rows">${rowsHtml}</div>` +
-        `</div>` +
+        stageBoardHtml +
       `</div>` +
       inspectorHtml +
     `</div>`;
@@ -2516,13 +2928,7 @@ function setKernelFilter(name) {
   if (next) kernelPinnedHighlight = null;
   kernelSortBy = "group";
   if (next) {
-    if (next.startsWith("stage:")) {
-      const st = stages.find((s) => s.key === next);
-      kernelShowSetupSplit = !!st && (st.id === "qk-merge" || st.setupShare >= 0.12);
-    } else {
-      const entry = catalog.find((k) => k.name === next);
-      kernelShowSetupSplit = !!entry && entry.setupShare >= 0.08;
-    }
+    kernelShowSetupSplit = false;
     kernelShowAiv1Hatch = true;
     if (singlePanelOpen || singleSelected != null) {
       singlePanelOpen = false;
@@ -3092,6 +3498,51 @@ function renderKernelTrace() {
       `</aside>`;
   }
 
+  const isTypeView = laneView === "core";
+  const isTaskView = laneView === "task";
+  const useCompact = !isTaskView && (isTypeView || !kernelExpanded);
+  let kernelBoardHtml;
+  if (useCompact) {
+    const allKernelBlocks = [];
+    for (const g of model.groups) {
+      if (g.aic) allKernelBlocks.push(...g.aic.blocks.map((b) => ({ ...b, stepName: entry.name })));
+      if (g.aiv0) allKernelBlocks.push(...g.aiv0.blocks.map((b) => ({ ...b, stepName: entry.name })));
+      if (g.aiv1) allKernelBlocks.push(...g.aiv1.blocks.map((b) => ({ ...b, stepName: entry.name })));
+    }
+    kernelBoardHtml = renderFocusedCompactBoard(allKernelBlocks, {
+      groupBy: isTypeView ? "type" : "group",
+      origin,
+      spanUs: model.spanUs,
+      axisSpan,
+      finishPct,
+      ticks,
+      selectedGroup: kernelSelectedGroup,
+      highlightStep: null,
+      showSetup: kernelShowSetupSplit,
+      finishTooltip: "当前 Kernel 最慢核完成时刻（相对最早启动时刻）",
+    });
+  } else if (isTaskView) {
+    kernelBoardHtml = renderFocusedTaskBoard(entry.launches, {
+      origin,
+      spanUs: model.spanUs,
+      axisSpan,
+      finishPct,
+      ticks,
+      highlightStep: null,
+      finishTooltip: "当前 Kernel 最慢核完成时刻（相对最早启动时刻）",
+    });
+  } else {
+    kernelBoardHtml =
+      `<div class="kf-rt-board">` +
+        `<div class="kf-rt-axis">` +
+          `<div class="kf-rt-col-id">Group</div>` +
+          `<div class="kf-rt-axis-track">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="当前 Kernel 最慢核完成时刻（相对最早启动时刻）">${fmtKernelShortUs(model.spanUs)} 完成线</span></div>` +
+          `<div class="kf-rt-col-stat">${statColTitle}</div>` +
+        `</div>` +
+        `<div class="kf-rt-rows">${rowsHtml}</div>` +
+      `</div>`;
+  }
+
   host.innerHTML =
     `<div class="kf-rt-shell${selGroup ? " has-inspector" : ""}">` +
       `<div class="kf-rt-main">` +
@@ -3099,26 +3550,27 @@ function renderKernelTrace() {
           `<div class="kf-rt-controls-left">` +
             `<button type="button" class="kf-rt-back" data-kf-exit>← 全部泳道</button>` +
             `<span class="kf-rt-title-pill">${esc(entry.name)}<span class="kernel-option-badge ${badgeClass}">${badgeText}</span></span>` +
-            `<div class="kf-rt-seg" role="group" aria-label="核组排序">` +
-              `<button type="button" class="${kernelSortBy === "group" ? "is-selected" : ""}" data-kf-sort="group" aria-pressed="${kernelSortBy === "group"}">Group 序</button>` +
-              `<button type="button" class="${kernelSortBy === "duration" ? "is-selected" : ""}" data-kf-sort="duration" aria-pressed="${kernelSortBy === "duration"}">耗时降序</button>` +
-            `</div>` +
+            (!isTypeView && !isTaskView
+              ? `<div class="kf-rt-seg" role="group" aria-label="视图密度">` +
+                  `<button type="button" class="${!kernelExpanded ? "is-selected" : ""}" data-kf-expand="compact" aria-pressed="${!kernelExpanded}">紧凑行</button>` +
+                  `<button type="button" class="${kernelExpanded ? "is-selected" : ""}" data-kf-expand="expanded" aria-pressed="${kernelExpanded}">展开行</button>` +
+                `</div>`
+              : "") +
+            (!useCompact && !isTaskView
+              ? `<div class="kf-rt-seg" role="group" aria-label="核组排序">` +
+                  `<button type="button" class="${kernelSortBy === "group" ? "is-selected" : ""}" data-kf-sort="group" aria-pressed="${kernelSortBy === "group"}">Group 序</button>` +
+                  `<button type="button" class="${kernelSortBy === "duration" ? "is-selected" : ""}" data-kf-sort="duration" aria-pressed="${kernelSortBy === "duration"}">耗时降序</button>` +
+                `</div>`
+              : "") +
             `<div class="kf-rt-seg" role="group" aria-label="叠加信号">` +
-              (model.hasAiv1Companion ? `<button type="button" class="${kernelShowAiv1Hatch ? "is-selected" : ""}" data-kf-toggle="aiv1" aria-pressed="${kernelShowAiv1Hatch}">AIV 1 握手空转</button>` : "") +
-              `<button type="button" class="${kernelShowSetupSplit ? "is-selected" : ""}" data-kf-toggle="setup" aria-pressed="${kernelShowSetupSplit}">Setup 拆分</button>` +
+              (model.hasAiv1Companion && !useCompact && !isTaskView ? `<button type="button" class="${kernelShowAiv1Hatch ? "is-selected" : ""}" data-kf-toggle="aiv1" aria-pressed="${kernelShowAiv1Hatch}">AIV 1 握手空转</button>` : "") +
+              (!isTaskView ? `<button type="button" class="${kernelShowSetupSplit ? "is-selected" : ""}" data-kf-toggle="setup" aria-pressed="${kernelShowSetupSplit}">${useCompact ? "耗时构成" : "Setup 拆分"}</button>` : "") +
             `</div>` +
             `<span class="kf-rt-metrics-inline">${metricsParts.join("<i>·</i>")}</span>` +
           `</div>` +
-          `<div class="kf-rt-legend" aria-label="泳道图例">${legendParts.join("")}</div>` +
+          `<div class="kf-rt-legend" aria-label="泳道图例">${useCompact ? `<span><i class="is-mono-base"></i>Task block（底层）</span>${kernelShowSetupSplit ? `<span><i class="is-mono-setup"></i>Setup / 计算</span>` : ""}` : legendParts.join("")}</div>` +
         `</div>` +
-        `<div class="kf-rt-board">` +
-          `<div class="kf-rt-axis">` +
-            `<div class="kf-rt-col-id">Group</div>` +
-            `<div class="kf-rt-axis-track">${ticks.join("")}<span class="kf-rt-end-flag" style="left:${finishPct.toFixed(2)}%" data-tooltip="当前 Kernel 最慢核完成时刻（相对最早启动时刻）">${fmtKernelShortUs(model.spanUs)} 完成线</span></div>` +
-            `<div class="kf-rt-col-stat">${statColTitle}</div>` +
-          `</div>` +
-          `<div class="kf-rt-rows">${rowsHtml}</div>` +
-        `</div>` +
+        kernelBoardHtml +
       `</div>` +
       inspectorHtml +
     `</div>`;
@@ -4073,22 +4525,13 @@ function renderLane() {
       const cy = headerY + headerHeight / 2;
       svg.append(el("rect", { class: "core-group-header", x: 0, y: headerY, width: W, height: headerHeight, fill: "#111111" }));
       svg.append(el("circle", { cx: 11, cy, r: 11, fill: "#262626" }));
-      svg.append(el("rect", { x: 6, y: cy - 5, width: 10, height: 3, rx: 1, fill: "#7cb3f5" }));
-      svg.append(el("rect", { x: 6, y: cy - 0.5, width: 10, height: 2.2, rx: .8, fill: "#9b7ee3" }));
-      svg.append(el("rect", { x: 6, y: cy + 3, width: 10, height: 2.2, rx: .8, fill: "#6e5c99" }));
+      svg.append(el("rect", { x: 6, y: cy - 5, width: 10, height: 2.2, rx: 1, fill: "#a8a8a8" }));
+      svg.append(el("rect", { x: 6, y: cy - 1, width: 10, height: 2.2, rx: 1, fill: "#7a7a7a" }));
+      svg.append(el("rect", { x: 6, y: cy + 3, width: 10, height: 2.2, rx: 1, fill: "#5a5a5a" }));
       const aicPct = (R.kpi.byType.AIC.computeShare * 100).toFixed(0);
       const aivPct = (R.kpi.byType.AIV.computeShare * 100).toFixed(0);
       txt({ x: 29, y: cy + 5, fill: "#cccccc", "font-family": "var(--font)", "font-size": 14 },
-        `Block 聚合 · ${blockCount} Blocks（每组 1 AIC + 2 AIV）· AIC 计算 ${aicPct}% · AIV 计算 ${aivPct}%`);
-      const lgX = Math.max(460, W - RIGHT - 230);
-      if (lgX + 220 <= W - RIGHT) {
-        svg.append(el("rect", { x: lgX, y: cy - 4, width: 10, height: 8, rx: 2, fill: "#7cb3f5" }));
-        txt({ x: lgX + 15, y: cy + 4, fill: "#9fb5cf", "font-family": "var(--mono)", "font-size": 11 }, "AIC");
-        svg.append(el("rect", { x: lgX + 54, y: cy - 4, width: 10, height: 8, rx: 2, fill: "#9b7ee3" }));
-        txt({ x: lgX + 69, y: cy + 4, fill: "#b6a6d9", "font-family": "var(--mono)", "font-size": 11 }, "AIV 0");
-        svg.append(el("rect", { x: lgX + 124, y: cy - 4, width: 10, height: 8, rx: 2, fill: "#685796" }));
-        txt({ x: lgX + 139, y: cy + 4, fill: "#9a8eb8", "font-family": "var(--mono)", "font-size": 11 }, "AIV 1");
-      }
+        `按核组 · ${blockCount} 核组（每组 AIC / AIV / AIV · 悬停查看核型）· AIC 计算 ${aicPct}% · AIV 计算 ${aivPct}%`);
     };
     const drawCoreGroup = (ct, headerY, headerHeight = 36, suffix = "") => {
       const cy = headerY + headerHeight / 2;
@@ -4190,19 +4633,17 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
         if (showLabel) {
           txt({ x: laneExpanded ? 34 : LEFT - 14, y: y0 + h / 2 + 4,
             fill: anySelected ? C.sel : "#9e9e9e", "font-family": "var(--mono)", "font-size": laneExpanded ? 11.5 : 11, "font-weight": anySelected ? 600 : 400, "text-anchor": "end" },
-            "B" + String(bg).padStart(2, "0"));
+            "G" + String(bg).padStart(2, "0"));
         }
       });
-      coreRows.forEach((c, i) => {
-        const y = coreY(i), h = coreHeight(i);
-        const railColor = c.subIdx === 0 ? "#7cb3f5" : c.subIdx === 1 ? "#9b7ee3" : "#685796";
-        svg.append(el("rect", { x: LEFT - 5, y: y + Math.max(0.5, (h - Math.max(3, h - 2)) / 2), width: 2.5, height: Math.max(3, h - 2), rx: 1, fill: railColor, opacity: selectedRows.has(c.id) ? 1 : .85, "pointer-events": "none" }));
-        if (laneExpanded) {
+      if (laneExpanded) {
+        coreRows.forEach((c, i) => {
+          const y = coreY(i), h = coreHeight(i);
           const tag = c.ct === "AIC" ? "C" + c.id : "V" + c.id;
           txt({ x: LEFT - 12, y: y + h / 2 + 4,
-            fill: selectedRows.has(c.id) ? C.sel : c.ct === "AIC" ? "#9cbce3" : "#9c94b3", "font-family": "var(--mono)", "font-size": 10.5, "text-anchor": "end" }, tag);
-        }
-      });
+            fill: selectedRows.has(c.id) ? C.sel : "#7e8594", "font-family": "var(--mono)", "font-size": 10.5, "text-anchor": "end" }, tag);
+        });
+      }
     } else {
       coreRows.forEach((c, i) => {
         const y = coreY(i);
@@ -4223,11 +4664,11 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       const row = hitRow.row, rowMeta = hitRow.core;
       const x = xOf(t0), w = Math.max(.4, (t1 - t0) / viewWin * innerW);
       const showChainPhases = !!chainIds?.has(String(b.launch.taskId));
-      const barH = showChainPhases ? Math.max(3,Math.min(8,coreHeight(row)-2)) : laneExpanded ? Math.max(10, coreHeight(row) - 6) : Math.max(3, Math.min(5, coreHeight(row) - 1.5));
+      const barH = showChainPhases ? Math.max(3,Math.min(8,coreHeight(row)-2)) : laneExpanded ? Math.max(10, coreHeight(row) - 6) : 2.6;
       const rowY = coreY(row), hitW = Math.max(3, w), y = rowY + (coreHeight(row) - barH) / 2;
       const isSel = leadFocusIds ? leadFocusIds.has(b.launch.id) : b.launch.id === me && (!qkInline || b.core===qkInline.core), isCand = cand.has(b.launch.id);
       const showComposition = laneComposition && (compositionIds ? compositionIds.has(b.launch.id) : me != null && (b.launch.id === me || String(b.launch.taskId) === String(R.launches.find(t=>t.id===me)?.taskId)));
-      const blockLabel = byBlock && rowMeta.blockGroup >= 0 ? `Block ${String(rowMeta.blockGroup).padStart(2, "0")} · ${rowMeta.blockRole} (core ${b.core})` : `${b.launch.ct} physical core ${b.core}`;
+      const blockLabel = byBlock && rowMeta.blockGroup >= 0 ? `Group ${String(rowMeta.blockGroup).padStart(2, "0")} · ${rowMeta.blockRole} (core ${b.core})` : `${b.launch.ct} physical core ${b.core}`;
       const g = hit(b.launch.id, `${b.launch.leaf} on ${blockLabel}, ${b.startUs} to ${b.endUs} microseconds`);
       g.setAttribute('data-core',b.core);
       if (showChainPhases) {
@@ -4256,12 +4697,9 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
         if (isSel || isCand) g.append(el("rect", { x, y, width: w, height: barH, rx: laneExpanded ? 2 : 1,
           fill: "none", stroke: isSel ? C.sel : C.candidate, "stroke-width": 1, "pointer-events": "none" }));
       } else {
-        const defaultFill = byBlock
-          ? (rowMeta.subIdx === 0 ? "#607c9e" : rowMeta.subIdx === 1 ? "#675c82" : "#514a63")
-          : C.block;
         g.append(el("rect", { x, y, width: w, height: barH, rx: laneExpanded ? 2 : 1,
-          fill: isSel ? C.sel : metricColor(b.launch) || (isCand ? C.candidate : defaultFill),
-          opacity: isSel || isCand || laneColor !== "none" ? 1 : .9 }));
+          fill: isSel ? C.sel : metricColor(b.launch) || (isCand ? C.candidate : C.block),
+          opacity: isSel || isCand || laneColor !== "none" ? 1 : .85 }));
       }
       if (lanePreview) {
         const bar = g.firstElementChild;
@@ -4283,7 +4721,7 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       const ttl = el("desc", {});
       const blockSlot = Math.max(0, b.slotUs ?? (b.endUs - b.startUs));
       const blockWait = Math.max(0, blockSlot - (b.computeUs || 0) - (b.setupUs || 0));
-      ttl.textContent = `${b.launch.leaf} · ${byBlock && rowMeta.blockGroup >= 0 ? `Block ${String(rowMeta.blockGroup).padStart(2, "0")} · ${rowMeta.blockRole} (core ${b.core})` : `${b.launch.ct} · core ${b.core}`}
+      ttl.textContent = `${b.launch.leaf} · ${byBlock && rowMeta.blockGroup >= 0 ? `Group ${String(rowMeta.blockGroup).padStart(2, "0")} · ${rowMeta.blockRole} (core ${b.core})` : `${b.launch.ct} · core ${b.core}`}
 Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
 ${showChainPhases ? '计时分段' : '耗时构成（按比例绘制）'}：Setup ${b.setupUs.toFixed(1)} μs · 计算 ${b.computeUs.toFixed(1)} μs · 未归因 ${blockWait.toFixed(1)} μs（占用−Setup−计算残差）
 Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.computeUs || 1) * 100).toFixed(1)}% · 尾块核时上界 ${ms(b.launch.tailWasteUs)} ms`;
@@ -4381,7 +4819,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
   $("lane-rows").setAttribute("aria-label", laneExpanded ? "紧凑行" : "展开行");
   $("lane-rows").dataset.tooltip = laneExpanded ? "紧凑行" : "展开行";
   const openMenus = [...document.querySelectorAll("#lane-ovl details[open],#lane-zoom details[open]")].map(d=>d.dataset.menu);
-  const viewLabel = byTask ? '按 Task' : byBlock ? '按 Block' : '按 AIC / AIV';
+  const viewLabel = byTask ? '按 Task' : byBlock ? '按核组' : '按核型';
   const kernelCatalog = getKernelCatalog();
   const stageCatalog = getStageCatalog();
   const activeStage = kernelFilter?.startsWith('stage:') ? stageCatalog.find((s) => s.key === kernelFilter) : null;
@@ -4435,7 +4873,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
       );
     }).join('');
   $("lane-ovl").innerHTML =
-    `<div class="bar-group"><details class="bar-menu" data-menu="view"><summary class="ctl view-selector" aria-label="泳道布局">${viewLabel}</summary><div class="menu-panel view-menu">${[['core','按 AIC / AIV 聚合'],['block','按 Block 聚合'],['task','按 Task']].map(([value,label])=>`<button class="ctl choice-item" data-view="${value}" role="radio" aria-checked="${laneView===value}">${label}</button>`).join('')}</div></details></div>`
+    `<div class="bar-group"><details class="bar-menu" data-menu="view"><summary class="ctl view-selector" aria-label="泳道布局">${viewLabel}</summary><div class="menu-panel view-menu">${[['block','按核组'],['core','按核型'],['task','按 Task']].map(([value,label])=>`<button class="ctl choice-item" data-view="${value}" role="radio" aria-checked="${laneView===value}">${label}</button>`).join('')}</div></details></div>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="kernel"><summary class="ctl view-selector kernel-selector${isKernelBtnActive ? ' on' : ''}" data-kernel-mode aria-label="按 Kernel 或 Stage 筛选泳道" data-tooltip="${isKernelBtnActive ? '当前：' + esc(kernelBtnLabel) : '搜索并在完整泳道实时高亮，或进入单 Stage / Kernel 独立视图'}"><span class="kernel-selector-text">${esc(kernelBtnLabel)}</span></summary><div class="menu-panel kernel-menu"><div class="kernel-menu-search-wrap"><input type="text" class="kernel-menu-search" data-kernel-search-input placeholder="输入关键字实时高亮 Stage / Kernel…" aria-label="搜索 Stage 或 Kernel" autocomplete="off" spellcheck="false"><button type="button" class="kernel-menu-clear" data-kernel-search-clear hidden aria-label="清空搜索">×</button></div><div class="kernel-menu-mode" role="group" aria-label="点击选项后的动作"><button type="button" class="${effectiveMenuAction === 'highlight' ? 'is-selected' : ''}" data-kernel-mode-action="highlight" aria-pressed="${effectiveMenuAction === 'highlight'}">完整泳道高亮</button><button type="button" class="${effectiveMenuAction === 'focus' ? 'is-selected' : ''}" data-kernel-mode-action="focus" aria-pressed="${effectiveMenuAction === 'focus'}">独立泳道视图</button></div><div class="kernel-menu-live" data-kernel-live hidden><span data-kernel-live-text></span><button type="button" data-kernel-pin-query>固定高亮</button></div><div class="kernel-menu-list">${kernelMenuItems}<p class="kernel-menu-empty" hidden>未找到匹配的 Stage 或 Kernel</p></div></div></details></div><span class="analysis-group-label">分析</span>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="path"><summary class="ctl mode-pill${pathAnalysisActive ? ' on' : ''}" data-path-mode data-tooltip="控制泳道图层显示。" aria-pressed="${pathAnalysisActive}" aria-label="图层">图层</summary><div class="menu-panel results-menu path-menu">${[["ribbon","并行宽度"],["bands","低并行区"],["marks","地标"]].map(([k,label])=>`<button class="ctl" data-ovl="${k}" aria-pressed="${!!ovl[k]}">${label}</button>`).join('')}<div class="menu-divider"></div><strong>Task染色</strong>${[['none','默认着色'],['setup','Setup 占比'],['tail','尾块浪费']].map(([v,l])=>`<button class="ctl choice-item" data-color="${v}" role="radio" aria-checked="${laneColor===v}">${l}</button>`).join('')}</div></details></div>`
     + (`<div class="bar-group"><details class="bar-menu" data-menu="filter"><summary class="ctl mode-pill${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode') ? " on" : ""}" data-filter-mode data-tooltip="按性能特征查找同类问题。" aria-pressed="${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode')}" aria-label="特征筛选">特征</summary><div class="menu-panel"><strong>任务特征</strong>` + TASK_LAYERS.map(([v,l])=>`<button class="ctl choice-item" data-task-layer="${v}" role="radio" aria-checked="${taskLayer===v}"><span>${TaskSemanticIcons.feature(v, v === "none" ? null : v === "recommended" ? "conic-gradient(from 0deg," + ["tail", "setup", "parallel", "bubble", "underfill", "fragmented", "imbalance", "tail"].map(key => taskLayerColor(key)).join(",") + ")" : taskLayerColor(v))}${l}</span></button>`).join('') + `<div class="menu-divider"></div><button class="ctl" data-ovl="only" aria-pressed="${!laneAll}">仅显示候选</button></div></details></div>`)
@@ -4470,9 +4908,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     : "";
   $("lane-lgnd").innerHTML = [
     `<span><i style="background:${C.accent}"></i>关键路径：单块任务 · 纯等待</span><span><i style="background:${C.AIC}"></i>关键路径：落到核上的计算</span>`,
-    byBlock
-      ? `<span><i style="background:#607c9e"></i>AIC 核（每 Block 第 1 行）</span><span><i style="background:#675c82"></i>AIV 0 / AIV 1（每 Block 第 2–3 行）</span>`
-      : `<span><i style="background:${C.block}"></i>${byTask ? "一次提交" : "Task block（底层）"}</span>`,
+    `<span><i style="background:${C.block}"></i>${byTask ? "一次提交" : "Task block（底层）"}</span>`,
     colorLegend,
     `<span><i style="background:${C.sel}"></i>当前选中</span>`,
     taskLayerLegend,
@@ -4483,8 +4919,8 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     byTask
       ? `<span>条宽 = Task 跨度 · <b style="color:var(--text-2)">条高统一 · 占核数见任务详情</b> · 同轨的 Task 时间不重叠</span>`
       : byBlock
-      ? `<span>每组 = 1 个 Block（1 AIC + 2 AIV）· 横轴 = 原始设备时间 · 悬停看耗时分解</span>`
-      : `<span>每行 = 一个物理核 · 横轴 = 原始设备时间 · 悬停看耗时分解</span>`,
+      ? `<span>每组 = 1 个物理核组（默认 AIC / AIV / AIV）· 横轴 = 原始设备时间 · 悬停查看核型与耗时分解</span>`
+      : `<span>每行 = 一个物理核（上 AIC / 下 AIV）· 横轴 = 原始设备时间 · 悬停看耗时分解</span>`,
   ].join("");
   syncLaneNavigator();
   prepareHoverTips();
@@ -5371,7 +5807,7 @@ if (D) {
       renderLane(); document.querySelector(selector)?.focus({preventScroll:true}); return;
     }
     const v = e.target.closest("[data-view]");
-    if (v) { kernelFilter = null; kernelSelectedGroup = null; laneView = v.dataset.view; renderLane();$("lane-ovl").querySelector('[data-menu="view"]').open=false; return; }
+    if (v) { laneView = v.dataset.view; kernelSelectedGroup = null; renderLane(); $("lane-ovl").querySelector('[data-menu="view"]').open = false; return; }
     const b = e.target.closest("[data-ovl]"); if (!b) return;
     const k = b.dataset.ovl;
     if (k === "path") pathVisible = !pathVisible;
@@ -5409,8 +5845,63 @@ if (D) {
       renderLane();
     }
   });
+  $("kernel-trace-view").addEventListener("mousemove", (e) => {
+    const plot = e.target.closest?.("[data-kf-type-plot]");
+    if (!plot) {
+      const tipEl = $("kernel-trace-view").querySelector("[data-kf-type-tip]");
+      if (tipEl && !tipEl.hidden) tipEl.hidden = true;
+      return;
+    }
+    const tipEl = plot.querySelector("[data-kf-type-tip]");
+    if (!tipEl) return;
+    const rect = plot.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const hitEl = e.target.closest?.("[data-kf-tip]");
+    let text = hitEl?.getAttribute("data-kf-tip") || "";
+    if (!text) {
+      const aicCount = Number(plot.dataset.aicCount) || 24;
+      const totalH = Number(plot.dataset.totalH) || 596;
+      const groupBy = plot.dataset.kfGroupBy || "type";
+      const yUnit = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)) * totalH;
+      if (groupBy === "group") {
+        const g = Math.max(0, Math.min(aicCount - 1, Math.floor(yUnit / 21)));
+        const inG = yUnit - g * 21;
+        const sub = inG < 6.8 ? 0 : inG < 12.8 ? 1 : 2;
+        const role = sub === 0 ? `AIC · C${g}` : `AIV ${sub - 1} · V${aicCount + g * 2 + (sub - 1)}`;
+        text = `G${String(g).padStart(2, "0")} · ${role}`;
+      } else {
+        const aicH = aicCount * 8;
+        const aivTop = aicH + 20;
+        if (yUnit < aicH) {
+          const c = Math.max(0, Math.min(aicCount - 1, Math.floor(yUnit / 8)));
+          text = `AIC · C${c} (G${String(c).padStart(2, "0")})`;
+        } else if (yUnit >= aivTop) {
+          const idx = Math.max(0, Math.min(47, Math.floor((yUnit - aivTop) / 8)));
+          const c = aicCount + idx;
+          text = `AIV ${idx % 2} · V${c} (G${String(Math.floor(idx / 2)).padStart(2, "0")})`;
+        }
+      }
+    }
+    if (!text) {
+      tipEl.hidden = true;
+      return;
+    }
+    tipEl.textContent = text;
+    tipEl.hidden = false;
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const nearRight = px > rect.width * 0.62;
+    const nearBottom = py > rect.height - 34;
+    tipEl.style.left = nearRight ? "auto" : `${Math.round(px + 12)}px`;
+    tipEl.style.right = nearRight ? `${Math.round(rect.width - px + 12)}px` : "auto";
+    tipEl.style.top = `${Math.max(4, Math.round(nearBottom ? py - 26 : py - 10))}px`;
+  });
+  $("kernel-trace-view").addEventListener("mouseleave", () => {
+    const tipEl = $("kernel-trace-view").querySelector("[data-kf-type-tip]");
+    if (tipEl && !tipEl.hidden) tipEl.hidden = true;
+  });
   $("kernel-trace-view").addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
+    const btn = e.target.closest("button,[data-kf-group]");
     if (!btn) return;
     if (btn.hasAttribute("data-kf-exit")) {
       setKernelFilter(null);
@@ -5418,6 +5909,11 @@ if (D) {
     }
     if (btn.hasAttribute("data-kf-close")) {
       kernelSelectedGroup = null;
+      renderKernelTrace();
+      return;
+    }
+    if (btn.dataset.kfExpand) {
+      kernelExpanded = btn.dataset.kfExpand === "expanded";
       renderKernelTrace();
       return;
     }
