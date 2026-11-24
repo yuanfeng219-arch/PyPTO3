@@ -138,7 +138,7 @@
     const {stage,measured:data,kernels:kernelByName,rows,kTile:inner,kCount:iterations,ticks,range,objectId,operationModel}=model;
     const title=model.title||'Compressor', layoutBranches=model.branches||{main:'Main',indexer:'Indexer'};
     const caseOptions=model.cases||[];
-    let customPipelineHost=null, customPipelineCtrl=null, pendingPipelineState=null;
+    let customPipelineHost=null, customPipelineCtrl=null, pendingPipelineState=null, pipelineSyncedKernel=null, kernelExplicitlyChosen=false;
     let tokens=caseOptions[0]?.tokens, tileIndex=0, selectedK=0, overviewId=null, allTiles=false;
     let rank=0,mode='assignment',scope='inter',scale='structure',block=0,kernel=model.defaultKernel||'kv_score_proj';
     const info=()=>kernelByName.get(kernel);
@@ -196,6 +196,8 @@
       }, 1500);
     }
     function setKernel(name) {
+      kernelExplicitlyChosen=true;
+      pendingPipelineState=null;
       if(kernel===name)return;
       kernel=name; block=0; tileIndex=0; allTiles=false; selectedK=0; overviewId=null; selected=null; sliceId=null; coreId=null; blockSelected=false;
       if(branch!=='all'&&kernelByName.get(kernel).branch!==branch)branch='all';
@@ -455,11 +457,30 @@
             model,
             rank,
             kernel,
+            filter: kernelExplicitlyChosen ? kernel : 'all',
             onSource,
             onRankChange:r=>{rank=r;onRank(r);},
-            onKernelChange:(kName,blk)=>{if(kernelByName.has(kName))kernel=kName;if(blk!=null)block=blk;},
+            onKernelChange:(kName,blk)=>{
+              if(kernelByName.has(kName)){
+                kernel=kName;
+                pipelineSyncedKernel=kName;
+                kernelExplicitlyChosen=true;
+                if(branch!=='all'&&kernelByName.get(kernel).branch!==branch)branch='all';
+              }
+              if(blk!=null)block=blk;
+            },
+            onViewChange:patch=>{
+              if(patch.tokens!=null)tokens=patch.tokens;
+              if(patch.tileIndex!=null)tileIndex=patch.tileIndex;
+              if(patch.branch!=null)branch=patch.branch;
+            },
             onNavigateTab:(dest,ctx)=>{
-              if(ctx?.kernel&&kernelByName.has(ctx.kernel))kernel=ctx.kernel;
+              if(ctx?.kernel&&kernelByName.has(ctx.kernel)){
+                kernel=ctx.kernel;
+                pipelineSyncedKernel=ctx.kernel;
+                kernelExplicitlyChosen=true;
+                if(branch!=='all'&&kernelByName.get(kernel).branch!==branch)branch='all';
+              }
               if(ctx?.block!=null)block=ctx.block;
               if(ctx?.rank!=null&&ctx.rank!==rank){rank=ctx.rank;onRank(rank);}
               onTab(dest,graphSelection());
@@ -467,8 +488,9 @@
           });
         }
         customPipelineHost.hidden=false;
-        const payload=pendingPipelineState||{rank,kernel,block,tokens,tileIndex};
+        const payload=pendingPipelineState||{rank,kernel,branch,block,tokens,tileIndex,syncFilter:kernelExplicitlyChosen&&kernel!==pipelineSyncedKernel};
         pendingPipelineState=null;
+        pipelineSyncedKernel=payload.kernel||kernel;
         customPipelineCtrl.update(payload);
         return;
       }
@@ -477,8 +499,8 @@
       const nextKey=keyFor(), changed=lastKey!==nextKey;
       if(changed){remember();zoom=cameras.get(nextKey)?.zoom??1;}
       const inspector = inspectorOpen ? detail() : '';
-      if(mode==='graph'&&!model.overview)return onTab('graph');
-      const screen = ({assignment,graph:computation,pipeline})[mode]();
+      if(mode==='graph')return onTab('graph');
+      const screen = ({assignment,pipeline})[mode]();
       const canZoom=mode!=='assignment'||scope==='inter'||!!(renderTiles&&model.isMatmul(info()));
       const content = mode === 'graph' || mode === 'pipeline'||scope==='intra'&&!!renderTiles
         ? `<div class="csa-compressor-zoom-content" style="--compressor-zoom:${zoom}">${screen}</div>` : screen;
@@ -739,14 +761,14 @@
       render();
     });
     function graphSelection(){
-      const operation=selected?.op?(selected.step!=null?selected.op+':'+selected.step:selected.op):null;
-      return {kernel,operation,rank,block,scale,key:JSON.stringify([kernel,operation,rank,block,scale])};
+      const operation=selected?.id||(selected?.op?(selected.step!=null?selected.op+':'+selected.step:selected.op):null);
+      return {kernel,operation,rank,block,scale,explicit:kernelExplicitlyChosen,key:JSON.stringify([kernel,operation,rank,block,scale])};
     }
     return {getSelection:graphSelection,setGraphSelection(context){
       if(!kernelByName.has(context.kernel))return;
-      kernel=context.kernel;branch='all';
-      if(context.operation){selected={op:context.operation,step:context.iteration??null};scope='intra';scale=context.iteration==null?'structure':'instances';inspectorOpen=true;pendingPipelineState={rank,kernel,block,level:'block',intraScale:scale==='structure'?'structure':'instances'};}
-      else {pendingPipelineState={rank,kernel,block,level:'lane',overviewMode:'lane'};}
+      kernel=context.kernel;branch='all';kernelExplicitlyChosen=true;
+      if(context.operation){selected={op:context.operation,step:context.iteration??null,split:context.split??null};scope='intra';scale=context.iteration==null?'structure':'instances';inspectorOpen=true;pendingPipelineState={rank,kernel,block,level:'block',intraScale:scale==='structure'?'structure':'instances',filter:kernel};}
+      else {selected=null;scope='inter';pendingPipelineState={rank,kernel,block,level:'lane',overviewMode:'lane',filter:kernel};}
     }, update(nextMode, nextRank) {
       if (rank !== nextRank) sliceId = null;
       if(mode!==nextMode){stop();if(scope==='intra'){if(mode==='assignment'&&selected?.step!=null)scale='instances';focusOperation(nextMode);}}

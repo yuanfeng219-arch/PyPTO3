@@ -30,7 +30,7 @@
     const laneFocus=index=>({kind:'lane',rank:context.rank,scenarioId:scenarioId(),moduleId,operationId:moduleId+'/dispatch',blockId:index,laneId:index});
     const currentItem=()=>focus?.kind==='work-item'&&focus.scenarioId===scenarioId()&&focus.rank===context.rank?scenario.byId.get(focus.workItemId):null;
     function pickItem(id){const item=scenario.byId.get(id);if(!item)return;if(focus?.workItemId!==id)camera=null;focus=itemFocus(item);lane=focus.laneId;lastItemId=id;level='item';selection=null;options.onFocus(focus);render();}
-    function pickLane(index){if(index<0||index>=scenario.blockCount)return;if(level!=='item')lastItemId=null;lane=index;level='lane';selection=null;focus=laneFocus(index);options.onFocus(focus);render();}
+    function pickLane(index){if(index<0||index>=scenario.blockCount)return;if(level!=='item')lastItemId=null;lane=index;selectedGroup=index;level='lane';selection=null;focus=laneFocus(index);options.onFocus(focus);render();}
     function pickRequest(index){lastItemId=null;focus=index<0?{kind:'module',rank:context.rank,semanticId:moduleId,moduleId}:{kind:'request',rank:context.rank,scenarioId:scenarioId(),moduleId,requestIndex:index};level='lane';options.onFocus(focus);render();}
     function pickQuery(index){lastItemId=null;focus={kind:'query',rank:context.rank,scenarioId:scenarioId(),moduleId,requestIndex:Math.floor(index/8),tokenIndex:index};level='lane';options.onFocus(focus);render();}
     function mapSvg(){return host.querySelector('.csa-qp-map-svg');}
@@ -244,7 +244,12 @@
         if(rtHost&&global.PtoCsaQkRuntimeTrace){
           const rtCtrl=global.PtoCsaQkRuntimeTrace.mount(rtHost,{
             onSource:options.onSource,
-            onSelectGroup:g=>{selectedGroup=g;lane=g;},
+            onSelectGroup:g=>{
+              selectedGroup=g;
+              if(g!=null){lane=g;focus=laneFocus(g);}
+              else if(focus?.kind==='lane'){focus={kind:'module',rank:context.rank,semanticId:moduleId,moduleId};}
+              options.onFocus(focus);
+            },
             onOpenLane:g=>{overviewMode='lane';selectedGroup=g;pickLane(g);},
             onOpenInstance:(g,itemId)=>{intraScale='instances';options.onScaleChange?.(intraScale);lane=g;selectedGroup=g;const targetId=itemId??scenario?.blocks?.[g]?.entries?.[0]?.id;if(targetId!=null)pickItem(targetId);}
           });
@@ -254,7 +259,7 @@
     }
     function update(nextFocus,nextContext,sharedScenario,nextScale){if(nextScale&&['structure','instances'].includes(nextScale))intraScale=nextScale;const previous=focus,previousScenario=scenarioId(),previousRank=context?.rank;context={mode:nextContext.mode||'source',workload:nextContext.workload||'mixed',position:nextContext.position??8192,rank:nextContext.rank??nextFocus?.rank??0};scenario=sharedScenario||work.deriveScenario(context);const rankChanged=previousRank!=null&&previousRank!==context.rank;if(previousScenario!==scenarioId()||rankChanged){mapCamera=null;lastItemId=null;if(rankChanged)selectedGroup=null;}const same=nextFocus?.kind==='work-item'&&nextFocus.scenarioId===scenarioId()&&nextFocus.rank===context.rank&&scenario.byId.has(nextFocus.workItemId);focus=same?itemFocus(scenario.byId.get(nextFocus.workItemId)):nextFocus;if(same){lane=focus.laneId;selectedGroup=focus.laneId;lastItemId=focus.workItemId;level='item';}else if(nextFocus?.kind==='lane'&&nextFocus.scenarioId===scenarioId()&&nextFocus.rank===context.rank){lane=nextFocus.laneId;selectedGroup=nextFocus.laneId;level='lane';}else{if(nextFocus?.kind==='request'||nextFocus?.kind==='query')overviewMode='lane';lane=Math.min(lane,scenario.blockCount-1);level='lane';}if(rankChanged||previous?.workItemId!==focus?.workItemId||previous?.scenarioId!==focus?.scenarioId){selection=null;camera=null;}render();}
     host.addEventListener('click',event=>{const target=event.target.closest('button,[data-qp-operation],[data-qp-pick-batch],[data-qp-item],[data-qp-lane]');if(!target)return;
-      if(target.dataset.qpOverview){const next=target.dataset.qpOverview;if(next!==overviewMode){overviewMode=next;render();}return;}
+      if(target.dataset.qpOverview){const next=target.dataset.qpOverview;if(next!==overviewMode){overviewMode=next;if(next==='runtime'){if(focus?.kind==='lane'||focus?.kind==='work-item')selectedGroup=focus.laneId;}else if(next==='lane'&&selectedGroup!=null&&!['lane','work-item','request','query'].includes(focus?.kind)){lane=selectedGroup;focus=laneFocus(selectedGroup);options.onFocus(focus);}render();}return;}
       if(target.hasAttribute('data-qp-open-causal')){intraScale='instances';options.onScaleChange?.(intraScale);const targetLane=overviewMode==='runtime'&&selectedGroup!=null?selectedGroup:lane;const candidate=scenario?.blocks?.[targetLane]?.entries?.find(e=>scenario.byId.get(e.id)?.valid)?.id??scenario?.blocks?.[targetLane]?.entries?.[0]?.id??scenario?.items?.find(it=>it.valid)?.id??scenario?.items?.[0]?.id;if(candidate!=null)pickItem(candidate);return;}
       if(target.dataset.qpScale){const next=target.dataset.qpScale;if(next==='runtime'){overviewMode='runtime';selectedGroup=lane;level='lane';selection=null;focus=laneFocus(lane);options.onFocus(focus);render();return;}if(next!==intraScale){intraScale=next;options.onScaleChange?.(intraScale);render();}return;}
       if(target.dataset.qpLane!=null)return pickLane(Number(target.dataset.qpLane));
