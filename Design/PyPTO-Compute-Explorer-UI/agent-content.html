@@ -37,6 +37,24 @@ body.ai-extracted .viz2-graph-footer > .ai-semantic-legend { position:static; di
 body.ai-extracted .viz2-graph-footer > .ai-semantic-legend span { white-space:nowrap; }
 @media(max-width:600px) { body.ai-extracted .viz2-graph-footer > .ai-semantic-legend { max-width:145px; gap:2px 8px; font-size:10px; } }
 body.ai-extracted .viz2-graph-footer > :is(.ai-operation-dock, .viz2-graph-footer__controls, .kf-pa-map__tools) { border:0 !important; box-shadow:none !important; }
+/* 源码语义 L2：沿用计算图画布与交互，保持层级导航可见。 */
+.agent-kernel-toolbar { position:absolute; z-index:22; top:54px; left:20px; right:20px; display:flex; align-items:center; gap:10px; pointer-events:none; font:12px/1.4 system-ui,sans-serif; }
+.agent-kernel-toolbar > * { pointer-events:auto; }
+.agent-kernel-segment { display:flex; align-items:center; flex:none; padding:3px; border-radius:999px; background:#252525; }
+.agent-kernel-segment button { border:0; border-radius:999px; padding:7px 12px; color:#aaa; background:transparent; cursor:pointer; font:inherit; white-space:nowrap; }
+.agent-kernel-segment button[aria-pressed="true"] { color:#111; background:#eee; }
+.agent-kernel-segment b { font:600 10px monospace; }
+.agent-kernel-toolbar select { max-width:min(240px,30vw); border:1px solid #3a3a3a; border-radius:999px; padding:7px 28px 7px 12px; background:#222; color:#ddd; font:inherit; }
+.agent-kernel-toolbar button:focus-visible,.agent-kernel-toolbar select:focus-visible { outline:2px solid #8aef24; outline-offset:2px; }
+.agent-kernel-caption,.agent-kernel-hint { min-width:0; color:#999; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
+.agent-kernel-toolbar:has(.agent-kernel-caption:not([hidden])) .agent-kernel-hint { display:none; }
+.agent-kernel-panel { position:absolute; z-index:18; inset:98px 0 0; display:flex; background:#111; animation:agent-kernel-enter .25s ease both; }
+.agent-kernel-panel[hidden],.agent-kernel-toolbar [hidden] { display:none !important; }
+.agent-kernel-surface { display:flex; flex:1; min-width:0; min-height:0; }
+.agent-kernel-surface .viz2-graph-footer { position:static; }
+@keyframes agent-kernel-enter { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@media(max-width:700px) { .agent-kernel-caption,.agent-kernel-hint { display:none; } .agent-kernel-toolbar { left:10px; right:10px; } }
+@media(prefers-reduced-motion:reduce) { .agent-kernel-panel { animation:none; } }
 </style></head><body class="ai-booting ai-extracted" data-visualization2-enabled><section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Compute Explorer">
 <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome"><div class="pto-ide-frame__topbar-left"><div class="pto-ide-frame__host-chip" data-ide-slot="host-chip"><svg class="pto-studio-logo" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M6 8 L16 4 L26 8 L26 16 L16 20 L6 16 Z" fill="#C4612F" opacity=".2"/><path d="M6 16 L16 12 L26 16 L26 24 L16 28 L6 24 Z" fill="none" stroke="#C4612F" stroke-width="1.5"/></svg></div><div class="pto-ide-frame__workspace" data-ide-slot="workspace-switcher"><span class="kf-brand">PyPTO Compute Explorer</span></div></div><div class="pto-ide-frame__topbar-center"><div class="pto-ide-frame__search kf-command" data-ide-slot="global-search" data-current-file>paged_attention_pypto.py</div></div><div class="pto-ide-frame__topbar-right"><div class="pto-ide-frame__window-actions" data-ide-slot="window-controls"><button class="pto-ide-frame__window-action" id="inspectorToggle" type="button" data-ide-toggle="inspector" data-expanded-label="收起右侧面板" data-collapsed-label="展开右侧面板" aria-controls="inspectorPane" aria-expanded="true" aria-pressed="true" aria-label="收起右侧面板" title="右侧面板"><svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg></button></div></div></header>
 <div class="pto-ide-frame__body"><nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" id="ideActivityRail" data-ide-slot="activity-rail" aria-label="Activity rail"><button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" id="activityExplorer" type="button" data-ide-toggle="explorer" aria-label="切换资源管理器" aria-controls="kf-explorer" aria-expanded="true" aria-pressed="true" title="切换资源管理器"><svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></button></nav>
@@ -92,7 +110,7 @@ body.ai-extracted .viz2-graph-footer > :is(.ai-operation-dock, .viz2-graph-foote
 <script src="./js/visualization2-graph-intra.js?v=photo-story-25"></script>
 <script src="./js/compute-scenario.js?v=photo-story-12"></script>
 <script src="./js/agent-visualization2.js"></script><script src="../../vendor/pto-design-system/patterns/model-graphviz/pattern.js"></script>
-<script src="./js/csa-semantic-graph.js?v=photo-story-12"></script><script src="./js/csa-qk-work.js?v=photo-story-12"></script><script src="./js/csa-qk-pipeline.js?v=photo-story-12"></script><script src="./js/csa-explorer.js?v=photo-story-12"></script><script src="./js/operator-switcher.js?v=photo-story-12"></script><script src="./js/explorer-dropdowns.js?v=photo-story-12"></script><script>
+<script src="./js/csa-semantic-graph.js?v=photo-story-12"></script><script src="./js/csa-qk-work.js?v=photo-story-12"></script><script src="./js/csa-qk-pipeline.js?v=photo-story-12"></script><script src="./js/csa-explorer.js?v=photo-story-12"></script><script src="./js/operator-switcher.js?v=photo-story-12"></script><script src="./js/explorer-dropdowns.js?v=photo-story-12"></script><script src="./js/agent-kernel-drilldown.js"></script><script>
 (function () {
   let scheduled = false;
   function placeLegends() {
