@@ -25,13 +25,10 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -47,6 +44,8 @@ jobs:
           cp launch.html _site/index.html
           cp launch.html _site/launch.html
           cp -R Design _site/Design
+          # Exclude tracked node_modules from the published static artifact.
+          find _site -type d -name node_modules -prune -exec rm -rf {} +
           # Keep local presenter notes out of the published site.
           rm -f "_site/Design/PyPTO-Compute-Explorer-UI/html-deck/PyPTO-3.0-演讲词.json" \
                 "_site/Design/PyPTO-Compute-Explorer-UI/html-deck/keynote-text.md"
@@ -71,6 +70,13 @@ jobs:
         with:
           path: _site
 
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
