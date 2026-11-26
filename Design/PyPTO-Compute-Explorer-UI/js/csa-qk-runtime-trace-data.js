@@ -1,4 +1,6 @@
-/* Measured 72-core (24 Core Groups) runtime trace for qk_pv & downstream csa_merge_pack_publish from _jit_l3_decode_csa_20260903_010617. */
+/* Measured 72-core (24 Core Groups) runtime trace & unified 3-act compute-semantics model
+ * for qk_plan -> qk_pv -> csa_merge_pack_publish from _jit_l3_decode_csa_20260903_010617.
+ */
 (function (global) {
   "use strict";
   global.PTO_CSA_QK_RUNTIME_TRACE = Object.freeze({
@@ -7,9 +9,10 @@
   "compilerEvidence": {
     "passFile": "25_after_SplitVectorKernel.py",
     "dualAivDispatch": true,
-    "aiv0Role": "subblock_idx == 0 · 32/32 Heads Softmax + Partial / Neutral Write",
-    "aiv1Role": "subblock_idx == 1 · valid_shape = [0, 0] 仅 C2V/V2C 管道握手",
-    "pipeSpec": "C2V / V2C 32 KB 双槽（2 × 16 KB）"
+    "aiv0Role": "subblock_idx == 0 · 承担全部 32 行 Softmax 与队尾无效块写零（else 分支）",
+    "aiv1Role": "subblock_idx == 1 · valid_shape = [0, 0]，仅随 AIC 做 C2V/V2C 双槽握手（编译白盒次要信号）",
+    "pipeSpec": "C2V / V2C 32 KB 双槽（2 × 16 KB）",
+    "mergePipeHint": "perf_hints.log [PH-MR-001] · decode_csa.py:397 · csa_merge_pack_publish UB 双缓冲退化为 stage=1 串行"
   },
   "ranks": {
     "0": {
@@ -43,7 +46,16 @@
         "fastGroupCount": 12,
         "slowGroupCount": 12,
         "slowestGroup": 5,
-        "fastestGroup": 8
+        "fastestGroup": 8,
+        "slowAicMeanUs": 812.4,
+        "fastAicMeanUs": 440.6,
+        "slowAiv0TailMeanUs": 49.3,
+        "fastAiv0TailMeanUs": 83.2,
+        "fastAiv0TailMaxUs": 101.4,
+        "mergeComputeMedUs": 161.6,
+        "mergeComputeMaxUs": 206.4,
+        "mergeComputeSumUs": 7841.8,
+        "mergeSetupSumUs": 10755.1
       },
       "groups": [
         {
@@ -90,7 +102,17 @@
             "kernelUs": 157.94
           },
           "aiv0TailUs": 88.7,
-          "aiv1DeltaUs": -1.6
+          "aiv1DeltaUs": -1.6,
+          "workMix": {
+            "logicalLane": 0,
+            "valid": 26,
+            "invalid": 28,
+            "sb0": 18,
+            "cmp": 8,
+            "balancedSb0": 11,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 1,
@@ -136,7 +158,17 @@
             "kernelUs": 156.96
           },
           "aiv0TailUs": 81.88,
-          "aiv1DeltaUs": -2.0
+          "aiv1DeltaUs": -2.0,
+          "workMix": {
+            "logicalLane": 8,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 17,
+            "cmp": 8,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 2,
@@ -182,7 +214,17 @@
             "kernelUs": 116.82
           },
           "aiv0TailUs": 89.56,
-          "aiv1DeltaUs": -0.9
+          "aiv1DeltaUs": -0.9,
+          "workMix": {
+            "logicalLane": 16,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 18,
+            "cmp": 7,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 3,
@@ -228,7 +270,17 @@
             "kernelUs": 195.42
           },
           "aiv0TailUs": 46.38,
-          "aiv1DeltaUs": -1.1
+          "aiv1DeltaUs": -1.1,
+          "workMix": {
+            "logicalLane": 1,
+            "valid": 26,
+            "invalid": 28,
+            "sb0": 5,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 4,
@@ -274,7 +326,17 @@
             "kernelUs": 198.28
           },
           "aiv0TailUs": 48.42,
-          "aiv1DeltaUs": -1.5
+          "aiv1DeltaUs": -1.5,
+          "workMix": {
+            "logicalLane": 9,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 3,
+            "cmp": 22,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 5,
@@ -320,7 +382,17 @@
             "kernelUs": 133.64
           },
           "aiv0TailUs": 50.3,
-          "aiv1DeltaUs": -1.38
+          "aiv1DeltaUs": -1.38,
+          "workMix": {
+            "logicalLane": 17,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 6,
@@ -366,7 +438,17 @@
             "kernelUs": 163.28
           },
           "aiv0TailUs": 97.62,
-          "aiv1DeltaUs": -2.42
+          "aiv1DeltaUs": -2.42,
+          "workMix": {
+            "logicalLane": 2,
+            "valid": 26,
+            "invalid": 28,
+            "sb0": 18,
+            "cmp": 8,
+            "balancedSb0": 11,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 7,
@@ -412,7 +494,17 @@
             "kernelUs": 161.98
           },
           "aiv0TailUs": 82.22,
-          "aiv1DeltaUs": -2.04
+          "aiv1DeltaUs": -2.04,
+          "workMix": {
+            "logicalLane": 10,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 19,
+            "cmp": 6,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 8,
@@ -458,7 +550,17 @@
             "kernelUs": 111.66
           },
           "aiv0TailUs": 101.4,
-          "aiv1DeltaUs": -1.58
+          "aiv1DeltaUs": -1.58,
+          "workMix": {
+            "logicalLane": 18,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 19,
+            "cmp": 6,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 9,
@@ -504,7 +606,17 @@
             "kernelUs": 205.14
           },
           "aiv0TailUs": 48.7,
-          "aiv1DeltaUs": -0.98
+          "aiv1DeltaUs": -0.98,
+          "workMix": {
+            "logicalLane": 3,
+            "valid": 26,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 22,
+            "balancedSb0": 11,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 10,
@@ -550,7 +662,17 @@
             "kernelUs": 198.8
           },
           "aiv0TailUs": 49.8,
-          "aiv1DeltaUs": -0.94
+          "aiv1DeltaUs": -0.94,
+          "workMix": {
+            "logicalLane": 11,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 21,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 11,
@@ -596,7 +718,17 @@
             "kernelUs": 137.06
           },
           "aiv0TailUs": 50.06,
-          "aiv1DeltaUs": -0.94
+          "aiv1DeltaUs": -0.94,
+          "workMix": {
+            "logicalLane": 19,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 12,
@@ -642,7 +774,17 @@
             "kernelUs": 160.06
           },
           "aiv0TailUs": 78.1,
-          "aiv1DeltaUs": -2.1
+          "aiv1DeltaUs": -2.1,
+          "workMix": {
+            "logicalLane": 4,
+            "valid": 26,
+            "invalid": 28,
+            "sb0": 16,
+            "cmp": 10,
+            "balancedSb0": 11,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 13,
@@ -688,7 +830,17 @@
             "kernelUs": 162.88
           },
           "aiv0TailUs": 66.54,
-          "aiv1DeltaUs": -1.68
+          "aiv1DeltaUs": -1.68,
+          "workMix": {
+            "logicalLane": 12,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 16,
+            "cmp": 9,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 14,
@@ -734,7 +886,17 @@
             "kernelUs": 119.52
           },
           "aiv0TailUs": 70.36,
-          "aiv1DeltaUs": -1.1
+          "aiv1DeltaUs": -1.1,
+          "workMix": {
+            "logicalLane": 20,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 17,
+            "cmp": 8,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 15,
@@ -780,7 +942,17 @@
             "kernelUs": 206.4
           },
           "aiv0TailUs": 49.36,
-          "aiv1DeltaUs": -1.04
+          "aiv1DeltaUs": -1.04,
+          "workMix": {
+            "logicalLane": 5,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 5,
+            "cmp": 20,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 16,
@@ -826,7 +998,17 @@
             "kernelUs": 201.32
           },
           "aiv0TailUs": 51.18,
-          "aiv1DeltaUs": -0.88
+          "aiv1DeltaUs": -0.88,
+          "workMix": {
+            "logicalLane": 13,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 17,
@@ -872,7 +1054,17 @@
             "kernelUs": 127.58
           },
           "aiv0TailUs": 50.22,
-          "aiv1DeltaUs": -1.22
+          "aiv1DeltaUs": -1.22,
+          "workMix": {
+            "logicalLane": 21,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 5,
+            "cmp": 20,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 18,
@@ -918,7 +1110,17 @@
             "kernelUs": 161.22
           },
           "aiv0TailUs": 73.22,
-          "aiv1DeltaUs": -1.6
+          "aiv1DeltaUs": -1.6,
+          "workMix": {
+            "logicalLane": 6,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 17,
+            "cmp": 8,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 19,
@@ -964,7 +1166,17 @@
             "kernelUs": 159.86
           },
           "aiv0TailUs": 89.1,
-          "aiv1DeltaUs": -2.72
+          "aiv1DeltaUs": -2.72,
+          "workMix": {
+            "logicalLane": 14,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 16,
+            "cmp": 9,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 20,
@@ -1010,7 +1222,17 @@
             "kernelUs": 122.24
           },
           "aiv0TailUs": 79.24,
-          "aiv1DeltaUs": -1.64
+          "aiv1DeltaUs": -1.64,
+          "workMix": {
+            "logicalLane": 22,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 16,
+            "cmp": 9,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 21,
@@ -1056,7 +1278,17 @@
             "kernelUs": 201.46
           },
           "aiv0TailUs": 46.46,
-          "aiv1DeltaUs": -1.56
+          "aiv1DeltaUs": -1.56,
+          "workMix": {
+            "logicalLane": 7,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 22,
+            "balancedSb0": 10,
+            "balancedCmp": 15,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 22,
@@ -1102,7 +1334,17 @@
             "kernelUs": 204.3
           },
           "aiv0TailUs": 50.96,
-          "aiv1DeltaUs": -1.44
+          "aiv1DeltaUs": -1.44,
+          "workMix": {
+            "logicalLane": 15,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         },
         {
           "group": 23,
@@ -1148,9 +1390,444 @@
             "kernelUs": 140.62
           },
           "aiv0TailUs": 50.34,
-          "aiv1DeltaUs": -1.2
+          "aiv1DeltaUs": -1.2,
+          "workMix": {
+            "logicalLane": 23,
+            "valid": 25,
+            "invalid": 28,
+            "sb0": 4,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.5
+          }
         }
-      ]
+      ],
+      "chain": {
+        "csaTotalSpanUs": 4823.56,
+        "chainOriginUs": 2510.62,
+        "chainEndUs": 3729.16,
+        "chainSpanUs": 1218.54,
+        "chainSharePct": 25.3,
+        "qkPlan": {
+          "taskId": "8589934641",
+          "kernelName": "csa_slots_build_valid_qk_plan",
+          "core": 24,
+          "coreName": "AIV_24",
+          "group": 0,
+          "startUs": 2510.62,
+          "endUs": 2625.34,
+          "durUs": 114.72,
+          "kernelUs": 114.3,
+          "setupUs": 0.42,
+          "activeCores": 1,
+          "idleCores": 71,
+          "tokenTiles": 32
+        },
+        "breakdown": {
+          "qkPlanUs": 114.72,
+          "gapPlanToQkUs": 8.94,
+          "qkAicMaxUs": 836.06,
+          "qkAiv0TailUs": 50.32,
+          "mergeAfterQkUs": 208.5
+        },
+        "workProfile": {
+          "tokens": 256,
+          "sparseBlocks": 5,
+          "totalItems": 1280,
+          "validItems": 605,
+          "invalidItems": 675,
+          "invalidPct": 52.7,
+          "requestStarts": [
+            8192,
+            0,
+            2,
+            3,
+            7,
+            127,
+            128,
+            63,
+            255,
+            511,
+            8192,
+            0,
+            2,
+            3,
+            7,
+            127,
+            128,
+            63,
+            255,
+            511,
+            8192,
+            0,
+            2,
+            3,
+            7,
+            127,
+            128,
+            63,
+            255,
+            511,
+            8192,
+            0
+          ],
+          "sb0Count": 256,
+          "cmpCount": 349,
+          "invalidZeroMiB": 84.4,
+          "invalidTotalHbmMiB": 168.8,
+          "mergeLoopTotal": 1024,
+          "mergeLoopInvalid": 675,
+          "mergeLoopInvalidPct": 65.9,
+          "fastLaneAvg": {
+            "sb0": 17.2,
+            "cmp": 8
+          },
+          "slowLaneAvg": {
+            "sb0": 4.1,
+            "cmp": 21.1
+          },
+          "balancedLaneAvg": {
+            "sb0": 10.7,
+            "cmp": 14.5
+          },
+          "fittedCostUs": {
+            "sb0Us": 8.43,
+            "cmpUs": 36.9,
+            "costRatio": 4.38
+          },
+          "lanes": [
+            {
+              "lane": 0,
+              "physicalGroup": 0,
+              "total": 54,
+              "valid": 26,
+              "invalid": 28,
+              "sb0": 18,
+              "cmp": 8,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 1,
+              "physicalGroup": 3,
+              "total": 54,
+              "valid": 26,
+              "invalid": 28,
+              "sb0": 5,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 2,
+              "physicalGroup": 6,
+              "total": 54,
+              "valid": 26,
+              "invalid": 28,
+              "sb0": 18,
+              "cmp": 8,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 3,
+              "physicalGroup": 9,
+              "total": 54,
+              "valid": 26,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 22,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 4,
+              "physicalGroup": 12,
+              "total": 54,
+              "valid": 26,
+              "invalid": 28,
+              "sb0": 16,
+              "cmp": 10,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 5,
+              "physicalGroup": 15,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 5,
+              "cmp": 20,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 6,
+              "physicalGroup": 18,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 17,
+              "cmp": 8,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 7,
+              "physicalGroup": 21,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 22,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 8,
+              "physicalGroup": 1,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 17,
+              "cmp": 8,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 9,
+              "physicalGroup": 4,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 3,
+              "cmp": 22,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 10,
+              "physicalGroup": 7,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 19,
+              "cmp": 6,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 11,
+              "physicalGroup": 10,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 12,
+              "physicalGroup": 13,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 16,
+              "cmp": 9,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 15,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 13,
+              "physicalGroup": 16,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 14,
+              "physicalGroup": 19,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 16,
+              "cmp": 9,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 15,
+              "physicalGroup": 22,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 16,
+              "physicalGroup": 2,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 18,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 17,
+              "physicalGroup": 5,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 18,
+              "physicalGroup": 8,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 19,
+              "cmp": 6,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 19,
+              "physicalGroup": 11,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 20,
+              "physicalGroup": 14,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 17,
+              "cmp": 8,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 21,
+              "physicalGroup": 17,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 5,
+              "cmp": 20,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 22,
+              "physicalGroup": 20,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 16,
+              "cmp": 9,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            },
+            {
+              "lane": 23,
+              "physicalGroup": 23,
+              "total": 53,
+              "valid": 25,
+              "invalid": 28,
+              "sb0": 4,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.5
+            }
+          ]
+        },
+        "projectedAfterFix": {
+          "basis": "model-estimate",
+          "note": "基于当前实测斜率与无效块占比的工程推算，真实端到端收益需在目标硬件重编验证",
+          "qkPlanUs": 20.0,
+          "qkPlanSavingUs": 94.7,
+          "qkAicUs": 626.5,
+          "qkAicSavingUs": 203.8,
+          "qkAiv0TailUs": 0.0,
+          "qkAiv0TailSavingUs": 50.32,
+          "mergeAfterQkUs": 118.5,
+          "mergeSavingUs": 90.0,
+          "chainSpanUs": 773.9,
+          "totalSavingUs": 444.6,
+          "chainSavingPct": 36.5,
+          "csaSavingPct": 9.2
+        }
+      }
     },
     "1": {
       "rank": 1,
@@ -1183,7 +1860,16 @@
         "fastGroupCount": 12,
         "slowGroupCount": 12,
         "slowestGroup": 13,
-        "fastestGroup": 16
+        "fastestGroup": 16,
+        "slowAicMeanUs": 872.5,
+        "fastAicMeanUs": 393.3,
+        "slowAiv0TailMeanUs": 54.9,
+        "fastAiv0TailMeanUs": 89.7,
+        "fastAiv0TailMaxUs": 97.5,
+        "mergeComputeMedUs": 165.2,
+        "mergeComputeMaxUs": 207.2,
+        "mergeComputeSumUs": 7837.6,
+        "mergeSetupSumUs": 13377.5
       },
       "groups": [
         {
@@ -1230,7 +1916,17 @@
             "kernelUs": 147.76
           },
           "aiv0TailUs": 55.42,
-          "aiv1DeltaUs": -2.02
+          "aiv1DeltaUs": -2.02,
+          "workMix": {
+            "logicalLane": 0,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 5,
+            "cmp": 20,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 1,
@@ -1276,7 +1972,17 @@
             "kernelUs": 199.76
           },
           "aiv0TailUs": 67.38,
-          "aiv1DeltaUs": -1.76
+          "aiv1DeltaUs": -1.76,
+          "workMix": {
+            "logicalLane": 8,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 4,
+            "cmp": 20,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 2,
@@ -1322,7 +2028,17 @@
             "kernelUs": 194.18
           },
           "aiv0TailUs": 72.98,
-          "aiv1DeltaUs": -1.0
+          "aiv1DeltaUs": -1.0,
+          "workMix": {
+            "logicalLane": 16,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 4,
+            "cmp": 20,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 3,
@@ -1368,7 +2084,17 @@
             "kernelUs": 113.46
           },
           "aiv0TailUs": 84.1,
-          "aiv1DeltaUs": -1.56
+          "aiv1DeltaUs": -1.56,
+          "workMix": {
+            "logicalLane": 1,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 18,
+            "cmp": 7,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 4,
@@ -1414,7 +2140,17 @@
             "kernelUs": 163.48
           },
           "aiv0TailUs": 92.02,
-          "aiv1DeltaUs": -0.72
+          "aiv1DeltaUs": -0.72,
+          "workMix": {
+            "logicalLane": 9,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 17,
+            "cmp": 7,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 5,
@@ -1460,7 +2196,17 @@
             "kernelUs": 164.52
           },
           "aiv0TailUs": 97.12,
-          "aiv1DeltaUs": -1.66
+          "aiv1DeltaUs": -1.66,
+          "workMix": {
+            "logicalLane": 17,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 17,
+            "cmp": 7,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 6,
@@ -1506,7 +2252,17 @@
             "kernelUs": 146.38
           },
           "aiv0TailUs": 51.78,
-          "aiv1DeltaUs": -0.84
+          "aiv1DeltaUs": -0.84,
+          "workMix": {
+            "logicalLane": 2,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 22,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 7,
@@ -1552,7 +2308,17 @@
             "kernelUs": 185.88
           },
           "aiv0TailUs": 49.96,
-          "aiv1DeltaUs": -1.14
+          "aiv1DeltaUs": -1.14,
+          "workMix": {
+            "logicalLane": 10,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 21,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 8,
@@ -1598,7 +2364,17 @@
             "kernelUs": 201.54
           },
           "aiv0TailUs": 51.32,
-          "aiv1DeltaUs": -0.74
+          "aiv1DeltaUs": -0.74,
+          "workMix": {
+            "logicalLane": 18,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 9,
@@ -1644,7 +2420,17 @@
             "kernelUs": 110.02
           },
           "aiv0TailUs": 90.32,
-          "aiv1DeltaUs": -1.98
+          "aiv1DeltaUs": -1.98,
+          "workMix": {
+            "logicalLane": 3,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 19,
+            "cmp": 6,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 10,
@@ -1690,7 +2476,17 @@
             "kernelUs": 162.2
           },
           "aiv0TailUs": 95.14,
-          "aiv1DeltaUs": -1.06
+          "aiv1DeltaUs": -1.06,
+          "workMix": {
+            "logicalLane": 11,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 18,
+            "cmp": 6,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 11,
@@ -1736,7 +2532,17 @@
             "kernelUs": 167.48
           },
           "aiv0TailUs": 97.52,
-          "aiv1DeltaUs": -0.34
+          "aiv1DeltaUs": -0.34,
+          "workMix": {
+            "logicalLane": 19,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 18,
+            "cmp": 6,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 12,
@@ -1782,7 +2588,17 @@
             "kernelUs": 145.92
           },
           "aiv0TailUs": 54.44,
-          "aiv1DeltaUs": -0.64
+          "aiv1DeltaUs": -0.64,
+          "workMix": {
+            "logicalLane": 4,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 22,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 13,
@@ -1828,7 +2644,17 @@
             "kernelUs": 204.82
           },
           "aiv0TailUs": 52.46,
-          "aiv1DeltaUs": -1.42
+          "aiv1DeltaUs": -1.42,
+          "workMix": {
+            "logicalLane": 12,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 21,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 14,
@@ -1874,7 +2700,17 @@
             "kernelUs": 198.04
           },
           "aiv0TailUs": 49.3,
-          "aiv1DeltaUs": -1.38
+          "aiv1DeltaUs": -1.38,
+          "workMix": {
+            "logicalLane": 20,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 15,
@@ -1920,7 +2756,17 @@
             "kernelUs": 114.34
           },
           "aiv0TailUs": 87.56,
-          "aiv1DeltaUs": -2.4
+          "aiv1DeltaUs": -2.4,
+          "workMix": {
+            "logicalLane": 5,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 20,
+            "cmp": 5,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 16,
@@ -1966,7 +2812,17 @@
             "kernelUs": 164.8
           },
           "aiv0TailUs": 89.58,
-          "aiv1DeltaUs": -1.5
+          "aiv1DeltaUs": -1.5,
+          "workMix": {
+            "logicalLane": 13,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 19,
+            "cmp": 5,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 17,
@@ -2012,7 +2868,17 @@
             "kernelUs": 166.46
           },
           "aiv0TailUs": 96.28,
-          "aiv1DeltaUs": -2.82
+          "aiv1DeltaUs": -2.82,
+          "workMix": {
+            "logicalLane": 21,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 19,
+            "cmp": 5,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 18,
@@ -2058,7 +2924,17 @@
             "kernelUs": 143.7
           },
           "aiv0TailUs": 51.76,
-          "aiv1DeltaUs": -1.1
+          "aiv1DeltaUs": -1.1,
+          "workMix": {
+            "logicalLane": 6,
+            "valid": 25,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 22,
+            "balancedSb0": 11,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 19,
@@ -2104,7 +2980,17 @@
             "kernelUs": 202.72
           },
           "aiv0TailUs": 52.14,
-          "aiv1DeltaUs": -1.68
+          "aiv1DeltaUs": -1.68,
+          "workMix": {
+            "logicalLane": 14,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 21,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 20,
@@ -2150,7 +3036,17 @@
             "kernelUs": 196.78
           },
           "aiv0TailUs": 49.7,
-          "aiv1DeltaUs": -1.88
+          "aiv1DeltaUs": -1.88,
+          "workMix": {
+            "logicalLane": 22,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 3,
+            "cmp": 21,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 21,
@@ -2196,7 +3092,17 @@
             "kernelUs": 114.14
           },
           "aiv0TailUs": 82.54,
-          "aiv1DeltaUs": -1.28
+          "aiv1DeltaUs": -1.28,
+          "workMix": {
+            "logicalLane": 7,
+            "valid": 24,
+            "invalid": 30,
+            "sb0": 17,
+            "cmp": 7,
+            "balancedSb0": 10,
+            "balancedCmp": 14,
+            "invalidZeroMiB": 3.75
+          }
         },
         {
           "group": 22,
@@ -2242,7 +3148,17 @@
             "kernelUs": 166.24
           },
           "aiv0TailUs": 77.42,
-          "aiv1DeltaUs": -2.34
+          "aiv1DeltaUs": -2.34,
+          "workMix": {
+            "logicalLane": 15,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 17,
+            "cmp": 7,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         },
         {
           "group": 23,
@@ -2288,10 +3204,563 @@
             "kernelUs": 167.16
           },
           "aiv0TailUs": 86.42,
-          "aiv1DeltaUs": -1.8
+          "aiv1DeltaUs": -1.8,
+          "workMix": {
+            "logicalLane": 23,
+            "valid": 24,
+            "invalid": 29,
+            "sb0": 17,
+            "cmp": 7,
+            "balancedSb0": 11,
+            "balancedCmp": 13,
+            "invalidZeroMiB": 3.62
+          }
         }
-      ]
+      ],
+      "chain": {
+        "csaTotalSpanUs": 3751.48,
+        "chainOriginUs": 2011.76,
+        "chainEndUs": 3293.42,
+        "chainSpanUs": 1281.66,
+        "chainSharePct": 34.2,
+        "qkPlan": {
+          "taskId": "8589934641",
+          "kernelName": "csa_slots_build_valid_qk_plan",
+          "core": 28,
+          "coreName": "AIV_28",
+          "group": 2,
+          "startUs": 2011.76,
+          "endUs": 2125.72,
+          "durUs": 113.96,
+          "kernelUs": 113.62,
+          "setupUs": 0.34,
+          "activeCores": 1,
+          "idleCores": 71,
+          "tokenTiles": 32
+        },
+        "breakdown": {
+          "qkPlanUs": 113.96,
+          "gapPlanToQkUs": 9.22,
+          "qkAicMaxUs": 896.04,
+          "qkAiv0TailUs": 52.48,
+          "mergeAfterQkUs": 209.96
+        },
+        "workProfile": {
+          "tokens": 256,
+          "sparseBlocks": 5,
+          "totalItems": 1280,
+          "validItems": 583,
+          "invalidItems": 697,
+          "invalidPct": 54.5,
+          "requestStarts": [
+            2,
+            3,
+            7,
+            127,
+            128,
+            63,
+            255,
+            511,
+            8192,
+            0,
+            2,
+            3,
+            7,
+            127,
+            128,
+            63,
+            255,
+            511,
+            8192,
+            0,
+            2,
+            3,
+            7,
+            127,
+            128,
+            63,
+            255,
+            511,
+            8192,
+            0,
+            2,
+            3
+          ],
+          "sb0Count": 256,
+          "cmpCount": 327,
+          "invalidZeroMiB": 87.1,
+          "invalidTotalHbmMiB": 174.2,
+          "mergeLoopTotal": 1024,
+          "mergeLoopInvalid": 697,
+          "mergeLoopInvalidPct": 68.1,
+          "fastLaneAvg": {
+            "sb0": 18,
+            "cmp": 6.2
+          },
+          "slowLaneAvg": {
+            "sb0": 3.3,
+            "cmp": 21
+          },
+          "balancedLaneAvg": {
+            "sb0": 10.7,
+            "cmp": 13.6
+          },
+          "fittedCostUs": {
+            "sb0Us": 7.86,
+            "cmpUs": 40.3,
+            "costRatio": 5.13
+          },
+          "lanes": [
+            {
+              "lane": 0,
+              "physicalGroup": 0,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 5,
+              "cmp": 20,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 1,
+              "physicalGroup": 3,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 18,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 2,
+              "physicalGroup": 6,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 22,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 3,
+              "physicalGroup": 9,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 19,
+              "cmp": 6,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 4,
+              "physicalGroup": 12,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 22,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 5,
+              "physicalGroup": 15,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 20,
+              "cmp": 5,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 6,
+              "physicalGroup": 18,
+              "total": 54,
+              "valid": 25,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 22,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 7,
+              "physicalGroup": 21,
+              "total": 54,
+              "valid": 24,
+              "invalid": 30,
+              "sb0": 17,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.75
+            },
+            {
+              "lane": 8,
+              "physicalGroup": 1,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 4,
+              "cmp": 20,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 9,
+              "physicalGroup": 4,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 17,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 10,
+              "physicalGroup": 7,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 11,
+              "physicalGroup": 10,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 18,
+              "cmp": 6,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 12,
+              "physicalGroup": 13,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 13,
+              "physicalGroup": 16,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 19,
+              "cmp": 5,
+              "tier": "fast",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 14,
+              "physicalGroup": 19,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 10,
+              "balancedCmp": 14,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 15,
+              "physicalGroup": 22,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 17,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 16,
+              "physicalGroup": 2,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 4,
+              "cmp": 20,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 17,
+              "physicalGroup": 5,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 17,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 18,
+              "physicalGroup": 8,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 19,
+              "physicalGroup": 11,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 18,
+              "cmp": 6,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 20,
+              "physicalGroup": 14,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 21,
+              "physicalGroup": 17,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 19,
+              "cmp": 5,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 22,
+              "physicalGroup": 20,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 3,
+              "cmp": 21,
+              "tier": "slow",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            },
+            {
+              "lane": 23,
+              "physicalGroup": 23,
+              "total": 53,
+              "valid": 24,
+              "invalid": 29,
+              "sb0": 17,
+              "cmp": 7,
+              "tier": "fast",
+              "balancedSb0": 11,
+              "balancedCmp": 13,
+              "invalidZeroMiB": 3.62
+            }
+          ]
+        },
+        "projectedAfterFix": {
+          "basis": "model-estimate",
+          "note": "基于当前实测斜率与无效块占比的工程推算，真实端到端收益需在目标硬件重编验证",
+          "qkPlanUs": 20.0,
+          "qkPlanSavingUs": 94.0,
+          "qkAicUs": 632.9,
+          "qkAicSavingUs": 263.1,
+          "qkAiv0TailUs": 0.0,
+          "qkAiv0TailSavingUs": 52.48,
+          "mergeAfterQkUs": 120.0,
+          "mergeSavingUs": 90.0,
+          "chainSpanUs": 782.1,
+          "totalSavingUs": 499.6,
+          "chainSavingPct": 39.0,
+          "csaSavingPct": 13.3
+        }
+      }
     }
+  },
+  "storyChain": {
+    "id": "csa-sparse-validity-chain",
+    "title": "围绕 valid_block_mask / qk_order 的三幕计算语义诊断",
+    "semanticObject": "valid_block_mask · qk_order",
+    "defaultRank": 1,
+    "rankNote": "Rank 1 无跨卡启动偏移（总时长 3,751.5 µs，三步链路占 34.2%）；Rank 0 因 Host 启动早 1.15 ms 存在前置通信等待，但三幕结构 100% 一致。",
+    "acts": [
+      {
+        "id": "act1-qk-plan-barrier",
+        "order": 1,
+        "stage": "qk_plan",
+        "stepKey": "csa_slots_build_valid_qk_plan",
+        "tag": "单核串行屏障",
+        "title": "入口 114 µs 全芯片黑屏：串行游标绑架 32 块并行向量计算",
+        "semanticObject": "valid_block_mask · sparse_bias · qk_order",
+        "graphRole": "root-cause",
+        "primaryLoop": "Pipeline → Assignment → Graph → Source",
+        "pipelineSignal": "csa_slots_build_valid_qk_plan 独自在 1 颗 AIV 上运行 114.0 µs（Rank 0 为 114.7 µs），同期其余 71/72 核（24 AIC + 47 AIV）完全空转。",
+        "assignmentGap": "32 个逐 Token 独立的 8-row 向量块（bias_t0）本可 32 核并行，却全部被锁进 1 个单核逻辑 Block 串行循环 32 轮。",
+        "graphCause": "函数内部包含两段性质完全不同的子图：前半段计算 cmp_sparse_indices / valid_block_mask / sparse_bias 零跨 token 依赖；仅末尾 1,280 个标量的 qk_wcur 压实需要串行游标。",
+        "sourceRefs": [
+          {
+            "file": "decode_sparse_attn_csa.py",
+            "start": 143,
+            "end": 197,
+            "label": "csa_slots_build_valid_qk_plan（单核混合作用域）"
+          }
+        ],
+        "sourceDiff": {
+          "file": "decode_sparse_attn_csa.py",
+          "lineRange": "L143–197",
+          "summary": "拆分为 32 核并行向量 Scope（csa_build_slots_bias）+ 极轻量单核队列压实 Scope（csa_compact_qk_order）",
+          "bitExact": true,
+          "before": "with pl.at(level=pl.Level.CORE_GROUP, name_hint=\"csa_slots_build_valid_qk_plan\") as qk_plan_tid:\n    for bias_t0 in pl.range(0, t_dim, BIAS_T_TILE):  # 32 轮在 1 颗 AIV 上串行\n        ...  # 掩码、valid_block_mask、sparse_bias\n    pl.write(qk_wcur, [0], pl.cast(0, pl.INT32))\n    for plan_t in pl.range(t_dim): ...",
+          "after": "with pl.spmd(t_dim // BIAS_T_TILE, name_hint=\"csa_build_slots_bias\") as bias_tid:\n    bias_t0 = pl.tile.get_block_idx() * BIAS_T_TILE  # 32 颗 AIV 并行\n    ...  # 独立写出 cmp_sparse_indices / valid_block_mask / sparse_bias\n\nwith pl.at(level=pl.Level.CORE_GROUP, name_hint=\"csa_compact_qk_order\", deps=[bias_tid]) as qk_plan_tid:\n    ...  # 仅扫描 1,280 个 valid_block_mask 标量写入 qk_order"
+        }
+      },
+      {
+        "id": "act2-qk-pv-parity",
+        "order": 2,
+        "stage": "qk_pv",
+        "stepKey": "qk_pv",
+        "tag": "2.5× 奇偶双峰极差",
+        "title": "中段 12 慢 vs 12 快：静态均分 25 块，实测代价差 × 同余碰撞",
+        "semanticObject": "qk_order → 24 SPMD Lanes",
+        "graphRole": "cost-context",
+        "primaryLoop": "Pipeline → Assignment → Source",
+        "pipelineSignal": "qk_pv 24 个核组在双 Rank 均精准分裂为 12 慢（835–896 µs）与 12 快（363–453 µs），快组早退 ~450 µs 迫使下游 Merge 产生 73% Setup 空等。",
+        "assignmentGap": "静态按 valid 数量看每核均分 24–26 块看似均衡；但 Pass 1 按 (token, sb) 交替入队撞上偶数核数 24（gcd(2, 24)=2），叠加 SB0 与 CMP 块代价差，暴露奇/偶 lane 极端分化：12 条快 lane 含 18 SB0 + 6 CMP，12 条慢 lane 含 3 SB0 + 21 CMP。",
+        "graphCause": null,
+        "costContext": "非计算图拓扑问题（调整入队顺序不改变任何节点或依赖边）。Graph 仅作单块代价佐证：qk_pv 内部 SB0 滑窗走 2 次页连续多行 DMA（~8 µs/块），SB1–4 压缩块走 128 次标量查表逐行 gather（~37–40 µs/块，贵 4.4–5.1×）。",
+        "sourceRefs": [
+          {
+            "file": "decode_sparse_attn_csa.py",
+            "start": 184,
+            "end": 196,
+            "label": "qk_order 行优先压实（同余碰撞源头）"
+          },
+          {
+            "file": "decode_sparse_attn_csa.py",
+            "start": 228,
+            "end": 276,
+            "label": "SB0 多行 DMA vs CMP 128× 标量 gather 分支"
+          }
+        ],
+        "sourceDiff": {
+          "file": "decode_sparse_attn_csa.py",
+          "lineRange": "L184–190",
+          "summary": "调整 Pass 1 双层循环顺序：先连续写入全部重压缩块 SB1..SB4，再连续写入全部轻滑窗块 SB0",
+          "bitExact": true,
+          "before": "# Pass 1: (token, sb) 交替写入 -> 偶数核数 24 触发奇偶同余碰撞\nfor plan_t in pl.range(t_dim):\n    for plan_sb in pl.range(SPARSE_BLOCKS):\n        if pl.read(valid_block_mask, [plan_t, plan_sb]) > 0:\n            qk_order[wcur++] = plan_t * SPARSE_BLOCKS + plan_sb",
+          "after": "# Pass 1a: 重压缩块 SB1..SB4 连续入队 -> 24 核均分 14-15 个 CMP\nfor plan_sb in pl.range(1, SPARSE_BLOCKS):\n    for plan_t in pl.range(t_dim):\n        if pl.read(valid_block_mask, [plan_t, plan_sb]) > 0:\n            qk_order[wcur++] = plan_t * SPARSE_BLOCKS + plan_sb\n# Pass 1b: 轻滑窗块 SB0 连续入队 -> 24 核均分 10-11 个 SB0\nfor plan_t in pl.range(t_dim):\n    qk_order[wcur++] = plan_t * SPARSE_BLOCKS"
+        }
+      },
+      {
+        "id": "act3-invalid-zero-flow",
+        "order": 3,
+        "stage": "merge",
+        "stepKey": "csa_merge_pack_publish",
+        "tag": "87 MiB 无效零写读",
+        "title": "尾部 +52.5 µs 写零拖尾 & Merge 68% 空转：valid_block_mask 跨阶段断链",
+        "semanticObject": "valid_block_mask 跨阶段透传",
+        "graphRole": "root-cause",
+        "primaryLoop": "Pipeline → Assignment → Graph → Source",
+        "pipelineSignal": "AIC 与 AIV 1 同步停表后，AIV 0 仍多拖 52.5 µs（12 个快组同撞写带宽甚至拖尾 83–101 µs）；下游 Merge 尾段再满跑 210 µs。",
+        "assignmentGap": "qk_order 队尾堆着 675–697 个无效块（占 1,280 总项的 53%–54%）；每块 128 KB，AIV 0 全程白写 84–87 MiB 的 0.0 进 GM。",
+        "graphCause": "sparse_attn_csa 未将已建好的 valid_block_mask 返回给 csa_merge_pack_publish；下游被迫无条件加载并归约全部 1,024 个压缩块（66%–68% 是刚写入的零），上游被迫在 else 分支填零防 NaN（且 Merge 的 stage=2 已因 PH-MR-001 退化为串行）。",
+        "sourceRefs": [
+          {
+            "file": "decode_sparse_attn_csa.py",
+            "start": 305,
+            "end": 313,
+            "label": "qk_pv else 分支（AIV 0 写 87 MiB 无效零）"
+          },
+          {
+            "file": "decode_sparse_attn_csa.py",
+            "start": 348,
+            "end": 357,
+            "label": "sparse_attn_csa 返回值（缺失 valid_block_mask）"
+          },
+          {
+            "file": "decode_csa.py",
+            "start": 420,
+            "end": 431,
+            "label": "csa_merge_pack_publish 无条件归约全部 SB1..SB4"
+          }
+        ],
+        "sourceDiff": {
+          "file": "decode_sparse_attn_csa.py + decode_csa.py",
+          "lineRange": "L305–357 · decode_csa.py L420–431",
+          "summary": "透传 valid_block_mask 与 valid_count：qk_pv 仅遍历有效项删去写零分支，Merge 按掩码跳过 68% 无效块",
+          "bitExact": true,
+          "before": "# decode_sparse_attn_csa.py: qk_pv 队尾对 697 个无效块写 87 MiB 零\nelse:\n    sparse_blk_oi[qk_row : qk_row + H_TILE, :] = 0.0\n\n# decode_csa.py: Merge 无条件读取并计算全部 SB1..SB4\nfor m_sb in pl.pipeline(1, SPARSE_BLOCKS, stage=2):\n    m_cur_oi = sparse_blk_oi[m_row : m_row + H_TILE, :]\n    ...  # 68% 迭代为无效零块",
+          "after": "# decode_sparse_attn_csa.py: 返回 valid_block_mask & qk_valid_count\n# qk_pv 仅循环到 qk_valid_count，彻底移除 else 写零分支（省 87 MiB 写 + 52 µs 拖尾）\n\n# decode_csa.py: 按 valid_block_mask 跳过无效压缩块（省 87 MiB 读 + 68% 归约）\nfor m_sb in pl.range(1, SPARSE_BLOCKS):\n    if pl.read(valid_block_mask, [m_t, m_sb]) > 0:\n        m_cur_oi = sparse_blk_oi[m_row : m_row + H_TILE, :]\n        ..."
+        }
+      }
+    ]
   }
 });
 })(window);

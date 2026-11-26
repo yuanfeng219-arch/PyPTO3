@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex · PyPTO 算子开发与性能诊断</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell" id="appShell" data-layout="chat-only" data-sidebar="open">
+    <!-- Codex 左侧菜单栏 -->
+    <aside class="sidebar" id="sidebar" aria-label="Codex 导航栏">
+      <div class="sidebar__top">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z" />
+              <path d="M12 12 4 7.5M12 12l8-4.5M12 12v9" />
+            </svg>
+          </span>
+          <span class="brand__name">Codex</span>
+          <span class="brand__tag">PyPTO</span>
+        </div>
+        <button class="icon-btn" id="sidebarCollapseBtn" type="button" title="收起侧栏" aria-label="收起侧栏">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M9 4v16" />
+          </svg>
+        </button>
+      </div>
+
+      <button class="new-thread-btn" id="newThreadBtn" type="button">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        <span>新线程</span>
+      </button>
+
+      <nav class="sidebar__nav" aria-label="工作区导航">
+        <button class="nav-item is-active" type="button" data-nav="threads">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>线程</span>
+        </button>
+        <button class="nav-item" type="button" data-nav="automations">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          <span>自动化</span>
+        </button>
+        <button class="nav-item" type="button" data-nav="skills">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M12 2 15 9l7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" />
+          </svg>
+          <span>技能</span>
+        </button>
+        <button class="nav-item" type="button" data-nav="workspace">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+          </svg>
+          <span>本地仓库</span>
+        </button>
+      </nav>
+
+      <div class="sidebar__section">
+        <div class="sidebar__label">线程</div>
+        <ul class="thread-list" role="list">
+          <li>
+            <button class="thread-item is-active" type="button" data-thread="current">
+              <span class="thread-item__dot" aria-hidden="true"></span>
+              <span class="thread-item__body">
+                <span class="thread-item__title">PyPTO 算子开发与上板性能诊断</span>
+                <span class="thread-item__meta">已完成 · 2 轮迭代 · 6 个视图入口</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="thread-item" type="button" data-thread="other-1">
+              <span class="thread-item__body">
+                <span class="thread-item__title">RMSNorm UB 双缓冲排障</span>
+                <span class="thread-item__meta">昨天 · 已归档</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="thread-item" type="button" data-thread="other-2">
+              <span class="thread-item__body">
+                <span class="thread-item__title">PagedAttention 静态分核核对</span>
+                <span class="thread-item__meta">2 天前 · 已完成</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="thread-item" type="button" data-thread="other-3">
+              <span class="thread-item__body">
+                <span class="thread-item__title">Top-K Indexer 访存带宽分析</span>
+                <span class="thread-item__meta">本周 · 已完成</span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar__footer">
+        <div class="env-chip">
+          <span class="env-chip__dot" aria-hidden="true"></span>
+          <span class="env-chip__text">pypto-operators · main</span>
+        </div>
+        <div class="env-sub">Ascend NPU · TP=2 · Local</div>
+      </div>
+    </aside>
+
+    <!-- 主工作区：对话流 + 交互式视图画布 -->
+    <div class="workspace">
+      <!-- 对话面板 -->
+      <section class="chat-pane" id="chatPane" aria-label="Agent 完整对话记录">
+        <header class="chat-header">
+          <div class="chat-header__left">
+            <button class="icon-btn sidebar-open-btn" id="sidebarOpenBtn" type="button" title="展开侧栏" aria-label="展开侧栏">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M9 4v16" />
+              </svg>
+            </button>
+            <div class="chat-title-group">
+              <h1 class="chat-title">PyPTO 算子开发与上板性能诊断</h1>
+              <span class="chat-subtitle">完整对话 · 可随时向上滚动回看前序交互视图</span>
+            </div>
+          </div>
+
+          <div class="chat-header__right">
+            <nav class="chapter-pills" aria-label="对话阶段跳转">
+              <button type="button" class="pill" data-scroll-to="turn-dev">01 开发与静态视图</button>
+              <button type="button" class="pill" data-scroll-to="turn-perf">02 诊断与修改建议</button>
+              <button type="button" class="pill" data-scroll-to="turn-refactor">03 修改完成与新版视图</button>
+            </nav>
+            <button class="btn-outline btn-sm" id="toggleCanvasBtn" type="button" hidden>
+              收起画布
+            </button>
+          </div>
+        </header>
+
+        <div class="chat-scroll" id="chatScroll">
+          <div class="chat-thread" id="chatThread">
+
+            <!-- ========== Turn 1: 用户提出算子开发需求 ========== -->
+            <article class="msg msg--user" id="turn-dev">
+              <div class="msg__role">你</div>
+              <div class="msg__bubble">
+                <p>帮我基于 PyPTO 开发一个面向 Ascend NPU 的高性能算子，要求保证数值稳定、给出清晰的 Tile 切分与分核策略，并完成正确性验证。</p>
+                <p>写完后把关键实现说明发我，同时提供两个交互式页面：一个让我看你写算子过程中的决策路径，另一个让我看静态分析下的 Graph、Pipeline 和 Assignment 三视角，方便我上板前先审查。</p>
+              </div>
+            </article>
+
+            <!-- ========== Turn 1: Agent 开发 Brief + 决策路径 + 静态三视角 ========== -->
+            <article class="msg msg--agent">
+              <div class="msg__role">
+                <span class="agent-badge">Codex</span>
+                <span class="msg__time">已完成 · 初版开发与静态分析 (v1)</span>
+              </div>
+
+              <details class="trace-box">
+                <summary>已完成 5 个执行阶段：需求规约 → API 与硬件约束检索 → 方案设计 → Kernel 实现与验证 → 静态分析导出</summary>
+                <ul class="trace-list">
+                  <li>建立输入输出与数值稳定约束，确认 Tile / 缓冲与分核方案</li>
+                  <li>生成 PyPTO Kernel 代码并运行基础正确性用例（全部通过）</li>
+                  <li>导出开发决策溯源视图与静态三视角分析快照</li>
+                </ul>
+              </details>
+
+              <div class="brief">
+                <h2>开发交付 Brief (v1)</h2>
+                <p>算子已完成实现与基础正确性验证。核心设计围绕<strong>数值稳定计算结构</strong>、<strong>片上缓冲复用</strong>与<strong>SPMD 逻辑分核</strong>展开，静态分析结果无结构性依赖冲突。</p>
+                <ul class="brief__points">
+                  <li><strong>决策路径透明</strong>：开发过程中对精度策略、Tile 粒度、双缓冲与尾块处理做过多轮筛选与实验对照，已记录为可交互决策图。</li>
+                  <li><strong>静态三视角可审查</strong>：上板前可直接通过 Graph（算子依赖与张量流）、Pipeline（静态预期流水）、Assignment（逻辑分核归属）核对整体设计。</li>
+                </ul>
+              </div>
+
+              <div class="artifact-grid">
+                <article class="artifact-card" data-view-card="decision">
+                  <div class="artifact-card__head">
+                    <span class="artifact-step">v1 · 开发过程</span>
+                    <span class="artifact-kind">交互式 HTML</span>
+                  </div>
+                  <h3>Agent 决策路径 · Decision Explorer</h3>
+                  <p>查看 SPEC → EXPLORE → DESIGN → DEVELOP → OPTIMIZE 全阶段设计取舍、失败回退与实验对照。</p>
+                  <div class="artifact-card__meta">
+                    <span>决策树</span>
+                    <span>实验演化</span>
+                    <span>UB / Tile / 调度依据</span>
+                  </div>
+                  <div class="artifact-card__actions">
+                    <button class="btn-primary" type="button" data-open-view="decision">打开决策路径视图</button>
+                  </div>
+                </article>
+
+                <article class="artifact-card" data-view-card="static">
+                  <div class="artifact-card__head">
+                    <span class="artifact-step">v1 · 静态分析</span>
+                    <span class="artifact-kind">交互式 HTML</span>
+                  </div>
+                  <h3>静态三视角分析 · Compute Explorer</h3>
+                  <p>在上板运行前查看静态分析状态下的 Graph、Pipeline 与 Assignment 三视角结构与源码映射。</p>
+                  <div class="artifact-card__meta">
+                    <span>Graph</span>
+                    <span>Pipeline</span>
+                    <span>Assignment</span>
+                  </div>
+                  <div class="artifact-card__actions">
+                    <button class="btn-primary" type="button" data-open-view="static">打开静态三视角</button>
+                  </div>
+                </article>
+              </div>
+            </article>
+
+            <!-- ========== Turn 2: 用户上板运行并回传运行产物包 ========== -->
+            <article class="msg msg--user" id="turn-perf">
+              <div class="msg__role">你</div>
+              <div class="msg__bubble">
+                <p>决策路径和静态三视角我都检查完了，设计很清楚，所以我直接拿到板子上跑了一遍。</p>
+                <p>实测下来整体性能比静态预期差一截，我把上板运行产物包发你，帮我做一次性能诊断，告诉我主要瓶颈在哪里，以及具体的修改建议。</p>
+                <div class="attachment-chip">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="m7 10 5 5 5-5M12 15V3" />
+                  </svg>
+                  <div class="attachment-chip__info">
+                    <strong>run_bundle_csa_tp2_20260903.tar.gz</strong>
+                    <span>DFX Trace · 72 Cores (24 Core Groups) · Rank 0 / Rank 1 · perf_hints.log</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- ========== Turn 2: Agent 性能诊断 Brief（含可执行修改建议）+ 全量泳道图 ========== -->
+            <article class="msg msg--agent">
+              <div class="msg__role">
+                <span class="agent-badge">Codex</span>
+                <span class="msg__time">已完成 · 上板性能诊断与修改建议</span>
+              </div>
+
+              <details class="trace-box">
+                <summary>已完成产物解析：解包 DFX Trace → 还原 72 核全量泳道 → 对照静态 Pipeline 与 Assignment 归因</summary>
+                <ul class="trace-list">
+                  <li>对齐 Rank 0 / Rank 1 设备时间轴与 24 核组（AIC / AIV）执行记录</li>
+                  <li>识别关键路径跨度最长步骤及 12 慢 / 12 快核组耗时双峰特征</li>
+                  <li>将实测 Runtime Trace 映射回静态 Pipeline 与 Assignment 分核层，生成修改建议</li>
+                </ul>
+              </details>
+
+              <div class="brief">
+                <h2>性能诊断 Brief</h2>
+                <p>对运行产物包进行全量回放后，发现真机执行与静态预期存在明显偏差，核心瓶颈集中在<strong>稀疏注意力阶段</strong>：</p>
+                <ul class="brief__points">
+                  <li><strong>宏观现象（全量泳道）</strong>：全量泳道图显示主路径耗时集中在 <code>qk_pv</code> 等核心任务，核组间出现明显长尾分化。</li>
+                  <li><strong>根因定位（Pipeline → Assignment）</strong>：对比 Runtime Trace 与静态 Pipeline 后，发现实测 <strong>12 慢 / 12 快（约 2.5×）双峰</strong>并非流水线排布缺陷，根因在于 <strong>Assignment 层 <code>qk_order</code> 与 24 核组产生同余碰撞</strong>，导致一半核组集中承担高访存代价的压缩块。</li>
+                </ul>
+
+                <!-- 对话内可直接选中的修改建议 -->
+                <div class="suggestions-box" id="chatSuggestions">
+                  <div class="suggestions-box__head">
+                    <div>
+                      <strong>可执行修改建议</strong>
+                      <span>勾选后可直接在对话中触发修改，也可在 HTML 视图定位 Assignment 后点击“修改代码”</span>
+                    </div>
+                  </div>
+
+                  <div class="suggestion-list">
+                    <label class="suggestion-item is-selected" data-suggestion-id="assign-balance">
+                      <input type="checkbox" name="perf-suggestion" value="assign-balance" checked />
+                      <div class="suggestion-item__body">
+                        <div class="suggestion-item__top">
+                          <strong>建议 1 · 重排 Assignment 分核映射（主因推荐）</strong>
+                          <span class="sug-tag sug-tag--primary">Assignment · 预计消除 2.5× 双峰</span>
+                        </div>
+                        <p>保持计算图拓扑不变，调整 <code>qk_order</code> 奇偶错峰 / 轮转映射，将高代价压缩块均匀打散到 24 个核组，直接消除 12 慢 / 12 快长尾。</p>
+                      </div>
+                    </label>
+
+                    <label class="suggestion-item" data-suggestion-id="qk-plan-spmd">
+                      <input type="checkbox" name="perf-suggestion" value="qk-plan-spmd" />
+                      <div class="suggestion-item__body">
+                        <div class="suggestion-item__top">
+                          <strong>建议 2 · 拆分 qk_plan 单核串行屏障</strong>
+                          <span class="sug-tag">Graph / Dispatch · 解除 1/72 核阻塞</span>
+                        </div>
+                        <p>将前置规划节点拆分为并行 <code>pl.spmd</code> 执行，缩短进入 <code>qk_pv</code> 前的单核串行等待窗口。</p>
+                      </div>
+                    </label>
+
+                    <label class="suggestion-item" data-suggestion-id="skip-invalid">
+                      <input type="checkbox" name="perf-suggestion" value="skip-invalid" />
+                      <div class="suggestion-item__body">
+                        <div class="suggestion-item__top">
+                          <strong>建议 3 · 透传 valid_block_mask 跳过无效块零写</strong>
+                          <span class="sug-tag">Memory / Merge · 减少无效写零</span>
+                        </div>
+                        <p>将 <code>valid_block_mask</code> 向下游 Merge 透传，避免无效稀疏块触发多余中性写零与空算。</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="suggestions-box__footer">
+                    <span class="suggestions-summary" id="suggestionsSummary">已选 1 项：重排 Assignment 分核映射</span>
+                    <button class="btn-signal btn-sm" id="applyChatSuggestionsBtn" type="button">
+                      按选中建议修改代码 →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="artifact-grid artifact-grid--single">
+                <article class="artifact-card artifact-card--highlight" data-view-card="lane">
+                  <div class="artifact-card__head">
+                    <span class="artifact-step">上板诊断 · 全量泳道 → 下钻定位</span>
+                    <span class="artifact-kind">交互式 HTML · 支持下钻修改</span>
+                  </div>
+                  <h3>全量运行泳道图 · Device Perf Lane</h3>
+                  <p>先查看 72 核全量泳道与首要瓶颈，点击“深入调查”进入 Runtime Trace 与静态 Pipeline 对比，再切到 Assignment 即可看到内嵌修改意见与“修改代码”按钮。</p>
+                  <div class="artifact-card__meta">
+                    <span>全量泳道图</span>
+                    <span>→ Runtime Trace vs Pipeline</span>
+                    <span>→ Assignment 根因与修改代码 CTA</span>
+                  </div>
+                  <div class="artifact-card__actions">
+                    <button class="btn-primary" type="button" data-open-view="lane">打开全量泳道图</button>
+                    <button class="btn-outline" type="button" data-open-view="csa-pipeline">直达 Pipeline / Runtime Trace</button>
+                    <button class="btn-ghost" type="button" data-open-view="csa-assignment">直达 Assignment 根因与建议 →</button>
+                  </div>
+                </article>
+              </div>
+            </article>
+
+            <!-- ========== Turn 3: 用户触发修改代码（来自 HTML CTA 或对话选中建议） ========== -->
+            <article class="msg msg--user" id="turn-refactor">
+              <div class="msg__role">你</div>
+              <div class="msg__bubble">
+                <div class="applied-plan-chip" id="appliedPlanChip">
+                  <span class="applied-plan-chip__tag" id="appliedPlanSource">已采纳修改建议</span>
+                  <strong id="appliedPlanText">建议 1 · 重排 Assignment 分核映射（打散 24 核组同余碰撞）</strong>
+                </div>
+                <p id="refactorUserPrompt">我在 Assignment 视角确认了 12 慢 / 12 快核组分核碰撞问题，请按建议 1 修改代码，把高代价压缩块均匀分配到 24 个核组（保持计算图拓扑不变）。改完后把新算子的决策路径和静态三视角发我核对。</p>
+              </div>
+            </article>
+
+            <!-- ========== Turn 3: Agent 完成修改 + 展示新算子的决策路径与静态三视角 ========== -->
+            <article class="msg msg--agent" id="turn-refactor-result">
+              <div class="msg__role">
+                <span class="agent-badge">Codex</span>
+                <span class="msg__time">已完成 · 代码修改与新版静态核验 (v2)</span>
+              </div>
+
+              <details class="trace-box">
+                <summary>已完成代码修改：更新 Assignment 分核映射 → 回归正确性验证通过 → 导出 v2 决策路径与静态三视角</summary>
+                <ul class="trace-list">
+                  <li>修改 <code>decode_sparse_attn_csa.py</code> 中 <code>qk_order</code> 的 24 核组分核轮转策略</li>
+                  <li>确认计算图拓扑与张量语义未变更，基础与边界用例全部 PASS</li>
+                  <li>重新生成新版算子的决策路径溯源与 Graph / Pipeline / Assignment 静态视图</li>
+                </ul>
+              </details>
+
+              <div class="brief brief--success">
+                <h2>优化修改完成 Brief (v2)</h2>
+                <p>已按所选修改建议完成算子代码重构并通过正确性回归。本次迭代<strong>仅调整 Assignment 层的任务分核映射</strong>，未引入额外图结构风险：</p>
+                <ul class="brief__points">
+                  <li><strong>核心改动</strong>：将原先与 24 核组同余碰撞的静态排布改为均衡错峰分配，使每个核组承载的高访存压缩块数量趋于一致。</li>
+                  <li><strong>静态核验预期</strong>：在静态 Assignment 与 Pipeline 视图中，核组间工作量分布已拉平，预计消除此前 2.5× 的奇偶双峰长尾；核对无误后即可进入 v2 上板复测。</li>
+                </ul>
+              </div>
+
+              <div class="artifact-grid">
+                <article class="artifact-card artifact-card--v2" data-view-card="decision-v2">
+                  <div class="artifact-card__head">
+                    <span class="artifact-step">v2 · 新算子决策路径</span>
+                    <span class="artifact-kind">交互式 HTML · 已更新</span>
+                  </div>
+                  <h3>新算子决策路径 · Decision Explorer (v2)</h3>
+                  <p>查看本次针对 Assignment 负载均衡重构的决策脉络、约束核对与优化取舍记录。</p>
+                  <div class="artifact-card__meta">
+                    <span>v2 迭代决策</span>
+                    <span>Assignment 重构依据</span>
+                    <span>回归校验</span>
+                  </div>
+                  <div class="artifact-card__actions">
+                    <button class="btn-primary" type="button" data-open-view="decision-v2">打开新算子决策路径</button>
+                  </div>
+                </article>
+
+                <article class="artifact-card artifact-card--v2" data-view-card="static-v2">
+                  <div class="artifact-card__head">
+                    <span class="artifact-step">v2 · 新算子静态分析</span>
+                    <span class="artifact-kind">交互式 HTML · 已更新</span>
+                  </div>
+                  <h3>新算子静态三视角 · Compute Explorer (v2)</h3>
+                  <p>查看修改后的 Graph、Pipeline 与 Assignment 三视角，确认拓扑未变且分核负载已均衡，准备二轮上板。</p>
+                  <div class="artifact-card__meta">
+                    <span>Graph（拓扑保持）</span>
+                    <span>Pipeline（长尾收敛）</span>
+                    <span>Assignment（均衡分核）</span>
+                  </div>
+                  <div class="artifact-card__actions">
+                    <button class="btn-primary" type="button" data-open-view="static-v2">打开新算子静态三视角</button>
+                  </div>
+                </article>
+              </div>
+            </article>
+
+          </div>
+        </div>
+
+        <!-- 底部简化输入框 -->
+        <footer class="composer">
+          <form class="composer__form" id="composerForm">
+            <input
+              type="text"
+              id="composerInput"
+              class="composer__input"
+              placeholder="继续向 Codex 提问，或拖入 v2 上板运行产物包进行前后对比..."
+              autocomplete="off"
+            />
+            <div class="composer__actions">
+              <span class="composer__hint">已关联 v1 / 上板诊断 / v2 完整交互式视图</span>
+              <button class="btn-primary btn-sm" type="submit">发送</button>
+            </div>
+          </form>
+        </footer>
+      </section>
+
+      <!-- 右侧交互式 HTML 画布 -->
+      <section class="stage-pane" id="stagePane" aria-label="交互式视图画布" hidden>
+        <header class="stage-bar">
+          <div class="stage-bar__left">
+            <button class="btn-ghost btn-sm" id="backToLaneBtn" type="button" hidden>
+              ← 返回全量泳道图
+            </button>
+            <div class="stage-crumb" id="stageCrumb">
+              <span class="stage-crumb__badge" id="stageBadge">视图</span>
+              <strong id="stageTitle">交互式视图</strong>
+            </div>
+          </div>
+
+          <div class="stage-bar__center" id="stageContextActions">
+            <!-- 动态注入：泳道图下钻按钮、CSA Pipeline/Assignment 切换及修改代码按钮 -->
+          </div>
+
+          <div class="stage-bar__right">
+            <button class="btn-outline btn-sm" id="toggleChatSplitBtn" type="button" title="收起或展开左侧对话流">
+              收起对话
+            </button>
+            <a class="btn-ghost btn-sm" id="openRawLink" href="#" target="_blank" rel="noopener">
+              新窗口 ↗
+            </a>
+            <button class="icon-btn" id="closeStageBtn" type="button" title="关闭画布，回到完整对话" aria-label="关闭画布">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="stage-note" id="stageNote" hidden></div>
+
+        <div class="stage-frame-wrap">
+          <div class="stage-loading" id="stageLoading" hidden>正在加载交互式视图…</div>
+          <iframe
+            id="stageFrame"
+            class="stage-frame"
+            title="交互式算子分析视图"
+            src="about:blank"
+          ></iframe>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 轻量提示条 -->
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

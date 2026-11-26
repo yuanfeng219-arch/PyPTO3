@@ -253,10 +253,13 @@
       const height = showMeasured ? measuredTop+byCore.length*rowStep+18 : Math.max(310,taskHeight+22);
       const ownership = model.cases ? info().type==='qr'?`${count/2} N Groups × 2 Split-K`:
         info().type==='qmat'?`${count} N Groups × 1 Block`:info().type==='post'?`${count} Head Groups × 4 Heads`:
-        info().type==='seed'?'1 Core Group · 遍历 M/N Tile':`${count} Token Tiles × 1 Block`
+        info().type==='seed'?'1 Core Group · 遍历 M/N Tile':
+        info().type==='qkplan'?`1 Core Group · 遍历 ${tile(0,kernel).tiles.length} Token Tiles + 2-Pass 重排`:
+        info().type==='ropecs'?`1 Core Group · Swap Index + 遍历 ${tile(0,kernel).tiles.length} Token Tiles`:
+        `${count} Token Tiles × 1 Block`
         : projection ? `${groupCount} M Tiles × ${perRow} N Tiles` : /pool|commit/.test(kernel) ? `${count} requests × 1 Block` : `${count} 个 16 行 Tiles × 1 Block`;
       const caption = phase === 'generation' ? `${ownership} → ${count} Work Items` :
-        phase === 'ordering' ? `SPMD Block 0–${count-1} · ${info().type==='qr'?'block_idx = N Group × 2 + Split':'按 block_idx 编号'}` :
+        phase === 'ordering' ? `SPMD Block 0–${count-1} · ${info().type==='qr'?'block_idx = N Group × 2 + Split':info().type==='qkplan'||info().type==='ropecs'?'单 Core Group 串行派发 (pl.at)':'按 block_idx 编号'}` :
         `${count} 逻辑 Blocks · ${records.length} 实测切片 · ${cores.size} 个物理核${model.cases&&tokens!==caseOptions[0].tokens?'（存档为 256 行）':''}`;
       return `<div class="csa-qk-canvas-head csa-compressor-controls">
         <div><h2>${phaseNames[phase]}</h2><p>${caption}</p></div>
@@ -281,7 +284,10 @@
               const name=model.groupSize?` ${info().type==='qr'?'N Group '+i+' · Split 0 / 1':
                 info().type==='qmat'?'N Groups '+first+'–'+Math.min(first+size-1,count-1):
                 info().type==='post'?'Head Groups '+first+'–'+Math.min(first+size-1,count-1):
-                info().type==='seed'?'QR FP32 初始化':'Token Tiles '+first+'–'+Math.min(first+size-1,count-1)}`
+                info().type==='seed'?'QR FP32 初始化':
+                info().type==='qkplan'?'Candidate Planning · 1 Core Group':
+                info().type==='ropecs'?'Inverse RoPE · 1 Core Group':
+                'Token Tiles '+first+'–'+Math.min(first+size-1,count-1)}`
                 :projection?`M ${range(i*rows,rows)} × N Tiles`
                 : `${model.requestScoped(kernelByName.get(kernel))?'Request':'M Tile'} ${first}–${Math.min(first+7,count-1)}`;
               return `<g class="csa-qk-canvas-group ${active?'is-focused':blockSelected?'is-dimmed':''}">
@@ -505,7 +511,7 @@
       const content = mode === 'graph' || mode === 'pipeline'||scope==='intra'&&!!renderTiles
         ? `<div class="csa-compressor-zoom-content" style="--compressor-zoom:${zoom}">${screen}</div>` : screen;
       const markup = `<div class="csa-sv-shell"><header class="csa-sv-header"><div class="csa-sv-title-group">
-        <div class="csa-sv-title-row"><h2>${title}</h2></div><p class="csa-sv-sub">${model.cases?'Rank-local Q':'Main + Indexer'} · ${stage.kernels.length} Kernels · ${Object.values(current().kernels).flat().length} 实测切片 / Rank</p></div>
+        <div class="csa-sv-title-row"><h2>${title}</h2></div><p class="csa-sv-sub">${escape(model.subtitle||(model.cases?'Rank-local Q':'Main + Indexer'))} · ${stage.kernels.length} Kernels · ${Object.values(current().kernels).flat().length} 实测切片 / Rank</p></div>
         <div class="csa-sv-controls">
         <div class="segmented-control segmented-control-muted" role="group" aria-label="Rank">${[0,1].map(r => button(`Rank ${r}`, 'data-kvsp-rank', r, r === rank)).join('')}</div>
         <div class="segmented-control segmented-control-muted" role="group" aria-label="核间核内">${button('核间', 'data-kvsp-scope', 'inter', scope === 'inter')}${button('核内', 'data-kvsp-scope', 'intra', scope === 'intra')}</div>
@@ -513,7 +519,7 @@
           <option value="all" ${branch==='all'?'selected':''}>全部</option>
           ${Object.entries(layoutBranches).map(([id,name])=>`<option value="${id}" ${branch===id?'selected':''}>${name}</option>`).join('')}</select></label>
         <label>Kernel <select data-kvsp-kernel-picker>${stage.kernels.filter(k=>branch==='all'||kernelByName.get(k.name).branch===branch).map(k=>`<option ${k.name===kernel?'selected':''}>${k.name}</option>`).join('')}</select></label>
-        ${caseOptions.length&&(mode!=='pipeline'||scope==='intra')?`<label>Q 行数 <select data-kvsp-case>
+        ${caseOptions.length&&(mode!=='pipeline'||scope==='intra')?`<label>${escape(model.caseLabel||'Q 行数')} <select data-kvsp-case>
           ${caseOptions.map(c=>`<option value="${c.tokens}" ${c.tokens===tokens?'selected':''}>${c.label}</option>`).join('')}</select></label>`:''}
         ${scope === 'intra' ? `<label>Block <select data-kvsp-block-picker>${ticks(blocks()).map(i => `<option ${i === block ? 'selected' : ''}>${i}</option>`).join('')}</select></label>` : ''}
         ${scope==='intra'&&model.cases&&tile(block,kernel).tiles.length>1?`<label>M Tile <select data-kvsp-tile-picker>

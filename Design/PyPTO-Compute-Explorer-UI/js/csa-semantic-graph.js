@@ -107,16 +107,16 @@
     data('window-indices','Window indices','窗口 KV 的页映射和有效位置输入。',A(108,108),['T_DYN','WIN'],'INT32',{symbol:'window_swa_indices',role:'input',storage:'GM',consumers:['plan','window']}),
     data('position-ids','Position IDs','当前 token 位置用于候选有效性和窗口边界。',A(112,112),['T_DYN',1],'INT32',{symbol:'position_ids',role:'input',storage:'GM',consumers:['plan','window']}),
     data('cmp-block-table','Compressed block table','将压缩槽位映射到物理 Cache 页。',A(110,110),['B_DYN','CMP_MAX_BLOCKS'],'INT32',{symbol:'cmp_block_table',role:'input',storage:'GM',consumers:['selected']}),
-    op('plan','Candidate planning','校验 Top-k 压缩槽位、生成窗口与压缩位置 bias，以及每块有效标记。',A(138,180),['positions','default']),
+    op('plan','Candidate planning','校验 Top-k 压缩槽位、生成窗口与压缩位置 bias 及 valid_block_mask。当前 32 个独立的 8-token 向量块与 1,280 标量压缩绑在同一单核 pl.at(CORE_GROUP) 作用域内，导致 71/72 核空转。',A(138,180),['positions','default']),
     data('cmp-sparse-indices','cmp_sparse_indices','有效压缩槽位，-1 表示无效。',A(139,158),['T_DYN','CMP_TOPK'],'INT32',{symbol:'cmp_sparse_indices',storage:'GM',producer:'plan',consumers:['selected']}),
-    data('valid-block-mask','valid_block_mask','窗口块恒有效；压缩块由候选 mask 决定。',A(140,167),['T_DYN','SPARSE_BLOCKS'],'INT32',{symbol:'valid_block_mask',storage:'GM',producer:'plan',consumers:['order','dispatch','invalid-block']}),
+    data('valid-block-mask','valid_block_mask','窗口块恒有效；压缩块由候选 mask 决定。当前仅在 sparse_attn_csa 内部消费，未作为输出边传给下游 csa_merge_pack_publish。',A(140,167),['T_DYN','SPARSE_BLOCKS'],'INT32',{symbol:'valid_block_mask',storage:'GM',producer:'plan',consumers:['order','dispatch','invalid-block']}),
     data('sparse-bias','sparse_bias','有效位置加 0、无效位置加 NEG_INF 的 QK bias。',A(138,180),['T_DYN','PADDED_TOPK'],'FP32',{symbol:'sparse_bias',storage:'GM',producer:'plan',consumers:['score']}),
-    op('order','Valid-first ordering','先将非空块写入 qk_order，再追加空块。',A(182,196)),
-    data('qk-order','qk_order','按有效块优先的 token × sparse-block 工作顺序。',A(141,196),['QK_ITEMS'],'INT32',{symbol:'qk_order',storage:'GM',producer:'order',consumers:['dispatch']}),
+    op('order','Valid-first ordering','Pass 1 按 (token, sb) 行主序将非空块写入 qk_order，Pass 2 追加 53–54% 无效块；该入队顺序在下游 24-Lane 步长分配中触发奇偶偏斜（详见 Assignment 视图），先写 SB1–4 再写 SB0 可在不改图拓扑的前提下 bit-exact 消除。',A(182,196)),
+    data('qk-order','qk_order','按有效块优先排列的 token × sparse-block 工作索引队列；本身不区分 SB0 与 CMP 块代价，mod 24 奇偶分配偏斜请在 Assignment 视图查看。',A(141,196),['QK_ITEMS'],'INT32',{symbol:'qk_order',storage:'GM',producer:'order',consumers:['dispatch']}),
     state('qk-plan-tid','qk_plan_tid','Candidate planning 完成后，qk_pv 才可读取规划结果。',A(143,143),{initial:'规划任务未完成',granularity:'task'}),
-    op('dispatch','qk_pv task','qk_pv 依赖 qk_plan_tid 与 cache_ready_dep；按 qk_order 处理有效或无效块。',A(208,224),['ready','plan-tid','order','valid','default'],['tid','default']),
-    op('window','Window KV Read','从 Original Cache 按窗口索引和页边界读取行，填充 qk_kv。',A(229,262),['cache','plan','default']),
-    op('selected','Compressed KV Read','对剩余行按有效压缩槽位读取 Compressed Cache；无效槽位使用 Original 行 0。',A(263,276),['cache','plan','default']),
+    op('dispatch','qk_pv task','qk_pv 依赖 qk_plan_tid 与 cache_ready_dep；24 个核组按 qk_order 领取有效或无效块。',A(208,224),['ready','plan-tid','order','valid','default'],['tid','default']),
+    op('window','Window KV Read','SB0 滑窗路径：从 Original Cache 按页边界做 2 次连续多行 DMA（拟合 ~7.8–8.4 µs/块）。',A(229,262),['cache','plan','default']),
+    op('selected','Compressed KV Read','SB1–4 压缩路径：对 128 行逐行标量查 cmp_block_table + 单行 Gather（拟合 ~36.9–40.3 µs/块，比 SB0 慢 4.4–5.1×）。',A(263,276),['cache','plan','default']),
     data('qk-kv','qk_kv','Window 与 Compressed 两条条件路径填充同一个 L1 KV Tile。',A(224,276),['ATTN_K_TILE','HEAD_DIM'],'BF16',{symbol:'qk_kv',storage:'L1',consumers:['qk','pv']}),
     op('q-view','Q Tile view','从 BF16 Q heads 取 QK_M_TILE 行视图。',A(203,284),['q','default']),
     data('qk-q-tile','qk_q_tile','Q heads 的 BF16 Tensor View。',A(284,284),['QK_M_TILE','HEAD_DIM'],'BF16',{symbol:'qk_q_tile',role:'input-view',producer:'q-view',consumers:['qk']}),
@@ -134,7 +134,7 @@
     data('qk-exp-bf16','qk_exp_bf16','未进行最终归一化的块内指数权重，不是最终 Probability。',A(295,295),['QK_M_TILE','ATTN_K_TILE'],'BF16',{symbol:'qk_exp_bf16',producer:'cast',consumers:['pv']}),
     op('pv','PV Matmul','BF16 指数权重与同一个 qk_kv 相乘，输出 FP32 块 partial。',A(296,296)),
     data('qk-oi','qk_oi','PV Matmul 的未合并 FP32 块输出。',A(296,296),['QK_M_TILE','HEAD_DIM'],'FP32',{symbol:'qk_oi',producer:'pv',consumers:['partial-write']}),
-    op('invalid-block','Invalid Block neutral','无效块跳过 QK/PV，直接写入 mi=-3e38、li=0、oi=0。',A(305,313)),
+    op('invalid-block','Invalid Block neutral','无效块跳过 QK/PV，但因 valid_block_mask 未传给下游 Merge，AIV 0 仍需为 53–54% 无效块白写 mi=-3e38、li=0、oi=0（84.4–87.1 MiB 写零）。',A(305,313)),
     op('partial-write','H_TILE partial stores','按 H_TILE 切片写入父图现有 sparse_blk_mi / li / oi；无效块写中性值。',A(297,313),['mi','li','oi','invalid','default'],['mi','li','oi']),
     op('rope','Inverse RoPE metadata','独立生成后续合并使用的 RoPE 元数据和 rope_tid。',A(315,346))
   ],[
@@ -182,7 +182,7 @@
   attention.description='qk_plan 生成候选与 qk_order；qk_pv 在独立 SPMD 范围计算 partial；rope_cs 在该范围外生成合并元数据。算法的 Merge & Normalize 位于下游 csa_merge_pack_publish 任务，与 Pack / Publish 融合。';
   attention.composite.semantics=attention.description;
   const publish=mod('publish','Merge / Pack / Publish','同一 csa_merge_pack_publish 任务中对 partial 执行 Merge & Normalize、处理 Sink 与 inverse RoPE、按目标 Rank 打包并 Put / Notify。',factSrc('publish'),[
-    op('merge','Merge statistics','合并稀疏块结果与统计量。',S(root,411,427),['mi','li','oi','tid']),
+    op('merge','Merge statistics','无条件遍历全部 5 个稀疏块合并 m/l/o；因上游未输出 valid_block_mask，盲读回 84.4–87.1 MiB 零值且 66–68% 压缩块循环为无效空算。',S(root,411,427),['mi','li','oi','tid']),
     op('sink','Sink contribution','加入 Sink 分支。',S(root,429,433)),
     op('inverse-rope','Inverse RoPE','对合并输出执行 inverse RoPE。',S(root,435,441),['context','rope']),
     op('cast','Output cast','转换合并结果精度。',S(root,442,444)),

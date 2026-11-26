@@ -613,6 +613,51 @@ body.cpi-host .lane-toolbar .view-selector{min-width:112px}
 .qk-inline-pipeline .qk-inline-control:focus,.qk-inline-pipeline .qk-inline-control:focus-visible{outline:none!important}.inline-pass-controls [role=button]:focus{outline:none!important}
 .inline-pass-controls .inline-pass-button>rect,.inline-pass-controls .inline-pass-button:hover>rect,.inline-pass-controls .inline-pass-button:focus>rect{stroke:none!important;stroke-width:0!important}
 body.core-pipeline-active #lane .qk-long-outline{stroke:#555!important;fill:none!important}body.core-pipeline-active #lane .task-analysis-area,body.core-pipeline-active #lane #compile-event-preview,body.core-pipeline-active #lane #compile-finding-tag{display:none}
+/* Ceiling & Stop-Decision Triage (monochrome dark grammar; red reserved for warnings). */
+.ceiling-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ceiling-head-left{display:flex;align-items:center;gap:8px;min-width:0}
+.ceiling-badge{display:inline-flex;align-items:center;padding:2px 8px;border:1px solid #4a4a4a;border-radius:999px;font:11px/1.4 var(--font);color:#d8d8d8;background:#222;white-space:nowrap}
+.ceiling-badge.is-high{border-color:color-mix(in srgb,var(--accent) 60%,#444);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,#191919)}
+.ceiling-badge.is-stop{border-color:#686868;color:#f0f0f0;background:#2a2a2a}
+.ceiling-badge.is-skip{border-color:#3a3a3a;color:#8a8a8a;background:#1b1b1b}
+.ceiling-link{padding:0;border:0;background:none;color:#aaa;font:12px/1.4 var(--font);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ceiling-link:hover{color:#eee}
+.ceiling-weight{margin:0;color:#bbb;font:12px/1.55 var(--mono)}
+.ceiling-weight b{color:#eee;font-weight:500}
+.ceiling-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin:0}
+.ceiling-kv dt{font:11px/1.4 var(--font);color:#999;margin-bottom:3px}
+.ceiling-kv dd{margin:0;font:15px/1.25 var(--mono);color:#eee}
+.ceiling-kv dd small{font:11px/1.3 var(--font);color:#999;margin-left:4px}
+.ceiling-bar-wrap{display:flex;flex-direction:column;gap:5px}
+.ceiling-bar-track{height:6px;width:100%;border-radius:999px;background:#2b2b2b;overflow:hidden;display:flex}
+.ceiling-bar-floor{height:100%;background:#d8d8d8}
+.ceiling-bar-setup{height:100%;background:#757575}
+.ceiling-bar-cap{display:flex;justify-content:space-between;gap:8px;font:11px/1.4 var(--mono);color:#999}
+.ceiling-verdict{margin:0;padding:10px 11px;border-left:2px solid #555;background:#202020;border-radius:0 6px 6px 0;font:12px/1.6 var(--font);color:#d0d0d0}
+.ceiling-verdict.is-high{border-left-color:var(--accent)}
+.ceiling-boundary{margin:0;font:11px/1.55 var(--font);color:#8a8a8a}
+.evidence-dialog{overflow:auto;scrollbar-width:thin;scrollbar-color:#444 transparent}
+.evidence-tabs{display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid #333;padding-bottom:12px}
+.evidence-tabs .ctl[aria-selected="true"]{background:#eee;color:#111;border-color:#eee}
+.ceiling-anchors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:12px 14px;background:#202020;border:1px solid #343434;border-radius:6px;margin-bottom:14px;align-items:end}
+.ceiling-anchors label{display:flex;flex-direction:column;gap:5px;font:12px/1.4 var(--font);color:#aaa}
+.ceiling-anchors input{height:30px;padding:0 8px;border:1px solid #484848;border-radius:5px;background:#141414;color:#eee;font:13px var(--mono);width:100%}
+.ceiling-anchors input:focus{outline:1px solid #bbb;border-color:#bbb}
+.ceiling-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center}
+.ceiling-filter-bar .ctl{min-height:28px;padding:0 10px;font-size:12px}
+.ceiling-table-wrap{max-height:42vh;overflow:auto;border:1px solid #333;border-radius:6px;scrollbar-width:thin;scrollbar-color:#444 transparent}
+.ceiling-table{width:100%;border-collapse:collapse;font:12px/1.5 var(--mono);text-align:left}
+.ceiling-table thead th{position:sticky;top:0;z-index:2;background:#1d1d1d;color:#999;font:500 12px/1.4 var(--font);padding:9px 10px;border-bottom:1px solid #383838;white-space:nowrap}
+.ceiling-table tbody td{padding:8px 10px;border-bottom:1px solid #2a2a2a;color:#ccc;vertical-align:middle}
+.ceiling-table tbody tr{cursor:pointer}
+.ceiling-table tbody tr:hover td{background:#242424}
+.ceiling-table tbody tr.is-current td{background:#2b2b2b}
+.ceiling-table .t-name{color:#eee;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ceiling-table .t-verdict{font-family:var(--font);color:#bbb;max-width:260px}
+.ceiling-table .t-high{color:var(--accent)}
+.ceiling-caveats{margin:14px 0 0;padding:12px 14px 12px 28px;background:#161616;border:1px solid #2e2e2e;border-radius:6px;font:12px/1.7 var(--font);color:#9a9a9a}
+.ceiling-caveats li+li{margin-top:4px}
+@media(max-width:760px){.ceiling-anchors{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
 
@@ -1947,7 +1992,8 @@ body.kernel-focus-mode .trace-pair > .sec:last-child {
       <h2 id="drawer-title">任务分析</h2><p id="drawer-sub">点击泳道中的任务查看耗时分布与执行信息</p>
       <button class="drawer-close" id="drawer-close" type="button" aria-label="关闭任务分析面板">×</button>
     </div>
-    <div class="drawer-content"><div><p id="selection-name" class="selection-name"></p><div class="inspection-actions"><button class="ctl" id="kernel-focus-open">仅看此 Kernel</button><button class="ctl" id="composition-toggle">耗时构成</button><button class="ctl" id="pass-analysis-open" hidden>查看 Pass 分析</button><button class="ctl" id="evidence-open">查看执行证据</button></div></div>
+    <div class="drawer-content"><div><p id="selection-name" class="selection-name"></p><div class="inspection-actions"><button class="ctl" id="kernel-focus-open">仅看此 Kernel</button><button class="ctl" id="composition-toggle">耗时构成</button><button class="ctl" id="pass-analysis-open" hidden>查看 Pass 分析</button><button class="ctl" id="evidence-open">查看执行证据</button><button class="ctl" id="ceiling-overview-open">天花板与分诊</button></div></div>
+      <div class="sub" id="ceiling-panel"></div>
       <div class="sub">
         <h3>块耗时分布</h3>
         <div class="scroll" id="dist-wrap"><svg id="dist" role="img" aria-label="选中任务每个块的计算耗时"></svg></div>
@@ -3762,8 +3808,85 @@ function packTasks() {
 }
 
 let pathAnalysisActive = false;
+const CEILING_DEFAULTS = { bwPeakGBs: 1350, specBwGBs: 1600, fixedFloorUs: 10, stopBwPct: 75, lowWeightPct: 1 };
+let ceilingAnchor = { ...CEILING_DEFAULTS };
+let evidenceTab = "evidence", ceilingTableFilter = "all";
+
+function evaluateTaskCeiling(l) {
+  const winUs = Math.max(0.1, R?.kpi?.windowUs || 1);
+  const availCores = l.availCores || (l.ct === "AIC" ? R.kpi.aicCores : R.kpi.aivCores) || 1;
+  const cpList = R?.criticalPath || [];
+  const cpIdx = cpList.findIndex((p) => String(p.taskId) === String(l.taskId) || (p.ids || []).includes(l.id));
+  const cpEntry = cpIdx >= 0 ? cpList[cpIdx] : null;
+  const onCriticalPath = !!cpEntry;
+  const windowSharePct = (l.spanUs / winUs) * 100;
+  const cpAddedUs = cpEntry ? (cpEntry.pathContributionUs ?? cpEntry.spanUs ?? 0) : 0;
+  const cpAddedPct = (cpAddedUs / winUs) * 100;
+  const bytes = l.bytes || 0;
+  const wallBwGBs = l.spanUs > 0 && bytes > 0 ? (bytes / (l.spanUs * 1e-6)) / 1e9 : 0;
+  const memFloorUs = bytes > 0 ? (bytes / (ceilingAnchor.bwPeakGBs * 1e9)) * 1e6 : 0;
+  const bwUtilPct = ceilingAnchor.bwPeakGBs > 0 ? (wallBwGBs / ceilingAnchor.bwPeakGBs) * 100 : 0;
+  const declaredOverSpec = wallBwGBs > ceilingAnchor.bwPeakGBs;
+  const coreFillPct = (l.coresUsed / availCores) * 100;
+  const setupSharePct = (l.setupUs / Math.max(0.1, l.computeUs + l.setupUs)) * 100;
+  const spread = l.blocks?.spread || 1;
+  const isWaitLike = /wait/i.test(l.leaf) && bytes <= 64 && l.blocks.n === 1;
+  const isAic = l.ct === "AIC";
+  const shortDispatchBound = l.spanUs <= ceilingAnchor.fixedFloorUs * 2.2 && memFloorUs <= ceilingAnchor.fixedFloorUs;
+
+  const issues = [];
+  if (l.blocks.n === 1 && l.spanUs >= 30 && !isWaitLike) issues.push(`单核串行（1/${availCores} 核）`);
+  if (l.blocks.n > 1 && coreFillPct < 50) issues.push(`核未吃满（${l.coresUsed}/${availCores} 核，${Math.round(coreFillPct)}%）`);
+  if (setupSharePct >= 30 && l.setupUs >= 5) issues.push(`Setup 核时占 ${Math.round(setupSharePct)}%`);
+  if (l.blocks.n >= 4 && spread >= 1.5) issues.push(`尾块拖累（最慢/平均 ${spread.toFixed(2)}×）`);
+
+  let priority = "check", badge = "待 PMU 核验", summary = "";
+  if (isWaitLike) {
+    priority = onCriticalPath && windowSharePct >= ceilingAnchor.lowWeightPct ? "high" : "skip";
+    badge = onCriticalPath ? "通信/同步等待" : "非关键等待";
+    summary = onCriticalPath
+      ? `纯单核同步等待（声明搬运 ${bytes} B，占窗口 ${windowSharePct.toFixed(1)}%），不适用单算子 Roofline；应排查上游通信或重叠调度。`
+      : `非关键路径上的等待任务（占窗口 ${windowSharePct.toFixed(2)}%），建议优先看关键路径阻塞。`;
+  } else if (!onCriticalPath && windowSharePct < ceilingAnchor.lowWeightPct) {
+    priority = "skip";
+    badge = "低权重 · 可暂缓";
+    summary = `不在关键路径且跨度仅占窗口 ${windowSharePct.toFixed(2)}%，端到端收益极小，建议先跳过。`;
+  } else if (shortDispatchBound && (setupSharePct >= 30 || memFloorUs < l.spanUs * 0.4)) {
+    priority = onCriticalPath ? "high" : "check";
+    badge = "调度主导 · 建议融合";
+    summary = `跨度 ${l.spanUs.toFixed(1)} μs 贴近固定底噪（${ceilingAnchor.fixedFloorUs} μs）${setupSharePct >= 30 ? `且 Setup 占 ${Math.round(setupSharePct)}%` : ""}；单算子内部空间有限，建议向上做跨算子融合或减少提交。`;
+  } else if (issues.length && (onCriticalPath || windowSharePct >= 2)) {
+    priority = onCriticalPath ? "high" : "check";
+    badge = onCriticalPath ? "优先优化 · 调度/核损" : "有损耗 · 非关键路径";
+    summary = `命中 ${issues.join("、")}。${onCriticalPath ? "位于关键路径，建议先从核切分、尾块分布或减少 Setup 切入。" : "当前未在关键路径，可排在关键路径热点之后处理。"}`;
+  } else if (isAic) {
+    priority = "check";
+    badge = "AIC · 缺 FLOPs/PMU";
+    summary = `已用 ${l.coresUsed}/${availCores} 核、声明墙钟带宽 ${Math.round(wallBwGBs)} GB/s；当前 trace 不含 FLOPs 与单核 PMU，无法确认 Cube 算力是否触顶，需补采 msprof PMU。`;
+  } else if (declaredOverSpec) {
+    priority = "stop";
+    badge = "高声明带宽 · 含片上口径";
+    summary = `声明墙钟带宽 ${Math.round(wallBwGBs)} GB/s 高于 910B 实测 HBM 基准（${ceilingAnchor.bwPeakGBs} GB/s），含 L2/片上命中或共享张量口径；核间无显著损耗，核内确认需补采 PMU。`;
+  } else if (bwUtilPct >= ceilingAnchor.stopBwPct) {
+    priority = "stop";
+    badge = "近访存上限 · 可考虑停止";
+    summary = `声明墙钟带宽达 910B 实测基准的 ${Math.round(bwUtilPct)}% 且核间无明显短板；单算子核内空间有限，可考虑停止或转向跨算子融合。`;
+  } else {
+    priority = onCriticalPath && windowSharePct >= 3 ? "high" : "check";
+    badge = "带宽偏低 · 待查核内";
+    summary = `声明墙钟带宽 ${Math.round(wallBwGBs)} GB/s（占实测基准 ${Math.round(bwUtilPct)}%），核间与 Setup 无显著异常；可能存在碎访存（假 Memory-bound）或 Vector 受限，建议补采单核 PMU。`;
+  }
+
+  return {
+    availCores, onCriticalPath, cpIndex: cpIdx + 1, cpTotal: cpList.length,
+    windowSharePct, cpAddedUs, cpAddedPct, wallBwGBs, memFloorUs, bwUtilPct,
+    declaredOverSpec, coreFillPct, setupSharePct, spread, isWaitLike, isAic,
+    issues, priority, badge, summary,
+  };
+}
+
 const TASK_LAYERS = [
-  ["recommended", "系统推荐 · 多类型"], ["none", "关闭"], ["tail", "拖尾任务"], ["parallel", "Task 并行度不足"],
+  ["recommended", "系统推荐 · 多类型"], ["triage", "停优分诊 · 优先优化"], ["none", "关闭"], ["tail", "拖尾任务"], ["parallel", "Task 并行度不足"],
   ["imbalance", "块负载不均"], ["underfill", "尾波空置"], ["fragmented", "离散小 Task"],
   ["setup", "Setup 占比高"], ["bubble", "依赖间隔"],
 ];
@@ -3792,6 +3915,7 @@ function analyzeTaskLayer(mode) {
     const setupShare = l.setupUs / Math.max(1, l.computeUs + l.setupUs);
     const lastWave = cores ? l.blocks.n % cores : 0;
     let match = false;
+    if (mode === "triage") match = evaluateTaskCeiling(l).priority === "high";
     if (mode === "tail") match = l.endUs >= p90End && l.spanUs >= p50Span;
     if (mode === "parallel") match = l.blocks.n > 1 && l.spanUs >= p50Span
       && l.computeUs / Math.max(1, l.spanUs) < cores * .25 && setupShare < .5;
@@ -3816,6 +3940,7 @@ function analyzeTaskLayer(mode) {
     if (match) hits.add(l.id);
   }
   const labels = {
+    triage: "关键路径上存在明确可量化优化空间（核空、高 Setup、拖尾、单核阻塞或低有效带宽）的任务",
     tail: "结束时间靠后的长任务", parallel: "平均并行计算核数低于该类核的 25%",
     imbalance: "块耗时离散且 P90 明显高于中位数", underfill: "末波使用不足一半的该类型可用核",
     fragmented: "跨度和块数均处于当前 rank 的较低四分位", setup: "Setup 占计算与 Setup 总耗时的 30% 以上",
@@ -3838,14 +3963,14 @@ function analyzeTaskLayer(mode) {
 function taskLayerColor(mode) {
   // Reuse CSA Pass Field's anomaly, task, weight, gradient, memory,
   // aggregate and communication colors; each feature has a distinct key.
-  return ({ tail: "#fd5644", parallel: "#9ef04b", imbalance: "#bca0f3", underfill: "#79d4f2",
+  return ({ triage: "#ff8a5b", tail: "#fd5644", parallel: "#9ef04b", imbalance: "#bca0f3", underfill: "#79d4f2",
     fragmented: "#087cfa", setup: "#f2c45f", bubble: "#33c69a" })[mode] || C.candidate;
 }
 // Menu keys share the semantic colors used by lane envelopes and labels.
 function taskLayerSwatch(mode) {
   if (mode === "none") return '<span class="feature-swatch is-off" aria-hidden="true"></span>';
   const colors = mode === "recommended"
-    ? [...new Set(TASK_LAYERS.filter(([v]) => !["none", "recommended"].includes(v)).map(([v]) => taskLayerColor(v)))]
+    ? [...new Set(TASK_LAYERS.filter(([v]) => !["none", "recommended", "triage"].includes(v)).map(([v]) => taskLayerColor(v)))]
     : [taskLayerColor(mode)];
   return `<span class="feature-swatches" aria-hidden="true">${colors.map(color => `<i class="feature-swatch" style="--feature-color:${color}"></i>`).join("")}</span>`;
 }
@@ -3856,7 +3981,7 @@ function recommendTaskGroups() {
   if (R._recommendations) return R._recommendations;
   const merged = new Map(), gaps = [];
   const criticalIds = new Set(R.criticalPath.flatMap((p) => [String(p.taskId), ...(p.ids || [])]));
-  for (const [mode] of TASK_LAYERS.filter(([value]) => !["none", "recommended"].includes(value))) {
+  for (const [mode] of TASK_LAYERS.filter(([value]) => !["none", "recommended", "triage"].includes(value))) {
     const analysis = analyzeTaskLayer(mode);
     gaps.push(...analysis.gaps);
     analysis.groups.forEach((group) => {
@@ -4876,7 +5001,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     `<div class="bar-group"><details class="bar-menu" data-menu="view"><summary class="ctl view-selector" aria-label="泳道布局">${viewLabel}</summary><div class="menu-panel view-menu">${[['block','按核组'],['core','按核型'],['task','按 Task']].map(([value,label])=>`<button class="ctl choice-item" data-view="${value}" role="radio" aria-checked="${laneView===value}">${label}</button>`).join('')}</div></details></div>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="kernel"><summary class="ctl view-selector kernel-selector${isKernelBtnActive ? ' on' : ''}" data-kernel-mode aria-label="按 Kernel 或 Stage 筛选泳道" data-tooltip="${isKernelBtnActive ? '当前：' + esc(kernelBtnLabel) : '搜索并在完整泳道实时高亮，或进入单 Stage / Kernel 独立视图'}"><span class="kernel-selector-text">${esc(kernelBtnLabel)}</span></summary><div class="menu-panel kernel-menu"><div class="kernel-menu-search-wrap"><input type="text" class="kernel-menu-search" data-kernel-search-input placeholder="输入关键字实时高亮 Stage / Kernel…" aria-label="搜索 Stage 或 Kernel" autocomplete="off" spellcheck="false"><button type="button" class="kernel-menu-clear" data-kernel-search-clear hidden aria-label="清空搜索">×</button></div><div class="kernel-menu-mode" role="group" aria-label="点击选项后的动作"><button type="button" class="${effectiveMenuAction === 'highlight' ? 'is-selected' : ''}" data-kernel-mode-action="highlight" aria-pressed="${effectiveMenuAction === 'highlight'}">完整泳道高亮</button><button type="button" class="${effectiveMenuAction === 'focus' ? 'is-selected' : ''}" data-kernel-mode-action="focus" aria-pressed="${effectiveMenuAction === 'focus'}">独立泳道视图</button></div><div class="kernel-menu-live" data-kernel-live hidden><span data-kernel-live-text></span><button type="button" data-kernel-pin-query>固定高亮</button></div><div class="kernel-menu-list">${kernelMenuItems}<p class="kernel-menu-empty" hidden>未找到匹配的 Stage 或 Kernel</p></div></div></details></div><span class="analysis-group-label">分析</span>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="path"><summary class="ctl mode-pill${pathAnalysisActive ? ' on' : ''}" data-path-mode data-tooltip="控制泳道图层显示。" aria-pressed="${pathAnalysisActive}" aria-label="图层">图层</summary><div class="menu-panel results-menu path-menu">${[["ribbon","并行宽度"],["bands","低并行区"],["marks","地标"]].map(([k,label])=>`<button class="ctl" data-ovl="${k}" aria-pressed="${!!ovl[k]}">${label}</button>`).join('')}<div class="menu-divider"></div><strong>Task染色</strong>${[['none','默认着色'],['setup','Setup 占比'],['tail','尾块浪费']].map(([v,l])=>`<button class="ctl choice-item" data-color="${v}" role="radio" aria-checked="${laneColor===v}">${l}</button>`).join('')}</div></details></div>`
-    + (`<div class="bar-group"><details class="bar-menu" data-menu="filter"><summary class="ctl mode-pill${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode') ? " on" : ""}" data-filter-mode data-tooltip="按性能特征查找同类问题。" aria-pressed="${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode')}" aria-label="特征筛选">特征</summary><div class="menu-panel"><strong>任务特征</strong>` + TASK_LAYERS.map(([v,l])=>`<button class="ctl choice-item" data-task-layer="${v}" role="radio" aria-checked="${taskLayer===v}"><span>${TaskSemanticIcons.feature(v, v === "none" ? null : v === "recommended" ? "conic-gradient(from 0deg," + ["tail", "setup", "parallel", "bubble", "underfill", "fragmented", "imbalance", "tail"].map(key => taskLayerColor(key)).join(",") + ")" : taskLayerColor(v))}${l}</span></button>`).join('') + `<div class="menu-divider"></div><button class="ctl" data-ovl="only" aria-pressed="${!laneAll}">仅显示候选</button></div></details></div>`)
+    + (`<div class="bar-group"><details class="bar-menu" data-menu="filter"><summary class="ctl mode-pill${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode') ? " on" : ""}" data-filter-mode data-tooltip="按性能特征查找同类问题。" aria-pressed="${!kernelFilter && !resultsActive && !pathAnalysisActive && !singlePanelOpen && !document.body.classList.contains('compile-analysis-mode')}" aria-label="特征筛选">特征</summary><div class="menu-panel"><strong>任务特征</strong>` + TASK_LAYERS.map(([v,l])=>`<button class="ctl choice-item" data-task-layer="${v}" role="radio" aria-checked="${taskLayer===v}"><span>${TaskSemanticIcons.feature(v, v === "none" ? null : v === "recommended" ? "conic-gradient(from 0deg," + ["tail", "setup", "parallel", "bubble", "underfill", "fragmented", "imbalance", "tail"].map(key => taskLayerColor(key)).join(",") + ")" : taskLayerColor(v))}${l}</span></button>`).join('') + `<div class="menu-divider"></div><button class="ctl" data-ovl="only" aria-pressed="${!laneAll}">仅显示候选</button><button type="button" class="ctl" data-open-ceiling>天花板口径与全量分诊…</button></div></details></div>`)
     + `<div class="bar-group">${window.CompileAnalysis?.menu().replace('>编译分析</summary>',' aria-label="编译分析">编译</summary>') || '<button class="ctl" data-compile-tab>编译</button>'}</div>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="results"><summary class="ctl mode-pill${resultsActive ? " on" : ""}" aria-pressed="${resultsActive}" data-results data-tooltip="优先排查推荐任务，查看优化证据。" aria-label="优化候选">优化</summary><div class="menu-panel results-menu"><strong>优化候选</strong>${recommendTaskGroups().groups.map(group=>`<button class="ctl result-item" data-result-choice="${esc(group.key)}" aria-pressed="${recommendedFocus===group.key}"><span class="result-name">${TaskSemanticIcons.task(group.kernel,taskLayerColor(group.primaryMode))}${esc(group.kernel)}</span><small>${esc(group.evidence[0].reason)}</small></button>`).join('')}</div></details></div>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="single"><summary class="ctl mode-pill${singlePanelOpen ? ' on' : ''}" data-single-mode aria-pressed="${singlePanelOpen}" aria-label="单依赖分析" data-tooltip="查看连续单依赖任务链">单依赖分析</summary><div class="menu-panel results-menu single-menu"><strong>连续单依赖任务链</strong>${singleChains.length ? singleChains.map((chain,i)=>`<button type="button" class="ctl result-item single-menu-item" data-single-chain="${i}" aria-pressed="${singleSelected===i}"><span class="result-name">任务链 ${i+1} · ${chain.length} 个 Task</span><small>${esc(chain.map(singleTaskName).join(' → '))}</small></button>`).join('') : '<p class="single-menu-empty">当前 Rank 没有满足条件的任务链。</p>'}</div></details></div>`
@@ -4894,6 +5019,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     : `<span><i style="width:36px;height:8px;background:linear-gradient(90deg,#383838,#d0d0d0)"></i>${laneColor === "setup" ? "setup / compute" : "尾块核时上界"} · 0 → ${laneColor === "setup" ? `${metricCap.toFixed(0)}%` : `${metricCap.toFixed(2)} ms`}+（P90 饱和）</span>`;
   const layerHint = ({
     recommended: "候选任务组 · 悬停查看直接依赖",
+    triage: "关键路径且命中可量化短板（核空 / 高 Setup / 拖尾 / 单核阻塞）的优先优化任务",
     tail: "组包络右缘显示各核收尾与拖尾形态",
     parallel: "内包络 = 组的占核范围 · 外虚框 = 该类全部核",
     imbalance: "同组收尾参差 · 包络右缘加重显示",
@@ -5190,6 +5316,45 @@ function distribution() {
   $("dist-kv").innerHTML = `<div><dt>最慢</dt><dd>${b.max} <small>µs</small></dd></div><div><dt>P90</dt><dd>${b.p90} <small>µs</small></dd></div><div><dt>中位</dt><dd>${b.p50} <small>µs</small></dd></div><div><dt>最快</dt><dd>${b.min} <small>µs</small></dd></div><div class="metric-verdict"><dt>最慢 / 平均 ${b.spread}×</dt><dd>${verdict}</dd></div>`;
 }
 
+// ---------- ceiling & stop triage ----------
+function renderCeilingPanel() {
+  const host = $("ceiling-panel");
+  if (!host) return;
+  const l = R.launches.find((x) => x.id === me);
+  if (!l) { host.innerHTML = ""; return; }
+  const c = evaluateTaskCeiling(l);
+  const badgeCls = c.priority === "high" ? "is-high" : c.priority === "stop" ? "is-stop" : c.priority === "skip" ? "is-skip" : "";
+  const pathText = c.onCriticalPath
+    ? `关键路径 第 <b>${c.cpIndex}/${c.cpTotal}</b> 步 · 跨度 <b>${l.spanUs.toFixed(1)} μs</b>（占窗口 ${c.windowSharePct.toFixed(1)}%）`
+    : `非关键路径 · 跨度 <b>${l.spanUs.toFixed(1)} μs</b>（占窗口 ${c.windowSharePct.toFixed(2)}%）`;
+  const floorVal = c.isWaitLike ? "—" : `${c.memFloorUs.toFixed(1)} <small>μs</small>`;
+  const bwVal = c.isWaitLike
+    ? "—"
+    : `${Math.round(c.wallBwGBs)} <small>GB/s${c.declaredOverSpec ? " · 含片上" : ` (${Math.round(c.bwUtilPct)}%)`}</small>`;
+  const floorPct = c.isWaitLike ? 0 : Math.min(100, (c.memFloorUs / Math.max(0.1, l.spanUs)) * 100);
+  const setupBarPct = c.isWaitLike ? 0 : Math.min(100 - floorPct, c.setupSharePct * (1 - floorPct / 100));
+  const remainUs = Math.max(0, l.spanUs - c.memFloorUs);
+  const barCaption = c.isWaitLike
+    ? `<span>单核等待 ${l.spanUs.toFixed(1)} μs</span><span>不适用访存下限</span>`
+    : c.declaredOverSpec
+    ? `<span>声明量换算 ${c.memFloorUs.toFixed(1)} μs &gt; 实测 ${l.spanUs.toFixed(1)} μs</span><span>含 L2/共享口径</span>`
+    : `<span>访存参考下限 ${c.memFloorUs.toFixed(1)} μs</span><span>其余差额 ${remainUs.toFixed(1)} μs</span>`;
+  host.innerHTML =
+    `<div class="ceiling-head"><div class="ceiling-head-left"><h3>天花板与停优判断</h3><span class="ceiling-badge ${badgeCls}">${esc(c.badge)}</span></div><button type="button" class="ceiling-link" id="ceiling-panel-more">全量与锚点</button></div>`
+    + `<p class="ceiling-weight">${pathText}</p>`
+    + `<dl class="ceiling-kv">`
+      + `<div><dt>访存参考下限</dt><dd>${floorVal}</dd></div>`
+      + `<div><dt>声明墙钟带宽</dt><dd>${bwVal}</dd></div>`
+      + `<div><dt>核占用率</dt><dd>${l.coresUsed}/${c.availCores} <small>核 (${Math.round(c.coreFillPct)}%)</small></dd></div>`
+      + `<div><dt>Setup 核时占比</dt><dd>${Math.round(c.setupSharePct)}% <small>(${ms(l.setupUs)} ms)</small></dd></div>`
+    + `</dl>`
+    + `<div class="ceiling-bar-wrap"><div class="ceiling-bar-track" aria-hidden="true"><i class="ceiling-bar-floor" style="width:${floorPct.toFixed(1)}%"></i><i class="ceiling-bar-setup" style="width:${setupBarPct.toFixed(1)}%"></i></div><div class="ceiling-bar-cap">${barCaption}</div></div>`
+    + `<p class="ceiling-verdict ${c.priority === "high" ? "is-high" : ""}">${esc(c.summary)}</p>`
+    + `<p class="ceiling-boundary">基准：${esc(D.soc?.name || "Ascend910B")} 实测参考 ${ceilingAnchor.bwPeakGBs} GB/s · 底噪 ${ceilingAnchor.fixedFloorUs} μs；不含 FLOPs 与单核 PMU。</p>`;
+  const more = $("ceiling-panel-more");
+  if (more) more.onclick = () => { renderEvidence("ceiling"); $("evidence-dialog").showModal(); };
+}
+
 // ---------- selected task ----------
 function detail() {
   window.dispatchEvent(new CustomEvent("compile-task-selected",{detail:R.launches.find(x=>x.id===me)}));
@@ -5199,6 +5364,7 @@ function detail() {
   const taskLabel = (id) => R.taskNames[id] || id;
   const preds = R.edges.filter((e) => e.succ === l.taskId).slice(0, 3).map((e) => taskLabel(e.pred));
   const succs = R.edges.filter((e) => e.pred === l.taskId).slice(0, 3).map((e) => taskLabel(e.succ));
+  const wallBw = l.spanUs > 0 && l.bytes > 0 ? Math.round((l.bytes / (l.spanUs * 1e-6)) / 1e9) : null;
   $("detail").innerHTML = [
     ["Task ID", esc(l.taskId)],
     ["执行单元", `${l.ct} · ${l.blocks.n} 块 · ${l.waves} 波`],
@@ -5207,7 +5373,8 @@ function detail() {
     ["计算核时", `${ms(l.computeUs)} ms`],
     ["Setup 核时", `${ms(l.setupUs)} ms`],
     ["声明搬运量", `${mib(l.bytes)} MiB`],
-    ["声明带宽", `${l.gbPerS ?? "—"} GB/s`],
+    ["声明墙钟带宽", wallBw != null ? `${wallBw} GB/s（按跨度）` : "—"],
+    ["核时均摊带宽", `${l.gbPerS ?? "—"} GB/s（按累计核时）`],
     ["编译来源", l.compile.bornPassName ? `P${l.compile.bornPass} · ${esc(l.compile.bornPassName)}` : "—"],
     ["前驱", preds.length ? preds.map(esc).join("、") : "无"],
     ["后继", succs.length ? succs.map(esc).join("、") : "无"],
@@ -5215,21 +5382,112 @@ function detail() {
 }
 
 
-function renderEvidence() {
-  const task = R.launches.find(l => l.id === me); if (!task) return;
-  $("evidence-title").textContent = task.leaf + " · 执行证据";
-  $("evidence-body").innerHTML = '<dl class="kv">' + [
-    ['设备跨度', ms(task.startUs) + ' – ' + ms(task.endUs) + ' ms'],
-    ['累计核时', '计算 ' + ms(task.computeUs) + ' ms · Setup ' + ms(task.setupUs) + ' ms'],
-    ['编译来源', 'P' + task.compile.bornPass + ' ' + esc(task.compile.bornPassName || '未知')],
-    ['提交方式', esc(task.compile.launchKind) + ' · ' + esc(task.compile.via || task.leaf)],
-    ['数据来源', esc(R.source)]
-  ].map(([key,value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>').join('') + '</dl><p>选择物理核检查对应 block。槽位、计算与 Setup 来自当前运行；槽内等待由槽位减去计算和 Setup 得到，不能据此确认等待原因。</p><label class="candidate-filter">物理核<select id="evidence-core" class="ctl">' + [...new Set(task.blocks.items.map(b => b.core))].sort((a,b) => a-b).map(core => '<option>' + core + '</option>').join('') + '</select></label><div id="core-evidence"></div>';
-  const update = () => {
-    const core = Number($("evidence-core").value), blocks = task.blocks.items.filter(b => b.core === core);
-    const start = Math.min(...blocks.map(b => b.startUs)), end = Math.max(...blocks.map(b => b.endUs)), span = Math.max(1,end-start);
-    $("core-evidence").innerHTML = '<p>Core ' + core + ' · ' + blocks.length + ' blocks · ' + ms(start) + ' – ' + ms(end) + ' ms</p><svg viewBox="0 0 800 40" aria-label="选中物理核时序">' + blocks.map(b => '<rect x="' + ((b.startUs-start)/span*780+10) + '" y="10" width="' + Math.max(1,(b.endUs-b.startUs)/span*780) + '" height="20" fill="#ddd"/>').join('') + '</svg><dl class="kv"><dt>计算核时</dt><dd>' + ms(blocks.reduce((a,b) => a+b.computeUs,0)) + ' ms</dd><dt>Setup 核时</dt><dd>' + ms(blocks.reduce((a,b) => a+b.setupUs,0)) + ' ms</dd></dl>';
-  }; $("evidence-core").onchange = update; update();
+function renderEvidence(initialTab) {
+  if (initialTab) evidenceTab = initialTab;
+  const task = R.launches.find(l => l.id === me) || R.launches[0];
+  if (!task) return;
+  $("evidence-title").textContent = evidenceTab === "ceiling"
+    ? `${D.soc?.name || "Ascend910B"} · 天花板口径与全量停优分诊`
+    : `${task.leaf} · 执行证据`;
+
+  const navHtml = `<nav class="evidence-tabs" role="tablist" aria-label="执行证据与天花板分诊">`
+    + `<button type="button" class="ctl" role="tab" data-ev-tab="evidence" aria-selected="${evidenceTab === "evidence"}">单任务执行证据</button>`
+    + `<button type="button" class="ctl" role="tab" data-ev-tab="ceiling" aria-selected="${evidenceTab === "ceiling"}">天花板口径与全量分诊 (${R.launches.length})</button>`
+    + `</nav>`;
+
+  if (evidenceTab === "evidence") {
+    $("evidence-body").innerHTML = navHtml + '<dl class="kv">' + [
+      ['设备跨度', ms(task.startUs) + ' – ' + ms(task.endUs) + ' ms'],
+      ['累计核时', '计算 ' + ms(task.computeUs) + ' ms · Setup ' + ms(task.setupUs) + ' ms'],
+      ['编译来源', 'P' + task.compile.bornPass + ' ' + esc(task.compile.bornPassName || '未知')],
+      ['提交方式', esc(task.compile.launchKind) + ' · ' + esc(task.compile.via || task.leaf)],
+      ['数据来源', esc(R.source)]
+    ].map(([key,value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>').join('') + '</dl><p>选择物理核检查对应 block。槽位、计算与 Setup 来自当前运行；槽内等待由槽位减去计算和 Setup 得到，不能据此确认等待原因。</p><label class="candidate-filter">物理核<select id="evidence-core" class="ctl">' + [...new Set(task.blocks.items.map(b => b.core))].sort((a,b) => a-b).map(core => '<option>' + core + '</option>').join('') + '</select></label><div id="core-evidence"></div>';
+    const update = () => {
+      const core = Number($("evidence-core").value), blocks = task.blocks.items.filter(b => b.core === core);
+      const start = Math.min(...blocks.map(b => b.startUs)), end = Math.max(...blocks.map(b => b.endUs)), span = Math.max(1,end-start);
+      $("core-evidence").innerHTML = '<p>Core ' + core + ' · ' + blocks.length + ' blocks · ' + ms(start) + ' – ' + ms(end) + ' ms</p><svg viewBox="0 0 800 40" aria-label="选中物理核时序">' + blocks.map(b => '<rect x="' + ((b.startUs-start)/span*780+10) + '" y="10" width="' + Math.max(1,(b.endUs-b.startUs)/span*780) + '" height="20" fill="#ddd"/>').join('') + '</svg><dl class="kv"><dt>计算核时</dt><dd>' + ms(blocks.reduce((a,b) => a+b.computeUs,0)) + ' ms</dd><dt>Setup 核时</dt><dd>' + ms(blocks.reduce((a,b) => a+b.setupUs,0)) + ' ms</dd></dl>';
+    };
+    $("evidence-core").onchange = update;
+    update();
+  } else {
+    const order = { high: 0, check: 1, stop: 2, skip: 3 };
+    const rows = R.launches.map((l) => ({ l, c: evaluateTaskCeiling(l) }))
+      .sort((a, b) => order[a.c.priority] - order[b.c.priority] || b.l.spanUs - a.l.spanUs);
+    const counts = {
+      all: rows.length,
+      high: rows.filter((r) => r.c.priority === "high").length,
+      check: rows.filter((r) => r.c.priority === "check").length,
+      stop: rows.filter((r) => r.c.priority === "stop").length,
+      skip: rows.filter((r) => r.c.priority === "skip").length,
+    };
+    const filtered = ceilingTableFilter === "all" ? rows : rows.filter((r) => r.c.priority === ceilingTableFilter);
+    const filterButtons = [
+      ["all", `全部 (${counts.all})`],
+      ["high", `优先优化 (${counts.high})`],
+      ["check", `待 PMU 核验 (${counts.check})`],
+      ["stop", `近上限可停 (${counts.stop})`],
+      ["skip", `低权重暂缓 (${counts.skip})`],
+    ].map(([key, label]) => `<button type="button" class="ctl${ceilingTableFilter === key ? " on" : ""}" data-ct-filter="${key}" aria-pressed="${ceilingTableFilter === key}">${label}</button>`).join("");
+
+    const bodyRows = filtered.map(({ l, c }) => {
+      const bwCell = c.isWaitLike ? "—" : `${Math.round(c.wallBwGBs)} GB/s${c.declaredOverSpec ? " *" : ` (${Math.round(c.bwUtilPct)}%)`}`;
+      const pathMark = c.onCriticalPath ? "CP" : "—";
+      const cls = [l.id === me ? "is-current" : ""].filter(Boolean).join(" ");
+      return `<tr class="${cls}" data-ct-select="${esc(l.id)}" tabindex="0">`
+        + `<td class="t-name" title="${esc(l.leaf)}">${esc(l.leaf)}</td>`
+        + `<td>${l.ct} · ${l.coresUsed}/${c.availCores}</td>`
+        + `<td>${l.spanUs.toFixed(1)} μs · ${c.windowSharePct.toFixed(1)}% · ${pathMark}</td>`
+        + `<td>${bwCell}</td>`
+        + `<td>${Math.round(c.setupSharePct)}% / ${c.spread.toFixed(2)}×</td>`
+        + `<td class="t-verdict ${c.priority === "high" ? "t-high" : ""}">${esc(c.badge)}</td>`
+        + `</tr>`;
+    }).join("");
+
+    $("evidence-body").innerHTML = navHtml
+      + `<div class="ceiling-anchors" aria-label="硬件实测参考锚点">`
+        + `<label>实测 HBM 带宽 (GB/s)<input id="ct-bw" type="number" min="400" max="4000" step="50" value="${ceilingAnchor.bwPeakGBs}"></label>`
+        + `<label>固定调度底噪 (μs)<input id="ct-fixed" type="number" min="1" max="100" step="1" value="${ceilingAnchor.fixedFloorUs}"></label>`
+        + `<label>访存停止阈值 (%)<input id="ct-stop" type="number" min="40" max="98" step="5" value="${ceilingAnchor.stopBwPct}"></label>`
+        + `<button type="button" class="ctl" id="ct-reset">恢复 910B 默认锚点</button>`
+      + `</div>`
+      + `<div class="ceiling-filter-bar" role="group" aria-label="按停优分类筛选">${filterButtons}</div>`
+      + `<div class="ceiling-table-wrap"><table class="ceiling-table"><thead><tr><th>任务</th><th>核型 / 占用</th><th>跨度 · 占比 · 路径</th><th>声明墙钟带宽</th><th>Setup / 尾块比</th><th>分诊结论</th></tr></thead><tbody>${bodyRows}</tbody></table></div>`
+      + `<ol class="ceiling-caveats">`
+        + `<li><strong>声明搬运口径（带 * 项）</strong>：<code>bytes</code> 按 <code>deps.json</code> 张量声明求和，不扣 L2/片上命中与多核共享复用；声明墙钟带宽高于实测 HBM 基准（${ceilingAnchor.bwPeakGBs} GB/s，纸面 ${ceilingAnchor.specBwGBs} GB/s）表示含片上或共享口径。</li>`
+        + `<li><strong>缺失 FLOPs 与单核 PMU</strong>：当前 trace 无 FLOPs 与 <code>mte2/mac/vec</code> 计数器，AIC 算子算力上限及核内“假忙碌（碎访存）”需补采 <code>msprof op</code> 核验。</li>`
+        + `<li><strong>双带宽口径区分</strong>：本表使用墙钟带宽（<code>bytes ÷ spanUs</code>）对齐整卡带宽尺子；原有 <code>gbPerS</code> 为多核累计核时均摊带宽（<code>bytes ÷ computeUs</code>），两者不可混比。点击任意行可回到泳道并定位该任务。</li>`
+      + `</ol>`;
+
+    const applyAnchors = () => {
+      const bw = Number($("ct-bw")?.value), fix = Number($("ct-fixed")?.value), st = Number($("ct-stop")?.value);
+      if (bw >= 400 && bw <= 4000) ceilingAnchor.bwPeakGBs = bw;
+      if (fix >= 1 && fix <= 100) ceilingAnchor.fixedFloorUs = fix;
+      if (st >= 40 && st <= 98) ceilingAnchor.stopBwPct = st;
+      renderCeilingPanel();
+      if (taskLayer === "triage") renderLane();
+      renderEvidence("ceiling");
+    };
+    ["ct-bw", "ct-fixed", "ct-stop"].forEach((id) => { const el = $(id); if (el) el.onchange = applyAnchors; });
+    const resetBtn = $("ct-reset");
+    if (resetBtn) resetBtn.onclick = () => { ceilingAnchor = { ...CEILING_DEFAULTS }; renderCeilingPanel(); if (taskLayer === "triage") renderLane(); renderEvidence("ceiling"); };
+    $("evidence-body").querySelectorAll("[data-ct-filter]").forEach((btn) => {
+      btn.onclick = () => { ceilingTableFilter = btn.dataset.ctFilter; renderEvidence("ceiling"); };
+    });
+    $("evidence-body").querySelectorAll("[data-ct-select]").forEach((row) => {
+      const pick = () => {
+        const id = row.dataset.ctSelect;
+        $("evidence-dialog").close();
+        select(id);
+      };
+      row.onclick = pick;
+      row.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+    });
+  }
+
+  $("evidence-body").querySelectorAll("[data-ev-tab]").forEach((tab) => {
+    tab.onclick = () => renderEvidence(tab.dataset.evTab);
+  });
 }
 
 // Shared in-page tips: native HTML/SVG titles must never reach browser chrome.
@@ -5273,7 +5531,7 @@ window.addEventListener('blur',hideUiTip);
 
 // ---------- wiring ----------
 function paint() {
-  hideUiTip(); header(); criticalPath(); renderLane(); distribution(); detail(); prepareHoverTips();
+  hideUiTip(); header(); criticalPath(); renderLane(); renderCeilingPanel(); distribution(); detail(); prepareHoverTips();
   const selected = R.launches.find((l) => l.id === me);
   $("drawer-sub").textContent = selected
     ? `${selected.leaf} · ${selected.ct} · ${selected.blocks.n} 块 / ${selected.waves} 波`
@@ -5798,6 +6056,12 @@ if (D) {
   $("lane-ovl").addEventListener('change',e=>{if(e.target.id==='lane-view-selector'){laneView=e.target.value;renderLane();}});
   document.addEventListener("click", (e) => {
     if(!e.target.closest('#lane-ovl,#lane-zoom'))return;
+    if (e.target.closest("[data-open-ceiling]")) {
+      document.querySelectorAll(".bar-menu[open]").forEach((n) => { n.open = false; });
+      renderEvidence("ceiling");
+      $("evidence-dialog").showModal();
+      return;
+    }
     const color = e.target.closest("[data-color]");
     const feature = e.target.closest("[data-task-layer]");
     if (color || feature) {
@@ -5964,7 +6228,8 @@ if (D) {
     }
   });
   $("composition-toggle").onclick = () => { laneComposition = !laneComposition; renderLane(); $("composition-toggle").setAttribute("aria-pressed", String(laneComposition)); };
-  $("evidence-open").onclick = () => { renderEvidence(); $("evidence-dialog").showModal(); };
+  $("evidence-open").onclick = () => { renderEvidence("evidence"); $("evidence-dialog").showModal(); };
+  $("ceiling-overview-open").onclick = () => { renderEvidence("ceiling"); $("evidence-dialog").showModal(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pass-dialog").open && !$("evidence-dialog").open) clearSelection(); });
   $("lane-wrap").addEventListener("wheel", (e) => {
     if (!e.ctrlKey && !e.metaKey && !e.shiftKey) return;
