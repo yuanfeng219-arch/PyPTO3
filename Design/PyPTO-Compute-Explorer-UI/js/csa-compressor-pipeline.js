@@ -25,6 +25,15 @@
     'q-i32': 'cache', 'weight-scale': 'cache', dequant: 'reshape',
     'head-rms': 'norm', rotate: 'rope', q: 'attention', 'cos-sin': 'cache',
     indices: 'reshape', interleave: 'rope', params: 'cache',
+    'idx-topk': 'cache', 'pos-ids': 'cache', 'win-idx': 'cache',
+    'slot-mask': 'gate', 'cmp-indices': 'cache', 'sb0-valid': 'gate',
+    'blk-valid': 'reduce', 'valid-mask': 'cache', 'bias-build': 'add',
+    'win-bias': 'add', 'cmp-bias': 'add', 'sparse-bias': 'cache',
+    'cursor-init': 'reshape', 'pass1-valid': 'gate', 'pass2-invalid': 'gate',
+    'qk-order': 'cache', 'freqs-cos': 'cache', 'freqs-sin': 'cache',
+    'swap-idx': 'reshape', 'rope-swap': 'cache', 'dup-sign': 'reshape',
+    'gather-cos': 'rope', 'gather-sin': 'rope', 'gather-row': 'rope',
+    'rope-cos': 'cache', 'rope-sin': 'cache',
   };
 
   function laneCountFor(kernelInfo) {
@@ -191,16 +200,24 @@
         ? 'Q BF16 → Sparse Attention'
         : kernelInfo.type === 'kvrope'
           ? 'KV RoPE Params → KV Proj'
-          : kernelInfo.type === 'commit'
-            ? 'Persistent State Ring'
-            : kernelInfo.branch === 'main'
-              ? 'Main Compressed KV Cache'
-              : 'Indexer INT8 KV Cache';
+          : kernelInfo.type === 'qkplan'
+            ? 'qk_order / sparse_bias → qk_pv'
+            : kernelInfo.type === 'ropecs'
+              ? 'Inverse RoPE Params → Merge'
+              : kernelInfo.type === 'commit'
+                ? 'Persistent State Ring'
+                : kernelInfo.branch === 'main'
+                  ? 'Main Compressed KV Cache'
+                  : 'Indexer INT8 KV Cache';
       const stageOutDetail = kernelInfo.type === 'post'
         ? '供下游 qk_pv Attention 消费'
         : kernelInfo.type === 'kvrope'
           ? '供下游 KV Proj / Compressor'
-          : 'Stage Output · 下游消费';
+          : kernelInfo.type === 'qkplan'
+            ? '供下游 24-Core qk_pv 派发与消费（qk_plan_tid）'
+            : kernelInfo.type === 'ropecs'
+              ? '供下游 csa_merge_pack_publish 逆旋转消费（rope_tid）'
+              : 'Stage Output · 下游消费';
       const dsId = 'downstream:stage-out';
       const yBase = attachOutputs.length ? attachOutputs[0].y : y0;
       const dsW = Math.max(204, Math.ceil(stageOutLabel.length * 7.8 + 48));
@@ -255,7 +272,7 @@
     const caseOptions = model.cases || [];
 
     const STEP_COLORS = ['#80b7f7', '#4fb899', '#f2b857', '#a87ef0', '#f47b8c', '#56c7d6', '#9be05a'];
-    const PREP_KERNEL_TYPES = new Set(['qrope', 'kvrope', 'seed']);
+    const PREP_KERNEL_TYPES = new Set(['qrope', 'kvrope', 'seed', 'ropecs']);
     const isPrepKernel = name => PREP_KERNEL_TYPES.has(kernelByName.get(name)?.type);
     const hasPrepKernels = stage.kernels.some(k => isPrepKernel(k.name));
     const stageSourceFile = [...new Set(stage.kernels.map(k => kernelByName.get(k.name)?.file).filter(Boolean))].join(' · ');
@@ -691,152 +708,118 @@
       };
     }
 
-    function buildStageInsights(visible, steps, extBands, parProfile, originUs, rawSpanUs, allStageSlices, rankKey) {
+    function buildStageInsights(visible, steps, extBands, parProfile, originUs, rawSpanUs) {
       const insights = [];
 
-      // 1. Dynamic scheduling skew vs concurrent backfill (Static Lane Map vs Runtime + Concurrent Core Busy Time)
-      let bestSkew = null;
+      // 1. Source-level SPMD parallelism underutilization (blockNum < physical core pool)
+      let worstUnder = null;
       for (const st of steps) {
+        if (st.spanUs < Math.max(30, rawSpanUs * 0.12)) continue;
         const kInfo = kernelByName.get(st.name);
-        if (!kInfo || st.count < 12) continue;
-        const kSlices = visible.filter(s => s.name === st.name);
-        const bal = analyzeKernelBalance(kInfo, kSlices, allStageSlices, rankKey);
-        if (!bal) continue;
-        if (bal.maxAbsDelta >= 1 && (bal.maxAll - bal.minAll >= 2 || bal.maxAbsDelta >= 1)) {
-          // Prioritize true imbalance over explained backfill when comparing multiple kernels in a stage
-          const severityMult = bal.verdict === 'imbalance' ? 1.35 : bal.verdict === 'partial' ? 1.15 : 0.72;
-          const score = ((bal.maxAll - bal.minAll) * 3 + bal.maxAbsDelta * 5 + (st.spanUs / Math.max(1, rawSpanUs)) * 20) * severityMult;
-          if (!bestSkew || score > bestSkew.score) {
-            bestSkew = { score, st, bal };
+        const poolSize = st.coreType === 'AIC' ? 24 : 48;
+        const usedCores = new Set(visible.filter(s => s.name === st.name).map(s => s.core)).size;
+        const blockCount = kInfo?.blockNum || st.count;
+        const util = usedCores / poolSize;
+        if (blockCount < poolSize && util <= 0.7) {
+          const score = (1 - util) * st.spanUs;
+          if (!worstUnder || score > worstUnder.score) {
+            worstUnder = { st, usedCores, poolSize, blockCount, util, score };
           }
         }
       }
-      if (bestSkew) {
-        const { st, bal: b } = bestSkew;
-        const unitLabel = b.isAic ? 'AIC' : 'AIV';
-        const cPrefix = b.isAic ? 'C' : 'V';
-        const staticText = b.minStatic === b.maxStatic ? `${b.minStatic}` : `${b.minStatic}–${b.maxStatic}`;
-        const actualText = b.minAll === b.maxAll ? `${b.minAll}` : `${b.minAll}–${b.maxAll}`;
-        const dHot = b.hotDelta > 0 ? `+${b.hotDelta}` : `${b.hotDelta}`;
-        const dCold = b.coldDelta > 0 ? `+${b.coldDelta}` : `−${Math.abs(b.coldDelta)}`;
-        const busyRangeText = `${Math.round(b.minTotalBusy)}–${Math.round(b.maxTotalBusy)} µs`;
-
-        if (b.isSkipPattern) {
-          insights.push({
-            id: `skew:${st.name}`,
-            priority: 100,
-            kind: 'skew',
-            verdict: 'skip',
-            kernelName: st.name,
-            unit: b.isAic ? 'aic' : 'aiv',
-            tag: '物理跳核映射',
-            title: st.name,
-            subtitle: `${unitLabel} · ${b.activeCoreCount}/${b.poolSize} 核活跃 · 跳过 ${cPrefix}${b.coldCore} 等物理核`,
-            detail: `Lane Map 按 0–${b.activeCoreCount - 1} 连续示意，Runtime 实际派发跳过 ${cPrefix}${b.coldCore} (${dCold})，落在 ${cPrefix}${b.hotCore} (${dHot})`,
-            startUs: st.startUs,
-            endUs: st.endUs,
-            hotCore: b.hotCore,
-            coldCore: b.coldCore,
-            hotLabel: `${cPrefix}${b.hotCore} · ${b.hotCount}片 (${dHot})`,
-            callout: `物理跳核 · ${b.activeCoreCount}/${b.poolSize} ${unitLabel} 活跃`,
-          });
-        } else if (b.verdict === 'backfill') {
-          const drv = b.driverBg;
-          const driverNote = drv && (drv.coldVal - drv.hotVal) >= 12
-            ? `${cPrefix}${b.hotCore} 的并发任务 ${drv.name} 仅占 ${drv.hotVal.toFixed(0)} µs（vs ${cPrefix}${b.coldCore} ${drv.coldVal.toFixed(0)} µs），早空闲后由 Runtime 动态多派 ${dHot} 片补位`
-            : `${cPrefix}${b.hotCore} 同窗并发背景较轻（${b.hotBgUs.toFixed(0)} µs vs ${cPrefix}${b.coldCore} ${b.coldBgUs.toFixed(0)} µs），Runtime 动态多派 ${dHot} 片拉平核忙时`;
-          insights.push({
-            id: `skew:${st.name}`,
-            priority: steps.length === 1 ? 100 : 76,
-            kind: 'skew',
-            verdict: 'backfill',
-            kernelName: st.name,
-            unit: b.isAic ? 'aic' : 'aiv',
-            tag: '动态补位',
-            title: st.name,
-            subtitle: `${unitLabel} · 单核 ${actualText} 片 (${b.blockSkew.toFixed(2)}×) · 总忙时 ${busyRangeText} (${b.busySkew.toFixed(2)}×)`,
-            detail: `${driverNote}；含并发背景后总忙时收敛至 ${b.busySkew.toFixed(2)}×，属正常动态负载均衡`,
-            startUs: st.startUs,
-            endUs: st.endUs,
-            hotCore: b.hotCore,
-            coldCore: b.coldCore,
-            hotLabel: `${cPrefix}${b.hotCore} · ${b.hotCount}片 (${dHot}) · 总 ${Math.round(b.hotTotalBusyUs)}µs`,
-            callout: `动态补位 · 单核 ${actualText} 片 → 总忙时 ${b.busySkew.toFixed(2)}×（非失衡）`,
-          });
-        } else if (b.verdict === 'partial') {
-          insights.push({
-            id: `skew:${st.name}`,
-            priority: 92,
-            kind: 'skew',
-            verdict: 'partial',
-            kernelName: st.name,
-            unit: b.isAic ? 'aic' : 'aiv',
-            tag: '并发缓解 · 仍偏斜',
-            title: st.name,
-            subtitle: `${unitLabel} · 单核 ${actualText} 片 (${b.blockSkew.toFixed(2)}×) · 含并发总忙时 ${busyRangeText} (${b.busySkew.toFixed(2)}×)`,
-            detail: `并发背景将核时极差从 ${b.focusedDurSkew.toFixed(2)}× 收敛至 ${b.busySkew.toFixed(2)}×，但 ${cPrefix}${b.hotCore}（总 ${Math.round(b.hotTotalBusyUs)} µs）与 ${cPrefix}${b.coldCore}（总 ${Math.round(b.coldTotalBusyUs)} µs）仍存在残余偏斜`,
-            startUs: st.startUs,
-            endUs: st.endUs,
-            hotCore: b.hotCore,
-            coldCore: b.coldCore,
-            hotLabel: `${cPrefix}${b.hotCore} · ${b.hotCount}片 (${dHot}) · 总 ${Math.round(b.hotTotalBusyUs)}µs`,
-            callout: `并发缓解 · 总忙时仍差 ${b.busySkew.toFixed(2)}× · ${cPrefix}${b.hotCore} (${b.hotCount}片 ${dHot})`,
-          });
-        } else {
-          insights.push({
-            id: `skew:${st.name}`,
-            priority: 100,
-            kind: 'skew',
-            verdict: 'imbalance',
-            kernelName: st.name,
-            unit: b.isAic ? 'aic' : 'aiv',
-            tag: '核级负载失衡',
-            title: st.name,
-            subtitle: `${unitLabel} · 静态 ${staticText} → 实测 ${actualText} 片 (${b.blockSkew.toFixed(2)}×) · 总忙时 ${b.busySkew.toFixed(2)}×`,
-            detail: `计入同窗并发背景后仍存在真实失衡：${cPrefix}${b.hotCore} 承担 ${b.hotCount} 片 (${dHot}，总忙时 ${Math.round(b.hotTotalBusyUs)} µs)，${cPrefix}${b.coldCore} 仅 ${b.coldCount} 片 (${dCold}，总忙时 ${Math.round(b.coldTotalBusyUs)} µs)`,
-            startUs: st.startUs,
-            endUs: st.endUs,
-            hotCore: b.hotCore,
-            coldCore: b.coldCore,
-            hotLabel: `${cPrefix}${b.hotCore} · ${b.hotCount}片 (${dHot}) · 总 ${Math.round(b.hotTotalBusyUs)}µs`,
-            callout: `核级失衡 · 单核 ${actualText} 片 · 总忙时仍差 ${b.busySkew.toFixed(2)}×`,
-          });
-        }
-      }
-
-      // 2. High Setup / Barrier wait kernel
-      let worstSetup = null;
-      for (const st of steps) {
-        const share = st.setupUs / Math.max(1e-6, st.slotUs);
-        if (share >= 0.25 && st.spanUs >= 18) {
-          if (!worstSetup || share * st.slotUs > worstSetup.weight) {
-            worstSetup = { st, share, weight: share * st.slotUs };
-          }
-        }
-      }
-      if (worstSetup) {
-        const { st, share } = worstSetup;
-        const pct = Math.round(share * 100);
+      if (worstUnder) {
+        const { st, usedCores, poolSize, blockCount, util } = worstUnder;
+        const pct = Math.round(util * 100);
         const avgCompute = st.computeUs / Math.max(1, st.count);
-        const avgSetup = st.setupUs / Math.max(1, st.count);
         insights.push({
-          id: `setup:${st.name}`,
-          priority: 95,
-          kind: 'setup',
+          id: `under:${st.name}`,
+          priority: 100,
+          kind: 'underutil',
           kernelName: st.name,
           unit: st.coreType === 'AIC' ? 'aic' : 'aiv',
-          tag: `Setup 占比 ${pct}%`,
+          tag: `并行度不足 · ${pct}%`,
           title: st.name,
-          subtitle: `${st.coreType} · ${st.count} 块 · 均值等待 ${avgSetup.toFixed(1)} µs vs 计算 ${avgCompute.toFixed(1)} µs`,
-          detail: `提前派发后在核内等待上游就绪，Setup 占槽位核时 ${pct}%`,
+          subtitle: `源码切分 ${blockCount} 块，仅占 ${usedCores}/${poolSize} ${st.coreType}（${poolSize - usedCores} 核闲置）· 跨度 ${st.spanUs.toFixed(0)} µs`,
+          detail: `源码 pl.spmd 逻辑块数（${blockCount}）小于物理 ${st.coreType} 核池（${poolSize}），单块纯计算均值 ${avgCompute.toFixed(1)} µs；可沿可并行维（如 Token 维）展开切分填满核池`,
           startUs: st.startUs,
           endUs: st.endUs,
-          setupPct: pct,
-          callout: `Setup 等待占比 ${pct}% · 计算仅 ${avgCompute.toFixed(1)} µs`,
+          callout: `${usedCores}/${poolSize} ${st.coreType} 活跃 · 源码仅切 ${blockCount} 块`,
         });
       }
 
-      // 3. Cross-stage contention / blank gap window
+      // 2. Real intra-kernel compute-load skew (pure computeUs variance across blocks, excluding dispatch)
+      let worstComputeSkew = null;
+      for (const st of steps) {
+        if (st.count < 8) continue;
+        const kSlices = visible.filter(s => s.name === st.name);
+        const computes = kSlices.map(s => s.computeUs).sort((a, b) => a - b);
+        const minC = computes[0] || 0.1;
+        const medC = computes[Math.floor(computes.length / 2)] || 0.1;
+        const maxC = computes[computes.length - 1] || 0;
+        const ratio = maxC / Math.max(0.5, minC);
+        if (ratio >= 2.0 && maxC >= 25) {
+          const worst = kSlices.reduce((a, b) => (b.computeUs > a.computeUs ? b : a), kSlices[0]);
+          const score = ratio * maxC;
+          if (!worstComputeSkew || score > worstComputeSkew.score) {
+            worstComputeSkew = { st, slice: worst, minC, medC, maxC, ratio, score };
+          }
+        }
+      }
+      if (worstComputeSkew) {
+        const { st, slice, minC, medC, maxC, ratio } = worstComputeSkew;
+        const coreTag = slice.core < 24 ? `C${slice.core}` : `V${slice.core}`;
+        insights.push({
+          id: `skew:${st.name}`,
+          priority: 95,
+          kind: 'outlier',
+          kernelName: st.name,
+          unit: slice.unit,
+          tag: `计算极差 ${ratio.toFixed(1)}×`,
+          title: st.name,
+          subtitle: `纯计算 ${minC.toFixed(1)}–${maxC.toFixed(1)} µs（中位 ${medC.toFixed(1)} µs · 最慢 ${coreTag}）`,
+          detail: `同 Kernel 各逻辑块纯计算耗时存在 ${ratio.toFixed(1)}× 实测极差，源于不同逻辑块承担的有效计算量或访存路径不均，可对照源码切分粒度与动态长度分布定位`,
+          startUs: st.startUs,
+          endUs: st.endUs,
+          slice,
+          callout: `计算极差 ${ratio.toFixed(1)}× · 最慢 ${coreTag} (${maxC.toFixed(1)} µs) · 点击展开`,
+        });
+      }
+
+      // 3. Tail-wave rounding loss when source block count leaves a sparse final wave
+      let worstTailWave = null;
+      for (const st of steps) {
+        const kInfo = kernelByName.get(st.name);
+        const poolSize = st.coreType === 'AIC' ? 24 : 48;
+        const blockCount = kInfo?.blockNum || st.count;
+        const rem = blockCount % poolSize;
+        if (blockCount > poolSize && rem > 0 && rem / poolSize <= 0.5 && st.spanUs >= 28) {
+          const waves = Math.ceil(blockCount / poolSize);
+          const tailPct = Math.round((rem / poolSize) * 100);
+          const score = (1 - rem / poolSize) * st.spanUs;
+          if (!worstTailWave || score > worstTailWave.score) {
+            worstTailWave = { st, blockCount, poolSize, rem, waves, tailPct, score };
+          }
+        }
+      }
+      if (worstTailWave) {
+        const { st, blockCount, poolSize, rem, waves, tailPct } = worstTailWave;
+        insights.push({
+          id: `wave:${st.name}`,
+          priority: 85,
+          kind: 'underutil',
+          kernelName: st.name,
+          unit: st.coreType === 'AIC' ? 'aic' : 'aiv',
+          tag: `尾波折损 · ${rem}/${poolSize} 核`,
+          title: st.name,
+          subtitle: `${blockCount} 块落入 ${poolSize} ${st.coreType} → ${waves} 波，末波仅 ${rem} 核活跃（${tailPct}%）`,
+          detail: `源码切分块数（${blockCount}）未对齐硬件 ${st.coreType} 核池（${poolSize}），最后一个波次有 ${poolSize - rem} 颗核闲置等待；改为持久化 ${poolSize} worker 或调整 Tile 尺寸可消除尾波`,
+          startUs: st.startUs,
+          endUs: st.endUs,
+          callout: `末波仅 ${rem}/${poolSize} ${st.coreType} 活跃（${tailPct}%）`,
+        });
+      }
+
+      // 4. True chip-wide low-parallelism idle gap (strictly excluding windows occupied by other stages)
       let bestGap = null;
       let runStart = -1;
       for (let i = 0; i <= parProfile.bins.length; i++) {
@@ -848,123 +831,32 @@
           const gDur = gEnd - gStart;
           if (gDur >= Math.max(24, rawSpanUs * 0.06)) {
             const matchedExt = extBands.filter(b => b.endUs > gStart + 2 && b.startUs < gEnd - 2);
-            if (!bestGap || gDur > bestGap.durUs) {
-              bestGap = { startUs: gStart, endUs: gEnd, durUs: gDur, matchedExt };
+            if (!matchedExt.length && (!bestGap || gDur > bestGap.durUs)) {
+              bestGap = { startUs: gStart, endUs: gEnd, durUs: gDur };
             }
           }
           runStart = -1;
         }
       }
       if (bestGap) {
-        const ext = bestGap.matchedExt[0];
-        const extTitle = ext ? `${ext.names[0]} (${ext.coreType})` : '低并行空窗';
         insights.push({
           id: `gap:${Math.round(bestGap.startUs)}`,
           priority: 90,
           kind: 'gap',
           kernelName: null,
           unit: 'all',
-          tag: ext ? '跨阶段占核空窗' : '低并行空窗',
-          title: ext ? `${ext.stageLabel} · ${ext.names[0]}` : `空窗 ${Math.round(bestGap.durUs)} µs`,
+          tag: '低并行空窗',
+          title: `芯片空窗 ${Math.round(bestGap.durUs)} µs`,
           subtitle: `+${Math.round(bestGap.startUs - originUs)}→+${Math.round(bestGap.endUs - originUs)} µs（${Math.round(bestGap.durUs)} µs · 占窗口 ${Math.round((bestGap.durUs / rawSpanUs) * 100)}%）`,
-          detail: ext
-            ? `${extTitle} 在该时段占核并发执行（${ext.coresUsed || ext.slices} 核/片），并非芯片空转`
-            : `当前阶段在该时段活跃核数 ≤ 2`,
+          detail: `该时段全芯片活跃核数 ≤ 2 且无其他阶段并发执行，通常由单核串行屏障或前置任务依赖卡住造成`,
           startUs: bestGap.startUs,
           endUs: bestGap.endUs,
-          callout: ext
-            ? `跨阶段占核 · ${ext.names[0]} (${Math.round(bestGap.durUs)} µs)`
-            : `低并行空窗 · ${Math.round(bestGap.durUs)} µs`,
-        });
-      } else if (extBands.length) {
-        const topExt = [...extBands].sort((a, b) => b.durUs - a.durUs)[0];
-        if (topExt && topExt.durUs >= 35) {
-          insights.push({
-            id: `ext:${topExt.names[0]}`,
-            priority: 72,
-            kind: 'gap',
-            kernelName: null,
-            unit: topExt.coreType === 'AIC' ? 'aic' : topExt.coreType === 'AIV' ? 'aiv' : 'all',
-            tag: '跨阶段并发抢核',
-            title: `${topExt.stageLabel} · ${topExt.names[0]}`,
-            subtitle: `${topExt.coreType} · +${Math.round(topExt.startUs - originUs)}→+${Math.round(topExt.endUs - originUs)} µs (${Math.round(topExt.durUs)} µs)`,
-            detail: `相邻阶段并发共享同一批物理核，导致本阶段切片呈现分段穿插`,
-            startUs: topExt.startUs,
-            endUs: topExt.endUs,
-            callout: `跨阶段并发 · ${topExt.names[0]} (${Math.round(topExt.durUs)} µs)`,
-          });
-        }
-      }
-
-      // 4. Slowest single-block latency outlier
-      let bestOutlier = null;
-      for (const st of steps) {
-        if (st.count < 8) continue;
-        const kSlices = visible.filter(s => s.name === st.name);
-        const durs = kSlices.map(s => s.durUs).sort((a, b) => a - b);
-        const med = durs[Math.floor(durs.length / 2)] || 1;
-        const worst = kSlices.reduce((a, b) => (b.durUs > a.durUs ? b : a), kSlices[0]);
-        const ratio = worst.durUs / Math.max(0.1, med);
-        if (ratio >= 1.75 && worst.durUs >= 15) {
-          if (!bestOutlier || ratio * worst.durUs > bestOutlier.score) {
-            bestOutlier = { st, slice: worst, med, ratio, score: ratio * worst.durUs };
-          }
-        }
-      }
-      if (bestOutlier) {
-        const { st, slice, med, ratio } = bestOutlier;
-        const coreTag = slice.core < 24 ? `C${slice.core}` : `V${slice.core}`;
-        insights.push({
-          id: `outlier:${slice.id}`,
-          priority: 85,
-          kind: 'outlier',
-          kernelName: st.name,
-          unit: slice.unit,
-          tag: `${ratio.toFixed(1)}× 慢块`,
-          title: `${st.name} · ${coreTag}`,
-          subtitle: `最慢块 ${slice.durUs.toFixed(1)} µs vs 中位 ${med.toFixed(1)} µs（#${slice.id}）`,
-          detail: `单块耗时显著高于同 Kernel 中位数，多由首波冷启动或访存带宽争用引起`,
-          startUs: st.startUs,
-          endUs: st.endUs,
-          slice,
-          callout: `最慢块 · ${coreTag} · ${slice.durUs.toFixed(1)} µs (${ratio.toFixed(1)}×) · 点击展开`,
-        });
-      }
-
-      // 5. Underutilized core pool on long-running kernel
-      let worstUnder = null;
-      for (const st of steps) {
-        if (st.spanUs < rawSpanUs * 0.18) continue;
-        const poolSize = st.coreType === 'AIC' ? 24 : 48;
-        const usedCores = new Set(visible.filter(s => s.name === st.name).map(s => s.core)).size;
-        const util = usedCores / poolSize;
-        if (util <= 0.7 && st.spanUs >= 45) {
-          if (!worstUnder || (1 - util) * st.spanUs > worstUnder.score) {
-            worstUnder = { st, usedCores, poolSize, util, score: (1 - util) * st.spanUs };
-          }
-        }
-      }
-      if (worstUnder) {
-        const { st, usedCores, poolSize, util } = worstUnder;
-        const pct = Math.round(util * 100);
-        insights.push({
-          id: `under:${st.name}`,
-          priority: 80,
-          kind: 'underutil',
-          kernelName: st.name,
-          unit: st.coreType === 'AIC' ? 'aic' : 'aiv',
-          tag: `核利用率 ${pct}%`,
-          title: st.name,
-          subtitle: `仅占 ${usedCores}/${poolSize} ${st.coreType}（${poolSize - usedCores} 核闲置）· 跨度 ${st.spanUs.toFixed(0)} µs`,
-          detail: `单块耗时较长而逻辑块数少于物理核池，尾段并行度受限`,
-          startUs: st.startUs,
-          endUs: st.endUs,
-          callout: `${usedCores}/${poolSize} ${st.coreType} 活跃 · 跨度 ${Math.round(st.spanUs)} µs`,
+          callout: `低并行空窗 · ${Math.round(bestGap.durUs)} µs`,
         });
       }
 
       insights.sort((a, b) => b.priority - a.priority);
-      return insights.slice(0, 5);
+      return insights.slice(0, 4);
     }
 
     function setKernel(name) {
@@ -1108,7 +1000,7 @@
         `<option value="${id}"${state.branch === id ? ' selected' : ''}>${esc(label)}</option>`
       ).join('');
       const casePicker = caseOptions.length && !isRt
-        ? `<label>Q 行数 <select data-cmp-case>${caseOptions.map(c =>
+        ? `<label>${esc(model.caseLabel || 'Q 行数')} <select data-cmp-case>${caseOptions.map(c =>
             `<option value="${c.tokens}"${c.tokens === state.tokens ? ' selected' : ''}>${esc(c.label)}</option>`
           ).join('')}</select></label>`
         : '';
@@ -1180,7 +1072,7 @@
                   <option value="wave1"${state.mapPartFilter === 'wave1' ? ' selected' : ''}>Wave 1 尾波 (48–63)</option>
                 </select></label>`
               : '');
-        } else if (info.type === 'seed') {
+        } else if (info.type === 'seed' || info.type === 'qkplan' || info.type === 'ropecs') {
           subFilter = '';
         } else if (model.requestScoped?.(info)) {
           const rOpts = ticks(totalBlocks).map(r =>
@@ -1483,32 +1375,18 @@
         return `<span class="csa-rt-bar${colorCls}${pickCls}${dimCls}" data-cmp-rt-slice="${s.id}" style="${barStyle(s.startUs, s.endUs)}${bgInline}" title="${esc(tip)}"></span>`;
       }).join('');
 
-      const verdictLabelOf = v => (
-        v === 'backfill' ? '动态补位'
-          : v === 'partial' ? '并发缓解 · 仍偏斜'
-            : v === 'skip' ? '物理跳核'
-              : v === 'imbalance' ? '核级失衡'
-                : '均衡'
-      );
-
       const idleCount = 24 - activeGroups.length;
       let metricsParts;
       if (focusedKernel) {
-        const staticCounts = groups.map(g => g.staticCount);
-        const actualCounts = groups.map(g => g.sliceCount);
-        const minStatic = Math.min(...staticCounts);
-        const maxStatic = Math.max(...staticCounts);
-        const minActual = Math.min(...actualCounts);
-        const maxActual = Math.max(...actualCounts);
-        const staticRange = minStatic === maxStatic ? `${minStatic}` : `${minStatic}–${maxStatic}`;
-        const actualRange = minActual === maxActual ? `${minActual}` : `${minActual}–${maxActual}`;
-        const busyTag = focusedBalance
-          ? `同窗总忙时 <b>${Math.round(focusedBalance.minTotalBusy)}–${Math.round(focusedBalance.maxTotalBusy)} µs</b> (${focusedBalance.busySkew.toFixed(2)}× · ${verdictLabelOf(focusedBalance.verdict)})`
-          : `Setup <b>${(stageSetupShare * 100).toFixed(1)}%</b>`;
+        const poolSize = focusedKernel.coreType === 'AIC' ? 24 : 48;
+        const usedCores = new Set(visible.map(s => s.core)).size;
+        const computes = visible.map(s => s.computeUs).sort((a, b) => a - b);
+        const minC = computes[0] || 0;
+        const maxC = computes[computes.length - 1] || 0;
         metricsParts = [
           `<b>${visible.length}</b> 块`,
-          `参考 <b>${staticRange}</b> → 实测 <b>${actualRange}</b> 片/组`,
-          busyTag,
+          `活跃核池 <b>${usedCores}/${poolSize}</b> ${focusedKernel.coreType}`,
+          `单块计算 <b>${minC.toFixed(1)}–${maxC.toFixed(1)} µs</b>`,
         ];
       } else {
         metricsParts = [
@@ -1543,7 +1421,7 @@
           </div>
           <div class="segmented-control segmented-control-muted csa-rt-seg" role="group" aria-label="叠加信号">
             <button type="button" class="btn btn-sm${showSetup ? ' is-selected' : ''}" data-cmp-rt-toggle="setup" aria-pressed="${showSetup}">Setup 拆分</button>
-            ${state.filter !== 'all' && bgSlices.length > 0 ? `<button type="button" class="btn btn-sm${showBg ? ' is-selected' : ''}" data-cmp-rt-toggle="bg" aria-pressed="${showBg}" title="叠加同阶段与跨阶段在同一物理核上并发执行的背景切片，直观看出动态补位与抢核原因">并发背景 (${bgSlices.length})</button>` : ''}
+            ${state.filter !== 'all' && bgSlices.length > 0 ? `<button type="button" class="btn btn-sm${showBg ? ' is-selected' : ''}" data-cmp-rt-toggle="bg" aria-pressed="${showBg}" title="叠加同阶段与跨阶段在同一物理核上并发执行的背景切片">并发背景 (${bgSlices.length})</button>` : ''}
             ${hasPrepKernels && state.filter === 'all' ? `<button type="button" class="btn btn-sm${state.rtIncludePrep ? ' is-selected' : ''}" data-cmp-rt-toggle="prep" aria-pressed="${state.rtIncludePrep}">含前序准备</button>` : ''}
             ${idleCount > 0 ? `<button type="button" class="btn btn-sm${state.rtHideIdle ? ' is-selected' : ''}" data-cmp-rt-toggle="hideIdle" aria-pressed="${state.rtHideIdle}">隐藏空组 (${idleCount})</button>` : ''}
           </div>
@@ -1579,7 +1457,7 @@
           ${axisTicks.join('')}
           <span class="csa-rt-end-flag is-right-aligned" style="left:${endPct.toFixed(2)}%" title="当前阶段最慢完成时刻（相对起点 ${rawSpanUs.toFixed(1)} µs）">${fmtShortUs(rawSpanUs)} 完成线</span>
         </div>
-        <div class="csa-rt-col-stat"${focusedKernel ? ' title="实测片数、相对 Lane Map 均分差值，以及下方迷你条（实色=本 Kernel，斜纹=同窗并发背景，总长=同窗核总忙时）"' : ''}>${focusedKernel ? '实测 / 差值 · 总忙时' : '组跨度'}</div>
+        <div class="csa-rt-col-stat"${focusedKernel ? ' title="本核组承担块数、纯计算耗时及同窗并发占比"' : ''}>${focusedKernel ? '块数 · 计算耗时' : '组跨度'}</div>
       </div>`;
 
       const fmtDelta = d => (d > 0 ? `+${d}` : d < 0 ? `−${Math.abs(d)}` : '±0');
@@ -1607,23 +1485,20 @@
           const fPct = Math.min(100, (fUs / maxBusyRef) * 100);
           const bPct = Math.min(100 - fPct, (bUs / maxBusyRef) * 100);
           const unitTag = focusedKernel.coreType;
-          const verdictHint = focusedBalance ? verdictLabelOf(focusedBalance.verdict) : '';
-          const barTip = `${focusedKernel.name} ${fUs.toFixed(1)} µs + 同窗${unitTag}并发背景 ${bUs.toFixed(1)} µs = 总忙时 ${totUs.toFixed(1)} µs`
-            + (focusedBalance ? `\n全池中位 ${focusedBalance.medGroupBusyUs.toFixed(0)} µs · ${verdictHint}` : '');
-          const deltaTip = `Lane Map 理想参考 ${g.staticCount} 片，Runtime 实测 ${g.sliceCount} 片（差值 ${dText}）\n${barTip}`;
+          const barTip = `${focusedKernel.name} ${fUs.toFixed(1)} µs + 同窗${unitTag}并发背景 ${bUs.toFixed(1)} µs = 总忙时 ${totUs.toFixed(1)} µs`;
+          const deltaTip = `${focusedKernel.name} 实测 ${g.sliceCount} 块 · 纯计算 ${fUs.toFixed(1)} µs\n${barTip}`;
           const focusBarCls = focusedKernel.coreType === 'AIC' ? 'is-focused is-aic' : 'is-focused is-aiv';
           statCellHtml = `<div class="csa-rt-stat-stack">
               <div class="csa-rt-stat-top">
-                <span class="csa-rt-stat-main">${g.sliceCount}片</span>
-                <span class="csa-rt-delta ${dCls}" title="${esc(deltaTip)}">${dText}</span>
-                <span class="csa-rt-stat-dur" title="${esc(barTip)}">${totUs > 0.05 ? fmtShortUs(totUs) : '—'}</span>
+                <span class="csa-rt-stat-main">${g.sliceCount}块</span>
+                <span class="csa-rt-stat-dur" title="${esc(barTip)}">${fUs > 0.05 ? fmtShortUs(fUs) : '—'}</span>
               </div>
               <div class="csa-rt-busy-bar" title="${esc(barTip)}" aria-hidden="true">
                 ${fPct > 0.2 ? `<i class="${focusBarCls}" style="width:${fPct.toFixed(2)}%"></i>` : ''}
                 ${bPct > 0.2 ? `<i class="is-bg" style="width:${bPct.toFixed(2)}%"></i>` : ''}
               </div>
             </div>`;
-          rowLabel = `Group ${String(g.group).padStart(2, '0')} · 实测 ${g.sliceCount} 片（参考 ${g.staticCount} 片，差值 ${dText}） · 本 Kernel ${fUs.toFixed(1)} µs + 并发背景 ${bUs.toFixed(1)} µs = 总忙时 ${totUs.toFixed(1)} µs`;
+          rowLabel = `Group ${String(g.group).padStart(2, '0')} · ${g.sliceCount} 块 · 本 Kernel ${fUs.toFixed(1)} µs + 并发背景 ${bUs.toFixed(1)} µs = 总忙时 ${totUs.toFixed(1)} µs`;
         } else {
           const secondStat = !g.sliceCount
             ? `<span class="csa-rt-stat-merge">0 块</span>`
@@ -1702,23 +1577,19 @@
 
           let staticCompareSec = '';
           if (focusedKernel) {
-            const dText = fmtDelta(g.deltaCount);
-            const dCls = deltaClsOf(g.deltaCount);
-            const laneHint = laneCountFor(focusedKernel) === 24
-              ? `AIC L${String(g.group).padStart(2, '0')}`
-              : `AIV L${String(g.group * 2).padStart(2, '0')}/${String(g.group * 2 + 1).padStart(2, '0')}`;
+            const poolSize = focusedKernel.coreType === 'AIC' ? 24 : 48;
+            const totalBlocks = focusedKernel.blockNum || visible.length;
+            const waves = Math.ceil(totalBlocks / poolSize);
             const medBusy = focusedBalance?.medGroupBusyUs || 0;
             const busyPctDiff = medBusy > 0.1 ? ((g.unitTotalBusyUs - medBusy) / medBusy) * 100 : 0;
             const busyDiffText = `${busyPctDiff >= 0 ? '+' : '−'}${Math.abs(busyPctDiff).toFixed(1)}%`;
-            const vBadgeCls = focusedBalance?.verdict === 'backfill' ? 'is-bf' : focusedBalance?.verdict === 'imbalance' ? 'is-warn' : 'is-neutral';
-            const vText = focusedBalance ? verdictLabelOf(focusedBalance.verdict) : '';
             staticCompareSec = `<section class="csa-rt-insp-sec">
-              <h4>静态参考 vs Runtime 动态落核 · ${esc(focusedKernel.name)}</h4>
+              <h4>计算语义与核组负载 · ${esc(focusedKernel.name)}</h4>
               <dl class="csa-rt-dl csa-rt-dl-wide">
-                <dt>Lane Map 参考</dt><dd>${g.staticCount} 片（${laneHint} · 理想轮询）</dd>
-                <dt>Runtime 实测</dt><dd>${g.sliceCount} 片 <span class="csa-rt-delta ${dCls}">${dText}</span> · ${fmtUs(g.unitFocusedUs)}</dd>
+                <dt>源码切分</dt><dd>${totalBlocks} 逻辑块 → ${poolSize} ${focusedKernel.coreType}（${waves} 波）</dd>
+                <dt>本组实测</dt><dd>${g.sliceCount} 块 · 纯计算 ${fmtUs(g.unitFocusedUs)}</dd>
                 <dt>同窗并发背景</dt><dd>${g.unitBgUs > 0.05 ? fmtUs(g.unitBgUs) : '0 µs'}（同 ${focusedKernel.coreType} 核池）</dd>
-                <dt>同窗总忙时</dt><dd><b>${fmtUs(g.unitTotalBusyUs)}</b> · 较中位 ${busyDiffText}${vText ? ` <span class="csa-rt-verdict ${vBadgeCls}">${esc(vText)}</span>` : ''}</dd>
+                <dt>同窗总忙时</dt><dd><b>${fmtUs(g.unitTotalBusyUs)}</b> · 较中位 ${busyDiffText}</dd>
               </dl>
             </section>`;
           }
@@ -1835,7 +1706,7 @@
       if (state.rtDensity === 'compact') {
         const extBands = computeExternalBands(originUs, endUs);
         const parProfile = computeParallelismProfile(visible, originUs, rawSpanUs, 120);
-        const insights = buildStageInsights(visible, steps, extBands, parProfile, originUs, rawSpanUs, allSlices, rankKey);
+        const insights = buildStageInsights(visible, steps, extBands, parProfile, originUs, rawSpanUs);
         const activeInsight = state.rtInsightId === null
           ? null
           : (state.rtInsightId === 'auto'
@@ -1897,17 +1768,15 @@
         let fourthKpiValue = `${(stageSetupShare * 100).toFixed(1)}%`;
         let fourthKpiSub = `均值 ${fmtUs(totalSetupUs / Math.max(1, visible.length))} / 块`;
         if (focusedKernel) {
-          const sCounts = groups.map(g => g.staticCount);
-          const aCounts = groups.map(g => g.sliceCount);
-          const sRange = Math.min(...sCounts) === Math.max(...sCounts) ? `${sCounts[0]}` : `${Math.min(...sCounts)}–${Math.max(...sCounts)}`;
-          const aRange = Math.min(...aCounts) === Math.max(...aCounts) ? `${aCounts[0]}` : `${Math.min(...aCounts)}–${Math.max(...aCounts)}`;
-          fourthKpiLabel = '静态参考 → 动态落核';
-          fourthKpiValue = `${aRange} 片/组`;
-          if (focusedBalance && focusedBalance.hasBg) {
-            fourthKpiSub = `总忙时 ${focusedBalance.busySkew.toFixed(2)}× · ${verdictLabelOf(focusedBalance.verdict)}（参考 ${sRange}）`;
-          } else {
-            fourthKpiSub = `理想均分 ${sRange} 片 · 极差 ${ratio.toFixed(2)}×`;
-          }
+          const poolSize = focusedKernel.coreType === 'AIC' ? 24 : 48;
+          const usedCores = new Set(visible.map(s => s.core)).size;
+          const computes = visible.map(s => s.computeUs).sort((a, b) => a - b);
+          const minC = computes[0] || 0;
+          const maxC = computes[computes.length - 1] || 0;
+          const cRatio = maxC / Math.max(0.5, minC);
+          fourthKpiLabel = '单块计算极差';
+          fourthKpiValue = `${cRatio.toFixed(2)}×`;
+          fourthKpiSub = `${minC.toFixed(1)}–${maxC.toFixed(1)} µs · ${usedCores}/${poolSize} ${focusedKernel.coreType}`;
         }
         const kpiStripHtml = `<div class="csa-pano-kpis">
           <div class="csa-pano-kpi">
@@ -2265,7 +2134,7 @@
                   ? `${cA} W0${cB ? ` · ${cB} W1` : ''}`
                   : info.type === 'post'
                     ? `HG ${laneBlocks[0]} · 4H`
-                    : info.type === 'seed'
+                    : (info.type === 'seed' || info.type === 'qkplan' || info.type === 'ropecs')
                       ? '1 Core Group'
                       : `${cA} Tile`;
         const dimmedRow = state.selectedLane != null && state.selectedLane !== laneIdx;
@@ -2472,7 +2341,7 @@
         `<option value="${b}"${b === state.block ? ' selected' : ''}>Lane ${String(pos.lane).padStart(2, '0')} · Block ${b} (Iter ${i})</option>`
       ).join('');
       const casePicker = caseOptions.length
-        ? `<label class="csa-cmp-inline-pick">Q 行数 <select data-cmp-case>${caseOptions.map(c =>
+        ? `<label class="csa-cmp-inline-pick">${esc(model.caseLabel || 'Q 行数')} <select data-cmp-case>${caseOptions.map(c =>
             `<option value="${c.tokens}"${c.tokens === state.tokens ? ' selected' : ''}>${esc(c.label)}</option>`
           ).join('')}</select></label>`
         : '';

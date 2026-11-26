@@ -133,7 +133,9 @@
           ? `Head Group ${block} · 4 Heads`
           : kernelInfo.type === 'projection'
             ? `M ${model.range(shape.row, model.rows)} · N ${model.range(shape.col, shape.n)}`
-            : `${kernelInfo.name} · Block ${block}`;
+            : (kernelInfo.type === 'qkplan' || kernelInfo.type === 'ropecs')
+              ? `1 Core Group · M ${model.range(shape.start, shape.valid)}`
+              : `${kernelInfo.name} · Block ${block}`;
 
     const core = {
       id: isAic ? 'aic' : 'aiv0',
@@ -1717,6 +1719,357 @@
         maxT = t + 1.8;
         break;
       }
+
+      // ---------- qk_plan kernels (decode_sparse_attn_csa.py) ----------
+      case 'qkplan': {
+        const tCount = shape.tiles?.length || 32;
+        const mRange = model.range(shape.start, shape.valid);
+        const totalItems = tCount * 8 * 5;
+        let t = 0.35;
+
+        const ldTopk = addBlock({
+          uid: 'qkplan:ld-topk',
+          pipe: 'mte2',
+          slot: 0,
+          kind: 'dma-block',
+          x: tToX(t),
+          w: uToW(1.25) - 4,
+          title: 'Load idx_topk / pos',
+          subtitle: `I32 [${shape.valid},512] + [${shape.valid},1]`,
+          sourceRange: [147, 148],
+          syncOut: 'UB_READY',
+          debugTip: `从 GM 加载当前 Token Tile（${mRange}）的 idx_topk [8,512] 与 position_ids [8,1] 至 UB。`,
+        });
+        t += 1.32;
+
+        const maskVec = addBlock({
+          uid: 'qkplan:slot-mask',
+          pipe: 'vec',
+          slot: 0,
+          kind: 'op-pill',
+          icon: 'gate',
+          x: tToX(t),
+          w: uToW(1.55) - 4,
+          title: 'Slot Range Mask',
+          subtitle: `0 ≤ raw < ⌊(pos+1)/4⌋`,
+          sourceRange: [149, 158],
+          syncOut: 'VEC_STORE',
+          debugTip: `向量化计算上界 floor((pos+1)/4) 与范围掩码 c_mask，将无效槽位置为 −1（c_out）。`,
+        });
+        addSync('sync:qkplan:ub1', 'UB_READY', ldTopk, maskVec, 0);
+
+        const stCmpT = t + 1.62;
+        const stCmp = addBlock({
+          uid: 'qkplan:st-cmp',
+          pipe: 'mte3',
+          slot: 0,
+          kind: 'dma-block',
+          x: tToX(stCmpT),
+          w: uToW(1.1) - 4,
+          title: 'Store cmp_indices',
+          subtitle: `I32 [${shape.valid},512]`,
+          sourceRange: [158, 158],
+          debugTip: `将校验后的压缩槽位写回 cmp_sparse_indices[${mRange}, 0:512]。`,
+        });
+        addSync('sync:qkplan:st1', 'VEC_STORE', maskVec, stCmp, 0);
+
+        const sbVecT = showPipe ? t + 1.62 : stCmpT + 1.18;
+        const sbValidVec = addBlock({
+          uid: 'qkplan:sb-valid',
+          pipe: 'vec',
+          slot: 1,
+          kind: 'op-pill',
+          icon: 'reduce',
+          x: tToX(sbVecT),
+          w: uToW(1.45) - 4,
+          title: 'SB1–4 row_max',
+          subtitle: `4×[8,128] → valid`,
+          sourceRange: [162, 167],
+          syncOut: 'SCALAR_GUARD',
+          debugTip: `沿 4 个压缩块（SB1–SB4，每块 128 列）执行 row_max，判断各 (token, sb) 是否存在有效槽位。`,
+        });
+
+        const ldWinT = showPipe ? t + 1.62 : sbVecT + 1.52;
+        const ldWin = addBlock({
+          uid: 'qkplan:ld-win',
+          pipe: 'mte2',
+          slot: 1,
+          kind: 'dma-block',
+          x: tToX(ldWinT),
+          w: uToW(1.05) - 4,
+          title: 'Load win_swa',
+          subtitle: `I32 [${shape.valid},128]`,
+          sourceRange: [171, 171],
+          syncOut: 'UB_READY',
+          debugTip: `加载滑动窗口槽位 window_swa_indices[${mRange}, 0:128] 至 UB 以生成窗口段 sparse_bias。`,
+        });
+
+        const scValidT = showPipe ? sbVecT + 1.52 : ldWinT + 1.12;
+        const scValid = addBlock({
+          uid: 'qkplan:sc-valid',
+          pipe: 'scalar',
+          slot: 1,
+          kind: 'op-pill',
+          icon: 'gate',
+          x: tToX(scValidT),
+          w: uToW(1.2) - 4,
+          title: 'Write valid_mask',
+          subtitle: `SB0=1 · SB1–4 标量写`,
+          sourceRange: [160, 167],
+          debugTip: `标量写入 valid_block_mask[:, 0]=1 及 SB1–SB4 的 tgetval 归约结果（每 tile 40 次标量写）。`,
+        });
+        addSync('sync:qkplan:sc', 'SCALAR_GUARD', sbValidVec, scValid, 1);
+
+        const biasVecT = showPipe ? Math.max(sbVecT + 1.52, ldWinT + 1.12) : scValidT + 1.28;
+        const biasVec = addBlock({
+          uid: 'qkplan:bias-vec',
+          pipe: 'vec',
+          slot: 1,
+          kind: 'op-pill',
+          icon: 'add',
+          x: tToX(biasVecT),
+          w: uToW(1.45) - 4,
+          title: 'Build sparse_bias',
+          subtitle: `Win 128 + CMP 512`,
+          sourceRange: [175, 177],
+          syncOut: 'VEC_STORE',
+          debugTip: `生成加性 softmax bias（有效 0 / 无效 −1e20）：窗口段由 window_swa_indices 推导，压缩段直接复用 c_out。`,
+        });
+        addSync('sync:qkplan:ub2', 'UB_READY', ldWin, biasVec, 1);
+
+        const stBiasT = showPipe ? Math.max(stCmpT + 1.18, biasVecT + 1.52) : biasVecT + 1.52;
+        const stBias = addBlock({
+          uid: 'qkplan:st-bias',
+          pipe: 'mte3',
+          slot: 1,
+          kind: 'dma-block',
+          x: tToX(stBiasT),
+          w: uToW(1.15) - 4,
+          title: 'Store sparse_bias',
+          subtitle: `FP32 [${shape.valid},640]`,
+          sourceRange: [176, 177],
+          debugTip: `将窗口段 [0,128) 与压缩段 [128,640) 的 FP32 sparse_bias 写回 GM。`,
+        });
+        addSync('sync:qkplan:st2', 'VEC_STORE', biasVec, stBias, 1);
+
+        const g1EndX = stBias.x + stBias.w;
+        groups.push({
+          label: `Vector Loop · M ${mRange} (1 / ${tCount} Tiles · 32 轮串行)`,
+          x: ldTopk.x - 10,
+          y: coreTop - 22,
+          w: g1EndX - ldTopk.x + 20,
+          h: coreH + 28,
+          slot: 0,
+        });
+
+        const t2 = Math.max(stBiasT + 1.25, scValidT + 1.32) + 0.35;
+        const p1Blk = addBlock({
+          uid: 'qkplan:pass1',
+          pipe: 'scalar',
+          slot: 2,
+          kind: 'op-pill',
+          icon: 'gate',
+          x: tToX(t2),
+          w: uToW(1.75) - 4,
+          title: 'Pass 1 · Valid-First',
+          subtitle: `标量扫 ${totalItems} 项 → 前段`,
+          sourceRange: [182, 189],
+          syncOut: 'STATE_CARRY',
+          debugTip: `将 qk_wcur 置 0 后按 (token, sb) 标量扫描全部 ${totalItems} 项，把 valid_block_mask > 0 的工作项写入 qk_order 前段。`,
+        });
+        const p2Blk = addBlock({
+          uid: 'qkplan:pass2',
+          pipe: 'scalar',
+          slot: 2,
+          kind: 'op-pill',
+          icon: 'gate',
+          x: tToX(t2 + 1.85),
+          w: uToW(1.75) - 4,
+          title: 'Pass 2 · Invalid Tail',
+          subtitle: `标量扫 ${totalItems} 项 → 尾部`,
+          sourceRange: [191, 196],
+          debugTip: `承接 Pass 1 的 qk_wcur 指针，再次扫描全部 ${totalItems} 项，把无效块追加至 qk_order 尾部，完成后释放 qk_plan_tid。`,
+        });
+        addSync('sync:qkplan:wcur', 'STATE_CARRY', p1Blk, p2Blk, 2);
+
+        groups.push({
+          label: `2-Pass Scalar Compaction · qk_order [${totalItems}]`,
+          x: p1Blk.x - 10,
+          y: coreTop - 22,
+          w: p2Blk.x + p2Blk.w - p1Blk.x + 20,
+          h: coreH + 28,
+          slot: 2,
+        });
+
+        reuseArcs.push({
+          id: 'reuse:qkplan:ub',
+          fromX: maskVec.x + maskVec.w / 2,
+          toX: biasVec.x + biasVec.w / 2,
+          y: coreTop - 6,
+          label: 'c_mask / c_out 在 UB 复用于 valid_block_mask 与 sparse_bias',
+          color: '#80B7F7',
+        });
+        maxT = t2 + 3.9;
+        break;
+      }
+
+      case 'ropecs': {
+        const tCount = shape.tiles?.length || 32;
+        const mRange = model.range(shape.start, shape.valid);
+        const swBlk = addBlock({
+          uid: 'ropecs:swap-idx',
+          pipe: 'vec',
+          slot: 0,
+          kind: 'op-pill',
+          icon: 'reshape',
+          x: tToX(0.35),
+          w: uToW(1.45) - 4,
+          title: 'Build Swap Index',
+          subtitle: `j^1 · I32 [16,64]`,
+          sourceRange: [323, 330],
+          syncOut: 'VEC_STORE',
+          debugTip: `构造 [16,64] 的 j^1 通道交换索引，供下游 Merge 逆旋转 Gather 使用。`,
+        });
+
+        const stSwT = 1.88;
+        const stSwBlk = addBlock({
+          uid: 'ropecs:st-swap',
+          pipe: 'mte3',
+          slot: 0,
+          kind: 'dma-block',
+          x: tToX(stSwT),
+          w: uToW(1.1) - 4,
+          title: 'Store swap_idx',
+          subtitle: `I32 [16,64] → GM`,
+          sourceRange: [330, 330],
+          debugTip: `将 rope_swap_idx [16,64] 写回 GM。`,
+        });
+        addSync('sync:ropecs:st-sw', 'VEC_STORE', swBlk, stSwBlk, 0);
+
+        const dupT = showPipe ? 1.88 : stSwT + 1.18;
+        const dupBlk = addBlock({
+          uid: 'ropecs:dup-sign',
+          pipe: 'vec',
+          slot: 0,
+          kind: 'op-pill',
+          icon: 'reshape',
+          x: tToX(dupT),
+          w: uToW(1.5) - 4,
+          title: 'Build Dup & Sign',
+          subtitle: `j>>1 · [+1,−1] [8,64]`,
+          sourceRange: [332, 339],
+          debugTip: `在 UB 构造 cs_dup_idx (j>>1) 与共轭符号掩码 cs_sign ([+1,−1,...])，跨全部 ${tCount} 个 Token Tiles 复用。`,
+        });
+
+        groups.push({
+          label: 'Preamble · Index & Conjugate Sign',
+          x: swBlk.x - 10,
+          y: coreTop - 22,
+          w: dupBlk.x + dupBlk.w - swBlk.x + 20,
+          h: coreH + 28,
+          slot: 0,
+        });
+
+        const ldCsT = showPipe ? 1.95 : dupT + 1.58;
+        const ldCs = addBlock({
+          uid: 'ropecs:ld-cs',
+          pipe: 'mte2',
+          slot: 1,
+          kind: 'dma-block',
+          x: tToX(ldCsT),
+          w: uToW(1.25) - 4,
+          title: 'Load Cos / Sin',
+          subtitle: `BF16 [${shape.valid},32] × 2`,
+          sourceRange: [342, 343],
+          syncOut: 'UB_READY',
+          debugTip: `加载当前 Token Tile（${mRange}）的 freqs_cos 与 freqs_sin 前 32 列至 UB 并转为 FP32。`,
+        });
+
+        const gCosT = showPipe ? Math.max(dupT + 1.58, ldCsT + 1.32) : ldCsT + 1.32;
+        const gCos = addBlock({
+          uid: 'ropecs:gather-cos',
+          pipe: 'vec',
+          slot: 1,
+          kind: 'op-pill',
+          icon: 'rope',
+          x: tToX(gCosT),
+          w: uToW(1.45) - 4,
+          title: '8×Row Gather Cos',
+          subtitle: `tgather [8,32]→[8,64]`,
+          sourceRange: [344, 344],
+          syncOut: 'VEC_STORE',
+          debugTip: `按 cs_dup_idx 逐行执行 8 次 pto.tgather + pto.tmov，组装交错展开的 FP32 Cos Tile。`,
+        });
+        addSync('sync:ropecs:ub-cos', 'UB_READY', ldCs, gCos, 1);
+
+        const stCosT = showPipe ? Math.max(stSwT + 1.18, gCosT + 1.52) : gCosT + 1.52;
+        const stCos = addBlock({
+          uid: 'ropecs:st-cos',
+          pipe: 'mte3',
+          slot: 1,
+          kind: 'dma-block',
+          x: tToX(stCosT),
+          w: uToW(1.15) - 4,
+          title: 'Store rope_cos_il',
+          subtitle: `FP32 [${shape.valid},64]`,
+          sourceRange: [344, 344],
+          debugTip: `将交错 Cos Tile 写回 rope_cos_il[${mRange}, 0:64]。`,
+        });
+        addSync('sync:ropecs:st-cos', 'VEC_STORE', gCos, stCos, 1);
+
+        const gSinT = showPipe ? gCosT + 1.52 : stCosT + 1.22;
+        const gSin = addBlock({
+          uid: 'ropecs:gather-sin',
+          pipe: 'vec',
+          slot: 2,
+          kind: 'op-pill',
+          icon: 'rope',
+          x: tToX(gSinT),
+          w: uToW(1.55) - 4,
+          title: '8×Row Gather + Sin',
+          subtitle: `tgather × cs_sign`,
+          sourceRange: [345, 346],
+          syncOut: 'VEC_STORE',
+          debugTip: `按 cs_dup_idx 逐行 Gather Sin 并乘以共轭符号 cs_sign，得到直接用于逆旋转的 sin_signed。`,
+        });
+        addSync('sync:ropecs:ub-sin', 'UB_READY', ldCs, gSin, 2);
+
+        const stSinT = showPipe ? Math.max(stCosT + 1.22, gSinT + 1.62) : gSinT + 1.62;
+        const stSin = addBlock({
+          uid: 'ropecs:st-sin',
+          pipe: 'mte3',
+          slot: 2,
+          kind: 'dma-block',
+          x: tToX(stSinT),
+          w: uToW(1.25) - 4,
+          title: 'Store sin_signed',
+          subtitle: `FP32 [${shape.valid},64]`,
+          sourceRange: [346, 346],
+          debugTip: `写回 rope_sin_signed[${mRange}, 0:64]，全部 ${tCount} 轮结束后释放 rope_tid。`,
+        });
+        addSync('sync:ropecs:st-sin', 'VEC_STORE', gSin, stSin, 2);
+
+        const g2StartX = showPipe ? gCos.x : ldCs.x;
+        groups.push({
+          label: `Token Tile Loop · M ${mRange} (1 / ${tCount} Tiles)`,
+          x: g2StartX - 10,
+          y: coreTop - 22,
+          w: stSin.x + stSin.w - g2StartX + 20,
+          h: coreH + 28,
+          slot: 1,
+        });
+
+        reuseArcs.push({
+          id: 'reuse:ropecs:dup',
+          fromX: dupBlk.x + dupBlk.w / 2,
+          toX: gSin.x + gSin.w / 2,
+          y: coreTop - 6,
+          label: 'cs_dup_idx / cs_sign 跨 32 个 Token Tiles 驻留 UB 复用',
+          color: '#80B7F7',
+        });
+        maxT = stSinT + 1.55;
+        break;
+      }
     }
 
     return {
@@ -1982,6 +2335,8 @@
         post: '4 Heads · stage=2 Dequant + Per-Head RMSNorm + RoPE',
         qrope: 'Rank-local Q · 预折叠 Cos / Signed Sin / Swap Index',
         kvrope: '全组 KV · 预折叠 Cos / Signed Sin / Swap Index',
+        qkplan: `单核 AIV · ${layout.shape.tiles?.length || 32} × 8-Token 向量块 + 2-Pass 标量压缩`,
+        ropecs: `单核 AIV · Swap Index + ${layout.shape.tiles?.length || 32} × 8-Token 共轭 RoPE Gather`,
       };
       const pipeNote = pipeNoteMap[kernelInfo.type] || kernelInfo.name;
 
