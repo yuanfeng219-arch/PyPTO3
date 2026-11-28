@@ -2720,3 +2720,9 @@ textarea:focus-visible {
 .canvas-scheme-switcher { position:absolute;top:178px;left:26px;z-index:29;display:flex;align-items:center;gap:3px;padding:4px 6px;border-radius:var(--ss-ui-radius);width:max-content;max-width:calc(100vw - 52px); }
 @media(max-width:1100px) { .canvas-scheme-switcher { top:184px;left:20px;max-width:calc(100vw - 40px); }.bullseye-gate-bar { top:238px; } }
 @media(max-width:700px) { .canvas-scheme-switcher { top:172px;left:16px;max-width:calc(100vw - 32px); }.canvas-scheme-switcher .cap-tab { font-size:11px;padding:0 12px; }.bullseye-gate-bar { top:260px; } }
+
+/* Peer version entry stays available in canvas and structured views. */
+.version-switch-link { display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;margin-right:5px;border:1px solid var(--ss-divider);border-radius:var(--ss-ui-radius);background:var(--ss-surface);color:var(--ss-text-secondary);font-size:12px;text-decoration:none;white-space:nowrap; }
+.version-switch-link:hover { background:var(--ss-surface-hover);color:var(--ss-text); }
+.version-switch-link:focus-visible { outline:2px solid var(--ss-text);outline-offset:3px; }
+@media(max-width:700px) { .top-actions .version-switch-link { position:fixed;top:76px;right:12px;min-height:28px;font-size:10px;padding:0 8px; } }
