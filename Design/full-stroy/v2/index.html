@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>PyPTO Spatial Workbench · Decode 稀疏注意力</title>
+  <link rel="stylesheet" href="./liquid-glass-controls/liquid-glass.css" />
+  <link rel="stylesheet" href="./styles.css?v=item8-canvas-switcher" />
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <!-- Top-Left Editorial Identity Group (Spatial Systems UI §3.2 & §4) -->
+    <header class="editorial-identity" id="editorialIdentity" aria-label="算子身份与关键读数">
+      <small class="ed-scope mono" id="edScopeLine">FIXED REVISION · 910B2 · CASE [32, 4096] FP16</small>
+      <h1 class="ed-title">
+        <span>Decode 稀疏注意力</span>
+        <span class="ed-op-sub mono">decode_sparse_attn_csa</span>
+      </h1>
+      <div class="ed-focal-row" id="edFocalRow">
+        <strong class="ed-focal-num mono" id="edFocalLatency">214 μs</strong>
+        <div class="ed-focal-meta">
+          <span class="ed-focal-speedup mono" id="edFocalSpeedup">2.25× vs #0 基线 482 μs</span>
+          <span class="ed-focal-clock mono" id="edFocalClock">device_wall_us · 契约 v3</span>
+        </div>
+      </div>
+      <div class="ed-gate-strip" id="topGateDots" role="group" aria-label="六项算子契约状态"></div>
+    </header>
+
+    <!-- Compact Top-Left Identity when inside Structured Subviews -->
+    <div class="subview-identity" id="subviewIdentity" hidden>
+      <small class="ed-scope mono">910B2 · [32, 4096] FP16/BF16</small>
+      <strong class="subview-op-name">Decode 稀疏注意力 <span class="mono" id="subviewContractBadge">v3</span></strong>
+    </div>
+
+    <!-- Top-Center Floating Capsule Bar (Single data-liquid-glass="control" container, zero nested boxes) -->
+    <nav class="top-center-bar" id="topCenterBar" data-liquid-glass="control" aria-label="主视图与画布配置">
+      <button class="cap-tab is-active" type="button" data-view="canvas" id="viewBtnCanvas" aria-current="page" data-tip="切换至 100dvh 开放演进画布">演进画布</button>
+      <button class="cap-tab" type="button" data-view="contract" id="viewBtnContract" data-tip="管理 6 项算子契约规则与上板预算">目标与约束</button>
+      <button class="cap-tab" type="button" data-view="diff" id="viewBtnDiff" data-tip="并排核对 2–4 轮实验的样本、硬件计数器与源码差异">多轮对照</button>
+      <button class="cap-tab" type="button" data-view="gate" id="viewBtnGate" data-tip="检查候选实验的 6 项门禁判定与合入报告">
+        <span>验收门禁</span>
+        <span class="tab-status-dot" id="badgeGateDot" aria-hidden="true"></span>
+      </button>
+
+      <span class="bar-sep" id="canvasCtxSep" aria-hidden="true"></span>
+
+      <div class="dropdown" id="canvasCtxDropdown">
+        <span class="dropdown-kicker mono" id="canvasCtxLabel">纵轴</span>
+        <button class="config-trigger" id="canvasCtxTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="canvasCtxMenu" data-tip="切换当前画布定量口径或过滤范围">
+          <span id="canvasCtxValue">端到端耗时 (μs)</span>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 6 4.5 4.5L12.5 6" /></svg>
+        </button>
+        <div id="canvasCtxMenu" class="config-menu t-dropdown" data-origin="top-right" role="listbox" aria-label="画布定量口径与筛选" aria-hidden="true"></div>
+      </div>
+    </nav>
+
+    <!-- Scheme 2 (Bullseye) Contextual 6-Gate Violation Filter Strip (Single flat Liquid Glass container) -->
+    <div class="bullseye-gate-bar" id="bullseyeGateBar" data-liquid-glass="control" role="group" aria-label="按六项门禁筛选违例实验" hidden></div>
+
+    <!-- Top-Right Standalone Circular 38x38 SVG Icon Buttons (ui-delivery.md §20 order) -->
+    <div class="top-actions" id="topActions" role="toolbar" aria-label="调查与全局操作">
+      <button class="icon-btn" id="auditToggle" type="button" data-liquid-glass="icon" aria-expanded="false" aria-controls="auditPanel" aria-label="核查候选与待决策项" data-tip="核查候选与待决策项（停滞、尾块退化、待确认约束）">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 1.5 1.5L7 5M10 6h11M3 12l1.5 1.5L7 11M10 12h11M3 18l1.5 1.5L7 17M10 18h11"/></svg>
+        <span class="icon-badge mono" id="auditBadge">3</span>
+      </button>
+      <button class="icon-btn" id="inspectorToggle" type="button" data-liquid-glass="icon" aria-expanded="false" aria-controls="inspectorPanel" aria-label="当前选择核查" data-tip="打开当前选中实验的证据检查器 (Inspector)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      </button>
+      <button class="icon-btn" id="sourceToggle" type="button" data-liquid-glass="icon" aria-expanded="false" aria-label="源码与 Trace 证据" data-tip="查看当前实验的固定版本源码锚点、Device Perf Lane 与 Compute Explorer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-14-2 16"/></svg>
+      </button>
+      <button class="icon-btn" id="themeToggleBtn" type="button" data-liquid-glass="icon" aria-label="切换为浅色主题" data-tip="切换深色 / 浅色中性主题">
+        <svg id="themeIcon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 3v2m0 14v2M3 12h2m14 0h2m-2.6-6.4-1.4 1.4M7 17l-1.4 1.4m0-12.8L7 7m10 10 1.4 1.4"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="infoToggle" type="button" data-liquid-glass="icon" aria-expanded="false" aria-controls="infoPanel" aria-label="来源与前提" data-tip="查看数据来源、比较口径、资产清单与使用教程">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg>
+      </button>
+    </div>
+
+    <!-- 100dvh Open Spatial Canvas Stage -->
+    <main class="canvas-main" id="canvasMain" aria-label="算子演进开放画布">
+      <nav class="canvas-scheme-switcher" id="canvasSchemeSwitcher" data-liquid-glass="control" aria-label="画布视图">
+        <button class="cap-tab scheme-tab is-active" type="button" data-canvas-scheme="landscape" id="schemeBtnLandscape" aria-pressed="true" data-tip="演进地形：波次 × 定量物理指标，展示样本 min–max 波动包络与阶梯前沿">演进地形</button>
+      <button class="cap-tab scheme-tab" type="button" data-canvas-scheme="bullseye" id="schemeBtnBullseye" aria-pressed="false" data-tip="靶心收敛：径向耗时比例 × 四大 PyPTO 调优象限与 6 段门禁弧">靶心收敛</button>
+      <button class="cap-tab scheme-tab" type="button" data-canvas-scheme="swimlane" id="schemeBtnSwimlane" aria-pressed="false" data-tip="分支泳道：交替波次列 × PyPTO 方向轨道与共享 X 轴耗时/门禁证据带">分支泳道</button>
+      </nav>
+      <svg id="stageSvg" role="group" aria-label="Decode 稀疏注意力演进关系与定量指标画布">
+        <defs id="stageDefs"></defs>
+        <g id="scene"></g>
+        <g id="screenOverlay"></g>
+      </svg>
+
+      <!-- Non-intrusive Corner 6-Gate Profile Overlay for Bullseye (never squeezes radial center) -->
+      <aside class="bs-corner-hud" id="bullseyeCornerHud" hidden aria-label="六维门禁归一化轮廓对照">
+        <div class="bs-corner-head">
+          <span class="mono" id="bsCornerTitle">6 门禁轮廓 · #0 / #11</span>
+          <button class="text-action-btn mono" id="bsCornerToggleBtn" type="button" data-tip="折叠或展开六维门禁轮廓叠合图">收起</button>
+        </div>
+        <div id="bsCornerBody">
+          <svg class="bs-radar-svg" id="bsRadarSvg" viewBox="0 0 228 176" aria-label="六项契约门禁归一化六边形轮廓"></svg>
+          <div class="bs-radar-legend mono" id="bsRadarLegend"></div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Scrollable Structured Views (目标与约束 · 多轮对照 · 验收门禁) -->
+    <div class="structured-main" id="structuredMain" hidden>
+      <section id="view-contract" class="view-section" hidden aria-label="目标与约束"></section>
+      <section id="view-diff" class="view-section" hidden aria-label="多轮对照"></section>
+      <section id="view-gate" class="view-section" hidden aria-label="验收门禁"></section>
+    </div>
+
+    <!-- Bottom-Left Monospace Legend (Dynamic per active canvas scheme) -->
+    <div class="legend mono" id="canvasLegend" aria-label="画布编码图例"></div>
+
+    <!-- Floating Multi-Select Comparison Action Pill -->
+    <div class="compare-float-bar" id="compareSelectionBar" data-liquid-glass="control" hidden role="region" aria-label="多选实验对照操作">
+      <span class="compare-float-label mono" id="compareSelectionText">已选 2 项：#0 · #11</span>
+      <button class="cap-tab is-active" id="compareSelectedGoBtn" type="button" data-tip="将所选实验载入多轮对照矩阵">进入多轮对照 →</button>
+      <button class="cap-tab" id="compareSelectedClearBtn" type="button" data-tip="清空多选集合">清空</button>
+    </div>
+
+    <!-- Persistent business conversation; only the history area expands. -->
+    <section class="agent-dock" id="composerPopover" aria-label="Agent 对话">
+      <button class="agent-dock-head" id="composerHeaderToggle" type="button" aria-expanded="false" aria-controls="composerHistory" data-tip="展开或收起对话记录，输入窗口保持常驻">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5l1.5 2h8.5v9h-15z"/></svg>
+        <strong>decode_sparse_attn_csa <span>· 调优讨论</span></strong>
+        <svg class="agent-history-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+        <span class="agent-dock-scope mono" id="composerPopScope">#11 · v3</span>
+      </button>
+      <div id="composerHistory" class="agent-history" hidden>
+        <div class="composer-thread" id="composerThreadBody" aria-live="polite"></div>
+        <div class="composer-quick-row" id="composerQuickRow" aria-label="快捷调优假设">
+          <button class="quick-chip" type="button" data-quick-cmd="从 #11 派生极稀疏 Ring 复用分支">派生 Ring 分支</button>
+          <button class="quick-chip" type="button" data-quick-cmd="剪枝停滞的 InCore 路径">剪枝停滞路径</button>
+        </div>
+      </div>
+      <form class="agent-dock-form" id="composerForm">
+        <div class="composer-chips" id="composerChips"></div>
+        <div class="agent-dock-input-row">
+          <div class="agent-attach-wrap">
+            <button class="agent-tool-btn" id="composerAttachBtn" type="button" aria-label="附加调查上下文" aria-expanded="false" aria-controls="composerAttachMenu" data-tip="附加当前实验或契约">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
+            </button>
+            <div class="agent-attach-menu" id="composerAttachMenu" hidden>
+              <button type="button" data-attach-context="run">附加当前实验</button>
+              <button type="button" data-attach-context="contract">附加当前契约</button>
+            </div>
+          </div>
+          <input class="agent-dock-input" id="composerInput" type="text" autocomplete="off" placeholder="和 PyPTO Agent 一起工作" aria-label="向 Agent 输入调优假设或分支指令" />
+          <button class="agent-tool-btn" id="composerSettingsBtn" type="button" aria-label="目标与预算设置" data-tip="调整目标、约束与实验预算">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 14h14"/><circle cx="7" cy="6" r="2"/><circle cx="13" cy="14" r="2"/></svg>
+          </button>
+          <button class="agent-send-btn" id="composerSubmitBtn" type="submit" aria-label="提交调优指令" data-tip="提交调优假设并记录候选分支">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15V5M5.5 9.5 10 5l4.5 4.5"/></svg>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Presentation-only controls are independent from business commands. -->
+    <aside class="story-playback-panel" id="storyPlaybackPanel" data-liquid-glass="control" aria-label="故事回放控制">
+      <span class="story-playback-label">故事回放 <small class="mono">ACT</small></span>
+      <div class="story-playback-controls">
+        <button class="bar-icon-btn" id="stepPrevBtn" type="button" aria-label="上一故事阶段" data-tip="回放上一故事阶段"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5v9M12 3.8 6.2 8l5.8 4.2Z"/></svg></button>
+        <button class="bar-icon-btn" id="playbackBtn" type="button" aria-label="播放故事" data-tip="播放 Act 0–4 故事快照"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5 12.5 8 5 12.5Z" fill="currentColor"/></svg></button>
+        <div class="seq-track" id="seqTrack" role="group" aria-label="故事阶段 Act 0–4"></div>
+        <button class="bar-icon-btn" id="stepNextBtn" type="button" aria-label="下一故事阶段" data-tip="回放下一故事阶段"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 3.5v9M4 3.8 9.8 8 4 12.2Z"/></svg></button>
+      </div>
+    </aside>
+
+    <!-- Bottom-Right Unified-Height (44px) Camera Zoom & Fit Bar -->
+    <div class="zoom-controls" id="zoomControls" data-liquid-glass="control" role="toolbar" aria-label="框选与画布视角">
+      <button class="bar-icon-btn" id="multiSelectToggleBtn" type="button" aria-pressed="false" aria-label="框选多轮对比模式" data-tip="框选实验进行对照（也可按住 Shift 拖拽）"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5V2.5H5M11 2.5h2.5V5M13.5 11v2.5H11M5 13.5H2.5V11"/><rect x="5.2" y="5.2" width="5.6" height="5.6" stroke-dasharray="2 1.5"/></svg></button>
+      <button class="bar-icon-btn" id="zoomOutBtn" type="button" aria-label="缩小画布" data-tip="缩小画布视角 (−)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+      </button>
+      <output class="zoom-readout mono" id="zoomReadout" data-liquid-readout data-tip="当前画布缩放倍率（滚轮以指针为中心缩放，拖拽空白平移）">100%</output>
+      <button class="bar-icon-btn" id="zoomInBtn" type="button" aria-label="放大画布" data-tip="放大画布视角 (＋)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+      </button>
+      <button class="fit-btn" id="zoomFitBtn" type="button" data-tip="适应全部对象并恢复默认居中视角（保持当前选择不变）">适应 Fit</button>
+    </div>
+
+    <!-- Floating Panel 1: Exception Audit & Decision Candidates (data-liquid-glass="panel") -->
+    <aside class="floating-panel audit-panel" id="auditPanel" data-liquid-glass="panel" hidden aria-label="核查候选与决策卡片">
+      <div class="fp-head">
+        <div>
+          <h2 class="fp-title">核查候选 · 待决策项</h2>
+          <span class="fp-sub mono" id="auditPanelSub">3 项开放候选 · 一项决策一张实心卡</span>
+        </div>
+        <div class="fp-head-actions">
+          <button class="text-action-btn" id="openLedgerBtn" type="button" data-tip="查看契约版本演进与历史审计流水">版本流水</button>
+          <button class="panel-close-btn" id="closeAuditPanelBtn" type="button" aria-label="关闭核查候选面板" data-tip="关闭核查候选面板 (Esc)">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="audit-cards-stack" id="auditCardsContainer"></div>
+    </aside>
+
+    <!-- Floating Panel 2: Evidence Workbench Inspector (data-liquid-glass="panel") -->
+    <aside class="floating-panel inspector-panel" id="inspectorPanel" data-liquid-glass="panel" hidden aria-label="当前选择证据检查器">
+      <div id="inspectorPanelContent"></div>
+    </aside>
+
+    <!-- Floating Panel 3: Provenance & Comparison Premise Info Panel (data-liquid-glass="panel") -->
+    <aside class="floating-panel info-panel" id="infoPanel" data-liquid-glass="panel" hidden aria-label="来源与比较前提">
+      <div class="fp-head">
+        <div>
+          <h2 class="fp-title">来源与比较口径</h2>
+          <span class="fp-sub mono">hw-native-sys/pypto @ 910b2-a5c8e41d</span>
+        </div>
+        <button class="panel-close-btn" id="closeInfoPanelBtn" type="button" aria-label="关闭来源与前提面板" data-tip="关闭来源与前提面板 (Esc)">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="info-body">
+        <p><strong>数据来源：</strong>当前读取同目录 <code>data.js</code> 中的场景记录；未接入设备运行或原始采集文件。声明的硬件、源码 revision 与测量样本尚未核验，不能作为硬件实测结论。</p>
+        <p><strong>比较口径：</strong>主 Shape <code>[32, 4096]</code>，字段 <code>device_wall_us</code>，基线 <code>#0 = 482.0 μs</code>。三套图使用当前「目标与约束」中的同一耗时目标，径向和纵轴不混用门禁状态。</p>
+        <p><strong>样本范围：</strong>历史字段 <code>latencyRangeUs</code> 表示记录的 min–max，不是置信区间。#6 / #8 / #9 的范围重叠提示收益停滞；它不能独立证明硬件瓶颈。</p>
+        <p><strong>缺失与候选：</strong>#5 没有耗时样本；Vec 234 KB 是场景中的静态容量记录，源码映射待核验。页面内 Fork 只创建待采样候选，不自动生成性能、设备回传或验收结果。</p>
+        <div class="info-links-row">
+          <a class="info-link mono" href="./manifest.json" target="_blank" rel="noopener" data-tip="在新标签页查看 AI_Infra v1.3.1 资产与 SHA-256 指纹清单">manifest.json ↗</a>
+          <button class="text-action-btn" id="proposalOpenBtn" type="button" data-tip="查看 v2.5 空间调查工作台产品提案">产品提案</button>
+          <a class="info-link" href="../index.html" data-tip="前往 Full-Story 1.0 回合制工作台（只读保留）">返回 1.0 ↗</a>
+        </div>
+        <div class="info-foot-actions">
+          <button class="solid-action-btn full-width" id="usageOpen" type="button" data-tip="打开居中教程窗口：价值、使用、扩展与证据边界">教程</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Centered In-Page Tutorial Modal (<dialog id="usageWindow">, ui-delivery.md §13) -->
+  <dialog id="usageWindow" class="demo-tutorial" aria-labelledby="usageTitle">
+    <div class="panel-head">
+      <div>
+        <small class="ed-scope mono">AI_INFRA WORKFLOW v1.3.1 · TUTORIAL</small>
+        <h2 id="usageTitle">教程 · PyPTO 稀疏注意力多维演进调查工作台</h2>
+      </div>
+      <button class="panel-close-btn" id="usageClose" type="button" aria-label="关闭教程窗口" data-tip="关闭教程窗口 (Esc)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+    <div class="usage-body">
+      <h3>1 · 价值</h3>
+      <p>在 Ascend NPU 算子自主调优中，单看主 Shape 端到端均值极易陷入两类误判：一是在样本噪声区间内反复微调分块参数（如 <code>#6–#9</code> 围绕 <code>395 μs</code> 停滞，下一步需核查 24 核组分核分布）；二是主 Shape 冲进门禁圈却引入尾块与小批量退化（如 <code>#10</code> 达 <code>206.1 μs</code>，但 <code>[1, 128]</code> 与 <code>[+64 尾块]</code> 退化 <code>+5.5%</code>）。本工作台将性能包络、片上 <code>Vec/Mat</code> 容量与 6 项契约门禁（<code>硬件 · 正确性 · 精度 · 泛化 · 性能 · 规范</code>）绑定到同一套 <code>{scope, id}</code> 证据对象上，支持从现象直达源码与 Trace 反证。</p>
+
+      <h3>2 · 使用</h3>
+      <p>画布左上角切换 <code>演进地形</code>（对比波次演进与样本 <code>min–max</code> 包络）、<code>靶心收敛</code>（核查四象限调优方向与 6 段门禁违例隔离）和 <code>分支泳道</code>（追踪同轨推进、主干晋升与共享 X 轴门禁裕度）。点击任一实验查看右侧三级证据检查器，按住 <code>Shift</code> 拖拽空白处框选多轮进入 <code>多轮对照</code>，或通过底部指令栏派生 <code>#12</code> 分支。打开浮层与本教程均保持当前选择和缩放视角不变。</p>
+
+      <h4>调用 AI_Infra 总 workflow</h4>
+      <div class="prompt-block">
+        <button class="prompt-copy" type="button" aria-label="复制 workflow 调用代码" data-tip="复制 workflow 调用 Prompt">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <pre id="tutorialPromptWorkflow">读取已安装的 AI_Infra v1.3.1 六技能（ai-infra-investigation、observability-design-style、design-spatial-systems-ui、ai-infra-glyphs、operator-mapping-investigation、llm-compute-diagrams）。
+针对 hw-native-sys/pypto 固定版本 910b2-a5c8e41d 的 decode_sparse_attn_csa（Ascend 910B2，主 Shape [32, 4096] FP16/BF16，计时口径 device_wall_us，基线 #0 = 482.0 μs）：
+1. 建立带 {scope, id}、样本极值包络 latencyRangeUs、片上 Vec/Mat 容量与源码行号锚点的领域证据模型；
+2. 复用 RSFA 样本包络比较、Critical-Path Swimlane 1:1 像素波次列与 Liquid Glass v2 悬浮控件契约；
+3. 分别验证静态契约边界、跨范式选择/缩放保持与真实浏览器联合操作路径。</pre>
+      </div>
+
+      <h4>带当前实验证据继续调查</h4>
+      <div class="prompt-block">
+        <button class="prompt-copy" type="button" aria-label="复制继续调查代码" data-tip="复制带证据继续调查 Prompt">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <pre id="tutorialPromptHandoff">请基于下方从 PyPTO 演进工作台导出的 {scope, id} 实验证据包，继续核查我的问题：
+1. 先核对 activeContract、shapeScope、计时口径 device_wall_us 与源码区间是否匹配当前分支；
+2. 区分已观测设备样本 (observed)、编译器静态上界 (derived) 与待上板候选假设 (candidate)；
+3. 给出最小可验证的 PyPTO 源码修改点（pl.spmd / pl.pipeline / Vec-Mat Ring）及回归 Shape 清单。
+[在此粘贴检查器「继续调查 · 交接预览」复制或导出的证据 JSON]</pre>
+      </div>
+
+      <h3>3 · 扩展</h3>
+      <p>接入新算子或新芯片（如 910B3、新稀疏分桶或新序列长度）时，在 <code>data.js</code> 更新 <code>CASE_CONTRACT</code> 的 <code>scope</code>、<code>revision</code>、<code>vecLimitKB</code> 与基线样本。不同硬件指纹、不同计时时钟或未对齐契约版本的测量批次须分作用域展示，禁止将跨时钟或跨 Shape 数据直接混算加速比。</p>
+
+      <h3>4 · 方法与证据边界</h3>
+      <table>
+        <thead>
+          <tr><th>证据等级 / 模块</th><th>数据来源与生成机制</th><th>能力边界与必要外部输入</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">observed (历史样本)</td><td>Ascend 910B2 真机 20 次运行采样 (<code>device_wall_us</code>) 与 Golden 对拍误差</td><td>依赖真机 Profiling 与固定输入种子；单靠静态源码无法自动推导核组双峰耗时</td></tr>
+          <tr><td class="mono">derived (推导)</td><td>PyPTO 编译期静态 Pass 推导的 <code>Vec / Mat</code> 峰值容量与缓冲生命周期（如 <code>#5</code> 234KB 越界）</td><td>可精确拦截容量越界与静态地址重叠，但不等价于动态流水泡泡实测时长</td></tr>
+          <tr><td class="mono">candidate (待复核)</td><td>Agent 结合历史样本与源码锚点生成的新分支方案（如页面内派生的 <code>#12</code>）</td><td>属于待验证工程方案；必须经编译器构建与设备端采样复核后才可升级为 <code>observed</code></td></tr>
+        </tbody>
+      </table>
+      <p class="copy-live-status mono" id="usageCopyStatus" role="status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <!-- Modal: Checkpoint Fork (#12+) with Custom Capsule Axis Picker (Zero native <select>) -->
+  <div class="modal-backdrop" id="forkModalBackdrop" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="forkModalTitle">
+      <div class="modal-head">
+        <h3 id="forkModalTitle">
+          <span>从锚点派生新实验分支</span>
+          <span class="badge-pill mono" id="forkSourceBadge">#11</span>
+        </h3>
+        <button class="panel-close-btn" id="closeForkModalBtn" type="button" aria-label="关闭派生弹窗" data-tip="关闭派生分支窗口">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="forkModalBody"></div>
+      <div class="modal-foot">
+        <button class="ghost-btn" id="cancelForkModalBtn" type="button" data-tip="取消派生操作">取消</button>
+        <button class="solid-action-btn" id="confirmForkBtn" type="button" data-tip="创建候选实验分支并同步重算三套画布连线端口">创建候选分支</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Source Anchor, Device Perf Lane & Compute Explorer Evidence Drill-Down -->
+  <div class="modal-backdrop" id="toolModalBackdrop" hidden>
+    <div class="modal-box is-fullscreen" role="dialog" aria-modal="true" aria-labelledby="toolModalTitle">
+      <div class="modal-head">
+        <div class="tool-modal-title-row">
+          <h3 id="toolModalTitle">源码与单工具深度证据</h3>
+          <div class="flat-pill-row" id="toolModalSwitch" role="tablist" aria-label="证据视图切换">
+            <button class="cap-tab is-active" type="button" data-tool="source-view" data-tip="核对当前实验在固定版本下的 PyPTO 源码区间与片上绑定">固定版本源码锚点</button>
+            <button class="cap-tab" type="button" data-tool="perf-lane" data-tip="打开 Device Perf Lane 核查 24 核组执行时间线">Device Perf Lane</button>
+            <button class="cap-tab" type="button" data-tool="compute-explorer" data-tip="打开 Compute Explorer 查看 Graph / Assignment / Pipeline">Compute Explorer</button>
+          </div>
+        </div>
+        <button class="ghost-btn" id="closeToolModalBtn" type="button" data-tip="关闭证据窗口并回到原画布视角与选择">返回画布</button>
+      </div>
+      <div class="tool-hypothesis-bar" id="toolHypothesisBar">
+        <div class="tool-hyp-left">
+          <span class="badge-pill badge-anomaly" id="toolContextBadge">#11 · observed</span>
+          <span class="hyp-text" id="toolHypothesisText">kernels/attn/decode_sparse_attn_csa.py:L114-L126 @ 910b2-a5c8e41d</span>
+        </div>
+        <div class="tool-hyp-right">
+          <span class="mono tool-readout-inline" id="toolEvidenceReadout">CG 0~11: 382μs vs CG 12~23: 153μs（核组极差 2.50× → 1.08×）</span>
+          <button class="solid-action-btn" id="refuteWithEvidenceBtn" type="button" data-tip="提取 24 核组双峰实测证据回传检查器，用于推翻局部 InCore 停滞假设">提取 24 核组双峰证据回传</button>
+        </div>
+      </div>
+      <div class="tool-content-stage">
+        <div class="source-evidence-pane" id="sourceEvidencePane"></div>
+        <iframe class="tool-iframe" id="toolModalIframe" aria-label="PyPTO 单工具深度核查视图" hidden></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Direct Code Editor -->
+  <div class="modal-backdrop" id="codeModalBackdrop" hidden>
+    <div class="modal-box is-wide" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle">
+      <div class="modal-head">
+        <h3 id="codeModalTitle">
+          <span>编辑候选分支 PyPTO 源码</span>
+          <span class="badge-pill mono" id="codeAnchorNodeBadge">#11</span>
+        </h3>
+        <button class="panel-close-btn" id="closeCodeModalBtn" type="button" aria-label="关闭代码编辑弹窗" data-tip="关闭代码编辑窗口">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="code-meta-bar mono">
+          <span>kernels/attn/decode_sparse_attn_csa.py</span>
+          <span id="codeAnchorAxisTag">编排与派发 + InCore 调优</span>
+        </div>
+        <textarea class="code-editor-area" id="codeEditorTextarea" spellcheck="false" aria-label="PyPTO 算子代码编辑区" data-tip="编辑当前候选实验的 PyPTO 核函数代码"></textarea>
+        <div class="form-field" style="margin-top:12px;margin-bottom:0;">
+          <label for="codeAnchorNote">变更说明与验证预期</label>
+          <input id="codeAnchorNote" type="text" value="保持 24 核组错峰轮转，扩展小批量与 +64 尾块直通快路径" data-tip="记录本次手动代码调整的验证目标" />
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost-btn" id="cancelCodeModalBtn" type="button" data-tip="取消源码修改">取消</button>
+        <button class="solid-action-btn" id="saveCodeAnchorBtn" type="button" data-tip="保存为新的候选实验节点并挂载至演进画布">保存为候选节点</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Generic Report / Proposal / Audit Ledger / Waiver -->
+  <div class="modal-backdrop" id="genericModalBackdrop" hidden>
+    <div class="modal-box is-wide" role="dialog" aria-modal="true" aria-labelledby="genericModalTitle">
+      <div class="modal-head">
+        <h3 id="genericModalTitle">详情</h3>
+        <button class="panel-close-btn" id="closeGenericModalBtn" type="button" aria-label="关闭弹窗" data-tip="关闭当前窗口">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="genericModalBody"></div>
+      <div class="modal-foot" id="genericModalFoot"></div>
+    </div>
+  </div>
+
+  <!-- Single Global Tooltip Owner (#demoHoverTip, ui-delivery.md §21) -->
+  <div id="demoHoverTip" role="tooltip" hidden></div>
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script defer src="./liquid-glass-controls/liquid-glass.js"></script>
+  <script src="./data.js?v=item8-canvas-switcher"></script>
+  <script src="./app.js?v=item8-canvas-switcher"></script>
+</body>
+</html>
